@@ -309,6 +309,8 @@ export interface CallThreadRow {
   readonly duration_seconds: number | null;
   readonly is_voicemail: number | boolean | null;
   readonly recording_seconds: number | null;
+  /** Where our copy of the audio is kept, or null while there isn't one — which is what there is to play. */
+  readonly recording_object_path?: Text;
   readonly transcript: Text;
   readonly transcript_status?: Text;
 }
@@ -328,6 +330,8 @@ export interface ThreadItemShape extends ThreadItemFacts {
   readonly media: readonly MediaShape[];
   readonly deliveredAt: string | null;
   readonly hasRecording: boolean;
+  /** The object in the `telephony` bucket to play, when there is one. */
+  readonly recordingPath: string | null;
   readonly recordingSeconds: number | null;
   readonly transcript: string | null;
   readonly transcriptStatus: 'pending' | 'completed' | 'failed' | null;
@@ -382,6 +386,7 @@ export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
     durationSeconds: null,
     isVoicemail: false,
     hasRecording: false,
+    recordingPath: null,
     recordingSeconds: null,
     answeredVia: null,
     transcript: null,
@@ -431,7 +436,11 @@ export function callItemOf(r: CallThreadRow): ThreadItemShape {
     deliveredAt: null,
     durationSeconds: r.duration_seconds,
     isVoicemail: bool(r.is_voicemail),
-    hasRecording: (r.recording_seconds ?? 0) > 0,
+    // Whether there is audio, not whether the carrier said how long it was. Those parted company the day the
+    // recording was written down before it was stored: a length with no file is exactly the voicemail that
+    // cannot be played, and the card has to be able to say so.
+    hasRecording: !!r.recording_object_path,
+    recordingPath: r.recording_object_path ?? null,
     recordingSeconds: r.recording_seconds,
     answeredVia: via === 'browser' || via === 'forwarding' || via === 'bridge' ? via : null,
     transcript: r.transcript,

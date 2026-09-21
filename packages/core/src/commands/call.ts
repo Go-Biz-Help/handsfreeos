@@ -744,9 +744,13 @@ export const callAttachRecording = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const c = await loadCall(ctx, input);
+    // Called twice for one recording: once the moment the carrier says a message was left, and again once our
+    // copy of the audio is stored. The second call must not undo the first, so a path that isn't given keeps
+    // whatever is already there rather than clearing it.
+    const objectPath = input.objectPath ?? c.recordingObjectPath;
     const patch = {
       recordingSid: input.recordingSid,
-      recordingObjectPath: input.objectPath,
+      recordingObjectPath: objectPath,
       recordingSeconds: input.seconds,
       isVoicemail: input.voicemail || c.isVoicemail,
     };
@@ -757,11 +761,13 @@ export const callAttachRecording = defineCommand({
         .update(activities)
         .set({
           ...(next.isVoicemail ? { subtype: 'voicemail' } : {}),
-          meta: sql`${activities.meta} || ${JSON.stringify({ voicemail: next.isVoicemail, recordingSeconds: input.seconds, recordingPath: input.objectPath })}::jsonb`,
+          meta: sql`${activities.meta} || ${JSON.stringify({ voicemail: next.isVoicemail, recordingSeconds: input.seconds, recordingPath: objectPath })}::jsonb`,
         })
         .where(eq(activities.id, c.activityId));
     await refreshPreview(ctx, next);
-    if (next.isVoicemail)
+    // Somebody is told about a voicemail once: when the call becomes one. The second call, which only adds
+    // where the audio landed, is not a second voicemail and must not ring anybody's phone again.
+    if (next.isVoicemail && !c.isVoicemail)
       await ctx.emit({
         type: 'call.voicemail_left',
         entityType: 'call',

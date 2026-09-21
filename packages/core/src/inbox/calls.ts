@@ -27,12 +27,6 @@ export function callRecordingPath(
   return `${callRecordingFolder(workspaceId, callId)}/${kind}.${ext}`;
 }
 
-/** Which file in a call's folder is its recording, from the folder's file names. */
-export function recordingFileIn(names: readonly string[], voicemail: boolean): string | null {
-  const want = voicemail ? 'voicemail' : 'recording';
-  return names.find((n) => n === `${want}.mp3` || n === `${want}.wav`) ?? null;
-}
-
 /** The statuses while the call can still be cancelled: the person's cell is ringing, or the customer's is. */
 export const CANCELLABLE_BRIDGE: ReadonlySet<BridgeStatus> = new Set([
   'calling_cell',

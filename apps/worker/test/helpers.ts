@@ -171,6 +171,9 @@ export function standInMedia(files: Readonly<Record<string, StandInFile>> = {}):
     async signedUrl(bucket, path) {
       return `https://storage.test/${bucket}/${path}`;
     },
+    async check() {
+      return { ok: true };
+    },
   };
   const fetchUrl: SafeFetch = async (url, init) => {
     asked.push({ url, headers: init?.headers ?? {} });

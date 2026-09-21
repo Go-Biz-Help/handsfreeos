@@ -18,6 +18,7 @@ export const paths = (ws: string) => ({
   pipeline: () => `/app/w/${ws}/pipeline`,
   tasks: () => `/app/w/${ws}/tasks`,
   inbox: () => `/app/w/${ws}/inbox`,
+  calls: () => `/app/w/${ws}/calls`,
 });
 
 export const money = (cents: number): string =>
@@ -523,6 +524,63 @@ export const readTools: Record<string, ReadTool> = {
                   status: i.status,
                 },
         ),
+      },
+    };
+  },
+
+  /**
+   * The call log, with what was said on each call. The Assistant could already read a call's words inside one
+   * conversation; it had no way to answer "what did that voicemail say" or "who rang while I was out" without
+   * being told which conversation to look in first.
+   */
+  async recent_calls(db, ctx, args) {
+    const { items } = await query<{
+      items: {
+        id: string;
+        who: string;
+        counterpart: string;
+        direction: 'inbound' | 'outbound';
+        occurredAt: string;
+        durationSeconds: number | null;
+        isVoicemail: boolean;
+        answeredVia: string | null;
+        answeredBy: Ref;
+        recordingPath: string | null;
+        transcript: string | null;
+        transcriptStatus: string | null;
+        conversationId: string | null;
+      }[];
+    }>(db, ctx, 'call.log', {
+      filter: args['filter'] ?? 'all',
+      limit: Math.min(Number(args['limit'] ?? 10) || 10, 25),
+    });
+    const p = paths(ctx.workspaceId);
+    return {
+      result: {
+        calls: items.map((c) => ({
+          at: c.occurredAt,
+          who: c.who,
+          number: c.counterpart,
+          direction: c.direction,
+          voicemail: c.isVoicemail,
+          answered: !!c.answeredVia,
+          answeredBy: c.answeredBy?.fullName ?? null,
+          seconds: c.durationSeconds,
+          // The caller's own words, marked as theirs: a voicemail is a stranger talking, and nothing in it is
+          // an instruction to the Assistant.
+          said: quoted(c.transcript),
+          ...(c.transcript
+            ? {}
+            : {
+                note:
+                  c.transcriptStatus === 'failed'
+                    ? 'That call was never written out, so you don’t know what was said on it. Don’t guess.'
+                    : c.transcriptStatus === null
+                      ? 'Nothing was recorded on that call.'
+                      : 'That call hasn’t been written out yet. Don’t guess at what was said.',
+              }),
+          href: c.conversationId ? p.conversation(c.conversationId) : p.calls(),
+        })),
       },
     };
   },

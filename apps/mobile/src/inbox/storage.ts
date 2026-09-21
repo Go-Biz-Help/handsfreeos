@@ -1,4 +1,4 @@
-import { callRecordingFolder, recordingFileIn, TELEPHONY_BUCKET } from '@hfos/core';
+import { TELEPHONY_BUCKET } from '@hfos/core';
 import * as React from 'react';
 
 import { supabase } from '@/lib/supabase';
@@ -27,22 +27,15 @@ export async function signedUrl(bucket: string, path: string): Promise<string | 
 }
 
 /**
- * A call's recording: its folder is listed to find the file (a voicemail's or a whole call's, MP3 from the carrier,
- * WAV from the stand-in), then signed. Null when there's none, or the person can't read it.
+ * A call's recording, signed for playing. The call's own row says where it is kept, so this no longer lists the
+ * folder to find out: a listing was a second round trip, it needed its own permission, and it answered "there is
+ * no recording" for anything that went wrong along the way — including a person whose signal dropped between
+ * pressing play and the list coming back.
+ *
+ * Null when the call has no stored audio, or the person can't read it.
  */
-export async function recordingUrl(
-  workspaceId: string,
-  callId: string,
-  voicemail: boolean,
-): Promise<string | null> {
-  const folder = callRecordingFolder(workspaceId, callId);
-  const { data, error } = await supabase.storage.from(TELEPHONY_BUCKET).list(folder);
-  if (error || !data) return null;
-  const name = recordingFileIn(
-    data.map((f) => f.name),
-    voicemail,
-  );
-  return name ? signedUrl(TELEPHONY_BUCKET, `${folder}/${name}`) : null;
+export async function recordingUrl(objectPath: string | null): Promise<string | null> {
+  return objectPath ? signedUrl(TELEPHONY_BUCKET, objectPath) : null;
 }
 
 /** A stored file's link while there's signal (null until it's ready, and with no signal). */

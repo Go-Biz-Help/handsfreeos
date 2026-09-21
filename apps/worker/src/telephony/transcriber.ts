@@ -14,16 +14,29 @@ import { createTwilioTranscriber } from './twilio-transcriber';
  * call went through Conversational Intelligence instead. Neither was reachable from the other, and the voicemail
  * path failed silently when it failed at all.
  *
- * Now there is one path and one seam. The audio is already ours: `onRecording` copies every recording into the
- * workspace's private `telephony` bucket before anything else happens and deletes the carrier's copy, so a
- * transcriber only ever needs a signed link to our own object. That is what makes the vendor swappable, and it is
- * why this does not live on `TelephonyProvider` — nothing here is the phone company's business.
+ * Now there is one path and one seam. `onRecording` copies every recording into the workspace's private
+ * `telephony` bucket, and a transcriber normally only needs a signed link to our own object. That is what makes
+ * the vendor swappable, and it is why this does not live on `TelephonyProvider` — nothing here is the phone
+ * company's business.
+ *
+ * Normally, not always: our copy can be missing, because storage refused the upload or has not caught up. The
+ * words matter more than the audio does — they are what the inbox shows, what the call log opens, and what the
+ * AI reads — so a request carries either a link to ours or the carrier's own bytes, and the carrier's copy is
+ * only deleted once ours is safely stored.
  */
 
 /** How the audio was recorded, which decides how its speakers are told apart. */
 export interface TranscribeRequest {
-  /** A signed link to our copy of the recording. It only has to outlive the request. */
-  readonly url: string;
+  /**
+   * A signed link to our copy of the recording, when there is one. It only has to outlive the request.
+   *
+   * Null when our copy is missing — storage refused the upload, or has not caught up yet. The words are worth
+   * more than the audio is (they are what the inbox shows and what the AI reads), so transcription does not
+   * wait on storage: `audio` carries the carrier's own copy instead.
+   */
+  readonly url: string | null;
+  /** The recording's bytes, read from the carrier, for when there is no link to ours. */
+  readonly audio: { readonly data: Buffer; readonly contentType: string } | null;
   /**
    * The carrier's own id for the recording. Only the Twilio transcriber needs it, because Conversational
    * Intelligence reads Twilio's copy rather than ours; it is also what deletes that copy once we have the words.

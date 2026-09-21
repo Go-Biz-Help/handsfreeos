@@ -71,12 +71,35 @@ export const MESSAGES_SQL = `
 export const CALLS_SQL = `
   SELECT k.id, k.conversation_id, k.direction, k.from_e164, k.to_e164, k.status, k.answered_via,
     k.answered_by_user_id, ${userName('au')} AS answered_name, k.placed_by, ${userName('pu')} AS placed_name,
-    k.started_at, k.answered_at, k.ended_at, k.duration_seconds, k.is_voicemail, k.recording_seconds, k.transcript
+    k.started_at, k.answered_at, k.ended_at, k.duration_seconds, k.is_voicemail, k.recording_seconds,
+    k.recording_object_path, k.transcript
   FROM calls k
   LEFT JOIN users au ON au.id = k.answered_by_user_id
   LEFT JOIN users pu ON pu.id = k.placed_by
   WHERE k.workspace_id = ? AND k.conversation_id = ?
   ORDER BY k.started_at`;
+
+/**
+ * The call log: every call this business made or took, newest first, whatever conversation it belongs to.
+ *
+ * The thread shows a call where it happened, which is right while reading one conversation and no use at all
+ * when somebody has just missed a call and wants to hear what was left. `CALLS_SQL` above is the other one:
+ * one conversation's calls, oldest first, for the thread.
+ */
+export const CALL_LOG_SQL = `
+  SELECT k.id, k.conversation_id, k.person_id, p.first_name, p.last_name,
+    CASE WHEN k.direction = 'inbound' THEN k.from_e164 ELSE k.to_e164 END AS counterpart,
+    k.direction, k.from_e164, k.to_e164, k.status, k.answered_via, k.answered_by_user_id,
+    ${userName('au')} AS answered_name, k.placed_by, ${userName('pu')} AS placed_name,
+    k.started_at, k.answered_at, k.ended_at, k.duration_seconds, k.is_voicemail, k.recording_seconds,
+    k.recording_object_path, k.transcript, k.transcript_status
+  FROM calls k
+  LEFT JOIN people p ON p.id = k.person_id
+  LEFT JOIN users au ON au.id = k.answered_by_user_id
+  LEFT JOIN users pu ON pu.id = k.placed_by
+  WHERE k.workspace_id = ?
+  ORDER BY k.started_at DESC
+  LIMIT 200`;
 
 /** The customer beside a conversation: contact details, texting consent, when they became a customer. */
 export const PERSON_SQL = `

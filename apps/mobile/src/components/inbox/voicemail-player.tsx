@@ -34,14 +34,14 @@ export const PLAYER_WORDS = {
  * it plays, and "0:07 / 0:18". The recording is fetched from Storage on the first press, so it plays with signal.
  */
 export function VoicemailPlayer({
-  workspaceId,
   callId,
-  voicemail,
+  path,
   seconds,
 }: {
-  workspaceId: string;
+  /** Only for the bars' shape and the test id: the same call keeps the same picture. */
   callId: string;
-  voicemail: boolean;
+  /** The object in the `telephony` bucket, from the call's own row. */
+  path: string;
   seconds: number | null;
 }) {
   const { online } = useNetwork();
@@ -78,7 +78,7 @@ export function VoicemailPlayer({
     setLoading(true);
     try {
       await setAudioModeAsync({ playsInSilentMode: true });
-      const next = await recordingUrl(workspaceId, callId, voicemail);
+      const next = await recordingUrl(path);
       if (!next) toast.error(PLAYER_WORDS.missing);
       else {
         wantPlay.current = true;
