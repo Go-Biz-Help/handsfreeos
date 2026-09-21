@@ -46641,6 +46641,16 @@
                                   "title": {
                                     "type": "string"
                                   },
+                                  "stageId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "pipelineId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
                                   "stageName": {
                                     "type": "string"
                                   },
@@ -46669,6 +46679,8 @@
                                 "required": [
                                   "id",
                                   "title",
+                                  "stageId",
+                                  "pipelineId",
                                   "stageName",
                                   "valueCents",
                                   "nextAction",
@@ -47191,6 +47203,16 @@
                                 "title": {
                                   "type": "string"
                                 },
+                                "stageId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "pipelineId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
                                 "stageName": {
                                   "type": "string"
                                 },
@@ -47219,6 +47241,8 @@
                               "required": [
                                 "id",
                                 "title",
+                                "stageId",
+                                "pipelineId",
                                 "stageName",
                                 "valueCents",
                                 "nextAction",
@@ -47500,6 +47524,12 @@
                             "fullName": {
                               "type": "string"
                             },
+                            "firstName": {
+                              "type": "string"
+                            },
+                            "lastName": {
+                              "type": "string"
+                            },
                             "phone": {
                               "type": [
                                 "string",
@@ -47610,6 +47640,8 @@
                           "required": [
                             "id",
                             "fullName",
+                            "firstName",
+                            "lastName",
                             "phone",
                             "phoneE164",
                             "email",

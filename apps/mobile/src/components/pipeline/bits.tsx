@@ -150,6 +150,9 @@ export function LeadCardView({
 }
 
 /** Move to…: every stage of this lead's pipeline, with what the unusual ones do, and the offline promise. */
+/** As much of a lead as moving one needs: the board hands a whole card, a conversation only has this. */
+export type MovableLead = Pick<LeadCard, 'title' | 'stageId' | 'valueCents' | 'person' | 'company'>;
+
 export function MoveSheet({
   open,
   lead,
@@ -159,7 +162,7 @@ export function MoveSheet({
   onMove,
 }: {
   open: boolean;
-  lead: LeadCard | null;
+  lead: MovableLead | null;
   stages: readonly StageRef[];
   pipelineName: string;
   onClose: () => void;
@@ -257,7 +260,8 @@ export function NextActionBox({
   lead,
   onSet,
 }: {
-  lead: LeadCard;
+  /** Only the one line matters here, so a conversation's open lead is enough. */
+  lead: Pick<LeadCard, 'nextAction'>;
   onSet: (text: string) => void | Promise<void>;
 }) {
   const [text, setText] = React.useState('');

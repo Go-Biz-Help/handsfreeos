@@ -416,8 +416,12 @@ export function ConversationView({
       myUserId={myUserId}
       members={members}
       pipelines={pipelines}
+      tags={tags}
+      canMoney={canManage}
       onAddPerson={() => setAddPerson(true)}
       onLinkPerson={() => setLinkPerson(true)}
+      onEditPerson={() => void editPerson()}
+      onPersonCreated={(personId) => void linkNewPerson(personId)}
       extra={
         tm && (view || drafts.items.length) ? (
           <TeammateContext

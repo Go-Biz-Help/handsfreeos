@@ -1,6 +1,7 @@
 import {
   closedBanner,
   clockTime,
+  CONTACT_EDIT_WORDS,
   CONVERSATION_ACTIONS,
   handBackQuestion,
   handedLine,
@@ -22,17 +23,23 @@ import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 
+import { RECORD_SHEET_WORDS } from '@/components/customers/sheets';
 import { useAiColors } from '@/components/drafts';
 import {
   AlarmClock,
+  ArrowRight,
   Check,
   ChevronRight,
   CircleCheck,
+  Clock,
   MailOpen,
   Phone,
   Sparkles,
   StickyNote,
+  Tag,
   Undo2,
+  UserPen,
+  UserPlus,
   UserRound,
   Users,
   X,
@@ -287,7 +294,10 @@ function SheetRow({
 
 /**
  * Details and actions (the "…" in the top bar), as the web's sheet at phone width: Call, Assign, Hand to the teammate,
- * Snooze and Close (or Reopen), Mark as unread, and Add a note about the customer.
+ * Snooze and Close (or Reopen), Mark as unread, and — since the web's panel learned to change the customer from
+ * inside the conversation — Edit details, Tags, the open lead's stage and next action, and Add a note.
+ *
+ * A row is passed null when this conversation cannot do it: no customer yet, or no open lead to move.
  */
 export function ActionsSheet({
   open,
@@ -305,6 +315,12 @@ export function ActionsSheet({
   onReopen,
   onMarkUnread,
   onNote,
+  onEditPerson,
+  onTags,
+  onStage,
+  onNextAction,
+  onAddPerson,
+  stageName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -321,6 +337,15 @@ export function ActionsSheet({
   onReopen: () => void;
   onMarkUnread: () => void;
   onNote: (() => void) | null;
+  onEditPerson: (() => void) | null;
+  onTags: (() => void) | null;
+  /** Null when this customer has no open lead to move. */
+  onStage: (() => void) | null;
+  onNextAction: (() => void) | null;
+  /** Naming a number nobody has linked. Null once there is a customer. */
+  onAddPerson: (() => void) | null;
+  /** Where the open lead stands, shown beside its row the way the assignee is. */
+  stageName: string | null;
 }) {
   const ai = useAiColors();
   const run = (fn: () => void) => () => {
@@ -393,6 +418,47 @@ export function ActionsSheet({
             label={NOTE_WORDS.add}
             onPress={run(onNote)}
             testID="sheet-note"
+          />
+        ) : null}
+        {onEditPerson ? (
+          <SheetRow
+            icon={UserPen}
+            label={RECORD_SHEET_WORDS.edit.title}
+            onPress={run(onEditPerson)}
+            testID="sheet-edit-person"
+          />
+        ) : null}
+        {onTags ? (
+          <SheetRow
+            icon={Tag}
+            label={CONTACT_EDIT_WORDS.tags}
+            onPress={run(onTags)}
+            testID="sheet-tags"
+          />
+        ) : null}
+        {onStage ? (
+          <SheetRow
+            icon={ArrowRight}
+            label={CONTACT_EDIT_WORDS.stage}
+            detail={stageName ?? undefined}
+            onPress={run(onStage)}
+            testID="sheet-stage"
+          />
+        ) : null}
+        {onNextAction ? (
+          <SheetRow
+            icon={Clock}
+            label={CONTACT_EDIT_WORDS.nextAction}
+            onPress={run(onNextAction)}
+            testID="sheet-next-action"
+          />
+        ) : null}
+        {onAddPerson ? (
+          <SheetRow
+            icon={UserPlus}
+            label={CONTACT_EDIT_WORDS.addTitle}
+            onPress={run(onAddPerson)}
+            testID="sheet-add-person"
           />
         ) : null}
       </View>
@@ -550,6 +616,128 @@ export function NoteSheet({
           testID="note-save"
         >
           {NOTE_WORDS.save}
+        </Button>
+      </View>
+    </Sheet>
+  );
+}
+
+/**
+ * The open lead's next action, set from the conversation that prompted it — "call Monday with the price" is
+ * decided while reading their text, not later on the lead's own page.
+ */
+export function NextActionSheet({
+  open,
+  onClose,
+  lead,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  lead: { readonly title: string; readonly nextAction: string | null } | null;
+  onSave: (text: string) => void | Promise<void>;
+}) {
+  const colors = useColors();
+  const [text, setText] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => {
+    if (open) setText(lead?.nextAction ?? '');
+  }, [open, lead?.nextAction]);
+  if (!lead) return null;
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={CONTACT_EDIT_WORDS.nextAction}
+      description={lead.title}
+      testID="next-action-sheet"
+    >
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        autoFocus
+        placeholder={CONTACT_EDIT_WORDS.nextActionPlaceholder}
+        placeholderTextColor={colors.placeholder}
+        accessibilityLabel={CONTACT_EDIT_WORDS.nextAction}
+        className="mt-3 min-h-12 rounded-menu border border-border-strong bg-card px-3.5 py-2.5 font-sans text-base text-text"
+        testID="next-action-text"
+      />
+      <View className="mt-3">
+        <Button
+          icon={Clock}
+          loading={busy}
+          disabled={!text.trim()}
+          onPress={() => {
+            setBusy(true);
+            void Promise.resolve(onSave(text.trim()))
+              .then(() => onClose())
+              .finally(() => setBusy(false));
+          }}
+          testID="next-action-save"
+        >
+          {CONTACT_EDIT_WORDS.nextActionSave}
+        </Button>
+      </View>
+    </Sheet>
+  );
+}
+
+/**
+ * Naming a number nobody has linked, without leaving the thread.
+ *
+ * The number is already the conversation, so the only thing missing is who it belongs to. Everything else about
+ * them is on their page once they exist.
+ */
+export function AddPersonSheet({
+  open,
+  onClose,
+  counterpart,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** The number or address this conversation is with, shown so it is clear what gets attached. */
+  counterpart: string;
+  onSave: (name: string) => Promise<boolean>;
+}) {
+  const colors = useColors();
+  const [name, setName] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => {
+    if (open) setName('');
+  }, [open]);
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title={CONTACT_EDIT_WORDS.addTitle}
+      description={counterpart}
+      testID="add-person-sheet"
+    >
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        autoFocus
+        placeholder={CONTACT_EDIT_WORDS.namePlaceholder}
+        placeholderTextColor={colors.placeholder}
+        accessibilityLabel={CONTACT_EDIT_WORDS.addTitle}
+        className="mt-3 min-h-12 rounded-menu border border-border-strong bg-card px-3.5 py-2.5 font-sans text-base text-text"
+        testID="add-person-name"
+      />
+      <View className="mt-3">
+        <Button
+          icon={UserPlus}
+          loading={busy}
+          disabled={!name.trim()}
+          onPress={() => {
+            setBusy(true);
+            void onSave(name.trim())
+              .then((ok) => ok && onClose())
+              .finally(() => setBusy(false));
+          }}
+          testID="add-person-save"
+        >
+          {CONTACT_EDIT_WORDS.addSave}
         </Button>
       </View>
     </Sheet>

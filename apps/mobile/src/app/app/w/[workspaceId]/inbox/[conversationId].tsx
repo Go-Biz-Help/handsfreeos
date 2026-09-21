@@ -1,6 +1,7 @@
 import {
   assigneeShort,
   COMPOSER_WORDS,
+  CONTACT_EDIT_WORDS,
   CONVERSATION_ACTIONS,
   CONVERSATION_DONE,
   crossChannelCanText,
@@ -8,16 +9,20 @@ import {
   emailSubjectOf,
   handlingView,
   handoverNote,
+  joinName,
+  nameProblem,
   PENDING_REPLY_WORDS,
   replySubject,
   rowName,
   SENT_WORDS,
+  splitName,
   switchRefusal,
   textNote,
   THREAD_WORDS,
   threadChannelLine,
   whoOf,
   type ComposerNote,
+  type StageRef,
 } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
@@ -42,9 +47,11 @@ import { Composer, type ComposerMode } from '@/components/inbox/composer';
 import { useKeyboardHeight } from '@/components/inbox/keyboard';
 import {
   ActionsSheet,
+  AddPersonSheet,
   AssignSheet,
   HandBackSheet,
   HandlingBanner,
+  NextActionSheet,
   NoteCard,
   NoteSheet,
   NOTE_WORDS,
@@ -62,6 +69,13 @@ import { toast } from '@/components/ui/toast';
 import { change, changes, newId } from '@/changes';
 import { describe, loadNames } from '@/changes/describe';
 import type { OutboxRow } from '@/changes/outbox';
+import { EditSheet, RECORD_SHEET_WORDS, TagSheet } from '@/components/customers/sheets';
+import { MoveSheet } from '@/components/pipeline/bits';
+import { savePerson, saveTags, type PersonEdit } from '@/customers/actions';
+import { useNames } from '@/customers/names';
+import { TAGS_SQL } from '@/customers/queries';
+import { moveLead, setNextAction } from '@/pipeline/actions';
+import { useStagesOf } from '@/pipeline/use-pipeline';
 import { conversationActions } from '@/inbox/actions';
 import { startCall } from '@/inbox/calls';
 import { inputOf, type PendingReply } from '@/inbox/outbox';
@@ -93,8 +107,20 @@ export default function Conversation() {
   const thread = useThread(conversationId, c?.person?.id ?? null);
   const drafts = useWaitingDrafts({ conversationId, kind: 'reply' });
   const members = useMembers();
+  const names = useNames();
   const now = useNow();
   const myUserId = me.user.id;
+  const { data: tagRows } = useQuery<{ id: string; name: string; color: string }>(TAGS_SQL, [
+    business.id,
+  ]);
+  /** The open lead beside this customer, and its pipeline's stages, so it can be moved from here. */
+  const lead = data?.conversation.openLead ?? null;
+  /**
+   * The open stages only: Won and Lost want a reason and the sheet that asks for one lives on the lead's page,
+   * so from a conversation the lead moves along and is closed out there.
+   */
+  const stages = useStagesOf(lead?.pipelineId ?? null).filter((s) => s.kind === 'open');
+  const personTags = names.tags(data?.person?.id ?? '');
   const actions = React.useMemo(
     () => conversationActions({ workspaceId: business.id, conversationId, myUserId }),
     [business.id, conversationId, myUserId],
@@ -113,7 +139,17 @@ export default function Conversation() {
 
   // Sheets.
   const [sheet, setSheet] = React.useState<
-    'actions' | 'assign' | 'snooze' | 'note' | 'hand-back' | null
+    | 'actions'
+    | 'assign'
+    | 'snooze'
+    | 'note'
+    | 'hand-back'
+    | 'edit-person'
+    | 'tags'
+    | 'stage'
+    | 'next-action'
+    | 'add-person'
+    | null
   >(null);
   const [busy, setBusy] = React.useState<'take' | 'back' | null>(null);
   const [deciding, setDeciding] = React.useState<{
@@ -336,6 +372,113 @@ export default function Conversation() {
     setBusy(null);
   };
 
+  /**
+   * Changing the customer from inside their conversation, the web's panel's other half. Every one goes through
+   * `change()`, so it works with no signal and waits in the queue like everything else here.
+   */
+  const opened: PersonEdit | null = person
+    ? {
+        firstName: person.firstName,
+        lastName: person.lastName,
+        phone: person.phone ?? '',
+        email: person.email ?? '',
+        notes: person.notes,
+        line1: person.line1,
+        city: person.city,
+        state: person.state,
+        postalCode: person.postalCode,
+      }
+    : null;
+
+  const editPerson = async (values: Readonly<Record<string, string>>) => {
+    if (!person || !opened) return;
+    const saved = await savePerson(business.id, person.id, opened, {
+      ...opened,
+      ...(values as unknown as PersonEdit),
+    });
+    toast.show(saved.changed ? RECORD_SHEET_WORDS.edit.saved : RECORD_SHEET_WORDS.edit.nothing);
+  };
+
+  const editTags = async (ids: readonly string[]) => {
+    if (!person) return;
+    await saveTags(
+      { workspaceId: business.id, recordType: 'person', recordId: person.id },
+      personTags,
+      ids,
+    );
+  };
+
+  const moveStage = async (stage: StageRef) => {
+    if (!lead) return;
+    await moveLead(business.id, lead, stage);
+    toast.show(CONTACT_EDIT_WORDS.moved(stage.name));
+  };
+
+  const saveNextAction = async (text: string) => {
+    if (!lead) return;
+    await setNextAction(business.id, lead.id, text, null);
+  };
+
+  /**
+   * Naming a number nobody has linked: the customer is made with the number on them, then the conversation is
+   * linked to them, so this thread and any calls land on their timeline.
+   */
+  const addPerson = async (name: string): Promise<boolean> => {
+    const problem = nameProblem(name);
+    if (problem) {
+      toast.error(problem);
+      return false;
+    }
+    try {
+      const parts = splitName(name);
+      const personId = newId();
+      await change(
+        'person.create',
+        {
+          workspaceId: business.id,
+          id: personId,
+          ...parts,
+          ...(c?.channel === 'sms' ? { phone: c.counterpart } : {}),
+          ...(c?.channel === 'email' ? { email: c.counterpart } : {}),
+        } as never,
+        {
+          optimistic: (tx) =>
+            tx.execute(
+              `INSERT INTO people (id, workspace_id, first_name, last_name, phone, phone_e164, email,
+                 created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                personId,
+                business.id,
+                parts.firstName,
+                parts.lastName,
+                c?.channel === 'sms' ? c.counterpart : null,
+                c?.channel === 'sms' ? c.counterpart : null,
+                c?.channel === 'email' ? c.counterpart : null,
+                new Date().toISOString(),
+                new Date().toISOString(),
+              ],
+            ),
+        },
+      );
+      await change(
+        'conversation.link_person',
+        { workspaceId: business.id, conversationId, personId } as never,
+        {
+          optimistic: (tx) =>
+            tx.execute('UPDATE conversations SET person_id = ? WHERE id = ?', [
+              personId,
+              conversationId,
+            ]),
+        },
+      );
+      toast.show(CONTACT_EDIT_WORDS.added(joinName(parts)));
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  };
+
   const addNote = async (text: string): Promise<boolean> => {
     if (!person) return false;
     try {
@@ -555,6 +698,12 @@ export default function Conversation() {
         onReopen={() => void actions.reopen()}
         onMarkUnread={() => void actions.markUnread().then((ok) => ok && backToList())}
         onNote={person ? () => setSheet('note') : null}
+        onEditPerson={person ? () => setSheet('edit-person') : null}
+        onTags={person ? () => setSheet('tags') : null}
+        onStage={lead && stages.length > 1 ? () => setSheet('stage') : null}
+        onNextAction={lead ? () => setSheet('next-action') : null}
+        onAddPerson={person ? null : () => setSheet('add-person')}
+        stageName={lead?.stageName ?? null}
       />
       <AssignSheet
         open={sheet === 'assign'}
@@ -579,6 +728,66 @@ export default function Conversation() {
         onClose={() => setSheet(null)}
         first={first ?? who}
         onSave={addNote}
+      />
+      {opened ? (
+        <EditSheet
+          open={sheet === 'edit-person'}
+          onClose={() => setSheet(null)}
+          fields={[
+            { key: 'firstName', label: 'First name', value: opened.firstName },
+            { key: 'lastName', label: 'Last name', value: opened.lastName },
+            { key: 'phone', label: 'Mobile', value: opened.phone, keyboard: 'phone-pad' },
+            { key: 'email', label: 'Email', value: opened.email, keyboard: 'email-address' },
+            { key: 'line1', label: 'Street', value: opened.line1 },
+            { key: 'city', label: 'City', value: opened.city },
+            { key: 'state', label: 'State', value: opened.state },
+            { key: 'postalCode', label: 'ZIP', value: opened.postalCode },
+            { key: 'notes', label: 'Notes', value: opened.notes, multiline: true },
+          ]}
+          onSave={editPerson}
+        />
+      ) : null}
+      <TagSheet
+        open={sheet === 'tags'}
+        tags={tagRows}
+        chosen={personTags}
+        onClose={() => setSheet(null)}
+        onSave={editTags}
+      />
+      <MoveSheet
+        open={sheet === 'stage'}
+        lead={
+          lead
+            ? {
+                title: lead.title,
+                stageId: lead.stageId,
+                valueCents: lead.valueCents,
+                person: person
+                  ? { id: person.id, fullName: person.fullName, archived: person.archived }
+                  : null,
+                company: null,
+              }
+            : null
+        }
+        stages={stages}
+        pipelineName=""
+        onClose={() => setSheet(null)}
+        onMove={(stage) => {
+          setSheet(null);
+          void moveStage(stage);
+        }}
+      />
+      <NextActionSheet
+        open={sheet === 'next-action'}
+        onClose={() => setSheet(null)}
+        lead={lead}
+        onSave={saveNextAction}
+      />
+      <AddPersonSheet
+        open={sheet === 'add-person'}
+        onClose={() => setSheet(null)}
+        counterpart={c.counterpartDisplay}
+        onSave={addPerson}
       />
       <HandBackSheet
         open={sheet === 'hand-back'}
