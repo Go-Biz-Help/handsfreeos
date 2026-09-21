@@ -654,7 +654,6 @@ function NumberStep({
   );
 }
 
-
 type RowState = 'done' | 'review' | 'next' | 'turned_down';
 
 function ReviewRow({ title, sub, state }: { title: string; sub: string; state: RowState }) {
