@@ -10,26 +10,26 @@ nothing to enforce, so they need no machinery beyond the monthly plan this build
 
 ## 1. The decisions this is built on
 
-| Question | Decision |
-| --- | --- |
-| What is a spot? | One **business — an `app.organizations` row**. Caps count organizations. |
-| When is it consumed? | **When you approve it.** Apply → you review → you approve. No self-serve claiming. |
-| When it sells out | Waitlist, and the next offer down is shown as the alternative. |
-| The monthly plan | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499. |
-| Revoking a spot | **14-day grace**, warned in-app and by email, then the workspace converts to $97/month. The spot returns to the pool the moment you revoke, not when the grace ends. |
-| The $497 | **Stripe Checkout, in the app**, on the HandsFreeOS platform account. |
-| The website shows | **Exact remaining count** and a progress bar. No countdown clock — quantity only. |
+| Question               | Decision                                                                                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What is a spot?        | One **business — an `app.organizations` row**. Caps count organizations.                                                                                             |
+| When is it consumed?   | **When you approve it.** Apply → you review → you approve. No self-serve claiming.                                                                                   |
+| When it sells out      | Waitlist, and the next offer down is shown as the alternative.                                                                                                       |
+| The monthly plan       | **One plan, $97/month.** All features, one workspace, unlimited users, unlimited contacts. Replaces Starter $99 / Growth $249 / Pro $499.                            |
+| Revoking a spot        | **14-day grace**, warned in-app and by email, then the workspace converts to $97/month. The spot returns to the pool the moment you revoke, not when the grace ends. |
+| The $497               | **Stripe Checkout, in the app**, on the HandsFreeOS platform account.                                                                                                |
+| The website shows      | **Exact remaining count** and a progress bar. No countdown clock — quantity only.                                                                                    |
 | What "lifetime" covers | **The core platform, forever.** Usage (AI, calls, SMS, numbers) always comes out of the wallet. Future premium add-ons are sold separately, to lifetime holders too. |
-| Founding partner usage | **$10 starting credit.** A card is required before the balance runs out. |
-| A second workspace | The founding deal covers **one workspace**. Every further workspace is $97/month. |
+| Founding partner usage | **$10 starting credit.** A card is required before the balance runs out.                                                                                             |
+| A second workspace     | The founding deal covers **one workspace**. Every further workspace is $97/month.                                                                                    |
 
 ### The two offers
 
-| Offer | Cap | Price | Wallet |
-| --- | --- | --- | --- |
-| `founding_partner` — Phase 1 | 25 organizations | $0 forever | $10 credit, card before it runs out |
-| `founding_lifetime` — Phase 2 | 100 organizations | $497 once | Card at checkout, wallet funded normally |
-| `monthly` — the fallback | uncapped | $97/month | Card at checkout |
+| Offer                         | Cap               | Price      | Wallet                                   |
+| ----------------------------- | ----------------- | ---------- | ---------------------------------------- |
+| `founding_partner` — Phase 1  | 25 organizations  | $0 forever | $10 credit, card before it runs out      |
+| `founding_lifetime` — Phase 2 | 100 organizations | $497 once  | Card at checkout, wallet funded normally |
+| `monthly` — the fallback      | uncapped          | $97/month  | Card at checkout                         |
 
 ---
 
@@ -53,7 +53,7 @@ beyond a chat widget key. The live counter is the first data the marketing site 
 
 **The Stripe seam exists; the Stripe account is not connected.**
 `apps/worker/src/payments/stripe.ts` has two halves. Most of it is Stripe **Connect** — the
-business's own customers paying *them*, with a `Stripe-Account` header and no platform fee —
+business's own customers paying _them_, with a `Stripe-Account` header and no platform fee —
 which is the wrong seam for this. But `stripe.ts:571` also has a `platform` block whose comment
 is exactly the distinction that matters:
 
@@ -166,7 +166,7 @@ canceled_at         timestamptz
 
 This is the row every entitlement check reads. A founding workspace has
 `plan in ('founding_free','founding_lifetime')` and no Stripe subscription. Every other
-workspace — including a founding partner's *second* workspace — is `'monthly'` with one.
+workspace — including a founding partner's _second_ workspace — is `'monthly'` with one.
 
 ### `app.founding_checkouts` — the $497 sessions
 
@@ -256,30 +256,30 @@ registered in the existing `commands/index.ts` and `queries/index.ts`. All follo
 **Staff commands** — permission `platform.founding.manage`, a new entry alongside
 `platform.rates.manage` in the staff role table:
 
-| Command | What it does |
-| --- | --- |
-| `founding.approve` | Takes the spot through `private.founding_claim_spot()`, creates the grant `reserved`, issues a claim token, sends the invite email |
-| `founding.decline` | Closes an application with a staff-only note |
-| `founding.waitlist` | Moves an application to the waitlist, with an email |
-| `founding.revoke` | Frees the spot now, sets `grace_ends_at`, writes the reason, notifies the business |
-| `founding.restore` | Undoes a revoke while the grace is still running — if the spot has since been filled, it fails rather than overselling |
-| `founding.setCap` | Raises or lowers `seat_cap`. Lowering below the number already held is refused |
-| `founding.setStatus` | `draft` / `open` / `closed` for an offer |
+| Command              | What it does                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `founding.approve`   | Takes the spot through `private.founding_claim_spot()`, creates the grant `reserved`, issues a claim token, sends the invite email |
+| `founding.decline`   | Closes an application with a staff-only note                                                                                       |
+| `founding.waitlist`  | Moves an application to the waitlist, with an email                                                                                |
+| `founding.revoke`    | Frees the spot now, sets `grace_ends_at`, writes the reason, notifies the business                                                 |
+| `founding.restore`   | Undoes a revoke while the grace is still running — if the spot has since been filled, it fails rather than overselling             |
+| `founding.setCap`    | Raises or lowers `seat_cap`. Lowering below the number already held is refused                                                     |
+| `founding.setStatus` | `draft` / `open` / `closed` for an offer                                                                                           |
 
 **Public commands** — rate-limited in `RATE_LIMITED`, the way `invitation.accept` already is:
 
-| Command | What it does |
-| --- | --- |
-| `founding.apply` | From the site's application form. 5/minute per address |
+| Command          | What it does                                                                  |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `founding.apply` | From the site's application form. 5/minute per address                        |
 | `founding.claim` | Redeems a claim token. Free offer: activates. $497: opens Checkout. 10/minute |
 
 **Worker-only commands** — `actors: ['system']`, so `routes.ts` never mounts them:
 
-| Command | What it does |
-| --- | --- |
-| `founding.recordCheckout` | Records what Stripe said, activates the grant on success |
-| `founding.expireReservations` | The nightly sweep that returns unclaimed spots |
-| `founding.endGrace` | Converts a grace that ran out to `monthly` / `past_due` |
+| Command                       | What it does                                             |
+| ----------------------------- | -------------------------------------------------------- |
+| `founding.recordCheckout`     | Records what Stripe said, activates the grant on success |
+| `founding.expireReservations` | The nightly sweep that returns unclaimed spots           |
+| `founding.endGrace`           | Converts a grace that ran out to `monthly` / `past_due`  |
 
 **Queries:**
 
@@ -307,7 +307,7 @@ who holds a spot. `apps/site` gets a `src/lib/founding.ts` that fetches it with
 `<FoundingCounter>` component rendering:
 
 > **7 of 25 founding partner spots left**
-> ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░  18 claimed
+> ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░ 18 claimed
 
 If the worker is unreachable the component renders the offer without a number rather than
 failing the page — a marketing site should never 500 because a counter is down.
@@ -326,11 +326,11 @@ Stripe Checkout on the **platform** secret key, hand-rolled `fetch`, matching th
 
 This is setup work on your side, not code. Without it nothing in this section runs:
 
-| Secret | What it is | Needed for |
-| --- | --- | --- |
-| `STRIPE_SECRET_KEY` | The **live** platform key, `sk_live_…`. A test key in production is refused by `env.ts` on purpose | Every charge |
-| `STRIPE_WEBHOOK_SECRET` | The signing secret for the endpoint below | Confirming payment |
-| `STRIPE_PUBLISHABLE_KEY` | Public, for the card form | Saving a card |
+| Secret                   | What it is                                                                                         | Needed for         |
+| ------------------------ | -------------------------------------------------------------------------------------------------- | ------------------ |
+| `STRIPE_SECRET_KEY`      | The **live** platform key, `sk_live_…`. A test key in production is refused by `env.ts` on purpose | Every charge       |
+| `STRIPE_WEBHOOK_SECRET`  | The signing secret for the endpoint below                                                          | Confirming payment |
+| `STRIPE_PUBLISHABLE_KEY` | Public, for the card form                                                                          | Saving a card      |
 
 Set with `fly secrets import` for `handsfreeos-worker`, per `docs/operations.md` Part 6.
 
