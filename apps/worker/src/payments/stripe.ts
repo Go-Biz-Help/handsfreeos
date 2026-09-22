@@ -45,6 +45,7 @@ import {
   type SubscriptionResult,
   type SubscriptionState,
   type WebhookInput,
+  type CheckoutEvent,
 } from './provider';
 
 const CONNECT = 'https://connect.stripe.com';
@@ -128,6 +129,60 @@ const subscriptionState = (status: string, paused: boolean): SubscriptionState =
   }
 };
 
+/**
+ * `Stripe-Signature: t=…,v1=…` — HMAC-SHA256 over `"{timestamp}.{raw body}"`, within five minutes. The same
+ * scheme for the Connect endpoint and our own account's, each with its own secret.
+ */
+function verifyStripeSignature(secret: string | null, { rawBody, headers }: WebhookInput): boolean {
+  const header = headers['stripe-signature'];
+  if (!secret || !header) return false;
+  const parts = new Map(
+    header.split(',').map((p) => {
+      const i = p.indexOf('=');
+      return [p.slice(0, i).trim(), p.slice(i + 1).trim()] as const;
+    }),
+  );
+  const timestamp = Number(parts.get('t'));
+  if (!Number.isFinite(timestamp)) return false;
+  if (Math.abs(Date.now() - timestamp * 1000) > TOLERANCE_MS) return false;
+  const expected = hmacHex(secret, `${timestamp}.${rawBody}`);
+  // Stripe may send several v1 signatures while a secret is being rotated.
+  return header
+    .split(',')
+    .filter((p) => p.trim().startsWith('v1='))
+    .some((p) => signatureMatches(p.trim().slice(3), expected));
+}
+
+/**
+ * One of our own account's Checkout events, or null for anything else. An event that names a connected account
+ * is somebody else's and is never read as ours — the Connect endpoint is where those go.
+ */
+export function readStripeCheckoutEvent(rawBody: string): CheckoutEvent | null {
+  let body: Json;
+  try {
+    body = obj(JSON.parse(rawBody));
+  } catch {
+    return null;
+  }
+  const id = str(body['id']);
+  const type = str(body['type']);
+  if (!id || !type || !type.startsWith('checkout.session.') || str(body['account'])) return null;
+  const session = obj(obj(body['data'])['object']);
+  const sessionRef = str(session['id']);
+  if (!sessionRef) return null;
+  const intent = session['payment_intent'];
+  return {
+    id,
+    type,
+    sessionRef,
+    checkoutId:
+      str(obj(session['metadata'])['founding_checkout_id']) ?? str(session['client_reference_id']),
+    paymentStatus: str(session['payment_status']),
+    paymentRef: typeof intent === 'string' ? str(intent) : str(obj(intent)['id']),
+    amountTotal: centsOf(session['amount_total']),
+  };
+}
+
 export function createStripePayments(opts: {
   /** The Connect platform's `ca_…`: which application the seller is signing in to. */
   clientId: string | null;
@@ -137,6 +192,11 @@ export function createStripePayments(opts: {
   publishableKey: string | null;
   /** `whsec_…`, for checking that a webhook really came from Stripe. */
   webhookSecret: string | null;
+  /**
+   * `whsec_…` of our own account's event destination (0093): Checkout for the founding seats. A separate
+   * endpoint in Stripe, so a separate secret — the Connect one never verifies these, nor these the Connect ones.
+   */
+  platformWebhookSecret?: string | null;
   fetch?: typeof fetch;
 }): PaymentProvider {
   const f = opts.fetch ?? fetch;
@@ -146,6 +206,16 @@ export function createStripePayments(opts: {
     if (!opts.secretKey || !opts.clientId)
       throw new PaymentError('Stripe isn’t set up on this server yet.', null, true);
     return { secretKey: opts.secretKey, clientId: opts.clientId };
+  };
+  /**
+   * Our own money needs only our own key. The Connect client id is for businesses signing their Stripe in to
+   * us, and HandsFreeOS charging its own customers does not depend on that being set up.
+   */
+  const keyFor = (account: PaymentAccount | null): string => {
+    if (account) return keys().secretKey;
+    if (!opts.secretKey)
+      throw new PaymentError('Stripe isn’t set up on this server yet.', null, true);
+    return opts.secretKey;
   };
 
   /** Turns a refusal into the right error. A declined card never reaches here: `charged` catches it first. */
@@ -183,7 +253,7 @@ export function createStripePayments(opts: {
     path: string,
     init: { method?: string; body?: Json; idempotencyKey?: string } = {},
   ): Promise<T> {
-    const { secretKey } = keys();
+    const secretKey = keyFor(account);
     const headers: Record<string, string> = {
       authorization: `Bearer ${secretKey}`,
       'stripe-version': API_VERSION,
@@ -211,7 +281,7 @@ export function createStripePayments(opts: {
     body: Json,
     key: string,
   ): Promise<PaymentResult> {
-    const { secretKey } = keys();
+    const secretKey = keyFor(account);
     const res = await f(`${API}${path}`, {
       method: 'POST',
       headers: {
@@ -673,6 +743,62 @@ export function createStripePayments(opts: {
           input.idempotencyKey,
         );
       },
+
+      /**
+       * Stripe Checkout in our own account. Cards only: a card answers there and then, so `completed` with
+       * `payment_status: paid` is the money in, and there is no bank transfer settling days later under a seat
+       * that looks paid. The page lasts Stripe's default day, and the seat's reservation is stretched to outlast
+       * it (0093).
+       */
+      async createCheckout(input) {
+        const metadata = cleanMetadata({
+          ...input.metadata,
+          founding_checkout_id: input.checkoutId,
+        });
+        const made = await api<Json>(null, '/checkout/sessions', {
+          body: {
+            mode: 'payment',
+            line_items: [
+              {
+                quantity: 1,
+                price_data: {
+                  currency: 'usd',
+                  unit_amount: requireAmount(input.amountCents),
+                  product_data: {
+                    name: input.productName.slice(0, 200),
+                    ...(input.description ? { description: input.description.slice(0, 500) } : {}),
+                  },
+                },
+              },
+            ],
+            payment_method_types: ['card'],
+            success_url: input.successUrl,
+            cancel_url: input.cancelUrl,
+            client_reference_id: input.checkoutId,
+            ...(input.customerEmail ? { customer_email: input.customerEmail } : {}),
+            // A customer in our account from the first payment: the receipt goes to them, and whatever they are
+            // billed later starts from somebody Stripe already knows.
+            customer_creation: 'always',
+            metadata,
+            payment_intent_data: {
+              description: input.productName.slice(0, 200),
+              metadata,
+            },
+          },
+          idempotencyKey: input.idempotencyKey,
+        });
+        const sessionRef = str(made['id']);
+        const url = str(made['url']);
+        if (!sessionRef || !url)
+          throw new PaymentError('Stripe answered without a page to pay on.', null, false);
+        return { sessionRef, url, expiresAt: isoOf(made['expires_at']) };
+      },
+
+      webhooks: {
+        configured: !!(opts.secretKey && opts.platformWebhookSecret),
+        verify: (input) => verifyStripeSignature(opts.platformWebhookSecret ?? null, input),
+        checkout: readStripeCheckoutEvent,
+      },
     },
 
     subscriptions: {
@@ -753,27 +879,8 @@ export function createStripePayments(opts: {
     },
 
     webhooks: {
-      /** `Stripe-Signature: t=…,v1=…` — HMAC-SHA256 over `"{timestamp}.{raw body}"`, within five minutes. */
-      verify({ rawBody, headers }: WebhookInput) {
-        const secret = opts.webhookSecret;
-        const header = headers['stripe-signature'];
-        if (!secret || !header) return false;
-        const parts = new Map(
-          header.split(',').map((p) => {
-            const i = p.indexOf('=');
-            return [p.slice(0, i).trim(), p.slice(i + 1).trim()] as const;
-          }),
-        );
-        const timestamp = Number(parts.get('t'));
-        if (!Number.isFinite(timestamp)) return false;
-        if (Math.abs(Date.now() - timestamp * 1000) > TOLERANCE_MS) return false;
-        const expected = hmacHex(secret, `${timestamp}.${rawBody}`);
-        // Stripe may send several v1 signatures while a secret is being rotated.
-        return header
-          .split(',')
-          .filter((p) => p.trim().startsWith('v1='))
-          .some((p) => signatureMatches(p.trim().slice(3), expected));
-      },
+      /** The Connect endpoint's events, with the Connect endpoint's secret. */
+      verify: (input: WebhookInput) => verifyStripeSignature(opts.webhookSecret, input),
       parse(rawBody) {
         let body: Json;
         try {

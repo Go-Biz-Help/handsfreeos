@@ -143,6 +143,12 @@ export interface WorkerEnv {
   readonly stripeSecretKey: string | null;
   readonly stripePublishableKey: string | null;
   readonly stripeWebhookSecret: string | null;
+  /**
+   * `whsec_…` of our own account's event destination (0093), for the founding seats' Checkout. A second endpoint
+   * in Stripe — "Your account", not "Connected accounts" — so a second secret. Without it the page is still made
+   * and paid, but the payment is never heard about, so nobody's seat turns on: set it before opening $497 seats.
+   */
+  readonly stripePlatformWebhookSecret: string | null;
   /** Square: the developer application's id and secret. The id is public and the page loads the SDK with it. */
   readonly squareApplicationId: string | null;
   readonly squareApplicationSecret: string | null;
@@ -521,6 +527,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     stripeSecretKey,
     stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY || null,
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || null,
+    stripePlatformWebhookSecret: env.STRIPE_PLATFORM_WEBHOOK_SECRET || null,
     squareApplicationId,
     squareApplicationSecret,
     squareWebhookSignatureKeys: list(env.SQUARE_WEBHOOK_SIGNATURE_KEYS),

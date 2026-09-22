@@ -1,4 +1,5 @@
 import type { ProcessorMap } from '../deliveries';
+import { foundingProcessors } from '../founding/checkout';
 import { paymentProcessors } from '../money/processors';
 import { workflowProcessors } from '../workflows/index';
 import { onSupportInboundEmail } from '../support/inbound';
@@ -32,4 +33,6 @@ export const processors: ProcessorMap = {
   // Stripe's and Square's events, under our own names for them (money/webhook-events.ts): a payment landing,
   // settling or refused, a refund, a dispute, a plan's cycle, an account changing, and a revoked sign-in.
   ...paymentProcessors,
+  // Stripe about our own account (0093): a founding seat paid for, or its page lapsing.
+  ...foundingProcessors,
 };

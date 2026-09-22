@@ -51,10 +51,14 @@ import {
   type SavedMethod,
   type SubscriptionResult,
   type SubscriptionState,
+  type CheckoutInput,
 } from './provider';
+import { readStripeCheckoutEvent } from './stripe';
 
 /** Not secrets: the stand-in signs with these and the verifier checks with the same ones. */
 export const FAKE_STRIPE_WEBHOOK_SECRET = 'whsec_local_development_only';
+/** Our own account's event destination (0093) has a secret of its own, as the real one does. */
+export const FAKE_STRIPE_PLATFORM_WEBHOOK_SECRET = 'whsec_local_platform_only';
 export const FAKE_SQUARE_SIGNATURE_KEY = 'local-square-webhook-signature-key';
 export const FAKE_STRIPE_PUBLISHABLE_KEY = 'pk_test_local_development_only';
 export const FAKE_SQUARE_APPLICATION_ID = 'sandbox-sq0idb-local-development';
@@ -141,6 +145,22 @@ export interface FakeSubscription {
   cancelAt: string | null;
 }
 
+/** One of our own Checkout pages (0093): a founding seat being paid for. */
+export interface FakeCheckout {
+  readonly sessionRef: string;
+  readonly checkoutId: string;
+  readonly amountCents: number;
+  readonly productName: string;
+  readonly successUrl: string;
+  readonly cancelUrl: string;
+  readonly customerEmail: string | null;
+  readonly idempotencyKey: string;
+  status: 'open' | 'complete' | 'expired';
+  /** The payment behind a completed page, as Stripe's `payment_intent`. */
+  paymentRef: string | null;
+  readonly expiresAt: string;
+}
+
 /** One webhook the stand-in posted back to us, kept so a spec can assert on it or replay it. */
 export interface FakeWebhookPost {
   readonly provider: PaymentProviderName;
@@ -180,6 +200,14 @@ export interface FakePayments {
   holdAccount(externalAccountId: string): void;
   /** Where webhooks go; tests set one that injects into the server. */
   setDeliver(deliver: WebhookDeliver): void;
+  /** Our own Checkout pages (0093), oldest first. */
+  checkouts(): readonly FakeCheckout[];
+  /** The person pays on a Checkout page: `checkout.session.completed`, paid, posted to our own endpoint. */
+  payCheckout(sessionRef: string): Promise<FakeCheckout | null>;
+  /** A Checkout page lapses unpaid: `checkout.session.expired`. */
+  expireCheckout(sessionRef: string): Promise<FakeCheckout | null>;
+  /** Our own account's signing, for a spec that forges or replays one. */
+  signStripePlatform(body: string, at?: number): Record<string, string>;
   /** The hosted page reads and drives these (payments/fake-routes.ts). */
   readonly page: FakePageApi;
   /** The signing the verifier is checked against; a spec can forge or replay with them. */
@@ -324,6 +352,59 @@ export function createFakePayments(opts: {
       'stripe-signature': `t=${t},v1=${hmacHex(FAKE_STRIPE_WEBHOOK_SECRET, `${t}.${body}`)}`,
     };
   };
+  const signStripePlatform = (body: string, at = Date.now()): Record<string, string> => {
+    const t = Math.floor(at / 1000);
+    return {
+      'stripe-signature': `t=${t},v1=${hmacHex(FAKE_STRIPE_PLATFORM_WEBHOOK_SECRET, `${t}.${body}`)}`,
+    };
+  };
+  const checkoutPages = new Map<string, FakeCheckout>();
+
+  /**
+   * One of our own account's Checkout events, posted where Stripe's "Your account" destination posts them: no
+   * `account` on it, and signed with that destination's own secret.
+   */
+  async function sendCheckout(type: string, page: FakeCheckout): Promise<void> {
+    const url = `${opts.publicUrl}/webhooks/stripe/platform`;
+    const eventId = nextId('evt');
+    const body = JSON.stringify({
+      id: eventId,
+      object: 'event',
+      type,
+      created: Math.floor(Date.now() / 1000),
+      data: {
+        object: {
+          id: page.sessionRef,
+          object: 'checkout.session',
+          client_reference_id: page.checkoutId,
+          metadata: { founding_checkout_id: page.checkoutId },
+          status: page.status,
+          payment_status: page.status === 'complete' ? 'paid' : 'unpaid',
+          payment_intent: page.paymentRef,
+          amount_total: page.amountCents,
+          currency: 'usd',
+        },
+      },
+    });
+    const headers = signStripePlatform(body);
+    const post: FakeWebhookPost = {
+      provider: 'stripe',
+      url,
+      body,
+      headers,
+      eventId,
+      type,
+      ok: null,
+    };
+    posts.push(post);
+    try {
+      post.ok = (await deliver(post)).ok;
+    } catch (e) {
+      post.ok = false;
+      opts.log?.debug({ err: e, type }, 'the stand-in checkout webhook was not taken');
+    }
+  }
+
   const signSquare = (url: string, body: string): Record<string, string> => ({
     'x-square-hmacsha256-signature': hmacBase64(FAKE_SQUARE_SIGNATURE_KEY, `${url}${body}`),
   });
@@ -949,6 +1030,48 @@ export function createFakePayments(opts: {
           await land(c, answer.status, answer.failureCode);
           return resultOf(c);
         },
+
+        async createCheckout(input: CheckoutInput) {
+          requirePlatform(name);
+          const amountCents = requireAmount(input.amountCents);
+          // Idempotent like Stripe's: the same key is the same page.
+          const again = [...checkoutPages.values()].find(
+            (p) => p.idempotencyKey === input.idempotencyKey,
+          );
+          const page: FakeCheckout = again ?? {
+            sessionRef: nextId('cs_test'),
+            checkoutId: input.checkoutId,
+            amountCents,
+            productName: input.productName,
+            successUrl: input.successUrl,
+            cancelUrl: input.cancelUrl,
+            customerEmail: input.customerEmail,
+            idempotencyKey: input.idempotencyKey,
+            status: 'open',
+            paymentRef: null,
+            expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+          };
+          checkoutPages.set(page.sessionRef, page);
+          return {
+            sessionRef: page.sessionRef,
+            url: `${opts.publicUrl}/payments/fake/checkout/${encodeURIComponent(page.sessionRef)}`,
+            expiresAt: page.expiresAt,
+          };
+        },
+
+        webhooks: {
+          configured: name === 'stripe',
+          verify({ rawBody, headers }) {
+            if (name !== 'stripe') return false;
+            const header = headers['stripe-signature'];
+            if (!header) return false;
+            const t = Number(/(?:^|,)t=([^,]+)/.exec(header)?.[1]);
+            if (!Number.isFinite(t) || Math.abs(Date.now() - t * 1000) > 5 * 60_000) return false;
+            const expected = hmacHex(FAKE_STRIPE_PLATFORM_WEBHOOK_SECRET, `${t}.${rawBody}`);
+            return header.includes(`v1=${expected}`);
+          },
+          checkout: readStripeCheckoutEvent,
+        },
       },
 
       subscriptions: {
@@ -1199,6 +1322,41 @@ export function createFakePayments(opts: {
     setDeliver(next) {
       deliver = next;
     },
+
+    checkouts: () => [...checkoutPages.values()],
+
+    async payCheckout(sessionRef) {
+      const page = checkoutPages.get(sessionRef);
+      if (!page || page.status !== 'open') return page ?? null;
+      // The money lands in our own account, like a top-up: a platform charge with no business's account on it.
+      const c = record(PLATFORM_ACCOUNT, {
+        amountCents: page.amountCents,
+        method: 'card',
+        instrument: FAKE_CARDS.succeeds,
+        idempotencyKey: `checkout-${page.sessionRef}`,
+        description: page.productName,
+        customerRef: null,
+        metadata: { founding_checkout_id: page.checkoutId },
+        hold: false,
+      });
+      c.status = 'succeeded';
+      c.providerStatus = 'succeeded';
+      c.receivedAt = now();
+      page.status = 'complete';
+      page.paymentRef = c.id;
+      await sendCheckout('checkout.session.completed', page);
+      return page;
+    },
+
+    async expireCheckout(sessionRef) {
+      const page = checkoutPages.get(sessionRef);
+      if (!page || page.status !== 'open') return page ?? null;
+      page.status = 'expired';
+      await sendCheckout('checkout.session.expired', page);
+      return page;
+    },
+
+    signStripePlatform,
 
     page: {
       intent: (id) => charges.get(id) ?? null,

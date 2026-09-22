@@ -4779,6 +4779,49 @@ export const foundingApplications = platform.table('founding_applications', {
   ...timestamps(),
 });
 
+/** Where one attempt to pay for a seat has got to (0093). `pending` has no Stripe page yet; `open` is waiting. */
+export const foundingCheckoutStatus = platform.enum('founding_checkout_status', [
+  'pending',
+  'open',
+  'paid',
+  'expired',
+  'failed',
+]);
+
+/**
+ * One attempt to pay for a founding seat (0093). Moved on only through 0093's functions: a person starts one
+ * from their claim link, and the worker opens Stripe's page and records the payment. Nothing here writes it.
+ */
+export const foundingCheckouts = platform.table('founding_checkouts', {
+  id: id(),
+  grantId: uuid('grant_id')
+    .notNull()
+    .references(() => foundingGrants.id, { onDelete: 'cascade' }),
+  offerId: text('offer_id')
+    .notNull()
+    .references(() => foundingOffers.id),
+  organizationId: orgRef(),
+  /** The workspace the seat goes on when the money is in. */
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** The offer's price when the checkout started. */
+  amountCents: integer('amount_cents').notNull(),
+  status: foundingCheckoutStatus('status').notNull().default('pending'),
+  sessionRef: text('session_ref').unique(),
+  sessionUrl: text('session_url'),
+  sessionExpiresAt: ts('session_expires_at'),
+  paymentRef: text('payment_ref'),
+  paidCents: integer('paid_cents'),
+  requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+  /** Why it did not go through — or, on a paid one, why the seat did not go active with it. */
+  problem: text('problem').notNull().default(''),
+  openedAt: ts('opened_at'),
+  paidAt: ts('paid_at'),
+  closedAt: ts('closed_at'),
+  ...timestamps(),
+});
+
 export const planKind = app.enum('plan_kind', ['founding_free', 'founding_lifetime', 'monthly']);
 export const planStatus = app.enum('plan_status', ['active', 'grace', 'past_due', 'canceled']);
 

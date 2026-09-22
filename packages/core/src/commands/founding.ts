@@ -32,6 +32,7 @@ import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
   foundingApplications,
+  foundingCheckouts,
   foundingGrants,
   foundingOffers,
   workspacePlans,
@@ -42,9 +43,15 @@ import {
   FoundingApplicationOutput,
   FoundingApproveInput,
   FoundingApproveOutput,
+  FoundingCheckoutRecordOutput,
   FoundingClaimInput,
   FoundingClaimOutput,
   FoundingDecideInput,
+  FoundingRecordCheckoutClosedInput,
+  FoundingRecordCheckoutOpenedInput,
+  FoundingRecordCheckoutPaidInput,
+  FoundingStartCheckoutInput,
+  FoundingStartCheckoutOutput,
   FoundingGrantOutput,
   FoundingRestoreInput,
   FoundingRevokeInput,
@@ -76,8 +83,12 @@ export const hashClaimToken = (token: string): Buffer =>
  * a shrug.
  */
 function asRefusal(err: unknown): never {
-  const detail = (err as { detail?: string })?.detail ?? '';
-  const constraint = (err as { constraint_name?: string })?.constraint_name ?? '';
+  // Drizzle wraps the driver's error, so the database's own words are on the innermost cause — the same walk
+  // the kernel's translateDbError makes. Reading only the outer error missed every one of them.
+  let pg: unknown = err;
+  while (pg instanceof Error && pg.cause instanceof Error) pg = pg.cause;
+  const detail = (pg as { detail?: string })?.detail ?? '';
+  const constraint = (pg as { constraint_name?: string })?.constraint_name ?? '';
   if (detail === 'founding_offer_full')
     throw HfosError.rule(
       'founding_offer_full',
@@ -102,6 +113,46 @@ function asRefusal(err: unknown): never {
       409,
       'There are already more seats out than that. Revoke one before lowering the cap.',
     );
+  // Following a claim link (0093). "No such link", "used" and "expired" are one refusal on purpose; the page the
+  // link opens has already told its holder which, from private.founding_seat_by_token.
+  if (detail === 'founding_claim_invalid')
+    throw HfosError.rule(
+      'founding_claim_invalid',
+      404,
+      'That link has expired or has already been used. Ask us for a new one.',
+    );
+  if (detail === 'founding_claim_not_yours')
+    throw HfosError.rule(
+      'founding_claim_not_yours',
+      403,
+      'Only an owner or an admin of this workspace can put a founding seat on it.',
+    );
+  if (detail === 'founding_claim_wrong_business')
+    throw HfosError.rule(
+      'founding_claim_wrong_business',
+      409,
+      'This seat was approved for a different business. Pick one of its workspaces, or sign in with the account that applied.',
+    );
+  if (detail === 'founding_claim_needs_checkout')
+    throw HfosError.rule(
+      'founding_claim_needs_checkout',
+      409,
+      'This seat is paid for at checkout. Press Pay to take it up.',
+    );
+  if (detail === 'founding_claim_is_free')
+    throw HfosError.rule(
+      'founding_claim_is_free',
+      409,
+      'This seat is free — there is nothing to pay. Take it up instead.',
+    );
+  if (detail === 'founding_checkout_elsewhere')
+    throw HfosError.rule(
+      'founding_checkout_elsewhere',
+      409,
+      'You already started paying for this seat on another workspace. Finish that payment, or start again here after it lapses tomorrow.',
+    );
+  if (detail === 'founding_checkout_missing')
+    throw HfosError.notFound('There is no checkout by that id.');
   if (constraint === 'founding_grants_one_live_per_org')
     throw HfosError.rule(
       'founding_org_has_a_seat',
@@ -283,7 +334,7 @@ export const foundingWaitlist = defineCommand({
 export const foundingClaim = defineCommand({
   name: 'founding.claim',
   description:
-    'Take up an approved seat: this workspace gets its founding plan and its starting usage credit.',
+    'Take up an approved free seat: this workspace gets its founding plan and its starting usage credit. A paid seat is taken up by paying for it (founding.start_checkout).',
   risk: 4,
   input: FoundingClaimInput,
   output: FoundingClaimOutput,
@@ -296,112 +347,191 @@ export const foundingClaim = defineCommand({
   scope: inWorkspace,
   emits: ['founding.claimed'],
   async handler(ctx, input) {
-    const [application] = await ctx.tx
-      .select()
-      .from(foundingApplications)
-      .where(eq(foundingApplications.claimTokenHash, hashClaimToken(input.token)));
     /**
-     * One message for "no such link", "already used" and "expired" on purpose: a link that answers those
-     * differently tells somebody guessing which of their guesses was close.
+     * All of it in one function (0093), because the person pressing the button can read none of the founding
+     * tables: they are staff-only, and 0091's claim — which read them here — refused everybody. The function
+     * finds the seat by the link's hash, checks the person runs this workspace and that it is in the business
+     * the seat was approved for, and takes it up under the seat's row lock: two tabs, one seat.
      */
-    const dead = () =>
-      HfosError.rule(
-        'founding_claim_invalid',
-        404,
-        'That link has expired or has already been used. Ask us for a new one.',
-      );
-    if (!application?.grantId) throw dead();
-    if (application.claimExpiresAt && application.claimExpiresAt.getTime() < Date.now())
-      throw dead();
-
-    const [grant] = await ctx.tx
-      .select()
-      .from(foundingGrants)
-      .where(eq(foundingGrants.id, application.grantId));
-    if (!grant || grant.status !== 'reserved') throw dead();
-
-    const found = await offer(ctx, grant.offerId);
-    /**
-     * A paid seat is not taken up by following a link — it is taken up by paying for it, and there is no
-     * checkout yet. Without this, claiming the $497 offer would activate a lifetime account and charge nothing:
-     * the plan below is picked from the price, and nothing between here and there asks for the money.
-     *
-     * The seat stays held until its reservation runs out, so turning this away costs the business nothing but
-     * the wait. When the checkout lands, it takes this check's place rather than sitting beside it.
-     */
-    if (found.priceCents > 0)
-      throw HfosError.rule(
-        'founding_claim_needs_checkout',
-        409,
-        `This seat is paid, and paying for it online isn't set up yet — so it can't be taken up from this link. It stays held for you${grant.expiresAt ? ` until ${grant.expiresAt.toISOString().slice(0, 10)}` : ''}, and we'll send a link to pay as soon as there is one.`,
-      );
-    const now = new Date();
-
-    // `reserved` and `active` both hold a seat, so this transition never touches the cap. The guard lets it by.
-    await ctx.tx
-      .update(foundingGrants)
-      .set({ status: 'active', workspaceId: input.workspaceId, activatedAt: now, expiresAt: null })
-      .where(eq(foundingGrants.id, grant.id))
-      .catch(asRefusal);
-
-    const plan =
-      found.priceCents === 0 ? ('founding_free' as const) : ('founding_lifetime' as const);
-    await ctx.tx
-      .insert(workspacePlans)
-      .values({
-        workspaceId: input.workspaceId,
-        organizationId: grant.organizationId,
-        plan,
-        status: 'active',
-        grantId: grant.id,
-        priceCents: 0,
-      })
-      /**
-       * A workspace that somehow already had a plan is upgraded onto the founding one rather than refused:
-       * the seat was approved by a person, and the alternative is a support ticket to fix a row.
-       */
-      .onConflictDoUpdate({
-        target: workspacePlans.workspaceId,
-        set: {
-          plan,
-          status: 'active',
-          grantId: grant.id,
-          priceCents: 0,
-          graceEndsAt: null,
-          canceledAt: null,
-        },
-      });
-
-    /**
-     * The starting credit is an ordinary wallet ledger row. Nothing about plans is taught to the wallet and
-     * nothing about wallets is taught to plans — 0072's header asks for exactly that, and this is the seam
-     * where it would have been easiest to break.
-     *
-     * It cannot go through support's credit function, which asks whether the *caller* is staff; the caller
-     * here is the worker acting for somebody who followed a link. `private.founding_credit_wallet` takes its
-     * authority from the grant instead, reads the workspace and the amount off it, and is idempotent by the
-     * ledger's own key — so a link followed twice credits once.
-     */
-    const [credited] = await rows<{ credited_cents: number | string; recorded: boolean }>(
+    const [done] = await rows<{
+      grant_id: string;
+      offer_id: string;
+      plan: 'founding_free' | 'founding_lifetime';
+      credited_cents: number | string;
+    }>(
       ctx.tx,
-      sql`select * from private.founding_credit_wallet(${grant.id}::uuid)`,
-    );
-    const creditedCents = Number(credited?.credited_cents ?? 0);
+      sql`select * from private.founding_claim_free(${hashClaimToken(input.token)}, ${input.workspaceId}::uuid)`,
+    ).catch(asRefusal);
+    if (!done) throw HfosError.internal();
 
     await ctx.emit({
       type: 'founding.claimed',
       entityType: 'founding_grant',
-      entityId: grant.id,
-      payload: { offerId: found.id, workspaceId: input.workspaceId, plan },
-      after: { offer: found.name, plan },
+      entityId: done.grant_id,
+      payload: { offerId: done.offer_id, workspaceId: input.workspaceId, plan: done.plan },
+      after: { plan: done.plan },
     });
 
     return {
-      grantId: grant.id,
-      offerId: found.id,
+      grantId: done.grant_id,
+      offerId: done.offer_id,
       workspaceId: input.workspaceId,
-      plan,
-      creditedCents,
+      plan: done.plan,
+      creditedCents: Number(done.credited_cents),
+    };
+  },
+});
+
+// ---------- paying for a seat ----------
+
+export const foundingStartCheckout = defineCommand({
+  name: 'founding.start_checkout',
+  description:
+    'Start paying for an approved paid seat, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address.',
+  risk: 3,
+  input: FoundingStartCheckoutInput,
+  output: FoundingStartCheckoutOutput,
+  // The same person founding.claim asks for, for the same reason: the seat goes on this workspace once paid.
+  permission: 'workspace.update',
+  scope: inWorkspace,
+  emits: ['founding.checkout_requested'],
+  async handler(ctx, input) {
+    const [started] = await rows<{
+      checkout_id: string;
+      status: 'pending' | 'open';
+      session_url: string | null;
+      created: boolean;
+    }>(
+      ctx.tx,
+      sql`select * from private.founding_open_checkout(${hashClaimToken(input.token)}, ${input.workspaceId}::uuid)`,
+    ).catch(asRefusal);
+    if (!started) throw HfosError.internal();
+
+    // Only a new checkout needs a page made. One picked back up already has one, or has its job queued.
+    if (started.created)
+      await ctx.emit({
+        type: 'founding.checkout_requested',
+        entityType: 'founding_checkout',
+        entityId: started.checkout_id,
+        payload: { checkoutId: started.checkout_id },
+        after: { status: 'pending' },
+      });
+
+    return {
+      checkoutId: started.checkout_id,
+      status: started.status,
+      url: started.session_url,
+      created: started.created,
+    };
+  },
+});
+
+/**
+ * The worker's three writes. Each is one function in 0093 that only moves a checkout forward, so Stripe sending
+ * an event twice — which it does — is answered `unchanged` or `already` rather than done again.
+ */
+export const foundingRecordCheckoutOpened = defineCommand({
+  name: 'founding.record_checkout_opened',
+  description: "Worker: Stripe's page for a checkout is made. Written once.",
+  risk: 1,
+  input: FoundingRecordCheckoutOpenedInput,
+  output: FoundingCheckoutRecordOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const [row] = await rows<{ opened: boolean }>(
+      ctx.tx,
+      sql`select private.founding_checkout_opened(${input.checkoutId}::uuid, ${input.sessionRef},
+            ${input.url}, ${input.expiresAt}::timestamptz) as opened`,
+    );
+    return {
+      checkoutId: input.checkoutId,
+      outcome: row?.opened ? ('opened' as const) : ('unchanged' as const),
+    };
+  },
+});
+
+export const foundingRecordCheckoutPaid = defineCommand({
+  name: 'founding.record_checkout_paid',
+  description:
+    'Worker: Stripe says a founding seat was paid for. The seat goes active on its workspace, with its plan and its credit; a payment that finds no seat to turn on is kept and flagged for staff.',
+  risk: 3,
+  input: FoundingRecordCheckoutPaidInput,
+  output: FoundingCheckoutRecordOutput,
+  permission: null,
+  scope: inWorkspace,
+  actors: ['system'],
+  emits: ['founding.paid', 'founding.claimed', 'founding.payment_stranded'],
+  async handler(ctx, input) {
+    const [done] = await rows<{
+      outcome: 'activated' | 'already' | 'no_seat';
+      grant_id: string;
+      offer_id: string;
+      plan: 'founding_free' | 'founding_lifetime' | null;
+    }>(
+      ctx.tx,
+      sql`select * from private.founding_checkout_paid(${input.checkoutId}::uuid, ${input.sessionRef},
+            ${input.paymentRef}, ${input.paidCents})`,
+    ).catch(asRefusal);
+    if (!done) throw HfosError.internal();
+    if (done.outcome === 'already')
+      return { checkoutId: input.checkoutId, outcome: 'already' as const };
+
+    await ctx.emit({
+      type: 'founding.paid',
+      entityType: 'founding_checkout',
+      entityId: input.checkoutId,
+      payload: {
+        grantId: done.grant_id,
+        offerId: done.offer_id,
+        paidCents: input.paidCents,
+        paymentRef: input.paymentRef,
+      },
+      after: { paid: `${(input.paidCents / 100).toFixed(2)}` },
+    });
+    if (done.outcome === 'activated')
+      await ctx.emit({
+        type: 'founding.claimed',
+        entityType: 'founding_grant',
+        entityId: done.grant_id,
+        payload: { offerId: done.offer_id, workspaceId: input.workspaceId, plan: done.plan },
+        after: { plan: done.plan },
+      });
+    else
+      // Paid, and no seat to turn on: somebody has to refund it or find one. Said as an event of its own so it
+      // can be noticed rather than read out of a column.
+      await ctx.emit({
+        type: 'founding.payment_stranded',
+        entityType: 'founding_checkout',
+        entityId: input.checkoutId,
+        payload: { grantId: done.grant_id, offerId: done.offer_id, paymentRef: input.paymentRef },
+      });
+    return { checkoutId: input.checkoutId, outcome: done.outcome };
+  },
+});
+
+export const foundingRecordCheckoutClosed = defineCommand({
+  name: 'founding.record_checkout_closed',
+  description:
+    "Worker: a checkout will not be paid — Stripe's page lapsed, or it could not be made. The seat stays reserved until its own deadline.",
+  risk: 1,
+  input: FoundingRecordCheckoutClosedInput,
+  output: FoundingCheckoutRecordOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: [],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const [row] = await rows<{ closed: boolean }>(
+      ctx.tx,
+      sql`select private.founding_checkout_closed(${input.checkoutId}::uuid, ${input.status},
+            ${input.problem}) as closed`,
+    );
+    return {
+      checkoutId: input.checkoutId,
+      outcome: row?.closed ? ('closed' as const) : ('unchanged' as const),
     };
   },
 });
@@ -435,6 +565,22 @@ export const foundingRevoke = defineCommand({
       .update(foundingGrants)
       .set({ status: 'revoked', revokedAt: now, revokedBy: by, revokeReason: input.reason })
       .where(eq(foundingGrants.id, grant.id));
+
+    // A payment under way on it stops being one. Stripe's page may still be open in somebody's browser; money
+    // that arrives through it anyway is recorded and flagged for a refund (0093), never turned into a seat.
+    await ctx.tx
+      .update(foundingCheckouts)
+      .set({
+        status: 'failed',
+        closedAt: now,
+        problem: 'The seat was taken back before it was paid for.',
+      })
+      .where(
+        and(
+          eq(foundingCheckouts.grantId, grant.id),
+          dsql`${foundingCheckouts.status} in ('pending', 'open')`,
+        ),
+      );
 
     /**
      * The seat and the notice are separate. Above, the seat went back in the pool. Here, the business is told
@@ -615,6 +761,10 @@ export const foundingCommands = [
   foundingDecline,
   foundingWaitlist,
   foundingClaim,
+  foundingStartCheckout,
+  foundingRecordCheckoutOpened,
+  foundingRecordCheckoutPaid,
+  foundingRecordCheckoutClosed,
   foundingRevoke,
   foundingRestore,
   foundingSetCap,

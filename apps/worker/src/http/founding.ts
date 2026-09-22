@@ -19,12 +19,22 @@
  * Both read as `service_actor`, through `asWorker`, like every other route here. The worker's own login has no
  * rights of its own on purpose, and these first shipped using it directly: both answered 500 from the moment
  * they were deployed, until test/founding-routes.test.ts drove them as the worker really connects.
+ *
+ * `POST /webhooks/stripe/platform` (0093) is Stripe telling us a founding seat was paid for. It is our own
+ * account's destination — "Your account" in Stripe, not the Connect one at `/webhooks/stripe` — signed with its
+ * own secret, and it does what every provider webhook here does: checks the signature over the exact bytes,
+ * stores the event once under its own id, and answers. The worker's processor does the rest
+ * (founding/checkout.ts).
  */
 import rateLimit from '@fastify/rate-limit';
 import { FoundingApplyInput } from '@hfos/core';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
-import { parseBody, type HttpDeps } from './common';
+import { checkoutOutcome, FOUNDING_CHECKOUT_KIND } from '../founding/checkout';
+import { WEBHOOK_MAX_BYTES } from '../money/webhook-events';
+import { header, parseBody, recordDelivery, type HttpDeps } from './common';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type CountRow = {
   id: string;
@@ -116,6 +126,63 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
          * has not done anything wrong and should not be told they have.
          */
         return { applicationId: row.application_id, status: row.status, offerId: input.offerId };
+      },
+    );
+  });
+
+  // ---------- Stripe, about our own account ----------
+  await app.register(async (hooks) => {
+    // The raw body is what is signed: JSON stays the exact string that arrived.
+    hooks.removeContentTypeParser(['application/json']);
+    hooks.addContentTypeParser(
+      'application/json',
+      { parseAs: 'string', bodyLimit: WEBHOOK_MAX_BYTES },
+      (_req, body, done) => done(null, body),
+    );
+
+    hooks.post(
+      '/webhooks/stripe/platform',
+      { bodyLimit: WEBHOOK_MAX_BYTES },
+      async (req, reply) => {
+        const platform = deps.payments.providers.stripe.platform;
+        const rawBody = typeof req.body === 'string' ? req.body : '';
+        const url = `${deps.publicUrl}${req.url}`;
+        const headers = { 'stripe-signature': header(req, 'stripe-signature') };
+        if (!platform.webhooks.configured || !platform.webhooks.verify({ rawBody, headers, url })) {
+          deps.log.warn('rejected an unsigned or mis-signed Stripe webhook for our own account');
+          return reply.code(403).type('text/plain').send('Invalid signature');
+        }
+        const event = platform.webhooks.checkout(rawBody);
+        // Anything else in our account — or a page some other part of it made — is taken, and dropped.
+        if (!event?.checkoutId || !UUID.test(event.checkoutId) || !checkoutOutcome(event))
+          return reply.code(200).send({ received: true, ignored: true });
+
+        const [route] = await asWorker(deps.httpDb, {}, (tx) =>
+          rows<{ workspace_id: string; organization_id: string }>(
+            tx,
+            sql`select workspace_id, organization_id
+              from private.founding_checkout_route(${event.checkoutId}::uuid)`,
+          ),
+        );
+        if (!route) {
+          deps.log.info(
+            { type: event.type, checkoutId: event.checkoutId },
+            'a Stripe checkout event for a checkout nobody here has',
+          );
+          return reply.code(200).send({ received: true, ignored: true });
+        }
+        await recordDelivery(deps, {
+          provider: 'stripe',
+          kind: FOUNDING_CHECKOUT_KIND,
+          // Stripe's own event id: a replay is stored once and handled once.
+          dedupeKey: event.id,
+          accountRef: null,
+          url,
+          params: { id: event.id, type: event.type, accountRef: '', createdAt: '', body: rawBody },
+          workspaceId: route.workspace_id,
+          organizationId: route.organization_id,
+        });
+        return reply.code(200).send({ received: true });
       },
     );
   });
