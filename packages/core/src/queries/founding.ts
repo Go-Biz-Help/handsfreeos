@@ -34,6 +34,7 @@ type CountRow = {
   seat_cap: number;
   claimed: number | string;
   remaining: number | string;
+  billing: 'once' | 'monthly';
 };
 
 export const foundingCounts = defineQuery({
@@ -52,9 +53,10 @@ export const foundingCounts = defineQuery({
   scope: () => ({ kind: 'none' as const }),
   actors: ['human'],
   async handler(ctx) {
-    const found = await rows<CountRow>(
+    const found = await rows<CountRow & { show_counter: boolean; superseded: boolean }>(
       ctx.tx,
-      sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed, remaining
+      sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed, remaining,
+            billing, show_counter, superseded
           from platform.founding_counts order by sort, id`,
     );
     return {
@@ -67,6 +69,9 @@ export const foundingCounts = defineQuery({
         seatCap: o.seat_cap,
         claimed: Number(o.claimed),
         remaining: Number(o.remaining),
+        billing: o.billing,
+        showCounter: o.show_counter,
+        superseded: o.superseded,
       })),
       generatedAt: new Date().toISOString(),
     };
@@ -86,11 +91,18 @@ export const platformFounding = defineQuery({
     const statusFilter = input.status ?? null;
 
     const [offers, applications, grants] = await Promise.all([
-      rows<CountRow>(
+      rows<
+        CountRow & {
+          opens_after_offer_id: string | null;
+          opens_after_count: number | null;
+          opened_at: Date | string | null;
+        }
+      >(
         ctx.tx,
         sql`select o.id, o.name, o.blurb, o.status::text as status, o.price_cents, o.seat_cap,
               private.founding_seats_held(o.id) as claimed,
-              greatest(o.seat_cap - private.founding_seats_held(o.id), 0) as remaining
+              greatest(o.seat_cap - private.founding_seats_held(o.id), 0) as remaining,
+              o.billing, o.opens_after_offer_id, o.opens_after_count, o.opened_at
             from platform.founding_offers o order by o.sort, o.id`,
       ),
       rows<{
@@ -158,6 +170,10 @@ export const platformFounding = defineQuery({
         claimed: Number(o.claimed),
         remaining: Number(o.remaining),
         priceCents: o.price_cents,
+        billing: o.billing,
+        opensAfterOfferId: o.opens_after_offer_id,
+        opensAfterCount: o.opens_after_count === null ? null : Number(o.opens_after_count),
+        openedAt: iso(o.opened_at),
       })),
       applications: applications.map((a) => ({
         applicationId: a.id,

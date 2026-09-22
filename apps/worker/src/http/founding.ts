@@ -3,9 +3,9 @@
  *
  * `GET /public/founding/counts` is what the marketing site prints. It reads `platform.founding_counts` — the
  * same view the app's own upgrade screens read through `founding.counts` — so the number a prospect is shown
- * and the number the database will enforce are the same number, always. It carries four figures an offer and
- * nothing else: no applicant, no business, no email. There is no token on it because there is nothing on it
- * worth a token.
+ * and the number the database will enforce are the same number, always. It carries the figures for each offer
+ * and which stage the sequence is in (0092) — nothing else: no applicant, no business, no email. There is no
+ * token on it because there is nothing on it worth a token.
  *
  * `POST /public/founding/apply` is the form. It goes to `private.founding_apply` rather than to a core
  * command, because the person filling it in has no workspace, no organization and usually no account, and
@@ -31,6 +31,9 @@ type CountRow = {
   seat_cap: number;
   claimed: number | string;
   remaining: number | string;
+  billing: string;
+  show_counter: boolean;
+  superseded: boolean;
 };
 
 type ApplyRow = { application_id: string; status: string; created: boolean };
@@ -45,7 +48,8 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
       async (_req, reply) => {
         const offers = await rows<CountRow>(
           deps.db,
-          sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed, remaining
+          sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed, remaining,
+                billing, show_counter, superseded
               from platform.founding_counts order by sort, id`,
         );
         /**
@@ -65,6 +69,10 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
             seatCap: o.seat_cap,
             claimed: Number(o.claimed),
             remaining: Number(o.remaining),
+            // Which stage the site is in is read from these three, so it never has to know the chain's rules.
+            billing: o.billing,
+            showCounter: o.show_counter,
+            superseded: o.superseded,
           })),
           generatedAt: new Date().toISOString(),
         };
