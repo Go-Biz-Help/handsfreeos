@@ -8008,14 +8008,25 @@ booking page; the booking site page links across to it.
 
 1. They type the domain they want, usually a subdomain of one they already own
    (`booking.lonestarhvac.com`). Ours is refused: nobody can point `handsfreeos.com` at themselves.
-2. HandsFreeOS claims the name with Vercel and shows **two records** to add wherever their domain lives —
-   their registrar, or whoever runs their website:
-   - a **TXT**, which proves they hold the name before a certificate is issued for it;
-   - a **CNAME**, which is what actually points the name here.
-3. They add both. A job looks every 15 minutes, and **Check now** looks immediately. DNS commonly takes a
-   few hours; the card says so rather than looking broken.
+2. HandsFreeOS claims the name with Vercel and shows the records to add wherever their domain lives —
+   their registrar, or whoever runs their website: a **CNAME**, which is what actually points the name
+   here, and, when Vercel asks for one, a **TXT** that proves they hold the name before a certificate is
+   issued for it.
+3. They add what it shows. A job looks every 15 minutes, and **Check now** looks immediately. DNS commonly
+   takes a few hours; the card says so rather than looking broken.
 4. When the records are found _and_ the certificate has issued, the card says **Working** and every public
    link they are shown moves onto the new name within the minute.
+
+**How many records there are is Vercel's answer, not ours.** A subdomain of a name the business already
+runs usually verifies off the CNAME alone, so the common case is a **single** record and the TXT never
+appears. Nothing in the card, the assistant's steps or this page promises a count before Vercel has given
+one — a screen that says "two records" over one record is a screen a business stops trusting.
+
+**The records arrive a moment after the domain does.** They are Vercel's to say, and the worker only asks
+once `branded_domain.add` has returned, so the card has nothing to show for a second or two. It says it is
+working that out, and fills itself in when the answer lands — a live update on the workspace channel, or
+its own short poll if that channel is down. A card still saying it a minute later means the worker is not
+draining the `branded_domain.check` job; look there, not at DNS.
 
 **Verified is not working.** A domain whose DNS is right but whose certificate has not issued yet serves a
 browser warning, which is worse than serving nothing — so `certificate_ready` is a separate column from the
