@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_MENU,
+  FLAT_MENU,
   MENU_GROUPS_MAX,
   addGroup,
   moveEntry,
@@ -14,7 +15,6 @@ import {
   ungroup,
   MENU_GROUP_LABEL_MAX,
   MENU_KEYS,
-  SUGGESTED_MENU,
   menuKeys,
   menuOf,
   nextGroupId,
@@ -29,11 +29,19 @@ import {
 const link = (key: MenuKey) => ({ kind: 'link', key }) as const;
 
 describe('menuOf', () => {
-  it('gives every place, one under the other, to someone who has never touched it', () => {
+  it('gives the shipped menu, grouped, to someone who has never touched it', () => {
     expect(menuOf(undefined)).toEqual(DEFAULT_MENU);
     expect(menuOf({})).toEqual(DEFAULT_MENU);
     expect(menuOf({ theme: 'dark' })).toEqual(DEFAULT_MENU);
-    expect(menuKeys(menuOf(null))).toEqual([...MENU_KEYS]);
+    // Grouped, and still holding every place there is.
+    expect(DEFAULT_MENU.entries.some((e) => e.kind === 'group')).toBe(true);
+    expect(new Set(menuKeys(menuOf(null)))).toEqual(new Set(MENU_KEYS));
+    // Nine rows rather than fifteen, and nothing hidden.
+    expect(DEFAULT_MENU.entries).toHaveLength(9);
+    expect(DEFAULT_MENU.hidden).toEqual([]);
+    // The flat arrangement is still there for anyone who asks the editor for it.
+    expect(FLAT_MENU.entries).toHaveLength(MENU_KEYS.length);
+    expect(FLAT_MENU.entries.some((e) => e.kind === 'group')).toBe(false);
   });
 
   it('ignores a menu it cannot read, rather than showing none', () => {
@@ -152,15 +160,17 @@ describe('normalizeMenu', () => {
     expect(new Set(menuKeys(menu))).toEqual(new Set(MENU_KEYS));
   });
 
-  it('leaves the suggested menu and the default alone', () => {
-    expect(normalizeMenu(SUGGESTED_MENU)).toEqual(SUGGESTED_MENU);
+  it('leaves the shipped menu and the flat one alone', () => {
     expect(normalizeMenu(DEFAULT_MENU)).toEqual(DEFAULT_MENU);
-    expect(new Set(menuKeys(SUGGESTED_MENU))).toEqual(new Set(MENU_KEYS));
+    expect(normalizeMenu(FLAT_MENU)).toEqual(FLAT_MENU);
+    expect(new Set(menuKeys(DEFAULT_MENU))).toEqual(new Set(MENU_KEYS));
   });
 });
 
 describe('editing helpers', () => {
   it('hands out a group id nothing else uses', () => {
+    expect(nextGroupId(FLAT_MENU)).toBe('g1');
+    // The shipped menu's group is called `more`, so a new one is still g1.
     expect(nextGroupId(DEFAULT_MENU)).toBe('g1');
     expect(
       nextGroupId({
@@ -172,11 +182,11 @@ describe('editing helpers', () => {
 
   it('knows when nothing has changed', () => {
     expect(sameMenu(DEFAULT_MENU, DEFAULT_MENU)).toBe(true);
-    expect(sameMenu(DEFAULT_MENU, SUGGESTED_MENU)).toBe(false);
+    expect(sameMenu(DEFAULT_MENU, FLAT_MENU)).toBe(false);
     // The same menu with an empty group in it is the same menu.
     expect(
-      sameMenu(DEFAULT_MENU, {
-        entries: [...DEFAULT_MENU.entries, { kind: 'group', id: 'g1', label: 'More', keys: [] }],
+      sameMenu(FLAT_MENU, {
+        entries: [...FLAT_MENU.entries, { kind: 'group', id: 'g1', label: 'More', keys: [] }],
         hidden: [],
       }),
     ).toBe(true);

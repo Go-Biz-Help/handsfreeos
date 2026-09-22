@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { api, signInOwner } from './booking-helpers';
-import { createBusiness, signUpAndConfirm } from './helpers';
+import { createBusiness, openFromMenu, signUpAndConfirm } from './helpers';
 
 test.use({ colorScheme: 'dark' });
 
@@ -48,10 +48,7 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   const bar = page.getByRole('navigation', { name: 'Primary' });
   await expect(bar.getByRole('link')).toHaveText(['Home', 'Inbox', 'Pipeline', 'Calendar']);
   await bar.getByRole('button', { name: 'More' }).click();
-  await page
-    .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'AI teammate' })
-    .click();
+  await openFromMenu(page, 'AI teammate');
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team$`));
   const picker = page.getByTestId('teammate-preset-picker');
   await expect(picker).toBeVisible();

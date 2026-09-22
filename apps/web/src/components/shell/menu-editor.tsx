@@ -4,8 +4,8 @@ import {
   MENU_ALWAYS_SHOWN,
   MENU_GROUPS_MAX,
   MENU_GROUP_LABEL_MAX,
+  FLAT_MENU,
   MENU_WORDS,
-  SUGGESTED_MENU,
   addGroup,
   moveEntry,
   moveInGroup,
@@ -186,11 +186,11 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
           <Button
             size="sm"
             variant="secondary"
-            data-testid="menu-suggest"
-            onClick={() => setDraft(SUGGESTED_MENU)}
-            title={MENU_WORDS.suggestHint}
+            data-testid="menu-flatten"
+            onClick={() => setDraft(FLAT_MENU)}
+            title={MENU_WORDS.flattenHint}
           >
-            {MENU_WORDS.suggest}
+            {MENU_WORDS.flatten}
           </Button>
           <Button
             size="sm"

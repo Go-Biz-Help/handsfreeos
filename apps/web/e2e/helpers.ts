@@ -111,3 +111,24 @@ export async function signOut(page: Page): Promise<void> {
   await page.getByTestId('sign-out').click();
   await expect(page).toHaveURL(/\/sign-in/);
 }
+
+/**
+ * Open a place from the workspace menu, wherever this person's menu keeps it.
+ *
+ * The menu ships grouped (core's `DEFAULT_MENU`), so most places are one press inside **More**: a flyout
+ * beside the sidebar, which portals out of the nav, and an accordion in the phone's drawer, which does not.
+ * A place still standing on its own — Home, Inbox, Customers, Pipeline, Calendar, Money, Tasks, Settings, or
+ * anything a spec has moved out of a group — is clicked where it is.
+ */
+export async function openFromMenu(page: Page, name: string): Promise<void> {
+  const nav = page.getByRole('navigation', { name: 'Workspace' });
+  const link = nav.getByRole('link', { name, exact: true });
+  if ((await link.count()) > 0) {
+    await link.click();
+    return;
+  }
+  // A press on an open group shuts it, so only open one that is not open already.
+  const panel = page.getByTestId('menu-group-panel-more');
+  if ((await panel.count()) === 0) await nav.getByTestId('menu-group-more').click();
+  await panel.getByRole('link', { name, exact: true }).click();
+}

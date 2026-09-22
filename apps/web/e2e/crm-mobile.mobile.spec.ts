@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createBusiness, signUpAndConfirm } from './helpers';
+import { createBusiness, openFromMenu, signUpAndConfirm } from './helpers';
 
 /** The phone shell: drawer and bottom bar navigation, the customer page, and the pipeline list with its stage picker. */
 test('navigates with the drawer and bottom bar, opens a customer, and moves a lead from the list view', async ({
@@ -35,10 +35,7 @@ test('navigates with the drawer and bottom bar, opens a customer, and moves a le
   await expect(page.getByLabel('Find a workspace')).toBeHidden();
   // Picking the workspace you are already in goes to its home; the drawer stays open behind it.
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
-  await page
-    .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'Members' })
-    .click();
+  await openFromMenu(page, 'Members');
   await expect(page).toHaveURL(/\/members$/);
 
   // Add a person from the phone; the customer page stacks into one column.

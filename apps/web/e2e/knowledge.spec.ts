@@ -35,10 +35,11 @@ test('knowledge: profile, an FAQ, a CSV import, a website scan, suggestions and 
   await signUpAndConfirm(page, 'kb-owner');
   const workspaceId = await createBusiness(page, { name: 'Lone Star HVAC & Roofing' });
 
-  // 1. From the sidebar, right after Workflows.
-  const nav = page.getByRole('navigation', { name: 'Workspace' });
-  await expect(nav.getByRole('link')).toContainText(['Workflows', 'Knowledge', 'Tasks']);
-  await nav.getByRole('link', { name: 'Knowledge' }).click();
+  // 1. From the sidebar's More, right after Workflows.
+  await page.getByRole('navigation', { name: 'Workspace' }).getByTestId('menu-group-more').click();
+  const more = page.getByTestId('menu-group-panel-more');
+  await expect(more.getByRole('link')).toContainText(['Workflows', 'Knowledge']);
+  await more.getByRole('link', { name: 'Knowledge' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/knowledge$`));
   await expect(page.getByTestId('profile-completeness')).toHaveText('0 of 7');
 

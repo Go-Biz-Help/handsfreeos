@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { cardOnHome } from './action-center-helpers';
-import { createBusiness, signUpAndConfirm } from './helpers';
+import { createBusiness, openFromMenu, signUpAndConfirm } from './helpers';
 import {
   apiAs,
   createWorkflow,
@@ -21,10 +21,7 @@ test('on a phone: the workflow list, and a step edited in the bottom sheet', asy
   const bar = page.getByRole('navigation', { name: 'Primary' });
   await expect(bar.getByRole('link')).toHaveText(['Home', 'Inbox', 'Pipeline', 'Calendar']);
   await bar.getByRole('button', { name: 'More' }).click();
-  await page
-    .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'Workflows' })
-    .click();
+  await openFromMenu(page, 'Workflows');
   await expect(page).toHaveURL(/\/workflows$/);
   await expect(page.getByTestId('workflows-empty')).toBeVisible();
 

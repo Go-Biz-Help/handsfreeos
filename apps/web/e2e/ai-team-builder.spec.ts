@@ -35,11 +35,13 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
     status: 'published',
   });
 
-  // In the drawer after Knowledge. With no teammate yet: "How should your AI teammate work?"
+  // Under More, after Knowledge. With no teammate yet: "How should your AI teammate work?"
   const nav = page.getByRole('navigation', { name: 'Workspace' });
-  const links = await nav.getByRole('link').allTextContents();
-  expect(links.indexOf('AI teammate')).toBe(links.indexOf('Knowledge') + 1);
-  await nav.getByRole('link', { name: 'AI teammate' }).click();
+  await nav.getByTestId('menu-group-more').click();
+  const more = page.getByTestId('menu-group-panel-more');
+  const inMore = await more.getByRole('link').allTextContents();
+  expect(inMore.indexOf('AI teammate')).toBe(inMore.indexOf('Knowledge') + 1);
+  await more.getByRole('link', { name: 'AI teammate' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ai-team$`));
   await expect(
     page.getByRole('heading', { name: 'How should your AI teammate work?' }),

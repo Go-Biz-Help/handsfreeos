@@ -89,17 +89,19 @@ export const StoredMenu = z.object({
 });
 export type StoredMenu = z.infer<typeof StoredMenu>;
 
-/** Every place, one under the other: what someone who has never touched their menu sees. */
-export const DEFAULT_MENU: Menu = {
+/** Every place, one under the other. The editor offers it; it is not what a menu starts as. */
+export const FLAT_MENU: Menu = {
   entries: MENU_KEYS.map((key) => ({ kind: 'link', key })),
   hidden: [],
 };
 
 /**
- * The tidy-up the editor offers in one press: the places a day is spent in stay out, and the rest fold into
- * **More**. Nine rows instead of fifteen, and nothing is lost.
+ * The menu as it ships, and what someone who has never touched theirs sees: the places a day is spent in
+ * stand on their own, and the rest fold into **More**. Nine rows instead of fifteen, with nothing lost —
+ * fifteen rows is a list to read rather than a menu to use, and the ones folded away are opened weekly at
+ * most. Anyone who wants them all back has **Start over**'s neighbour in the editor.
  */
-export const SUGGESTED_MENU: Menu = {
+export const DEFAULT_MENU: Menu = {
   entries: [
     { kind: 'link', key: 'home' },
     { kind: 'link', key: 'inbox' },
@@ -388,10 +390,10 @@ export const MENU_WORDS = {
   hide: 'Hide',
   show: 'Show',
   pinned: 'Always in the menu',
-  suggest: 'Use suggested groups',
-  suggestHint: 'Keeps the everyday places out and folds the rest into More.',
   reset: 'Start over',
-  resetHint: 'Every place, one under the other.',
+  resetHint: 'Back to the menu as it ships: the everyday places out, the rest under More.',
+  flatten: 'One under the other',
+  flattenHint: 'Every place in the menu, in no group at all.',
   save: 'Save menu',
   saving: 'Saving',
   saved: 'Menu saved.',

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { createBusiness, signUpAndConfirm } from './helpers';
+import { createBusiness, openFromMenu, signUpAndConfirm } from './helpers';
 
 /**
  * On a phone: Knowledge is in the drawer (the bar stays at five), its pages fit 390 px with the subnav
@@ -14,10 +14,7 @@ test('on a phone: Knowledge from the drawer, the overview and an FAQ fit the scr
   const bar = page.getByRole('navigation', { name: 'Primary' });
   await expect(bar.getByRole('link')).toHaveText(['Home', 'Inbox', 'Pipeline', 'Calendar']);
   await bar.getByRole('button', { name: 'More' }).click();
-  await page
-    .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'Knowledge' })
-    .click();
+  await openFromMenu(page, 'Knowledge');
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/knowledge$`));
 
   const width = () => page.evaluate(() => document.documentElement.scrollWidth);
