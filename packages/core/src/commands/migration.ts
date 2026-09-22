@@ -1317,7 +1317,8 @@ export const migrationResolveMerge = defineCommand({
         autoResolved: false,
       })
       .where(eq(migrationMergeCandidates.id, c.id));
-    // The import picks the decision up on its next pass over this record.
+    // The engine brings the record across the way it was decided, from the copy it staged: one batch, this
+    // record only.
     await ctx.tx.insert(migrationJobs).values({
       migrationId: c.migrationId,
       organizationId: c.organizationId,
@@ -1332,6 +1333,24 @@ export const migrationResolveMerge = defineCommand({
         resolvedCandidateId: c.id,
       },
     });
+    /**
+     * A batch is only ever claimed while the migration is working. Most decisions arrive while it still is —
+     * or while it is paused, and Carry on picks the batch up. One made after the checks have run would sit
+     * there forever, so the migration is put back to work for it; the checks run again when it is done and
+     * say where the migration stands, as they always do. A finished move is finished again the same way.
+     */
+    const m = await loadMigration(ctx, c.migrationId);
+    const back: MigrationLifecycle | null =
+      m.status === 'imported' || m.status === 'needs_attention'
+        ? 'importing'
+        : m.status === 'completed'
+          ? 'finalizing'
+          : null;
+    if (back)
+      await ctx.tx
+        .update(migrations)
+        .set({ status: back, lastError: null })
+        .where(eq(migrations.id, m.id));
     await ctx.emit({
       type: 'migration.merge_resolved',
       entityType: 'migration',

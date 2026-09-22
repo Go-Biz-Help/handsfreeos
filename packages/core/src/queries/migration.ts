@@ -7,6 +7,7 @@
  * the screen shows that rather than the number.
  */
 import { rows, sql } from '@hfos/db/client';
+import { uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
@@ -502,7 +503,14 @@ export const migrationReviewQueue = defineQuery({
           order by c.score desc, c.created_at
           limit ${input.limit}`,
     );
-    // Everyone each candidate could be. The evidence names them; this fetches the names to show.
+    /**
+     * Everyone each candidate could be. The evidence names them; this fetches the names to show.
+     *
+     * Through `uuidArray`, the way every other list of ids in here is handed to the database. A bare array
+     * in the template is expanded by the query builder into a row constructor — `any(($1, $2)::uuid[])` —
+     * and a record cannot be cast to `uuid[]`, so this threw for every queue that had anybody in it and the
+     * screen sat on "Looking them up…". Nothing read this query until the wizard did, so nothing had said so.
+     */
     const ids = [
       ...new Set(
         list.flatMap((c) => {
@@ -516,7 +524,7 @@ export const migrationReviewQueue = defineQuery({
           ctx.tx,
           sql`select id, btrim(first_name || ' ' || last_name) as name, email::text as email,
                 phone_e164 as phone
-              from app.people where id = any(${ids}::uuid[])`,
+              from app.people where id = any(${uuidArray(ids)})`,
         )
       : [];
     const byId = new Map(people.map((p) => [p.id, p]));

@@ -26,6 +26,12 @@
  *
  * Phase 0 of the plan — running this against a real agency and a real sub-account and writing down the field
  * coverage — is still owed before any of it is called finished. `docs/migrations.md` says so too.
+ *
+ * **What the first real account taught (0091).** Paging is where the published API and the real one part
+ * company, and a page read wrongly is not an error — it is the same records again, counted again. So every
+ * list walk here keeps how many it has seen against the source's own total, and stops the batch outright
+ * when a page ends where the last one did. The test beside this file (`migrations-gohighlevel-paging`)
+ * holds a stand-in that pages the way GoHighLevel really does.
  */
 import { createHash } from 'node:crypto';
 import type {
@@ -126,8 +132,16 @@ interface Endpoint {
   readonly listKey: string;
   /** The field that is the record's own id. */
   readonly idKey: string;
-  /** GoHighLevel pages some things by a cursor and some by a page number; both are here. */
-  readonly paging: 'startAfter' | 'page' | 'offset' | 'none';
+  /**
+   * How GoHighLevel pages this list. Four ways, and the first two are the ones that bit:
+   *   - `startAfter`: contacts. A pair — the last record's id *and* its `dateAdded` as epoch milliseconds
+   *     (`meta.startAfterId` / `meta.startAfter` in the answer). The id on its own is ignored and the first
+   *     page comes back again, forever.
+   *   - `startAfterDate`: the conversation search, which has no id cursor at all and pages by the last
+   *     conversation's `lastMessageDate`.
+   *   - `page` and `offset`: what they say.
+   */
+  readonly paging: 'startAfter' | 'startAfterDate' | 'page' | 'offset' | 'none';
   readonly countQuality: CountQuality;
   /** Whether the endpoint can be asked "what changed since?". Most of v2 cannot. */
   readonly incremental: boolean;
@@ -186,6 +200,9 @@ const ENDPOINTS: Record<string, Endpoint> = {
     countQuality: 'complete',
     incremental: true,
     objectType: 'contact',
+    // The answer carries the sub-account's whole count under `meta`, so the scan says "856" rather than
+    // "at least 1" from the one record it asked for.
+    totalKey: 'meta.total',
   },
   companies: {
     path: (s) => `/companies/?locationId=${encodeURIComponent(s)}`,
@@ -276,7 +293,7 @@ const ENDPOINTS: Record<string, Endpoint> = {
     path: (s) => `/conversations/search?locationId=${encodeURIComponent(s)}`,
     listKey: 'conversations',
     idKey: 'id',
-    paging: 'startAfter',
+    paging: 'startAfterDate',
     countQuality: 'complete',
     incremental: false,
     objectType: 'conversation',
@@ -495,6 +512,53 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   const grantedScopes = (connection: SourceConnection): ReadonlySet<string> | null =>
     connection.authKind === 'private_token' ? null : new Set(connection.scopes);
 
+  /**
+   * Where a walk has got to. Whatever the endpoint pages by, two more things ride along: how many records
+   * have been read so far (checked against the total the answer carries, so a page GoHighLevel quietly caps
+   * below what we asked for never reads as the end of the list) and the id the last page ended on (so a
+   * page that ends on it again is caught, below, rather than counted).
+   */
+  interface PageCursor {
+    startAfterId?: string;
+    startAfter?: number;
+    startAfterDate?: number;
+    page?: number;
+    offset?: number;
+    seen?: number;
+    lastId?: string;
+  }
+
+  /** A moment as epoch milliseconds, from whichever spelling GoHighLevel used, or undefined. */
+  const epochOf = (v: unknown): number | undefined => {
+    const t = asDate(v)?.getTime();
+    return t && t > 0 ? t : undefined;
+  };
+
+  /**
+   * The `dateAdded` of one contact, as the number the contacts list wants beside its id.
+   *
+   * Only ever asked for a cursor that was saved before this adapter knew the list needs the pair: those have
+   * an id and no time. One request puts the walk back where it stopped; if the contact has since gone, the
+   * walk starts again from the top, which costs re-reading what is already here and loses nothing.
+   */
+  const whenAdded = async (
+    token: string,
+    endpoint: Endpoint,
+    id: string,
+  ): Promise<number | undefined> => {
+    if (endpoint.objectType !== 'contact') return undefined;
+    try {
+      const body = await call<{ contact?: Record<string, unknown> }>(
+        token,
+        `/contacts/${encodeURIComponent(id)}`,
+        { timeoutMs: 15_000 },
+      );
+      return epochOf(body.contact?.['dateAdded']);
+    } catch {
+      return undefined;
+    }
+  };
+
   /** One page, in whichever way this endpoint pages. */
   const page = async (
     token: string,
@@ -505,18 +569,25 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     const limit = Math.min(options.limit ?? 100, 100);
     const base = endpoint.path(scopeId);
     const join = base.includes('?') ? '&' : '?';
-    const cursor = (options.cursor ?? {}) as {
-      startAfterId?: string;
-      startAfter?: number;
-      page?: number;
-      offset?: number;
-    };
+    const cursor = (options.cursor ?? {}) as PageCursor;
     // An endpoint that refuses `limit` gives everything it has in one answer, so there is nothing to page.
     let path = endpoint.limit === false ? base : `${base}${join}limit=${limit}`;
-    if (endpoint.paging === 'startAfter' && cursor.startAfterId)
-      path += `&startAfterId=${encodeURIComponent(cursor.startAfterId)}${
-        cursor.startAfter ? `&startAfter=${cursor.startAfter}` : ''
-      }`;
+    if (endpoint.paging === 'startAfter' && cursor.startAfterId) {
+      /**
+       * The contacts list pages by a pair: the last record's id and its `dateAdded` as epoch milliseconds.
+       * The id alone is ignored — GoHighLevel answers with the first page again, and an import that trusts
+       * it reads that page forever, counting the same hundred customers each time. That is what "99 of
+       * 7,700" was on an account with 856. The time used to be worked out with `Number()` on an ISO date,
+       * which is NaN, so it was never sent. A cursor saved by that code has the id and no time; the time is
+       * asked for once and the walk carries on from where it stopped.
+       */
+      const startAfter =
+        cursor.startAfter ?? (await whenAdded(token, endpoint, cursor.startAfterId));
+      if (startAfter)
+        path += `&startAfterId=${encodeURIComponent(cursor.startAfterId)}&startAfter=${startAfter}`;
+    }
+    if (endpoint.paging === 'startAfterDate' && cursor.startAfterDate)
+      path += `&startAfterDate=${cursor.startAfterDate}`;
     if (endpoint.paging === 'page') path += `&page=${cursor.page ?? 1}`;
     if (endpoint.paging === 'offset') path += `&offset=${cursor.offset ?? 0}`;
 
@@ -547,24 +618,68 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       });
     }
     const last = list[list.length - 1];
-    // An endpoint that takes no limit answered with everything at once; anything short of a full page is the
-    // end of the list either way.
-    const done = endpoint.limit === false || list.length < limit;
-    const nextCursor = done
-      ? null
-      : endpoint.paging === 'page'
-        ? { page: (cursor.page ?? 1) + 1 }
-        : endpoint.paging === 'offset'
-          ? { offset: (cursor.offset ?? 0) + list.length }
-          : endpoint.paging === 'startAfter' && last
-            ? {
-                startAfterId: asString(last[endpoint.idKey]) ?? '',
-                startAfter: Number(last['dateAdded'] ?? last['dateUpdated'] ?? 0) || undefined,
-              }
-            : null;
+    const lastId = last ? (asString(last[endpoint.idKey]) ?? asString(last['_id'])) : null;
+    /**
+     * A page that ends where the last one ended is the last one again: the source ignored where we asked it
+     * to start. Reading on would count the same records forever and never reach the ones behind them, so
+     * this stops the batch instead. The batch fails with this sentence on it, which is ours to fix, and the
+     * business sees a stopped import rather than a count climbing past what they own.
+     */
+    if (lastId && cursor.lastId && cursor.lastId === lastId)
+      throw new GhlError(
+        `GoHighLevel handed back the same page of ${endpoint.objectType} records twice, so the rest cannot be read from here. This one is ours to fix.`,
+        500,
+        'paging_stuck',
+      );
+    const total = dig(body, endpoint.totalKey ?? 'total');
+    const seen = (cursor.seen ?? 0) + list.length;
+    /**
+     * The end of the list. An endpoint that takes no limit answered with everything at once. Otherwise the
+     * answer's own total decides when it carries one — a page the source caps below what we asked for is
+     * not the end — and a page short of what we asked for decides when it does not. An empty page is the
+     * end whatever anybody says.
+     */
+    const done =
+      endpoint.limit === false ||
+      list.length === 0 ||
+      (typeof total === 'number' ? seen >= total : list.length < limit);
+    let nextCursor: PageCursor | null = null;
+    if (!done && last) {
+      const meta = (body['meta'] ?? {}) as Record<string, unknown>;
+      switch (endpoint.paging) {
+        case 'page':
+          nextCursor = { page: (cursor.page ?? 1) + 1 };
+          break;
+        case 'offset':
+          nextCursor = { offset: (cursor.offset ?? 0) + list.length };
+          break;
+        case 'startAfter':
+          // The answer says where the next page starts, when it says; the last record says otherwise.
+          nextCursor = {
+            startAfterId: asString(meta['startAfterId']) ?? lastId ?? '',
+            startAfter:
+              epochOf(meta['startAfter']) ?? epochOf(last['dateAdded'] ?? last['dateUpdated']),
+          };
+          break;
+        case 'startAfterDate': {
+          const at = epochOf(last['lastMessageDate'] ?? last['dateUpdated'] ?? last['dateAdded']);
+          if (!at)
+            throw new GhlError(
+              `GoHighLevel gave a page of ${endpoint.objectType} records with no date to carry on from. This one is ours to fix.`,
+              500,
+              'paging_stuck',
+            );
+          nextCursor = { startAfterDate: at };
+          break;
+        }
+        default:
+          nextCursor = null;
+      }
+      if (nextCursor) nextCursor = { ...nextCursor, seen, lastId: lastId ?? undefined };
+    }
     return {
       records,
-      cursor: nextCursor,
+      cursor: nextCursor as Record<string, unknown> | null,
       highWaterAt,
       done: done || nextCursor === null,
     };
@@ -621,32 +736,24 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   ): Promise<SourcePage> => {
     const cursor = (options.cursor ?? {}) as {
       queue?: string[];
-      contacts?: { startAfterId?: string; startAfter?: number } | null;
+      contacts?: Record<string, unknown> | null;
       contactsDone?: boolean;
     };
     let queue = [...(cursor.queue ?? [])];
     let contacts = cursor.contacts ?? null;
     let contactsDone = cursor.contactsDone ?? false;
 
+    // The customers, a page at a time, through the same reader the customers themselves come through — so
+    // the cursor is the pair GoHighLevel wants and a repeated page is caught there rather than walked forever.
     while (queue.length === 0 && !contactsDone) {
-      const endpoint = ENDPOINTS['contacts']!;
-      const base = endpoint.path(scopeId);
-      let path = `${base}&limit=100`;
-      if (contacts?.startAfterId) {
-        path += `&startAfterId=${encodeURIComponent(contacts.startAfterId)}`;
-        if (contacts.startAfter) path += `&startAfter=${contacts.startAfter}`;
-      }
-      const body = await call<{ contacts?: Record<string, unknown>[] }>(token, path);
-      const list = body.contacts ?? [];
-      queue = list.map((c) => asString(c['id']) ?? asString(c['_id']) ?? '').filter(Boolean);
-      const last = list[list.length - 1];
-      contactsDone = list.length < 100 || !last;
-      contacts = last
-        ? {
-            startAfterId: asString(last['id']) ?? asString(last['_id']) ?? '',
-            startAfter: Number(last['dateAdded'] ?? last['dateUpdated'] ?? 0) || undefined,
-          }
-        : null;
+      const customers = await page(token, ENDPOINTS['contacts']!, scopeId, {
+        cursor: contacts,
+        limit: 100,
+        includeDeleted: true,
+      });
+      queue = customers.records.map((c) => c.objectId);
+      contactsDone = customers.done;
+      contacts = customers.cursor;
     }
     if (queue.length === 0) return { records: [], cursor: null, highWaterAt: null, done: true };
 
@@ -799,7 +906,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     const limit = Math.min(options.limit ?? 100, 100);
     const cursor = (options.cursor ?? {}) as {
       queue?: string[];
-      conv?: { startAfterId?: string; startAfter?: number } | null;
+      conv?: Record<string, unknown> | null;
       convDone?: boolean;
       msg?: string | null;
     };
@@ -808,26 +915,17 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     let convDone = cursor.convDone ?? false;
     let msg = cursor.msg ?? null;
 
-    // Out of conversations to read from: fetch the next page of them.
+    // Out of conversations to read from: fetch the next page of them, through the same reader the
+    // conversations themselves come through, so the two walks can never disagree about how to page.
     while (queue.length === 0 && !convDone) {
-      const endpoint = ENDPOINTS['conversations']!;
-      const base = endpoint.path(scopeId);
-      let path = `${base}&limit=${limit}`;
-      if (conv?.startAfterId) {
-        path += `&startAfterId=${encodeURIComponent(conv.startAfterId)}`;
-        if (conv.startAfter) path += `&startAfter=${conv.startAfter}`;
-      }
-      const body = await call<{ conversations?: Record<string, unknown>[] }>(token, path);
-      const list = body.conversations ?? [];
-      queue = list.map((c) => asString(c['id']) ?? asString(c['_id']) ?? '').filter(Boolean);
-      const last = list[list.length - 1];
-      convDone = list.length < limit || !last;
-      conv = last
-        ? {
-            startAfterId: asString(last['id']) ?? asString(last['_id']) ?? '',
-            startAfter: Number(last['dateUpdated'] ?? last['dateAdded'] ?? 0) || undefined,
-          }
-        : null;
+      const threads = await page(token, ENDPOINTS['conversations']!, scopeId, {
+        cursor: conv,
+        limit,
+        includeDeleted: true,
+      });
+      queue = threads.records.map((c) => c.objectId);
+      convDone = threads.done;
+      conv = threads.cursor;
     }
     if (queue.length === 0) return { records: [], cursor: null, highWaterAt: null, done: true };
 

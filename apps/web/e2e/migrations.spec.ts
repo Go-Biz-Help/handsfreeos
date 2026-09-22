@@ -80,6 +80,7 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
   await page.getByTestId('migration-start').click();
   await page.getByTestId('migration-scan-go').click();
   await expect(page).toHaveURL(/\/migrations\/[0-9a-f-]{36}/);
+  const migrationId = new URL(page.url()).pathname.split('/').pop()!;
   await eventually(page, page.getByTestId('migration-map'));
   await expect(page.getByTestId('migration-inventory')).toBeVisible();
 
@@ -122,6 +123,36 @@ test('migrations: connect, look, map two sub-accounts into one business, choose,
   expect(tom).toHaveLength(1);
   const austinDave = people.items.find((p) => p.firstName === 'Dave');
   expect(new Date(austinDave!.createdAt).getUTCFullYear()).toBeLessThan(2024);
+
+  /**
+   * The one the import would not guess about. Chris Doyle's email is Maria's and his phone is Dave's, so he
+   * is two different people at once and no rule may pick. He is not here yet, and the screen says so with
+   * somewhere to answer: until 0091 the count was a sentence with no buttons under it, so the question was
+   * asked and could never be answered.
+   */
+  expect(people.items.some((p) => p.firstName === 'Chris')).toBe(false);
+  const queue = page.getByTestId('migration-review-queue');
+  await expect(queue).toContainText('1 customer needs you to say');
+  // Both of the people he collides with are offered by name, which is the whole of the evidence.
+  await expect(queue.getByRole('button', { name: /^Same as Maria Alvarez/ })).toBeVisible();
+  await expect(queue.getByRole('button', { name: /^Same as Dave Smith/ })).toBeVisible();
+  await queue.getByTestId('migration-review-separate').click();
+
+  // Answered: he comes across from the copy staged when he was first seen, with the date Dallas had for him,
+  // and the migration counts him as brought rather than waiting.
+  await expect(async () => {
+    const after = await api<{
+      items: { firstName: string; lastName: string; createdAt: string }[];
+    }>('queries/person.list', { workspaceId: lonestar, limit: 50 });
+    const chris = after.items.find((p) => p.firstName === 'Chris' && p.lastName === 'Doyle');
+    expect(chris).toBeDefined();
+    expect(new Date(chris!.createdAt).getUTCFullYear()).toBe(2022);
+    const detail = await api<{ needsReview: number }>('queries/migration.get', {
+      organizationId: orgId,
+      migrationId,
+    });
+    expect(detail.needsReview).toBe(0);
+  }).toPass({ timeout: 90_000 });
 
   // And they are in the ordinary customers list, not a separate archive.
   await page.goto(`/app/w/${lonestar}/customers`);

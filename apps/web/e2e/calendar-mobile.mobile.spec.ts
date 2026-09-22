@@ -61,7 +61,10 @@ test('the phone bar has the calendar, and the agenda books, opens and cancels', 
     (await page.locator('[data-testid^="agenda-day-"]').first().getAttribute('data-testid'))!.slice(
       'agenda-day-'.length,
     );
-  // A week, never the month's cells: the strip is read below, so it has to be the thing being read.
+  // The strip is the day view's seven days, and `aria-pressed` above is true of the month's 42 as well — the
+  // day is in both — so this is what makes the read below the week's first day and not the month grid's first
+  // cell, three weeks back. The page now works the week out itself rather than waiting for the server's range
+  // (`weekOf` in calendar-page.tsx), so this is the invariant standing guard over it, not a wait.
   await expect(page.locator('[data-testid^="agenda-day-"]')).toHaveCount(7);
   const first = await stripStart();
   await page.getByTestId('agenda-next').click();
