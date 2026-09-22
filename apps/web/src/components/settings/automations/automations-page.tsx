@@ -15,6 +15,7 @@ import {
   automationCounts,
   automationPatch,
   automationRows,
+  DEFAULT_FOLLOW_UP_LADDER_HOURS,
   type AdjustPanel,
   type AttentionSettings,
   type AutomationEffect,
@@ -34,7 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { Pipeline, Role } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
-import { AdjustPanelView, type PanelEnv } from './panels';
+import { AdjustPanelView, type FollowUpView, type PanelEnv } from './panels';
 import { useQueuedSave } from './use-queued-save';
 
 /** The AI teammate, as this page needs it. */
@@ -128,6 +129,12 @@ export function AutomationsSettings({
   const ai = teammate.value?.name ?? 'Your AI teammate';
 
   function flip(row: AutomationRow, on: boolean) {
+    // Its wording is read first: the switch opens it instead, where "Looks good, turn on" is.
+    if (on && row.awaitingReview) {
+      toast('Read the message first, then use Looks good, turn on.');
+      setAdjusting(row);
+      return;
+    }
     const patch = automationPatch(row.def.id as AutomationId, on, ctx);
     if (!patch) {
       if (!teammate.value) toast('Set up your AI teammate first.');
@@ -147,12 +154,37 @@ export function AutomationsSettings({
     }
   }
 
+  const followUpOf = (config: Record<string, unknown>): FollowUpView => {
+    const f = (config['followUp'] ?? {}) as Partial<FollowUpView>;
+    return {
+      enabled: f.enabled ?? true,
+      ladderHours: f.ladderHours ?? DEFAULT_FOLLOW_UP_LADDER_HOURS,
+      monthlyForMonths: f.monthlyForMonths ?? 6,
+    };
+  };
   const env: PanelEnv = {
     workspaceId,
     role,
     businessName,
     attention: attention.value,
     saveAttention: attention.save,
+    automations: automations.value,
+    saveAutomations: automations.save,
+    followUp: teammate.value ? followUpOf(teammate.value.config) : null,
+    saveFollowUp: (patch, done) =>
+      teammate.save(
+        (t) =>
+          t
+            ? {
+                ...t,
+                config: {
+                  ...t.config,
+                  followUp: { ...(t.config['followUp'] as object), ...patch },
+                },
+              }
+            : t,
+        done,
+      ),
     workedOut,
     typicalFrom,
     pipelines,
@@ -277,6 +309,7 @@ function AutomationRowView({
             {AUTOMATION_EFFECT_LABELS[def.effect]}
           </span>
           {row.drafts && row.on ? <span>· Waits for your approval while training</span> : null}
+          {row.awaitingReview ? <span>· Read the message first</span> : null}
           {def.adjust ? (
             <>
               <span aria-hidden>·</span>

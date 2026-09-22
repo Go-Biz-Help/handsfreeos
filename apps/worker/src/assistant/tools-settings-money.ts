@@ -493,10 +493,12 @@ function teammatePatch(args: Args) {
       ...(bool(args['booksVisits']) === undefined ? {} : { enabled: args['booksVisits'] }),
       ...(list(args['bookableCalendarIds']) ? { calendarIds: args['bookableCalendarIds'] } : {}),
     };
-  if (bool(args['followsUp']) !== undefined || num(args['maxFollowUps']) !== undefined)
+  if (bool(args['followsUp']) !== undefined || num(args['followUpMonths']) !== undefined)
     patch['followUp'] = {
       ...(bool(args['followsUp']) === undefined ? {} : { enabled: args['followsUp'] }),
-      ...(num(args['maxFollowUps']) === undefined ? {} : { maxNudges: args['maxFollowUps'] }),
+      ...(num(args['followUpMonths']) === undefined
+        ? {}
+        : { monthlyForMonths: args['followUpMonths'] }),
     };
   if (str(args['hoursMode'])) patch['hours'] = { mode: str(args['hoursMode']) };
   return patch;
@@ -556,6 +558,14 @@ const manageAiTeammate: SettingsConfirmTool = {
       ...(bool(args['followsUp']) === undefined
         ? []
         : [{ label: 'Follows up', value: args['followsUp'] ? 'Yes' : 'No' }]),
+      ...(num(args['followUpMonths']) === undefined
+        ? []
+        : [
+            {
+              label: 'Then monthly for',
+              value: `${String(args['followUpMonths'])} ${args['followUpMonths'] === 1 ? 'month' : 'months'}`,
+            },
+          ]),
       ...(str(args['hoursMode'])
         ? [
             {

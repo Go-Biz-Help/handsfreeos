@@ -23939,7 +23939,7 @@
     "/v1/commands/automations.save_settings": {
       "post": {
         "operationId": "command_automations_save_settings",
-        "summary": "Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers and the morning email.",
+        "summary": "Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers, the morning email, and re-engaging dead leads with its message. Turning re-engaging on (“Looks good, turn on”) records that the message was read.",
         "tags": [
           "commands"
         ],
@@ -23978,6 +23978,53 @@
                           "morningBrief": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "reengage": {
+                            "default": false,
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "reengage": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "template": {
+                            "default": "Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with?",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 480
+                          },
+                          "reviewedAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "afterDays": {
+                            "default": 90,
+                            "type": "integer",
+                            "minimum": 30,
+                            "maximum": 730
+                          },
+                          "maxPerDay": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200
+                          },
+                          "cooldownDays": {
+                            "default": 180,
+                            "type": "integer",
+                            "minimum": 30,
+                            "maximum": 730
                           }
                         }
                       }
@@ -24026,19 +24073,75 @@
                             "morningBrief": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "reengage": {
+                              "default": false,
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "dayBefore",
                             "dayOf",
                             "waitlist",
-                            "morningBrief"
+                            "morningBrief",
+                            "reengage"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "reengage": {
+                          "type": "object",
+                          "properties": {
+                            "template": {
+                              "default": "Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with?",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            },
+                            "reviewedAt": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "afterDays": {
+                              "default": 90,
+                              "type": "integer",
+                              "minimum": 30,
+                              "maximum": 730
+                            },
+                            "maxPerDay": {
+                              "default": 20,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 200
+                            },
+                            "cooldownDays": {
+                              "default": 180,
+                              "type": "integer",
+                              "minimum": 30,
+                              "maximum": 730
+                            }
+                          },
+                          "required": [
+                            "template",
+                            "reviewedAt",
+                            "afterDays",
+                            "maxPerDay",
+                            "cooldownDays"
                           ],
                           "additionalProperties": false
                         }
                       },
                       "required": [
-                        "switches"
+                        "switches",
+                        "reengage"
                       ],
                       "additionalProperties": false
                     },

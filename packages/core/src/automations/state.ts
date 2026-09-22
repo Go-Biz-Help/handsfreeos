@@ -2,6 +2,7 @@
  * Where each automation stands for one business: on or off, and whether it needs something set up first. Pure
  * and browser-safe; the page renders from it and its switches write back through `automationPatch`.
  */
+import { emptyTeammateConfig } from '../ai-team/config';
 import type { AttentionSettings } from '../attention/settings';
 import type { TeammateStatus } from '../schemas/ai-team';
 import {
@@ -41,6 +42,8 @@ export interface AutomationRow {
   readonly needsSetup: NeedsSetup | null;
   /** Its messages wait for approval right now (the AI teammate is still training). */
   readonly drafts: boolean;
+  /** Its wording must be read in Adjust before the switch can go on. */
+  readonly awaitingReview: boolean;
 }
 
 const readPath = (doc: Readonly<Record<string, unknown>>, path: string): unknown =>
@@ -52,15 +55,17 @@ const readPath = (doc: Readonly<Record<string, unknown>>, path: string): unknown
       doc,
     );
 
-/** A teammate skill's switch, with the teammate settings' own defaults when it isn't set. */
+let teammateDefaults: Readonly<Record<string, unknown>> | null = null;
+
+/** A teammate skill's switch, with the teammate settings' own default when it isn't set. */
 export function teammateSwitchOn(
   config: Readonly<Record<string, unknown>>,
   path: TeammateSwitchPath,
-) {
+): boolean {
   const value = readPath(config, path);
   if (typeof value === 'boolean') return value;
-  // The defaults in ai-team/config.ts: new leads on, follow-ups off.
-  return path === 'respond.newLeads.enabled';
+  teammateDefaults ??= emptyTeammateConfig() as unknown as Record<string, unknown>;
+  return readPath(teammateDefaults, path) === true;
 }
 
 /** Whether a row's switch is on, read from wherever it lives. */
@@ -91,6 +96,11 @@ function needsSetupOf(def: AutomationDef, ctx: AutomationContext): NeedsSetup | 
   return null;
 }
 
+/** When a review-first row's wording was read, or null. */
+function reviewedAtOf(def: AutomationDef, ctx: AutomationContext): string | null {
+  return def.id === 'reengage_dead_leads' ? ctx.automations.reengage.reviewedAt : null;
+}
+
 /** One row. */
 export function automationRow(def: AutomationDef, ctx: AutomationContext): AutomationRow {
   const on = automationOnIn(def, ctx);
@@ -102,6 +112,7 @@ export function automationRow(def: AutomationDef, ctx: AutomationContext): Autom
     locked: def.locked === true,
     needsSetup,
     drafts: def.customerFacing === 'ai' && ctx.teammate?.status === 'training',
+    awaitingReview: def.reviewFirst === true && reviewedAtOf(def, ctx) === null,
   };
 }
 
@@ -162,6 +173,8 @@ export function automationPatch(
 ): AutomationPatch | null {
   const def = AUTOMATIONS.find((a) => a.id === id) as AutomationDef | undefined;
   if (!def || def.locked) return null;
+  // Turning on waits for the wording to be read; turning off never does.
+  if (on && def.reviewFirst && reviewedAtOf(def, ctx) === null) return null;
   const b = def.binding;
   switch (b.store) {
     case 'attention_kind': {

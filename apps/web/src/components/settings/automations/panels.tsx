@@ -10,7 +10,10 @@ import {
   AUTO_CANCEL_WINDOW_MINUTES,
   AUTO_RECENT_PERSON_HOURS,
   checkNudgeTemplate,
+  DEFAULT_FOLLOW_UP_LADDER_HOURS,
   DEFAULT_NUDGE_TEMPLATE,
+  DEFAULT_REENGAGE_TEMPLATE,
+  followUpLadderWords,
   NUDGE_SAMPLE,
   renderNudge,
   shortBusinessName,
@@ -18,6 +21,7 @@ import {
   type AdjustPanel,
   type AttentionKind,
   type AttentionSettings,
+  type AutomationSettings,
   type NudgeCheckContext,
   type NudgePlaceholder,
   type NudgeProblemCode,
@@ -37,11 +41,19 @@ import { formatMoney } from '@/lib/format';
 import { SetRow } from '../set-row';
 import { Check1, MoneyBox, NumberBox, tomorrowLabel } from './inputs';
 
-type SaveAttention = (
-  change: (s: AttentionSettings) => AttentionSettings,
+type Save<T> = (
+  change: (s: T) => T,
   done?: string,
   onError?: (e: unknown) => void,
 ) => Promise<boolean>;
+type SaveAttention = Save<AttentionSettings>;
+
+/** The AI teammate's follow-up settings, as its config holds them. */
+export interface FollowUpView {
+  readonly enabled: boolean;
+  readonly ladderHours: readonly number[];
+  readonly monthlyForMonths: number;
+}
 
 /** What every panel may need: the business, the Action Center's settings and how to save them. */
 export interface PanelEnv {
@@ -50,6 +62,12 @@ export interface PanelEnv {
   readonly businessName: string;
   readonly attention: AttentionSettings;
   readonly saveAttention: SaveAttention;
+  readonly automations: AutomationSettings;
+  readonly saveAutomations: Save<AutomationSettings>;
+  /** The AI teammate's follow-ups, or null with no teammate yet. */
+  readonly followUp: FollowUpView | null;
+  /** Saves a change to them in the teammate's settings. */
+  readonly saveFollowUp: (patch: Partial<FollowUpView>, done: string) => Promise<boolean>;
   /** What HandsFreeOS works out for a lead with no value, when the business hasn't set its own. */
   readonly workedOut: number;
   readonly typicalFrom: 'won_median' | 'default';
@@ -142,16 +160,18 @@ function NewLeadPanel({ env }: { env: PanelEnv }) {
   return (
     <Block>
       <Note>
-        {ai} sends the first message a minute after a new lead or form comes in: a text when they
-        agreed to texts, otherwise an email. How soon, and by text or email, is set on{' '}
+        {ai} sends the first message a minute after a new lead or form comes in, whatever hours it
+        works: a text when they agreed to texts, otherwise an email. How soon, and by text or email,
+        is set on{' '}
         <Link href={`/app/w/${env.workspaceId}/ai-team`} className={linkCls}>
           AI teammate
         </Link>
         .
       </Note>
       <Note>
-        Texts aren’t sent during quiet hours. While {ai} is training, each greeting waits for you to
-        approve it.
+        At night it still texts someone who came in on their own within 15 minutes of them getting
+        in touch. Anyone later waits until quiet hours end. While {ai} is training, each greeting
+        waits for you to approve it.
       </Note>
     </Block>
   );
@@ -291,21 +311,147 @@ function UnansweredPanel({ env }: { env: PanelEnv }) {
   );
 }
 
+/** Hours as the ladder's boxes show them: whole days as days, anything else as hours. */
+const stepOf = (h: number): { value: number; unit: 'hours' | 'days' } =>
+  h % 24 === 0 ? { value: h / 24, unit: 'days' } : { value: h, unit: 'hours' };
+
 function FollowUpsPanel({ env }: { env: PanelEnv }) {
+  const ai = env.teammateName ?? 'Your AI teammate';
+  const f = env.followUp;
+  const ladder = f?.ladderHours ?? DEFAULT_FOLLOW_UP_LADDER_HOURS;
+  /** A step changed: the ladder must still go forward, one after the other. */
+  function setStep(i: number, hours: number) {
+    const next = ladder.map((h, j) => (j === i ? hours : h));
+    if (next.some((h, j) => j > 0 && h <= next[j - 1]!)) {
+      toast.error('Each follow-up has to come after the one before.');
+      return;
+    }
+    void env.saveFollowUp({ ladderHours: next }, `Follow-ups: ${followUpLadderWords(next)}.`);
+  }
+  return (
+    <>
+      <Block>
+        <Note>
+          When a customer stops replying to {ai}, it follows up on this schedule, counted from the
+          message they didn’t answer. It stops the moment they reply, book, say no, their lead is
+          won or lost, or they text STOP.
+        </Note>
+        <Note>
+          Leads a person is handling get their own follow-up text in your words: see Stale
+          opportunities.
+        </Note>
+      </Block>
+      {f ? (
+        <Block title="When they go">
+          <p className="text-xs text-text-3" data-testid="followup-ladder-words">
+            {followUpLadderWords(ladder)}, then once a month for {f.monthlyForMonths}{' '}
+            {f.monthlyForMonths === 1 ? 'month' : 'months'}.
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+            {ladder.map((h, i) => {
+              const s = stepOf(h);
+              // Each step stays between its neighbours, so the box itself refuses one that would jump the queue.
+              const prev = ladder[i - 1] ?? 0;
+              const next = ladder[i + 1] ?? Number.POSITIVE_INFINITY;
+              const min =
+                s.unit === 'days' ? Math.max(1, Math.floor(prev / 24) + 1) : Math.max(1, prev + 1);
+              const max =
+                s.unit === 'days'
+                  ? Math.min(365, Math.ceil(next / 24) - 1)
+                  : Math.min(72, next - 1);
+              return (
+                <SetRow key={i} center first={i === 0} title={`Follow-up ${i + 1}`}>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-xs text-text-3">after</span>
+                    <NumberBox
+                      value={s.value}
+                      min={min}
+                      max={Math.max(min, max)}
+                      unit={s.unit}
+                      label={`Follow-up ${i + 1} goes this long after the unanswered message`}
+                      onCommit={(n) => setStep(i, s.unit === 'days' ? n * 24 : n)}
+                      testId={`followup-step-${i}`}
+                    />
+                  </span>
+                </SetRow>
+              );
+            })}
+          </div>
+          <SetRow
+            center
+            title="Then once a month for"
+            description="0 stops after the last follow-up above."
+          >
+            <NumberBox
+              value={f.monthlyForMonths}
+              min={0}
+              max={12}
+              unit="months"
+              label="Then once a month for this many months"
+              onCommit={(n) =>
+                void env.saveFollowUp(
+                  { monthlyForMonths: n },
+                  n === 0 ? 'No monthly follow-ups.' : `Then monthly for ${n} months.`,
+                )
+              }
+              testId="followup-monthly"
+            />
+          </SetRow>
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={
+                ladder.join() === DEFAULT_FOLLOW_UP_LADDER_HOURS.join() && f.monthlyForMonths === 6
+              }
+              onClick={() =>
+                void env.saveFollowUp(
+                  { ladderHours: [...DEFAULT_FOLLOW_UP_LADDER_HOURS], monthlyForMonths: 6 },
+                  'The schedule is back to the original.',
+                )
+              }
+              data-testid="followup-reset"
+            >
+              Reset
+            </Button>
+          </div>
+        </Block>
+      ) : (
+        <Block>
+          <Note>
+            Set up your{' '}
+            <Link href={`/app/w/${env.workspaceId}/ai-team`} className={linkCls}>
+              AI teammate
+            </Link>{' '}
+            to change when follow-ups go.
+          </Note>
+        </Block>
+      )}
+    </>
+  );
+}
+
+function NeverRepliedPanel({ env }: { env: PanelEnv }) {
   const ai = env.teammateName ?? 'Your AI teammate';
   return (
     <Block>
       <Note>
-        When a customer stops replying to {ai}, it follows up on a timed schedule and stops the
-        moment they reply, book, say no or text STOP. How many follow-ups it sends is set on{' '}
-        <Link href={`/app/w/${env.workspaceId}/ai-team`} className={linkCls}>
-          AI teammate
-        </Link>
-        .
+        When someone fills in a form or gets in touch and never answers {ai}’s first message, it
+        follows up on the same schedule as Follow-ups after silence. Each follow-up is written from
+        what they asked for on the form, so it reads like a person remembered them.
       </Note>
+    </Block>
+  );
+}
+
+function ChaseTimesPanel({ env }: { env: PanelEnv }) {
+  const ai = env.teammateName ?? 'Your AI teammate';
+  return (
+    <Block>
       <Note>
-        Leads a person is handling get their own follow-up text in your words: see Stale
-        opportunities.
+        When {ai} offered times and they went quiet, the first follow-up comes sooner: before the
+        earliest of those times, but never within an hour of offering them. It checks which times
+        are still open, offers those again, and finds new ones if they’ve all gone.
       </Note>
     </Block>
   );
@@ -575,7 +721,7 @@ function MorningPanel({ env }: { env: PanelEnv }) {
   );
 }
 
-// ---- Stale, with the follow-up in the business's own words ----
+// ---- Wording in the business's own words: the stale-lead follow-up, and re-engaging dead leads ----
 
 /** The chips that put a placeholder in the wording, with the words the canvas gives them. */
 const INSERTS: readonly (readonly [NudgePlaceholder, string])[] = [
@@ -586,21 +732,237 @@ const INSERTS: readonly (readonly [NudgePlaceholder, string])[] = [
   ['businessPhone', 'Business phone'],
 ];
 
-/** The wording's box, which the Insert chips type into where the cursor was. */
-const BOX_ID = 'nudge-template';
-
-function StalePanel({ env }: { env: PanelEnv }) {
-  const settings = env.attention;
-  const [draft, setDraft] = useState(settings.nudge.template);
+/**
+ * A message in the business's own words, with its live preview and checks, and "Looks good, turn on" for an
+ * owner: nothing in these words goes out until an owner has read them (Chris's rule for automatic messages).
+ * Test ids start with `prefix`, so the stale follow-up keeps the Action Center's (`ac-…`).
+ */
+function WordingEditor({
+  env,
+  prefix,
+  label,
+  template,
+  defaultTemplate,
+  sampleLeadTitle,
+  on,
+  reviewed,
+  noun,
+  onNote,
+  saveTemplate,
+  lookGood,
+}: {
+  env: PanelEnv;
+  prefix: string;
+  /** "Follow-up wording": the box's name, for screen readers. */
+  label: string;
+  /** What's saved now. */
+  template: string;
+  defaultTemplate: string;
+  sampleLeadTitle: string;
+  on: boolean;
+  reviewed: boolean;
+  /** "follow-ups", "re-engage texts": what turning it on turns on. */
+  noun: string;
+  /** Under the On badge, once it's on. */
+  onNote: string;
+  saveTemplate: (text: string, done: string, onError: (e: unknown) => void) => Promise<boolean>;
+  lookGood: (text: string, onError: (e: unknown) => void) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState(template);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [turningOn, setTurningOn] = useState(false);
   const [turnedOnNow, setTurnedOnNow] = useState(false);
+  const boxId = `${prefix}-wording-box`;
   const owner = env.role === 'owner';
-  const save = (change: (s: AttentionSettings) => AttentionSettings, done?: string) =>
-    env.saveAttention(change, done, (e) => {
-      const wording = fieldErrors(e).template;
-      if (wording) setTemplateError(wording);
+  const onError = (e: unknown) => {
+    const f = fieldErrors(e);
+    const wording = f.template ?? Object.entries(f).find(([k]) => k.endsWith('template'))?.[1];
+    if (wording) setTemplateError(wording);
+  };
+
+  const phone = env.check.businessPhone?.trim() || NUDGE_SAMPLE.businessPhone;
+  const preview = renderNudge(draft, {
+    firstName: NUDGE_SAMPLE.firstName,
+    businessName: env.businessName,
+    leadTitle: sampleLeadTitle,
+    senderName: env.senderName,
+    businessPhone: phone,
+  }).text;
+  const verdict = checkNudgeTemplate(draft, env.check);
+  const has = (code: NudgeProblemCode) => verdict.problems.some((p) => p.code === code);
+  const segments = smsSegments(preview);
+  const dirty = draft.trim() !== template;
+  const short = shortBusinessName(env.businessName);
+
+  async function saveWording(): Promise<boolean> {
+    if (!dirty) return true;
+    if (!verdict.ok) return false;
+    setTemplateError(null);
+    return saveTemplate(draft.trim(), 'Wording saved.', onError);
+  }
+
+  function insert(name: NudgePlaceholder) {
+    const el = document.getElementById(boxId) as HTMLTextAreaElement | null;
+    const token = `{${name}}`;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    const before = draft.slice(0, start);
+    const after = draft.slice(end);
+    const pad = before && !/\s$/.test(before) ? ' ' : '';
+    setDraft(`${before}${pad}${token}${after}`);
+    setTemplateError(null);
+    const at = before.length + pad.length + token.length;
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(at, at);
     });
+  }
+
+  async function turnOn() {
+    if (!verdict.ok) return;
+    setTurningOn(true);
+    const ok = await lookGood(draft.trim(), onError);
+    setTurningOn(false);
+    if (ok) setTurnedOnNow(true);
+  }
+
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-text-3">
+          Plain words, no prices and no links. It goes from your business number.
+        </p>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={draft === defaultTemplate}
+          onClick={() => {
+            setDraft(defaultTemplate);
+            setTemplateError(null);
+            void saveTemplate(defaultTemplate, 'The wording is back to the original.', onError);
+          }}
+          data-testid={`${prefix}-reset`}
+        >
+          Reset
+        </Button>
+      </div>
+      <div id={`${prefix}-wording`} className="scroll-mt-24" />
+      <Textarea
+        id={boxId}
+        aria-label={label}
+        value={draft}
+        maxLength={480}
+        invalid={!verdict.ok || !!templateError}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setTemplateError(null);
+        }}
+        onBlur={() => void saveWording()}
+        className="mt-2 min-h-[92px] rounded-[10px] px-[11px] py-[9px] text-[13.5px] leading-[1.65] max-md:min-h-[128px]"
+        data-testid={`${prefix}-template`}
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-text-3">Insert:</span>
+        {INSERTS.map(([name, chip]) => (
+          <button
+            key={name}
+            type="button"
+            // Keeps the cursor in the box, so the slot lands where it was.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => insert(name)}
+            className="inline-flex h-[26px] items-center rounded-full border border-border-strong bg-card px-[9px] text-xs font-medium text-text-2 hover:bg-card-2"
+            data-testid={`${prefix}-insert-${name}`}
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3.5 flex flex-col gap-1.5">
+        <span className={heading}>Preview for {NUDGE_SAMPLE.firstName}</span>
+        <div className="flex flex-col rounded-xl border border-border bg-card-2 px-4 py-3.5">
+          {preview ? (
+            <div
+              className="max-w-[92%] self-end rounded-2xl rounded-br-[5px] bg-accent px-[13px] py-2.5 text-sm leading-[1.45] text-white [overflow-wrap:anywhere]"
+              data-testid={`${prefix}-preview`}
+            >
+              {preview}
+            </div>
+          ) : (
+            <span className="text-[13px] text-text-3" data-testid={`${prefix}-preview`}>
+              Nothing to send yet.
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5" data-testid={`${prefix}-checks`}>
+        <Check1 ok={!has('money')} testId={`${prefix}-check-money`}>
+          No prices or amounts
+        </Check1>
+        <Check1 ok={!has('link')} testId={`${prefix}-check-link`}>
+          No links
+        </Check1>
+        <Check1 ok={!has('length') && !has('empty')} testId={`${prefix}-check-length`}>
+          {segments.units} characters · {segments.segments || 1}{' '}
+          {segments.segments > 1 ? 'texts' : 'text'}
+        </Check1>
+      </div>
+      {verdict.problems.length || templateError ? (
+        <ul
+          role="alert"
+          className="mt-2 flex flex-col gap-1 text-[12.5px] text-warning-text"
+          data-testid={`${prefix}-problems`}
+        >
+          {verdict.problems.map((p) => (
+            <li key={p.message}>{p.message}</li>
+          ))}
+          {templateError && !verdict.problems.some((p) => p.message === templateError) ? (
+            <li>{templateError}</li>
+          ) : null}
+        </ul>
+      ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-2.5 border-t border-border pt-3.5">
+        {on ? (
+          <>
+            <Badge variant="ok" data-testid={`${prefix}-on`}>
+              On
+            </Badge>
+            <span className="text-xs text-text-3">
+              {turnedOnNow ? `Turned on by ${env.senderName} just now. ${onNote}` : onNote}
+            </span>
+          </>
+        ) : owner ? (
+          <>
+            <Button
+              onClick={() => void turnOn()}
+              loading={turningOn}
+              disabled={!verdict.ok}
+              data-testid={`${prefix}-look-good`}
+            >
+              Looks good, turn on
+            </Button>
+            <span className="text-xs text-text-3">
+              Turns on {noun} for all of {short}. Only owners see this button.
+            </span>
+          </>
+        ) : (
+          <span className="text-xs text-text-3" data-testid={`${prefix}-owner-only`}>
+            {reviewed
+              ? `${noun[0]!.toUpperCase()}${noun.slice(1)} are off. Turn them on above.`
+              : `An owner turns ${noun} on after reading the wording.`}
+          </span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function StalePanel({ env }: { env: PanelEnv }) {
+  const settings = env.attention;
+  const save = (
+    change: (s: AttentionSettings) => AttentionSettings,
+    done?: string,
+    onError?: (e: unknown) => void,
+  ) => env.saveAttention(change, done, onError);
 
   // ---- Gone quiet, by stage ----
   const staleOf = (stageId: string) => settings.stale.stageDays[stageId] ?? settings.stale.days;
@@ -618,80 +980,19 @@ function StalePanel({ env }: { env: PanelEnv }) {
     .map((p) => ({ ...p, open: p.stages.filter((st) => st.kind === 'open') }))
     .filter((p) => p.open.length > 0);
 
-  // ---- The wording ----
-  const phone = env.check.businessPhone?.trim() || NUDGE_SAMPLE.businessPhone;
-  const preview = renderNudge(draft, {
-    firstName: NUDGE_SAMPLE.firstName,
-    businessName: env.businessName,
-    leadTitle: NUDGE_SAMPLE.leadTitle,
-    senderName: env.senderName,
-    businessPhone: phone,
-  }).text;
-  const verdict = checkNudgeTemplate(draft, env.check);
-  const has = (code: NudgeProblemCode) => verdict.problems.some((p) => p.code === code);
-  const segments = smsSegments(preview);
   const reviewed = settings.auto.nudgeReviewedAt !== null;
   const nudgesOn = settings.auto.nudges && reviewed;
-  const dirty = draft.trim() !== settings.nudge.template;
-  const short = shortBusinessName(env.businessName);
-
-  async function saveWording(): Promise<boolean> {
-    if (!dirty) return true;
-    if (!verdict.ok) return false;
-    const text = draft.trim();
-    setTemplateError(null);
-    return save((s) => ({ ...s, nudge: { ...s.nudge, template: text } }), 'Wording saved.');
-  }
-
-  function insert(name: NudgePlaceholder) {
-    const el = document.getElementById(BOX_ID) as HTMLTextAreaElement | null;
-    const token = `{${name}}`;
-    const start = el?.selectionStart ?? draft.length;
-    const end = el?.selectionEnd ?? draft.length;
-    const before = draft.slice(0, start);
-    const after = draft.slice(end);
-    const pad = before && !/\s$/.test(before) ? ' ' : '';
-    setDraft(`${before}${pad}${token}${after}`);
-    setTemplateError(null);
-    const at = before.length + pad.length + token.length;
-    requestAnimationFrame(() => {
-      el?.focus();
-      el?.setSelectionRange(at, at);
-    });
-  }
-
-  async function lookGood() {
-    if (!verdict.ok) return;
-    setTurningOn(true);
-    const text = draft.trim();
-    const ok = await save(
-      (s) => ({
-        ...s,
-        nudge: { ...s.nudge, template: text },
-        auto: {
-          ...s.auto,
-          nudges: true,
-          nudgeReviewedAt: s.auto.nudgeReviewedAt ?? new Date().toISOString(),
-        },
-      }),
-      `Follow-ups are on. The first ones go after the ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait.`,
-    );
-    setTurningOn(false);
-    if (ok) setTurnedOnNow(true);
-  }
+  const firstOnes = `The first ones go after the ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait.`;
 
   function toggleNudges(on: boolean) {
     if (on && !reviewed) {
       toast('Read the wording first, then use Looks good, turn on.');
-      document.getElementById('nudge-wording')?.scrollIntoView({ behavior: 'smooth' });
+      document.getElementById('ac-wording')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    setTurnedOnNow(false);
     void save(
       (s) => ({ ...s, auto: { ...s.auto, nudges: on } }),
-      on
-        ? `Follow-ups are on. The first ones go after the ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait.`
-        : 'Follow-ups are off. Nothing waiting will go.',
+      on ? `Follow-ups are on. ${firstOnes}` : 'Follow-ups are off. Nothing waiting will go.',
     );
   }
 
@@ -775,135 +1076,139 @@ function StalePanel({ env }: { env: PanelEnv }) {
       </Block>
 
       <Block title="Follow-up wording">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-xs text-text-3">
-            Plain words, no prices and no links. It goes from your business number.
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={draft === DEFAULT_NUDGE_TEMPLATE}
-            onClick={() => {
-              setDraft(DEFAULT_NUDGE_TEMPLATE);
-              setTemplateError(null);
-              void save(
-                (s) => ({ ...s, nudge: { ...s.nudge, template: DEFAULT_NUDGE_TEMPLATE } }),
-                'The wording is back to the original.',
-              );
-            }}
-            data-testid="ac-reset"
-          >
-            Reset
-          </Button>
-        </div>
-        <div id="nudge-wording" className="scroll-mt-24" />
-        <Textarea
-          id={BOX_ID}
-          aria-label="Follow-up wording"
-          value={draft}
-          maxLength={480}
-          invalid={!verdict.ok || !!templateError}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            setTemplateError(null);
-          }}
-          onBlur={() => void saveWording()}
-          className="mt-2 min-h-[92px] rounded-[10px] px-[11px] py-[9px] text-[13.5px] leading-[1.65] max-md:min-h-[128px]"
-          data-testid="ac-template"
+        <WordingEditor
+          env={env}
+          prefix="ac"
+          label="Follow-up wording"
+          template={settings.nudge.template}
+          defaultTemplate={DEFAULT_NUDGE_TEMPLATE}
+          sampleLeadTitle={NUDGE_SAMPLE.leadTitle}
+          on={nudgesOn}
+          reviewed={reviewed}
+          noun="follow-ups"
+          onNote={`Each follow-up waits ${AUTO_CANCEL_WINDOW_MINUTES} minutes, so you can cancel it on Home.`}
+          saveTemplate={(text, done, onError) =>
+            save((s) => ({ ...s, nudge: { ...s.nudge, template: text } }), done, onError)
+          }
+          lookGood={(text, onError) =>
+            save(
+              (s) => ({
+                ...s,
+                nudge: { ...s.nudge, template: text },
+                auto: {
+                  ...s.auto,
+                  nudges: true,
+                  nudgeReviewedAt: s.auto.nudgeReviewedAt ?? new Date().toISOString(),
+                },
+              }),
+              `Follow-ups are on. ${firstOnes}`,
+              onError,
+            )
+          }
         />
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-text-3">Insert:</span>
-          {INSERTS.map(([name, label]) => (
-            <button
-              key={name}
-              type="button"
-              // Keeps the cursor in the box, so the slot lands where it was.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => insert(name)}
-              className="inline-flex h-[26px] items-center rounded-full border border-border-strong bg-card px-[9px] text-xs font-medium text-text-2 hover:bg-card-2"
-              data-testid={`ac-insert-${name}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3.5 flex flex-col gap-1.5">
-          <span className={heading}>Preview for {NUDGE_SAMPLE.firstName}</span>
-          <div className="flex flex-col rounded-xl border border-border bg-card-2 px-4 py-3.5">
-            {preview ? (
-              <div
-                className="max-w-[92%] self-end rounded-2xl rounded-br-[5px] bg-accent px-[13px] py-2.5 text-sm leading-[1.45] text-white [overflow-wrap:anywhere]"
-                data-testid="ac-preview"
-              >
-                {preview}
-              </div>
-            ) : (
-              <span className="text-[13px] text-text-3" data-testid="ac-preview">
-                Nothing to send yet.
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5" data-testid="ac-checks">
-          <Check1 ok={!has('money')} testId="ac-check-money">
-            No prices or amounts
-          </Check1>
-          <Check1 ok={!has('link')} testId="ac-check-link">
-            No links
-          </Check1>
-          <Check1 ok={!has('length') && !has('empty')} testId="ac-check-length">
-            {segments.units} characters · {segments.segments || 1}{' '}
-            {segments.segments > 1 ? 'texts' : 'text'}
-          </Check1>
-        </div>
-        {verdict.problems.length || templateError ? (
-          <ul
-            role="alert"
-            className="mt-2 flex flex-col gap-1 text-[12.5px] text-warning-text"
-            data-testid="ac-problems"
-          >
-            {verdict.problems.map((p) => (
-              <li key={p.message}>{p.message}</li>
-            ))}
-            {templateError && !verdict.problems.some((p) => p.message === templateError) ? (
-              <li>{templateError}</li>
-            ) : null}
-          </ul>
-        ) : null}
-        <div className="mt-4 flex flex-wrap items-center gap-2.5 border-t border-border pt-3.5">
-          {nudgesOn ? (
-            <>
-              <Badge variant="ok" data-testid="ac-nudge-on">
-                On
-              </Badge>
-              <span className="text-xs text-text-3">
-                {turnedOnNow
-                  ? `Turned on by ${env.senderName} just now. The first ones go after the ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait.`
-                  : `Each follow-up waits ${AUTO_CANCEL_WINDOW_MINUTES} minutes, so you can cancel it on Home.`}
-              </span>
-            </>
-          ) : owner ? (
-            <>
-              <Button
-                onClick={() => void lookGood()}
-                loading={turningOn}
-                disabled={!verdict.ok}
-                data-testid="ac-look-good"
-              >
-                Looks good, turn on
-              </Button>
-              <span className="text-xs text-text-3">
-                Turns on follow-ups for all of {short}. Only owners see this button.
-              </span>
-            </>
-          ) : (
-            <span className="text-xs text-text-3" data-testid="ac-owner-only">
-              {reviewed
-                ? 'Follow-ups are off. Turn them on above.'
-                : 'An owner turns follow-ups on after reading the wording.'}
-            </span>
-          )}
-        </div>
+      </Block>
+    </>
+  );
+}
+
+// ---- Re-engage dead leads ----
+
+function ReengagePanel({ env }: { env: PanelEnv }) {
+  const a = env.automations;
+  const r = a.reengage;
+  const reviewed = r.reviewedAt !== null;
+  const on = a.switches.reengage && reviewed;
+  const saveNumber = (key: 'afterDays' | 'maxPerDay' | 'cooldownDays', n: number, done: string) =>
+    void env.saveAutomations((s) => ({ ...s, reengage: { ...s.reengage, [key]: n } }), done);
+  return (
+    <>
+      <Block>
+        <Note>
+          Once a day at 10 AM, one text in your words to open leads nobody has been in touch with
+          for a while. Only people who agreed to texts, never anyone who texted STOP, and never
+          anyone your team or AI teammate has talked to since. Lost leads are left alone. A reply
+          lands in your inbox like any other.
+        </Note>
+      </Block>
+      <Block title="Who and how many">
+        <SetRow
+          first
+          center
+          title="Gone cold after"
+          description="No message either way for this long."
+        >
+          <NumberBox
+            value={r.afterDays}
+            min={30}
+            max={730}
+            unit="days"
+            label="A lead has gone cold after this many days"
+            onCommit={(n) => saveNumber('afterDays', n, `Leads count as cold after ${n} days.`)}
+            testId="re-after-days"
+          />
+        </SetRow>
+        <SetRow center title="At most a day" description="So a long list doesn't all go at once.">
+          <NumberBox
+            value={r.maxPerDay}
+            min={1}
+            max={200}
+            unit="texts"
+            label="At most this many re-engage texts a day"
+            onCommit={(n) => saveNumber('maxPerDay', n, `At most ${n} a day.`)}
+            testId="re-max-per-day"
+          />
+        </SetRow>
+        <SetRow
+          center
+          title="Not again for"
+          description="Never to the same lead again within this long."
+        >
+          <NumberBox
+            value={r.cooldownDays}
+            min={30}
+            max={730}
+            unit="days"
+            label="Not to the same lead again for this many days"
+            onCommit={(n) => saveNumber('cooldownDays', n, `Not again for ${n} days.`)}
+            testId="re-cooldown-days"
+          />
+        </SetRow>
+      </Block>
+      <Block title="The message">
+        <WordingEditor
+          env={env}
+          prefix="re"
+          label="Re-engage wording"
+          template={r.template}
+          defaultTemplate={DEFAULT_REENGAGE_TEMPLATE}
+          sampleLeadTitle={NUDGE_SAMPLE.leadTitle}
+          on={on}
+          reviewed={reviewed}
+          noun="re-engage texts"
+          onNote="The next ones go at 10 AM."
+          saveTemplate={(text, done, onError) =>
+            env.saveAutomations(
+              (s) => ({ ...s, reengage: { ...s.reengage, template: text } }),
+              done,
+              onError,
+            )
+          }
+          lookGood={(text, onError) =>
+            env.saveAutomations(
+              (s) => ({
+                ...s,
+                switches: { ...s.switches, reengage: true },
+                reengage: {
+                  ...s.reengage,
+                  template: text,
+                  reviewedAt: s.reengage.reviewedAt ?? new Date().toISOString(),
+                },
+              }),
+              'Re-engaging dead leads is on. The first texts go at 10 AM.',
+              onError,
+            )
+          }
+        />
       </Block>
     </>
   );
@@ -914,6 +1219,9 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   hot_lead: HotLeadPanel,
   unanswered: UnansweredPanel,
   follow_ups: FollowUpsPanel,
+  never_replied: NeverRepliedPanel,
+  chase_times: ChaseTimesPanel,
+  reengage: ReengagePanel,
   day_before: DayBeforePanel,
   unconfirmed: UnconfirmedPanel,
   waitlist: WaitlistPanel,

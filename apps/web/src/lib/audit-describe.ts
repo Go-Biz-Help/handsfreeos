@@ -808,6 +808,7 @@ const SWITCH_WORDS: Readonly<Record<string, string>> = {
   dayOf: 'the day-of reminder',
   waitlist: 'waitlist offers',
   morningBrief: 'the morning brief',
+  reengage: 're-engaging dead leads',
 };
 
 function automationsSettingsSentence(e: AuditEntry): string {
@@ -815,6 +816,11 @@ function automationsSettingsSentence(e: AuditEntry): string {
     v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
   const was = obj(obj(e.before?.automations).switches);
   const now = obj(obj(e.after?.automations).switches);
+  if (
+    !obj(obj(e.before?.automations).reengage).reviewedAt &&
+    obj(obj(e.after?.automations).reengage).reviewedAt
+  )
+    return 'read the re-engage message and turned re-engaging dead leads on';
   const words = (on: boolean) =>
     Object.keys(SWITCH_WORDS)
       .filter((k) => now[k] === on && was[k] !== on)

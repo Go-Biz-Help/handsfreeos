@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createTeammate } from './ai-team';
 import { api, ownerWithSite, type Owner } from './booking-helpers';
 
 /**
@@ -20,7 +21,10 @@ type Attention = {
   replyToConfirm: boolean;
 };
 
-type Automations = { switches: Record<string, boolean> };
+type Automations = {
+  switches: Record<string, boolean>;
+  reengage?: { reviewedAt: string | null; maxPerDay: number; template: string };
+};
 
 async function settingsOf(owner: Owner) {
   const { workspace } = await api<{
@@ -103,9 +107,9 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
     'Set up your AI teammate to start.',
   );
   await expect(page.getByTestId('automation-switch-new_lead_greeting')).toBeDisabled();
-  // The header counts only what's actually working: the greeting waits on the teammate.
+  // The header counts only what's actually working: the AI teammate's four rows wait on it.
   await expect(page.getByTestId('automations-count')).toContainText(
-    '1 needs something set up first.',
+    '4 need something set up first.',
   );
 
   // An Action Center kind off and on again, saved each time.
@@ -146,6 +150,40 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
   await expect(page.getByText('Day-of reminder is off.')).toBeVisible();
   await expect.poll(async () => (await savedSwitches(owner)).dayOf).toBe(false);
   await expect.poll(async () => (await savedSwitches(owner)).dayBefore).toBe(true);
+
+  // The leads rows the Automations stage added, each with what it touches.
+  for (const id of ['never_replied', 'chase_offered_time', 'reengage_dead_leads'])
+    await expect(page.getByTestId(`automation-${id}`)).toContainText('Texts customers');
+  // Re-engaging starts off, and its switch opens the message to read instead of turning it on.
+  const reengage = page.getByTestId('automation-switch-reengage_dead_leads');
+  await expect(reengage).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('automation-reengage_dead_leads')).toContainText(
+    'Read the message first',
+  );
+  await reengage.click();
+  await expect(page.getByTestId('adjust-reengage')).toBeVisible();
+  await expect(reengage).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByTestId('re-preview')).toContainText("It's been a while");
+  await enter(page, 're-max-per-day', '5');
+  await expect.poll(async () => (await settingsOf(owner)).automations?.reengage?.maxPerDay).toBe(5);
+  // A price in the wording is caught before it can be turned on.
+  await page.getByTestId('re-template').fill('Hi {firstName}, AC tune-ups are $89 this month!');
+  await expect(page.getByTestId('re-check-money')).toHaveAttribute('data-ok', 'false');
+  await expect(page.getByTestId('re-look-good')).toBeDisabled();
+  await page.getByTestId('re-reset').click();
+  await page.getByTestId('re-look-good').click();
+  await expect(page.getByTestId('re-on')).toHaveText('On');
+  await expect
+    .poll(async () => {
+      const a = (await settingsOf(owner)).automations;
+      return [a?.switches.reengage, !!a?.reengage?.reviewedAt];
+    })
+    .toEqual([true, true]);
+  await close(page);
+  await expect(reengage).toHaveAttribute('aria-checked', 'true');
+  // Once read, the row's switch turns it off and on.
+  await reengage.click();
+  await expect.poll(async () => (await savedSwitches(owner)).reengage).toBe(false);
 
   // A threshold saves when it's left; one out of range goes back.
   await adjust(page, 'hot_lead_alert');
@@ -214,7 +252,7 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
 
   // “Looks good, turn on”: follow-ups are on, and the review is recorded.
   await page.getByTestId('ac-look-good').click();
-  await expect(page.getByTestId('ac-nudge-on')).toHaveText('On');
+  await expect(page.getByTestId('ac-on')).toHaveText('On');
   await expect(nudges).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('ac-nudge-badge')).toHaveCount(0);
   await expect
@@ -257,4 +295,57 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
   await close(page);
   await adjust(page, 'hot_lead_alert');
   await expect(page.getByTestId('ac-threshold-hot_lead')).toHaveValue('20');
+});
+
+test('Automations: the AI teammate’s rows and the follow-up schedule', async ({ page }) => {
+  test.setTimeout(120_000);
+  const owner = await ownerWithSite(page, 'ac-ladder', 'Lone Star Ladder HVAC');
+  await createTeammate(owner.token, owner.workspaceId, { patch: { followUp: { enabled: true } } });
+  const teammate = async () =>
+    (
+      await api<{
+        teammate: {
+          config: {
+            followUp: { ladderHours: number[]; monthlyForMonths: number; chaseTimes: boolean };
+          };
+        };
+      }>(owner.token, 'queries', 'ai_teammate.get', { workspaceId: owner.workspaceId })
+    ).teammate.config.followUp;
+
+  await page.goto(`/app/w/${owner.workspaceId}/settings/automations`);
+  // Training: what it writes waits for approval, and the rows say so.
+  await expect(page.getByTestId('automations-training')).toContainText('still training');
+  await expect(page.getByTestId('automation-follow_ups_after_silence')).toContainText(
+    'Waits for your approval while training',
+  );
+  await expect(page.getByTestId('needs-setup-new_lead_greeting')).toHaveCount(0);
+
+  // A teammate row writes to the teammate's own settings.
+  const chase = page.getByTestId('automation-switch-chase_offered_time');
+  await expect(chase).toHaveAttribute('aria-checked', 'true');
+  await chase.click();
+  await expect.poll(async () => (await teammate()).chaseTimes).toBe(false);
+
+  // The ladder: in plain words, each step editable, and it only goes forward.
+  await adjust(page, 'follow_ups_after_silence');
+  await expect(page.getByTestId('followup-ladder-words')).toHaveText(
+    '4 hours, then days 1, 2, 4, 7, 10, 14, 21 and 30, then once a month for 6 months.',
+  );
+  await enter(page, 'followup-step-0', '6');
+  await expect.poll(async () => (await teammate()).ladderHours[0]).toBe(6);
+  await expect(page.getByTestId('followup-ladder-words')).toContainText('6 hours, then days 1');
+  // Day 2 moved to day 1 would come no later than the one before: refused, and it stays.
+  await enter(page, 'followup-step-2', '1');
+  await expect(page.getByText('Use a whole number from 2 to 3.')).toBeVisible();
+  await expect(page.getByTestId('followup-step-2')).toHaveValue('2');
+  await expect.poll(async () => (await teammate()).ladderHours[2]).toBe(48);
+  await enter(page, 'followup-monthly', '2');
+  await expect.poll(async () => (await teammate()).monthlyForMonths).toBe(2);
+  await page.getByTestId('followup-reset').click();
+  await expect
+    .poll(async () => {
+      const f = await teammate();
+      return [f.ladderHours.join(), f.monthlyForMonths];
+    })
+    .toEqual(['4,24,48,96,168,240,336,504,720', 6]);
 });

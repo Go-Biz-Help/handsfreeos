@@ -13,8 +13,10 @@ import {
   automationRow,
   automationRows,
   automationSettingsOf,
+  DEFAULT_REENGAGE_TEMPLATE,
   defaultAutomationSettings,
   parseAutomationSettings,
+  reengageOn,
   sendModeOf,
   type AutomationContext,
   type AutomationDef,
@@ -75,13 +77,49 @@ describe('the automations catalog', () => {
 });
 
 describe('automation settings', () => {
-  it('turns every switch it owns on by default, so nothing a business had stops working', () => {
+  it('turns on every switch for what a business already had, and leaves re-engaging off', () => {
     expect(defaultAutomationSettings().switches).toEqual({
       dayBefore: true,
       dayOf: true,
       waitlist: true,
       morningBrief: true,
+      reengage: false,
     });
+    expect(defaultAutomationSettings().reengage).toEqual({
+      template: DEFAULT_REENGAGE_TEMPLATE,
+      reviewedAt: null,
+      afterDays: 90,
+      maxPerDay: 20,
+      cooldownDays: 180,
+    });
+  });
+
+  it('keeps re-engaging off until an owner has read the message', () => {
+    expect(() => parseAutomationSettings({ switches: { reengage: true } })).toThrow(
+      /Looks good, turn on/,
+    );
+    const reviewed = parseAutomationSettings({
+      switches: { reengage: true },
+      reengage: { reviewedAt: '2026-09-22T12:00:00.000Z' },
+    });
+    expect(reengageOn(reviewed)).toBe(true);
+    // Stored on without a review (hand-edited): read as off, and the rest is kept.
+    const read = automationSettingsOf({
+      automations: { switches: { reengage: true, dayOf: false } },
+    });
+    expect(read.switches).toMatchObject({ reengage: false, dayOf: false });
+    expect(reengageOn(read)).toBe(false);
+  });
+
+  it('refuses re-engage wording it can’t fill, and numbers out of range', () => {
+    for (const reengage of [
+      { template: 'Hi {name}' },
+      { template: '' },
+      { afterDays: 7 },
+      { maxPerDay: 0 },
+      { cooldownDays: 5000 },
+    ])
+      expect(() => parseAutomationSettings({ reengage }), JSON.stringify(reengage)).toThrow();
   });
 
   it('reads a bad or missing document field by field', () => {
@@ -106,6 +144,7 @@ describe('automation rows', () => {
       ctx({
         attention: { ...attention, kinds: { ...attention.kinds, customer_waiting: false } },
         automations: {
+          ...defaultAutomationSettings(),
           switches: { ...defaultAutomationSettings().switches, dayOf: false },
         },
       }),
@@ -149,12 +188,16 @@ describe('automation rows', () => {
     expect(automationRow(def('day_before_confirmation'), ctx()).needsSetup).toBeNull();
   });
 
-  it('reads the teammate’s own defaults: greeting new leads on, follow-ups off', () => {
+  it('reads the teammate’s own defaults: greeting new leads and following up on', () => {
     const rows = new Map(
       automationRows(ctx({ teammate: teammate('automatic') })).map((r) => [r.def.id, r.on]),
     );
     expect(rows.get('new_lead_greeting')).toBe(true);
-    expect(rows.get('follow_ups_after_silence')).toBe(false);
+    expect(rows.get('follow_ups_after_silence')).toBe(true);
+    // A teammate that turned follow-ups off.
+    const off = teammate('automatic');
+    (off.config['followUp'] as Record<string, unknown>)['enabled'] = false;
+    expect(automationRow(def('follow_ups_after_silence'), ctx({ teammate: off })).on).toBe(false);
   });
 
   it('starts each row where a new business starts, as its catalog entry says', () => {
@@ -163,20 +206,35 @@ describe('automation rows', () => {
   });
 
   it('counts what is working, and what is on but waiting to be set up', () => {
-    // Follow-ups are off by the teammate's own default; everything else works.
+    // Everything works but re-engaging, which starts off.
     const rows = automationRows(ctx({ teammate: teammate('automatic') }));
     expect(automationCounts(rows)).toEqual({
       working: rows.length - 1,
       needsSetup: 0,
       total: rows.length,
     });
-    // No teammate: its rows read as a new one starts (greeting on, follow-ups off), and neither works yet.
+    // No teammate: its four rows read as a new one starts (all on), and none works yet.
     const none = automationRows(ctx());
     expect(automationCounts(none)).toEqual({
-      working: none.length - 2,
-      needsSetup: 1,
+      working: none.length - 5,
+      needsSetup: 4,
       total: none.length,
     });
+  });
+
+  it('won’t turn re-engaging on until its message is read, and always lets it off', () => {
+    expect(automationRow(def('reengage_dead_leads'), ctx()).awaitingReview).toBe(true);
+    expect(automationPatch('reengage_dead_leads', true, ctx())).toBeNull();
+    const read = {
+      ...defaultAutomationSettings(),
+      reengage: { ...defaultAutomationSettings().reengage, reviewedAt: '2026-09-22T12:00:00.000Z' },
+    };
+    expect(
+      automationRow(def('reengage_dead_leads'), ctx({ automations: read })).awaitingReview,
+    ).toBe(false);
+    const on = automationPatch('reengage_dead_leads', true, ctx({ automations: read }));
+    expect(on?.store === 'automations' && on.settings.switches.reengage).toBe(true);
+    expect(automationPatch('reengage_dead_leads', false, ctx())).not.toBeNull();
   });
 });
 
@@ -194,19 +252,23 @@ describe('automation switches', () => {
     const patch = automationPatch('waitlist_slot_opened', false, ctx());
     expect(patch).toEqual({
       store: 'automations',
-      settings: { switches: { ...defaultAutomationSettings().switches, waitlist: false } },
+      settings: {
+        ...defaultAutomationSettings(),
+        switches: { ...defaultAutomationSettings().switches, waitlist: false },
+      },
     });
   });
 
   it('writes a teammate skill into its settings, and leaves the rest alone', () => {
     const t = teammate('training');
-    const patch = automationPatch('follow_ups_after_silence', true, ctx({ teammate: t }));
+    const patch = automationPatch('chase_offered_time', false, ctx({ teammate: t }));
     expect(patch?.store).toBe('teammate');
     if (patch?.store !== 'teammate') return;
     const followUp = patch.config['followUp'] as Record<string, unknown>;
+    expect(followUp['chaseTimes']).toBe(false);
     expect(followUp['enabled']).toBe(true);
-    expect(followUp['maxNudges']).toBe(
-      (t.config['followUp'] as Record<string, unknown>)['maxNudges'],
+    expect(followUp['ladderHours']).toEqual(
+      (t.config['followUp'] as Record<string, unknown>)['ladderHours'],
     );
     expect(patch.config['identity']).toEqual(t.config['identity']);
     // Nothing to write to without a teammate.

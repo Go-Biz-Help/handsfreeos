@@ -62,7 +62,12 @@ export const AUTOMATION_EFFECT_LABELS: Readonly<Record<AutomationEffect, string>
 };
 
 /** The AI teammate settings a row can switch. */
-export const TEAMMATE_SWITCH_PATHS = ['respond.newLeads.enabled', 'followUp.enabled'] as const;
+export const TEAMMATE_SWITCH_PATHS = [
+  'respond.newLeads.enabled',
+  'followUp.enabled',
+  'followUp.neverReplied',
+  'followUp.chaseTimes',
+] as const;
 export type TeammateSwitchPath = (typeof TEAMMATE_SWITCH_PATHS)[number];
 
 export type AutomationBinding =
@@ -88,6 +93,9 @@ export const ADJUST_PANELS = [
   'hot_lead',
   'unanswered',
   'follow_ups',
+  'never_replied',
+  'chase_times',
+  'reengage',
   'day_before',
   'unconfirmed',
   'waitlist',
@@ -118,6 +126,8 @@ export interface AutomationDef {
   readonly adjust: AdjustPanel | null;
   /** Can't be turned off (a person must always see what waits on them). */
   readonly locked?: boolean;
+  /** Can't be turned on until an owner has read its wording in the Adjust sheet ("Looks good, turn on"). */
+  readonly reviewFirst?: boolean;
 }
 
 /** Every automation, in the page's order. */
@@ -163,14 +173,50 @@ export const AUTOMATIONS = [
     id: 'follow_ups_after_silence',
     group: 'leads',
     label: 'Follow-ups after silence',
-    oneLiner: 'Nudges a customer who stops replying, on a timed schedule.',
+    oneLiner: 'Nudges a customer who stops replying: 9 times over a month, then monthly.',
     effect: 'texts',
-    // The teammate's own default today; the follow-up ladder (stage 2a) turns it on.
-    defaultOn: false,
+    defaultOn: true,
     binding: { store: 'teammate', path: 'followUp.enabled' },
     customerFacing: 'ai',
     needs: ['teammate_on'],
     adjust: 'follow_ups',
+  },
+  {
+    id: 'never_replied',
+    group: 'leads',
+    label: 'Follow-ups when a lead never replied',
+    oneLiner: 'Chases a new lead who never answered, written from what they put on the form.',
+    effect: 'texts',
+    defaultOn: true,
+    binding: { store: 'teammate', path: 'followUp.neverReplied' },
+    customerFacing: 'ai',
+    needs: ['teammate_on'],
+    adjust: 'never_replied',
+  },
+  {
+    id: 'chase_offered_time',
+    group: 'leads',
+    label: 'Chase an offered time',
+    oneLiner: 'Follows up sooner when a lead was offered times and went quiet.',
+    effect: 'texts',
+    defaultOn: true,
+    binding: { store: 'teammate', path: 'followUp.chaseTimes' },
+    customerFacing: 'ai',
+    needs: ['teammate_on'],
+    adjust: 'chase_times',
+  },
+  {
+    id: 'reengage_dead_leads',
+    group: 'leads',
+    label: 'Re-engage dead leads',
+    oneLiner: 'Texts open leads nobody has been in touch with for months, in your words.',
+    effect: 'texts',
+    defaultOn: false,
+    binding: { store: 'automations', key: 'reengage' },
+    customerFacing: 'owner_wording',
+    needs: [],
+    adjust: 'reengage',
+    reviewFirst: true,
   },
 
   // ---- Appointments ----

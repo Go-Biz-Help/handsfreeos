@@ -836,7 +836,12 @@ export const assistantTools = [
       booksVisits: z.boolean().optional(),
       bookableCalendarIds: z.array(uuid).max(20).optional(),
       followsUp: z.boolean().optional(),
-      maxFollowUps: z.int().min(1).max(5).optional(),
+      followUpMonths: z
+        .int()
+        .min(0)
+        .max(12)
+        .optional()
+        .describe('After its follow-ups over the first month, one a month for this many months'),
       hoursMode: z
         .enum(['always', 'after_hours', 'custom'])
         .optional()

@@ -647,7 +647,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers and the morning email.
+         * Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers, the morning email, and re-engaging dead leads with its message. Turning re-engaging on (“Looks good, turn on”) records that the message was read.
          * @description Risk level 2. Requires workspace.update. Emits automations.settings_saved.
          */
         post: operations["command_automations_save_settings"];
@@ -10222,6 +10222,19 @@ export interface operations {
                 "application/json": {
                     settings: {
                         /** @default {} */
+                        reengage?: {
+                            /** @default 90 */
+                            afterDays?: number;
+                            /** @default 180 */
+                            cooldownDays?: number;
+                            /** @default 20 */
+                            maxPerDay?: number;
+                            /** @default null */
+                            reviewedAt?: string | null;
+                            /** @default Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with? */
+                            template?: string;
+                        };
+                        /** @default {} */
                         switches?: {
                             /** @default true */
                             dayBefore?: boolean;
@@ -10229,6 +10242,8 @@ export interface operations {
                             dayOf?: boolean;
                             /** @default true */
                             morningBrief?: boolean;
+                            /** @default false */
+                            reengage?: boolean;
                             /** @default true */
                             waitlist?: boolean;
                         };
@@ -10248,6 +10263,18 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         settings: {
+                            reengage: {
+                                /** @default 90 */
+                                afterDays: number;
+                                /** @default 180 */
+                                cooldownDays: number;
+                                /** @default 20 */
+                                maxPerDay: number;
+                                /** @default null */
+                                reviewedAt: string | null;
+                                /** @default Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with? */
+                                template: string;
+                            };
                             switches: {
                                 /** @default true */
                                 dayBefore: boolean;
@@ -10255,6 +10282,8 @@ export interface operations {
                                 dayOf: boolean;
                                 /** @default true */
                                 morningBrief: boolean;
+                                /** @default false */
+                                reengage: boolean;
                                 /** @default true */
                                 waitlist: boolean;
                             };
