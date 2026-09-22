@@ -4667,7 +4667,130 @@ export const customFields = app.table('custom_fields', {
   ...timestamps(),
 });
 
+/**
+ * The founding offers (0091). HandsFreeOS's own capped promotions, so the offers, the applications and the
+ * grants sit in `platform`; what a workspace may actually use is a tenant fact and sits in `app` below.
+ *
+ * The cap is not expressed here and cannot be: it is a trigger that locks the offer's row before it counts,
+ * and Drizzle has no way to say that. Nothing in TypeScript should try to check it either — read
+ * `foundingCounts` for a number to show somebody, and let the insert be the thing that decides.
+ */
+export const foundingOfferStatus = platform.enum('founding_offer_status', [
+  'draft',
+  'open',
+  'closed',
+]);
+
+/** `reserved` and `active` hold a seat. `revoked` and `expired` do not, which is what frees one at once. */
+export const foundingGrantStatus = platform.enum('founding_grant_status', [
+  'reserved',
+  'active',
+  'revoked',
+  'expired',
+]);
+
+export const foundingApplicationStatus = platform.enum('founding_application_status', [
+  'pending',
+  'approved',
+  'declined',
+  'waitlisted',
+  'expired',
+  'withdrawn',
+]);
+
+export const foundingOffers = platform.table('founding_offers', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  /** Raising this opens seats. Lowering it below what is already out is refused by the database. */
+  seatCap: integer('seat_cap').notNull(),
+  priceCents: integer('price_cents').notNull().default(0),
+  status: foundingOfferStatus('status').notNull().default('draft'),
+  showCounter: boolean('show_counter').notNull().default(true),
+  startingCreditCents: integer('starting_credit_cents').notNull().default(0),
+  claimDays: integer('claim_days').notNull().default(14),
+  graceDays: integer('grace_days').notNull().default(14),
+  sort: integer('sort').notNull().default(0),
+  blurb: text('blurb').notNull().default(''),
+  ...timestamps(),
+});
+
+export const foundingGrants = platform.table('founding_grants', {
+  id: id(),
+  offerId: text('offer_id')
+    .notNull()
+    .references(() => foundingOffers.id),
+  /** A seat belongs to a business, not a person and not a workspace. */
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  /** Null until they take the seat up: an approval can arrive before there is an account at all. */
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  status: foundingGrantStatus('status').notNull().default('reserved'),
+  applicationId: uuid('application_id'),
+  reservedAt: ts('reserved_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at'),
+  activatedAt: ts('activated_at'),
+  revokedAt: ts('revoked_at'),
+  revokedBy: uuid('revoked_by').references(() => users.id, { onDelete: 'set null' }),
+  /** Ours, never theirs. No tenant policy reaches this table. */
+  revokeReason: text('revoke_reason').notNull().default(''),
+  grantedBy: uuid('granted_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+export const foundingApplications = platform.table('founding_applications', {
+  id: id(),
+  offerId: text('offer_id')
+    .notNull()
+    .references(() => foundingOffers.id),
+  businessName: text('business_name').notNull(),
+  contactName: text('contact_name').notNull(),
+  email: citext('email').notNull(),
+  phone: text('phone'),
+  website: text('website'),
+  industry: text('industry'),
+  teamSize: text('team_size'),
+  note: text('note').notNull().default(''),
+  status: foundingApplicationStatus('status').notNull().default('pending'),
+  source: text('source').notNull().default(''),
+  reviewedAt: ts('reviewed_at'),
+  reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  /** Staff-only, and the reason it can be honest. */
+  decisionNote: text('decision_note').notNull().default(''),
+  /** The sha256 only, like an invitation's. The link itself is shown once and never stored. */
+  claimTokenHash: bytea('claim_token_hash').unique(),
+  claimExpiresAt: ts('claim_expires_at'),
+  grantId: uuid('grant_id').references(() => foundingGrants.id, { onDelete: 'set null' }),
+  ...timestamps(),
+});
+
+export const planKind = app.enum('plan_kind', ['founding_free', 'founding_lifetime', 'monthly']);
+export const planStatus = app.enum('plan_status', ['active', 'grace', 'past_due', 'canceled']);
+
+/** What one workspace may use, and why. Every gate in the app reads this row. */
+export const workspacePlans = app.table('workspace_plans', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  organizationId: orgRef(),
+  plan: planKind('plan').notNull(),
+  status: planStatus('status').notNull().default('active'),
+  grantId: uuid('grant_id').references(() => foundingGrants.id, { onDelete: 'set null' }),
+  priceCents: integer('price_cents').notNull().default(0),
+  /** The one date in here a business is shown and warned about. */
+  graceEndsAt: ts('grace_ends_at'),
+  canceledAt: ts('canceled_at'),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  currentPeriodEnd: ts('current_period_end'),
+  ...timestamps(),
+});
+
 export const tables = {
+  foundingOffers,
+  foundingGrants,
+  foundingApplications,
+  workspacePlans,
   reviewConnections,
   reviews,
   messageTemplates,

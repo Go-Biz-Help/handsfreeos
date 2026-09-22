@@ -11,7 +11,9 @@ import { ProductMock } from '@/components/product-mock';
 import { TrustLadderVisual } from '@/components/visuals';
 import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import { homeFaqs } from '@/content/faqs';
-import { plans, urls } from '@/content/site';
+import { foundingOffers, plan, urls } from '@/content/site';
+import { FoundingStrip } from '@/components/founding-counter';
+import { foundingCounts, type FoundingCount } from '@/lib/founding';
 
 /*
  * Headline variants worth testing against the one below, each on a different angle:
@@ -20,9 +22,14 @@ import { plans, urls } from '@/content/site';
  * The headline is the highest-leverage line on the page; change one thing at a time.
  */
 
-export default function HomePage() {
+/** The seat counts are live, so the home page is rebuilt at most once a minute rather than at deploy. */
+export const revalidate = 60;
+
+export default async function HomePage() {
+  const counts = await foundingCounts();
   return (
     <>
+      <FoundingStrip counts={counts} />
       <OrganizationJsonLd />
       <WebSiteJsonLd />
       <SoftwareApplicationJsonLd />
@@ -34,7 +41,7 @@ export default function HomePage() {
       <ConnectedAccounts />
       <InYourPocket />
       <WhyDifferent />
-      <PlansStrip />
+      <PlansStrip counts={counts} />
       <Questions />
       <FinalCta />
     </>
@@ -402,35 +409,60 @@ function InYourPocket() {
   );
 }
 
-function PlansStrip() {
+/**
+ * One plan, and the founding seats beside it when there are any. The counts come from the page's own fetch
+ * and are passed down rather than fetched here, so the home page makes one request rather than three.
+ */
+function PlansStrip({ counts }: { counts: readonly FoundingCount[] | null }) {
+  const open = counts?.filter((c) => c.status === 'open') ?? [];
   return (
     <Section className="bg-card-2 border-border border-y">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <SectionHeading sub="One price a month, every feature in the plan, and texts and calls billed for what you use.">
+        <SectionHeading sub="One plan, every feature in it, and texts and calls billed for what you use.">
           Priced against the one job a month it saves you.
         </SectionHeading>
         <Button href="/pricing" variant="secondary" size="lg" className="shrink-0">
-          See what is in each plan
+          See what is in it
         </Button>
       </div>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
-        {plans.map((plan) => (
-          <Link
-            key={plan.id}
-            href="/pricing"
-            className="bg-card border-border hover:border-border-strong rounded-[var(--radius-card)] border p-5 transition-colors"
-          >
-            <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-              {plan.name}
-            </p>
-            <p className="mt-2 text-3xl font-bold">
-              ${plan.price}
-              <span className="text-text-3 text-base font-normal"> /month</span>
-            </p>
-            <p className="text-text-2 mt-2 text-base">{plan.blurb}</p>
-          </Link>
-        ))}
+        <Link
+          href="/pricing"
+          className="bg-card border-accent hover:border-accent-hover rounded-[var(--radius-card)] border-2 p-5 transition-colors"
+        >
+          <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
+            {plan.name}
+          </p>
+          <p className="mt-2 text-3xl font-bold">
+            ${plan.price}
+            <span className="text-text-3 text-base font-normal"> /month</span>
+          </p>
+          <p className="text-text-2 mt-2 text-base">{plan.blurb}</p>
+        </Link>
+
+        {foundingOffers.map((offer) => {
+          const count = open.find((c) => c.offerId === offer.id);
+          // No live count means no card: the home page never advertises a seat the database has not confirmed.
+          if (!count) return null;
+          return (
+            <Link
+              key={offer.id}
+              href="/founding"
+              className="bg-card border-border hover:border-border-strong rounded-[var(--radius-card)] border p-5 transition-colors"
+            >
+              <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
+                {offer.name}
+              </p>
+              <p className="mt-2 text-3xl font-bold">{offer.priceLabel}</p>
+              <p className="text-text-2 mt-2 text-base">
+                {count.remaining > 0
+                  ? `${count.remaining} of ${count.seatCap} left`
+                  : `All ${count.seatCap} taken — waitlist open`}
+              </p>
+            </Link>
+          );
+        })}
       </div>
     </Section>
   );

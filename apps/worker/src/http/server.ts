@@ -33,6 +33,7 @@ import { registerBookingRoutes } from './booking';
 import { registerChatRoutes } from './chat';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
+import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
 import { SafeFetchError } from './safe-fetch';
 import { registerSiteRoutes } from './sites';
@@ -240,6 +241,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerFormRoutes(app, deps);
   await registerSiteRoutes(app, deps);
   await registerLegalRoutes(app, deps);
+  await registerFoundingRoutes(app, deps);
   // A form on the business's own website, and services sending leads over (M14 slice B).
   await registerIntakeRoutes(app, deps);
   await registerKnowledgeRoutes(app, deps);

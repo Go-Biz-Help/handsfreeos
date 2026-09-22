@@ -1,5 +1,5 @@
 import type { Faq } from '@/content/faqs';
-import { company, plans, urls } from '@/content/site';
+import { company, plan, urls } from '@/content/site';
 
 /**
  * Structured data, in JSON-LD.
@@ -96,7 +96,10 @@ export function SoftwareApplicationJsonLd() {
           'Automatic follow-up workflows',
           'iPhone and Android app that works offline',
         ],
-        offers: plans.map((plan) => ({
+        // One plan, so one Offer. The founding seats are deliberately not listed: a capped offer that sells
+        // out would leave a search result advertising something nobody can buy, for as long as Google
+        // remembers it.
+        offers: {
           '@type': 'Offer',
           name: plan.name,
           price: String(plan.price),
@@ -104,7 +107,7 @@ export function SoftwareApplicationJsonLd() {
           category: 'subscription',
           url: `${urls.site}/pricing`,
           availability: 'https://schema.org/InStock',
-        })),
+        },
       }}
     />
   );

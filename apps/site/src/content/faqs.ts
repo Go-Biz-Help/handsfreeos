@@ -45,11 +45,15 @@ export const homeFaqs: readonly Faq[] = [
 export const pricingFaqs: readonly Faq[] = [
   {
     q: 'What does "start free" mean?',
-    a: 'You can make an account, bring your customers in and look around without paying. You start a plan when you want a business number and the AI answering for you — that is the point where it costs us real money on your behalf.',
+    a: 'You can make an account, bring your customers in and look around without paying. You start the plan when you want a business number and the AI answering for you — that is the point where it costs us real money on your behalf.',
   },
   {
     q: 'Is there a contract?',
     a: 'No. Month to month, cancel whenever. Your customers, conversations and files export on your way out.',
+  },
+  {
+    q: 'Why only one plan?',
+    a: 'Because three plans meant three conversations before anybody could buy: which one am I, what am I missing, will I have to move later. A business with four people and one with twenty need the same software. So there is one price, everything is in it, and there is no per-person charge.',
   },
   {
     q: 'Do you take a cut of what I get paid?',
@@ -57,30 +61,26 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'Why is there usage on top?',
-    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account.',
+    a: 'Because the phone companies charge per text and per minute, and the AI charges per reply. Billing it as you use it keeps the plan from being padded for businesses that barely use them. The per-use rates are shown in your account, and they are the same on every offer here including the free one.',
   },
   {
-    q: 'Does Growth hold anything back for Pro?',
-    a: 'No. Growth is every feature HandsFreeOS has, for one business. The only thing Pro adds is running more than one business or location, and the help that comes with that.',
+    q: 'What does "free for life" actually cover?',
+    a: 'The software, for as long as HandsFreeOS exists, with no monthly bill — including the features we add to it later. It does not cover texts, calls, phone numbers or AI replies, because those are billed to us by other companies and passed through at what they cost plus a small margin. Most businesses spend $30–$60 a month on that.',
   },
   {
-    q: 'What happens when there are more than 8 of us?',
-    a: 'Growth covers eight people, then it is $15 a month for each person after that. Pro has no per-person charge at all, which is usually the cheaper answer once a team gets big.',
+    q: 'What happens when the founding seats run out?',
+    a: 'The counter on this page is read live from our database, so when it says none are left, none are. Apply anyway and you go on the waitlist: seats do come back when a business never gets started, and the waitlist is where we look first.',
   },
   {
-    q: 'What if I have two locations?',
-    a: 'That is Pro: several businesses under one login, each with its own number, calendar and books, one place you can see them all from, and your templates and knowledge shared across them.',
+    q: 'Could you take a founding seat back?',
+    a: 'Only for a real reason — an account that was never used, or somebody abusing it — and never without telling you first. If it happens you get two weeks\u2019 notice, nothing changes during those two weeks, and everything you have is yours to export or to carry on with on the monthly plan.',
   },
   {
     q: 'Can you move me off the CRM I use now?',
-    a: 'Yes, and it is included in every plan, not a paid extra. On Starter and Growth you run it yourself — it counts everything before it moves anything, and it can be undone. On Pro we do it with you.',
+    a: 'Yes, and it is included rather than a paid extra. It counts everything before it moves anything, and it can be undone.',
   },
   {
-    q: 'Is support better on the expensive plan?',
-    a: 'Everyone gets the same email support from the people who build it. Pro jumps the queue and gets someone who sets the whole thing up with you, because several locations is more to set up.',
-  },
-  {
-    q: 'Can I change plans later?',
-    a: 'Any time, in both directions. Going down never deletes anything — features just stop being available.',
+    q: 'What if I have two businesses?',
+    a: 'Each one gets its own workspace with its own number, calendar and books, and each is its own $97 a month. A founding seat covers one of them.',
   },
 ];

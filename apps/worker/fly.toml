@@ -41,7 +41,17 @@ kill_timeout = "30s"
   # own stage says so. Deliberately here rather than in `fly secrets` — it is not a secret, and keeping it in
   # the file means the current mode is visible in git and every change of it is a commit somebody reviewed.
   # See docs/operations.md, "Usage balances: what businesses pay us".
-  WALLET_MODE = "off"
+  #
+  # `shadow` from 2026-10-03: the shadow week (operations, Part 1). The ledger fills, the nightly
+  # reconciliation trues it up against Twilio, and not one business hears a word — what a business feels is
+  # its own stage, which is `off` for everybody until somebody moves it from /admin, one at a time.
+  #
+  # It stays `shadow` until two things are true: /admin/rates shows no key under 1.2× realised margin over a
+  # full week, and a Stripe platform key is on this app. Going to `on` before the first would bill against
+  # prices nobody has measured. Before the second there is no way to put a card on a wallet at all, so `on`
+  # would change nothing by itself — but the first business moved to `warn` would be told to add a card and
+  # have nowhere to add one, which is the same as not warning them.
+  WALLET_MODE = "shadow"
   LOG_LEVEL = "info"
 
 [http_service]

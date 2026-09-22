@@ -2037,6 +2037,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/founding.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve an application and hold a seat for that business. Returns the claim link, once. The seat is theirs until the link expires.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.approved.
+         */
+        post: operations["command_founding_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take up an approved seat: this workspace gets its founding plan and its starting usage credit.
+         * @description Risk level 4. Requires workspace.update. Emits founding.claimed.
+         */
+        post: operations["command_founding_claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn an application down, with a note only staff ever see.
+         * @description Risk level 2. Requires platform.founding.manage. Emits founding.declined.
+         */
+        post: operations["command_founding_decline"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo a revocation. Refused if the seat has since been given to somebody else — there is no room to put them back into.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.restored.
+         */
+        post: operations["command_founding_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a founding seat back. The seat is free for somebody else at once; the business keeps working until its grace period ends.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.revoked.
+         */
+        post: operations["command_founding_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.set_cap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change how many seats an offer has. Raising it opens seats; it cannot go below the number already out.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.cap_changed.
+         */
+        post: operations["command_founding_set_cap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open an offer to applications, close it, or put it back in draft so nobody sees it at all.
+         * @description Risk level 4. Requires platform.founding.manage. Emits founding.status_changed.
+         */
+        post: operations["command_founding_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.waitlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put an application on the waitlist, to be approved if a seat frees up.
+         * @description Risk level 1. Requires platform.founding.manage. Emits founding.waitlisted.
+         */
+        post: operations["command_founding_waitlist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/import.cancel": {
         parameters: {
             query?: never;
@@ -7017,6 +7177,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/founding.counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How many seats each public offer has left. The only founding read that reaches somebody signed out, and it carries nothing but numbers.
+         * @description Any signed-in user.
+         */
+        post: operations["query_founding_counts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/founding.mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What this workspace is on, and — if its founding seat was taken back — the date its plan changes.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_founding_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/import.get": {
         parameters: {
             query?: never;
@@ -7751,6 +7951,26 @@ export interface paths {
          * @description Requires platform.businesses.read.
          */
         post: operations["query_platform_business_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.founding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The founding offers, the applications waiting on a decision, and who holds a seat. Staff only.
+         * @description Requires platform.founding.manage.
+         */
+        post: operations["query_platform_founding"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13153,6 +13373,298 @@ export interface operations {
                         formId: string;
                         /** @enum {string} */
                         status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    applicationId: string;
+                    /** @default  */
+                    note?: string;
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        claimToken: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                        /** Format: uuid */
+                        grantId: string;
+                        offerId: string;
+                        remaining: number;
+                    };
+                };
+            };
+        };
+    };
+    command_founding_claim: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        creditedCents: number;
+                        /** Format: uuid */
+                        grantId: string;
+                        offerId: string;
+                        /** @enum {string} */
+                        plan: "founding_free" | "founding_lifetime" | "monthly";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_founding_decline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    applicationId: string;
+                    /** @default  */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        applicationId: string;
+                        /** @enum {string} */
+                        status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    grantId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        graceEndsAt: string | null;
+                        /** Format: uuid */
+                        grantId: string;
+                        offerId: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        remaining: number;
+                        /** @enum {string} */
+                        status: "reserved" | "active" | "revoked" | "expired";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    grantId: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        graceEndsAt: string | null;
+                        /** Format: uuid */
+                        grantId: string;
+                        offerId: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        remaining: number;
+                        /** @enum {string} */
+                        status: "reserved" | "active" | "revoked" | "expired";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_set_cap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    seatCap: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        claimed: number;
+                        name: string;
+                        offerId: string;
+                        priceCents: number;
+                        remaining: number;
+                        seatCap: number;
+                        /** @enum {string} */
+                        status: "draft" | "open" | "closed";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    offerId: string;
+                    /** @enum {string} */
+                    status: "draft" | "open" | "closed";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        claimed: number;
+                        name: string;
+                        offerId: string;
+                        priceCents: number;
+                        remaining: number;
+                        seatCap: number;
+                        /** @enum {string} */
+                        status: "draft" | "open" | "closed";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_waitlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    applicationId: string;
+                    /** @default  */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        applicationId: string;
+                        /** @enum {string} */
+                        status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
                     };
                 };
             };
@@ -25934,6 +26446,79 @@ export interface operations {
             };
         };
     };
+    query_founding_counts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        generatedAt: string;
+                        offers: {
+                            blurb: string;
+                            claimed: number;
+                            name: string;
+                            offerId: string;
+                            priceCents: number;
+                            remaining: number;
+                            seatCap: number;
+                            /** @enum {string} */
+                            status: "draft" | "open" | "closed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_founding_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        graceEndsAt: string | null;
+                        offerName: string | null;
+                        plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
+                        priceCents: number;
+                        status: ("active" | "grace" | "past_due" | "canceled") | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     query_import_get: {
         parameters: {
             query?: never;
@@ -28852,6 +29437,85 @@ export interface operations {
                             businesses: number;
                             newThisWeek: number;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_platform_founding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 50 */
+                    limit?: number;
+                    offerId?: string;
+                    /** @enum {string} */
+                    status?: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        applications: {
+                            /** Format: uuid */
+                            applicationId: string;
+                            businessName: string;
+                            contactName: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            decisionNote: string;
+                            email: string;
+                            industry: string | null;
+                            note: string;
+                            offerId: string;
+                            phone: string | null;
+                            reviewedAt: string | null;
+                            source: string;
+                            /** @enum {string} */
+                            status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
+                            teamSize: string | null;
+                            website: string | null;
+                        }[];
+                        grants: {
+                            activatedAt: string | null;
+                            expiresAt: string | null;
+                            graceEndsAt: string | null;
+                            /** Format: uuid */
+                            grantId: string;
+                            offerId: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                            organizationName: string | null;
+                            /** Format: date-time */
+                            reservedAt: string;
+                            revokedAt: string | null;
+                            revokeReason: string;
+                            /** @enum {string} */
+                            status: "reserved" | "active" | "revoked" | "expired";
+                            workspaceId: string | null;
+                        }[];
+                        offers: {
+                            claimed: number;
+                            name: string;
+                            offerId: string;
+                            priceCents: number;
+                            remaining: number;
+                            seatCap: number;
+                            /** @enum {string} */
+                            status: "draft" | "open" | "closed";
+                        }[];
                     };
                 };
             };

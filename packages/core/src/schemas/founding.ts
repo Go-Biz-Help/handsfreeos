@@ -1,0 +1,226 @@
+/**
+ * What goes in and out of the founding offers' commands (0091).
+ *
+ * Two lines run through all of it.
+ *
+ * **Nothing here decides whether a seat is free.** Not a `max(25)`, not a count read beforehand, not an
+ * optimistic check in a handler. The database takes the seat under a row lock and refuses when there is none,
+ * and every caller's job is to turn that refusal into words. A schema that also tried to know the cap would be
+ * a second answer to a question that may only have one.
+ *
+ * **The claim link is shown once.** `founding.approve` returns it so an email can be sent; only its sha256 is
+ * ever stored. `shownOnce` on the command keeps it out of the receipt that reaches somebody's phone.
+ */
+import { z } from 'zod';
+import { displayName, email, uuid } from './common';
+
+/** Offer ids are readable because they appear in URLs, in emails and in the website's own markup. */
+export const offerId = z
+  .string()
+  .trim()
+  .min(3)
+  .max(40)
+  .regex(/^[a-z][a-z0-9_]*$/, 'Letters, numbers and underscores.');
+
+export const grantStatus = z.enum(['reserved', 'active', 'revoked', 'expired']);
+export const applicationStatus = z.enum([
+  'pending',
+  'approved',
+  'declined',
+  'waitlisted',
+  'expired',
+  'withdrawn',
+]);
+export const offerStatus = z.enum(['draft', 'open', 'closed']);
+export const planKind = z.enum(['founding_free', 'founding_lifetime', 'monthly']);
+export const planStatus = z.enum(['active', 'grace', 'past_due', 'canceled']);
+
+const shortText = (max: number) => z.string().trim().max(max);
+
+// ---------- applying ----------
+
+export const FoundingApplyInput = z.strictObject({
+  offerId,
+  businessName: displayName,
+  contactName: displayName,
+  email,
+  phone: shortText(40).optional(),
+  website: shortText(500).optional(),
+  industry: shortText(120).optional(),
+  teamSize: shortText(40).optional(),
+  /** Their own words. The whole point of Phase 1 is reading these. */
+  note: shortText(4000).default(''),
+  /** utm, referrer, whatever the page knew. Never shown to them. */
+  source: shortText(300).default(''),
+});
+
+export const FoundingApplyOutput = z.strictObject({
+  applicationId: uuid,
+  /**
+   * `pending` means there was room and somebody will look at it. `waitlisted` means the offer was full or
+   * closed when they pressed the button — said plainly rather than dressed up as success.
+   */
+  status: applicationStatus,
+  offerId,
+});
+
+// ---------- deciding ----------
+
+export const FoundingApproveInput = z.strictObject({
+  applicationId: uuid,
+  /** The business the seat belongs to. A seat is a business's, not a person's. */
+  organizationId: uuid,
+  note: shortText(2000).default(''),
+});
+
+export const FoundingApproveOutput = z.strictObject({
+  grantId: uuid,
+  offerId,
+  expiresAt: z.iso.datetime(),
+  /** The claim link's token. Returned once, stored only as a hash, kept out of the command receipt. */
+  claimToken: z.string(),
+  remaining: z.int(),
+});
+
+export const FoundingDecideInput = z.strictObject({
+  applicationId: uuid,
+  note: shortText(2000).default(''),
+});
+
+export const FoundingApplicationOutput = z.strictObject({
+  applicationId: uuid,
+  status: applicationStatus,
+});
+
+// ---------- claiming ----------
+
+export const FoundingClaimInput = z.strictObject({
+  token: z.string().trim().min(16).max(200),
+  workspaceId: uuid,
+});
+
+export const FoundingClaimOutput = z.strictObject({
+  grantId: uuid,
+  offerId,
+  workspaceId: uuid,
+  plan: planKind,
+  /** What was put in the wallet to start them off, in cents. Zero on an offer that grants none. */
+  creditedCents: z.int(),
+});
+
+// ---------- taking a seat back ----------
+
+export const FoundingRevokeInput = z.strictObject({
+  grantId: uuid,
+  /** Required, and kept forever. A revocation nobody wrote a reason for cannot be explained later. */
+  reason: z.string().trim().min(1, 'Say why.').max(1000),
+});
+
+export const FoundingGrantOutput = z.strictObject({
+  grantId: uuid,
+  offerId,
+  organizationId: uuid,
+  status: grantStatus,
+  /** When the business's plan converts. Null when there is no workspace on the seat yet. */
+  graceEndsAt: z.iso.datetime().nullable(),
+  remaining: z.int(),
+});
+
+export const FoundingRestoreInput = z.strictObject({ grantId: uuid });
+
+// ---------- the offer itself ----------
+
+export const FoundingSetCapInput = z.strictObject({
+  offerId,
+  seatCap: z.int().min(0).max(100_000),
+});
+
+export const FoundingSetStatusInput = z.strictObject({ offerId, status: offerStatus });
+
+export const FoundingOfferOutput = z.strictObject({
+  offerId,
+  name: z.string(),
+  status: offerStatus,
+  seatCap: z.int(),
+  claimed: z.int(),
+  remaining: z.int(),
+  priceCents: z.int(),
+});
+
+// ---------- reading ----------
+
+export const FoundingCountsInput = z.strictObject({});
+
+export const FoundingCountsOutput = z.strictObject({
+  offers: z.array(
+    z.strictObject({
+      offerId,
+      name: z.string(),
+      blurb: z.string(),
+      status: offerStatus,
+      priceCents: z.int(),
+      seatCap: z.int(),
+      claimed: z.int(),
+      remaining: z.int(),
+    }),
+  ),
+  generatedAt: z.iso.datetime(),
+});
+
+export const FoundingQueueInput = z.strictObject({
+  offerId: offerId.optional(),
+  status: applicationStatus.optional(),
+  limit: z.int().min(1).max(200).default(50),
+});
+
+export const FoundingQueueOutput = z.strictObject({
+  offers: z.array(FoundingOfferOutput),
+  applications: z.array(
+    z.strictObject({
+      applicationId: uuid,
+      offerId,
+      businessName: z.string(),
+      contactName: z.string(),
+      email: z.string(),
+      phone: z.string().nullable(),
+      website: z.string().nullable(),
+      industry: z.string().nullable(),
+      teamSize: z.string().nullable(),
+      note: z.string(),
+      source: z.string(),
+      status: applicationStatus,
+      decisionNote: z.string(),
+      createdAt: z.iso.datetime(),
+      reviewedAt: z.iso.datetime().nullable(),
+    }),
+  ),
+  grants: z.array(
+    z.strictObject({
+      grantId: uuid,
+      offerId,
+      organizationId: uuid,
+      organizationName: z.string().nullable(),
+      workspaceId: uuid.nullable(),
+      status: grantStatus,
+      reservedAt: z.iso.datetime(),
+      expiresAt: z.iso.datetime().nullable(),
+      activatedAt: z.iso.datetime().nullable(),
+      revokedAt: z.iso.datetime().nullable(),
+      revokeReason: z.string(),
+      graceEndsAt: z.iso.datetime().nullable(),
+    }),
+  ),
+});
+
+export const FoundingMineInput = z.strictObject({ workspaceId: uuid });
+
+export const FoundingMineOutput = z.strictObject({
+  workspaceId: uuid,
+  /** Null when this workspace has no plan row at all, which is every workspace until Phase 1 opens. */
+  plan: planKind.nullable(),
+  status: planStatus.nullable(),
+  priceCents: z.int(),
+  /** Set only while a revoked founding deal is working out its notice. */
+  graceEndsAt: z.iso.datetime().nullable(),
+  offerName: z.string().nullable(),
+});

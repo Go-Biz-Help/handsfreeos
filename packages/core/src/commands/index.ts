@@ -292,6 +292,7 @@ import { estimateCommands } from './estimate';
 import { invoiceCommands } from './invoice';
 import { paymentCommands } from './payment';
 import { subscriptionCommands } from './subscription';
+import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import { migrationCommands } from './migration';
@@ -723,6 +724,7 @@ export const commands: readonly CommandDef[] = [
   ...paymentCommands,
   ...subscriptionCommands,
   ...walletCommands,
+  ...foundingCommands,
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
@@ -778,3 +780,4 @@ export * from './support-staff';
 export * from './port';
 export * from './inbox-visibility';
 export * from './branded-domain';
+export * from './founding';
