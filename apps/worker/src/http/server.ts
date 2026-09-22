@@ -16,6 +16,7 @@ import { registerTeammateRoutes } from '../ai-team/routes';
 import { registerAssistantRoutes } from '../assistant/routes';
 import { registerKnowledgeRoutes } from '../knowledge/routes';
 import { registerMoneyLinkRoutes } from '../money/link-routes';
+import { registerWalletCardRoutes } from '../money/wallet-card-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
 import { ProviderError } from '../telephony/provider';
 import { registerWorkflowRoutes } from '../workflows/index';
@@ -237,6 +238,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerMoneyRoutes(app, deps);
   // A customer's own link for the business to copy: minting one needs the worker's key.
   registerMoneyLinkRoutes(app, deps);
+  registerWalletCardRoutes(app, deps);
   await registerChatRoutes(app, deps);
   await registerFormRoutes(app, deps);
   await registerSiteRoutes(app, deps);

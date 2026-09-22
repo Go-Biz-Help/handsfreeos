@@ -5,6 +5,7 @@ import * as React from 'react';
 import Balance from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
+import { openWeb } from '@/lib/open-web';
 import { api } from '@/lib/api';
 import type { Business, Me } from '@/lib/businesses';
 
@@ -15,13 +16,25 @@ import type { Business, Me } from '@/lib/businesses';
  * than showing a balance it doesn't have.
  */
 
+let mockParams: Record<string, string> = {};
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: () => true },
-  useLocalSearchParams: () => ({}),
+  router: {
+    back: jest.fn(),
+    replace: jest.fn(),
+    push: jest.fn(),
+    setParams: jest.fn(),
+    canGoBack: () => true,
+  },
+  useLocalSearchParams: () => mockParams,
   usePathname: () => '/',
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
 jest.mock('@/lib/open-web', () => ({ openWeb: jest.fn(async () => true) }));
+const mockWalletCard = jest.fn();
+jest.mock('@/money/use-wallet', () => ({
+  ...jest.requireActual<Record<string, unknown>>('@/money/use-wallet'),
+  walletCard: (...args: unknown[]) => mockWalletCard(...args),
+}));
 jest.mock('@/lib/api', () => ({
   api: { POST: jest.fn() },
   errorMessage: (e: unknown) =>
@@ -147,13 +160,15 @@ async function show(role: Business['role'] = 'owner') {
       <Balance />
     </BusinessProvider>,
   );
-  await waitFor(() => expect(sent('/v1/queries/wallet.get')).toHaveLength(1));
+  // At least one: a screen opened on a return from the card page reads the balance again straight away.
+  await waitFor(() => expect(sent('/v1/queries/wallet.get').length).toBeGreaterThan(0));
 }
 
 const sent = (path: string) => post.mock.calls.filter((call) => call[0] === path);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
   answers = {
     '/v1/queries/wallet.get': WALLET,
     '/v1/queries/usage.prices': PRICES,
@@ -252,14 +267,41 @@ it('asks before taking the card off', async () => {
   expect(toast.show).toHaveBeenCalledWith(BALANCE_WORDS.cardRemoved);
 });
 
-it('sends somebody with no card to the page a card is typed on', async () => {
+it('opens the provider’s own page to add a card, and types none itself', async () => {
   answers['/v1/queries/wallet.get'] = { ...WALLET, card: null, autoTopup: false };
+  mockWalletCard.mockResolvedValue({ stage: 'started', hostedUrl: 'https://pay.test/card/abc' });
   await show();
   expect(await screen.findByText(BALANCE_WORDS.cardNone)).toBeTruthy();
-  expect(screen.getByTestId('balance-add-card')).toBeTruthy();
   // Nothing to charge, so neither the top-up nor the switch is live.
   expect(screen.getByTestId('balance-top-up')).toBeDisabled();
   expect(screen.getByTestId('balance-auto-switch')).toBeDisabled();
+
+  await fireEvent.press(screen.getByTestId('balance-add-card'));
+  await waitFor(() => expect(mockWalletCard).toHaveBeenCalledWith({ workspaceId: LONE_STAR }));
+  await waitFor(() => expect(openWeb).toHaveBeenCalledWith('https://pay.test/card/abc'));
+  // No field here ever held the card: the session is all the app sees.
+  expect(screen.queryByTestId('balance-card-number')).toBeNull();
+});
+
+it('saves the card it comes back with, and reads the balance again', async () => {
+  answers['/v1/queries/wallet.get'] = { ...WALLET, card: null, autoTopup: false };
+  mockParams = { card: 'cses_1' };
+  mockWalletCard.mockResolvedValue({ stage: 'saved', card: { cardLast4: '4242' } });
+  await show();
+  await waitFor(() =>
+    expect(mockWalletCard).toHaveBeenCalledWith({ workspaceId: LONE_STAR, sessionRef: 'cses_1' }),
+  );
+  expect(toast.show).toHaveBeenCalledWith(expect.stringContaining('4242'));
+  // The screen is read back, so the card that just landed is the one on it.
+  await waitFor(() => expect(sent('/v1/queries/wallet.get').length).toBeGreaterThan(1));
+});
+
+it('says nothing was saved when they leave the provider’s page alone', async () => {
+  answers['/v1/queries/wallet.get'] = { ...WALLET, card: null, autoTopup: false };
+  mockParams = { card: 'cancelled' };
+  await show();
+  await waitFor(() => expect(toast.show).toHaveBeenCalledWith(BALANCE_WORDS.cardNotSaved));
+  expect(mockWalletCard).not.toHaveBeenCalled();
 });
 
 it('shows a member the balance and none of the ways to spend it', async () => {

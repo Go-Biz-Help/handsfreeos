@@ -598,6 +598,49 @@ export function createStripePayments(opts: {
         return { customerRef: String(made['id'] ?? '') };
       },
 
+      /**
+       * Stripe's own page, in `setup` mode: it takes the card, we never see it. The session id comes back on
+       * the return address (`{CHECKOUT_SESSION_ID}` is Stripe's own placeholder, filled in by Stripe on the
+       * way back), and `readCardSession` reads the card off it — so the token is Stripe's answer to us, not a
+       * number from a query string anybody could have typed.
+       */
+      async startCardSession(input) {
+        const url = (mark: string) =>
+          `${input.returnUrl}${input.returnUrl.includes('?') ? '&' : '?'}card=${mark}`;
+        const made = await api<Json>(null, '/checkout/sessions', {
+          body: {
+            mode: 'setup',
+            customer: input.customerRef,
+            payment_method_types: ['card'],
+            // Saved for charging later, unattended: what a top-up is.
+            setup_intent_data: { usage: 'off_session' },
+            success_url: url('{CHECKOUT_SESSION_ID}'),
+            cancel_url: url('cancelled'),
+          },
+          idempotencyKey: input.idempotencyKey,
+        });
+        const hostedUrl = str(made['url']);
+        if (!hostedUrl) throw new Error('Stripe gave no page to type the card on.');
+        return { sessionRef: String(made['id'] ?? ''), hostedUrl };
+      },
+
+      async readCardSession(sessionRef) {
+        const session = obj(
+          await api<Json>(null, `/checkout/sessions/${encodeURIComponent(sessionRef)}`),
+        );
+        // Anything but `complete` is a session nobody finished, which is an answer and not a failure.
+        if (String(session['status'] ?? '') !== 'complete')
+          return { sourceToken: null, customerRef: str(session['customer']) };
+        const intent = await api<Json>(
+          null,
+          `/setup_intents/${encodeURIComponent(String(session['setup_intent'] ?? ''))}`,
+        );
+        return {
+          sourceToken: str(obj(intent)['payment_method']),
+          customerRef: str(session['customer']) ?? str(obj(intent)['customer']),
+        };
+      },
+
       async saveMethod(input) {
         const attached = await api<Json>(
           null,

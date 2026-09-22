@@ -214,6 +214,28 @@ export interface RefundResult {
 }
 
 /** A card the customer let the business keep. Never the number: the provider holds that. */
+export interface CardSessionInput {
+  /** The provider's customer the card is saved against, made by `ensureCustomer` first. */
+  readonly customerRef: string;
+  /** Where the provider sends them when they are done, with `?card=<session>` on it (or `cancelled`). */
+  readonly returnUrl: string;
+  readonly idempotencyKey: string;
+}
+
+export interface CardSession {
+  /** The provider's id for the session, which comes back on the return and reads it. */
+  readonly sessionRef: string;
+  /** The page to send the browser to. */
+  readonly hostedUrl: string;
+}
+
+export interface CardSessionResult {
+  /** The card the session ended with, or null when nobody finished it. */
+  readonly sourceToken: string | null;
+  /** The customer it was saved against, as the provider has it. */
+  readonly customerRef: string | null;
+}
+
 export interface SavedMethod {
   /** The provider's id for it (Stripe's `pm_…`, Square's card id). */
   readonly token: string;
@@ -398,6 +420,19 @@ export interface PlatformPayments {
   readonly supported: boolean;
   /** Us, as a customer of the provider, for one business. Their id for it is kept on the wallet. */
   ensureCustomer(input: CustomerInput): Promise<{ customerRef: string }>;
+  /**
+   * A page the provider hosts, where a business types the card that tops its balance up.
+   *
+   * **The card never reaches us.** It is typed on the provider's own page, and what comes back here is the
+   * session it happened in — which `readCardSession` turns into a token. That is the whole reason this is a
+   * session rather than a form: a card that never touches our servers is a card we cannot lose.
+   */
+  startCardSession(input: CardSessionInput): Promise<CardSession>;
+  /**
+   * What the session ended with, read from the provider rather than from whatever came back in the browser's
+   * address bar. A session nobody finished answers `null` and is not an error: they closed the page.
+   */
+  readCardSession(sessionRef: string): Promise<CardSessionResult>;
   saveMethod(input: {
     customerRef: string;
     sourceToken: string;
