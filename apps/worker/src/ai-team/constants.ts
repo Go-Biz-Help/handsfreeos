@@ -84,6 +84,7 @@ export const LATER_NUDGE_MS = 24 * 3_600_000;
 
 /** The most plans and price-list items a run's context lists (M18). */
 export const PLANS_MAX = 10;
+export const OFFERS_MAX = 10;
 export const CATALOGUE_MAX = 60;
 /** The most bills or quotes my_bills and my_quotes return, newest first. */
 export const MONEY_LIST_MAX = 10;

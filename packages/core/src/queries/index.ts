@@ -66,6 +66,7 @@ import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
 import { migrationQueries } from './migration';
 import { walletQueries } from './wallet';
+import { offerList } from './offer';
 import {
   workflowApprovalList,
   workflowCatalogs,
@@ -232,6 +233,7 @@ export const queries: readonly QueryDef[] = [
   workflowTemplateGet,
   knowledgeProfileGet,
   knowledgeItemList,
+  offerList,
   knowledgeItemGet,
   knowledgeSearch,
   knowledgeScanGet,
@@ -320,3 +322,4 @@ export * from './wallet';
 export * from './port';
 export * from './branded-domain';
 export * from './founding';
+export * from './offer';

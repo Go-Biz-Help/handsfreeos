@@ -2285,6 +2285,20 @@ export const knowledgeItems = app.table('knowledge_items', {
   ),
 });
 
+/** What the business is running right now (M18): the AI teammate shares the ones live today. */
+export const offers = app.table('offers', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  details: text('details').notNull().default(''),
+  /** Local dates in the business's zone, both inclusive; null is open-ended. */
+  startsOn: date('starts_on'),
+  endsOn: date('ends_on'),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
 /** The business's website (one per workspace for now). */
 export const knowledgeSources = app.table('knowledge_sources', {
   id: id(),

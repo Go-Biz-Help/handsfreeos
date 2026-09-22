@@ -3617,6 +3617,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/offer.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an offer off the list. The AI teammate stops mentioning it at once.
+         * @description Risk level 1. Requires knowledge.manage. Emits offer.archived.
+         */
+        post: operations["command_offer_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/offer.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an offer the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.
+         * @description Risk level 1. Requires knowledge.manage. Emits offer.created.
+         */
+        post: operations["command_offer_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/offer.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an offer’s name, details or dates.
+         * @description Risk level 1. Requires knowledge.manage. Emits offer.updated.
+         */
+        post: operations["command_offer_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.add_owner": {
         parameters: {
             query?: never;
@@ -7791,6 +7851,26 @@ export interface paths {
          * @description Requires channels.manage.
          */
         post: operations["query_number_port_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/offer.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s offers, newest first, and whether each is running today.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_offer_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16762,6 +16842,112 @@ export interface operations {
                         portId: string;
                         /** @enum {string} */
                         status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_offer_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    offerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_offer_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default  */
+                    details?: string;
+                    /** @default null */
+                    endsOn?: string | null;
+                    name: string;
+                    /** @default null */
+                    startsOn?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_offer_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    details?: string;
+                    endsOn?: string | null;
+                    name?: string;
+                    /** Format: uuid */
+                    offerId: string;
+                    startsOn?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                        updated: string[];
                     };
                 };
             };
@@ -28939,6 +29125,46 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
                             submittedAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_offer_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            details: string;
+                            endsOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            startsOn: string | null;
+                            /** @enum {string} */
+                            state: "live" | "upcoming" | "ended";
+                            /** Format: date-time */
+                            updatedAt: string;
                         }[];
                     };
                 };

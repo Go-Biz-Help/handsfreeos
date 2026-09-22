@@ -668,6 +668,12 @@ function describeAction(e: AuditEntry): string {
       return `recorded the customer’s answer to ${s(e.after?.estimate) || 'a quote'}, with an owner’s OK`;
     case 'subscription.start_for_customer':
       return `signed the customer up for ${s(e.after?.plan) || 'a plan'}, with an owner’s OK`;
+    case 'offer.create':
+      return `added the offer “${s(e.after?.name) || 'an offer'}”`;
+    case 'offer.update':
+      return 'changed an offer';
+    case 'offer.archive':
+      return `removed the offer “${s(e.after?.name) || 'an offer'}”`;
     case 'waitlist.join_for_customer':
       return `added ${s(e.after?.customer) || 'the customer'} to the waitlist for ${s(e.after?.calendar) || 'a calendar'}`;
     case 'message.record_opt_out':

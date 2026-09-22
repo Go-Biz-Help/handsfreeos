@@ -219,6 +219,7 @@ import {
   knowledgeSuggestionPropose,
   knowledgeSuggestionReject,
 } from './knowledge';
+import { offerArchive, offerCreate, offerUpdate } from './offer';
 import {
   aiTeammateCreate,
   aiTeammateDecideDraft,
@@ -666,6 +667,9 @@ export const commands: readonly CommandDef[] = [
   knowledgeItemUpdate,
   knowledgeItemPublish,
   knowledgeItemArchive,
+  offerCreate,
+  offerUpdate,
+  offerArchive,
   knowledgeItemImportFaqs,
   knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,
@@ -775,6 +779,7 @@ export * from './knowledge';
 export * from './ai-team';
 export * from './appointment-ai';
 export * from './money-ai';
+export * from './offer';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

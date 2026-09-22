@@ -11,6 +11,7 @@ import {
   calendarMostCharged,
   LeadQualification,
   loadCalendar,
+  localDateOf,
   openHoursOf,
   uuidArray,
   type KnowledgeMatch,
@@ -31,6 +32,7 @@ import {
   HISTORY_DAYS,
   HISTORY_MAX,
   KNOWLEDGE_MATCHES,
+  OFFERS_MAX,
   PLANS_MAX,
 } from './constants';
 import { stripQuoted } from './gates';
@@ -169,6 +171,14 @@ export interface RunPlan {
   readonly includes: readonly string[];
 }
 
+/** An offer the business is running today (M18). */
+export interface RunOffer {
+  readonly name: string;
+  readonly details: string;
+  /** The last day it runs, when it has one. */
+  readonly endsOn: string | null;
+}
+
 /** Something on the price list the teammate may put on a bill or a quote (M18). */
 export interface RunProduct {
   readonly id: string;
@@ -252,6 +262,8 @@ export interface RunContext {
   readonly plans: readonly RunPlan[];
   /** The price list it builds bills and quotes from; empty unless its settings let it (M18). */
   readonly catalogue: readonly RunProduct[];
+  /** The offers running today, in the business's time zone (M18). */
+  readonly offers: readonly RunOffer[];
   /** Upcoming visits; none for a chat visitor. */
   readonly appointments: readonly RunAppointment[];
   /** Their most recent visit that has happened (M18); none for a chat visitor. */
@@ -312,6 +324,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
   const [lastVisit] =
     customer && !unverifiedChat ? await pastAppointments(tx, ws, customer.id, timeZone, 1) : [];
+  const offers = input.config.answer.enabled ? await liveOffers(tx, ws, timeZone) : [];
   const money = input.config.money;
   const plans = money.plans && !unverifiedChat ? await plansOf(tx, ws) : [];
   const catalogue =
@@ -378,6 +391,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     calendars,
     plans,
     catalogue,
+    offers,
     appointments,
     lastVisit: lastVisit ?? null,
     batch: input.batch,
@@ -520,6 +534,20 @@ async function plansOf(tx: Tx, workspaceId: string): Promise<RunPlan[]> {
       ? p.includes.filter((x): x is string => typeof x === 'string').slice(0, 10)
       : [],
   }));
+}
+
+/** The offers running today where the business is, soonest to end first. */
+async function liveOffers(tx: Tx, workspaceId: string, timeZone: string): Promise<RunOffer[]> {
+  const today = localDateOf(Date.now(), timeZone);
+  const list = await rows<{ name: string; details: string; ends_on: string | null }>(
+    tx,
+    sql`select name, details, ends_on::text as ends_on from app.offers
+        where workspace_id = ${workspaceId} and archived_at is null
+          and (starts_on is null or starts_on <= ${today}::date)
+          and (ends_on is null or ends_on >= ${today}::date)
+        order by ends_on nulls last, created_at limit ${OFFERS_MAX}`,
+  );
+  return list.map((o) => ({ name: o.name, details: o.details, endsOn: o.ends_on }));
 }
 
 /** What's on the price list, by name. */

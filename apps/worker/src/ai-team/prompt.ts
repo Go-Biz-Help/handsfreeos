@@ -176,6 +176,19 @@ function skillLines(rc: RunContext): string[] {
           : 'when they want work done and have no open lead, open one with open_deal'
       }. When they agree to a price, set what it's worth with set_deal_value. Mark it won with close_deal when they commit (book the work, accept a quote, pay), and lost only when they clearly say they don’t want it, with their reason. Never mark it lost because they went quiet.`,
     );
+  // M18: the offers running today. They are the only ones there are.
+  if (rc.offers.length) {
+    out.push(
+      '- Current offers: tell customers about these when they fit what they want. They are the only offers there are: never make one up, stretch one, or promise one after it ends. An offer isn’t taken off a bill by you; the team applies it.',
+    );
+    for (const o of rc.offers)
+      out.push(
+        `  - ${quoteData(o.name)}${o.details ? `: ${quoteData(o.details)}` : ''}${
+          o.endsOn ? ` (through ${o.endsOn})` : ''
+        }`,
+      );
+  } else if (config.answer.enabled)
+    out.push('- There are no offers running right now; don’t mention any.');
   // M18: money. Look-ups at once; anything that asks the customer for money waits for an owner or admin.
   const m = config.money;
   if (!rc.unverifiedChat && (m.bills || m.newBills || m.quotes !== 'off' || m.plans)) {

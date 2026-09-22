@@ -9,6 +9,7 @@ import {
   invoiceCreate,
   invoiceSend,
   localDateOf,
+  offerCreate,
   pushDeviceRegister,
   territoryCreate,
 } from '@hfos/core/server';
@@ -435,5 +436,28 @@ describe('past visits', () => {
     const call = (await toolCallsOf(runs.at(-1)!.id)).find((x) => x.tool === 'my_appointments');
     const visits = (call!.result as { content: { visits: unknown[] } }).content.visits;
     expect(visits).toHaveLength(1);
+  });
+});
+
+describe('offers', () => {
+  it('tells the teammate about the offers running today, and no others', async () => {
+    await run(w, offerCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Fall tune-up special',
+      details: '$50 off',
+      endsOn: localDateOf(at(10, '12:00'), CHI),
+    });
+    await run(w, offerCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Spring special',
+      startsOn: localDateOf(at(40, '12:00'), CHI),
+    });
+    const c = await newCustomer(w, 'Joy');
+    const m = await textIn(w, c.phone, 'My zip is 78701, any deals going?');
+    await replyNow(w, m.conversationId);
+    const context = requestAbout(w, 'any deals going')!.context!;
+    expect(context).toContain('Current offers');
+    expect(context).toContain('Fall tune-up special');
+    expect(context).not.toContain('Spring special');
   });
 });
