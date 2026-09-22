@@ -19,8 +19,11 @@ import { REPEAT_EVERY } from '../schemas/ai-team';
 import type { TeammateConfig, TeammateSkill } from './config';
 
 export type TeammateToolAutonomy = 'auto' | 'draft' | 'approval';
-/** What turns a tool on: a skill, `core` (every teammate) or `discounts` (discounts "with approval"). */
-export type TeammateToolSkill = TeammateSkill | 'core' | 'discounts';
+/**
+ * What turns a tool on: a skill, `core` (every teammate), `discounts` (discounts "with approval") or `deals`
+ * (M18: opening and closing deals).
+ */
+export type TeammateToolSkill = TeammateSkill | 'core' | 'discounts' | 'deals';
 
 export interface TeammateTool<I extends z.ZodType = z.ZodType> {
   readonly name: string;
@@ -262,6 +265,39 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
 
+  // ---------- deals (M18) ----------
+  define({
+    name: 'open_deal',
+    description:
+      'Open a lead (a deal) for the customer when they have none and want work done, titled with what they want, like “AC replacement”. It starts in the pipeline’s first open stage.',
+    input: z.strictObject({ title: text(200) }),
+    skill: 'deals',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'set_deal_value',
+    description:
+      'Set what the customer’s lead is worth, in dollars, from a price they agreed to or a quote they accepted. Never guess a value.',
+    input: z.strictObject({
+      dollars: z.number().min(0).max(10_000_000).describe('What the deal is worth, in dollars'),
+    }),
+    skill: 'deals',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'close_deal',
+    description:
+      'Mark the customer’s lead won when they commit (they book the work, accept a quote or pay), or lost when they clearly say they don’t want it, with the reason in their words. Never mark it lost just because they went quiet.',
+    input: z.strictObject({
+      outcome: z.enum(['won', 'lost']),
+      reason: optionalText(300).describe(
+        'Why it was lost, in the customer’s words; needed for lost',
+      ),
+    }),
+    skill: 'deals',
+    autonomy: 'auto',
+  }),
+
   // ---------- the customer's record ----------
   define({
     name: 'update_customer',
@@ -373,6 +409,10 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'reschedule',
   'cancel',
   'update_customer',
+  // M18: a chat visitor can't open or close a deal for the customer they typed the number of.
+  'open_deal',
+  'set_deal_value',
+  'close_deal',
 ]);
 
 export interface TeammateToolOptions {
@@ -393,6 +433,7 @@ export function teammateTools(
     book: config.book.enabled,
     followUp: config.followUp.enabled,
     discounts: config.money.discounts === 'with_approval',
+    deals: config.deals.enabled,
   };
   return TEAMMATE_TOOLS.filter((t) => {
     if (!on[t.skill]) return false;

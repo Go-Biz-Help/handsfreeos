@@ -167,6 +167,14 @@ function skillLines(rc: RunContext): string[] {
         `  You can also ${changes.join(' and ')} their upcoming visits; my_appointments lists them.`,
       );
   }
+  if (config.deals.enabled && !rc.unverifiedChat)
+    out.push(
+      `- Deals: ${
+        rc.lead
+          ? 'they have an open lead (see the customer record)'
+          : 'when they want work done and have no open lead, open one with open_deal'
+      }. When they agree to a price, set what it's worth with set_deal_value. Mark it won with close_deal when they commit (book the work, accept a quote, pay), and lost only when they clearly say they don’t want it, with their reason. Never mark it lost because they went quiet.`,
+    );
   if (config.money.discounts === 'with_approval')
     out.push(
       `- Discounts: you may propose one, at most ${config.money.maxPercent}%, with offer_discount. A person decides before the customer hears about it.`,

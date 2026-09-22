@@ -1,9 +1,10 @@
 import { and, eq } from 'drizzle-orm';
 import { leads } from '@hfos/db/schema';
-import { assertAiReach } from '../ai-team/reach';
+import { assertAiReach, teammateDealsOn } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { requireCompany, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
+import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import {
   logNotApplied,
@@ -28,14 +29,17 @@ export const leadUpdate = defineCommand({
   offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
-    // The AI teammate changes only the next action on its own customer's lead.
-    if (ctx.actor.type === 'ai_employee') {
+    // The AI teammate changes only the next action on its own customer's lead, and what it's worth when its
+    // settings let it handle deals (M18).
+    const ai = aiEmployeeOf(ctx.actor);
+    if (ai) {
+      const deals = input.valueCents !== undefined && (await teammateDealsOn(ctx.tx, ai));
       const other = (
         [
           'title',
           'personId',
           'companyId',
-          'valueCents',
+          ...(deals ? [] : ['valueCents' as const]),
           'source',
           'assigneeUserId',
           'expectedCloseOn',

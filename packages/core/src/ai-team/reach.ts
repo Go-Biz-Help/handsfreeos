@@ -179,3 +179,9 @@ export async function requireAiConversation(ctx: CommandContext, ai: AiEmployeeA
   if (conv.handledBy !== 'ai' || conv.aiTeammateId !== ai.teammateId) throw notHandledByAi();
   return conv;
 }
+
+/** M18: the teammate's settings let it open and close deals and set what they're worth. */
+export async function teammateDealsOn(tx: Tx, ai: AiEmployeeActor): Promise<boolean> {
+  const row = await loadTeammate(tx, ai.workspaceId, { teammateId: ai.teammateId });
+  return !!row && teammateConfigOf(row).deals.enabled;
+}

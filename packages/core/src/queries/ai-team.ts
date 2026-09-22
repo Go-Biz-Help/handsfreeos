@@ -253,6 +253,8 @@ type ToolFacts = {
   /** check_service_area: the ZIP it checked, and whether the business serves it (null: no ZIPs listed). */
   zip?: string;
   served?: boolean | null;
+  /** set_deal_value: what it set, in words. */
+  value?: string;
 };
 type ToolCallRow = {
   tool: string;
@@ -296,6 +298,7 @@ const TOOL_FACTS = sql`jsonb_strip_nulls(jsonb_build_object(
   'callWords', case when jsonb_typeof(tc.result #> '{content,words}') = 'string' then true
     when tc.result #> '{content,words}' is not null then false end,
   'zip', left(tc.arguments ->> 'postalCode', 12),
+  'value', left(tc.result #>> '{content,value}', 40),
   'served', case when jsonb_typeof(tc.result #> '{content,served}') = 'boolean'
     then tc.result #> '{content,served}' end
 ))`;
@@ -411,6 +414,16 @@ function toolCallSummary(c: ToolCallRow): string | null {
     }
     case 'move_stage':
       return f.stage ? `To ${f.stage}` : null;
+    case 'open_deal':
+      return f.title ? `Opened “${clip(f.title, 100)}”` : null;
+    case 'set_deal_value':
+      return f.value ? `Worth ${f.value}` : null;
+    case 'close_deal':
+      return f.outcome === 'won'
+        ? 'Marked won'
+        : f.outcome === 'lost'
+          ? `Marked lost${f.reason ? `: ${clip(f.reason, 100)}` : ''}`
+          : null;
     case 'update_customer': {
       const fields = (f.updated ?? [])
         .filter((x): x is string => typeof x === 'string')

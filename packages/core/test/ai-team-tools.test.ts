@@ -51,6 +51,9 @@ describe('the registry', () => {
       ['ask_form', 'qualify', 'auto'],
       ['answer_form', 'qualify', 'auto'],
       ['move_stage', 'qualify', 'auto'],
+      ['open_deal', 'deals', 'auto'],
+      ['set_deal_value', 'deals', 'auto'],
+      ['close_deal', 'deals', 'auto'],
       ['update_customer', 'core', 'auto'],
       ['add_note', 'core', 'auto'],
       ['create_task', 'core', 'auto'],
@@ -197,6 +200,14 @@ describe('teammateTools', () => {
     expect(names(neither)).not.toContain('reschedule');
     expect(names(neither)).not.toContain('cancel');
     expect(names(neither)).toContain('book');
+  });
+
+  it('turns on the deal tools with Deals, never for an unverified chat visitor (M18)', () => {
+    const deals = ['open_deal', 'set_deal_value', 'close_deal'];
+    for (const t of deals) expect(names(responder)).not.toContain(t);
+    const on = applyTeammatePatch(responder, { deals: { enabled: true } });
+    expect(names(on)).toEqual(expect.arrayContaining(deals));
+    for (const t of deals) expect(names(on, true)).not.toContain(t);
   });
 
   it('follows the waitlist, repeats and service area switches (M18)', () => {

@@ -162,8 +162,8 @@ const Qualify = z.object({
     })
     .prefault({}),
   /**
-   * When an answer rules the lead out. It never marks the lead lost itself (the teammate may only move leads
-   * between open stages), so a person decides.
+   * When an answer rules the lead out. It never marks the lead lost for that (even with Deals on, it marks one
+   * lost only when the customer says they don't want it), so a person decides.
    */
   whenNotAFit: z
     .object({

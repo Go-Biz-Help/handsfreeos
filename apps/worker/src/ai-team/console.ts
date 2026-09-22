@@ -25,6 +25,7 @@ import {
   loadTeammate,
   loadTerritories,
   localDateOf,
+  money,
   parseTeammateConfig,
   plainSmsText,
   quietHoursState,
@@ -672,6 +673,29 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         note: 'It happens as your reply goes out. They hear from us when a spot opens; never promise one.',
       },
     };
+  },
+
+  async open_deal(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    if (h.rc.lead) return refuse('They already have an open lead. Use that one.');
+    would(h, 'stage', `opened the lead “${String(args['title'])}”`);
+    return { content: { opened: true } };
+  },
+
+  async set_deal_value(h, args) {
+    if (!h.rc.lead) return refuse(NO_LEAD);
+    const cents = Math.round(Number(args['dollars']) * 100);
+    would(h, 'stage', `set ${h.rc.lead.title} to ${money(cents)}`);
+    return { content: { value: money(cents) } };
+  },
+
+  async close_deal(h, args) {
+    if (!h.rc.lead) return refuse(NO_LEAD);
+    const outcome = args['outcome'] === 'lost' ? 'lost' : 'won';
+    if (outcome === 'lost' && !str(args['reason']))
+      return refuse('Say why it was lost, in their words.');
+    would(h, 'stage', `marked ${h.rc.lead.title} ${outcome}`);
+    return { content: { status: outcome } };
   },
 
   async record_answers(h, args) {

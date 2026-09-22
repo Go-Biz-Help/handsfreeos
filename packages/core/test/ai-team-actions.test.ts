@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { appointments, events, waitlistEntries } from '@hfos/db/schema';
+import { appointments, events, leads, waitlistEntries } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
@@ -29,6 +29,9 @@ import {
   aiTeammateSetStatus,
   appointmentBookForCustomer,
   conversationHandToAi,
+  leadCreate,
+  leadMoveStage,
+  leadUpdate,
   messageReceive,
   organizationCreate,
   personCreate,
@@ -454,5 +457,58 @@ describe('the calendar settings it follows', () => {
       'series_off',
     );
     await saveCalendar(t, weekly.id, { recurring: { customerSeries: true } });
+  });
+});
+
+describe('deals, when the teammate’s settings let it handle them', () => {
+  it('sets what its customer’s lead is worth and marks it won or lost, and only then', async () => {
+    const jo = await aiChat(a, 'Jo');
+    const me = { conversationId: jo.conversationId };
+    const { leadId } = (
+      await asAva(a, me, leadCreate, {
+        workspaceId: a.wsId,
+        title: 'New furnace',
+        personId: jo.personId,
+      })
+    ).output;
+    const worth = () =>
+      asAva(a, me, leadUpdate, { workspaceId: a.wsId, leadId, valueCents: 480_000 });
+    const [won, lost] = await Promise.all(
+      (['won', 'lost'] as const).map(async (kind) => {
+        const [s] = await rows<{ id: string }>(
+          admin(),
+          sql`select s.id from app.pipeline_stages s join app.leads l on l.pipeline_id = s.pipeline_id
+              where l.id = ${leadId} and s.kind = ${kind} order by s.position limit 1`,
+        );
+        return s!.id;
+      }),
+    );
+    const close = (stageId: string, lostReason?: string) =>
+      asAva(a, me, leadMoveStage, {
+        workspaceId: a.wsId,
+        leadId,
+        stageId,
+        ...(lostReason ? { lostReason } : {}),
+      });
+    // Off: only the next action, and open stages.
+    await expectHfos(worth, 'validation');
+    await expectHfos(() => close(won!), 'rule_violation', 'stage_not_open');
+    await saveTeammate(a, { deals: { enabled: true } });
+    await worth();
+    await close(lost!, 'Went with another company');
+    const [row] = await admin()
+      .select({ status: leads.status, value: leads.valueCents, reason: leads.lostReason })
+      .from(leads)
+      .where(eq(leads.id, leadId));
+    expect(row).toMatchObject({ status: 'lost', reason: 'Went with another company' });
+    expect(Number(row!.value)).toBe(480_000);
+    // Reopening a closed lead stays a person's call.
+    const [open] = await rows<{ id: string }>(
+      admin(),
+      sql`select s.id from app.pipeline_stages s join app.leads l on l.pipeline_id = s.pipeline_id
+          where l.id = ${leadId} and s.kind = 'open' order by s.position limit 1`,
+    );
+    await expectHfos(() => close(open!.id), 'rule_violation', 'stage_not_open');
+    await saveTeammate(a, { deals: { enabled: false } });
   });
 });

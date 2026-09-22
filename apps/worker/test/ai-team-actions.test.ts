@@ -106,6 +106,19 @@ const RULES: TeammateRule[] = [
     },
   },
   {
+    when: /new furnace/i,
+    step: (t) =>
+      !t.results['open_deal']
+        ? { calls: [{ name: 'open_deal', arguments: { title: 'New furnace' } }] }
+        : !t.results['set_deal_value']
+          ? { calls: [{ name: 'set_deal_value', arguments: { dollars: 4800 } }] }
+          : !t.results['close_deal']
+            ? { calls: [{ name: 'close_deal', arguments: { outcome: 'won' } }] }
+            : {
+                calls: [{ name: 'reply', arguments: { message: 'Great, we’ll get it ordered.' } }],
+              },
+  },
+  {
     when: /times near me/i,
     step: (t) =>
       t.results['find_times']
@@ -230,5 +243,38 @@ describe('repeat visits and the waitlist, going out with the reply', () => {
     expect(localDateOf(new Date(places[0]!.wanted_from).getTime(), CHI)).toBe(
       localDateOf(at(5, '00:00'), CHI),
     );
+  });
+});
+
+describe('deals', () => {
+  it('opens a lead, sets what it’s worth and marks it won, when the settings allow', async () => {
+    await saveTeammate(w, { deals: { enabled: true } });
+    const c = await newCustomer(w, 'Eve');
+    const m = await textIn(w, c.phone, 'Yes, go ahead with the new furnace for $4,800.');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    const [lead] = await rows<{
+      title: string;
+      status: string;
+      value_cents: string;
+      source: string;
+    }>(
+      admin(),
+      sql`select title, status::text as status, value_cents::text as value_cents, source
+          from app.leads where person_id = ${c.id}`,
+    );
+    expect(lead).toMatchObject({
+      title: 'New furnace',
+      status: 'won',
+      value_cents: '480000',
+      source: 'AI teammate',
+    });
+    const [r] = await runsOf(m.conversationId);
+    expect((await toolCallsOf(r!.id)).map((x) => [x.tool, x.status])).toEqual([
+      ['open_deal', 'done'],
+      ['set_deal_value', 'done'],
+      ['close_deal', 'done'],
+      ['reply', 'done'],
+    ]);
   });
 });

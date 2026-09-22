@@ -29,8 +29,11 @@ import {
   formResponseSave,
   formResponseStart,
   formResponseSubmit,
+  AI_TEAMMATE_SOURCE,
+  leadCreate,
   leadMoveStage,
   leadRecordAnswers,
+  leadUpdate,
   nextQuestion,
   parseStoredForm,
   responseProblems,
@@ -111,6 +114,8 @@ export interface RunState {
   /** A knowledge search ran (whether or not it found anything). */
   searched: boolean;
   discount: Discount | null;
+  /** A lead open_deal opened in this run (the context loaded before it had one). */
+  openedLeadId: string | null;
   end: RunEnd | null;
   abort: RunAbort | null;
 }
@@ -122,6 +127,7 @@ export function newRunState(): RunState {
     found: new Map(),
     searched: false,
     discount: null,
+    openedLeadId: null,
     end: null,
     abort: null,
   };
@@ -134,6 +140,7 @@ interface Effect {
   readonly searched?: boolean;
   readonly held?: DraftAction;
   readonly discount?: Discount;
+  readonly openedLeadId?: string;
   readonly end?: RunEnd;
   readonly abort?: RunAbort;
 }
@@ -150,6 +157,7 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.searched) state.searched = true;
   if (effect.held) state.held.push(effect.held);
   if (effect.discount) state.discount = effect.discount;
+  if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
   // A hand-off outranks a reply, which outranks "no reply"; a later reply replaces an earlier one.
   if (effect.end && (!state.end || END_RANK[effect.end.kind] >= END_RANK[state.end.kind]))
     state.end = effect.end;
@@ -1010,6 +1018,81 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       d.meta,
     );
     return { status: 'done', command: 'lead.move_stage', content: { moved: true } };
+  },
+
+  async open_deal(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.rc.lead || d.state.openedLeadId)
+      return refused({ error: 'They already have an open lead. Use that one.' });
+    const r = await executeCommandIn(
+      tx,
+      leadCreate,
+      {
+        workspaceId: d.scope.workspaceId,
+        title: String(args['title']),
+        personId: d.rc.customer.id,
+        source: AI_TEAMMATE_SOURCE,
+      },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'lead.create',
+      content: { opened: true },
+      effect: { openedLeadId: r.output.leadId },
+    };
+  },
+
+  async set_deal_value(d, tx, args) {
+    const leadId = d.rc.lead?.id ?? d.state.openedLeadId;
+    if (!leadId) return refused({ error: NO_LEAD });
+    const valueCents = Math.round(Number(args['dollars']) * 100);
+    await executeCommandIn(
+      tx,
+      leadUpdate,
+      { workspaceId: d.scope.workspaceId, leadId, valueCents },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'lead.update',
+      content: { value: money(valueCents) },
+    };
+  },
+
+  /** Won or lost goes to the pipeline's first stage of that kind, as a person marking it would. */
+  async close_deal(d, tx, args) {
+    const leadId = d.rc.lead?.id ?? d.state.openedLeadId;
+    if (!leadId) return refused({ error: NO_LEAD });
+    const outcome = args['outcome'] === 'lost' ? 'lost' : 'won';
+    const reason = str(args['reason']);
+    if (outcome === 'lost' && !reason)
+      return refused({ error: 'Say why it was lost, in their words.' });
+    const [stage] = await rows<{ id: string; name: string }>(
+      tx,
+      sql`select s.id, s.name from app.pipeline_stages s join app.leads l on l.pipeline_id = s.pipeline_id
+          where l.id = ${leadId} and s.kind = ${outcome} order by s.position limit 1`,
+    );
+    if (!stage) return refused({ error: `Its pipeline has no ${outcome} stage.` });
+    await executeCommandIn(
+      tx,
+      leadMoveStage,
+      {
+        workspaceId: d.scope.workspaceId,
+        leadId,
+        stageId: stage.id,
+        ...(reason ? { lostReason: reason } : {}),
+      },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'lead.move_stage',
+      content: { status: outcome, stage: quoteData(stage.name) },
+    };
   },
 
   async update_customer(d, tx, args) {
