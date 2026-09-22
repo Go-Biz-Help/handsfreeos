@@ -720,10 +720,12 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       state: string | null;
       postal_code: string | null;
       sms_consent: SmsConsent;
+      custom: Record<string, unknown>;
     }>(
       tx,
       sql`select id::text as id, first_name, last_name, email::text as email, phone, phone_e164, phone_alt,
-            source, notes, address_line1, city, state, postal_code, sms_consent::text as sms_consent
+            source, notes, address_line1, city, state, postal_code, sms_consent::text as sms_consent,
+            custom
           from app.people where id = ${decision.targetId}::uuid`,
     );
     if (here) {
@@ -780,8 +782,16 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       // Custom values merge the way every other field does: what is empty here is filled, what somebody has
       // already answered here is left alone. Two sub-accounts holding the same customer must not fight over
       // the gate code, and the second one in must not win by being second.
-      if (Object.keys(custom).length > 0)
-        changed['custom'] = { before: 'kept', after: 'filled in' };
+      //
+      // **The values themselves, not a word about them.** This used to record the strings 'kept' and
+      // 'filled in', which read well and were useless: a rollback puts a field back by writing `before`
+      // where the value is still `after`, and neither of those is a JSON object, so the one statement that
+      // was meant to undo this could only fail — and took the whole business's rollback with it. What the
+      // update below really does is fill the blanks (`new || existing`, so an answer already here wins), so
+      // what it changed is the object before it and the object after it.
+      const nextCustom = { ...custom, ...here.custom };
+      const filledIn = Object.keys(custom).filter((k) => !(k in here.custom));
+      if (filledIn.length > 0) changed['custom'] = { before: here.custom, after: nextCustom };
 
       if (Object.keys(changed).length > 0) {
         await tx.execute(sql`

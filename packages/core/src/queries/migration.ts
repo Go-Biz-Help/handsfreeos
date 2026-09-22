@@ -579,7 +579,10 @@ export const migrationRollbackPreview = defineQuery({
             (select count(*)::int from app.migration_source_mappings sm
              where sm.first_migration_id = ${input.migrationId} and sm.created_here
                and sm.organization_id = ${org}
-               and sm.target_type <> all (${MIGRATION_ROLLBACK_LEAVES}::text[])) as removable,
+               and sm.target_type not in (${sql.join(
+                 MIGRATION_ROLLBACK_LEAVES.map((t) => sql`${t}`),
+                 sql`, `,
+               )})) as removable,
             (select count(*)::int from app.migration_change_journal j
              where j.migration_id = ${input.migrationId} and j.action in ('update', 'merge')
                and j.reverted_at is null) as restorable,

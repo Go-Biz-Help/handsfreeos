@@ -55,6 +55,9 @@ const textArray = (values: readonly string[]) =>
         sql`, `,
       )}]::text[]`;
 
+/** A journalled value that belongs in a `jsonb` column rather than a scalar one. */
+const isObject = (v: unknown): boolean => v !== null && typeof v === 'object';
+
 /** How long a worker holds a batch before another may take it. Longer than any single page should take. */
 const LEASE_SECONDS = 300;
 /** Records read per batch. Small, so a lease is never the thing that decides whether work is lost. */
@@ -1388,7 +1391,9 @@ const takeBackPlan = (migrationId: string): ReadonlyArray<readonly [string, Take
     'form',
     {
       table: 'forms',
-      away: sql`archived_at = now()`,
+      // A form's `status` and its `archived_at` are one fact, and the table says so
+      // (`(status = 'archived') = (archived_at is not null)`), so both are written or neither is.
+      away: sql`status = 'archived', archived_at = now()`,
       untouched: sql`t.archived_at is null`,
       keepWhen: (ws) => sql`
         exists (select 1 from app.form_responses r
@@ -1487,17 +1492,42 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
           let restored = 0;
           for (const [column, change] of Object.entries(entry.changed_fields)) {
             if (!/^[a-z_]+$/.test(column)) continue;
-            await tx.execute(sql`
-              update app.${sql.raw(table)} set ${sql.raw(column)} = ${(change.before ?? null) as never}
-               where id = ${entry.target_id}::uuid and workspace_id = ${workspaceId}
-                 and ${sql.raw(column)}::text is not distinct from ${(change.after ?? null) as never}::text`);
-            const [still] = await rows<{ same: boolean }>(
-              tx,
-              sql`select (${sql.raw(column)}::text is not distinct from ${(change.before ?? null) as never}::text)
-                    as same
-                  from app.${sql.raw(table)} where id = ${entry.target_id}::uuid`,
-            );
-            if (still?.same) restored += 1;
+            // A field whose values are an object is compared and written as JSON. Comparing those as text
+            // would never match: `custom::text` is Postgres's own spacing and key order, not the shape this
+            // came back as, so every custom value would read as somebody's later work and stay.
+            const asJson = isObject(change.before) || isObject(change.after);
+            const before = asJson
+              ? sql`${JSON.stringify(change.before ?? {})}::jsonb`
+              : sql`${(change.before ?? null) as never}`;
+            const unchanged = asJson
+              ? sql`${sql.raw(column)} is not distinct from ${JSON.stringify(change.after ?? {})}::jsonb`
+              : sql`${sql.raw(column)}::text is not distinct from ${(change.after ?? null) as never}::text`;
+            const same = asJson
+              ? sql`${sql.raw(column)} is not distinct from ${JSON.stringify(change.before ?? {})}::jsonb`
+              : sql`${sql.raw(column)}::text is not distinct from ${(change.before ?? null) as never}::text`;
+            // One field the column will not take is one field left alone, not a rollback that dies. A merge
+            // journalled before 0092 wrote the words 'kept' and 'filled in' where `custom`'s own values
+            // belonged, and writing either of those to a `jsonb` column is an error the whole business's
+            // rollback used to fail on. The savepoint keeps it to the field it is about.
+            try {
+              await tx.transaction(async (step) => {
+                await step.execute(sql`
+                  update app.${sql.raw(table)} set ${sql.raw(column)} = ${before}
+                   where id = ${entry.target_id}::uuid and workspace_id = ${workspaceId}
+                     and ${unchanged}`);
+                const [still] = await rows<{ same: boolean }>(
+                  step,
+                  sql`select (${same}) as same
+                      from app.${sql.raw(table)} where id = ${entry.target_id}::uuid`,
+                );
+                if (still?.same) restored += 1;
+              });
+            } catch (err) {
+              deps.log.warn(
+                { err, migrationId: job.migration_id, target: entry.target_id, column },
+                'a field could not be put back the way the journal recorded it',
+              );
+            }
           }
           if (restored < columns.length) kept += 1;
           await tx.execute(sql`

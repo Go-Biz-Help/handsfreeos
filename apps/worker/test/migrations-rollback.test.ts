@@ -17,7 +17,9 @@
  *     recognises it instead of making another copy;
  *   - a thread that was already the business's own keeps its place in the list, with its summary worked out
  *     again from the messages that are actually left in it;
- *   - and what a person typed after the import is still there afterwards.
+ *   - what a person typed after the import is still there afterwards;
+ *   - and one field the journal records in a shape the column will not take is one field left alone, not a
+ *     rollback that dies half way through somebody's business.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -68,6 +70,13 @@ let migrationId: string;
 let adapters: MigrationAdapters;
 let deps: Parameters<typeof processMigrationJobs>[0];
 
+/** The kinds a rollback leaves alone, as a list Postgres reads as values rather than as one record. */
+const leaves = () =>
+  sql.join(
+    MIGRATION_ROLLBACK_LEAVES.map((t) => sql`${t}`),
+    sql`, `,
+  );
+
 const run = <T>(cmd: unknown, input: unknown): Promise<T> =>
   executeCommand(api(), cmd as never, input, actorOf(owner), meta()).then((r) => r.output as T);
 const ask = <T>(q: unknown, input: unknown): Promise<T> =>
@@ -85,7 +94,18 @@ async function drain(limit = 600): Promise<void> {
       sql`select count(*)::int as count from app.migration_jobs
           where migration_id = ${migrationId} and state in ('leased', 'pending', 'retry')`,
     );
-    if ((mine?.count ?? 0) === 0) return;
+    if ((mine?.count ?? 0) === 0) {
+      // A job that gave up is quiet in the queue and loud in its own row. Reading it here is the difference
+      // between "some assertion failed" and knowing which statement the engine could not run.
+      const dead = await rows<{ kind: string; last_error: string }>(
+        admin(),
+        sql`select kind::text as kind, coalesce(last_error, '') as last_error
+            from app.migration_jobs
+            where migration_id = ${migrationId} and state = 'failed'`,
+      );
+      if (dead.length > 0) throw new Error(`a job gave up: ${JSON.stringify(dead)}`);
+      return;
+    }
     await processMigrationJobs(deps);
   }
   const stuck = await rows<{ kind: string; category: string; state: string; last_error: string }>(
@@ -329,13 +349,43 @@ describe('taking a move back', () => {
           received_at, recorded_by)
         values (${workspaceId}::uuid, ${keptInvoiceId}::uuid, 1, 'USD', 'cash', 'succeeded', now(),
           ${owner.id}::uuid)`);
+      // A deal belongs to somebody: the table says so, and this is the business's own customer.
+      const [ours] = await rows<{ id: string }>(
+        tx,
+        sql`insert into app.people (workspace_id, first_name, last_name, phone_e164)
+            values (${workspaceId}::uuid, 'Someone', 'We Found', '+15125559998')
+            returning id::text as id`,
+      );
       await tx.execute(sql`
-        insert into app.leads (workspace_id, pipeline_id, stage_id, title, created_by)
-        values (${workspaceId}::uuid, ${keptPipelineId}::uuid, ${stage!.id}::uuid,
+        insert into app.leads (workspace_id, pipeline_id, stage_id, person_id, title, created_by)
+        values (${workspaceId}::uuid, ${keptPipelineId}::uuid, ${stage!.id}::uuid, ${ours!.id}::uuid,
           'A job we won on our own', ${owner.id}::uuid)`);
       await tx.execute(sql`
         update app.people set notes = 'Called about the compressor.'
          where id = ${editedPersonId}::uuid`);
+    });
+
+    // A merge journalled before 0092, where `custom` was recorded as the words 'kept' and 'filled in'
+    // instead of the values themselves. Writing either of those to a `jsonb` column is an error, and it used
+    // to be an error that took the whole business's rollback with it. The field is left alone and said to be
+    // left alone; everything else still goes.
+    await asWorker(worker(), { workspaceId, organizationId }, async (tx) => {
+      const [scope] = await rows<{ id: string }>(
+        tx,
+        sql`select id::text as id from app.migration_scopes where migration_id = ${migrationId} limit 1`,
+      );
+      const [theirs] = await rows<{ id: string }>(
+        tx,
+        sql`insert into app.people (workspace_id, first_name, last_name, phone_e164)
+            values (${workspaceId}::uuid, 'Someone', 'We Had', '+15125559999')
+            returning id::text as id`,
+      );
+      await tx.execute(sql`
+        insert into app.migration_change_journal (migration_id, organization_id, scope_id, workspace_id,
+          action, target_type, target_id, changed_fields)
+        values (${migrationId}, ${organizationId}, ${scope!.id}::uuid, ${workspaceId}::uuid, 'merge',
+          'person', ${theirs!.id}::uuid,
+          '{"custom": {"before": "kept", "after": "filled in"}}'::jsonb)`);
     });
 
     const preview = await ask<{ removable: number }>(migrationRollbackPreview, {
@@ -363,18 +413,23 @@ describe('taking a move back', () => {
     expect(left).toEqual({ conversation: 1, invoice: 1, pipeline: 1 });
 
     // The journal accounts for all of it: every record it made is either put back or says why not.
-    const [journal] = await rows<{ open: number; depended: number }>(
+    const [journal] = await rows<{ open: number; depended: number; changed: number }>(
       admin(),
       sql`select
             (select count(*)::int from app.migration_change_journal j
               where j.migration_id = ${migrationId} and j.action = 'create' and j.reverted_at is null
-                and j.target_type <> all (${MIGRATION_ROLLBACK_LEAVES}::text[])) as open,
+                and j.target_type not in (${leaves()})) as open,
             (select count(*)::int from app.migration_change_journal j
               where j.migration_id = ${migrationId}
-                and j.revert_skipped_reason = 'depended_on') as depended`,
+                and j.revert_skipped_reason = 'depended_on') as depended,
+            (select count(*)::int from app.migration_change_journal j
+              where j.migration_id = ${migrationId}
+                and j.revert_skipped_reason = 'changed_since') as changed`,
     );
     expect(journal?.open).toBe(0);
     expect(journal?.depended).toBe(3);
+    // The field it could not put back said so, rather than the rollback failing or claiming it had.
+    expect(journal?.changed).toBeGreaterThan(0);
 
     // A record that stays keeps its mapping, so importing again recognises it rather than making a second
     // copy of it. A record that went takes its mapping with it.
@@ -383,7 +438,7 @@ describe('taking a move back', () => {
       sql`select sm.target_type, sm.target_id::text as target_id
           from app.migration_source_mappings sm
           where sm.first_migration_id = ${migrationId} and sm.created_here
-            and sm.target_type <> all (${MIGRATION_ROLLBACK_LEAVES}::text[])`,
+            and sm.target_type not in (${leaves()})`,
     );
     expect(remaining.map((r) => r.target_id).sort()).toEqual(
       [keptConversationId, keptInvoiceId, keptPipelineId].sort(),
