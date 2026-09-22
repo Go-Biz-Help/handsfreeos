@@ -20,3 +20,4 @@ export * from './words';
 export * from './lists';
 export * from './visit';
 export * from './document-words';
+export * from './wallet-words';

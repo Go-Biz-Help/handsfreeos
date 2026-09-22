@@ -136,6 +136,11 @@ export function useHomeActions(o: {
             if (item.callable && item.personId) return call(item);
             if (item.reach) return open({ type: 'let_handle', item });
             return target(item);
+          // The balance's three reach nobody: they open Balance, where topping up and the card are.
+          case 'wallet_low':
+          case 'wallet_empty':
+          case 'wallet_card_declined':
+            return target(item);
         }
       },
       call,
