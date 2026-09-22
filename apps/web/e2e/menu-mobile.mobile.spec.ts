@@ -19,8 +19,12 @@ test('the phone drawer scrolls, opens a group in place, and drops a hidden place
   // Scoped to the drawer: a test id is a plain CSS match, so it finds the sidebar's copy too, hidden as it is.
   await expect(page.getByRole('dialog').getByTestId('sign-out')).toBeVisible();
 
+  // No row for editing in the drawer either; it is Settings → Side menu, which a phone reaches the same way.
+  await expect(drawer.getByRole('button', { name: /Edit menu/i })).toHaveCount(0);
+
   // Arrange it from the phone: the suggested groups, and Pipeline out of the way.
-  await drawer.getByTestId('menu-edit').click();
+  await page.goto(`/app/w/${workspaceId}/settings`);
+  await page.getByTestId('settings-edit-menu').click();
   await page.getByTestId('menu-suggest').click();
   await page
     .getByTestId('menu-row-pipeline')

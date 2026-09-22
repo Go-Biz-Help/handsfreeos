@@ -4,7 +4,10 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useMenu } from '@/components/shell/menu-provider';
 import { Button } from '@/components/ui/button';
 
-/** Settings → Account: what the menu holds now, and the way into the editor for anyone who hid the way in. */
+/**
+ * Settings → Account: what the side menu holds now, and the way in to arrange it. The only way in — the menu
+ * itself is places to go, and a row for editing it would be read past every day for something done once.
+ */
 export function MenuSection() {
   const { menu, openEditor } = useMenu();
   return (

@@ -8,6 +8,13 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 
 const nav = (page: Page) => page.getByRole('navigation', { name: 'Workspace' });
 
+/** Arranging the menu is Settings → Side menu; the menu itself holds no row for it. */
+async function openMenuEditor(page: Page, workspaceId: string) {
+  await page.goto(`/app/w/${workspaceId}/settings`);
+  await page.getByTestId('settings-edit-menu').click();
+  await expect(page.getByTestId('menu-editor-list')).toBeVisible();
+}
+
 test('a person arranges their own side menu: groups, hiding, and it survives a reload', async ({
   page,
 }) => {
@@ -28,9 +35,11 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await expect(aside.getByTestId('sign-out')).toBeInViewport();
   await page.setViewportSize({ width: 1280, height: 832 });
 
+  // No row for editing in the menu itself: it is Settings → Side menu.
+  await expect(nav(page).getByRole('button', { name: /Edit menu/i })).toHaveCount(0);
+
   // The suggested arrangement: the everyday places stay out, the rest fold into More.
-  await page.getByTestId('menu-edit').click();
-  await expect(page.getByTestId('menu-editor-list')).toBeVisible();
+  await openMenuEditor(page, workspaceId);
   await page.getByTestId('menu-suggest').click();
   await page.getByTestId('menu-save').click();
   await expect(page.getByText('Menu saved.')).toBeVisible();
@@ -58,7 +67,7 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await expect(nav(page).getByRole('link', { name: 'Knowledge' })).toHaveCount(0);
 
   // Name the group, take the audit log out of the menu altogether, and put Reviews back in the menu.
-  await page.getByTestId('menu-edit').click();
+  await openMenuEditor(page, workspaceId);
   await page.getByLabel('Group name').fill('Back office');
   await page
     .getByTestId('menu-row-audit')
@@ -74,14 +83,14 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await expect(nav(page).getByRole('link', { name: 'Reviews' })).toBeVisible();
 
   // Hidden is not lost: the editor lists it, and the page still opens from a link.
-  await page.getByTestId('menu-edit').click();
+  await openMenuEditor(page, workspaceId);
   await expect(page.getByTestId('menu-hidden-list')).toContainText('Audit log');
   await page.getByTestId('menu-cancel').click();
   await page.goto(`/app/w/${workspaceId}/audit`);
   await expect(nav(page).getByRole('link', { name: 'Audit log' })).toHaveCount(0);
 
   // Start over puts every place back, one under the other.
-  await page.getByTestId('menu-edit').click();
+  await openMenuEditor(page, workspaceId);
   await page.getByTestId('menu-reset').click();
   await page.getByTestId('menu-save').click();
   await expect(nav(page).getByRole('link', { name: 'Knowledge' })).toBeVisible();
@@ -91,9 +100,9 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
 
 test('a group is built by hand, moved, and ungrouped again', async ({ page }) => {
   await signUpAndConfirm(page, 'menu-groups');
-  await createBusiness(page, { name: 'Harbor HVAC' });
+  const workspaceId = await createBusiness(page, { name: 'Harbor HVAC' });
 
-  await page.getByTestId('menu-edit').click();
+  await openMenuEditor(page, workspaceId);
   // Two places into a group of their own: the first makes it, the second joins it.
   await page
     .getByTestId('menu-row-members')
@@ -121,7 +130,7 @@ test('a group is built by hand, moved, and ungrouped again', async ({ page }) =>
   await page.keyboard.press('Escape');
 
   // Ungrouping puts both back in the menu where the group stood.
-  await page.getByTestId('menu-edit').click();
+  await openMenuEditor(page, workspaceId);
   await page.getByRole('button', { name: /^Ungroup/ }).click();
   await page.getByTestId('menu-save').click();
   await expect(nav(page).getByTestId('menu-group-g1')).toHaveCount(0);
