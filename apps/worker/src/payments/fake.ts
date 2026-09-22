@@ -273,6 +273,8 @@ const ALL: PaymentCapabilities = {
   refunds: true,
   savedMethods: true,
   holds: true,
+  needsInfo: false,
+  needsInfoBy: null,
   flow: 'client_confirm',
 };
 

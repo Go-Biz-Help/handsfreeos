@@ -69,6 +69,20 @@ function ProviderMark({ provider }: { provider: string }) {
   );
 }
 
+/**
+ * When the provider is waiting on the business for something. Deliberately only ever *says* so: every business
+ * here keeps its own full Stripe dashboard, so that is where the fix belongs, and asking them for an identity
+ * document inside HandsFreeOS would be collecting something we have no business holding.
+ */
+export function needsInfoWords(capabilities: Record<string, unknown>): string | null {
+  if (capabilities['needsInfo'] !== true) return null;
+  const by = capabilities['needsInfoBy'];
+  if (typeof by !== 'number' || !Number.isFinite(by)) return 'before you can keep taking payments';
+  const when = new Date(by * 1000);
+  if (Number.isNaN(when.getTime())) return 'before you can keep taking payments';
+  return `by ${when.toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`;
+}
+
 /** "Card · bank transfer · plans · refunds", in the order the canvas lists them. */
 export function capabilityWords(capabilities: Record<string, unknown>): string {
   const on = (key: string) => capabilities[key] === true;
@@ -245,6 +259,20 @@ export function PaymentConnectionCard({
           {c.locationId ? ` · ${c.locationId} location` : ''}
         </span>
         <span className="text-xs text-text-3">{capabilityWords(c.capabilities)}</span>
+        {needsInfoWords(c.capabilities) ? (
+          <span className="text-xs text-danger-text" data-testid={`pay-needs-info-${c.id}`}>
+            {provider} needs more details from you {needsInfoWords(c.capabilities)}. Sign in to{' '}
+            <a
+              className="underline"
+              href="https://dashboard.stripe.com/"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              your {provider} dashboard
+            </a>{' '}
+            to finish — otherwise they stop this account taking payments.
+          </span>
+        ) : null}
         {standing.note ? (
           <span className="text-xs text-danger-text" data-testid={`pay-account-note-${c.id}`}>
             {standing.note}

@@ -319,6 +319,9 @@ export function createStripePayments(opts: {
     const caps = obj(a['capabilities']);
     const charges = a['charges_enabled'] === true;
     const card = charges && caps['card_payments'] === 'active';
+    // Free: it rides the account read we already make, and the same webhook already refreshes it.
+    const due = obj(a['requirements']);
+    const waiting = (key: string) => (Array.isArray(due[key]) ? (due[key] as unknown[]).length : 0);
     return {
       card,
       bankTransfer: charges && caps['us_bank_account_ach_payments'] === 'active',
@@ -327,6 +330,9 @@ export function createStripePayments(opts: {
       savedMethods: card,
       holds: card,
       flow: 'client_confirm',
+      needsInfo:
+        waiting('currently_due') > 0 || waiting('past_due') > 0 || !!due['disabled_reason'],
+      needsInfoBy: centsOf(due['current_deadline']),
     };
   }
 

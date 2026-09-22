@@ -29,7 +29,7 @@ const connected: PaymentAccount = {
 };
 
 /** A Stripe adapter whose every call is recorded instead of sent. */
-function stripeWatching() {
+function stripeWatching(replyWith?: Record<string, unknown>) {
   const calls: { url: string; headers: Record<string, string>; body: URLSearchParams }[] = [];
   const fetchStub = async (url: string | URL, init?: RequestInit): Promise<Response> => {
     calls.push({
@@ -43,13 +43,15 @@ function stripeWatching() {
       body: new URLSearchParams(String(init?.body ?? '')),
     });
     return new Response(
-      JSON.stringify({
-        id: 'pi_1',
-        status: 'succeeded',
-        amount: 2500,
-        client_secret: 'pi_1_secret',
-        latest_charge: {},
-      }),
+      JSON.stringify(
+        replyWith ?? {
+          id: 'pi_1',
+          status: 'succeeded',
+          amount: 2500,
+          client_secret: 'pi_1_secret',
+          latest_charge: {},
+        },
+      ),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
   };
@@ -177,5 +179,63 @@ describe('a charge with nobody watching', () => {
       metadata: {},
     });
     noRedirects(calls[0]!.body);
+  });
+});
+
+/**
+ * Stripe asks a business for more — an identity document, a business detail, a bank account — long after they
+ * first connected, and stops them taking money if it doesn't arrive. It says so on the account object we
+ * already read for capabilities, and `account.updated` already brings us back here when it changes, so the
+ * only thing that was missing was reading it.
+ */
+describe('a business Stripe is waiting on', () => {
+  const account = (requirements: Record<string, unknown>) => ({
+    id: 'acct_plumber',
+    charges_enabled: true,
+    capabilities: { card_payments: 'active' },
+    requirements,
+  });
+
+  it('is quiet when Stripe is waiting on nothing', async () => {
+    const { provider } = stripeWatching(account({ currently_due: [], past_due: [] }));
+    const caps = await provider.capabilities(connected);
+    expect(caps.needsInfo).toBe(false);
+    expect(caps.needsInfoBy).toBeNull();
+  });
+
+  it('says so when something is currently due, and when by', async () => {
+    const deadline = 1_800_000_000;
+    const { provider } = stripeWatching(
+      account({ currently_due: ['individual.verification.document'], current_deadline: deadline }),
+    );
+    const caps = await provider.capabilities(connected);
+    expect(caps.needsInfo).toBe(true);
+    expect(caps.needsInfoBy).toBe(deadline);
+  });
+
+  it('says so when something is already past due', async () => {
+    const { provider } = stripeWatching(
+      account({ currently_due: [], past_due: ['company.tax_id'] }),
+    );
+    expect((await provider.capabilities(connected)).needsInfo).toBe(true);
+  });
+
+  /** The worst case: Stripe has already switched them off. Never silent. */
+  it('says so when Stripe has disabled the account outright', async () => {
+    const { provider } = stripeWatching(
+      account({ currently_due: [], past_due: [], disabled_reason: 'requirements.past_due' }),
+    );
+    expect((await provider.capabilities(connected)).needsInfo).toBe(true);
+  });
+
+  it('is quiet when the account has no requirements block at all', async () => {
+    const { provider } = stripeWatching({
+      id: 'acct_plumber',
+      charges_enabled: true,
+      capabilities: { card_payments: 'active' },
+    });
+    const caps = await provider.capabilities(connected);
+    expect(caps.needsInfo).toBe(false);
+    expect(caps.card).toBe(true);
   });
 });

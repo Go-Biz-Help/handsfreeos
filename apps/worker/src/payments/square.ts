@@ -358,6 +358,11 @@ export function createSquarePayments(opts: {
       savedMethods: card,
       holds: card,
       flow: 'server_charge',
+      // Square has no equivalent to Stripe's requirements list on anything we can read here: a seller finds
+      // out from Square directly. Saying `false` is honest — we know of nothing outstanding — rather than a
+      // claim that nothing is.
+      needsInfo: false,
+      needsInfoBy: null,
     };
   }
 
