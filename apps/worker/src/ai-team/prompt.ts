@@ -17,6 +17,7 @@ import {
 } from '@hfos/core/server';
 import { atLabel, clockLabel, dayLabel, isoWithOffset } from '../assistant/calendar-format';
 import type { HistoryLine, RunContext } from './context';
+import { handoffExpectation, handoffLine } from './hours';
 import { planEvery } from './tools';
 
 export const TEAMMATE_SYSTEM = [
@@ -305,6 +306,20 @@ export function contextText(rc: RunContext): string {
     `Today is ${weekday}, ${localDateOf(rc.now, tz)} (${tz}). It’s ${clockLabel(rc.now, tz)} there now (${isoWithOffset(rc.now, tz)}).`,
   );
   lines.push(`The business is open ${formatHours(rc.workspace.openHours)}.`);
+  // M18: the customer's language, and the one fixed line the teammate may translate itself.
+  lines.push(
+    `Language: answer in the language the customer writes in${
+      rc.conversationLanguage ? ` (so far: ${rc.conversationLanguage})` : ''
+    }, and give its code as language on reply and hand_off (en, es, vi…).`,
+  );
+  lines.push(
+    `If you hand off, the customer is told: “${quoteData(
+      handoffLine(
+        config.handOff.tellCustomer,
+        handoffExpectation(rc.workspace.openHours, tz, rc.now),
+      ),
+    )}” When they write in a language other than English, pass that sentence translated faithfully as translatedLine, with nothing added.`,
+  );
   lines.push('What you do:', ...skillLines(rc));
   lines.push(...customerLines(rc));
   lines.push(

@@ -901,6 +901,9 @@ export const conversations = app.table('conversations', {
    * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
    */
   memberViewerIds: memberViewerIds(),
+  // Milestone 18
+  /** The language the customer writes in, as the AI teammate last said ("es"); null until it knows. */
+  language: text('language'),
 });
 
 export const messages = app.table('messages', {
@@ -2298,6 +2301,21 @@ export const offers = app.table('offers', {
   createdBy: userRef('created_by'),
   ...timestamps(),
 });
+
+/**
+ * Fixed words HandsFreeOS sends (a hand-off line, the emergency safety steps) in another language (M18), once
+ * per English text and language. The worker's only.
+ */
+export const fixedTextTranslations = app.table(
+  'fixed_text_translations',
+  {
+    sourceHash: text('source_hash').notNull(),
+    language: text('language').notNull(),
+    translated: text('translated').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.sourceHash, t.language] })],
+);
 
 /** The business's website (one per workspace for now). */
 export const knowledgeSources = app.table('knowledge_sources', {

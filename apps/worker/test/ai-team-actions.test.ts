@@ -15,9 +15,11 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { ScriptRule } from '@hfos/ai';
 import { scriptedAi, type TeammateRule } from '../src/ai/scripted';
 import {
   admin,
+  aiMessages,
   aiReplies,
   api,
   decide,
@@ -46,6 +48,17 @@ const calendarIdIn = (context: string, name: string) =>
   new RegExp(`${name}.{0,20}\\(calendar id ([0-9a-f-]{36})\\)`).exec(context)?.[1] ?? '';
 const firstTime = (r: Record<string, unknown> | undefined) =>
   (r?.['times'] as { startsAt: string }[] | undefined)?.[0]?.startsAt;
+
+/** The translate job's request: each "[i] English" back as "ES: English". */
+const TRANSLATE: ScriptRule = {
+  when: /Translate each text into the language/,
+  json: (q) => ({
+    translations: [...q.matchAll(/^\[(\d+)\] (.+)$/gm)].map((m) => ({
+      index: Number(m[1]),
+      text: `ES: ${m[2]}`,
+    })),
+  }),
+};
 
 /** What the stand-in does for each customer message these tests send. */
 const RULES: TeammateRule[] = [
@@ -167,6 +180,28 @@ const RULES: TeammateRule[] = [
         : { calls: [{ name: 'my_appointments', arguments: { when: 'past' } }] },
   },
   {
+    when: /^hola/i,
+    step: () => ({
+      calls: [{ name: 'reply', arguments: { message: 'Hola, ¿en qué le ayudo?', language: 'es' } }],
+    }),
+  },
+  {
+    when: /hablar con alguien/i,
+    step: () => ({
+      calls: [
+        {
+          name: 'hand_off',
+          arguments: {
+            reason: 'other',
+            note: 'Quiere hablar con alguien',
+            language: 'es',
+            translatedLine: 'Gracias por su paciencia. Le pasé esto a nuestro equipo.',
+          },
+        },
+      ],
+    }),
+  },
+  {
     when: /times near me/i,
     step: (t) =>
       t.results['find_times']
@@ -203,7 +238,7 @@ beforeAll(async () => {
   await saveTeammate(w, {
     book: { enabled: true, calendarIds: [lawn.id, byZip.id], repeats: true },
   });
-  useModel(w, scriptedAi([], { teammate: RULES }));
+  useModel(w, scriptedAi([TRANSLATE], { teammate: RULES }));
 }, 120_000);
 afterAll(async () => {
   await w?.app.close();
@@ -459,5 +494,45 @@ describe('offers', () => {
     expect(context).toContain('Current offers');
     expect(context).toContain('Fall tune-up special');
     expect(context).not.toContain('Spring special');
+  });
+});
+
+describe('the customer’s language', () => {
+  it('is kept on the conversation, and the fixed words follow it', async () => {
+    const c = await newCustomer(w, 'Luz');
+    const m = await textIn(w, c.phone, 'Hola, ¿hacen mantenimiento?');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    const [conv] = await rows<{ language: string | null }>(
+      admin(),
+      sql`select language from app.conversations where id = ${m.conversationId}`,
+    );
+    expect(conv!.language).toBe('es');
+    // The translate job kept Spanish for every emergency's steps.
+    const [kept] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.fixed_text_translations where language = 'es'`,
+    );
+    expect(kept!.n).toBeGreaterThanOrEqual(5);
+
+    // Its own hand-off: the line in their language, as it translated it.
+    const n = await textIn(w, c.phone, 'Quiero hablar con alguien de la oficina');
+    await replyNow(w, n.conversationId);
+    await drain(w);
+    const sent = (await aiMessages(n.conversationId)).map((x) => x.body_text);
+    expect(sent.at(-1)).toBe('Gracias por su paciencia. Le pasé esto a nuestro equipo.');
+
+    // An emergency: the kept translation of the steps, then the English.
+    const d = await newCustomer(w, 'Sol');
+    const first = await textIn(w, d.phone, 'Hola, una pregunta');
+    await replyNow(w, first.conversationId);
+    await drain(w);
+    const e = await textIn(w, d.phone, 'I smell gas in the kitchen');
+    await replyNow(w, e.conversationId);
+    await drain(w);
+    const last = (await aiMessages(e.conversationId)).at(-1)!.body_text!;
+    expect(last.startsWith('ES: If you smell gas, leave the building now.')).toBe(true);
+    expect(last.endsWith("We've alerted our team.")).toBe(true);
+    expect(last).toContain(' If you smell gas, leave the building now.');
   });
 });

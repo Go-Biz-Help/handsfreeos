@@ -247,6 +247,8 @@ export interface RunContext {
   };
   /** A website chat: whoever is typing hasn't proved they're the customer it matched. */
   readonly unverifiedChat: boolean;
+  /** The language the teammate last said the customer writes in (M18), or null. */
+  readonly conversationLanguage: string | null;
   /** The name a chat visitor typed. */
   readonly visitorName: string | null;
   /** No message from the teammate has gone to this customer in this conversation yet. */
@@ -382,6 +384,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       personId,
     },
     unverifiedChat,
+    conversationLanguage: conv?.language ?? null,
     visitorName: visitor?.name ?? null,
     firstAiMessage,
     discloseNow: firstAiMessage && input.config.identity.disclosure === 'first_message',

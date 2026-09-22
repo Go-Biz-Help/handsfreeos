@@ -16,6 +16,8 @@ export const TEAMMATE_JOBS = {
   expireDrafts: 'ai_teammate.expire_drafts',
   /** A hand-off's text to one person's verified cell (M18). */
   handoffText: 'ai_teammate.handoff_text',
+  /** The business's fixed words (hand-off line, emergency steps) in a customer's language (M18). */
+  translate: 'ai_teammate.translate',
 } as const;
 
 export const replyJobKey = (conversationId: string): string => `ai-reply:${conversationId}`;

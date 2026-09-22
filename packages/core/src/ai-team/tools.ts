@@ -51,6 +51,13 @@ const define = <N extends string, I extends z.ZodType>(t: TeammateTool<I> & { re
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 const uuid = z.uuid();
+/** M18: the language the customer writes in, which the teammate answers in. */
+const language = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z]{2,3}$/, 'A language code like en or es.')
+  .describe('The language the customer writes in, as a code like en, es or vi');
 const catalogueItem = z.strictObject({
   productId: uuid.describe('A product id from the price list in the context'),
   quantity: z.number().gt(0).max(10_000),
@@ -470,7 +477,14 @@ export const TEAMMATE_TOOLS = [
     name: 'hand_off',
     description:
       'Hand the conversation to a person and stop replying: when they ask for a person, sound frustrated, raise a legal threat, a complaint, a refund or cancelling service, or you can’t help. The note tells the team what’s going on; the customer gets the business’s hand-off message.',
-    input: z.strictObject({ reason: z.enum(HAND_OFF_REASONS), note: text(1000) }),
+    input: z.strictObject({
+      reason: z.enum(HAND_OFF_REASONS),
+      note: text(1000),
+      language: language.optional(),
+      translatedLine: optionalText(600).describe(
+        'When they write in a language other than English: the hand-off line from your context, translated faithfully, with nothing added',
+      ),
+    }),
     skill: 'core',
     autonomy: 'auto',
   }),
@@ -478,7 +492,7 @@ export const TEAMMATE_TOOLS = [
     name: 'reply',
     description:
       'Send your reply to the customer and end your turn. Keep to the channel’s length, and sign it the way your settings say.',
-    input: z.strictObject({ message: text(4000) }),
+    input: z.strictObject({ message: text(4000), language: language.optional() }),
     skill: 'core',
     autonomy: 'draft',
   }),

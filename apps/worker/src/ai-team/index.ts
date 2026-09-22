@@ -13,6 +13,7 @@ import { followUpJob } from './follow-up';
 import { handoffLineJob } from './handoff';
 import { outreachJob } from './outreach';
 import { teammateReplyJob } from './run';
+import { translateJob } from './translations';
 
 export { withTeammate, scheduleReply, dropPendingDraft } from './triggers';
 export { sendApprovedDraft } from './drafts';
@@ -38,4 +39,5 @@ export const teammateJobs: JobMap = {
   [TEAMMATE_JOBS.handoffLine]: handoffLineJob,
   [TEAMMATE_JOBS.expireDrafts]: expireDraftsJob,
   [TEAMMATE_JOBS.handoffText]: handoffTextJob,
+  [TEAMMATE_JOBS.translate]: translateJob,
 };

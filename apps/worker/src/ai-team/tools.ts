@@ -69,6 +69,7 @@ import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN }
 import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
 import { pastAppointments, upcomingAppointments, type RunContext } from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
+import { rememberLanguage } from './translations';
 
 // ---- What a run has done so far ----
 
@@ -1478,10 +1479,12 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async hand_off(d, tx, args) {
     const reason = conversationHandoffReasonOf(args['reason'] as HandOffReason);
     const note = String(args['note']).slice(0, 500);
+    await rememberLanguage(tx, d.scope, d.rc.conversation.id, str(args['language']));
     // The customer hears the hand-off line first (the safety text, for an emergency they described).
     const emergency = reason === 'emergency' ? emergencyIn(d.rc.batch.map((b) => b.text)) : null;
     await handOffInConversation(tx, d.ai, d.meta, reason, note, {
       line: emergency ? { emergency } : 'usual',
+      translated: str(args['translatedLine']),
     });
     return {
       status: 'done',
@@ -1492,7 +1495,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     };
   },
 
-  async reply(_d, _tx, args) {
+  async reply(d, tx, args) {
+    await rememberLanguage(tx, d.scope, d.rc.conversation.id, str(args['language']));
     return {
       status: 'done',
       content: { status: 'received' },

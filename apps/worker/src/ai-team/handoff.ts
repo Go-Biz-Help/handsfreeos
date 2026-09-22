@@ -40,6 +40,7 @@ import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services
 import { runtimeConfigOf } from './config';
 import { handoffClientId, handoffLineJobKey, QUIET_GRACE_MS, TEAMMATE_JOBS } from './constants';
 import { handoffExpectation, handoffLine } from './hours';
+import { ENGLISH, keptTranslation, usableTranslation } from './translations';
 
 const NOTE_MAX = 500;
 
@@ -83,6 +84,7 @@ async function tellCustomer(
   line: HandoffLine,
   meta: RequestMeta,
   ai: AiEmployeeActor | null,
+  translated: string | null = null,
 ): Promise<void> {
   if (line === 'none') return;
   const [conv] = await tx
@@ -97,8 +99,9 @@ async function tellCustomer(
   if (!teammate) return;
   const config = runtimeConfigOf(teammate.config);
   const m = await workspaceMessaging(tx, scope.workspaceId);
-  const text = lineText(line, config.handOff.tellCustomer, m, Date.now());
+  const english = lineText(line, config.handOff.tellCustomer, m, Date.now());
   const channel = conv.channel as 'sms' | 'email' | 'chat';
+  const text = await inTheirLanguage(tx, english, line, conv.language, translated, channel);
   const body = channel === 'sms' ? plainSmsText(text) : text;
   const clientId = handoffClientId(conv.id, conv.aiEpoch + 1);
   const [latest] =
@@ -146,6 +149,28 @@ async function tellCustomer(
     if (e.rule === 'quiet_hours') await sendLater(tx, scope, conv, body, clientId, m, meta);
     // Anything else (they opted out, the address stopped taking mail): whoever picks it up writes to them.
   }
+}
+
+/**
+ * M18: the line in the customer's language when the conversation has one (translations.ts says which words
+ * are used). The emergency steps keep the English after the translation, so a safety instruction never rests
+ * on a translation alone; the teammate's own translation is of the usual line, so it never stands in for them.
+ */
+async function inTheirLanguage(
+  tx: Tx,
+  english: string,
+  line: Exclude<HandoffLine, 'none'>,
+  language: string | null,
+  translated: string | null,
+  channel: 'sms' | 'email' | 'chat',
+): Promise<string> {
+  if (!language || language === ENGLISH) return english;
+  const theirs =
+    (line === 'usual' ? usableTranslation(translated) : null) ??
+    (await keptTranslation(tx, english, language));
+  if (!theirs) return english;
+  if (line === 'usual') return theirs;
+  return channel === 'sms' ? `${theirs} ${english}` : `${theirs}\n\n${english}`;
 }
 
 /** A text's line past the quiet-hours reply window: by email now when they have an address, else after quiet hours. */
@@ -256,6 +281,8 @@ export const handoffLineJob: JobHandler = async (ctx) => {
 export interface HandOffOptions {
   /** What the customer is told first (default: nothing for a loop, the usual line otherwise). */
   readonly line?: HandoffLine;
+  /** The usual line in the customer's language, as the teammate translated it in its hand_off (M18). */
+  readonly translated?: string | null;
 }
 
 /** As the worker: the customer hears the line first while the teammate still has the conversation. */
@@ -292,7 +319,15 @@ export async function handOffInConversation(
 ): Promise<void> {
   if (!ai.conversationId) throw outsideItsConversation();
   const scope = { workspaceId: ai.workspaceId, organizationId: ai.organizationId };
-  await tellCustomer(tx, scope, ai.conversationId, opts.line ?? lineFor(reason), meta, ai);
+  await tellCustomer(
+    tx,
+    scope,
+    ai.conversationId,
+    opts.line ?? lineFor(reason),
+    meta,
+    ai,
+    opts.translated ?? null,
+  );
   await executeCommandIn(
     tx,
     conversationHandOff,
