@@ -86,8 +86,10 @@ Connect you submit a TestFlight build for review, and in Play Console you promot
 - **Build from `apps/mobile`, never the repository root.** From the root, `eas build` decides the root is an
   unconfigured Expo app, writes a stub `eas.json` and `app.json` there and asks for a bundle identifier before it
   fails. Delete both if it happens. Watch out for the `HandsFreeOS-build` worktree too, which sits on an old commit.
-- **`eas.json` says `requireCommit: true`**, so EAS builds a commit, not your working tree. Uncommitted work is simply
-  absent from the build. That is on purpose: a store build should be a commit that can be found again.
+- **Commit before you build.** `eas build` from your Mac packs up the working tree, uncommitted changes included, so a
+  store build is only a commit that can be found again if you commit first. `eas.json` doesn't enforce this with
+  `requireCommit`: EAS's own dependency install rewrites `pnpm-lock.yaml` on its machines, and with `requireCommit` on,
+  every update and build started by a workflow refused to run on that "dirty" tree.
 - **`appVersionSource` is `remote`**, so EAS keeps the build number and raises it itself on `preview` and `production`
   (`autoIncrement`). `version` in `app.json` (`1.0.0`) stays the one Chris edits — it is what a customer sees, and
   `runtimeVersion`'s fingerprint policy doesn't depend on it. `ios.buildNumber` and `android.versionCode` in
