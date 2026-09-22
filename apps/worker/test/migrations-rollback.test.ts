@@ -282,10 +282,12 @@ describe('taking a move back', () => {
     // itself, money that really arrived, and a deal of its own on an imported board.
     const [thread] = await rows<{ id: string }>(
       admin(),
+      // A texting thread, named rather than taken in whatever order: what is planted on it below is a text,
+      // and the thread the rollback keeps is the one this spec then reads.
       sql`select t.id::text as id from app.conversations t
           join app.migration_change_journal j on j.target_id = t.id
           where j.migration_id = ${migrationId} and j.action = 'create'
-            and j.target_type = 'conversation'
+            and j.target_type = 'conversation' and t.channel = 'sms'
           order by t.created_at limit 1`,
     );
     keptConversationId = thread!.id;
