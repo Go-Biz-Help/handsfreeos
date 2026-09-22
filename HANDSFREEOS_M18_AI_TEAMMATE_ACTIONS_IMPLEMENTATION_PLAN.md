@@ -71,17 +71,17 @@ Five steps, easiest wins first. Each step is its own set of commits, CI green be
 New settings (all in `TeammateConfig` v1 with defaults, so no upgrade step; stored documents parse
 unchanged):
 
-| Setting            | Where            | Default                   | Meaning                                                                     |
-| ------------------ | ---------------- | ------------------------- | --------------------------------------------------------------------------- |
-| `book.waitlist`    | Book             | on                        | Put a customer on the waitlist of a full calendar (only where it's on)      |
-| `book.repeats`     | Book             | off                       | Book repeat visits (only on calendars that let customers repeat)            |
-| `book.serviceArea` | Book             | on                        | Check the customer's ZIP against the business's areas before offering times |
-| `deals.enabled`    | new Deals module | off                       | Open a lead when there is none, set its value, mark it won or lost          |
-| `money.bills`      | Money            | off                       | Look up the customer's bills and payments; resend a pay link (approval)     |
-| `money.newBills`   | Money            | off                       | Propose a new bill from the price list (approval)                           |
-| `money.quotes`     | Money            | `off`                     | `off` · `send_only` (staff-made quotes) · `build` (from the price list too) |
-| `money.plans`      | Money            | off                       | Offer a maintenance plan; signing up waits for approval                     |
-| `handOff.alerts`   | Hand-off         | push + text on, email off | How the team hears the teammate needs a person                              |
+| Setting            | Where            | Default                   | Meaning                                                                                        |
+| ------------------ | ---------------- | ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `book.waitlist`    | Book             | on                        | Put a customer on the waitlist of a full calendar (only where it's on)                         |
+| `book.repeats`     | Book             | off                       | Book repeat visits (only on calendars that let customers repeat)                               |
+| `book.serviceArea` | Book             | on                        | Check the customer's ZIP against the business's areas before offering times                    |
+| `deals.enabled`    | new Deals module | off                       | Open a lead when there is none, set its value, mark it won or lost                             |
+| `money.bills`      | Money            | off                       | Look up the customer's bills and payments; resend a pay link (approval)                        |
+| `money.newBills`   | Money            | off                       | Propose a new bill from the price list (approval)                                              |
+| `money.quotes`     | Money            | `off`                     | `off` · `send_only` (staff-made quotes) · `build` (from the price list too)                    |
+| `money.plans`      | Money            | off                       | Offer a maintenance plan; signing up waits for approval                                        |
+| `handOff.alerts`   | Hand-off         | push + text on, email off | How the team hears the teammate needs a person (email stays on for teammates saved before M18) |
 
 New tools (`packages/core/src/ai-team/tools.ts`, runners in `apps/worker/src/ai-team/tools.ts`):
 
@@ -102,6 +102,13 @@ New tools (`packages/core/src/ai-team/tools.ts`, runners in `apps/worker/src/ai-
 | `record_quote_answer` | money.quotes         | approval | `estimate.record_answer_for_customer` (yes with their name, or no)             |
 | `offer_plan`          | money.plans          | approval | `subscription.start_for_customer` (the customer adds a card on their link)     |
 
+**As built:** resending a bill or a quote that already went out is a message carrying its link (a
+`share_link` action shown on the card), not a command, so `invoice.send_for_customer` and
+`estimate.send_for_customer` were not needed; a draft the team hasn't sent stays theirs to send. The
+commands are `invoice.create_for_customer`, `estimate.create_for_customer`,
+`estimate.answer_for_customer` and `subscription.start_for_customer`, and the Deals switch sits under
+Qualify.
+
 Money tools share one approval draft per reply, as the discount does today (`TeammateDraftPreview`
 gains the new action kinds; `ai_teammate.send_draft` carries them out as the teammate with the
 approver's name). The customer is told only that the team is getting it ready.
@@ -117,7 +124,7 @@ quoted (`allowPrices`).
 Alerts: `conversation.handed_off` gets a push (`apps/worker/src/push/moments.ts`) and a text to each
 recipient's verified cell (`app.user_phones`), from the business number, once per hand-off.
 
-Build order for step 1:
+Build order for step 1 (all done, 2026-09-22):
 
 1. This plan
 2. Settings: the new fields, their labels and diffs, the builder's switches
