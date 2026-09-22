@@ -61,6 +61,8 @@ test('the phone bar has the calendar, and the agenda books, opens and cancels', 
     (await page.locator('[data-testid^="agenda-day-"]').first().getAttribute('data-testid'))!.slice(
       'agenda-day-'.length,
     );
+  // A week, never the month's cells: the strip is read below, so it has to be the thing being read.
+  await expect(page.locator('[data-testid^="agenda-day-"]')).toHaveCount(7);
   const first = await stripStart();
   await page.getByTestId('agenda-next').click();
   await expect

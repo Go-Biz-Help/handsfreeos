@@ -786,7 +786,12 @@ export function CalendarPage(props: {
           timeZone={tz}
           date={date}
           today={today}
-          days={q.view === 'month' ? weekOf(date) : days}
+          // Always the week of the date on screen, never the range the server last sent. `days` arrives with the
+          // page, so it lags a navigation the phone has already made: tapping a day in the month view switches to
+          // the day list at once while `days` is still that month's 42 cells, and the strip draws all 42 until the
+          // server catches up. `weekOf` is pure, so there is nothing to wait for — and for the day and week views
+          // it is what the server computes anyway (the page's own `weekOf(query.date)`).
+          days={weekOf(date)}
           monthCells={phoneMonthCells}
           appointments={visible}
           me={me}
