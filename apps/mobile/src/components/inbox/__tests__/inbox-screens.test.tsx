@@ -1,10 +1,11 @@
 import { conversationOf, type ConversationListRow } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
 
 import MyCell from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell';
 import { Composer } from '@/components/inbox/composer';
+import { ActionsSheet } from '@/components/inbox/conversation-parts';
 import { ConversationRow } from '@/components/inbox/conversation-row';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
@@ -14,9 +15,10 @@ import type { Me } from '@/lib/businesses';
 import HfosPhone from '../../../../modules/hfos-phone';
 
 /**
- * The inbox's screens with React Native Testing Library: a row in the list, the composer (offline words, the From
- * line, photos, a note that turns the box off), and My cell phone (Verify my cell, the press of 1 arriving through the
- * copy, the contacts card with Add to Contacts).
+ * The inbox's screens with React Native Testing Library: a row in the list, the conversation's Details and actions
+ * (a row's action runs once the sheet is gone), the composer (offline words, the From line, photos, a note that turns
+ * the box off), and My cell phone (Verify my cell, the press of 1 arriving through the copy, the contacts card with
+ * Add to Contacts).
  */
 
 jest.mock('expo-router', () => ({
@@ -116,6 +118,96 @@ describe('a row in the list', () => {
     expect(screen.getByTestId('wait-chip')).toHaveTextContent('Waiting 34 min');
     await fireEvent.press(screen.getByTestId('conversation-row-c1'));
     expect(onPress).toHaveBeenCalledWith('c1');
+  });
+});
+
+describe('Details and actions', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const row: ConversationListRow = {
+    id: 'c1',
+    channel: 'sms',
+    counterpart: '+17135550168',
+    status: 'open',
+    person_id: 'p1',
+    assignee_user_id: null,
+    unread_count: 0,
+    last_message_at: '2026-09-17T12:50:00.000Z',
+    last_preview: 'Thursday works.',
+    last_direction: 'inbound',
+    awaiting_reply_since: null,
+    snoozed_until: null,
+    created_at: '2026-09-17T12:00:00.000Z',
+    handled_by: 'human',
+    ai_teammate_id: null,
+    teammate_name: null,
+    needs_person_since: null,
+    handoff_reason: null,
+    handoff_note: null,
+    taken_over_by: null,
+  };
+
+  /** The conversation page's wiring: the sheet closes itself, and a row picks the next sheet. */
+  function Page({ onAssign, onClose }: { onAssign: () => void; onClose: () => void }) {
+    const [open, setOpen] = React.useState(true);
+    return (
+      <ActionsSheet
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          onClose();
+        }}
+        c={conversationOf(row)}
+        canCall={false}
+        canHandToAi={false}
+        teammateName="Ava"
+        assigneeShort={null}
+        onCall={jest.fn()}
+        onAssign={onAssign}
+        onHandToAi={jest.fn()}
+        onSnooze={jest.fn()}
+        onCloseConversation={jest.fn()}
+        onReopen={jest.fn()}
+        onMarkUnread={jest.fn()}
+        onNote={jest.fn()}
+        onEditPerson={jest.fn()}
+        onTags={jest.fn()}
+        onStage={null}
+        onNextAction={null}
+        onAddPerson={null}
+        stageName={null}
+      />
+    );
+  }
+
+  // Assign opens another sheet, which iOS would drop while this one's modal is still being dismissed: the row waits
+  // for the sheet to be gone. Close conversation and Mark as unread only ever worked because they open nothing.
+  it('runs a row once the sheet is gone, so the next sheet can show', async () => {
+    const onAssign = jest.fn();
+    const onClose = jest.fn();
+    await render(<Page onAssign={onAssign} onClose={onClose} />);
+    const dismiss = screen.root!.props.onDismiss as () => void;
+    await fireEvent.press(screen.getByTestId('sheet-assign'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onAssign).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(1_000));
+    expect(screen.queryByTestId('sheet-assign')).not.toBeOnTheScreen();
+    expect(onAssign).not.toHaveBeenCalled();
+    await act(async () => dismiss());
+    expect(onAssign).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs nothing when the sheet is just put away', async () => {
+    const onAssign = jest.fn();
+    await render(<Page onAssign={onAssign} onClose={jest.fn()} />);
+    const dismiss = screen.root!.props.onDismiss as () => void;
+    await fireEvent.press(
+      screen.getByTestId('conversation-actions-scrim', { includeHiddenElements: true }),
+    );
+    await act(async () => jest.advanceTimersByTime(1_000));
+    await act(async () => dismiss());
+    expect(onAssign).not.toHaveBeenCalled();
   });
 });
 
