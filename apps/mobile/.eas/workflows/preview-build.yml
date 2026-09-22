@@ -1,0 +1,44 @@
+name: Preview build
+
+# For the changes a preview update cannot carry: anything native. Add the `mobile-build` label to a pull request and
+# this builds an installable app for both phones from that branch — an .apk for Android, an internal-distribution
+# build for iOS — and posts the install links and QR codes back on the pull request.
+#
+# It is behind a label on purpose. A native build takes about seven minutes of EAS build time per platform and costs
+# real money; preview-update.yml covers the JavaScript changes that make up most pull requests, in about a minute,
+# for nothing. Reach for this one when the app refuses an update, which is the fingerprint telling you the native
+# side moved.
+#
+# iOS internal distribution installs only on devices registered to the Apple team (8246H5FJ42). Register a phone
+# once with `eas device:create` from apps/mobile; after that its builds install by tapping the link.
+
+on:
+  pull_request_labeled:
+    labels:
+      - mobile-build
+
+jobs:
+  build_android:
+    name: Android, installable
+    type: build
+    params:
+      platform: android
+      profile: preview
+
+  build_ios:
+    name: iOS, installable
+    type: build
+    params:
+      platform: ios
+      profile: preview
+      # Picks up any phone registered to the Apple team since the last build, so a new tester doesn't need a second
+      # build to be made for them.
+      refresh_ad_hoc_provisioning_profile: true
+
+  comment_on_the_pull_request:
+    name: Post the install links
+    # `after`, not `needs`: one platform failing should not swallow the other platform's link.
+    after: [build_android, build_ios]
+    type: github-comment
+    params:
+      message: 'Builds from this branch, installable on a phone. iOS installs only on devices registered to the Apple team.'

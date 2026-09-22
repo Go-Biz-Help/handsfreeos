@@ -8381,7 +8381,7 @@ About 15 minutes after each push, the worker asks Expo what Apple and Google sai
 
 The phone app is built by **EAS**, Expo's build service, never on your Mac. A build is made from a commit, carries the addresses of HandsFreeOS's servers baked into it, and goes to TestFlight or to Play's internal testing track. Nothing here is public until you promote it.
 
-This section is about the hosted side: the settings a build carries, how to make one, and what goes wrong. The store listings themselves — the text, icons, screenshots, privacy answers, age rating and the demo business a reviewer signs into — live in `apps/mobile/store/`, with [`release-checklist.md`](../apps/mobile/store/release-checklist.md) as their running order. Push credentials are in "Push notifications: Expo".
+This section is about the hosted side: the settings a build carries, how to make one by hand, how a commit on `main` makes one by itself (Phone Part 4), and what goes wrong. The store listings themselves — the text, icons, screenshots, privacy answers, age rating and the demo business a reviewer signs into — live in `apps/mobile/store/`, with [`release-checklist.md`](../apps/mobile/store/release-checklist.md) as their running order. Push credentials are in "Push notifications: Expo".
 
 ### Before you start
 
@@ -8491,6 +8491,50 @@ Each profile you build this way also needs an `image` in `eas.json` — `preview
 
 A GitHub build reads the commit **as GitHub has it**, so push first. It is an easy way to build yesterday's code by accident.
 
+### Phone Part 4: Releases that happen by themselves
+
+Parts 2 and 3 are a person typing `eas build`. This part is the Vercel arrangement for the phone: a commit lands, and the right thing ships without anybody starting it. Three files in `apps/mobile/.eas/workflows/` describe it — beside `eas.json`, which is where EAS looks for them — and one GitHub workflow starts the production one.
+
+| When                             | What runs                                                          | What reaches a phone                                                                                        | How long                       |
+| -------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| A push to any branch but `main`  | `preview-update.yml`                                               | An over-the-air update on an EAS branch of the same name, for development and preview builds                | About a minute                 |
+| The `mobile-build` label on a PR | `preview-build.yml`                                                | An installable build for both phones, linked from the pull request                                          | About seven minutes a platform |
+| CI goes green on `main`          | `deploy-production.yml` via `.github/workflows/mobile-release.yml` | Either a build on TestFlight and Play internal testing, or an over-the-air update to the production channel | A minute, or half an hour      |
+
+**The part that makes this work is the fingerprint.** `app.json` sets `runtimeVersion` to `{ "policy": "fingerprint" }`, which hashes everything native about the app — each native module, each config plugin, each setting in `app.json` and `app.config.ts` that reaches the built app. The production workflow takes that hash and asks EAS whether a production build already carries it. If one does, the commit changed JavaScript only, so it publishes an update and the phones holding that build pick it up on their next launch. If none does, the native side moved, so it builds and submits. Nobody decides this; the hash does, per platform, so iOS can take an update on the same commit that makes Android build.
+
+This is also the rule that keeps an update honest: a phone is only ever offered an update whose fingerprint matches the build it is running. JavaScript written against a native module that build doesn't have is never handed to it.
+
+#### What you need once
+
+1. **Over-the-air updates turned on.** Done: `app.json` has `expo.updates.url` pointing at `https://u.expo.dev/22b0e923-de8b-4b67-9089-2c4bd440a956`, which is this project's id. Nothing else is needed, and `eas update:configure` does not have to be run. Adding it changed the fingerprint, so the first build after it is a new one on both phones — expected, and it only happens once.
+
+2. **The Expo GitHub App on the repository.** Everything above hangs off this: EAS hears about a push, a pull request or a label only through it. Open `https://expo.dev/accounts/gobizhelp/projects/handsfreeos/github`, install the app, link `gobizhelp/handsfreeos`, and set **Base directory** to `apps/mobile`. Without the base directory EAS looks for the app at the repository root and finds a monorepo. This is the same link Phone Part 3 asks for; doing it once covers both.
+
+3. **`EXPO_TOKEN` as a repository secret.** GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**, named `EXPO_TOKEN`. Use an access token for the robot user from Expo Part 1, not a personal one: it can be revoked without touching anyone's account. Until the secret exists `mobile-release.yml` notes that it skipped and passes, so `main` stays green.
+
+   The worker's `EXPO_ACCESS_TOKEN` is a different token for a different job — pushes, and only pushes. Don't reuse either one for the other; revoking one should never silence the other.
+
+4. **`MOBILE_SUBMIT_ANDROID`, once Play is ready.** A repository _variable_ (same page, **Variables** tab), set to `true`. Leave it unset until Play Console has an app record for `com.gobizhelp.handsfreeos` and EAS holds a Google service-account key (`eas credentials --platform android` → **Google Service Account** → **Manage your Google Service Account Key for Play Store submissions**). Until then the production workflow still builds the `.aab` and says, in its own log, to upload it under **Testing → Internal testing → Create new release**. iOS needs no such switch: TestFlight submission already works.
+
+   `eas.json` no longer names `serviceAccountKeyPath`. It used to point at `../../secrets/play-service-account.json`, a file on a Mac that no build machine can read; EAS uses the key it holds for the project instead, which is the only kind a submission started by a workflow can use.
+
+#### Reviewing a change on a phone
+
+A preview update is the phone's version of a Vercel preview URL, with one difference worth remembering: it doesn't install anything. It replaces the JavaScript inside a development or preview build somebody already has. Open **Updates** in the build's own menu and the branch is listed there; the EAS dashboard has a QR code for the same thing.
+
+When the app doesn't offer the branch, that is the fingerprint saying the native side changed. Add the `mobile-build` label to the pull request and an installable build for both phones is made and linked in a comment. It is behind a label because a build costs about seven minutes of EAS build time per platform and most pull requests don't need one.
+
+iOS internal-distribution builds install only on phones registered to the Apple team. Register one with `npx --yes eas-cli@latest device:create` from `apps/mobile`; after that its builds install by tapping the link.
+
+#### What production does, and what it still won't do
+
+`mobile-release.yml` waits for CI the same way `deploy.yml` does — on `workflow_run`, using the commit CI verified rather than whatever `main` points at by then — and then asks EAS to run `deploy-production.yml` on that commit through the workflows REST API. It waits up to forty-five minutes so a failure turns the job red next to the commit that caused it. A run that outlives the wait is not failed; it carries on at EAS, and the job prints its link.
+
+The reach of all this ends at **TestFlight and Play's internal testing track**. Promoting a build to the public App Store or to a Play production release is still somebody opening a console and deciding to — which is what `release-checklist.md` means by "publishing still waits for Chris's go-live". Neither promotion is another upload: in App Store Connect you submit a TestFlight build for review, and in Play Console you promote the internal testing release.
+
+One thing to be clear-eyed about: an over-the-air update to `production` reaches TestFlight testers, and later real customers, without store review. Both stores allow this for JavaScript, and it is why a fix can ship in a minute instead of a day. It also means `main` is the release branch in a way it is not for the API, where a bad deploy is one `flyctl` rollback away. If a staged rollout is ever wanted, the `update` jobs take a `rollout_percentage`, and `eas update:rollout` raises it afterwards.
+
 ### When something goes wrong with a build
 
 - **The app opens on "This build isn't connected":** one of the first four settings was empty when the build ran. `npx --yes eas-cli@latest env:list production` shows what EAS holds now; fix it and build again. The build on the phone cannot be repaired — the values are inside it.
@@ -8499,6 +8543,13 @@ A GitHub build reads the commit **as GitHub has it**, so push first. It is an ea
 - **A GitHub build never starts:** the profile has no `image`, the base directory isn't `apps/mobile`, or the commit isn't pushed.
 - **EAS refuses to build a dirty tree:** that is `requireCommit`, and it is on purpose. Commit, or stash.
 - **Settings → Notifications on the phone says "Not in this build":** that is push, not these settings. See "Push notifications: Expo", Part 4.
+- **`workflow:run` says `Failed to read workflow file` / `ENOENT`:** the path is wrong for where you are. The workflows live beside `eas.json`, so from `apps/mobile` the path is `.eas/workflows/deploy-production.yml`, and from the repository root it is `apps/mobile/.eas/workflows/deploy-production.yml`. A `.eas` folder at the repository root is never read: EAS looks under the GitHub App's base directory, which is `apps/mobile`.
+- **Nothing happens on a push, a pull request or a label:** EAS never heard about it. The Expo GitHub App isn't installed on `gobizhelp/handsfreeos`, or its base directory isn't `apps/mobile`. Phone Part 4, step 2.
+- **`mobile-release.yml` says `EXPO_TOKEN is not set`:** the repository secret is missing. Phone Part 4, step 3. The job passes anyway on purpose, so `main` stays green before Expo's robot user exists.
+- **The production run builds every time, even for a one-line JavaScript change:** the fingerprint isn't matching. Usually the `fingerprint` job and the `production` build profile are reading different environments, so they hash different `EXPO_PUBLIC_` values — both must say `production`. Uncommitted native changes do it too; `requireCommit` means a build is a commit.
+- **The app doesn't offer a branch's preview update:** the native side changed on that branch, so its fingerprint no longer matches the build in your hand. That is the guard working. Label the pull request `mobile-build` for an installable build.
+- **An update published, but the app opens on "This build isn't connected":** the `update` job ran without `environment:`, so the bundle was built with no `EXPO_PUBLIC_` values. Both update jobs name their environment; if one is ever added, it must too.
+- **The Android submission fails and nothing else does:** EAS has no Google service-account key for Play submissions, or Play Console has no app record yet. Unset the `MOBILE_SUBMIT_ANDROID` repository variable until both exist; the `.aab` is still built and waits in EAS.
 
 ## Local development
 

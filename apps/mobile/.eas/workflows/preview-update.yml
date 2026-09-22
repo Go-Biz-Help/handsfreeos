@@ -1,0 +1,47 @@
+name: Preview update
+
+# The phone app's answer to a Vercel preview. Every push to a branch that isn't main publishes the app's JavaScript
+# to an EAS branch of the same name, and anyone holding a development or preview build picks it up from the update
+# list inside the app. No new build, no store, about a minute.
+#
+# It carries JavaScript and nothing else. Touch the native side — a new native module, a config plugin, anything in
+# app.json or app.config.ts that reaches the built app — and the fingerprint changes; an update whose fingerprint
+# doesn't match a build is simply never offered to it. That is the point of `runtimeVersion: { policy: fingerprint }`
+# in app.json, and it is what stops a JavaScript update from meeting native code it was never written against. When
+# that happens, label the pull request `mobile-build` and preview-build.yml makes an installable build instead.
+#
+# Requires the Expo GitHub App on gobizhelp/handsfreeos with base directory apps/mobile. Without it EAS never hears
+# about the push and nothing here runs. See "Phone Part 4" in docs/operations.md.
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!main' # main goes through CI first and then deploy-production.yml
+    paths:
+      - apps/mobile/**
+      - packages/**
+      - pnpm-lock.yaml
+      - '!**/*.md'
+
+jobs:
+  publish_preview_update:
+    name: Publish this branch's JavaScript
+    type: update
+    # Not optional. The bundle bakes in the five EXPO_PUBLIC_ settings, and a bundle built without them opens on
+    # "This build isn't connected" exactly the way a build without them does. `preview` is the environment the
+    # preview build profile reads, so an update and a build made from the same commit agree.
+    environment: preview
+    params:
+      branch: ${{ github.ref_name || 'manual' }}
+      message: ${{ github.commit_message || 'Preview update' }}
+
+  comment_on_the_pull_request:
+    name: Say so on the pull request
+    needs: [publish_preview_update]
+    type: github-comment
+    params:
+      message: >-
+        A preview update for this branch is ready. Open it from **Updates** inside a development or preview build —
+        no new install. If the app doesn't offer it, the native side changed: add the `mobile-build` label to get a
+        build you can install.

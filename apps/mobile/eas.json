@@ -55,7 +55,6 @@
         "appleTeamId": "8246H5FJ42"
       },
       "android": {
-        "serviceAccountKeyPath": "../../secrets/play-service-account.json",
         "track": "internal",
         "releaseStatus": "draft",
         "changesNotSentForReview": false
