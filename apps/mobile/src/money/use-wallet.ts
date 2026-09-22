@@ -3,7 +3,9 @@ import { BALANCE_WORDS } from '@hfos/core';
 import * as React from 'react';
 
 import { api, errorMessage, unwrap } from '@/lib/api';
-import { useNetwork } from '@/lib/network';
+import { session } from '@/lib/auth';
+import { config } from '@/lib/config';
+import { appFetch, useNetwork } from '@/lib/network';
 
 /**
  * The business's own balance on the phone — what `wallet.get`, `usage.prices` and `usage.statement` answer, and the
@@ -118,6 +120,48 @@ export function useWallet(workspaceId: string): WalletView {
     reload: () => setRound((r) => r + 1),
     more,
   };
+}
+
+/**
+ * Putting a card on the balance, through the worker's `POST /v1/wallet/card` — the same route the web's
+ * Add a card uses, because only the worker holds the key that bills for HandsFreeOS.
+ *
+ * Two calls, as on the web: the first asks for the payment provider's own page and gets its address, which the
+ * phone opens in the browser; the second, once they come back to the app, hands over the session they returned
+ * on so the worker can read the card off the provider. **The card itself never reaches the app** — there is no
+ * field here to type one into, and that is deliberate.
+ */
+export type WalletCardAnswer =
+  | { readonly stage: 'started'; readonly hostedUrl: string }
+  | { readonly stage: 'cancelled' }
+  | { readonly stage: 'saved'; readonly card: { readonly cardLast4: string | null } };
+
+export async function walletCard(input: {
+  workspaceId: string;
+  sessionRef?: string;
+}): Promise<WalletCardAnswer> {
+  // A promise on purpose: a token that ran out while the phone was offline is refreshed before it answers.
+  const token = await session.accessToken();
+  if (!token) throw new Error('Sign in to continue.');
+  // A build that was never told where the worker is would otherwise fail as "no signal", which is a lie.
+  if (!config.workerUrl) throw new Error(BALANCE_WORDS.cardOnWebInstead);
+  let res: Response;
+  try {
+    res = await appFetch(`${config.workerUrl}/v1/wallet/card`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new Error(BALANCE_WORDS.needsSignal);
+  }
+  const body = (await res.json().catch(() => null)) as
+    (WalletCardAnswer & { error?: { message?: string } }) | null;
+  if (!res.ok || !body?.stage)
+    throw new Error(
+      body?.error?.message ?? 'We couldn’t open the card page just now. Try again in a minute.',
+    );
+  return body;
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   whenLabel,
   type BalanceTone,
 } from '@hfos/core';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -33,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { useMoneyRole, useMoneyZone } from '@/money/use-money';
 import {
   useWallet,
+  walletCard,
   walletCommands,
   type StatementEntry,
   type Wallet,
@@ -61,6 +63,60 @@ export default function Balance() {
   const view = useWallet(business.id);
   const { wallet, reload } = view;
   const [busy, setBusy] = React.useState(false);
+  // The provider sends them back to this screen's own address with `?card=` on it (the app claims that link:
+  // `links/route-map.ts`), so coming back from the card page lands here rather than in a browser tab.
+  const { card: cameBackWith } = useLocalSearchParams<{ card?: string }>();
+  const handled = React.useRef<string | null>(null);
+
+  /**
+   * Adding a card, in two halves. The first asks the worker for the provider's page and opens it; the second
+   * runs when they come back, and hands the session over so the worker can read the card off the provider —
+   * the address bar is only ever a name for what happened, never the card itself.
+   */
+  const addCard = () => {
+    setBusy(true);
+    void (async () => {
+      try {
+        const started = await walletCard({ workspaceId: business.id });
+        if (started.stage !== 'started') return;
+        toast.show(BALANCE_WORDS.addingCard);
+        const opened = await openWeb(started.hostedUrl);
+        if (!opened) toast.error(BALANCE_WORDS.noBrowser);
+      } catch (e) {
+        toast.error(errorMessage(e));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  React.useEffect(() => {
+    const mark = typeof cameBackWith === 'string' ? cameBackWith : null;
+    if (!mark || handled.current === mark) return;
+    handled.current = mark;
+    // Off the address as soon as it is taken, so opening this screen again is never a second save.
+    router.setParams({ card: '' });
+    if (mark === 'cancelled') {
+      toast.show(BALANCE_WORDS.cardNotSaved);
+      return;
+    }
+    setBusy(true);
+    void (async () => {
+      try {
+        const answer = await walletCard({ workspaceId: business.id, sessionRef: mark });
+        toast.show(
+          answer.stage === 'saved' && answer.card.cardLast4
+            ? BALANCE_WORDS.cardSaved(`${BALANCE_WORDS.cardTitle} ••${answer.card.cardLast4}`)
+            : BALANCE_WORDS.cardNotSaved,
+        );
+        reload();
+      } catch (e) {
+        toast.error(errorMessage(e));
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [business.id, cameBackWith, reload]);
 
   /** Every command on this screen: sent, then the whole screen read back, because each changes the balance. */
   const run = async (what: () => Promise<void>, said: string) => {
@@ -108,7 +164,7 @@ export default function Balance() {
             wallet={wallet}
             manage={manage}
             busy={busy}
-            webPath={`/app/w/${business.id}/settings/usage`}
+            onAddCard={addCard}
             onForget={() =>
               void run(() => walletCommands.forgetCard(business.id), BALANCE_WORDS.cardRemoved)
             }
@@ -374,20 +430,21 @@ function AmountSheet({
 }
 
 /**
- * The card the top-ups are charged to. A card is typed on the payment page the web opens, never in the app, so
- * that is where the phone sends somebody adding one — the same page HandsFreeOS's own emails link to.
+ * The card the top-ups are charged to. Adding one opens the payment provider's own page in the browser and
+ * comes back here when it is done: there is no field in the app a card could be typed into, which is what
+ * keeps the app itself out of the way of anybody's card number.
  */
 function CardOnFile({
   wallet,
   manage,
   busy,
-  webPath,
+  onAddCard,
   onForget,
 }: {
   wallet: Wallet;
   manage: boolean;
   busy: boolean;
-  webPath: string;
+  onAddCard: () => void;
   onForget: () => void;
 }) {
   const [asking, setAsking] = React.useState(false);
@@ -410,6 +467,15 @@ function CardOnFile({
       </List>
       {manage ? (
         <View className="gap-2 px-1">
+          <Button
+            variant={wallet.card ? 'secondary' : 'primary'}
+            icon={ExternalLink}
+            disabled={busy}
+            onPress={onAddCard}
+            testID="balance-add-card"
+          >
+            {wallet.card ? BALANCE_WORDS.changeCard : BALANCE_WORDS.addCard}
+          </Button>
           {wallet.card ? (
             <Button
               variant="dangerOutline"
@@ -419,21 +485,10 @@ function CardOnFile({
             >
               {BALANCE_WORDS.removeCard}
             </Button>
-          ) : (
-            <>
-              <Button
-                variant="secondary"
-                icon={ExternalLink}
-                onPress={() => void openWeb(webPath)}
-                testID="balance-add-card"
-              >
-                {BALANCE_WORDS.cardOnWeb}
-              </Button>
-              <Text className="text-[12.5px] leading-[18px] text-text-3">
-                {BALANCE_WORDS.cardOnWebNote}
-              </Text>
-            </>
-          )}
+          ) : null}
+          <Text className="text-[12.5px] leading-[18px] text-text-3">
+            {BALANCE_WORDS.cardOnProvider}
+          </Text>
         </View>
       ) : null}
       <Sheet

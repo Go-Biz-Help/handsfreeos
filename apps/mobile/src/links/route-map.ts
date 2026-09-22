@@ -90,8 +90,9 @@ export const ROUTES: readonly Rule[] = [
   // Settings → Account on the web is you and your notifications: the phone's own Settings.
   { web: 'settings', phone: 'settings' },
   // Settings → Usage & balance: the phone has it too, so the wallet's emails, its notifications and the Action
-  // Center's three balance cards open the Balance screen rather than a browser.
-  { web: 'settings/usage', phone: 'settings/usage' },
+  // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
+  // how the payment provider sends somebody back to the app once they have typed a card.
+  { web: 'settings/usage', phone: 'settings/usage', query: ['card'] },
   // The desk work the phone leaves to the web.
   { web: 'settings', phone: 'web', deeper: true },
   { web: 'workflows', phone: 'web', deeper: true },

@@ -106,6 +106,35 @@ export function moneyLink(input: {
   return workerPost('/v1/money/link', input);
 }
 
+/** What `POST /v1/wallet/card` answers: a page to go to, the card it came back with, or neither. */
+export type WalletCardAnswer =
+  | { readonly stage: 'started'; readonly hostedUrl: string }
+  | { readonly stage: 'cancelled' }
+  | {
+      readonly stage: 'saved';
+      readonly card: {
+        readonly workspaceId: string;
+        readonly hasCard: boolean;
+        readonly cardBrand: string | null;
+        readonly cardLast4: string | null;
+        readonly cardExpiryMonth: number | null;
+        readonly cardExpiryYear: number | null;
+      };
+    };
+
+/**
+ * Putting a card on the business's own balance (owners and admins; the worker checks). Called twice: once with
+ * no session, for the provider's page to send the browser to, and once with the session they came back on, to
+ * save what it ended with. The worker does it because it holds the key that bills for HandsFreeOS, which the
+ * API is refused on purpose.
+ */
+export function walletCard(input: {
+  workspaceId: string;
+  sessionRef?: string;
+}): Promise<WalletCardAnswer> {
+  return workerPost('/v1/wallet/card', input);
+}
+
 /**
  * Goes and looks at what a carrier's reviewer would look at, before the registration is sent (owners and
  * admins; the worker checks). The worker does it rather than the browser because these are a business's

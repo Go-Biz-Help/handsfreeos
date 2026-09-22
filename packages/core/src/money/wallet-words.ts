@@ -115,9 +115,19 @@ export const BALANCE_WORDS = {
   cardDetail: 'Only ever used for your own balance — never for money your customers pay you.',
   cardWaiting: 'Waiting for a card to be added.',
   cardNone: 'No card on this balance yet.',
-  /** Card numbers are typed on the payment page the web opens, never in the app. */
-  cardOnWeb: 'Add a card on the web',
-  cardOnWebNote: 'Card numbers are typed on our payment page, never in the app.',
+  addCard: 'Add a card',
+  changeCard: 'Use a different card',
+  /** What the button does before anything else happens, on both the web and the phone. */
+  addingCard: 'Opening the card page…',
+  /** The card is typed on the payment provider's own page, and never anywhere of ours. */
+  cardOnProvider: 'The card is typed on our payment provider’s own page, never in HandsFreeOS.',
+  cardSaved: (card: string) => `${card}. Automatic top-up can run now.`,
+  cardNotSaved: 'Nothing was saved, so the balance still has no card.',
+  cardSaving: 'Saving the card…',
+  /** A phone with nothing to open a web page in: rare, and worth saying rather than failing quietly. */
+  noBrowser: 'This phone has no web browser to open the card page in.',
+  /** A build that doesn't know where to ask: on the web the same page can still do it. */
+  cardOnWebInstead: 'This build can’t add a card. Open Usage & balance on the web instead.',
   removeCard: 'Remove card',
   removeCardTitle: 'Remove the card?',
   removeCardAsk:
