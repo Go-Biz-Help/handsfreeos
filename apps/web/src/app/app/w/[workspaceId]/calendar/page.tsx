@@ -1,4 +1,4 @@
-import { localInstant, weekOf } from '@hfos/core';
+import { localInstant, monthGridOf, weekOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { CalendarPage } from '@/components/calendar/calendar-page';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -26,9 +26,11 @@ export default async function CalendarRoute({
   const timeZone = got.workspace.timezone;
   const today = todayIn(timeZone);
   const query = parseCalendarQuery(sp, today);
-  const days = weekOf(query.date);
+  // Month loads its whole six-week grid at once, the way the other views load their week: 42 days is
+  // well inside the 62 the schedule and appointment queries allow.
+  const days = query.view === 'month' ? monthGridOf(query.date) : weekOf(query.date);
   const from = new Date(localInstant(days[0]!, '00:00', timeZone)).toISOString();
-  const to = new Date(localInstant(days[6]!, '24:00', timeZone)).toISOString();
+  const to = new Date(localInstant(days.at(-1)!, '24:00', timeZone)).toISOString();
   const [calendars, resources, team, appointments] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/calendar.list', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),

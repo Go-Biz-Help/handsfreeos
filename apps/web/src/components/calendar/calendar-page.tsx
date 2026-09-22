@@ -8,6 +8,7 @@ import {
   placeOnDay,
   visibleHours,
   weekdayOf,
+  weekOf,
   type MinuteSpan,
   type WeeklyHours,
 } from '@hfos/core';
@@ -53,6 +54,7 @@ import {
   clockLabel,
   dateOf,
   fmtDateLong,
+  fmtMonthYear,
   fmtWeekRange,
   hourLabel,
   weekdayShort,
@@ -70,12 +72,14 @@ import { Agenda } from './agenda';
 import { AppointmentDialog, type BookedResult } from './appointment-dialog';
 import { AppointmentSheet } from './appointment-sheet';
 import { firstName, useNow } from './appt';
+import { MonthGrid, type MonthBlock, type MonthCell } from './month-grid';
 import { MoveDialog } from './move-dialog';
 import { TimeGrid, type GridBlock, type GridColumn, type GridMove } from './time-grid';
 
 const VIEWS = [
   { value: 'day', label: 'Day', testId: 'view-day' },
   { value: 'week', label: 'Week', testId: 'view-week' },
+  { value: 'month', label: 'Month', testId: 'view-month' },
   { value: 'team', label: 'Team', testId: 'view-team' },
   { value: 'resources', label: 'Resources', testId: 'view-resources' },
 ] as const;
@@ -386,7 +390,68 @@ export function CalendarPage(props: {
   };
 
   const step = q.view === 'week' ? 7 : 1;
-  const title = q.view === 'week' ? fmtWeekRange(days[0]!, days[6]!) : fmtDateLong(date);
+  /** Month steps a month at a time, so February's length never drags the date into the wrong one. */
+  const monthStep = (delta: number) => {
+    const [y, m] = date.split('-').map(Number);
+    const t = y! * 12 + (m! - 1) + delta;
+    return `${String(Math.floor(t / 12)).padStart(4, '0')}-${String((t % 12) + 1).padStart(2, '0')}-01`;
+  };
+  const stepTo = (delta: number) =>
+    q.view === 'month' ? monthStep(delta) : addDays(date, delta * step);
+  const stepWord = q.view === 'month' ? 'month' : q.view === 'week' ? 'week' : 'day';
+  const title =
+    q.view === 'month'
+      ? fmtMonthYear(date)
+      : q.view === 'week'
+        ? fmtWeekRange(days[0]!, days[6]!)
+        : fmtDateLong(date);
+  /*
+   * Month is one person's month, the way Week and Day are one person's, so the Person filter means the
+   * same thing in all three and a busy time read from Google has somebody it belongs to. A cell lists
+   * what is on that day in order; it is not drawn to scale, so nothing is dropped for falling outside
+   * an hour range.
+   */
+  const monthCells: MonthCell[] =
+    q.view === 'month' && focus
+      ? days.map((d) => {
+          const place = (a: string, b: string) => placeOnDay(Date.parse(a), Date.parse(b), d, tz);
+          const blocks: MonthBlock[] = [];
+          focus.busy.forEach((b, i) => {
+            const span = place(b.startsAt, b.endsAt);
+            if (span)
+              blocks.push({
+                key: `busy-${d}-${i}`,
+                span,
+                kind: 'busy',
+                title: `Busy in ${focus.connection ? calendarProviderName(focus.connection.provider) : 'their calendar'}`,
+                provider: focus.connection?.provider ?? null,
+              });
+          });
+          for (const t of focus.timeOff) {
+            if (t.kind !== 'unavailable') continue;
+            const span = place(t.startsAt, t.endsAt);
+            if (span)
+              blocks.push({
+                key: `off-${d}-${t.id}`,
+                span,
+                kind: 'time_off',
+                title: t.note || 'Time off',
+              });
+          }
+          return {
+            date: d,
+            today: d === today,
+            inMonth: d.slice(0, 7) === date.slice(0, 7),
+            events: visible
+              .filter(
+                (a) =>
+                  a.staff.some((x) => x.userId === focus.userId) && place(a.startsAt, a.endsAt),
+              )
+              .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+            blocks,
+          };
+        })
+      : [];
   const reconnect = (q.view === 'team' ? team : focus ? [focus] : []).filter(
     (p) => p.connection?.status === 'reauth_required',
   );
@@ -439,18 +504,18 @@ export function CalendarPage(props: {
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={q.view === 'week' ? 'Previous week' : 'Previous day'}
-                title={q.view === 'week' ? 'Previous week' : 'Previous day'}
-                onClick={() => go({ date: addDays(date, -step) })}
+                aria-label={`Previous ${stepWord}`}
+                title={`Previous ${stepWord}`}
+                onClick={() => go({ date: stepTo(-1) })}
               >
                 <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={1.5} />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={q.view === 'week' ? 'Next week' : 'Next day'}
-                title={q.view === 'week' ? 'Next week' : 'Next day'}
-                onClick={() => go({ date: addDays(date, step) })}
+                aria-label={`Next ${stepWord}`}
+                title={`Next ${stepWord}`}
+                onClick={() => go({ date: stepTo(1) })}
               >
                 <ChevronRight className="h-[18px] w-[18px]" strokeWidth={1.5} />
               </Button>
@@ -479,7 +544,7 @@ export function CalendarPage(props: {
         </div>
 
         <div className="flex flex-wrap items-center gap-2" data-testid="calendar-filters">
-          {q.view === 'week' || q.view === 'day' ? (
+          {q.view === 'week' || q.view === 'day' || q.view === 'month' ? (
             <>
               <FilterLabel>Person</FilterLabel>
               <DropdownMenu>
@@ -638,11 +703,10 @@ export function CalendarPage(props: {
           </Card>
         ) : null}
 
-        {(q.view === 'week' || q.view === 'day') && focus ? (
+        {(q.view === 'week' || q.view === 'day' || q.view === 'month') && focus ? (
           <div className="-mb-1 flex items-center justify-between text-xs">
             <span className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-              {focus.userId === myUserId ? 'Your' : `${firstName(focus.fullName)}’s`}{' '}
-              {q.view === 'week' ? 'week' : 'day'}
+              {focus.userId === myUserId ? 'Your' : `${firstName(focus.fullName)}’s`} {stepWord}
             </span>
             {focus.connection?.status === 'active' ? (
               <span className="flex items-center gap-1.5 text-text-3">
@@ -656,7 +720,23 @@ export function CalendarPage(props: {
           </div>
         ) : null}
 
-        {columns.length ? (
+        {q.view === 'month' ? (
+          monthCells.length ? (
+            <MonthGrid
+              cells={monthCells}
+              timeZone={tz}
+              now={now}
+              selectedId={q.appt}
+              onOpen={(a) => go({ appt: a.id })}
+              onNew={(d) => openNew({ date: d })}
+              onDay={(d) => go({ view: 'day', date: d })}
+            />
+          ) : (
+            <Card>
+              <EmptyState title="Nobody to show">Pick someone to show.</EmptyState>
+            </Card>
+          )
+        ) : columns.length ? (
           <TimeGrid
             columns={columns}
             timeZone={tz}
@@ -694,7 +774,7 @@ export function CalendarPage(props: {
           timeZone={tz}
           date={date}
           today={today}
-          days={days}
+          days={q.view === 'month' ? weekOf(date) : days}
           appointments={visible}
           me={me}
           mine={!!q.people && q.people.length === 1 && q.people[0] === myUserId}

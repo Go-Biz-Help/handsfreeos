@@ -188,6 +188,10 @@ function CreateWorkspaceDialog({
   const [name, setName] = useState('');
   const [orgId, setOrgId] = useState(organizations[0]?.id ?? '');
   const [timezone, setTimezone] = useState('America/Chicago');
+  // Whether they are on the business or only administer it from the organization. Asked rather than
+  // assumed: an agency setting one up for a client has no place in that client's team, and somebody
+  // adding a business they run themselves expects to be on it. Changeable later on Members.
+  const [joinAsOwner, setJoinAsOwner] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -198,7 +202,7 @@ function CreateWorkspaceDialog({
     try {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/workspace.create', {
-          body: { organizationId: orgId, name: name.trim(), timezone },
+          body: { organizationId: orgId, name: name.trim(), timezone, joinAsOwner },
         }),
       );
       toast.success(`${name.trim()} created.`);
@@ -217,8 +221,8 @@ function CreateWorkspaceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="Create a workspace"
-        description="Each client business gets its own workspace under your organization."
+        title="Add a business"
+        description="Each business gets its own workspace under your organization."
       >
         <form onSubmit={submit} className="mt-4 flex flex-col gap-4" noValidate>
           {organizations.length > 1 ? (
@@ -254,12 +258,27 @@ function CreateWorkspaceDialog({
               ))}
             </Select>
           </Field>
+          <Field label="Who runs this business?" htmlFor="ws-join">
+            <Select
+              id="ws-join"
+              value={joinAsOwner ? 'me' : 'client'}
+              onChange={(e) => setJoinAsOwner(e.target.value === 'me')}
+            >
+              <option value="me">I do — put me on it</option>
+              <option value="client">I’m setting it up for someone else</option>
+            </Select>
+            <p className="mt-1.5 text-[13px] text-text-3">
+              {joinAsOwner
+                ? 'You’ll be on its team, can be booked for its jobs, and get its emails.'
+                : 'You won’t be on its team. You can still change everything, and its emails come to you until its own people are invited. You can put yourself on it later from Members.'}
+            </p>
+          </Field>
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" loading={busy}>
-              Create workspace
+              Add business
             </Button>
           </div>
         </form>

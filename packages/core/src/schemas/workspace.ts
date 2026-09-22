@@ -44,8 +44,24 @@ export const WorkspaceCreateInput = z.object({
   name: displayName,
   timezone: timezone.default('America/Chicago'),
   industry: industry.default('home_services'),
+  /**
+   * Whether whoever adds the business is on it, or only administers it from the organization.
+   *
+   * A business you run yourself wants you on it: its own people are what Calendar shows, what can be
+   * booked and assigned, and who its booking emails go to. A business set up for a client does not —
+   * an agency has no place in a client's team, and while nobody is on it the organization's owners and
+   * admins hear about it instead (`workspaceManagers`). Either way the creator can still open and change
+   * everything, which comes from administering the organization, not from this.
+   *
+   * Left off it is the second, which is what every workspace made this way was before the choice existed.
+   * `workspace.join` is the way to change it afterwards.
+   */
+  joinAsOwner: z.boolean().default(false),
 });
 export const WorkspaceCreateOutput = z.object({ workspaceId: uuid, slug: z.string() });
+
+export const WorkspaceJoinInput = z.object({ workspaceId: uuid });
+export const WorkspaceJoinOutput = z.object({ workspaceId: uuid, role: workspaceRole });
 
 export const WorkspaceUpdateInput = z
   .object({

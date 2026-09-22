@@ -5,6 +5,7 @@ import {
   localInstant,
   mergeMinuteSpans,
   minutesToClock,
+  monthGridOf,
   overlapLanes,
   placeOnDay,
   snapMinutes,
@@ -135,6 +136,24 @@ describe('grid helpers', () => {
       '2026-11-01',
     ]);
     expect(weekOf('2026-09-14', 0)[0]).toBe('2026-09-13');
+  });
+
+  it('lists a month grid as six whole weeks, whatever the month does', () => {
+    // September 2026 starts on a Tuesday, so the grid opens on Monday the 31st of August.
+    const sep = monthGridOf('2026-09-21');
+    expect(sep).toHaveLength(42);
+    expect(sep[0]).toBe('2026-08-31');
+    expect(sep[41]).toBe('2026-10-11');
+    expect(sep).toContain('2026-09-01');
+    expect(sep).toContain('2026-09-30');
+    // Any day of the month gives the same grid: it is the month that decides it, not the day.
+    expect(monthGridOf('2026-09-01')).toEqual(sep);
+    expect(monthGridOf('2026-09-30')).toEqual(sep);
+    // A month starting exactly on the week's first day still gets its own six rows, not five.
+    const feb = monthGridOf('2027-02-15');
+    expect(feb).toHaveLength(42);
+    expect(feb[0]).toBe('2027-02-01');
+    expect(monthGridOf('2026-09-21', 0)[0]).toBe('2026-08-30');
   });
 
   it('widens the visible hours to whatever is on the grid', () => {
