@@ -15,6 +15,7 @@
  * twice writes nothing new.
  */
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
+import type { SQL } from 'drizzle-orm';
 import {
   CANONICAL_SCHEMA_VERSION,
   categoriesInOrder,
@@ -58,6 +59,8 @@ const textArray = (values: readonly string[]) =>
 const LEASE_SECONDS = 300;
 /** Records read per batch. Small, so a lease is never the thing that decides whether work is lost. */
 const PAGE_SIZE = 100;
+/** Copied files looked at per page while a rollback tidies storage up behind itself. */
+const MEDIA_REAP_PAGE = 200;
 /** How many batches one pass of the loop claims. */
 export const MIGRATION_BATCH = 4;
 
@@ -1248,9 +1251,188 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
 // ---------- taking it back ----------
 
 /**
+ * What taking one kind of record back means.
+ *
+ * **Put it away where the table has somewhere to put it**, because the first rule of a rollback is that
+ * pressing it by mistake costs a click, not a customer. **Delete it where the table has not**: a text, a call,
+ * a booking, an invoice, a form answer and a note have no archived state, and leaving them is what used to
+ * happen — a business that took its import back got its customer list back and kept an inbox, a calendar and
+ * a billing history full of the old system's records, with nothing left to say which was which because the
+ * rollback had already dropped the mappings that said.
+ *
+ * `keepWhen` is the second rule, asked per kind: has this record since become something the business made its
+ * own? When it has, the record stays, its mapping stays with it so a later import still recognises it, and the
+ * journal says `depended_on` rather than claiming it was put back.
+ *
+ * Three kinds are deliberately absent, the three in `MIGRATION_ROLLBACK_LEAVES`. **Tags**, for the reason they
+ * have always been absent: a tag is the business's own label, and by now people here have put "VIP" on
+ * customers of their own, so taking the tag away would strip it off those too. **Users**, who are never made
+ * by an import, only recognised. And the **stages of a board**, which are part of the board and go with it.
+ */
+type TakeBack = {
+  /** The table, under `app.`. */
+  readonly table: string;
+  /** How one is put away, or `'delete'` where the table has nowhere to put it. */
+  readonly away: 'delete' | SQL;
+  /** Not already put away: so a record somebody here has archived themselves is left as they left it. */
+  readonly untouched?: SQL;
+  /** The record is the business's own work now, so it stays. Asked of the row, `t`. */
+  readonly keepWhen?: (workspaceId: string) => SQL;
+};
+
+/** True where this migration is the one that made the record named by `column`. */
+const madeHere = (migrationId: string, type: string, column: SQL) =>
+  sql`exists (select 1 from app.migration_change_journal j
+              where j.migration_id = ${migrationId} and j.action = 'create'
+                and j.target_type = ${type} and j.target_id = ${column})`;
+
+/**
+ * Dependents first, and parents last: a text before the thread it is in, a booking before the calendar it
+ * sits on, a deal before its board, and the customers everything above points at right at the end. Children
+ * of these rows — invoice lines, form answers, attendees, the stages of a board — go with their parent on the
+ * foreign key and are not listed here.
+ */
+const takeBackPlan = (migrationId: string): ReadonlyArray<readonly [string, TakeBack]> => [
+  // The inbox. Texts and calls go; the thread goes with them unless it also holds messages that were not
+  // ours, which is a thread the business has used since.
+  ['message', { table: 'messages', away: 'delete' }],
+  ['call', { table: 'calls', away: 'delete' }],
+  [
+    'conversation',
+    {
+      table: 'conversations',
+      away: sql`archived_at = now()`,
+      untouched: sql`t.archived_at is null`,
+      keepWhen: (ws) => sql`
+        exists (select 1 from app.messages m
+                 where m.conversation_id = t.id and m.workspace_id = ${ws}
+                   and not ${madeHere(migrationId, 'message', sql`m.id`)})
+        or exists (select 1 from app.calls c
+                    where c.conversation_id = t.id and c.workspace_id = ${ws}
+                      and not ${madeHere(migrationId, 'call', sql`c.id`)})`,
+    },
+  ],
+  // The calendar. Imported bookings are never pushed out to anybody's Google calendar — nothing gives them
+  // staff, and that is what the sync follows — so deleting one leaves nothing behind it.
+  ['appointment', { table: 'appointments', away: 'delete' }],
+  // A calendar is archived rather than deleted: recurring bookings and a waitlist hold it in place, and
+  // `status` is where a calendar goes to be out of the way.
+  [
+    'calendar',
+    {
+      table: 'calendars',
+      away: sql`status = 'archived'`,
+      untouched: sql`t.status <> 'archived'`,
+      keepWhen: (ws) => sql`
+        exists (select 1 from app.appointments a
+                 where a.calendar_id = t.id and a.workspace_id = ${ws})
+        or exists (select 1 from app.waitlist_entries w
+                    where w.calendar_id = t.id and w.workspace_id = ${ws})`,
+    },
+  ],
+  // The money. An invoice that money really reached here is history and not the import's record to destroy:
+  // a card payment carries its provider, a cash one carries the person who wrote it down, and the import's
+  // own record of "it was paid over there" carries neither.
+  [
+    'invoice',
+    {
+      table: 'invoices',
+      away: 'delete',
+      keepWhen: (ws) => sql`
+        exists (select 1 from app.payments p
+                 where p.invoice_id = t.id and p.workspace_id = ${ws} and p.status <> 'failed'
+                   and (p.provider is not null or p.connection_id is not null
+                        or p.provider_payment_id is not null or p.recorded_by is not null))`,
+    },
+  ],
+  [
+    'estimate',
+    {
+      table: 'estimates',
+      away: 'delete',
+      keepWhen: (ws) => sql`
+        exists (select 1 from app.invoices i
+                 where i.estimate_id = t.id and i.workspace_id = ${ws}
+                   and not ${madeHere(migrationId, 'invoice', sql`i.id`)})`,
+    },
+  ],
+  ['subscription', { table: 'subscriptions', away: 'delete' }],
+  [
+    'product',
+    { table: 'products', away: sql`archived_at = now()`, untouched: sql`t.archived_at is null` },
+  ],
+  // The work. A task and a note are the import's own rows, and nothing hangs off them.
+  ['task', { table: 'tasks', away: 'delete' }],
+  ['activity', { table: 'activities', away: 'delete' }],
+  // The board. Deals are archived like the customers they belong to; the board goes with them unless
+  // somebody has put a deal of their own on it.
+  [
+    'lead',
+    { table: 'leads', away: sql`archived_at = now()`, untouched: sql`t.archived_at is null` },
+  ],
+  [
+    'pipeline',
+    {
+      table: 'pipelines',
+      away: sql`archived_at = now()`,
+      untouched: sql`t.archived_at is null`,
+      keepWhen: (ws) => sql`
+        exists (select 1 from app.leads l
+                 where l.pipeline_id = t.id and l.workspace_id = ${ws}
+                   and not ${madeHere(migrationId, 'lead', sql`l.id`)})`,
+    },
+  ],
+  // Forms. Answers go with their response; a form that has taken a real submission since stays published.
+  ['form_response', { table: 'form_responses', away: 'delete' }],
+  [
+    'form',
+    {
+      table: 'forms',
+      away: sql`archived_at = now()`,
+      untouched: sql`t.archived_at is null`,
+      keepWhen: (ws) => sql`
+        exists (select 1 from app.form_responses r
+                 where r.form_id = t.id and r.workspace_id = ${ws}
+                   and not ${madeHere(migrationId, 'form_response', sql`r.id`)})`,
+    },
+  ],
+  [
+    'message_template',
+    {
+      table: 'message_templates',
+      away: sql`archived_at = now()`,
+      untouched: sql`t.archived_at is null`,
+    },
+  ],
+  // A custom field is archived, never dropped: the answers live in the `custom` object on the records
+  // themselves, so putting the field away takes nobody's answers with it.
+  [
+    'custom_field',
+    {
+      table: 'custom_fields',
+      away: sql`archived_at = now()`,
+      untouched: sql`t.archived_at is null`,
+    },
+  ],
+  // Last, the records everything above pointed at.
+  //
+  // Archived rather than destroyed: somebody who rolls a migration back by mistake should not lose the
+  // records twice over, and an archived customer comes back in one click. Finishing them off is the separate
+  // act of deleting the migration (0086), which comes after somebody has looked at what came back.
+  [
+    'person',
+    { table: 'people', away: sql`archived_at = now()`, untouched: sql`t.archived_at is null` },
+  ],
+  [
+    'company',
+    { table: 'companies', away: sql`archived_at = now()`, untouched: sql`t.archived_at is null` },
+  ],
+];
+
+/**
  * Rollback removes what this migration made and nothing else.
  *
- * The two lines it will not cross: a customer who was already here is never deleted, and a field somebody has
+ * The two lines it will not cross: a record that was already here is never deleted, and a field somebody has
  * changed since is never overwritten — a later edit by a person beats the import that came before it, and the
  * report says which ones were left alone and why.
  */
@@ -1269,6 +1451,7 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
       ),
   );
 
+  const plan = takeBackPlan(job.migration_id);
   let removed = 0;
   let guarded = 0;
   for (const { workspace_id: workspaceId } of workspaces) {
@@ -1293,7 +1476,11 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
               order by id desc`,
         );
         for (const entry of updates) {
-          if (entry.target_type !== 'person') continue;
+          // A merge writes into a record that was already here, and the import joins two kinds of record:
+          // a customer and a company. Companies used to fall out here, which left a merged company wearing
+          // the old system's name and address after the rollback had said it put everything back.
+          if (entry.target_type !== 'person' && entry.target_type !== 'company') continue;
+          const table = entry.target_type === 'person' ? 'people' : 'companies';
           const columns = Object.keys(entry.changed_fields);
           if (columns.length === 0) continue;
           // Only where the value is still the one we wrote. Anything else is somebody's work, and it stands.
@@ -1301,14 +1488,14 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
           for (const [column, change] of Object.entries(entry.changed_fields)) {
             if (!/^[a-z_]+$/.test(column)) continue;
             await tx.execute(sql`
-              update app.people set ${sql.raw(column)} = ${(change.before ?? null) as never}
+              update app.${sql.raw(table)} set ${sql.raw(column)} = ${(change.before ?? null) as never}
                where id = ${entry.target_id}::uuid and workspace_id = ${workspaceId}
                  and ${sql.raw(column)}::text is not distinct from ${(change.after ?? null) as never}::text`);
             const [still] = await rows<{ same: boolean }>(
               tx,
               sql`select (${sql.raw(column)}::text is not distinct from ${(change.before ?? null) as never}::text)
                     as same
-                  from app.people where id = ${entry.target_id}::uuid`,
+                  from app.${sql.raw(table)} where id = ${entry.target_id}::uuid`,
             );
             if (still?.same) restored += 1;
           }
@@ -1320,40 +1507,111 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
              where id = ${entry.id}::bigint`);
         }
 
-        // Then the records this migration made, and only those.
-        const made = await rows<{ target_type: string; target_id: string }>(
+        // The threads that are about to lose messages, remembered while their messages are still here: one
+        // that was already the business's own keeps its place in the list, and its summary has to be worked
+        // out again from what is left in it rather than pointing at a text that has gone.
+        const threads = await rows<{ id: string }>(
           tx,
-          sql`select target_type, target_id::text as target_id
-              from app.migration_source_mappings
-              where first_migration_id = ${job.migration_id} and created_here
-                and workspace_id = ${workspaceId}`,
+          sql`select distinct m.conversation_id::text as id
+              from app.messages m
+              join app.migration_change_journal j on j.target_id = m.id
+              where j.migration_id = ${job.migration_id} and j.workspace_id = ${workspaceId}
+                and j.action = 'create' and j.target_type = 'message' and j.reverted_at is null
+                and m.workspace_id = ${workspaceId}`,
         );
-        for (const m of made) {
-          // Archived rather than destroyed: somebody who rolls a migration back by mistake should not lose
-          // the records twice over, and an archived customer comes back in one click.
-          //
-          // Tags are deliberately left alone. A tag is a label the business uses, not a record the migration
-          // owns — by now people here have put "VIP" on customers of their own, and taking the tag away
-          // would strip it off those too.
-          if (m.target_type === 'person')
-            await tx.execute(
-              sql`update app.people set archived_at = now()
-                  where id = ${m.target_id}::uuid and workspace_id = ${workspaceId}
-                    and archived_at is null`,
+
+        // Then the records this migration made, and only those, in the order the plan lists them — so
+        // nothing is asked to go while something that points at it is still here.
+        for (const [type, how] of plan) {
+          // **The journal, not the mappings.** Both say what the import made, but the rollback deletes the
+          // mappings as it goes, so a rollback that stopped half way — or one that ran before this engine knew
+          // about this kind of record at all — has nothing left to read there. The journal is never deleted,
+          // and `reverted_at` is exactly "this one has been dealt with", which makes a second pass pick up
+          // where the first left off and makes an old, half-done rollback finishable.
+          const ours = sql`
+            select j.target_id from app.migration_change_journal j
+             where j.migration_id = ${job.migration_id} and j.workspace_id = ${workspaceId}
+               and j.action = 'create' and j.target_type = ${type} and j.reverted_at is null`;
+          // What stays, written down first: the question can only be asked while the record is still here,
+          // and writing the answer down is what takes the record out of everything below.
+          if (how.keepWhen) {
+            const [staying] = await rows<{ n: number }>(
+              tx,
+              sql`with staying as (
+                    update app.migration_change_journal j
+                       set reverted_at = now(), revert_skipped_reason = 'depended_on'
+                     where j.migration_id = ${job.migration_id} and j.workspace_id = ${workspaceId}
+                       and j.action = 'create' and j.target_type = ${type} and j.reverted_at is null
+                       and exists (select 1 from app.${sql.raw(how.table)} t
+                                    where t.id = j.target_id and t.workspace_id = ${workspaceId}
+                                      and (${how.keepWhen(workspaceId)}))
+                     returning 1)
+                  select count(*)::int as n from staying`,
             );
-          else if (m.target_type === 'company')
-            await tx.execute(
-              sql`update app.companies set archived_at = now()
-                  where id = ${m.target_id}::uuid and workspace_id = ${workspaceId}
-                    and archived_at is null`,
-            );
-          else continue;
-          gone += 1;
+            kept += staying?.n ?? 0;
+          }
+          if (how.away === 'delete')
+            await tx.execute(sql`
+              delete from app.${sql.raw(how.table)} as t
+               where t.workspace_id = ${workspaceId} and t.id in (${ours})`);
+          else
+            await tx.execute(sql`
+              update app.${sql.raw(how.table)} as t set ${how.away}
+               where t.workspace_id = ${workspaceId} and t.id in (${ours})
+                 and ${how.untouched ?? sql`true`}`);
+          // The mapping goes with the record. One that stayed keeps its mapping, so a second import
+          // recognises it instead of making the business another copy of it.
+          await tx.execute(sql`
+            delete from app.migration_source_mappings sm
+             where sm.first_migration_id = ${job.migration_id} and sm.created_here
+               and sm.workspace_id = ${workspaceId} and sm.target_type = ${type}
+               and sm.target_id in (${ours})`);
+          const [went] = await rows<{ n: number }>(
+            tx,
+            sql`with went as (
+                  update app.migration_change_journal j
+                     set reverted_at = now(), revert_skipped_reason = null
+                   where j.migration_id = ${job.migration_id} and j.workspace_id = ${workspaceId}
+                     and j.action = 'create' and j.target_type = ${type} and j.reverted_at is null
+                   returning 1)
+                select count(*)::int as n from went`,
+          );
+          gone += went?.n ?? 0;
         }
+
+        // A stage belongs to the board it is on: the row stays inside the archived board, and its mapping
+        // goes with the board's, or a second import would sort new deals into the old board's columns.
         await tx.execute(sql`
-          delete from app.migration_source_mappings
-           where first_migration_id = ${job.migration_id} and created_here
-             and workspace_id = ${workspaceId}`);
+          delete from app.migration_source_mappings sm
+           where sm.first_migration_id = ${job.migration_id} and sm.created_here
+             and sm.workspace_id = ${workspaceId} and sm.target_type = 'pipeline_stage'
+             and exists (select 1 from app.pipeline_stages s
+                          join app.pipelines p on p.id = s.pipeline_id
+                          where s.id = sm.target_id and p.archived_at is not null)`);
+
+        if (threads.length > 0)
+          await tx.execute(sql`
+            update app.conversations c set
+              last_message_at = l.at,
+              last_direction = l.direction,
+              last_preview = l.preview,
+              last_inbound_at = l.inbound_at,
+              last_outbound_at = l.outbound_at
+            from (
+              select v.id,
+                (select max(x.occurred_at) from app.messages x where x.conversation_id = v.id) as at,
+                (select x.direction from app.messages x where x.conversation_id = v.id
+                  order by x.occurred_at desc, x.id desc limit 1) as direction,
+                (select nullif(left(coalesce(x.body_text, x.subject, ''), 200), '') from app.messages x
+                  where x.conversation_id = v.id
+                  order by x.occurred_at desc, x.id desc limit 1) as preview,
+                (select max(x.occurred_at) from app.messages x
+                  where x.conversation_id = v.id and x.direction = 'inbound') as inbound_at,
+                (select max(x.occurred_at) from app.messages x
+                  where x.conversation_id = v.id and x.direction = 'outbound') as outbound_at
+              from unnest(${textArray(threads.map((t) => t.id))}::uuid[]) as v (id)
+            ) l
+            where c.id = l.id and c.workspace_id = ${workspaceId}`);
         return { gone, kept };
       },
     );
@@ -1361,13 +1619,84 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
     guarded += result.kept;
   }
 
+  const files = await reapMedia(deps, job);
+
   await asWorker(deps.db, { workspaceId: null, organizationId: job.organization_id }, (tx) =>
     tx.execute(sql`
       update app.migrations set status = 'rolled_back', last_error = null
        where id = ${job.migration_id}`),
   );
-  await finishJob(deps, job, { removed, leftAlone: guarded });
+  await finishJob(deps, job, { removed, leftAlone: guarded, files });
   return 'done';
+}
+
+/**
+ * The photos and recordings the import copied in, once the records that carried them have gone.
+ *
+ * Only the ones nothing points at any more: the same bytes under two records are one copy in storage
+ * (media.ts), so a file goes when no surviving message or call names it, and stays where it is when one does.
+ */
+async function reapMedia(deps: MigrationDeps, job: JobRow): Promise<number> {
+  let after = '00000000-0000-0000-0000-000000000000';
+  let removed = 0;
+  for (;;) {
+    const stored = await asWorker(
+      deps.db,
+      { workspaceId: null, organizationId: job.organization_id },
+      (tx) =>
+        rows<{ id: string; bucket: string; object_path: string; workspace_id: string }>(
+          tx,
+          sql`select id::text as id, bucket, object_path, workspace_id::text as workspace_id
+              from app.migration_media
+              where migration_id = ${job.migration_id} and state = 'stored'
+                and bucket is not null and object_path is not null and id > ${after}::uuid
+              order by id limit ${MEDIA_REAP_PAGE}`,
+        ),
+    );
+    if (stored.length === 0) return removed;
+    // Paged by id rather than by state, so a file that has to stay is passed over once and not asked about
+    // again on the next page.
+    after = stored[stored.length - 1]!.id;
+    for (const file of stored) {
+      const [held] = await asWorker(
+        deps.db,
+        { workspaceId: file.workspace_id, organizationId: job.organization_id },
+        (tx) =>
+          rows<{ still: boolean }>(
+            tx,
+            sql`select (
+                  exists (select 1 from app.calls c
+                           where c.workspace_id = ${file.workspace_id}
+                             and c.recording_object_path = ${file.object_path})
+                  or exists (select 1 from app.messages m
+                              where m.workspace_id = ${file.workspace_id}
+                                and m.media @> jsonb_build_array(
+                                      jsonb_build_object('objectPath', ${file.object_path}::text)))
+                ) as still`,
+          ),
+      );
+      if (held?.still) continue;
+      try {
+        await deps.store.remove(file.bucket, file.object_path);
+      } catch (err) {
+        // A file that will not go is worth saying out loud and not worth failing a rollback over: the records
+        // are already back the way they were, and a copy left behind costs storage, not correctness.
+        deps.log.warn(
+          { err, migrationId: job.migration_id, objectPath: file.object_path },
+          'could not remove a copied file while rolling a migration back',
+        );
+        continue;
+      }
+      await asWorker(deps.db, { workspaceId: null, organizationId: job.organization_id }, (tx) =>
+        tx.execute(sql`
+          update app.migration_media
+             set state = 'skipped', bucket = null, object_path = null,
+                 last_error = 'Removed when the migration was taken back.'
+           where id = ${file.id}::uuid`),
+      );
+      removed += 1;
+    }
+  }
 }
 
 // ---------- small loaders ----------
@@ -1449,5 +1778,13 @@ async function mappingContext(
     ),
   };
 }
+
+/**
+ * Every kind of record a rollback takes back, in the order it takes them. Exported so a spec can hold the
+ * plan against the catalogue and catch the next kind of record somebody teaches an importer to write.
+ */
+export const TAKE_BACK_TYPES: readonly string[] = takeBackPlan(
+  '00000000-0000-0000-0000-000000000000',
+).map(([type]) => type);
 
 export { CANONICAL_SCHEMA_VERSION, categoriesInOrder };

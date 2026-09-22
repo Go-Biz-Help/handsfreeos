@@ -15,6 +15,7 @@ import {
   countWords,
   migrationAccess,
   MIGRATION_NOT_YOURS,
+  MIGRATION_ROLLBACK_LEAVES,
   type MigrationAccess,
   FINDING_GROUPS,
   findingGroupOf,
@@ -570,10 +571,15 @@ export const migrationRollbackPreview = defineQuery({
       ctx.tx,
       // `created_here` is the whole rule for what may be removed: a record this migration made, and nothing
       // else. A customer who was already here was joined, never created, so they can only be put back.
+      //
+      // Minus the kinds a rollback deliberately leaves where they are, or this would promise to remove
+      // records that are never going anywhere: a tag is the business's own label, a user was recognised and
+      // never made, and a stage belongs to the board it is on rather than being a record of its own.
       sql`select
             (select count(*)::int from app.migration_source_mappings sm
              where sm.first_migration_id = ${input.migrationId} and sm.created_here
-               and sm.organization_id = ${org}) as removable,
+               and sm.organization_id = ${org}
+               and sm.target_type <> all (${MIGRATION_ROLLBACK_LEAVES}::text[])) as removable,
             (select count(*)::int from app.migration_change_journal j
              where j.migration_id = ${input.migrationId} and j.action in ('update', 'merge')
                and j.reverted_at is null) as restorable,
