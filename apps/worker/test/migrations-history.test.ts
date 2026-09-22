@@ -14,6 +14,9 @@
  *     still shows it after the old account is cancelled;
  *   - and the part that would be unforgivable to get wrong: **none of it is work.** No unread badge, no
  *     awaiting-reply clock, nothing queued to send, no AI teammate asked to answer five-year-old texts.
+ *
+ * The last spec takes it all back out again, because a business that changes its mind should not be left
+ * paying to store the old system's photos for ever.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -22,6 +25,7 @@ import {
   migrationCreate,
   migrationGet,
   migrationMapScopes,
+  migrationRollback,
   migrationScan,
   migrationSelect,
   migrationStart,
@@ -850,4 +854,27 @@ describe('the files come too, and they are ours', () => {
     );
     expect(message!.media).toEqual([]);
   }, 60_000);
+
+  it('takes the history back out again, files and all', async () => {
+    // Last in the file on purpose: this empties the inbox the tests above read. A rollback that left the
+    // photos and recordings in storage would be paying for a business's old system for ever, and the bytes
+    // are only removable while nothing here points at them — which, once the texts and calls have gone,
+    // nothing does.
+    expect(media.uploads.size).toBeGreaterThan(0);
+    await run(migrationRollback, { organizationId, migrationId, confirm: true });
+    await drain();
+
+    const [left] = await rows<{ messages: number; calls: number; stored: number }>(
+      admin(),
+      sql`select
+            (select count(*)::int from app.messages
+              where workspace_id = ${workspaceId}::uuid) as messages,
+            (select count(*)::int from app.calls
+              where workspace_id = ${workspaceId}::uuid) as calls,
+            (select count(*)::int from app.migration_media
+              where migration_id = ${migrationId}::uuid and state = 'stored') as stored`,
+    );
+    expect(left).toEqual({ messages: 0, calls: 0, stored: 0 });
+    expect([...media.uploads.keys()]).toEqual([]);
+  }, 120_000);
 });

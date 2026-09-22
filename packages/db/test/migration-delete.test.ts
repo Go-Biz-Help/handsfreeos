@@ -11,6 +11,9 @@
  *     is not a settled answer while the engine holds a lease;
  *   - it refuses somebody who does not manage migrations, even though it runs past every policy;
  *   - it keeps a customer who has been talked to since, however plainly the import made them;
+ *   - it finishes off what the rollback put away — the archived thread as well as the archived customer —
+ *     and no longer counts the import's own texts as somebody having talked to them (0092);
+ *   - it leaves alone whatever the rollback kept because the business had made it its own;
  *   - and it never touches a phone number that really moved carrier.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -102,6 +105,44 @@ async function anEmptyMove(status: string): Promise<string> {
     ),
   );
   return migrationId;
+}
+
+/**
+ * A thread the import made, on that customer, archived the way a rollback leaves one.
+ *
+ * `dependedOn` is the rollback saying it kept the thread because the business has used it since — the one
+ * thing that stops this function finishing it off.
+ */
+async function anImportedThread(
+  migrationId: string,
+  personId: string,
+  opts: { dependedOn?: boolean } = {},
+): Promise<string> {
+  const worker = asService({ workspaceId: ws, organizationId: org });
+  const [scope] = await worker((tx) =>
+    rows<{ id: string }>(
+      tx,
+      sql`select id from app.migration_scopes where migration_id = ${migrationId} limit 1`,
+    ),
+  );
+  const [thread] = await worker((tx) =>
+    rows<{ id: string }>(
+      tx,
+      sql`insert into app.conversations (workspace_id, channel, counterpart, person_id, archived_at)
+          values (${ws}, 'sms', ${randomE164()}, ${personId}, now()) returning id`,
+    ),
+  );
+  await worker((tx) =>
+    rows(
+      tx,
+      sql`insert into app.migration_change_journal
+            (migration_id, organization_id, scope_id, workspace_id, action, target_type, target_id,
+             reverted_at, revert_skipped_reason)
+          values (${migrationId}, ${org}, ${scope!.id}, ${ws}, 'create', 'conversation', ${thread!.id},
+                  now(), ${opts.dependedOn ? 'depended_on' : null})`,
+    ),
+  );
+  return thread!.id;
 }
 
 const countOf = async (migrationId: string): Promise<number> => {
@@ -329,6 +370,41 @@ describe('what it removes, and what it will not', () => {
       sql`select count(*)::int as n from app.people where id = ${personId}`,
     );
     expect(left!.n).toBe(1);
+  });
+
+  it('finishes off the thread the import made, and the customer it was about (0092)', async () => {
+    // The bug this replaces: the "has this customer been talked to since?" test counted the import's own
+    // texts as somebody talking to them, so an imported customer with an imported thread stayed archived for
+    // good and the thread stayed with them. The thread is the import's, it is put away, and both go.
+    const { migrationId, personId } = await aMove('rolled_back');
+    const threadId = await anImportedThread(migrationId, personId);
+    const [done] = await remove(migrationId, owner);
+    expect(done!.removed).toBe(2);
+    expect(done!.kept).toBe(0);
+    const [left] = await rows<{ people: number; threads: number }>(
+      admin$,
+      sql`select
+            (select count(*)::int from app.people where id = ${personId}) as people,
+            (select count(*)::int from app.conversations where id = ${threadId}) as threads`,
+    );
+    expect(left).toEqual({ people: 0, threads: 0 });
+  });
+
+  it('keeps a thread the rollback kept, and the customer it holds', async () => {
+    // `depended_on` is the rollback saying the business has made this thread its own. Nothing here overrules
+    // that, and the customer the thread is about stays with it.
+    const { migrationId, personId } = await aMove('rolled_back');
+    const threadId = await anImportedThread(migrationId, personId, { dependedOn: true });
+    const [done] = await remove(migrationId, owner);
+    expect(done!.removed).toBe(0);
+    expect(done!.kept).toBe(1);
+    const [left] = await rows<{ people: number; threads: number }>(
+      admin$,
+      sql`select
+            (select count(*)::int from app.people where id = ${personId}) as people,
+            (select count(*)::int from app.conversations where id = ${threadId}) as threads`,
+    );
+    expect(left).toEqual({ people: 1, threads: 1 });
   });
 
   it('never hands a number that really moved carrier back', async () => {
