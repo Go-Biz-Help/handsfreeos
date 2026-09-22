@@ -71,6 +71,8 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly deleted: string[];
   /** Call recordings whose words were asked for. */
   readonly transcribed: string[];
+  /** Subaccounts closed, by sid; their numbers are released with them. */
+  readonly closedAccounts: string[];
 }
 
 /** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
@@ -129,6 +131,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const registrations: RegistrationRequest[] = [];
   const deleted: string[] = [];
   const transcribed: string[] = [];
+  const closedAccounts: string[] = [];
   const transcripts = new Map<string, TranscriptionState>();
   const owned = new Map<string, { sid: string; e164: string; accountSid: string }>();
   const regs = new Map<string, { at: number; reject: boolean }>();
@@ -300,8 +303,13 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     serviced,
     deleted,
     transcribed,
+    closedAccounts,
     async createSubaccount() {
       return { sid: fakeSid('AC'), authToken: FAKE_AUTH_TOKEN };
+    },
+    async closeSubaccount(accountSid) {
+      if (!closedAccounts.includes(accountSid)) closedAccounts.push(accountSid);
+      for (const [sid, n] of owned) if (n.accountSid === accountSid) owned.delete(sid);
     },
     async createMessagingService() {
       return fakeSid('MG');

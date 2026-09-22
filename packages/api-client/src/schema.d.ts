@@ -6237,6 +6237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/workspace.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a business and everything in it — customers, messages, calls, calendars, invoices, workflows, files and its history. Its phone numbers are released. This cannot be undone. Only an owner can do it, and they type the business’s name to confirm.
+         * @description Risk level 4. Requires workspace.delete. Emits workspace.deletion_requested.
+         */
+        post: operations["command_workspace_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workspace.join": {
         parameters: {
             query?: never;
@@ -22346,6 +22366,39 @@ export interface operations {
                 content: {
                     "application/json": {
                         slug: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workspace_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmName: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        requestedAt: string;
                         /** Format: uuid */
                         workspaceId: string;
                     };

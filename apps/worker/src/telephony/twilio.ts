@@ -686,6 +686,14 @@ export function createTwilioTelephony(master: {
       return { sid: res.sid, authToken: res.auth_token };
     },
 
+    async closeSubaccount(accountSid) {
+      try {
+        await call(masterCreds, 'POST', `${API}/Accounts/${accountSid}.json`, { Status: 'closed' });
+      } catch (e) {
+        if (!(e instanceof ProviderError && e.httpStatus === 404)) throw e;
+      }
+    },
+
     async createMessagingService(account, opts) {
       const res = await call<{ sid: string }>(credsOf(account), 'POST', `${MESSAGING}/Services`, {
         FriendlyName: opts.friendlyName,

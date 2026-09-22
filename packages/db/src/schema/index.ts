@@ -74,6 +74,11 @@ export const workspaces = app.table('workspaces', {
   industry: text('industry').notNull().default('home_services'),
   settings: jsonb('settings').$type<Json>().notNull().default({}),
   createdBy: uuid('created_by'),
+  /** An owner asked for the business to be deleted (0093): hidden from everybody, and the worker purges it. */
+  deletionRequestedAt: ts('deletion_requested_at'),
+  deletionRequestedBy: uuid('deletion_requested_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
   ...timestamps(),
 });
 

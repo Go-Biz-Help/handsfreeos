@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BrandedDomainCard } from '@/components/settings/branded-domain-card';
+import { DeleteWorkspace } from '@/components/settings/delete-workspace';
 import { SettingsNav } from '@/components/settings/settings-nav';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
 import { PageHeader } from '@/components/shell/page-header';
@@ -37,6 +38,11 @@ export default async function WorkspaceSettingsPage({
           <WorkspaceForm workspace={got.workspace} />
         </Card>
         <BrandedDomainCard workspaceId={workspaceId} domain={branded.domain} canManage />
+        {got.workspace.role === 'owner' ? (
+          <Card className="p-6" id="delete-workspace">
+            <DeleteWorkspace workspaceId={workspaceId} name={got.workspace.name} />
+          </Card>
+        ) : null}
       </div>
     </>
   );

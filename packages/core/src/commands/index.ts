@@ -164,6 +164,7 @@ import { tagUpdate } from './tag.update';
 import { taskComplete, taskCreate, taskDelete, taskReopen, taskUpdate } from './task';
 import { userUpdateProfile } from './user.update_profile';
 import { workspaceCreate } from './workspace.create';
+import { workspaceDelete } from './workspace.delete';
 import { workspaceJoin } from './workspace.join';
 import { workspaceUpdate } from './workspace.update';
 import {
@@ -412,6 +413,7 @@ export {
   workspaceCreate,
   workspaceJoin,
   workspaceUpdate,
+  workspaceDelete,
   assistantThreadArchive,
   assistantThreadRename,
   calendarCreate,
@@ -464,6 +466,7 @@ export const commands: readonly CommandDef[] = [
   workspaceCreate,
   workspaceJoin,
   workspaceUpdate,
+  workspaceDelete,
   membershipInvite,
   invitationResend,
   invitationRevoke,

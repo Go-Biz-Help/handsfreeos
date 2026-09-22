@@ -138,6 +138,13 @@ function linkProblem(v: unknown): string | null {
 }
 export const WorkspaceUpdateOutput = z.object({ workspaceId: uuid, updated: z.array(z.string()) });
 
+/** Deleting a business: its name, typed again, is the confirmation. */
+export const WorkspaceDeleteInput = z.object({
+  workspaceId: uuid,
+  confirmName: z.string().trim().min(1).max(200),
+});
+export const WorkspaceDeleteOutput = z.object({ workspaceId: uuid, requestedAt: isoDateTime });
+
 export const WorkspaceSummary = z.object({
   id: uuid,
   organizationId: uuid,
