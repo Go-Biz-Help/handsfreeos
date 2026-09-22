@@ -73,10 +73,12 @@ export function WorkspaceSwitcher({ me, current }: { me: Me; current: WorkspaceS
           </button>
         </Popover.Trigger>
         <Popover.Portal>
+          {/* Above the phone navigation drawer (a z-50 sheet), which is where this opens from on mobile. */}
           <Popover.Content
             align="start"
             sideOffset={6}
-            className="z-40 w-[304px] rounded-card border border-border bg-card p-0 shadow-2 focus:outline-none"
+            collisionPadding={12}
+            className="z-[60] w-[304px] max-w-[calc(100vw-24px)] rounded-card border border-border bg-card p-0 shadow-2 focus:outline-none"
           >
             <div className="p-2">
               <div className="relative">

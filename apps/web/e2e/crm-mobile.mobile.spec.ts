@@ -25,6 +25,14 @@ test('navigates with the drawer and bottom bar, opens a customer, and moves a le
   // Drawer holds the full navigation.
   await page.getByTestId('mobile-menu').click();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
+  // The workspace picker opens above the drawer, not behind it: the click below fails if the drawer's
+  // scrim or panel sits over the menu.
+  await page.getByTestId('workspace-switcher').click();
+  await expect(page.getByLabel('Find a workspace')).toBeVisible();
+  await page.getByRole('button', { name: 'Bayou Plumbing Co.', exact: true }).click();
+  await expect(page.getByLabel('Find a workspace')).toBeHidden();
+  // Picking the workspace you are already in stays put; the drawer is still open.
+  await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
   await page
     .getByRole('navigation', { name: 'Workspace' })
     .getByRole('link', { name: 'Members' })
