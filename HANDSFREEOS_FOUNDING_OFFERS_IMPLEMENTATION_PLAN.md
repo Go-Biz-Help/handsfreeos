@@ -6,6 +6,13 @@ same cap, and an admin surface where spots are granted, revoked and freed.
 Phases 1 and 2 of the growth plan only. Phases 3 and 4 sell more of the same thing and have
 nothing to enforce, so they need no machinery beyond the monthly plan this builds.
 
+> **Status: Phase 1 is built.** Migration `20261003000100`, the Drizzle mirror, the core commands
+> and queries, the worker's two signed-out routes, `/admin/founding`, and the website. Sixteen tests
+> cover the cap. Phase 2's $497 checkout is not built and needs a Stripe account connected first
+> (§8, §11). Both offers ship `draft`, so nothing is live until somebody opens them.
+>
+> Building it changed three things in this plan; §3, §5 and §6 below say what and why.
+
 ---
 
 ## 1. The decisions this is built on
@@ -114,7 +121,15 @@ grace_ends_at     timestamptz
 granted_by        uuid not null        -- staff who approved
 ```
 
-`app.grant_status` is `'reserved' | 'active' | 'grace' | 'revoked' | 'expired' | 'released'`.
+**As built:** `platform.founding_grant_status` is `'reserved' | 'active' | 'revoked' | 'expired'`,
+and the tables live in `platform` beside the rate card and the support desk rather than in `app`.
+
+The draft of this plan gave a grant its own `grace` status _and_ said a revocation frees the seat
+at once — which cannot both be true of one column. The seat and the notice are two facts, so they
+are two rows: the grant goes `revoked` and stops holding a seat, and `app.workspace_plans` goes to
+`grace` with a date. Only `app.workspace_plans` stays in `app`, because it is a tenant fact the app
+reads on every gate. That split is also what keeps `revoke_reason` out of any policy a business can
+read through.
 
 **An organization may hold at most one grant that counts.** Enforced by a partial unique index
 on `organization_id` where `status in ('reserved','active','grace')`.
@@ -143,7 +158,11 @@ grant_id        uuid references app.founding_grants (id)
 created_at      timestamptz not null
 ```
 
-`app.application_status` is `'pending' | 'approved' | 'declined' | 'waitlisted' | 'expired' | 'withdrawn'`.
+`platform.founding_application_status` is `'pending' | 'approved' | 'declined' | 'waitlisted' | 'expired' | 'withdrawn'`.
+
+**As built:** `claim_token` is `claim_token_hash bytea` — only the sha256 is stored and the link is
+returned once, the way an invitation's is. It is worth a free account for life, so it is worth more
+care than an invitation, not less.
 
 One partial unique index on `lower(email)` where `status in ('pending','approved')` stops the
 same person filling the queue.
@@ -191,10 +210,11 @@ A count-then-insert is a race: two approvals at once both read 24 and both write
 So the cap is taken the way the wallet takes a balance — `private.founding_claim_spot()` locks
 the `app.founding_offers` row with `select … for update`, counts grants in
 `('reserved','active','grace')` for that offer, and raises if the count has reached
-`seat_cap`. Everything that consumes a spot goes through that function; nothing inserts into
-`app.founding_grants` directly. A `private.guard_founding_grant` trigger refuses a direct
-insert, the same deliberate duplication `private.guard_usage_wallet` already uses — the command
-is where the rule is readable, the trigger is where it is true.
+`seat_cap`. **As built:** there is no separate claim function to route through, because a function somebody can
+forget to call is not a guarantee. `private.guard_founding_seat` is a trigger on
+`platform.founding_grants` itself: it locks the offer's row, counts, and refuses. Every path — a
+command, a migration, psql, the worker — hits it. Unlike `private.guard_usage_wallet` there is no
+system-actor bypass, deliberately: a cap the worker can step around is not a cap.
 
 **A revoked spot frees immediately.** `'revoked'` is not in the counted set, so the moment you
 revoke, remaining goes up by one and the next waitlisted applicant can be approved — even
@@ -294,7 +314,13 @@ The marketing site has no API client today, so the counter follows the pattern t
 booking pages already use: **an unauthenticated worker route, read server-side by Next.js and
 cached.**
 
-New route in `apps/worker/src/http/founding.ts`:
+**As built** in `apps/worker/src/http/founding.ts`, with a second route beside it
+(`POST /public/founding/apply`) and one hop the plan did not foresee: the form posts to a route
+handler on the marketing site, which forwards to the worker. The worker's CORS allowlist is the
+app's origin, and widening it for the site would widen it for every route behind it. The hop
+forwards `x-forwarded-for` so the per-address limits still count the visitor.
+
+The route:
 
 ```
 GET /public/founding/counts
@@ -461,3 +487,16 @@ Each step is committable and leaves the tree green.
 6. The site: counter, pricing rewrite, application page, FAQs.
 7. Seed the two offers, and a demo seed that fills a few spots so the counter has something to
    show in development.
+
+### What is done
+
+1. ✅ Migration `20261003000100`, the guard, the offers seeded `draft`.
+2. ✅ Drizzle mirror, checked column-for-column by the existing parity test.
+3. ✅ Core commands and queries, registered and typechecked.
+4. ✅ `packages/db/test/founding-cap.test.ts` — sixteen tests, two of which fail if the row lock is
+   removed (checked by removing it).
+5. ✅ The worker's two signed-out routes.
+6. ✅ `/admin/founding`.
+7. ✅ The website: one $97 plan, live counters, `/founding`, rewritten FAQs.
+8. ⬜ The $497 checkout — needs a Stripe account connected (§8).
+9. ⬜ The six emails (§11.4), and the nightly sweeps that expire a reservation and end a grace.
