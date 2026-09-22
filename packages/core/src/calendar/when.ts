@@ -129,6 +129,19 @@ export function fmtWeekRange(first: string, last: string): string {
   return `${MONTHS[a.month - 1]} ${a.day}–${b.day}, ${b.year}`;
 }
 
+/**
+ * The same week where there is no room for the long one — the phone's calendar heading: "Sep 20–26",
+ * "Sep 28 – Oct 4". No year: a week is always one the reader has just stepped to.
+ */
+export function fmtWeekRangeShort(first: string, last: string): string {
+  const a = parseLocalDate(first);
+  const b = parseLocalDate(last);
+  const from = `${short(MONTHS[a.month - 1]!)} ${a.day}`;
+  if (a.month !== b.month || a.year !== b.year)
+    return `${from} – ${short(MONTHS[b.month - 1]!)} ${b.day}`;
+  return `${from}–${b.day}`;
+}
+
 /** Three-letter weekday of a local date: "Mon". */
 export const weekdayShort = (date: string): string => short(WEEKDAYS[weekdayOf(date)]!);
 

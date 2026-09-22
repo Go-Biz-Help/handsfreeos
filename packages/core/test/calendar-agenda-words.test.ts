@@ -25,6 +25,7 @@ import {
   fmtRange,
   fmtTime,
   fmtWeekRange,
+  fmtWeekRangeShort,
   fmtWhen,
   holdOf,
   holdWords,
@@ -345,6 +346,9 @@ describe('dates and times in the business’s zone', () => {
     expect(fmtWeekRange('2026-09-20', '2026-09-26')).toBe('September 20–26, 2026');
     expect(fmtWeekRange('2026-09-28', '2026-10-04')).toBe('September 28 – October 4, 2026');
     expect(fmtWeekRange('2026-12-28', '2027-01-03')).toBe('December 28, 2026 – January 3, 2027');
+    expect(fmtWeekRangeShort('2026-09-20', '2026-09-26')).toBe('Sep 20–26');
+    expect(fmtWeekRangeShort('2026-09-28', '2026-10-04')).toBe('Sep 28 – Oct 4');
+    expect(fmtWeekRangeShort('2026-12-28', '2027-01-03')).toBe('Dec 28 – Jan 3');
     expect(fmtWhen(at('13:30'), at('15:00'), TZ)).toBe('Tue, Sep 22 · 8:30–10:00 AM');
     expect(fmtAt(at('13:30'), TZ)).toBe('Tue, Sep 22 at 8:30 AM');
   });

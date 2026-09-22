@@ -20,6 +20,7 @@ export {
   fmtRange,
   fmtTime,
   fmtWeekRange,
+  fmtWeekRangeShort,
   fmtWhen,
   hourLabel,
   localDayOf as dateOf,
