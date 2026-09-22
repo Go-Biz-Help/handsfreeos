@@ -51,11 +51,26 @@ The wallet spends a prepaid balance; a plan bills on a cycle. They stay apart.
 **Also missing.** `apps/site` is entirely static — it has no API client and no environment
 beyond a chat widget key. The live counter is the first data the marketing site ever reads.
 
-**Note on the existing Stripe code.** `apps/worker/src/payments/stripe.ts` is Stripe
-**Connect** — the business's own customers paying *them*, with `Stripe-Account` headers and no
-platform fee. It is the wrong seam for this. The $497 is HandsFreeOS's own revenue and belongs
-on the platform secret key, alongside wallet top-ups. `STRIPE_SECRET_KEY`,
-`STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` already exist in the worker environment.
+**The Stripe seam exists; the Stripe account is not connected.**
+`apps/worker/src/payments/stripe.ts` has two halves. Most of it is Stripe **Connect** — the
+business's own customers paying *them*, with a `Stripe-Account` header and no platform fee —
+which is the wrong seam for this. But `stripe.ts:571` also has a `platform` block whose comment
+is exactly the distinction that matters:
+
+> Our own charges: the usage wallet's top-ups. Every call here passes `null` where a seller's
+> account would go, which is the whole of what makes the money ours.
+
+`platform.ensureCustomer`, `platform.saveMethod`, `platform.forgetMethod` and `platform.charge`
+are all written. **None of it has ever run.**
+
+- Every Stripe variable in `apps/worker/src/env.ts` is optional — `env.STRIPE_SECRET_KEY || null`.
+  The worker starts fine without them, and `apps/worker/fly.toml` names the secrets the worker
+  refuses to start without and the optional ones that turn features on. Stripe is in neither
+  list, because no Stripe account has been connected.
+- `WALLET_MODE = "off"` in `fly.toml`, so the wallet records nothing in production either.
+
+So this plan does not inherit a working payment path. It inherits a well-shaped seam and has to
+supply the account behind it. See §8 and §11.
 
 ---
 
@@ -307,6 +322,31 @@ number the app enforces are the same number.
 Stripe Checkout on the **platform** secret key, hand-rolled `fetch`, matching the house rule in
 `payments/provider.ts` — no vendor SDK on the server.
 
+### What has to be provisioned first
+
+This is setup work on your side, not code. Without it nothing in this section runs:
+
+| Secret | What it is | Needed for |
+| --- | --- | --- |
+| `STRIPE_SECRET_KEY` | The **live** platform key, `sk_live_…`. A test key in production is refused by `env.ts` on purpose | Every charge |
+| `STRIPE_WEBHOOK_SECRET` | The signing secret for the endpoint below | Confirming payment |
+| `STRIPE_PUBLISHABLE_KEY` | Public, for the card form | Saving a card |
+
+Set with `fly secrets import` for `handsfreeos-worker`, per `docs/operations.md` Part 6.
+
+`STRIPE_CLIENT_ID` is **not** needed. That one is Connect — businesses linking their own Stripe
+so their customers can pay them — and is a separate decision. Note the guard in `env.ts`: if you
+ever set `STRIPE_CLIENT_ID`, `STRIPE_SECRET_KEY` becomes mandatory.
+
+### The extra code the seam needs
+
+`platform.charge` does off-session PaymentIntents against a saved card. Checkout is a hosted
+page for someone who has no card on file yet, so `PaymentProvider.platform` gains one method —
+`createCheckout(input): Promise<{ url, sessionId }>` — implemented for Stripe, and left
+`unsupported` for Square the way `platform.supported` already handles that.
+
+### The flow
+
 1. `founding.claim` with a valid token for the paid offer writes an `app.founding_checkouts`
    row `pending` and schedules a job.
 2. The job creates a Checkout Session (`mode: 'payment'`, the grant id in `client_reference_id`,
@@ -380,6 +420,29 @@ Four places, all reading `app.workspace_plans`:
    expiry is not written. Six templates in `apps/worker/src/emails/templates`.
 5. **The Stripe Price object** for the $497 and the $97/month — create them in the Stripe
    dashboard and reference by id, or build them inline with `price_data`.
+6. **`WALLET_MODE` is `off` in production**, so nothing is metering AI, calls or SMS today.
+   Every offer here is "+ paid usage", and the founding partner's $10 credit is a wallet
+   balance. The wallet therefore has to go `shadow` → `on` before or alongside Phase 1, or the
+   free tier is free in a way nobody intended. `fly.toml` documents the rollout, and the change
+   is a reviewed commit rather than a secret, by design.
+7. **No Stripe account is connected at all.** Both the $497 and the $97/month depend on it, as
+   does the wallet's own top-up. This is the single longest pole in the plan and it is setup,
+   not code — see the table in §8.
+
+### The order these unblock in
+
+```
+Stripe platform key + webhook secret on the worker
+        │
+        ├──▶ WALLET_MODE = shadow ──▶ on        (usage billing, the $10 credit)
+        │
+        └──▶ founding.claim → Checkout          (the $497)
+                    │
+                    └──▶ the $97/month plan      (the fallback every gate falls back to)
+```
+
+Phase 1 can ship without Stripe if the 25 founding partners are approved by hand and their
+wallets are credited by support — `platform.wallets.adjust` already exists. Phase 2 cannot.
 
 ---
 
