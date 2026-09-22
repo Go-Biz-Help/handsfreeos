@@ -22,6 +22,7 @@ import {
   migrationGet,
   migrationMapScopes,
   migrationResolveMerge,
+  migrationReviewQueue,
   migrationRollback,
   migrationResume,
   migrationScan,
@@ -436,6 +437,26 @@ describe('a business moves house', () => {
       migrationId: w.migrationId,
     });
     expect((await people()).some((p) => p.first_name === 'Chris')).toBe(false);
+
+    /**
+     * The queue as the screen reads it: the question, and both of the people he collides with, by name.
+     *
+     * Nothing called this query until the wizard did, and the lookup behind `here` handed the database a
+     * bare JS array, which the query builder spreads into a row constructor — `any(($1, $2)::uuid[])` — so
+     * it threw for every queue that had anybody in it and the screen sat on "Looking them up…".
+     */
+    const queue = await ask<{
+      candidates: { id: string; incoming: { name: string }; here: { name: string }[] }[];
+      remaining: number;
+    }>(migrationReviewQueue, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      limit: 10,
+    });
+    expect(queue.remaining).toBe(before.needsReview);
+    const waiting = queue.candidates.find((c) => c.id === candidate!.id);
+    expect(waiting?.incoming.name).toBe('Chris Doyle');
+    expect(waiting?.here.map((h) => h.name).sort()).toEqual(['Dave Smith', 'Maria Alvarez']);
 
     await run(migrationResolveMerge, {
       organizationId: w.organizationId,
