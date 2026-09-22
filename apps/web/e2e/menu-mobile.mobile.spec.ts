@@ -16,7 +16,8 @@ test('the phone drawer scrolls, opens a group in place, and drops a hidden place
   const drawer = page.getByTestId('drawer-menu');
   await expect(drawer).toBeVisible();
   expect(await drawer.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
-  await expect(page.getByTestId('sign-out')).toBeVisible();
+  // Scoped to the drawer: a test id is a plain CSS match, so it finds the sidebar's copy too, hidden as it is.
+  await expect(page.getByRole('dialog').getByTestId('sign-out')).toBeVisible();
 
   // Arrange it from the phone: the suggested groups, and Pipeline out of the way.
   await drawer.getByTestId('menu-edit').click();

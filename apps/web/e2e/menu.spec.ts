@@ -18,11 +18,14 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await expect(nav(page).getByRole('link', { name: 'Knowledge' })).toBeVisible();
   const menu = page.getByTestId('sidebar-menu');
   await expect(menu).toBeVisible();
+  // A window too short for fifteen places. The sidebar is kept to the window and pinned there, so it is the
+  // menu that overflows rather than the page growing and taking the account with it.
   await page.setViewportSize({ width: 1280, height: 620 });
-  const scrolls = await menu.evaluate((el) => el.scrollHeight > el.clientHeight + 1);
-  expect(scrolls).toBe(true);
+  await expect.poll(() => menu.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
+  const aside = page.locator('aside').first();
+  expect((await aside.boundingBox())!.height).toBeLessThanOrEqual(620);
   // The account is still reachable on a short screen, because only the menu scrolled.
-  await expect(page.getByTestId('sign-out')).toBeVisible();
+  await expect(aside.getByTestId('sign-out')).toBeInViewport();
   await page.setViewportSize({ width: 1280, height: 832 });
 
   // The suggested arrangement: the everyday places stay out, the rest fold into More.
@@ -73,7 +76,7 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   // Hidden is not lost: the editor lists it, and the page still opens from a link.
   await page.getByTestId('menu-edit').click();
   await expect(page.getByTestId('menu-hidden-list')).toContainText('Audit log');
-  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByTestId('menu-cancel').click();
   await page.goto(`/app/w/${workspaceId}/audit`);
   await expect(nav(page).getByRole('link', { name: 'Audit log' })).toHaveCount(0);
 

@@ -303,7 +303,7 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
           <Button data-testid="menu-save" loading={busy} disabled={!dirty} onClick={onSave}>
             {busy ? MENU_WORDS.saving : MENU_WORDS.save}
           </Button>
-          <Button variant="secondary" onClick={closeEditor}>
+          <Button variant="secondary" data-testid="menu-cancel" onClick={closeEditor}>
             {MENU_WORDS.cancel}
           </Button>
         </div>
