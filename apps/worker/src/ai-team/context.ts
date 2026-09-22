@@ -254,6 +254,8 @@ export interface RunContext {
   readonly catalogue: readonly RunProduct[];
   /** Upcoming visits; none for a chat visitor. */
   readonly appointments: readonly RunAppointment[];
+  /** Their most recent visit that has happened (M18); none for a chat visitor. */
+  readonly lastVisit: PastVisit | null;
   readonly batch: readonly BatchMessage[];
   readonly history: readonly HistoryLine[];
   readonly matches: readonly KnowledgeMatch[];
@@ -308,6 +310,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     : [];
   const appointments =
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
+  const [lastVisit] =
+    customer && !unverifiedChat ? await pastAppointments(tx, ws, customer.id, timeZone, 1) : [];
   const money = input.config.money;
   const plans = money.plans && !unverifiedChat ? await plansOf(tx, ws) : [];
   const catalogue =
@@ -375,6 +379,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     plans,
     catalogue,
     appointments,
+    lastVisit: lastVisit ?? null,
     batch: input.batch,
     history,
     matches,
@@ -569,6 +574,61 @@ export async function upcomingAppointments(
     calendarId: r.calendar_id,
     calendarName: r.calendar_name,
     timeZone: r.timezone || timeZone,
+  }));
+}
+
+/** A visit the customer had (M18): what it was, when, and how it went. */
+export interface PastVisit extends RunAppointment {
+  /** completed, no_show, or scheduled when nobody marked it. */
+  readonly outcome: 'completed' | 'no_show' | 'unmarked';
+}
+
+/** The customer's visits that have happened, most recent first. */
+export async function pastAppointments(
+  tx: Tx,
+  workspaceId: string,
+  personId: string,
+  timeZone: string,
+  limit = 10,
+): Promise<PastVisit[]> {
+  const list = await rows<{
+    id: string;
+    title: string;
+    service_name: string | null;
+    starts_at: Date | string;
+    ends_at: Date | string;
+    calendar_id: string;
+    calendar_name: string;
+    timezone: string | null;
+    status: string;
+    attendee: string;
+  }>(
+    tx,
+    sql`select a.id, a.title, s.name as service_name, a.starts_at, a.ends_at, a.calendar_id,
+          c.name as calendar_name, c.timezone, a.status::text as status, t.status::text as attendee
+        from app.appointment_attendees t
+        join app.appointments a on a.id = t.appointment_id
+        join app.calendars c on c.id = a.calendar_id
+        left join app.services s on s.id = a.service_id
+        where t.workspace_id = ${workspaceId} and t.person_id = ${personId}
+          and t.status in ('booked', 'attended', 'no_show')
+          and a.status <> 'cancelled' and a.starts_at <= now()
+        order by a.starts_at desc, a.id limit ${limit}`,
+  );
+  return list.map((r) => ({
+    id: r.id,
+    title: r.service_name ?? r.title,
+    startsAt: ms(r.starts_at),
+    endsAt: ms(r.ends_at),
+    calendarId: r.calendar_id,
+    calendarName: r.calendar_name,
+    timeZone: r.timezone || timeZone,
+    outcome:
+      r.status === 'no_show' || r.attendee === 'no_show'
+        ? 'no_show'
+        : r.status === 'completed' || r.attendee === 'attended'
+          ? 'completed'
+          : 'unmarked',
   }));
 }
 

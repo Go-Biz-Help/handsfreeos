@@ -155,6 +155,17 @@ const RULES: TeammateRule[] = [
     },
   },
   {
+    when: /last out/i,
+    step: (t) =>
+      t.results['my_appointments']
+        ? {
+            calls: [
+              { name: 'reply', arguments: { message: 'We were last out on your last visit.' } },
+            ],
+          }
+        : { calls: [{ name: 'my_appointments', arguments: { when: 'past' } }] },
+  },
+  {
     when: /times near me/i,
     step: (t) =>
       t.results['find_times']
@@ -395,5 +406,34 @@ describe('hand-off alerts', () => {
     expect(pushed('Needs a person · Hal Customer')).toHaveLength(0);
     expect(texted()).toHaveLength(1);
     await saveTeammate(w, { handOff: { alerts: { push: true, text: true } } });
+  });
+});
+
+describe('past visits', () => {
+  it('knows their last visit, and lists the ones before it when asked', async () => {
+    const c = await newCustomer(w, 'Ida');
+    const m1 = await textIn(w, c.phone, 'Can you come every week to mow?');
+    await replyNow(w, m1.conversationId);
+    await drain(w);
+    // The first of the series happened three days ago, and was marked done.
+    const [first] = await rows<{ id: string }>(
+      admin(),
+      sql`select a.id from app.appointment_attendees t join app.appointments a on a.id = t.appointment_id
+          where t.person_id = ${c.id} order by a.starts_at limit 1`,
+    );
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '3 days',
+            ends_at = now() - interval '3 days' + interval '1 hour', status = 'completed'
+          where id = ${first!.id}`,
+    );
+    const m2 = await textIn(w, c.phone, 'When were you last out here?');
+    await replyNow(w, m2.conversationId);
+    await drain(w);
+    expect(requestAbout(w, 'last out here')!.context).toMatch(/Last visit: .+ on /);
+    const runs = await runsOf(m2.conversationId);
+    const call = (await toolCallsOf(runs.at(-1)!.id)).find((x) => x.tool === 'my_appointments');
+    const visits = (call!.result as { content: { visits: unknown[] } }).content.visits;
+    expect(visits).toHaveLength(1);
   });
 });

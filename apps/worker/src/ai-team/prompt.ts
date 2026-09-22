@@ -258,6 +258,12 @@ function customerLines(rc: RunContext): string[] {
         `- ${quoteData(a.title)} on ${atLabel(a.startsAt, a.timeZone)} (appointment id ${a.id}, calendar ${quoteData(a.calendarName)})`,
       );
   } else if (c) lines.push('No upcoming visits.');
+  if (rc.lastVisit)
+    lines.push(
+      `Last visit: ${quoteData(rc.lastVisit.title)} on ${atLabel(rc.lastVisit.startsAt, rc.lastVisit.timeZone)}${
+        rc.lastVisit.outcome === 'no_show' ? ' (they didn’t make it)' : ''
+      }. my_appointments with when: past has more.`,
+    );
   lines.push('</customer_record>');
   return lines;
 }

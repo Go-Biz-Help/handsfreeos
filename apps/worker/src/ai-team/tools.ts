@@ -67,7 +67,7 @@ import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { TenantScope } from '../services';
 import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
 import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
-import { upcomingAppointments, type RunContext } from './context';
+import { pastAppointments, upcomingAppointments, type RunContext } from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
 
 // ---- What a run has done so far ----
@@ -718,8 +718,28 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     };
   },
 
-  async my_appointments(d, tx) {
+  async my_appointments(d, tx, args) {
     if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (args['when'] === 'past') {
+      const past = await pastAppointments(
+        tx,
+        d.scope.workspaceId,
+        d.rc.customer.id,
+        d.rc.workspace.timeZone,
+      );
+      return {
+        status: 'done',
+        content: {
+          visits: past.map((a) => ({
+            what: quoteData(a.title),
+            when: atLabel(a.startsAt, a.timeZone),
+            calendar: quoteData(a.calendarName),
+            ...(a.outcome === 'no_show' ? { note: 'they didn’t make it' } : {}),
+          })),
+          ...(past.length ? {} : { note: 'No visits yet.' }),
+        },
+      };
+    }
     const list = await upcomingAppointments(
       tx,
       d.scope.workspaceId,

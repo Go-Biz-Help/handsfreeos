@@ -64,6 +64,7 @@ import {
 } from './constants';
 import {
   loadRunContext,
+  pastAppointments,
   upcomingAppointments,
   type BatchMessage,
   type HistoryLine,
@@ -503,7 +504,32 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     };
   },
 
-  async my_appointments(h) {
+  async my_appointments(h, args) {
+    if (args['when'] === 'past') {
+      if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+      const customerId = h.rc.customer.id;
+      const past = await asWorker(h.deps.db, h.t.scope, (tx) =>
+        pastAppointments(tx, h.t.scope.workspaceId, customerId, h.rc.workspace.timeZone),
+      );
+      h.send({
+        type: 'tool',
+        name: 'my_appointments',
+        title: 'Looked up their past visits',
+        detail: past.length
+          ? past.map((a) => `${a.title}, ${atLabel(a.startsAt, a.timeZone)}`).join('; ')
+          : 'No visits yet.',
+        at: nowIso(),
+      });
+      return {
+        content: {
+          visits: past.map((a) => ({
+            what: quoteData(a.title),
+            when: atLabel(a.startsAt, a.timeZone),
+            calendar: quoteData(a.calendarName),
+          })),
+        },
+      };
+    }
     const list = await theirVisits(h);
     if (!list) return refuse(NO_CUSTOMER);
     h.send({

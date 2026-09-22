@@ -158,8 +158,13 @@ export const TEAMMATE_TOOLS = [
   define({
     name: 'my_appointments',
     description:
-      'The customer’s upcoming appointments with the business, with ids, to reschedule or cancel one they ask about.',
-    input: z.strictObject({}),
+      'The customer’s appointments with the business: upcoming ones with ids, to reschedule or cancel one they ask about, or (when: past) their last visits and how each went, to answer “when were you last out?”.',
+    input: z.strictObject({
+      when: z
+        .enum(['upcoming', 'past'])
+        .optional()
+        .describe('Upcoming (the default) or past visits'),
+    }),
     skill: 'book',
     autonomy: 'auto',
   }),
