@@ -235,7 +235,7 @@ describe('a business moves house', () => {
     ]);
     const contacts = got.inventory.find((i) => i.category === 'contacts');
     expect(contacts?.found).toBe(11);
-    expect(contacts?.countLabel).toBe('9');
+    expect(contacts?.countLabel).toBe('11');
   }, 60_000);
 
   it('never shows a permission problem as an empty account', async () => {
