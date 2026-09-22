@@ -1,9 +1,11 @@
 import {
   APPEARANCE_WORDS,
+  BALANCE_WORDS,
   formatPhone,
   keptBusinessesLine,
   MY_CELL_WORDS,
   PHONE_SETTINGS_WORDS,
+  seesWholeBusiness,
 } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -20,6 +22,7 @@ import {
   Smartphone,
   User,
   UserX,
+  Wallet,
 } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
@@ -45,7 +48,8 @@ import { useWorksOffline } from '@/sync/hooks';
 
 /**
  * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the changes waiting, how it
- * looks, signing out and deleting the account. Everything about the business stays on the web.
+ * looks, signing out and deleting the account. Setting the business up — texting, payments, members, calendars —
+ * stays on the web; its balance does not, because running out of it stops the texts and calls this app is for.
  */
 export default function Settings() {
   const { me, business, userId } = useBusiness();
@@ -136,6 +140,21 @@ export default function Settings() {
           testID="setting-changes"
         />
       </List>
+
+      {seesWholeBusiness(business.role) ? (
+        <>
+          <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
+          <List>
+            <ListRow
+              icon={Wallet}
+              label={BALANCE_WORDS.title}
+              detail={BALANCE_WORDS.phoneSettingsDetail}
+              onPress={() => router.push(businessHref(business.id, 'settings/usage'))}
+              testID="setting-usage"
+            />
+          </List>
+        </>
+      ) : null}
 
       <ListLabel>{PHONE_SETTINGS_WORDS.you}</ListLabel>
       <List>

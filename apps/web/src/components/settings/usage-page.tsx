@@ -1,5 +1,5 @@
 'use client';
-import { money } from '@hfos/core';
+import { BALANCE_WORDS, balanceHeadline, cardLine, money, topUpCapLine } from '@hfos/core';
 import { CreditCard, Download, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ChangeEvent, type ReactNode } from 'react';
@@ -48,22 +48,6 @@ function Section({
   );
 }
 
-/**
- * The balance, in words before numbers. A business glancing at this page wants to know whether it is fine, not
- * to do arithmetic — so the sentence says what the number means, and the number is underneath it.
- */
-function balanceWords(w: Wallet): { headline: string; tone: 'ok' | 'warn' | 'bad' } {
-  if (w.suspended) return { headline: 'Texts and calls have stopped', tone: 'bad' };
-  if (!w.opened) return { headline: 'Nothing used yet', tone: 'ok' };
-  if (w.balanceCents <= 0) return { headline: 'Your balance has run out', tone: 'bad' };
-  if (w.balanceCents <= w.floorCents)
-    return {
-      headline: w.autoTopup && w.card ? 'Topping up shortly' : 'Running low',
-      tone: w.autoTopup && w.card ? 'ok' : 'warn',
-    };
-  return { headline: 'You’re fine', tone: 'ok' };
-}
-
 const TONE: Readonly<Record<'ok' | 'warn' | 'bad', string>> = {
   ok: 'text-text',
   warn: 'text-warning-text',
@@ -80,7 +64,7 @@ function Row({ entry }: { entry: Entry }) {
       data-testid="usage-row"
     >
       <div className="min-w-0">
-        <span className="block truncate">{entry.subject || 'Usage'}</span>
+        <span className="block truncate">{entry.subject || BALANCE_WORDS.usage}</span>
         <span className="block text-xs text-text-3">
           {when.toLocaleString(undefined, {
             month: 'short',
@@ -116,7 +100,7 @@ export function UsagePage({
   const [autoTopup, setAutoTopup] = useState(wallet.autoTopup);
   const [floor, setFloor] = useState(String(wallet.floorCents / 100));
   const [topup, setTopup] = useState(String(wallet.topupCents / 100));
-  const words = balanceWords(wallet);
+  const words = balanceHeadline(wallet);
 
   const save = (body: Record<string, unknown>, done: string) =>
     startSaving(async () => {
@@ -140,7 +124,7 @@ export function UsagePage({
         unwrap(
           await apiBrowser().POST('/v1/commands/wallet.forget_card', { body: { workspaceId } }),
         );
-        toast.success('Card removed. Automatic top-up is off.');
+        toast.success(BALANCE_WORDS.cardRemoved);
         setAutoTopup(false);
         router.refresh();
       } catch (e) {
@@ -152,7 +136,7 @@ export function UsagePage({
     startSaving(async () => {
       try {
         unwrap(await apiBrowser().POST('/v1/commands/wallet.top_up', { body: { workspaceId } }));
-        toast.success('Topping up now.');
+        toast.success(BALANCE_WORDS.toppingUp);
         router.refresh();
       } catch (e) {
         toast.error(errorMessage(e));
@@ -166,7 +150,7 @@ export function UsagePage({
       .map((e: Entry) =>
         [
           new Date(e.occurredAt).toISOString(),
-          `"${(e.subject || 'Usage').replaceAll('"', '""')}"`,
+          `"${(e.subject || BALANCE_WORDS.usage).replaceAll('"', '""')}"`,
           (e.amountCents / 100).toFixed(2),
           (e.balanceAfterCents / 100).toFixed(2),
         ].join(','),
@@ -183,12 +167,12 @@ export function UsagePage({
   return (
     <div className="flex flex-col gap-5" data-testid="usage-page">
       <Section
-        title="Your balance"
-        description="What texts, calls, phone numbers and AI replies come out of. Your plan is billed separately."
+        title={BALANCE_WORDS.balance}
+        description={BALANCE_WORDS.balanceDetail}
         testId="usage-balance"
         action={
           <Button onClick={topUpNow} disabled={saving || !wallet.card} data-testid="usage-top-up">
-            Top up now
+            {BALANCE_WORDS.topUp}
           </Button>
         }
       >
@@ -200,17 +184,17 @@ export function UsagePage({
             <div className={cn('mt-1.5 text-[13px]', TONE[words.tone])}>{words.headline}</div>
           </div>
           <div className="text-[13px] text-text-2">
-            <div>{money(wallet.spentThisMonthCents)} this month</div>
-            <div className="text-text-3">{money(wallet.spent30dCents)} in the last 30 days</div>
+            <div>{BALANCE_WORDS.thisMonth(wallet.spentThisMonthCents)}</div>
+            <div className="text-text-3">{BALANCE_WORDS.last30(wallet.spent30dCents)}</div>
           </div>
           {wallet.pendingTopUpCents !== null ? (
-            <Badge variant="accent">{money(wallet.pendingTopUpCents)} on its way</Badge>
+            <Badge variant="accent">{BALANCE_WORDS.onItsWay(wallet.pendingTopUpCents)}</Badge>
           ) : null}
         </div>
         {wallet.suspended ? (
           <p className="mt-4 rounded-[10px] bg-danger-soft px-3.5 py-3 text-[13px] text-danger-text">
-            {wallet.suspended.reason ?? 'The card on this balance was declined.'} Add a working card
-            and everything starts again.
+            {wallet.suspended.reason ?? BALANCE_WORDS.suspendedFallback}{' '}
+            {BALANCE_WORDS.suspendedTail}
           </p>
         ) : null}
         {/* Why the top-up is bigger than usual, and the one setting that fixes it — in the same breath. */}
@@ -225,27 +209,24 @@ export function UsagePage({
       </Section>
 
       <Section
-        title="Automatic top-up"
-        description="When the balance gets low, we charge the card on file so nothing stops."
+        title={BALANCE_WORDS.autoTitle}
+        description={BALANCE_WORDS.autoDetail}
         testId="usage-auto-topup"
         action={
           <Switch
             checked={autoTopup}
             disabled={saving || !wallet.card}
-            label="Top up automatically"
+            label={BALANCE_WORDS.autoSwitch}
             onChange={(next) => {
               setAutoTopup(next);
-              save(
-                { autoTopup: next },
-                next ? 'Automatic top-up is on.' : 'Automatic top-up is off.',
-              );
+              save({ autoTopup: next }, next ? BALANCE_WORDS.autoOn : BALANCE_WORDS.autoOff);
             }}
           />
         }
       >
         <div className="mt-4 flex flex-wrap items-end gap-4">
           <label className="flex flex-col gap-1.5 text-[13px]">
-            <span className="text-text-2">Top up when it drops below</span>
+            <span className="text-text-2">{BALANCE_WORDS.floorLabel}</span>
             <Input
               value={floor}
               inputMode="decimal"
@@ -254,12 +235,12 @@ export function UsagePage({
               onBlur={() => {
                 const cents = Math.round(Number(floor) * 100);
                 if (Number.isFinite(cents) && cents !== wallet.floorCents)
-                  save({ floorCents: Math.max(0, cents) }, 'Saved.');
+                  save({ floorCents: Math.max(0, cents) }, BALANCE_WORDS.saved);
               }}
             />
           </label>
           <label className="flex flex-col gap-1.5 text-[13px]">
-            <span className="text-text-2">Add this much</span>
+            <span className="text-text-2">{BALANCE_WORDS.amountLabel}</span>
             <Input
               value={topup}
               inputMode="decimal"
@@ -268,28 +249,23 @@ export function UsagePage({
               onBlur={() => {
                 const cents = Math.round(Number(topup) * 100);
                 if (Number.isFinite(cents) && cents !== wallet.topupCents)
-                  save({ topupCents: Math.max(500, cents) }, 'Saved.');
+                  save({ topupCents: Math.max(500, cents) }, BALANCE_WORDS.saved);
               }}
             />
           </label>
         </div>
         {/* The cap the terms promise is shown. It is the one that actually applies, not the headline. */}
         <p className="mt-3 text-[13px] text-text-3" data-testid="usage-topup-cap">
-          If several top-ups are needed in a few days we raise the amount each time, so it is one
-          larger charge instead of many small ones — never more than {money(wallet.maxTopupCents)}{' '}
-          at once. We email you before charging more than twice your amount above, and raising that
-          amount stops it happening.
+          {topUpCapLine(wallet.maxTopupCents)}
         </p>
         {!wallet.card ? (
-          <p className="mt-3 text-[13px] text-text-3">
-            Add a card below and automatic top-up will start working.
-          </p>
+          <p className="mt-3 text-[13px] text-text-3">{BALANCE_WORDS.autoNeedsCard}</p>
         ) : null}
       </Section>
 
       <Section
-        title="Card on file"
-        description="Only ever used for your own balance — never for money your customers pay you."
+        title={BALANCE_WORDS.cardTitle}
+        description={BALANCE_WORDS.cardDetail}
         testId="usage-card"
         action={
           wallet.card ? (
@@ -299,7 +275,7 @@ export function UsagePage({
               disabled={saving}
               data-testid="usage-forget-card"
             >
-              Remove card
+              {BALANCE_WORDS.removeCard}
             </Button>
           ) : null
         }
@@ -308,20 +284,13 @@ export function UsagePage({
           {wallet.card ? (
             <>
               <CreditCard className="h-4 w-4 text-text-3" strokeWidth={1.8} />
-              <span>
-                {wallet.card.brand ?? 'Card'} ending {wallet.card.last4 ?? '••••'}
-                {wallet.card.expiryMonth && wallet.card.expiryYear
-                  ? ` · expires ${String(wallet.card.expiryMonth).padStart(2, '0')}/${String(wallet.card.expiryYear).slice(-2)}`
-                  : ''}
-              </span>
+              <span>{cardLine(wallet.card)}</span>
             </>
           ) : (
             <>
               <Wallet className="h-4 w-4 text-text-3" strokeWidth={1.8} />
               <span className="text-text-2">
-                {wallet.cardRequested
-                  ? 'Waiting for a card to be added.'
-                  : 'No card on this balance yet.'}
+                {wallet.cardRequested ? BALANCE_WORDS.cardWaiting : BALANCE_WORDS.cardNone}
               </span>
             </>
           )}
@@ -329,8 +298,8 @@ export function UsagePage({
       </Section>
 
       <Section
-        title="What things cost"
-        description="The prices on your account today."
+        title={BALANCE_WORDS.pricesTitle}
+        description={BALANCE_WORDS.pricesDetail}
         testId="usage-prices"
       >
         <div className="mt-3">
@@ -351,8 +320,8 @@ export function UsagePage({
       </Section>
 
       <Section
-        title="Statement"
-        description="Every text, call, number and AI reply you’ve been charged for."
+        title={BALANCE_WORDS.statementTitle}
+        description={BALANCE_WORDS.statementDetail}
         testId="usage-statement"
         action={
           statement.items.length ? (
@@ -366,18 +335,16 @@ export function UsagePage({
         {statement.items.length ? (
           <div className="mt-3">
             <div className="grid grid-cols-[minmax(0,1fr)_90px_90px] gap-3 pb-1.5 text-[12px] font-medium uppercase tracking-wide text-text-3">
-              <span>What</span>
-              <span className="text-right">Amount</span>
-              <span className="text-right">Balance</span>
+              <span>{BALANCE_WORDS.columnWhat}</span>
+              <span className="text-right">{BALANCE_WORDS.columnAmount}</span>
+              <span className="text-right">{BALANCE_WORDS.columnBalance}</span>
             </div>
             {statement.items.map((e: Entry) => (
               <Row key={e.id} entry={e} />
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-[13px] text-text-3">
-            Nothing yet. Texts, calls and AI replies show up here as they happen.
-          </p>
+          <p className="mt-4 text-[13px] text-text-3">{BALANCE_WORDS.statementEmpty}</p>
         )}
       </Section>
     </div>

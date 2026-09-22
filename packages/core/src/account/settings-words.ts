@@ -77,6 +77,8 @@ export const PHONE_SETTINGS_WORDS = {
   title: 'Settings',
   thisPhone: 'This phone',
   you: 'You',
+  /** The one group about the business the phone has: its balance, which owners and admins see (M16). */
+  thisBusiness: 'This business',
   lockDetail: 'Asks when you open the app',
   lockUnavailable: 'Set up Face ID, a fingerprint or a passcode on this phone first',
   lockRefused: 'That didn’t match, so nothing changed.',

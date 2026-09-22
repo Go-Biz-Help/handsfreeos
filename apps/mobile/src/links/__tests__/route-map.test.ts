@@ -43,6 +43,8 @@ describe('the route map', () => {
       // Ask HandsFreeOS: the app's own links only, since the web has no page for the panel.
       assistant: { href: 'ask', later: false },
       settings: { href: 'settings', later: false },
+      // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
+      'settings/usage': { href: 'settings/usage', later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
     expect(screens.map((r) => r.web).sort()).toEqual(Object.keys(expected).sort());
