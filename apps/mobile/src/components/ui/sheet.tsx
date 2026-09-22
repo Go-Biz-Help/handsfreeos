@@ -4,6 +4,7 @@ import {
   Animated,
   Easing,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   View,
@@ -20,6 +21,12 @@ import { useThemeName } from '@/theme';
 export interface SheetProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * Called once the sheet is gone: its slide-down has finished and, on iOS, its modal has been dismissed. Anything
+   * that opens another sheet (or anything else modal) waits for this, since iOS presents nothing while a modal is
+   * still going.
+   */
+  onClosed?: () => void;
   title?: string;
   description?: React.ReactNode;
   children?: React.ReactNode;
@@ -48,10 +55,16 @@ function useReduceMotion(): boolean {
  * 16 px top radius and a grab handle, sliding up from the bottom. Tapping the scrim or the phone's back button
  * closes it. Built on React Native's Modal, so it sits above everything, the tab bar included; a toast shown while
  * it's open appears over it.
+ *
+ * Only one modal can be up at a time on iOS: a second one asked to present while the first is still being dismissed
+ * never appears. So a sheet that leads to another (the conversation's Details and actions) opens the next from
+ * `onClosed`, which fires once this one's modal is really gone. On iOS the Modal says when that is through
+ * `onDismiss`; elsewhere the modal goes with the sheet's unmount, so it fires right after.
  */
 function Sheet({
   open,
   onClose,
+  onClosed,
   title,
   description,
   children,
@@ -65,9 +78,16 @@ function Sheet({
   const reduceMotion = useReduceMotion();
   const [mounted, setMounted] = React.useState(open);
   const progress = React.useRef(new Animated.Value(open ? 1 : 0)).current;
+  const closed = React.useRef(onClosed);
+  closed.current = onClosed;
+  // True while the modal is being dismissed on iOS, until it says it's gone.
+  const dismissing = React.useRef(false);
 
   React.useEffect(() => {
-    if (open) setMounted(true);
+    if (open) {
+      dismissing.current = false;
+      setMounted(true);
+    }
     const animation = Animated.timing(progress, {
       toValue: open ? 1 : 0,
       duration: reduceMotion ? 0 : open ? 240 : 180,
@@ -75,10 +95,19 @@ function Sheet({
       useNativeDriver: true,
     });
     animation.start(({ finished }) => {
-      if (finished && !open) setMounted(false);
+      if (!finished || open) return;
+      setMounted(false);
+      if (Platform.OS === 'ios') dismissing.current = true;
+      else closed.current?.();
     });
     return () => animation.stop();
   }, [open, progress, reduceMotion]);
+
+  const onDismiss = () => {
+    if (!dismissing.current) return;
+    dismissing.current = false;
+    closed.current?.();
+  };
 
   const body = (
     <>
@@ -100,6 +129,7 @@ function Sheet({
       visible={mounted}
       animationType="none"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
       statusBarTranslucent
       navigationBarTranslucent
     >

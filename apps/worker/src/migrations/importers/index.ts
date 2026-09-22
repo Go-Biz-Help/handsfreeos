@@ -28,6 +28,7 @@ import {
   slugify,
   type CanonicalEnvelope,
   type ExistingContact,
+  type MergeDecision,
   type SmsConsent,
 } from '@hfos/core/server';
 import {
@@ -677,17 +678,38 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     return { counts: { skipped: 1 } };
   }
 
-  const decision = decideMerge(
-    {
-      firstName,
-      lastName,
-      email,
-      phone: phoneE164,
-      postalCode: str(d.address?.postalCode),
-      defaultCountry: scope.defaultCountry as never,
-    },
-    await candidatesFor(tx, scope, email, phoneE164),
-  );
+  /**
+   * A person's decision beats the matching, for the one record they decided about. The review queue asked
+   * "is this somebody you already have?"; the answer is either the customer here it is, or that it is
+   * nobody here. Asking the matcher again would only put the same question back in the queue.
+   */
+  const told =
+    scope.decided &&
+    scope.decided.sourceObjectType === envelope.source.objectType &&
+    scope.decided.sourceObjectId === envelope.source.objectId
+      ? scope.decided
+      : null;
+  const decision: MergeDecision = told
+    ? told.resolution !== 'separate' && told.targetId
+      ? {
+          kind: 'merge',
+          targetId: told.targetId,
+          rule: 'mapping',
+          score: AUTO_MERGE_SCORE,
+          evidence: { reason: 'Somebody said so, from the review queue.' },
+        }
+      : { kind: 'create', reason: 'no_match' }
+    : decideMerge(
+        {
+          firstName,
+          lastName,
+          email,
+          phone: phoneE164,
+          postalCode: str(d.address?.postalCode),
+          defaultCountry: scope.defaultCountry as never,
+        },
+        await candidatesFor(tx, scope, email, phoneE164),
+      );
 
   if (decision.kind === 'review') {
     // Never guessed. The record waits for a person, and the import carries on around it.

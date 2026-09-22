@@ -1,7 +1,7 @@
 'use client';
 import { CircleAlert, CircleCheck, Copy, Globe, RefreshCw, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Ok } from '@/lib/api/types';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 
 type Domain = NonNullable<Ok<'/v1/queries/branded_domain.get'>['domain']>;
 
@@ -28,13 +29,21 @@ const STATUS_TONE: Readonly<Record<Domain['status'], 'member' | 'pending' | 'acc
     failed: 'danger',
   };
 
+/** While the worker is asking the host: how often to look again, and when to stop looking. */
+const POLL_MS = 3000;
+const WATCH_MS = 90_000;
+
 /**
  * A business's own domain on the pages its customers see (M17).
  *
- * The email domain card's shape, because it is the same job: type a name, get two DNS records, and a status
- * that moves on its own. What is different is the sentence about removing it — a phone number can be given
- * back quietly, but every QR code and flyer already carrying this address stops working the moment it goes,
- * and nobody can un-print those.
+ * The email domain card's shape, because it is the same job: type a name, get the DNS records the host asks
+ * for, and a status that moves on its own. What is different is the sentence about removing it — a phone
+ * number can be given back quietly, but every QR code and flyer already carrying this address stops working
+ * the moment it goes, and nobody can un-print those.
+ *
+ * **How many records there are is the host's business, not ours.** A subdomain usually needs one CNAME; a
+ * name the host wants proof of needs a TXT as well. Nothing here promises a number before the host has said
+ * one, because a card that says "two records" over a single record is a card a business does not trust.
  */
 export function BrandedDomainCard({
   workspaceId,
@@ -48,6 +57,8 @@ export function BrandedDomainCard({
   const router = useRouter();
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
+  /** Stamped when Check now is pressed, to start another watch for the answer. */
+  const [checked, setChecked] = useState(0);
 
   const call = async (path: string, body: object, done: string) => {
     setBusy(true);
@@ -67,6 +78,41 @@ export function BrandedDomainCard({
   };
 
   const serving = domain?.status === 'verified' && domain.certificateReady;
+  // The worker's answer arrives as `branded_domain.status_changed`, so the records land on this page
+  // without anybody reloading it.
+  useLiveRefresh(['branded_domain']);
+
+  /**
+   * Look again while the worker is answering.
+   *
+   * The records are the host's to say, and the worker only asks once `add` has returned — so a domain added
+   * a second ago has nothing to show yet, and Check now opens the same gap. Live updates carry the answer
+   * whenever that channel is up; this is what makes the records appear on their own when it is not. It gives
+   * up after a minute and a half rather than asking all afternoon about a host that is not going to answer,
+   * and it never starts for a domain the host has already refused.
+   */
+  const awaiting =
+    !!domain && !serving && domain.status !== 'failed' && domain.records.length === 0;
+  const watch = !domain
+    ? null
+    : awaiting
+      ? `records:${checked}`
+      : checked
+        ? `check:${checked}`
+        : null;
+  // The deadline belongs to the wait, not to this effect: a new `router` identity restarts the interval,
+  // and a watch that started its ninety seconds two minutes ago should not get ninety more.
+  const until = useRef<{ key: string; at: number } | null>(null);
+  useEffect(() => {
+    if (!watch) return;
+    if (until.current?.key !== watch) until.current = { key: watch, at: Date.now() + WATCH_MS };
+    const stopAt = until.current.at;
+    const timer = setInterval(() => {
+      if (Date.now() > stopAt) clearInterval(timer);
+      else router.refresh();
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [watch, router]);
 
   return (
     <Card className="max-w-[820px] px-[22px] py-5" data-testid="branded-domain-card">
@@ -88,7 +134,7 @@ export function BrandedDomainCard({
             void call(
               '/v1/commands/branded_domain.add',
               { workspaceId, domain: typed.trim().toLowerCase() },
-              'Added. Put the two records below into your DNS.',
+              'Added. The records to put in your DNS show up here in a moment.',
             );
           }}
         >
@@ -138,11 +184,23 @@ export function BrandedDomainCard({
             </Callout>
           ) : null}
 
+          {awaiting ? (
+            // Said out loud, because an empty space under a domain that was just added reads as a broken
+            // screen rather than as a wait.
+            <p
+              className="mt-3 max-w-[560px] text-[13px] text-text-2"
+              data-testid="branded-domain-waiting"
+            >
+              Working out what your DNS needs. The records show up here in a moment.
+            </p>
+          ) : null}
+
           {domain.records.length > 0 ? (
             <div className="mt-3">
               <p className="text-[13px] text-text-2">
-                Add these where your domain lives — your registrar, or whoever runs your website.
-                DNS often takes a few hours, and we keep checking.
+                {domain.records.length === 1 ? 'Add this record' : 'Add these records'} where your
+                domain lives — your registrar, or whoever runs your website. DNS often takes a few
+                hours, and we keep checking.
               </p>
               <div className="mt-2 flex flex-col gap-2">
                 {domain.records.map((r) => (
@@ -185,13 +243,14 @@ export function BrandedDomainCard({
                   variant="secondary"
                   size="sm"
                   loading={busy}
-                  onClick={() =>
+                  onClick={() => {
+                    setChecked(Date.now());
                     void call(
                       '/v1/commands/branded_domain.verify',
                       { workspaceId, domainId: domain.id },
                       'Checking now.',
-                    )
-                  }
+                    );
+                  }}
                   data-testid="branded-domain-check"
                 >
                   <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.8} />

@@ -6,7 +6,7 @@ import { BrandedDomainGetInput, BrandedDomainGetOutput } from '../schemas/brande
 /** A record the business still has to put in its DNS, in the order it should do them. */
 const RECORDS = {
   verification: 'Proves the domain is yours before a certificate is issued for it.',
-  cname: 'Points the domain at HandsFreeOS. This is the one that makes it work.',
+  cname: 'Points the domain at HandsFreeOS. This is what makes it work.',
 } as const;
 
 export const brandedDomainGet = defineQuery({

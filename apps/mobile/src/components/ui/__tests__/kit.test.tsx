@@ -1,7 +1,7 @@
 import { PortalHost } from '@rn-primitives/portal';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 
 import { Mail } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
@@ -147,6 +147,61 @@ describe('Sheet', () => {
       </Sheet>,
     );
     expect(screen.queryByText('Sign out?')).not.toBeOnTheScreen();
+  });
+
+  describe('says when it has gone', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    // iOS shows no modal while another is still being dismissed, so a sheet that opens another waits for this.
+    it('on iOS, once its modal reports it was dismissed', async () => {
+      const onClosed = jest.fn();
+      const { rerender } = await render(
+        <Sheet open onClose={jest.fn()} onClosed={onClosed} title="Details and actions">
+          <Text>Assign</Text>
+        </Sheet>,
+      );
+      // The Modal's own dismissal callback, as the native side calls it once the modal is off the screen.
+      const dismiss = screen.root!.props.onDismiss as () => void;
+      await act(async () => dismiss());
+      expect(onClosed).not.toHaveBeenCalled();
+      await rerender(
+        <Sheet open={false} onClose={jest.fn()} onClosed={onClosed} title="Details and actions">
+          <Text>Assign</Text>
+        </Sheet>,
+      );
+      await act(async () => jest.advanceTimersByTime(1_000));
+      expect(screen.queryByText('Assign')).not.toBeOnTheScreen();
+      // Slid down, but the modal has not said it is gone yet.
+      expect(onClosed).not.toHaveBeenCalled();
+      await act(async () => dismiss());
+      expect(onClosed).toHaveBeenCalledTimes(1);
+      await act(async () => dismiss());
+      expect(onClosed).toHaveBeenCalledTimes(1);
+    });
+
+    it('on Android, once it has slid down', async () => {
+      const os = jest.replaceProperty(Platform, 'OS', 'android');
+      try {
+        const onClosed = jest.fn();
+        const { rerender } = await render(
+          <Sheet open onClose={jest.fn()} onClosed={onClosed} title="Details and actions">
+            <Text>Assign</Text>
+          </Sheet>,
+        );
+        await rerender(
+          <Sheet open={false} onClose={jest.fn()} onClosed={onClosed} title="Details and actions">
+            <Text>Assign</Text>
+          </Sheet>,
+        );
+        expect(onClosed).not.toHaveBeenCalled();
+        await act(async () => jest.advanceTimersByTime(1_000));
+        expect(screen.queryByText('Assign')).not.toBeOnTheScreen();
+        expect(onClosed).toHaveBeenCalledTimes(1);
+      } finally {
+        os.restore();
+      }
+    });
   });
 });
 

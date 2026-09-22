@@ -298,6 +298,9 @@ function SheetRow({
  * inside the conversation — Edit details, Tags, the open lead's stage and next action, and Add a note.
  *
  * A row is passed null when this conversation cannot do it: no customer yet, or no open lead to move.
+ *
+ * A row's action runs once this sheet is gone, not as it starts to go: most rows open another sheet, and iOS shows
+ * no modal while this one's is still being dismissed (the row would do nothing).
  */
 export function ActionsSheet({
   open,
@@ -348,14 +351,21 @@ export function ActionsSheet({
   stageName: string | null;
 }) {
   const ai = useAiColors();
+  const pending = React.useRef<(() => void) | null>(null);
   const run = (fn: () => void) => () => {
+    pending.current = fn;
     onClose();
-    fn();
+  };
+  const onClosed = () => {
+    const fn = pending.current;
+    pending.current = null;
+    fn?.();
   };
   return (
     <Sheet
       open={open}
       onClose={onClose}
+      onClosed={onClosed}
       title={CONVERSATION_ACTIONS.details}
       testID="conversation-actions"
     >
