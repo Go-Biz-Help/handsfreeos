@@ -10,6 +10,7 @@
     "updates": {
       "url": "https://u.expo.dev/22b0e923-de8b-4b67-9089-2c4bd440a956"
     },
+    "platforms": ["ios", "android"],
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "handsfreeos",
