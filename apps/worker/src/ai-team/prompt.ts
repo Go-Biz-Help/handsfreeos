@@ -128,8 +128,36 @@ function skillLines(rc: RunContext): string[] {
       const deposit = c.deposit
         ? ` — takes ${money(c.deposit.amountCents)}${c.deposit.mode === 'deposit' ? ' as a deposit' : ''} to book, so **don't book it yourself**: say what it takes and send them${c.bookingPath ? ` ${c.bookingPath}` : ' the booking page'} to book and pay on`
         : '';
-      out.push(`  - ${quoteData(c.name)} (calendar id ${c.id})${services}${deposit}`);
+      // M18: what else the calendar allows, only when its settings let the teammate do it.
+      const extras = c.deposit
+        ? []
+        : [
+            ...(c.byZip ? ['goes by ZIP code: ask for their ZIP and give it to find_times'] : []),
+            ...(config.book.waitlist && c.waitlist
+              ? ['keeps a waitlist (join_waitlist) for when nothing open suits them']
+              : []),
+            ...(config.book.repeats && c.maxRepeats !== null
+              ? [`takes repeat visits, up to ${c.maxRepeats} (book_repeating)`]
+              : []),
+          ];
+      out.push(
+        `  - ${quoteData(c.name)} (calendar id ${c.id})${services}${deposit}${
+          extras.length ? `; ${extras.join('; ')}` : ''
+        }`,
+      );
     }
+    if (config.book.serviceArea)
+      out.push(
+        '  Before offering times for a visit at their place, ask for their ZIP code and check it with check_service_area. When it says the business doesn’t serve it, tell them kindly and don’t book.',
+      );
+    if (config.book.waitlist && rc.calendars.some((c) => c.waitlist && !c.deposit))
+      out.push(
+        '  When no open time suits them, offer the waitlist. Say they’ll hear when a spot opens; never promise one.',
+      );
+    if (config.book.repeats && rc.calendars.some((c) => c.maxRepeats !== null && !c.deposit))
+      out.push(
+        '  When they want regular visits, find the first time with find_times and book them all with book_repeating. Say a date that doesn’t fit will be skipped and the team will be in touch about it.',
+      );
     const changes = [
       ...(config.book.reschedule ? ['move'] : []),
       ...(config.book.cancel ? ['cancel'] : []),

@@ -173,11 +173,13 @@ export function handoverNote(view: HandlingView, name: string): string | null {
 
 // ----------------------------------------------------------------------------------------------- drafts
 
-/** A booking change a draft holds, as the teammate wrote it down. */
+/** A change a draft holds, as the teammate wrote it down. */
 export type DraftActionFacts =
   | { readonly kind: 'book'; readonly startsAt: string; readonly summary: string }
   | { readonly kind: 'reschedule'; readonly startsAt: string; readonly summary: string }
-  | { readonly kind: 'cancel'; readonly summary: string };
+  | { readonly kind: 'cancel'; readonly summary: string }
+  | { readonly kind: 'book_series'; readonly startsAt: string; readonly summary: string }
+  | { readonly kind: 'waitlist'; readonly summary: string };
 
 /** What a draft holds, for its words. */
 export interface DraftFacts {
@@ -195,7 +197,7 @@ export interface DraftFacts {
 /** "Will book Thu, Sep 24 at 9:00 AM on AC tune-up", from what the teammate wrote down when it held it. */
 export function draftActionLine(a: DraftActionFacts): string {
   const summary = a.summary.trim();
-  if (/^(book|move|cancel)\b/i.test(summary))
+  if (/^(book|move|cancel|add)\b/i.test(summary))
     return `Will ${summary[0]!.toLowerCase()}${summary.slice(1)}`;
   const at = 'startsAt' in a ? plainSpaces(new Date(a.startsAt).toLocaleString('en-US')) : '';
   switch (a.kind) {
@@ -205,6 +207,10 @@ export function draftActionLine(a: DraftActionFacts): string {
       return `Will move their visit${at ? ` to ${at}` : ''}`;
     case 'cancel':
       return 'Will cancel their visit';
+    case 'book_series':
+      return `Will book repeat visits${at ? ` from ${at}` : ''}`;
+    case 'waitlist':
+      return 'Will add them to the waitlist';
   }
 }
 
@@ -224,11 +230,15 @@ export function draftTitle(d: DraftFacts): string {
   const kinds = new Set(d.preview.actions.map((a) => a.kind));
   const extra = kinds.has('book')
     ? ', with a booking'
-    : kinds.has('reschedule')
-      ? ', with a change to their visit'
-      : kinds.has('cancel')
-        ? ', with a cancellation'
-        : '';
+    : kinds.has('book_series')
+      ? ', with repeat visits'
+      : kinds.has('waitlist')
+        ? ', with a waitlist place'
+        : kinds.has('reschedule')
+          ? ', with a change to their visit'
+          : kinds.has('cancel')
+            ? ', with a cancellation'
+            : '';
   return d.preview.message
     ? `${d.teammate.name}’s reply to ${who}${extra}`
     : `${d.teammate.name}’s change for ${who}`;
@@ -244,6 +254,10 @@ export function draftShort(d: DraftFacts): string {
     const when = /^Book (.+?) on .+$/.exec(book.summary.trim())?.[1];
     return `${name}’s reply and a booking${when ? ` for ${when}` : ''}`;
   }
+  if (d.preview.actions.some((a) => a.kind === 'book_series'))
+    return `${name}’s reply and repeat visits`;
+  if (d.preview.actions.some((a) => a.kind === 'waitlist'))
+    return `${name}’s reply and a waitlist place`;
   if (d.preview.actions.some((a) => a.kind === 'reschedule'))
     return `${name}’s reply and a change to their visit`;
   if (d.preview.actions.some((a) => a.kind === 'cancel'))

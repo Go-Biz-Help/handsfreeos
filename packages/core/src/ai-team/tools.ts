@@ -15,6 +15,7 @@
  */
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
+import { REPEAT_EVERY } from '../schemas/ai-team';
 import type { TeammateConfig, TeammateSkill } from './config';
 
 export type TeammateToolAutonomy = 'auto' | 'draft' | 'approval';
@@ -36,6 +37,10 @@ const define = <N extends string, I extends z.ZodType>(t: TeammateTool<I> & { re
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 const uuid = z.uuid();
+const zip = z
+  .string()
+  .trim()
+  .regex(/^[0-9]{5}(?:-?[0-9]{4})?$/, 'A 5-digit ZIP code, like 78701.');
 /** The model writes local times with their offset; commands take UTC, so the tool turns one into the other. */
 const when = z.iso
   .datetime({ offset: true })
@@ -117,7 +122,18 @@ export const TEAMMATE_TOOLS = [
       to: dayOrWhen.optional(),
       serviceId: uuid.optional(),
       durationMinutes: z.int().min(5).max(720).optional().describe('Length in minutes'),
+      postalCode: zip
+        .optional()
+        .describe('The customer’s ZIP code, needed on a calendar that goes by ZIP code'),
     }),
+    skill: 'book',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'check_service_area',
+    description:
+      'Whether the business serves a ZIP code, and which of your calendars do. Ask for their ZIP and check it before offering times for a visit at their place.',
+    input: z.strictObject({ postalCode: zip }),
     skill: 'book',
     autonomy: 'auto',
   }),
@@ -147,6 +163,44 @@ export const TEAMMATE_TOOLS = [
     description:
       'Move one of the customer’s upcoming appointments (from my_appointments) to a time find_times offered.',
     input: z.strictObject({ appointmentId: uuid, startsAt: when }),
+    skill: 'book',
+    autonomy: 'draft',
+  }),
+  define({
+    name: 'book_repeating',
+    description:
+      'Book repeat visits, every week or every month on the same weekday (like the 2nd Tuesday), on a calendar the context says takes repeats. The first visit is a time find_times offered; later ones that don’t fit are skipped, and the team sees which. Only when they ask for regular visits.',
+    input: z.strictObject({
+      calendarId: uuid.describe('One of your calendars that takes repeats'),
+      startsAt: when.describe('The first visit: a time find_times offered'),
+      every: z.enum(REPEAT_EVERY),
+      interval: z
+        .int()
+        .min(1)
+        .max(12)
+        .optional()
+        .describe('Every this many weeks or months; 1 when left out'),
+      times: z.int().min(2).max(52).describe('How many visits, the first included'),
+      serviceId: uuid.optional(),
+      notes: optionalText(1000).describe('What the visits are for, in the customer’s words'),
+    }),
+    skill: 'book',
+    autonomy: 'draft',
+  }),
+  define({
+    name: 'join_waitlist',
+    description:
+      'Put the customer on a calendar’s waitlist when nothing open suits them, on a calendar the context says keeps one: for the days and times they want (from and to), or for a full session. They hear when a spot opens. Never promise them a spot.',
+    input: z
+      .strictObject({
+        calendarId: uuid.describe('One of your calendars that keeps a waitlist'),
+        from: dayOrWhen.optional().describe('The start of the times they want'),
+        to: dayOrWhen.optional().describe('The end of the times they want'),
+        appointmentId: uuid.optional().describe('A full session they want a seat in'),
+      })
+      .refine((v) => !!v.appointmentId || !!v.from, {
+        error: 'Give the times they want, or the session.',
+      }),
     skill: 'book',
     autonomy: 'draft',
   }),
@@ -344,6 +398,9 @@ export function teammateTools(
     if (!on[t.skill]) return false;
     if (t.name === 'reschedule' && !config.book.reschedule) return false;
     if (t.name === 'cancel' && !config.book.cancel) return false;
+    if (t.name === 'join_waitlist' && !config.book.waitlist) return false;
+    if (t.name === 'book_repeating' && !config.book.repeats) return false;
+    if (t.name === 'check_service_area' && !config.book.serviceArea) return false;
     return !(opts.unverifiedChat && UNVERIFIED_CHAT_HIDDEN.has(t.name));
   }) as TeammateTool[];
 }

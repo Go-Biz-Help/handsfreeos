@@ -250,6 +250,9 @@ type ToolFacts = {
   stage?: string;
   /** read_call_transcript: true when the call had words, false when it had none yet. */
   callWords?: boolean;
+  /** check_service_area: the ZIP it checked, and whether the business serves it (null: no ZIPs listed). */
+  zip?: string;
+  served?: boolean | null;
 };
 type ToolCallRow = {
   tool: string;
@@ -291,7 +294,10 @@ const TOOL_FACTS = sql`jsonb_strip_nulls(jsonb_build_object(
   'stage', (select s.name from app.pipeline_stages s
     where s.workspace_id = tc.workspace_id and s.id::text = tc.arguments ->> 'stageId'),
   'callWords', case when jsonb_typeof(tc.result #> '{content,words}') = 'string' then true
-    when tc.result #> '{content,words}' is not null then false end
+    when tc.result #> '{content,words}' is not null then false end,
+  'zip', left(tc.arguments ->> 'postalCode', 12),
+  'served', case when jsonb_typeof(tc.result #> '{content,served}') = 'boolean'
+    then tc.result #> '{content,served}' end
 ))`;
 
 type RunRow = {
@@ -380,7 +386,15 @@ function toolCallSummary(c: ToolCallRow): string | null {
     case 'book':
     case 'reschedule':
     case 'cancel':
+    case 'book_repeating':
+    case 'join_waitlist':
       return f.held ? clip(f.held, 160) : null;
+    case 'check_service_area':
+      return f.served === true
+        ? `${f.zip ?? 'That ZIP'} is in the service area`
+        : f.served === false
+          ? `${f.zip ?? 'That ZIP'} isn’t in the service area`
+          : 'No ZIP codes listed to check against';
     case 'record_answers': {
       const recorded = f.answers
         ? `${countOf(f.answers, 'answer', 'answers')} recorded`

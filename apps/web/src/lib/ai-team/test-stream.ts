@@ -64,6 +64,8 @@ export const WOULD_KINDS = [
   'book',
   'reschedule',
   'cancel',
+  'repeat',
+  'waitlist',
   'note',
   'task',
   'stage',

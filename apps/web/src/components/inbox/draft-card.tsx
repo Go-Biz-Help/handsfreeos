@@ -21,10 +21,12 @@ import {
   CalendarX,
   Check,
   Clock,
+  ListPlus,
   Loader2,
   Minus,
   Pencil,
   Percent,
+  Repeat,
   RotateCw,
   Send,
   Sparkles,
@@ -53,6 +55,8 @@ const ACTION_ICON: Record<DraftAction['kind'], LucideIcon> = {
   book: CalendarCheck,
   reschedule: CalendarClock,
   cancel: CalendarX,
+  book_series: Repeat,
+  waitlist: ListPlus,
 };
 
 /** What approving did, for the toast: "Approved. Ava makes the change and texts Mike now. 18 of 20 approved." */

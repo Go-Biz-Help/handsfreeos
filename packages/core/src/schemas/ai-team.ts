@@ -76,6 +76,10 @@ export const DraftMessage = z.object({
 });
 export type DraftMessage = z.infer<typeof DraftMessage>;
 
+/** How often repeat visits come round: every week, or every month on the same weekday ("2nd Tuesday"). */
+export const REPEAT_EVERY = ['week', 'month'] as const;
+export const repeatEvery = z.enum(REPEAT_EVERY);
+
 /** A customer-facing change held in a draft until a person approves it. `summary` is what the card shows. */
 export const DraftAction = z.discriminatedUnion('kind', [
   z.object({
@@ -86,6 +90,31 @@ export const DraftAction = z.discriminatedUnion('kind', [
     durationMinutes: z.int().min(5).max(720).nullable().default(null),
     sessionId: uuid.nullable().default(null),
     notes: z.string().trim().max(1000).nullable().default(null),
+    /** The ZIP the times were found for, on a calendar that routes by ZIP (M18). */
+    postalCode: z.string().trim().max(20).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /** M18: repeat visits, the first at a time find_times offered. */
+  z.object({
+    kind: z.literal('book_series'),
+    calendarId: uuid,
+    startsAt: isoDateTime,
+    serviceId: uuid.nullable().default(null),
+    durationMinutes: z.int().min(5).max(720).nullable().default(null),
+    every: repeatEvery,
+    interval: z.int().min(1).max(12).default(1),
+    times: z.int().min(2).max(52),
+    notes: z.string().trim().max(1000).nullable().default(null),
+    postalCode: z.string().trim().max(20).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /** M18: a place on a calendar's waitlist, for a full session or a window of time. */
+  z.object({
+    kind: z.literal('waitlist'),
+    calendarId: uuid,
+    appointmentId: uuid.nullable().default(null),
+    wantedFrom: isoDateTime.nullable().default(null),
+    wantedTo: isoDateTime.nullable().default(null),
     summary: z.string().trim().max(300).default(''),
   }),
   z.object({
@@ -234,7 +263,11 @@ export const AiTeammateSendDraftOutput = z.object({
   conversationId: uuid.nullable(),
   messageId: uuid.nullable(),
   actions: z.array(
-    z.object({ kind: z.enum(['book', 'reschedule', 'cancel']), appointmentId: uuid }),
+    z.object({
+      kind: z.enum(['book', 'reschedule', 'cancel', 'book_series', 'waitlist']),
+      /** The visit it made or changed (the first of a series); null for a waitlist place. */
+      appointmentId: uuid.nullable(),
+    }),
   ),
   /** It had gone out already (a retry). */
   duplicate: z.boolean(),
@@ -299,10 +332,52 @@ export const AppointmentBookForCustomerInput = z.object({
   durationMinutes: z.int().min(5).max(720).optional(),
   sessionId: uuid.nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
+  /** The customer's ZIP, for a calendar that routes by ZIP. */
+  postalCode: z.string().trim().max(20).nullable().optional(),
   /** Its idempotency key: a retry books once. */
   clientId,
 });
 export const AppointmentBookForCustomerOutput = AppointmentBookOnlineOutput;
+export const SeriesBookForCustomerInput = z.object({
+  workspaceId: uuid,
+  calendarId: uuid,
+  /** The first visit: a time the calendar offers. The rest follow the repeat and are skipped when they don't fit. */
+  startsAt: isoDateTime,
+  serviceId: uuid.nullable().optional(),
+  durationMinutes: z.int().min(5).max(720).optional(),
+  every: repeatEvery,
+  interval: z.int().min(1).max(12).default(1),
+  /** How many visits, the first included (the calendar's own limit caps it). */
+  times: z.int().min(2).max(52),
+  notes: z.string().trim().max(2000).nullable().optional(),
+  postalCode: z.string().trim().max(20).nullable().optional(),
+  clientId,
+});
+export const SeriesBookForCustomerOutput = z.object({
+  seriesId: uuid,
+  appointmentIds: z.array(uuid),
+  skipped: z.array(z.object({ date: z.string(), startsAt: isoDateTime, reason: z.string() })),
+  duplicate: z.boolean(),
+});
+export const WaitlistJoinForCustomerInput = z
+  .object({
+    workspaceId: uuid,
+    calendarId: uuid,
+    /** A full session; or leave it out and give the window they want. */
+    appointmentId: uuid.nullable().optional(),
+    wantedFrom: isoDateTime.nullable().optional(),
+    wantedTo: isoDateTime.nullable().optional(),
+  })
+  .refine((v) => !!v.appointmentId || (!!v.wantedFrom && !!v.wantedTo), {
+    path: ['appointmentId'],
+    error: 'Pick a session, or the times they want.',
+  });
+export const WaitlistJoinForCustomerOutput = z.object({
+  entryId: uuid,
+  position: z.int(),
+  /** They were already waiting for this; nothing new was added. */
+  alreadyWaiting: z.boolean(),
+});
 export const AttendeeRescheduleForCustomerInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,

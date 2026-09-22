@@ -232,6 +232,8 @@ import {
   appointmentBookForCustomer,
   attendeeCancelForCustomer,
   attendeeRescheduleForCustomer,
+  seriesBookForCustomer,
+  waitlistJoinForCustomer,
 } from './appointment-ai';
 import {
   conversationHandOff,
@@ -683,6 +685,8 @@ export const commands: readonly CommandDef[] = [
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,
+  seriesBookForCustomer,
+  waitlistJoinForCustomer,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,

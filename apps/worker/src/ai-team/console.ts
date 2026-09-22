@@ -23,6 +23,7 @@ import {
   HfosError,
   isLocalDate,
   loadTeammate,
+  loadTerritories,
   localDateOf,
   parseTeammateConfig,
   plainSmsText,
@@ -34,6 +35,7 @@ import {
   TEAMMATE_TURN_ENDERS,
   uuidArray,
   workspaceMessaging,
+  zip5,
   type DraftAction,
   type ReplyCheck,
   type TeammateConfig,
@@ -93,6 +95,8 @@ type WouldKind =
   | 'book'
   | 'reschedule'
   | 'cancel'
+  | 'repeat'
+  | 'waitlist'
   | 'note'
   | 'task'
   | 'stage'
@@ -412,6 +416,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = h.rc.calendars.find((c) => c.id === calendarId);
     if (!cal)
       return refuse('That isn’t one of your calendars. Use a calendar id from the context.');
+    const postalCode = str(args['postalCode']);
+    if (cal.byZip && !postalCode)
+      return refuse(
+        `${cal.name} offers times by ZIP code. Ask for their ZIP code, then look again with it.`,
+      );
     const tz = cal.timeZone;
     const from = String(args['from']);
     const to = str(args['to']);
@@ -438,6 +447,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         to: new Date(end).toISOString(),
         serviceId,
         ...(durationMinutes ? { durationMinutes } : {}),
+        ...(postalCode ? { postalCode } : {}),
       },
       systemActor(h.t.scope),
       { correlationId: h.t.runId, channel: 'ai_employee' },
@@ -451,6 +461,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         sessionId: s.sessionId,
         serviceId: out.serviceId,
         durationMinutes: durationMinutes ?? null,
+        postalCode: cal.byZip ? postalCode : null,
         label: atLabel(at, tz),
       });
     }
@@ -524,6 +535,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       durationMinutes: slot.durationMinutes,
       sessionId: slot.sessionId,
       notes: str(args['notes']),
+      postalCode: slot.postalCode,
       summary: `Book ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     h.state.held.push(held);
@@ -567,6 +579,99 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     });
     would(h, 'cancel', `cancelled ${appt.title} on ${atLabel(appt.startsAt, appt.timeZone)}`);
     return { content: { status: 'ready', note: DONE_NOTE } };
+  },
+
+  async check_service_area(h, args) {
+    const zip = zip5(String(args['postalCode']));
+    if (!zip) return refuse('That isn’t a ZIP code. Ask them for their 5-digit ZIP.');
+    const areas = await asWorker(h.deps.db, h.t.scope, (tx) =>
+      loadTerritories(tx, h.t.scope.workspaceId),
+    );
+    const covering = areas.filter((a) => a.postalCodes.some((p) => zip5(p) === zip));
+    h.send({
+      type: 'tool',
+      name: 'check_service_area',
+      title: `Checked the service area for ${zip}`,
+      detail: !areas.length
+        ? 'No ZIP codes listed yet.'
+        : covering.length
+          ? `Served: ${covering.map((a) => a.name).join(', ')}`
+          : 'Not in any of your areas.',
+      at: nowIso(),
+    });
+    if (!areas.length)
+      return {
+        content: {
+          served: null,
+          note: 'The business hasn’t listed the ZIP codes it serves. Go by the service area in the business profile; if it doesn’t say, follow your “when unsure” rule.',
+        },
+      };
+    return {
+      content: {
+        served: covering.length > 0,
+        ...(covering.length ? { areas: covering.map((a) => quoteData(a.name)) } : {}),
+        ...(covering.length
+          ? {}
+          : {
+              note: 'The business doesn’t list this ZIP code. Tell them kindly, and don’t book a visit at their place. Hand off if they want someone to double-check.',
+            }),
+      },
+    };
+  },
+
+  async book_repeating(h, args) {
+    const calendarId = String(args['calendarId']);
+    const cal = h.rc.calendars.find((c) => c.id === calendarId);
+    if (!cal) return refuse('That isn’t one of your calendars.');
+    if (cal.maxRepeats === null) return refuse(`${cal.name} doesn’t take repeat visits.`);
+    const slot = h.state.offered.get(timeKey(calendarId, String(args['startsAt'])));
+    if (!slot)
+      return refuse(
+        'Start the repeats at one of the times find_times gave you in this conversation. Call find_times first.',
+      );
+    if (h.state.held.length >= HELD_MAX)
+      return refuse('That’s as many changes as one reply can make.');
+    const times = Math.min(Number(args['times']), cal.maxRepeats);
+    const every = args['every'] === 'month' ? 'month' : 'week';
+    h.state.held.push({
+      kind: 'book_series',
+      calendarId,
+      startsAt: slot.startsAt,
+      serviceId: str(args['serviceId']) ?? slot.serviceId,
+      durationMinutes: slot.durationMinutes,
+      every,
+      interval: typeof args['interval'] === 'number' ? args['interval'] : 1,
+      times,
+      notes: str(args['notes']),
+      postalCode: slot.postalCode,
+      summary: `Book ${times} visits from ${slot.label} on ${cal.name}`.slice(0, 300),
+    });
+    would(h, 'repeat', `booked ${times} visits every ${every} from ${slot.label} on ${cal.name}`);
+    return { content: { status: 'ready', visits: times, first: slot.label, note: DONE_NOTE } };
+  },
+
+  async join_waitlist(h, args) {
+    const calendarId = String(args['calendarId']);
+    const cal = h.rc.calendars.find((c) => c.id === calendarId);
+    if (!cal) return refuse('That isn’t one of your calendars.');
+    if (!cal.waitlist) return refuse(`${cal.name} doesn’t keep a waitlist.`);
+    if (h.state.held.length >= HELD_MAX)
+      return refuse('That’s as many changes as one reply can make.');
+    h.state.held.push({
+      kind: 'waitlist',
+      calendarId,
+      appointmentId: str(args['appointmentId']),
+      wantedFrom: null,
+      wantedTo: null,
+      summary: `Add them to the ${cal.name} waitlist`,
+    });
+    would(h, 'waitlist', `added them to the ${cal.name} waitlist`);
+    return {
+      content: {
+        status: 'ready',
+        note: 'It happens as your reply goes out. They hear from us when a spot opens; never promise one.',
+      },
+    };
   },
 
   async record_answers(h, args) {

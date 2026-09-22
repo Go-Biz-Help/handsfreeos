@@ -63406,6 +63406,18 @@
                                             }
                                           ]
                                         },
+                                        "postalCode": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 20
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "summary": {
                                           "default": "",
                                           "type": "string",
@@ -63420,6 +63432,184 @@
                                         "durationMinutes",
                                         "sessionId",
                                         "notes",
+                                        "postalCode",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "book_series"
+                                          ]
+                                        },
+                                        "calendarId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "startsAt": {
+                                          "type": "string",
+                                          "format": "date-time",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                        },
+                                        "serviceId": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "durationMinutes": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "integer",
+                                              "minimum": 5,
+                                              "maximum": 720
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "every": {
+                                          "type": "string",
+                                          "enum": [
+                                            "week",
+                                            "month"
+                                          ]
+                                        },
+                                        "interval": {
+                                          "default": 1,
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 12
+                                        },
+                                        "times": {
+                                          "type": "integer",
+                                          "minimum": 2,
+                                          "maximum": 52
+                                        },
+                                        "notes": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 1000
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "postalCode": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 20
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "calendarId",
+                                        "startsAt",
+                                        "serviceId",
+                                        "durationMinutes",
+                                        "every",
+                                        "interval",
+                                        "times",
+                                        "notes",
+                                        "postalCode",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "waitlist"
+                                          ]
+                                        },
+                                        "calendarId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "appointmentId": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "wantedFrom": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "wantedTo": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "format": "date-time",
+                                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "calendarId",
+                                        "appointmentId",
+                                        "wantedFrom",
+                                        "wantedTo",
                                         "summary"
                                       ],
                                       "additionalProperties": false

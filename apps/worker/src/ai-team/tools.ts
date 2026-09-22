@@ -34,6 +34,7 @@ import {
   nextQuestion,
   parseStoredForm,
   responseProblems,
+  loadTerritories,
   localDateOf,
   money,
   personUpdate,
@@ -52,6 +53,7 @@ import {
   type RequestMeta,
   type TeammateTool,
   type TeammateToolName,
+  zip5,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
@@ -73,6 +75,8 @@ export interface OfferedTime {
   readonly sessionId: string | null;
   readonly serviceId: string | null;
   readonly durationMinutes: number | null;
+  /** The ZIP it was found for, on a calendar that goes by ZIP. */
+  readonly postalCode: string | null;
   readonly label: string;
 }
 
@@ -558,6 +562,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       return refused({
         error: 'That isn’t one of your calendars. Use a calendar id from the context.',
       });
+    const postalCode = str(args['postalCode']);
+    if (cal.byZip && !postalCode)
+      return refused({
+        error: `${cal.name} offers times by ZIP code. Ask for their ZIP code, then look again with it.`,
+      });
     const tz = cal.timeZone;
     const from = String(args['from']);
     const to = str(args['to']);
@@ -587,6 +596,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         to: new Date(end).toISOString(),
         serviceId,
         ...(durationMinutes ? { durationMinutes } : {}),
+        ...(postalCode ? { postalCode } : {}),
       },
       d.ai,
       d.meta,
@@ -600,6 +610,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         sessionId: s.sessionId,
         serviceId: out.serviceId,
         durationMinutes: durationMinutes ?? null,
+        postalCode: cal.byZip ? postalCode : null,
         label: atLabel(at, tz),
       };
     });
@@ -614,7 +625,13 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
           label: o.label,
         })),
         ...(out.slots.length > shown.length ? { more: true } : {}),
-        ...(shown.length ? {} : { note: 'No open times then. Try another day.' }),
+        ...(shown.length
+          ? {}
+          : {
+              note: cal.waitlist
+                ? 'No open times then. Try another day, or offer to put them on the waitlist.'
+                : 'No open times then. Try another day.',
+            }),
       },
       effect: { offered },
     };
@@ -662,6 +679,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       durationMinutes: slot.durationMinutes,
       sessionId: slot.sessionId,
       notes: str(args['notes']),
+      postalCode: slot.postalCode,
       summary: `Book ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     return {
@@ -711,6 +729,145 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return {
       status: 'held',
       content: { status: 'ready', note: heldNote(d) },
+      effect: { held },
+    };
+  },
+
+  /**
+   * M18: whether the business serves a ZIP code, from the ZIP codes of its service areas (territories), and
+   * which of the teammate's calendars do. With no areas listed, the business profile's words are all there is.
+   */
+  async check_service_area(d, tx, args) {
+    const zip = zip5(String(args['postalCode']));
+    const areas = await loadTerritories(tx, d.scope.workspaceId);
+    if (!zip) return refused({ error: 'That isn’t a ZIP code. Ask them for their 5-digit ZIP.' });
+    if (!areas.length)
+      return {
+        status: 'done',
+        content: {
+          served: null,
+          note: 'The business hasn’t listed the ZIP codes it serves. Go by the service area in the business profile; if it doesn’t say, follow your “when unsure” rule.',
+        },
+      };
+    const covering = areas.filter((a) => a.postalCodes.some((p) => zip5(p) === zip));
+    const calendars = d.rc.calendars
+      .filter((c) => c.byZip)
+      .map((c) => ({
+        calendar: quoteData(c.name),
+        served: covering.some((a) => !c.areaIds.length || c.areaIds.includes(a.id)),
+      }));
+    return {
+      status: 'done',
+      content: {
+        served: covering.length > 0,
+        ...(covering.length ? { areas: covering.map((a) => quoteData(a.name)) } : {}),
+        ...(calendars.length ? { calendars } : {}),
+        ...(covering.length
+          ? {}
+          : {
+              note: 'The business doesn’t list this ZIP code. Tell them kindly, and don’t book a visit at their place. Hand off if they want someone to double-check.',
+            }),
+      },
+    };
+  },
+
+  async book_repeating(d, tx, args) {
+    if (!d.rc.customer) return refused({ error: NO_CUSTOMER });
+    const calendarId = String(args['calendarId']);
+    const cal = d.rc.calendars.find((c) => c.id === calendarId);
+    if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
+    if (cal.deposit) return refused({ error: depositInstead(cal) });
+    if (cal.maxRepeats === null)
+      return refused({
+        error: `${cal.name} doesn’t take repeat visits. Book one visit, and leave the team a task if they want regular ones.`,
+      });
+    const slot = d.state.offered.get(timeKey(calendarId, String(args['startsAt'])));
+    if (!slot)
+      return refused({
+        error:
+          'Start the repeats at one of the times find_times gave you in this conversation. Call find_times first.',
+      });
+    if (d.state.held.length >= HELD_MAX)
+      return refused({ error: 'That’s as many changes as one reply can make.' });
+    const every = args['every'] === 'month' ? 'month' : 'week';
+    const interval = typeof args['interval'] === 'number' ? args['interval'] : 1;
+    const times = Math.min(Number(args['times']), cal.maxRepeats);
+    const how =
+      every === 'week'
+        ? interval === 1
+          ? 'weekly'
+          : `every ${interval} weeks`
+        : interval === 1
+          ? 'monthly'
+          : `every ${interval} months`;
+    const held: DraftAction = {
+      kind: 'book_series',
+      calendarId,
+      startsAt: slot.startsAt,
+      serviceId: str(args['serviceId']) ?? slot.serviceId,
+      durationMinutes: slot.durationMinutes,
+      every,
+      interval,
+      times,
+      notes: str(args['notes']),
+      postalCode: slot.postalCode,
+      summary: `Book ${times} ${how} visits from ${slot.label} on ${cal.name}`.slice(0, 300),
+    };
+    return {
+      status: 'held',
+      content: {
+        status: 'ready',
+        visits: times,
+        first: slot.label,
+        note: `${heldNote(d)} If a later date doesn’t fit, it’s skipped and the team sees which, so don’t promise every date.`,
+      },
+      effect: { held },
+    };
+  },
+
+  async join_waitlist(d, _tx, args) {
+    if (!d.rc.customer) return refused({ error: NO_CUSTOMER });
+    const calendarId = String(args['calendarId']);
+    const cal = d.rc.calendars.find((c) => c.id === calendarId);
+    if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
+    if (cal.deposit) return refused({ error: depositInstead(cal) });
+    if (!cal.waitlist) return refused({ error: `${cal.name} doesn’t keep a waitlist.` });
+    if (d.state.held.length >= HELD_MAX)
+      return refused({ error: 'That’s as many changes as one reply can make.' });
+    const tz = cal.timeZone;
+    const appointmentId = str(args['appointmentId']);
+    let wantedFrom: string | null = null;
+    let wantedTo: string | null = null;
+    let when = '';
+    if (!appointmentId) {
+      const from = String(args['from']);
+      const to = str(args['to']);
+      const fromMs = isLocalDate(from) ? startOfLocalDay(from, tz) : Date.parse(from);
+      const toMs = to
+        ? isLocalDate(to)
+          ? startOfLocalDay(addDays(to, 1), tz)
+          : Date.parse(to)
+        : startOfLocalDay(addDays(localDateOf(fromMs, tz), 1), tz);
+      if (!(toMs > Math.max(fromMs, Date.now())))
+        return refused({ error: 'Those times are past. Ask what later times suit them.' });
+      wantedFrom = new Date(Math.max(fromMs, Date.now())).toISOString();
+      wantedTo = new Date(toMs).toISOString();
+      when = ` for ${atLabel(Date.parse(wantedFrom), tz)} to ${atLabel(toMs, tz)}`;
+    }
+    const held: DraftAction = {
+      kind: 'waitlist',
+      calendarId,
+      appointmentId,
+      wantedFrom,
+      wantedTo,
+      summary: `Add them to the ${cal.name} waitlist${when}`.slice(0, 300),
+    };
+    return {
+      status: 'held',
+      content: {
+        status: 'ready',
+        note: `${heldNote(d).replace('it’s done', 'they’re on the waitlist')} They hear from us when a spot opens; never promise one.`,
+      },
       effect: { held },
     };
   },

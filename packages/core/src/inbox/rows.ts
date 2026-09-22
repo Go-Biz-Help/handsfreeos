@@ -547,9 +547,10 @@ export function teammateDraftOf(
   for (const a of Array.isArray(preview.actions) ? preview.actions : []) {
     const action = a as { kind?: unknown; startsAt?: unknown; summary?: unknown };
     const summary = typeof action.summary === 'string' ? action.summary : '';
-    if (action.kind === 'cancel') actions.push({ kind: 'cancel', summary });
+    if (action.kind === 'cancel' || action.kind === 'waitlist')
+      actions.push({ kind: action.kind, summary });
     else if (
-      (action.kind === 'book' || action.kind === 'reschedule') &&
+      (action.kind === 'book' || action.kind === 'reschedule' || action.kind === 'book_series') &&
       typeof action.startsAt === 'string'
     )
       actions.push({ kind: action.kind, startsAt: action.startsAt, summary });

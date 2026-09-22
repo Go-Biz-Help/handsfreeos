@@ -445,10 +445,13 @@ export function checkViews(
 const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   search_knowledge: 'Searched Knowledge',
   find_times: 'Found times',
+  check_service_area: 'Checked the service area',
   my_appointments: 'Looked up their visits',
   read_call_transcript: 'Read a call',
   book: 'Booked a visit',
   reschedule: 'Moved a visit',
+  book_repeating: 'Booked repeat visits',
+  join_waitlist: 'Added them to the waitlist',
   cancel: 'Cancelled a visit',
   record_answers: 'Recorded qualifying answers',
   ask_form: 'Started a form',

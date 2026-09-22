@@ -22771,6 +22771,8 @@ export interface operations {
                                     /** @default null */
                                     notes: string | null;
                                     /** @default null */
+                                    postalCode: string | null;
+                                    /** @default null */
                                     serviceId: string | null;
                                     /** @default null */
                                     sessionId: string | null;
@@ -22778,6 +22780,41 @@ export interface operations {
                                     startsAt: string;
                                     /** @default  */
                                     summary: string;
+                                } | {
+                                    /** Format: uuid */
+                                    calendarId: string;
+                                    /** @default null */
+                                    durationMinutes: number | null;
+                                    /** @enum {string} */
+                                    every: "week" | "month";
+                                    /** @default 1 */
+                                    interval: number;
+                                    /** @enum {string} */
+                                    kind: "book_series";
+                                    /** @default null */
+                                    notes: string | null;
+                                    /** @default null */
+                                    postalCode: string | null;
+                                    /** @default null */
+                                    serviceId: string | null;
+                                    /** Format: date-time */
+                                    startsAt: string;
+                                    /** @default  */
+                                    summary: string;
+                                    times: number;
+                                } | {
+                                    /** @default null */
+                                    appointmentId: string | null;
+                                    /** Format: uuid */
+                                    calendarId: string;
+                                    /** @enum {string} */
+                                    kind: "waitlist";
+                                    /** @default  */
+                                    summary: string;
+                                    /** @default null */
+                                    wantedFrom: string | null;
+                                    /** @default null */
+                                    wantedTo: string | null;
                                 } | {
                                     /** Format: uuid */
                                     appointmentId: string;

@@ -40,9 +40,12 @@ describe('the registry', () => {
       ['search_knowledge', 'answer', 'auto'],
       ['read_call_transcript', 'core', 'auto'],
       ['find_times', 'book', 'auto'],
+      ['check_service_area', 'book', 'auto'],
       ['my_appointments', 'book', 'auto'],
       ['book', 'book', 'draft'],
       ['reschedule', 'book', 'draft'],
+      ['book_repeating', 'book', 'draft'],
+      ['join_waitlist', 'book', 'draft'],
       ['cancel', 'book', 'draft'],
       ['record_answers', 'qualify', 'auto'],
       ['ask_form', 'qualify', 'auto'],
@@ -62,7 +65,14 @@ describe('the registry', () => {
 
   it('holds back only what reaches the customer, and a discount always waits for a person', () => {
     const draft = TEAMMATE_TOOLS.filter((t) => t.autonomy === 'draft').map((t) => t.name);
-    expect(draft).toEqual(['book', 'reschedule', 'cancel', 'reply']);
+    expect(draft).toEqual([
+      'book',
+      'reschedule',
+      'book_repeating',
+      'join_waitlist',
+      'cancel',
+      'reply',
+    ]);
     expect(TEAMMATE_TOOLS.filter((t) => t.autonomy === 'approval').map((t) => t.name)).toEqual([
       'offer_discount',
     ]);
@@ -155,9 +165,11 @@ describe('teammateTools', () => {
       'search_knowledge',
       'read_call_transcript',
       'find_times',
+      'check_service_area',
       'my_appointments',
       'book',
       'reschedule',
+      'join_waitlist',
       'cancel',
       'update_customer',
       'add_note',
@@ -187,11 +199,26 @@ describe('teammateTools', () => {
     expect(names(neither)).toContain('book');
   });
 
+  it('follows the waitlist, repeats and service area switches (M18)', () => {
+    expect(names(coordinator)).not.toContain('book_repeating');
+    const all = applyTeammatePatch(coordinator, { book: { repeats: true } });
+    expect(names(all)).toEqual(
+      expect.arrayContaining(['book_repeating', 'join_waitlist', 'check_service_area']),
+    );
+    const none = applyTeammatePatch(all, {
+      book: { repeats: false, waitlist: false, serviceArea: false },
+    });
+    for (const t of ['book_repeating', 'join_waitlist', 'check_service_area'])
+      expect(names(none)).not.toContain(t);
+  });
+
   it('hides a matched customer’s bookings and details from an unverified chat visitor', () => {
     expect(names(coordinator, true)).toEqual([
       'search_knowledge',
       'find_times',
+      'check_service_area',
       'book',
+      'join_waitlist',
       'add_note',
       'create_task',
       'hand_off',

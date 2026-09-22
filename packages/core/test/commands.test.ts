@@ -331,6 +331,8 @@ describe('registry', () => {
       'appointment.book_for_customer',
       'attendee.reschedule_for_customer',
       'attendee.cancel_for_customer',
+      'series.book_for_customer',
+      'waitlist.join_for_customer',
       'intake_source.create',
       'intake_source.update',
       'intake_source.rotate_key',

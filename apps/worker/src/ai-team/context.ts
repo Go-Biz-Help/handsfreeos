@@ -147,6 +147,14 @@ export interface RunCalendar {
   readonly deposit: { readonly amountCents: number; readonly mode: 'deposit' | 'full' } | null;
   /** The page a customer books it on, when the booking site is on. */
   readonly bookingPath: string | null;
+  /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */
+  readonly byZip: boolean;
+  /** The service areas (territories) it serves when it goes by ZIP; empty means all of them. */
+  readonly areaIds: readonly string[];
+  /** It keeps a waitlist the teammate may add customers to (M18). */
+  readonly waitlist: boolean;
+  /** Customers may book repeat visits on it, at most this many; null when they can't (M18). */
+  readonly maxRepeats: number | null;
 }
 
 export interface RunAppointment {
@@ -438,6 +446,13 @@ async function calendarsOf(
       services,
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
       bookingPath: site ? `/book/${site}/${cal.slug}` : null,
+      byZip: cal.config.territory.routing === 'zip',
+      areaIds: cal.config.territory.territoryIds,
+      waitlist: cal.config.waitlist.enabled,
+      maxRepeats:
+        cal.config.recurring.customerSeries && cal.config.schedule.mode !== 'sessions'
+          ? cal.config.recurring.maxOccurrences
+          : null,
     });
   }
   return out;

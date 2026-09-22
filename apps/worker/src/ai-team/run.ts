@@ -26,11 +26,9 @@ import { eq } from 'drizzle-orm';
 import type { AiContent, AiMessage, AiUsage } from '@hfos/ai';
 import {
   AI_TEAMMATE_GOALS,
-  appointmentBookForCustomer,
   asksForPerson,
   asksIfHuman,
-  attendeeCancelForCustomer,
-  attendeeRescheduleForCustomer,
+  runHeldAction,
   briefFromProfile,
   checkTeammateReply,
   conversationPickUp,
@@ -54,7 +52,6 @@ import {
   type AiEmployeeActor,
   type AiEmployeeOrigin,
   type ConversationHandoffReason,
-  type DraftAction,
   type EmergencyKind,
   type ReplyCheck,
   type RequestMeta,
@@ -757,7 +754,7 @@ export function checkReply(rc: RunContext, state: RunState, text: string): Reply
       ...[...state.found.values()].map((f) => `${f.title}\n${f.body}`),
     ],
     done: {
-      booked: state.held.some((a) => a.kind === 'book'),
+      booked: state.held.some((a) => a.kind === 'book' || a.kind === 'book_series'),
       rescheduled: state.held.some((a) => a.kind === 'reschedule'),
       cancelled: state.held.some((a) => a.kind === 'cancel'),
     },
@@ -1011,49 +1008,6 @@ async function supersededWhy(
   return null;
 }
 
-async function runHeld(
-  tx: Tx,
-  ai: AiEmployeeActor,
-  meta: RequestMeta,
-  a: DraftAction,
-  clientId: string,
-): Promise<void> {
-  const workspaceId = ai.workspaceId;
-  if (a.kind === 'book')
-    await executeCommandIn(
-      tx,
-      appointmentBookForCustomer,
-      {
-        workspaceId,
-        calendarId: a.calendarId,
-        startsAt: a.startsAt,
-        serviceId: a.serviceId,
-        ...(a.durationMinutes ? { durationMinutes: a.durationMinutes } : {}),
-        sessionId: a.sessionId,
-        notes: a.notes,
-        clientId,
-      },
-      ai,
-      meta,
-    );
-  else if (a.kind === 'reschedule')
-    await executeCommandIn(
-      tx,
-      attendeeRescheduleForCustomer,
-      { workspaceId, appointmentId: a.appointmentId, startsAt: a.startsAt, sessionId: a.sessionId },
-      ai,
-      meta,
-    );
-  else
-    await executeCommandIn(
-      tx,
-      attendeeCancelForCustomer,
-      { workspaceId, appointmentId: a.appointmentId, reason: a.reason },
-      ai,
-      meta,
-    );
-}
-
 /** Replaces the conversation's pending reply draft with this run's. */
 async function makeDraft(
   tx: Tx,
@@ -1251,7 +1205,7 @@ async function finish(
       // The held changes and the message are one unit: a refusal of either undoes both.
       await tx.transaction(async (sp) => {
         for (const [i, a] of state.held.entries())
-          await runHeld(sp, ai, meta, a, `ai:${run.id}:${i + 1}`);
+          await runHeldAction(sp, ai, meta, a, `ai:${run.id}:${i + 1}`);
         if (body !== null)
           await executeCommandIn(
             sp,

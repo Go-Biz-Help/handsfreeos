@@ -658,6 +658,10 @@ function describeAction(e: AuditEntry): string {
       return 'moved a visit for the customer';
     case 'attendee.cancel_for_customer':
       return 'cancelled a visit for the customer';
+    case 'series.book_for_customer':
+      return `booked ${count(e.after?.occurrences, 'visit', 'visits')} of ${apptTitle(e)} for the customer, starting ${when(e.after?.startsAt)}`;
+    case 'waitlist.join_for_customer':
+      return `added ${s(e.after?.customer) || 'the customer'} to the waitlist for ${s(e.after?.calendar) || 'a calendar'}`;
     case 'message.record_opt_out':
       return `recorded that ${s(e.after?.number) || 'a customer'} asked to stop getting texts${s(e.after?.words) ? ` (“${s(e.after?.words)}”)` : ''}`;
     // Milestone 8: confirming a booking (by text in message.receive, above)

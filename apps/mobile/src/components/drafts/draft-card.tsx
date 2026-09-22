@@ -16,9 +16,11 @@ import {
   CalendarX,
   Check,
   Clock,
+  ListPlus,
   Minus,
   Pencil,
   Percent,
+  Repeat,
   Send,
   Sparkles,
 } from '@/components/icons';
@@ -36,6 +38,8 @@ const ACTION_ICON: Record<DraftActionFacts['kind'], LucideIcon> = {
   book: CalendarCheck,
   reschedule: CalendarClock,
   cancel: CalendarX,
+  book_series: Repeat,
+  waitlist: ListPlus,
 };
 
 /** "Will book …", "Will move …", "Will cancel …", with the first two words in bold. */

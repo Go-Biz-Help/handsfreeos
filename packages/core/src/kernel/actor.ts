@@ -55,6 +55,9 @@ export const AI_EMPLOYEE_COMMANDS = [
   'appointment.book_for_customer',
   'attendee.reschedule_for_customer',
   'attendee.cancel_for_customer',
+  // M18: repeat visits and waitlist places, on its own calendars.
+  'series.book_for_customer',
+  'waitlist.join_for_customer',
   // M15: asking one of the business's forms in the conversation, a question at a time.
   'form_response.start',
   'form_response.save',
