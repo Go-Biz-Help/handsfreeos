@@ -8501,7 +8501,7 @@ The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config
 
 `EXPO_PUBLIC_WORKER_URL` is not checked by `isConfigured()`, so a build without it starts and works — except that **Ask HandsFreeOS says "The Assistant can't be reached from this app"**, because the Assistant streams from the worker rather than the API (`apps/mobile/src/assistant/stream.ts`). It used to be described here as a test-build-only setting; that was wrong, and a build made on that advice has no Assistant. Set it for `production` and `preview` along with the other five.
 
-**They live in EAS, not in this repository.** `apps/mobile/.env.local` is for your Mac and is git-ignored, and `eas.json` sets `requireCommit: true`, so a build only ever sees committed files. Local values therefore cannot reach a build, by design. Each profile in `eas.json` names the EAS environment it reads with `"environment"`: `production` and `preview` both point at the live servers; `development` is for builds that talk to your Mac.
+**They live in EAS, not in this repository.** `apps/mobile/.env.local` is for your Mac and is git-ignored, and EAS leaves git-ignored files out of what it uploads. Local values therefore cannot reach a build, by design. Each profile in `eas.json` names the EAS environment it reads with `"environment"`: `production` and `preview` both point at the live servers; `development` is for builds that talk to your Mac.
 
 ### Phone Part 1: Put the six settings in EAS
 
@@ -8545,7 +8545,7 @@ Do this once. They stay until you change them, and every later build picks them 
 
    Check too that you are not in `~/Projects/HandsFreeOS-build` or another worktree. `git worktree list` shows them, and one of them sits in detached HEAD on an old commit.
 
-2. Commit anything you want in the build. `requireCommit: true` means EAS builds a commit, not your working tree, so uncommitted work is simply absent from it.
+2. Commit everything first. `eas build` uploads your working tree, uncommitted changes included, so a build is only a commit you can find again if the tree is clean. `eas.json` no longer enforces this with `requireCommit`: EAS's own dependency install rewrites `pnpm-lock.yaml` on its machines, and with `requireCommit` on, every workflow update and build stopped on that "dirty" tree.
 
 3. Build, and send it on in the same step:
 
@@ -8625,12 +8625,12 @@ One thing to be clear-eyed about: an over-the-air update to `production` reaches
 - **It signs in, but every screen is empty:** the app is connected but the sync service isn't answering. Check `curl -fsS https://sync.handsfreeos.com/probes/liveness` and "When the sync service needs attention".
 - **`eas build` asks for a bundle identifier, or says "EAS project not configured":** you are in the wrong folder. See Phone Part 2, step 1, and delete any `eas.json` or `app.json` it wrote where it shouldn't have.
 - **A GitHub build never starts:** the profile has no `image`, the base directory isn't `apps/mobile`, or the commit isn't pushed.
-- **EAS refuses to build a dirty tree:** that is `requireCommit`, and it is on purpose. Commit, or stash.
+- **An EAS job fails with `Your repository working tree is dirty` and names `pnpm-lock.yaml`:** `requireCommit` is back on in `eas.json`. EAS's dependency install rewrites the lockfile on its machines, so every workflow update and build trips it. Take `requireCommit` out again.
 - **Settings → Notifications on the phone says "Not in this build":** that is push, not these settings. See "Push notifications: Expo", Part 4.
 - **`workflow:run` says `Failed to read workflow file` / `ENOENT`:** the path is wrong for where you are. The workflows live beside `eas.json`, so from `apps/mobile` the path is `.eas/workflows/deploy-production.yml`, and from the repository root it is `apps/mobile/.eas/workflows/deploy-production.yml`. A `.eas` folder at the repository root is never read: EAS looks under the GitHub App's base directory, which is `apps/mobile`.
 - **Nothing happens on a push, a pull request or a label:** EAS never heard about it. The Expo GitHub App isn't installed on `gobizhelp/handsfreeos`, or its base directory isn't `apps/mobile`. Phone Part 4, step 2.
 - **`mobile-release.yml` says `EXPO_TOKEN is not set`:** the repository secret is missing. Phone Part 4, step 3. The job passes anyway on purpose, so `main` stays green before Expo's robot user exists.
-- **The production run builds every time, even for a one-line JavaScript change:** the fingerprint isn't matching. Usually the `fingerprint` job and the `production` build profile are reading different environments, so they hash different `EXPO_PUBLIC_` values — both must say `production`. Uncommitted native changes do it too; `requireCommit` means a build is a commit.
+- **The production run builds every time, even for a one-line JavaScript change:** the fingerprint isn't matching. Usually the `fingerprint` job and the `production` build profile are reading different environments, so they hash different `EXPO_PUBLIC_` values — both must say `production`. Uncommitted native changes in a build from your Mac do it too, so commit before building.
 - **The app doesn't offer a branch's preview update:** the native side changed on that branch, so its fingerprint no longer matches the build in your hand. That is the guard working. Label the pull request `mobile-build` for an installable build.
 - **An update published, but the app opens on "This build isn't connected":** the `update` job ran without `environment:`, so the bundle was built with no `EXPO_PUBLIC_` values. Both update jobs name their environment; if one is ever added, it must too.
 - **The Android submission fails and nothing else does:** EAS has no Google service-account key for Play submissions, or Play Console has no app record yet. Unset the `MOBILE_SUBMIT_ANDROID` repository variable until both exist; the `.aab` is still built and waits in EAS.
