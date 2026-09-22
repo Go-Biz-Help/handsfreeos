@@ -25,6 +25,7 @@ import {
   SWEEP_HORIZON_MARGIN_MS,
   sweepJobKey,
 } from './constants';
+import { ensureReengage } from '../automations/reengage';
 import { ensureDigests, sendAttentionDigest } from './digest';
 import { settle, type SettleCause, type SettleOutcome } from './settle';
 import { isUuid, subjectRefOf } from './subjects';
@@ -73,8 +74,15 @@ export async function ensureSweeps(
   }
 }
 
-/** What every business needs waiting: its hourly sweep, and its morning summary at 7 AM where it is. */
-export const BUSINESS_PLANNERS: readonly BusinessPlanner[] = [ensureSweeps, ensureDigests];
+/**
+ * What every business needs waiting: its hourly sweep, its morning summary at 7 AM where it is, and Automations'
+ * daily re-engage run at 10 AM (which does nothing while that's off).
+ */
+export const BUSINESS_PLANNERS: readonly BusinessPlanner[] = [
+  ensureSweeps,
+  ensureDigests,
+  ensureReengage,
+];
 
 /** Hourly: every business has its sweep (new ones get theirs within the next hour). */
 export const planAttention: JobHandler = async (ctx) => {

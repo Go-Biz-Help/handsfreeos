@@ -18,6 +18,7 @@ import { handoffAlertDue } from './ai-team/escalation';
 import { teammateJobs } from './ai-team/index';
 import { alertUrgent, waitOf } from './attention/alerts';
 import { ATTENTION_JOBS, ATTENTION_PLAN_KEY, attentionJobs } from './attention/index';
+import { automationJobs } from './automations/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
@@ -307,6 +308,8 @@ export const jobs: JobMap = {
   [CHAT_JOBS.unreadFollowUp]: chatUnreadFollowUp,
   // The Action Center: the hourly plan and each business's sweep, exact-time rechecks, snoozes running out.
   ...attentionJobs,
+  // Settings → Automations' own: re-engaging dead leads once a day (armed by the Action Center's hourly plan).
+  ...automationJobs,
   // Payments: each connection's token kept alive (Square's lasts 30 days), and the hourly re-arm behind it.
   ...paymentJobs,
   // Money: a refund carried out at the provider, with its own retries (money/refunds.ts).

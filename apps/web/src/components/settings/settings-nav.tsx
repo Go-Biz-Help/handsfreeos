@@ -38,7 +38,7 @@ export function SettingsNav({
           // Named apart from Payments on purpose: that page is the business's own customers paying *them*,
           // and this is what the business pays HandsFreeOS. Two things, two names, no shared word.
           { href: `${base}/usage`, label: 'Usage & balance' },
-          { href: `${base}/action-center`, label: 'Action Center' },
+          { href: `${base}/automations`, label: 'Automations' },
         ]
       : []),
   ];

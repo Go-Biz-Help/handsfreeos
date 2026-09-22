@@ -24001,6 +24001,232 @@
         }
       }
     },
+    "/v1/commands/automations.save_settings": {
+      "post": {
+        "operationId": "command_automations_save_settings",
+        "summary": "Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers, the morning email, and re-engaging dead leads with its message. Turning re-engaging on (“Looks good, turn on”) records that the message was read.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires workspace.update. Emits automations.settings_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "properties": {
+                      "switches": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "dayBefore": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "dayOf": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "waitlist": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "morningBrief": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "reengage": {
+                            "default": false,
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "reengage": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "template": {
+                            "default": "Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with?",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 480
+                          },
+                          "reviewedAt": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "afterDays": {
+                            "default": 90,
+                            "type": "integer",
+                            "minimum": 30,
+                            "maximum": 730
+                          },
+                          "maxPerDay": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200
+                          },
+                          "cooldownDays": {
+                            "default": 180,
+                            "type": "integer",
+                            "minimum": 30,
+                            "maximum": 730
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "settings"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "switches": {
+                          "type": "object",
+                          "properties": {
+                            "dayBefore": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "dayOf": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "waitlist": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "morningBrief": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "reengage": {
+                              "default": false,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "dayBefore",
+                            "dayOf",
+                            "waitlist",
+                            "morningBrief",
+                            "reengage"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "reengage": {
+                          "type": "object",
+                          "properties": {
+                            "template": {
+                              "default": "Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with?",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            },
+                            "reviewedAt": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "afterDays": {
+                              "default": 90,
+                              "type": "integer",
+                              "minimum": 30,
+                              "maximum": 730
+                            },
+                            "maxPerDay": {
+                              "default": 20,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 200
+                            },
+                            "cooldownDays": {
+                              "default": 180,
+                              "type": "integer",
+                              "minimum": 30,
+                              "maximum": 730
+                            }
+                          },
+                          "required": [
+                            "template",
+                            "reviewedAt",
+                            "afterDays",
+                            "maxPerDay",
+                            "cooldownDays"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "switches",
+                        "reengage"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "settings",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/attendee.confirm": {
       "post": {
         "operationId": "command_attendee_confirm",

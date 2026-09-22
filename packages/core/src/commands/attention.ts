@@ -695,7 +695,7 @@ const hostOf = (u: string): string => {
 };
 
 /** The business's own name, number, addresses and sites: the only ones a nudge may give. */
-async function nudgeCheckContext(
+export async function nudgeCheckContext(
   ctx: CommandContext,
   businessName: string,
 ): Promise<NudgeCheckContext> {

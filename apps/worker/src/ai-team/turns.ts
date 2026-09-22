@@ -8,6 +8,7 @@ import { quoteData, type AiTeammateGoal } from '@hfos/core/server';
 import { clockLabel, dayLabel } from '../assistant/calendar-format';
 import type { RunContext } from './context';
 import { historyBlock } from './prompt';
+import type { NudgeSpec } from './run';
 
 /** How a first message's turn ends. */
 export const FIRST_MESSAGE_ASK =
@@ -69,17 +70,55 @@ export function firstMessageTurn(rc: RunContext, why: 'new_lead' | 'workflow'): 
       ? 'They just came in as a new lead, and nobody has written to them yet.'
       : 'The business asked you to write to them first.',
     ...lead,
+    ...cameInWithBlock(rc),
     'Say who you are, thank them for getting in touch, and move toward what they need with one short question. Never call them a lead.',
     FIRST_MESSAGE_ASK,
   ].join('\n');
 }
 
-/** A follow-up nudge: they haven't answered the teammate's last message, sent at `lastAt`. */
-export function nudgeTurn(rc: RunContext, n: number, max: number, lastAt: number): string {
+/** What they sent when they came in (their form's answers, or what the website sent), quoted as data. */
+function cameInWithBlock(rc: RunContext): string[] {
+  const sent = rc.lead?.cameInWith?.trim();
+  if (!sent) return [];
+  return [
+    '<what_they_sent>',
+    quoteData(sent),
+    '</what_they_sent>',
+    'Use what they sent to show you know what they need. Never quote it back word for word.',
+  ];
+}
+
+/** The times the message they didn't answer offered, and which are still open. */
+function offeredBlock(spec: NudgeSpec): string[] {
+  if (!spec.offered.length) return [];
+  const open = spec.offered.filter((o) => o.open);
+  return [
+    '<times_you_offered>',
+    ...spec.offered.map((o) => `${o.label}: ${o.open ? 'still open' : 'taken or past'}`),
+    '</times_you_offered>',
+    open.length
+      ? 'You offered them times. Offer the ones still open again, briefly. Never offer a time that is taken or past.'
+      : 'The times you offered are gone. Call find_times for new ones and offer two or three.',
+  ];
+}
+
+/** A follow-up: they haven't answered the teammate's message, sent at `spec.lastAt`. */
+export function nudgeTurn(rc: RunContext, spec: NudgeSpec): string {
   const tz = rc.workspace.timeZone;
+  const when = `${dayLabel(spec.lastAt, tz)}, ${clockLabel(spec.lastAt, tz)}`;
   return [
     ...historyBlock(rc),
-    `The customer hasn’t answered your last message (${dayLabel(lastAt, tz)}, ${clockLabel(lastAt, tz)}). This is follow-up ${n} of ${max}: one or two sentences, and don’t repeat your last message word for word.`,
+    ...(spec.neverWrote ? cameInWithBlock(rc) : []),
+    ...offeredBlock(spec),
+    spec.neverWrote
+      ? `They got in touch but never answered your first message (${when}).`
+      : `The customer hasn’t answered your message (${when}).`,
+    `This is follow-up ${spec.n} of ${spec.total}: one or two sentences, and don’t repeat an earlier message word for word.`,
+    ...(spec.monthly
+      ? [
+          'It has been a while: a light, no-pressure check-in that says you’re here when they need you.',
+        ]
+      : []),
     NUDGE_ASK,
   ].join('\n');
 }

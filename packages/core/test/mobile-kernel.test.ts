@@ -345,6 +345,7 @@ describe('offline classes', () => {
       'message.retry',
       'assistant_thread.rename',
       'attention.save_settings',
+      'automations.save_settings',
       'money.save_settings',
       'workspace.update',
       'membership.invite',

@@ -3,6 +3,7 @@ import {
   APPROVALS_NEEDED_MAX,
   APPROVALS_NEEDED_MIN,
   EXPECTATION_SLOT,
+  followUpLadderWords,
   formatClock,
   formatDuration,
   formatHours,
@@ -630,13 +631,13 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
 
 // ---------- Follow up ----------
 
-function FollowUpModule({ draft, patch }: ModuleProps) {
+function FollowUpModule({ draft, patch, workspaceId }: ModuleProps) {
   const f = draft.followUp;
   return (
     <>
       <ModuleHeading
         title="Follow up"
-        description="Nudges a lead who stops replying."
+        description="Nudges a customer who stops replying, on a schedule."
         skill={{
           on: f.enabled,
           onChange: (v) => patch({ followUp: { enabled: v } }, onOff(v, 'Follow up')),
@@ -647,22 +648,29 @@ function FollowUpModule({ draft, patch }: ModuleProps) {
       <SetRow
         first
         center
-        title="Most nudges"
-        description="Then it stops and leaves the lead to your team."
+        title="Then once a month for"
+        description={`After ${followUpLadderWords(f.ladderHours)}. Change the schedule in Settings, Automations.`}
       >
         <Stepper
-          value={f.maxNudges}
-          min={1}
-          max={5}
-          label="Most nudges"
-          testId="followup-max"
+          value={f.monthlyForMonths}
+          min={0}
+          max={12}
+          label="Then once a month for this many months"
+          testId="followup-monthly-months"
           onChange={(v) =>
-            patch({ followUp: { maxNudges: v } }, 'Change the nudges', { group: 'followUp.max' })
+            patch({ followUp: { monthlyForMonths: v } }, 'Change the monthly follow-ups', {
+              group: 'followUp.monthly',
+            })
           }
         />
       </SetRow>
       <Note className="mt-3" icon={Moon}>
-        Nudges it starts itself wait until quiet hours end, and stop once the lead replies.
+        Follow-ups wait until quiet hours end, and stop once they reply, book, or text STOP. The
+        schedule is in{' '}
+        <Link href={`/app/w/${workspaceId}/settings/automations`} className="underline">
+          Settings, Automations
+        </Link>
+        .
       </Note>
     </>
   );

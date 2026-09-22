@@ -416,10 +416,11 @@ export function aiMessages(conversationId: string) {
     ai_run_id: string | null;
     ai_draft_id: string | null;
     client_id: string | null;
+    occurred_at: Date;
   }>(
     admin(),
     sql`select id, channel::text as channel, status::text as status, body_text, approved_by, ai_run_id, ai_draft_id,
-          client_id
+          client_id, occurred_at
         from app.messages
         where conversation_id = ${conversationId} and sent_by_teammate_id is not null
         order by created_at, id`,

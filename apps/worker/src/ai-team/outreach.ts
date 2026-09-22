@@ -9,11 +9,16 @@
  * - Consent picks the channel, the business's choice first: a text when they agreed to texts or texted or called
  *   in the last day (never after STOP), an email when they have an address, else nothing (the run says why).
  * - It runs as a reply run with no conversation (run.ts runFirstMessage): the send starts the conversation,
- *   which the teammate then handles. Texts wait out quiet hours.
+ *   which the teammate then handles.
+ * - A new lead's greeting goes at once, whatever working hours the teammate has (Automations, "New lead
+ *   greeting": Chris's call that a form fill is always answered right away). A text in quiet hours goes only
+ *   within QUIET_FIRST_MESSAGE_WINDOW_MS of a lead that came in on its own; otherwise it waits for them to end.
+ *   A workflow's hand-over still keeps to the teammate's hours.
  */
 import {
   AI_TEAMMATE_SOURCE,
   loadTeammate,
+  QUIET_FIRST_MESSAGE_WINDOW_MS,
   openHoursOf,
   scheduleJob,
   uuidArray,
@@ -161,10 +166,18 @@ async function planFirstMessage(
         from app.people where id = ${personId}`,
   );
   if (!person || person.archived_at) return skip;
+  // A lead that came in on its own (nobody typed it in) this recently may be greeted in quiet hours.
+  let freshUntil = 0;
   if (!fromWorkflow) {
-    const [lead] = await rows<{ status: string; archived_at: Date | null; written: boolean }>(
+    const [lead] = await rows<{
+      status: string;
+      archived_at: Date | null;
+      written: boolean;
+      created_at: Date | string;
+      typed_in: boolean;
+    }>(
       tx,
-      sql`select l.status::text as status, l.archived_at,
+      sql`select l.status::text as status, l.archived_at, l.created_at, l.created_by is not null as typed_in,
             exists (select 1 from app.ai_teammate_runs r where r.lead_id = l.id
               and r.triggered_by = 'lead.created') as written
           from app.leads l where l.id = ${leadId}`,
@@ -173,6 +186,8 @@ async function planFirstMessage(
     if (!lead || lead.status !== 'open' || lead.archived_at || (lead.written && !resuming))
       return skip;
     if (await workflowHasThem(tx, ws, personId)) return skip;
+    if (!lead.typed_in)
+      freshUntil = new Date(lead.created_at).getTime() + QUIET_FIRST_MESSAGE_WINDOW_MS;
   }
   if (!resuming && (await someoneHas(tx, ws, personId))) return skip;
   const wanted = str(p['channel']);
@@ -208,9 +223,12 @@ async function planFirstMessage(
   const m = await workspaceMessaging(tx, ws);
   const tz = m.timezone || 'UTC';
   const now = Date.now();
-  const working = nextWorkingAt(config, openHoursOf(m.rawSettings), tz, now);
-  if (working > now) return { wait: new Date(working) };
-  if (channel === 'sms') {
+  // A new lead is greeted whatever the teammate's hours; a workflow's hand-over keeps to them.
+  if (fromWorkflow) {
+    const working = nextWorkingAt(config, openHoursOf(m.rawSettings), tz, now);
+    if (working > now) return { wait: new Date(working) };
+  }
+  if (channel === 'sms' && now > freshUntil) {
     const end = quietEndAt(m.settings.quietHours, tz, now);
     if (end !== null) return { wait: new Date(end + QUIET_GRACE_MS) };
   }

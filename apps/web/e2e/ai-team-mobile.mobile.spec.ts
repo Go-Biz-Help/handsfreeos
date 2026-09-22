@@ -67,7 +67,8 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await expect(summary).toBeVisible();
   await expect(summary).toContainText('Riley');
   await expect(page.getByTestId('teammate-status-phone')).toHaveText('Off');
-  await expect(page.getByTestId('phone-module-followUp')).toContainText('Off');
+  // Follow-ups start on for every teammate (Automations): 9 steps, then 6 monthly.
+  await expect(page.getByTestId('phone-module-followUp')).toContainText('15 follow-ups');
   expect(await width()).toBeLessThanOrEqual(390);
 
   // A module opens full screen, and saves from its top bar.
@@ -83,7 +84,7 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await expect(screen.getByRole('button', { name: 'Save' })).toHaveCount(0);
   await screen.getByRole('button', { name: 'Back' }).click();
   await expect(screen).toBeHidden();
-  await expect(page.getByTestId('phone-module-followUp')).toContainText('Up to 2 nudges');
+  await expect(page.getByTestId('phone-module-followUp')).toContainText('Off');
 
   // Its fields are 16 px on a phone, so an iPhone doesn't zoom in on them.
   await page.getByTestId('phone-module-identity').click();

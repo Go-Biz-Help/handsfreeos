@@ -103,28 +103,31 @@ test('on a phone: the Action Center in light and dark', async ({ page }) => {
 });
 
 /**
- * The Action Center's other screens on a 390 × 844 phone: Settings → Action Center in one column with the wording
- * box and its live preview, the lead page's banner with 44 px buttons, and the inbox header's waiting chip.
+ * The Action Center's other screens on a 390 × 844 phone: Settings → Automations in one column, and its stale
+ * leads sheet with the wording box and its live preview, the lead page's banner with 44 px buttons, and the inbox header's waiting chip.
  * Home has its own test above; these three had none.
  */
-test('on a phone: Action Center settings, the lead banner and the inbox chip', async ({ page }) => {
+test('on a phone: Automations settings, the lead banner and the inbox chip', async ({ page }) => {
   test.setTimeout(240_000);
   const o = await actionCenterOwner(page, 'ac-phone-2');
   const tom = await addLead(o, 'Tom', 'Reyes', 'Rooftop unit replacement', 1_240_000);
   await sweep(o.workspaceId);
   await itemsFor(o, ['Rooftop unit replacement']);
 
-  // Settings → Action Center: one column, nothing sideways, and the follow-up wording off until it's read.
-  await page.goto(`/app/w/${o.workspaceId}/settings/action-center`);
-  const settings = page.getByTestId('action-center-settings');
+  // Settings → Automations: one column, nothing sideways, and the follow-up wording off until it's read.
+  await page.goto(`/app/w/${o.workspaceId}/settings/automations`);
+  const settings = page.getByTestId('automations-settings');
   await expect(settings).toBeVisible();
   const panel = (await settings.boundingBox())!;
   expect(panel.x).toBeGreaterThanOrEqual(0);
   expect(panel.x + panel.width).toBeLessThanOrEqual(390);
-  // Each kind is a row you can hit with a thumb.
-  expect((await page.getByTestId('ac-kind-hot_lead').boundingBox())!.height).toBeGreaterThanOrEqual(
-    44,
-  );
+  // Each automation is a row you can hit with a thumb.
+  expect(
+    (await page.getByTestId('automation-hot_lead_alert').boundingBox())!.height,
+  ).toBeGreaterThanOrEqual(44);
+  expect(await pageWidth(page)).toBeLessThanOrEqual(390);
+  // Adjust opens as a sheet from the bottom, with the wording inside.
+  await page.getByTestId('adjust-open-stale_opportunities').click();
   await expect(page.getByTestId('ac-nudge-badge')).toContainText(/Off until an owner/);
   const template = page.getByTestId('ac-template');
   const box = (await template.boundingBox())!;

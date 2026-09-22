@@ -325,12 +325,14 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
     ],
     handovers: [],
   },
+  // The key stays action_center: Settings → Action Center became Settings → Automations, and its settings with it.
   action_center: {
-    label: 'Action Center',
-    what: 'what Home watches for, and what HandsFreeOS handles on its own',
-    path: '/settings/action-center',
+    label: 'Automations',
+    what: 'every automation: what Home watches for, the reminders and follow-ups, and what HandsFreeOS handles on its own',
+    path: '/settings/automations',
     permission: 'workspace.update',
     canChange: [
+      'turn each automation on or off',
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
       'what HandsFreeOS does on its own, and how it words it',

@@ -705,7 +705,7 @@ export async function seedAiTeam(
       },
       whenNotAFit: { tellTeam: true },
     },
-    followUp: { enabled: true, maxNudges: 2 },
+    followUp: { enabled: true },
   });
   await save('priya', {
     handOff: {

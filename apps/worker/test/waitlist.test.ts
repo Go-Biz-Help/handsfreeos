@@ -133,6 +133,43 @@ describe('sessions', () => {
 });
 
 describe('offers for a freed 1:1 time', () => {
+  it('offers nothing while the business has "Waitlist slot opened" off in Settings → Automations', async () => {
+    const setWaitlist = (on: boolean) =>
+      rows(
+        admin(),
+        sql`update app.workspaces
+            set settings = jsonb_set(settings, '{automations}',
+              ${JSON.stringify({ switches: { waitlist: on } })}::jsonb)
+            where id = ${w.workspaceId}`,
+      );
+    const t = at(6, '14:00');
+    const quin = customer('Quin');
+    try {
+      const pam = await bookOnline(w, line.slug, t, customer('Pam'));
+      await joinWaitlist(line.slug, {
+        ...quin,
+        wantedFrom: iso(t - HOUR),
+        wantedTo: iso(t + 2 * HOUR),
+      });
+      await drain(w);
+      await setWaitlist(false);
+      expect((await post(w, `/public/manage/${pam.manageToken}/cancel`, {})).statusCode).toBe(200);
+      await drain(w);
+      // Still waiting, with no offer: the time is simply open for anyone to book.
+      expect(await entryOf(quin.email)).toMatchObject({ status: 'waiting', offer: null });
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set settings = settings - 'automations' where id = ${w.workspaceId}`,
+      );
+      // Leave the calendar as the next tests expect: Quin off the list.
+      await rows(
+        admin(),
+        sql`update app.waitlist_entries set status = 'removed' where contact_email = ${quin.email}`,
+      );
+    }
+  });
+
   it('offers it to the next person waiting; the link shows it and books it once', async () => {
     const t = at(3, '14:00');
     const hal = await bookOnline(w, line.slug, t, customer('Hal'));
