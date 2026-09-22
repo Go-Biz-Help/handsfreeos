@@ -4675,7 +4675,11 @@ export const customFields = app.table('custom_fields', {
  * and Drizzle has no way to say that. Nothing in TypeScript should try to check it either — read
  * `foundingCounts` for a number to show somebody, and let the insert be the thing that decides.
  */
-export const foundingOfferStatus = platform.enum('founding_offer_status', ['draft', 'open', 'closed']);
+export const foundingOfferStatus = platform.enum('founding_offer_status', [
+  'draft',
+  'open',
+  'closed',
+]);
 
 /** `reserved` and `active` hold a seat. `revoked` and `expired` do not, which is what frees one at once. */
 export const foundingGrantStatus = platform.enum('founding_grant_status', [
@@ -4753,7 +4757,8 @@ export const foundingApplications = platform.table('founding_applications', {
   reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
   /** Staff-only, and the reason it can be honest. */
   decisionNote: text('decision_note').notNull().default(''),
-  claimToken: text('claim_token'),
+  /** The sha256 only, like an invitation's. The link itself is shown once and never stored. */
+  claimTokenHash: bytea('claim_token_hash').unique(),
   claimExpiresAt: ts('claim_expires_at'),
   grantId: uuid('grant_id').references(() => foundingGrants.id, { onDelete: 'set null' }),
   ...timestamps(),

@@ -158,8 +158,12 @@ create table platform.founding_applications (
   reviewed_by uuid references app.users (id) on delete set null,
   /** Staff-only. Never shown to the applicant, which is what lets it be honest. */
   decision_note text not null default '' check (length(decision_note) <= 2000),
-  /** Issued on approval. Long, random, and the only thing that turns an approval into an account. */
-  claim_token text unique check (claim_token is null or length(claim_token) between 32 and 128),
+  /**
+   * Only the sha256 of the claim link is stored, the way an invitation's is (0004). The token itself is shown
+   * once, to the person sending the email, and is never readable again from here — which matters more here
+   * than for an invitation, because this link is worth a free account for life.
+   */
+  claim_token_hash bytea unique,
   claim_expires_at timestamptz,
   grant_id uuid references platform.founding_grants (id) on delete set null,
   created_at timestamptz not null default now(),
@@ -323,6 +327,66 @@ create or replace view platform.founding_counts as
 
 comment on view platform.founding_counts is
   'The four numbers the marketing site prints. No applicant and no business is reachable through it.';
+
+-- ---------- the starting credit ----------
+/**
+ * Put an offer's starting credit in a workspace's wallet.
+ *
+ * `private.staff_credit_wallet` (0076) cannot be used for this: it asks whether the **caller** is staff with
+ * `platform.wallets.adjust`, and the caller here is the worker running a claim for somebody who has just
+ * followed a link. So the authority comes from the grant instead — an active seat, on an offer that grants a
+ * credit, is itself the permission. Nothing about the caller is consulted and nothing about the caller needs
+ * to be, because there is no argument to point this at another business: the workspace and the amount are
+ * both read off the grant.
+ *
+ * Idempotent by the ledger's own key, so a link followed twice credits once. That is the same guarantee the
+ * support credit has, by the same means.
+ */
+create or replace function private.founding_credit_wallet(p_grant uuid)
+returns table (credited_cents bigint, recorded boolean)
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_ws uuid;
+  v_org uuid;
+  v_amount bigint;
+  v_offer text;
+  v_entry uuid;
+begin
+  select g.workspace_id, g.organization_id, o.starting_credit_cents, o.name
+    into v_ws, v_org, v_amount, v_offer
+  from platform.founding_grants g
+  join platform.founding_offers o on o.id = g.offer_id
+  where g.id = p_grant and g.status = 'active';
+
+  -- No seat, no workspace on it, or an offer that grants nothing: not an error, simply nothing to do.
+  if v_ws is null or coalesce(v_amount, 0) <= 0 then
+    return query select 0::bigint, false;
+    return;
+  end if;
+
+  insert into app.usage_wallets (workspace_id, organization_id)
+  values (v_ws, v_org)
+  on conflict (workspace_id) do nothing;
+
+  -- For this insert only, exactly as 0076 does it, and cleared before anything else in the transaction runs.
+  perform set_config('app.system_scope.workspace_id', v_ws::text, true);
+
+  insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, subject,
+    idempotency_key, meta, occurred_at)
+  values (v_ws, v_org, 'credit'::app.usage_entry_kind, v_amount,
+    left('Founding starting credit (' || v_offer || ')', 300),
+    'credit:founding:' || p_grant::text,
+    jsonb_build_object('reason', 'founding starting credit', 'grant_id', p_grant, 'offer', v_offer),
+    now())
+  on conflict (workspace_id, idempotency_key) do nothing
+  returning id into v_entry;
+
+  perform set_config('app.system_scope.workspace_id', '', true);
+
+  return query select case when v_entry is null then 0::bigint else v_amount end, v_entry is not null;
+end $$;
+
+grant execute on function private.founding_credit_wallet(uuid) to authenticated, service_actor;
 
 -- ---------- who may see what ----------
 alter table platform.founding_offers enable row level security;

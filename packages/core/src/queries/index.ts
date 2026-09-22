@@ -3,6 +3,7 @@ import { formQueries } from './form';
 import { reviewQueries } from './review';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
+import { foundingQueries } from './founding';
 import { supportQueries } from './support';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
@@ -164,6 +165,7 @@ export const queries: readonly QueryDef[] = [
   ...migrationQueries,
   ...supportQueries,
   ...platformQueries,
+  ...foundingQueries,
   me,
   accountDeletionCheck,
   pushDeviceList,
@@ -317,3 +319,4 @@ export * from './platform';
 export * from './wallet';
 export * from './port';
 export * from './branded-domain';
+export * from './founding';
