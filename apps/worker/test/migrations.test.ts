@@ -21,6 +21,7 @@ import {
   migrationCreate,
   migrationGet,
   migrationMapScopes,
+  migrationResolveMerge,
   migrationRollback,
   migrationResume,
   migrationScan,
@@ -420,6 +421,43 @@ describe('a business moves house', () => {
       'matches one customer and the email matches another',
     );
   });
+
+  it('brings the customer across the way a person decided, once they decide', async () => {
+    // The screen's question, answered: Chris Doyle is nobody already here. Until 0091 the answer was
+    // recorded and nothing acted on it — the batch it queued had no handler — so the customer waited forever.
+    const [candidate] = await rows<{ id: string }>(
+      admin(),
+      sql`select id::text as id from app.migration_merge_candidates
+          where migration_id = ${w.migrationId} and resolution = 'pending' and match_rule = 'conflict'`,
+    );
+    expect(candidate).toBeDefined();
+    const before = await ask<{ needsReview: number }>(migrationGet, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+    });
+    expect((await people()).some((p) => p.first_name === 'Chris')).toBe(false);
+
+    await run(migrationResolveMerge, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      candidateId: candidate!.id,
+      decision: 'separate',
+    });
+    await drain();
+
+    const chris = (await people()).find((p) => p.first_name === 'Chris' && p.last_name === 'Doyle');
+    expect(chris).toBeDefined();
+    // With the date the old system first knew them, like everybody else who came across.
+    expect(new Date(chris!.created_at).getUTCFullYear()).toBe(2022);
+    const after = await ask<{
+      needsReview: number;
+      progress: { category: string; imported: number; found: number }[];
+    }>(migrationGet, { organizationId: w.organizationId, migrationId: w.migrationId });
+    expect(after.needsReview).toBe(before.needsReview - 1);
+    // Counted as brought across now, not as waiting.
+    const contacts = after.progress.filter((p) => p.category === 'contacts');
+    expect(contacts.reduce((n, p) => n + p.imported, 0)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
 
   it('names the right person in every "no account here" note', async () => {
     // These are counted up by their key, so without a person of their own every one of them would land on

@@ -130,6 +130,8 @@ async function runJob(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
       return scanScope(deps, job);
     case 'fetch':
       return fetchCategory(deps, job);
+    case 'import':
+      return importDecided(deps, job);
     case 'media':
       return copyFiles(deps, job);
     case 'verify':
@@ -563,6 +565,167 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
 }
 
 /**
+ * One record, brought across the way a person said.
+ *
+ * The customer importer never guesses: a record that might be somebody already here waits in the review
+ * queue, and the import carries on around it. When somebody answers, `migration.resolve_merge` queues one of
+ * these with the record's identity and the decision on it. Until 0091 nothing handled the job — it was
+ * finished as "nothing handles import yet" — so the queue asked and the answer went nowhere. The customer
+ * stayed in the old system and the screen kept saying one person was waiting.
+ *
+ * Nothing is read from the old system: the record was staged when it was first seen, and it is normalized
+ * and imported again from that copy with the decision in the scope, in one transaction, exactly as a page
+ * of them would be. The checkpoint's counts move with it, so "99 of 100" becomes "100 of 100".
+ */
+async function importDecided(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
+  if (!job.scope_id || !job.workspace_id) {
+    await finishJob(deps, job, { skipped: 'nowhere to put it' });
+    return 'done';
+  }
+  const candidateId = job.input['resolvedCandidateId'];
+  const sourceObjectType = job.input['sourceObjectType'];
+  const sourceObjectId = job.input['sourceObjectId'];
+  if (
+    typeof candidateId !== 'string' ||
+    typeof sourceObjectType !== 'string' ||
+    typeof sourceObjectId !== 'string'
+  ) {
+    await finishJob(deps, job, { skipped: 'no record named' });
+    return 'done';
+  }
+  const migration = await loadMigration(deps, job.migration_id, job.organization_id);
+  const scopeRow = await loadScope(deps, job.scope_id, job.organization_id);
+  // The adapter for its mapping only: no connection is opened, because nothing here asks the old system.
+  const adapter = deps.adapters.get(migration.source_system);
+  if (!adapter) {
+    await finishJob(deps, job, { skipped: `nothing here knows ${migration.source_system}` });
+    return 'done';
+  }
+  const importScope: ImportScope = {
+    migrationId: job.migration_id,
+    organizationId: job.organization_id,
+    scopeId: job.scope_id,
+    workspaceId: job.workspace_id,
+    installationId: migration.connection_id,
+    sourceSystem: migration.source_system,
+    sourceLocationId: scopeRow.external_scope_id,
+    timezone: scopeRow.timezone ?? 'America/Chicago',
+    defaultCountry: 'US',
+    log: deps.log,
+  };
+
+  const outcome = await asWorker(
+    deps.db,
+    { workspaceId: job.workspace_id, organizationId: job.organization_id },
+    async (tx): Promise<Record<string, unknown>> => {
+      const [candidate] = await rows<{
+        resolution: string;
+        target_id: string | null;
+        category: string;
+      }>(
+        tx,
+        sql`select c.resolution::text as resolution, c.target_id::text as target_id,
+              coalesce(o.category, 'contacts') as category
+            from app.migration_merge_candidates c
+            left join app.migration_source_objects o
+              on o.scope_id = c.scope_id and o.source_object_type = c.source_object_type
+             and o.source_object_id = c.source_object_id
+            where c.id = ${candidateId}::uuid and c.scope_id = ${job.scope_id}`,
+      );
+      if (!candidate) return { skipped: 'that decision is gone' };
+      if (candidate.resolution === 'pending') return { skipped: 'not decided yet' };
+      const [staged] = await rows<{
+        source_parent_object_id: string | null;
+        source_created_at: string | Date | null;
+        source_updated_at: string | Date | null;
+        source_deleted_at: string | Date | null;
+        payload: Record<string, unknown>;
+      }>(
+        tx,
+        sql`select source_parent_object_id, source_created_at, source_updated_at, source_deleted_at, payload
+            from app.migration_source_objects
+            where scope_id = ${job.scope_id} and source_object_type = ${sourceObjectType}
+              and source_object_id = ${sourceObjectId}`,
+      );
+      if (!staged) return { skipped: 'the old system’s copy of this record is not here' };
+
+      const decided: NonNullable<ImportScope['decided']> = {
+        sourceObjectType,
+        sourceObjectId,
+        resolution:
+          candidate.resolution === 'separate'
+            ? 'separate'
+            : candidate.resolution === 'remapped'
+              ? 'remapped'
+              : 'merged',
+        targetId: candidate.target_id,
+      };
+      const scope: ImportScope = { ...importScope, decided };
+      const context = await mappingContext(tx, scope, adapter);
+      const asAt = (v: string | Date | null) => (v ? new Date(v) : null);
+      const record = {
+        objectType: sourceObjectType,
+        objectId: sourceObjectId,
+        parentObjectId: staged.source_parent_object_id,
+        sourceCreatedAt: asAt(staged.source_created_at),
+        sourceUpdatedAt: asAt(staged.source_updated_at),
+        sourceDeletedAt: asAt(staged.source_deleted_at),
+        payload: staged.payload,
+      };
+      let totals = emptyCounts();
+      let envelopes: readonly CanonicalEnvelope[] = [];
+      try {
+        envelopes = adapter.normalize(record, context);
+      } catch (e) {
+        await quarantine(tx, scope, {
+          category: candidate.category,
+          sourceObjectType,
+          sourceObjectId,
+          kind: 'mapping',
+          code: 'normalize_failed',
+          message: (e as Error).message,
+          retryable: false,
+        });
+        totals = addCounts(totals, { failed: 1 });
+      }
+      for (const envelope of envelopes) {
+        const checked = parseCanonical(envelope);
+        if (!checked.ok) {
+          await quarantine(tx, scope, {
+            category: candidate.category,
+            sourceObjectType: envelope.source.objectType,
+            sourceObjectId: envelope.source.objectId,
+            kind: 'mapping',
+            code: 'shape_not_understood',
+            message: checked.issues.join('; '),
+            retryable: false,
+            detail: { issues: checked.issues },
+          });
+          totals = addCounts(totals, { failed: 1 });
+          continue;
+        }
+        const importer = IMPORTERS[envelope.canonicalType];
+        if (!importer) {
+          totals = addCounts(totals, { skipped: 1 });
+          continue;
+        }
+        const result = await importer(tx, scope, { ...envelope, data: checked.data });
+        totals = addCounts(totals, result.counts);
+      }
+      // The record was counted as waiting when it went into the queue; now it is counted as what it became.
+      await adjustCounts(tx, scope, candidate.category, {
+        ...totals,
+        needsReview: totals.needsReview - 1,
+      });
+      return { ...totals };
+    },
+  );
+  await finishJob(deps, job, outcome);
+  await afterCategory(deps, job);
+  return 'done';
+}
+
+/**
  * One batch of files: fetch what the importers listed and point the records at our copies.
  *
  * It runs after the records for a sub-account are in, because a file needs the record it belongs to before
@@ -674,6 +837,28 @@ async function checkpoint(
         'failed', coalesce((app.migration_checkpoints.counts ->> 'failed')::bigint, 0) + ${input.counts.failed})`);
 }
 
+/**
+ * Move a category's counts without touching where it has got to. For the one record a person decided
+ * about after the page it was on had been saved: the cursor and whether the category is complete stay as
+ * they are, and only the numbers change.
+ */
+async function adjustCounts(
+  tx: Tx,
+  scope: ImportScope,
+  category: string,
+  delta: ImportCounts,
+): Promise<void> {
+  await tx.execute(sql`
+    update app.migration_checkpoints set counts = jsonb_build_object(
+        'found', greatest(0, coalesce((counts ->> 'found')::bigint, 0) + ${delta.found}),
+        'imported', greatest(0, coalesce((counts ->> 'imported')::bigint, 0) + ${delta.imported}),
+        'merged', greatest(0, coalesce((counts ->> 'merged')::bigint, 0) + ${delta.merged}),
+        'skipped', greatest(0, coalesce((counts ->> 'skipped')::bigint, 0) + ${delta.skipped}),
+        'needsReview', greatest(0, coalesce((counts ->> 'needsReview')::bigint, 0) + ${delta.needsReview}),
+        'failed', greatest(0, coalesce((counts ->> 'failed')::bigint, 0) + ${delta.failed}))
+     where scope_id = ${scope.scopeId} and category = ${category}`);
+}
+
 /** When a category finishes: is the whole business done, and is the whole migration? */
 async function afterCategory(deps: MigrationDeps, job: JobRow): Promise<void> {
   /**
@@ -722,17 +907,21 @@ async function afterCategory(deps: MigrationDeps, job: JobRow): Promise<void> {
       const [rest] = await rows<{ count: number }>(
         tx,
         sql`select count(*)::int as count from app.migration_jobs
-          where migration_id = ${job.migration_id} and kind in ('fetch', 'media', 'link')
+          where migration_id = ${job.migration_id} and kind in ('fetch', 'import', 'media', 'link')
             and state in ('pending', 'retry', 'leased')`,
       );
       if ((rest?.count ?? 0) > 0) return;
-      // Everything is in. Queue the checks; the migration is not "imported" until they have run.
+      // Everything is in. Queue the checks; the migration is not "imported" until they have run. A move that
+      // was finished and put back to work for one decided record is finishing again, so its checks finish.
       await tx.execute(sql`
       insert into app.migration_jobs (migration_id, organization_id, kind, category, pass, input)
-      select ${job.migration_id}, ${job.organization_id}, 'verify', 'locations', 9, '{}'::jsonb
-      where not exists (select 1 from app.migration_jobs j
-        where j.migration_id = ${job.migration_id} and j.kind = 'verify'
-          and j.state in ('pending', 'retry', 'leased'))`);
+      select ${job.migration_id}, ${job.organization_id}, 'verify', 'locations', 9,
+        case when m.status = 'finalizing' then '{"finalize": true}'::jsonb else '{}'::jsonb end
+      from app.migrations m
+      where m.id = ${job.migration_id}
+        and not exists (select 1 from app.migration_jobs j
+          where j.migration_id = ${job.migration_id} and j.kind = 'verify'
+            and j.state in ('pending', 'retry', 'leased'))`);
       await tx.execute(sql`
       update app.migrations set status = 'verifying'
        where id = ${job.migration_id} and status = 'importing'`);
