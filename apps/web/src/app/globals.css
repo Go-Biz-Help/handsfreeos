@@ -293,6 +293,20 @@ body[data-call='on'] [data-sonner-toaster][data-y-position='bottom'] {
   background: var(--card-2);
   border-style: dashed;
 }
+/*
+ * The same busy time on a month cell. A month cell lists what is on its day rather than placing it in the
+ * day, so this one sits in the flow: `.cal-busy` is absolute, and in a cell that has nothing positioned
+ * around it that means a bar across the whole window.
+ */
+.cal-chip {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: repeating-linear-gradient(135deg, var(--card-2) 0 5px, var(--card-3) 5px 6px);
+}
+.cal-chip.cal-chip-off {
+  border-style: dashed;
+  background: var(--card-2);
+}
 .cal-travel {
   position: absolute;
   left: 3px;

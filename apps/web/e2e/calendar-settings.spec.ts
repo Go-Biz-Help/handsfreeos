@@ -116,6 +116,21 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
     'Busy in Google Calendar',
   );
 
+  // The month lists the same busy time on its day, inside its cell. It used to wear the time grid's own
+  // class, which places a block in a column — and a month cell is no column, so it ran across the window.
+  await page.goto(`/app/w/${workspaceId}/calendar?view=month&date=${day}`);
+  const cell = page.getByTestId(`month-cell-${day}`);
+  const chip = cell.getByTestId('month-busy');
+  await expect(chip).toHaveAttribute('title', /^Busy in Google Calendar/);
+  const cellBox = (await cell.boundingBox())!;
+  const chipBox = (await chip.boundingBox())!;
+  expect(chipBox.width).toBeLessThanOrEqual(cellBox.width);
+  expect(chipBox.x).toBeGreaterThanOrEqual(cellBox.x);
+  // However many busy times the day holds — two of them here — they are the one chip, so a day with a
+  // full Google calendar keeps the height every other day has.
+  await expect(cell.getByTestId('month-busy')).toHaveCount(1);
+  await expect(chip).toHaveText(/^Busy · \d+$/);
+
   // A service with two lengths and a setup buffer.
   await page.goto(`/app/w/${workspaceId}/settings/calendars/services`);
   await page.getByTestId('service-new').click();

@@ -68,7 +68,7 @@ import {
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { useMatches } from '@/lib/use-media';
 import { cn, relativeTime } from '@/lib/utils';
-import { Agenda } from './agenda';
+import { Agenda, type AgendaView } from './agenda';
 import { AppointmentDialog, type BookedResult } from './appointment-dialog';
 import { AppointmentSheet } from './appointment-sheet';
 import { firstName, useNow } from './appt';
@@ -104,9 +104,10 @@ const FilterLabel = ({ children }: { children: ReactNode }) => (
 );
 
 /**
- * /calendar. Wide screens: Team day, Week, Day and Resources on the in-house time grid, with calendar and
- * people filters, drag to move (desktop pointers) and New appointment. Phones: the agenda. Opening an
- * appointment or New appointment only changes the address (no reload); moving past the loaded week does.
+ * /calendar. Wide screens: Team day, Week, Day, Month and Resources, with calendar and people filters,
+ * drag to move (desktop pointers) and New appointment. Phones: the agenda, with its own Day, Week and
+ * Month of the same `?view=`, stepping a week or a month at a time. Opening an appointment or New
+ * appointment only changes the address (no reload); moving past the loaded week does.
  */
 export function CalendarPage(props: {
   workspaceId: string;
@@ -161,6 +162,8 @@ export function CalendarPage(props: {
   const team = picked.length ? picked : people;
   const focus =
     (q.people && people.find((p) => p.userId === q.people![0])) || me || people[0] || null;
+  /** The phone's Everyone / Just me, which is the Person filter narrowed to one person: you. */
+  const mine = !!q.people && q.people.length === 1 && q.people[0] === myUserId;
   const date = days.includes(q.date) ? q.date : props.query.date;
 
   function personColumn(p: TeamSchedule, day: string, key: string, header: ReactNode): GridColumn {
@@ -409,49 +412,62 @@ export function CalendarPage(props: {
    * Month is one person's month, the way Week and Day are one person's, so the Person filter means the
    * same thing in all three and a busy time read from Google has somebody it belongs to. A cell lists
    * what is on that day in order; it is not drawn to scale, so nothing is dropped for falling outside
-   * an hour range.
+   * an hour range. With nobody given it is everybody's month, which is what the phone shows on Everyone.
+   *
+   * @param person whose busy times and time off the cells carry; none without one.
+   * @param onlyUserId whose bookings they hold, all of them when it is null.
    */
-  const monthCells: MonthCell[] =
-    q.view === 'month' && focus
-      ? days.map((d) => {
-          const place = (a: string, b: string) => placeOnDay(Date.parse(a), Date.parse(b), d, tz);
-          const blocks: MonthBlock[] = [];
-          focus.busy.forEach((b, i) => {
-            const span = place(b.startsAt, b.endsAt);
-            if (span)
-              blocks.push({
-                key: `busy-${d}-${i}`,
-                span,
-                kind: 'busy',
-                title: `Busy in ${focus.connection ? calendarProviderName(focus.connection.provider) : 'their calendar'}`,
-                provider: focus.connection?.provider ?? null,
-              });
+  function monthCellsOf(
+    person: TeamSchedule | null,
+    onlyUserId: string | null = person?.userId ?? null,
+  ): MonthCell[] {
+    if (q.view !== 'month') return [];
+    return days.map((d) => {
+      const place = (a: string, b: string) => placeOnDay(Date.parse(a), Date.parse(b), d, tz);
+      const blocks: MonthBlock[] = [];
+      person?.busy.forEach((b, i) => {
+        const span = place(b.startsAt, b.endsAt);
+        if (span)
+          blocks.push({
+            key: `busy-${d}-${i}`,
+            span,
+            kind: 'busy',
+            title: `Busy in ${person.connection ? calendarProviderName(person.connection.provider) : 'their calendar'}`,
+            provider: person.connection?.provider ?? null,
           });
-          for (const t of focus.timeOff) {
-            if (t.kind !== 'unavailable') continue;
-            const span = place(t.startsAt, t.endsAt);
-            if (span)
-              blocks.push({
-                key: `off-${d}-${t.id}`,
-                span,
-                kind: 'time_off',
-                title: t.note || 'Time off',
-              });
-          }
-          return {
-            date: d,
-            today: d === today,
-            inMonth: d.slice(0, 7) === date.slice(0, 7),
-            events: visible
-              .filter(
-                (a) =>
-                  a.staff.some((x) => x.userId === focus.userId) && place(a.startsAt, a.endsAt),
-              )
-              .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
-            blocks,
-          };
-        })
-      : [];
+      });
+      for (const t of person?.timeOff ?? []) {
+        if (t.kind !== 'unavailable') continue;
+        const span = place(t.startsAt, t.endsAt);
+        if (span)
+          blocks.push({
+            key: `off-${d}-${t.id}`,
+            span,
+            kind: 'time_off',
+            title: t.note || 'Time off',
+          });
+      }
+      return {
+        date: d,
+        today: d === today,
+        inMonth: d.slice(0, 7) === date.slice(0, 7),
+        events: visible
+          .filter(
+            (a) =>
+              (!onlyUserId || a.staff.some((x) => x.userId === onlyUserId)) &&
+              place(a.startsAt, a.endsAt),
+          )
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+        blocks,
+      };
+    });
+  }
+  const monthCells = focus ? monthCellsOf(focus) : [];
+  // The phone's month follows its own Everyone / Just me rather than the Person filter, so it says the
+  // same thing as the day list under it — which filters by who you are, whether or not you have a
+  // schedule of your own.
+  const phoneMonthCells = monthCellsOf(mine ? me : null, mine ? myUserId : null);
+  const phoneView: AgendaView = q.view === 'month' ? 'month' : q.view === 'week' ? 'week' : 'day';
   const reconnect = (q.view === 'team' ? team : focus ? [focus] : []).filter(
     (p) => p.connection?.status === 'reauth_required',
   );
@@ -771,16 +787,26 @@ export function CalendarPage(props: {
 
       <div className="-mt-4 md:hidden">
         <Agenda
+          view={phoneView}
           timeZone={tz}
           date={date}
           today={today}
           days={q.view === 'month' ? weekOf(date) : days}
+          monthCells={phoneMonthCells}
           appointments={visible}
           me={me}
-          mine={!!q.people && q.people.length === 1 && q.people[0] === myUserId}
+          mine={mine}
           now={now}
+          // Day, Week and Month all mean one stretch of time here, so the person filter carries across
+          // them — unlike the wide screens' switch, where Team's people mean something else.
+          onView={(v) => go({ view: v })}
+          onStep={(delta) =>
+            go({ date: q.view === 'month' ? monthStep(delta) : addDays(date, delta * 7) })
+          }
+          onToday={() => go({ date: today })}
           onDate={(d) => go({ date: d })}
-          onMine={(mine) => go({ people: mine ? [myUserId] : null })}
+          onDay={(d) => go({ view: 'day', date: d })}
+          onMine={(only) => go({ people: only ? [myUserId] : null })}
           onOpen={(a) => go({ appt: a.id })}
           onNew={() => openNew({ date })}
         />
