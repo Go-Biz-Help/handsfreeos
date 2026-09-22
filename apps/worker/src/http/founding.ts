@@ -15,10 +15,14 @@
  *
  * Both are rate-limited per address, like every other public route here. The apply route carries a honeypot,
  * the same one the intake form uses: a field a person never sees and a crawler fills in.
+ *
+ * Both read as `service_actor`, through `asWorker`, like every other route here. The worker's own login has no
+ * rights of its own on purpose, and these first shipped using it directly: both answered 500 from the moment
+ * they were deployed, until test/founding-routes.test.ts drove them as the worker really connects.
  */
 import rateLimit from '@fastify/rate-limit';
 import { FoundingApplyInput } from '@hfos/core';
-import { rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { parseBody, type HttpDeps } from './common';
 
@@ -46,11 +50,13 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
       '/public/founding/counts',
       { config: { rateLimit: { max: 240, timeWindow: '1 minute' } } },
       async (_req, reply) => {
-        const offers = await rows<CountRow>(
-          deps.db,
-          sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed, remaining,
-                billing, show_counter, superseded
-              from platform.founding_counts order by sort, id`,
+        const offers = await asWorker(deps.httpDb, {}, (tx) =>
+          rows<CountRow>(
+            tx,
+            sql`select id, name, blurb, status::text as status, price_cents, seat_cap, claimed,
+                  remaining, billing, show_counter, superseded
+                from platform.founding_counts order by sort, id`,
+          ),
         );
         /**
          * Thirty seconds at the edge. The site caches it too; between them a launch-day rush costs a couple
@@ -89,12 +95,14 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
           return reply.code(200).send({ ok: true });
 
         const input = parseBody(FoundingApplyInput, body);
-        const [row] = await rows<ApplyRow>(
-          deps.db,
-          sql`select * from private.founding_apply(
-                ${input.offerId}, ${input.businessName}, ${input.contactName}, ${input.email},
-                ${input.phone ?? null}, ${input.website ?? null}, ${input.industry ?? null},
-                ${input.teamSize ?? null}, ${input.note}, ${input.source})`,
+        const [row] = await asWorker(deps.httpDb, {}, (tx) =>
+          rows<ApplyRow>(
+            tx,
+            sql`select * from private.founding_apply(
+                  ${input.offerId}, ${input.businessName}, ${input.contactName}, ${input.email},
+                  ${input.phone ?? null}, ${input.website ?? null}, ${input.industry ?? null},
+                  ${input.teamSize ?? null}, ${input.note}, ${input.source})`,
+          ),
         );
         if (!row) return reply.code(404).send({ error: 'no_such_offer' });
 
