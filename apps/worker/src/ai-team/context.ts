@@ -27,9 +27,11 @@ import type { TenantScope } from '../services';
 import {
   BATCH_MAX,
   CALL_WORDS_MAX,
+  CATALOGUE_MAX,
   HISTORY_DAYS,
   HISTORY_MAX,
   KNOWLEDGE_MATCHES,
+  PLANS_MAX,
 } from './constants';
 import { stripQuoted } from './gates';
 
@@ -157,6 +159,24 @@ export interface RunCalendar {
   readonly maxRepeats: number | null;
 }
 
+/** A maintenance plan the teammate may offer (M18, when its settings let it). */
+export interface RunPlan {
+  readonly id: string;
+  readonly name: string;
+  readonly priceCents: number;
+  readonly interval: 'month' | 'quarter' | 'year';
+  readonly intervalCount: number;
+  readonly includes: readonly string[];
+}
+
+/** Something on the price list the teammate may put on a bill or a quote (M18). */
+export interface RunProduct {
+  readonly id: string;
+  readonly name: string;
+  readonly priceCents: number;
+  readonly unitLabel: string;
+}
+
 export interface RunAppointment {
   readonly id: string;
   readonly title: string;
@@ -228,6 +248,10 @@ export interface RunContext {
   readonly lead: RunLead | null;
   readonly stages: readonly { id: string; name: string; kind: string }[];
   readonly calendars: readonly RunCalendar[];
+  /** The plans it may offer; empty unless its settings let it (M18). */
+  readonly plans: readonly RunPlan[];
+  /** The price list it builds bills and quotes from; empty unless its settings let it (M18). */
+  readonly catalogue: readonly RunProduct[];
   /** Upcoming visits; none for a chat visitor. */
   readonly appointments: readonly RunAppointment[];
   readonly batch: readonly BatchMessage[];
@@ -284,6 +308,12 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     : [];
   const appointments =
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
+  const money = input.config.money;
+  const plans = money.plans && !unverifiedChat ? await plansOf(tx, ws) : [];
+  const catalogue =
+    (money.newBills || money.quotes === 'build') && !unverifiedChat
+      ? await catalogueOf(tx, ws)
+      : [];
   const history = conv
     ? await historyOf(
         tx,
@@ -342,6 +372,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     lead,
     stages,
     calendars,
+    plans,
+    catalogue,
     appointments,
     batch: input.batch,
     history,
@@ -456,6 +488,49 @@ async function calendarsOf(
     });
   }
   return out;
+}
+
+/** The business's plans on sale, cheapest first. */
+async function plansOf(tx: Tx, workspaceId: string): Promise<RunPlan[]> {
+  const list = await rows<{
+    id: string;
+    name: string;
+    price_cents: string;
+    interval: RunPlan['interval'];
+    interval_count: number;
+    includes: unknown;
+  }>(
+    tx,
+    sql`select id, name, price_cents::text as price_cents, interval::text as interval, interval_count, includes
+        from app.plans where workspace_id = ${workspaceId} and archived_at is null
+        order by price_cents, name limit ${PLANS_MAX}`,
+  );
+  return list.map((p) => ({
+    id: p.id,
+    name: p.name,
+    priceCents: Number(p.price_cents),
+    interval: p.interval,
+    intervalCount: p.interval_count,
+    includes: Array.isArray(p.includes)
+      ? p.includes.filter((x): x is string => typeof x === 'string').slice(0, 10)
+      : [],
+  }));
+}
+
+/** What's on the price list, by name. */
+async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
+  const list = await rows<{ id: string; name: string; price_cents: string; unit_label: string }>(
+    tx,
+    sql`select id, name, unit_price_cents::text as price_cents, unit_label
+        from app.products where workspace_id = ${workspaceId} and archived_at is null
+        order by lower(name) limit ${CATALOGUE_MAX}`,
+  );
+  return list.map((p) => ({
+    id: p.id,
+    name: p.name,
+    priceCents: Number(p.price_cents),
+    unitLabel: p.unit_label,
+  }));
 }
 
 /** The customer's upcoming visits with the business, soonest first. */

@@ -16,6 +16,7 @@
  * `processing` is the days a bank transfer takes: an invoice with one is never overdue, it is paying.
  */
 import { and, desc, eq, sql as dsql } from 'drizzle-orm';
+import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { invoices, payments, paymentConnections } from '@hfos/db/schema';
 import { requirePerson, workspaceTimezone } from '../crm/records';
@@ -196,6 +197,58 @@ async function announcePayment(
 
 // ---------- writing one ----------
 
+/**
+ * A new draft invoice. `by` is who it is from (its assignee unless one is named, and who created it): a person,
+ * the person who approved the AI teammate's bill (M18), or nobody for one the system raises.
+ */
+export async function createInvoice(
+  ctx: CommandContext,
+  input: z.infer<typeof InvoiceCreateInput>,
+  by: string | null,
+) {
+  const ws = ctx.scope.workspaceId!;
+  await requirePerson(ctx.tx, ws, input.personId);
+  const settings = await loadMoneySettings(ctx.tx, ws);
+  const draft = draftOf(input.lines, settings, { discount: input.discount });
+  const [row] = await ctx.tx
+    .insert(invoices)
+    .values({
+      workspaceId: ws,
+      publicRef: dsql`private.new_public_ref()`,
+      personId: input.personId,
+      leadId: input.leadId ?? null,
+      assigneeUserId: input.assigneeUserId ?? by,
+      title: input.title ?? null,
+      notes: input.notes ?? (settings.notes.invoice || null),
+      estimateId: input.estimateId ?? null,
+      attendeeId: input.attendeeId ?? null,
+      subscriptionId: input.subscriptionId ?? null,
+      purpose: input.purpose,
+      origin: input.origin,
+      connectionId: input.connectionId ?? (await defaultConnection(ctx)),
+      dueOn: input.dueOn ?? null,
+      terms: input.terms ?? TERMS_WORDS[settings.terms],
+      ...totalsColumns(draft),
+      createdBy: by,
+    })
+    .returning({ id: invoices.id });
+  if (!row) throw HfosError.forbidden();
+  await writeLines(ctx, 'invoice', row.id, input.lines);
+  const fresh = await requireInvoice(ctx, row.id);
+  await ctx.emit({
+    type: 'invoice.created',
+    entityType: 'invoice',
+    entityId: fresh.id,
+    payload: { ...subjectOf(fresh), purpose: input.purpose, origin: input.origin },
+    after: {
+      total: money(Number(fresh.total_cents)),
+      lines: input.lines.length,
+      for: input.purpose,
+    },
+  });
+  return stateOut(fresh, true);
+}
+
 export const invoiceCreate = defineCommand({
   name: 'invoice.create',
   description:
@@ -211,48 +264,7 @@ export const invoiceCreate = defineCommand({
   // decision, not a side effect of this one. `money_origin` keeps 'workflow' for the day it arrives.
   actors: ['human', 'system'],
   async handler(ctx, input) {
-    const ws = ctx.scope.workspaceId!;
-    const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
-    await requirePerson(ctx.tx, ws, input.personId);
-    const settings = await loadMoneySettings(ctx.tx, ws);
-    const draft = draftOf(input.lines, settings, { discount: input.discount });
-    const [row] = await ctx.tx
-      .insert(invoices)
-      .values({
-        workspaceId: ws,
-        publicRef: dsql`private.new_public_ref()`,
-        personId: input.personId,
-        leadId: input.leadId ?? null,
-        assigneeUserId: input.assigneeUserId ?? me,
-        title: input.title ?? null,
-        notes: input.notes ?? (settings.notes.invoice || null),
-        estimateId: input.estimateId ?? null,
-        attendeeId: input.attendeeId ?? null,
-        subscriptionId: input.subscriptionId ?? null,
-        purpose: input.purpose,
-        origin: input.origin,
-        connectionId: input.connectionId ?? (await defaultConnection(ctx)),
-        dueOn: input.dueOn ?? null,
-        terms: input.terms ?? TERMS_WORDS[settings.terms],
-        ...totalsColumns(draft),
-        createdBy: me,
-      })
-      .returning({ id: invoices.id });
-    if (!row) throw HfosError.forbidden();
-    await writeLines(ctx, 'invoice', row.id, input.lines);
-    const fresh = await requireInvoice(ctx, row.id);
-    await ctx.emit({
-      type: 'invoice.created',
-      entityType: 'invoice',
-      entityId: fresh.id,
-      payload: { ...subjectOf(fresh), purpose: input.purpose, origin: input.origin },
-      after: {
-        total: money(Number(fresh.total_cents)),
-        lines: input.lines.length,
-        for: input.purpose,
-      },
-    });
-    return stateOut(fresh, true);
+    return createInvoice(ctx, input, ctx.actor.type === 'human' ? ctx.actor.userId : null);
   },
 });
 
@@ -321,6 +333,53 @@ export const invoiceUpdate = defineCommand({
   },
 });
 
+/** Sends a draft invoice: its number, its due date, when it went, and the worker's text or email with the link. */
+export async function sendInvoice(ctx: CommandContext, input: z.infer<typeof InvoiceSendInput>) {
+  const ws = ctx.scope.workspaceId!;
+  const before = await requireInvoice(ctx, input.invoiceId);
+  assertMove(before, 'sent');
+  const lines = (await linesFor(ctx.tx, 'invoice', [before.id])).get(before.id) ?? [];
+  if (!lines.length)
+    throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
+  const settings = await loadMoneySettings(ctx.tx, ws);
+  const tz = await workspaceTimezone(ctx.tx, ws);
+  const { number } = await allocateDocumentNumber(ctx.tx, ws, 'invoice', settings);
+  const dueOn = before.due_on ?? dueDateFor(settings.terms, businessToday(tz));
+  await ctx.tx
+    .update(invoices)
+    .set({
+      status: 'sent',
+      number,
+      dueOn,
+      terms: before.terms ?? TERMS_WORDS[settings.terms],
+      sentAt: dsql`now()`,
+    })
+    .where(eq(invoices.id, before.id));
+  const fresh = await requireInvoice(ctx, before.id);
+  await ctx.emit({
+    type: 'invoice.sent',
+    entityType: 'invoice',
+    entityId: fresh.id,
+    payload: {
+      ...subjectOf(fresh),
+      publicRef: fresh.public_ref,
+      linkVersion: fresh.link_version,
+      channels: input.channels,
+      message: input.message,
+      dueOn,
+      connectionId: fresh.connection_id,
+    },
+    before: { status: before.status },
+    after: {
+      invoice: number,
+      total: money(Number(fresh.total_cents)),
+      due: dueOn,
+      sentBy: input.channels.join(', '),
+    },
+  });
+  return stateOut(fresh, true);
+}
+
 export const invoiceSend = defineCommand({
   name: 'invoice.send',
   description:
@@ -334,49 +393,7 @@ export const invoiceSend = defineCommand({
   actors: ['human', 'system'],
   offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
-    const ws = ctx.scope.workspaceId!;
-    const before = await requireInvoice(ctx, input.invoiceId);
-    assertMove(before, 'sent');
-    const lines = (await linesFor(ctx.tx, 'invoice', [before.id])).get(before.id) ?? [];
-    if (!lines.length)
-      throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
-    const settings = await loadMoneySettings(ctx.tx, ws);
-    const tz = await workspaceTimezone(ctx.tx, ws);
-    const { number } = await allocateDocumentNumber(ctx.tx, ws, 'invoice', settings);
-    const dueOn = before.due_on ?? dueDateFor(settings.terms, businessToday(tz));
-    await ctx.tx
-      .update(invoices)
-      .set({
-        status: 'sent',
-        number,
-        dueOn,
-        terms: before.terms ?? TERMS_WORDS[settings.terms],
-        sentAt: dsql`now()`,
-      })
-      .where(eq(invoices.id, before.id));
-    const fresh = await requireInvoice(ctx, before.id);
-    await ctx.emit({
-      type: 'invoice.sent',
-      entityType: 'invoice',
-      entityId: fresh.id,
-      payload: {
-        ...subjectOf(fresh),
-        publicRef: fresh.public_ref,
-        linkVersion: fresh.link_version,
-        channels: input.channels,
-        message: input.message,
-        dueOn,
-        connectionId: fresh.connection_id,
-      },
-      before: { status: before.status },
-      after: {
-        invoice: number,
-        total: money(Number(fresh.total_cents)),
-        due: dueOn,
-        sentBy: input.channels.join(', '),
-      },
-    });
-    return stateOut(fresh, true);
+    return sendInvoice(ctx, input);
   },
 });
 

@@ -17,6 +17,7 @@ import {
 } from '@hfos/core/server';
 import { atLabel, clockLabel, dayLabel, isoWithOffset } from '../assistant/calendar-format';
 import type { HistoryLine, RunContext } from './context';
+import { planEvery } from './tools';
 
 export const TEAMMATE_SYSTEM = [
   'You are a small business’s AI teammate. You answer its customers by text message, email or website chat on the business’s behalf, and you act only through the tools you’re given.',
@@ -175,6 +176,46 @@ function skillLines(rc: RunContext): string[] {
           : 'when they want work done and have no open lead, open one with open_deal'
       }. When they agree to a price, set what it's worth with set_deal_value. Mark it won with close_deal when they commit (book the work, accept a quote, pay), and lost only when they clearly say they don’t want it, with their reason. Never mark it lost because they went quiet.`,
     );
+  // M18: money. Look-ups at once; anything that asks the customer for money waits for an owner or admin.
+  const m = config.money;
+  if (!rc.unverifiedChat && (m.bills || m.newBills || m.quotes !== 'off' || m.plans)) {
+    out.push(
+      '- Money: anything that asks the customer for money waits for an owner or admin. Ask once per reply; then tell the customer the team will send it, never that it has been sent. Refunds and billing disputes always go to a person: hand off.',
+    );
+    if (m.bills)
+      out.push(
+        '  Bills: my_bills tells you what they owe, what they paid and what’s overdue. To get them a bill’s pay link, use send_payment_link.',
+      );
+    if (m.quotes !== 'off')
+      out.push(
+        '  Quotes: my_quotes tells you where their quotes stand. send_quote resends one’s link; when they clearly say yes or no to one, record it with record_quote_answer.',
+      );
+    if ((m.newBills || m.quotes === 'build') && rc.catalogue.length) {
+      const prices = rc.grounding.profile.allowPrices;
+      out.push(
+        `  ${[m.newBills ? 'propose_bill' : null, m.quotes === 'build' ? 'propose_quote' : null]
+          .filter(Boolean)
+          .join(' and ')} put one together from the price list, which sets the prices${
+          prices ? '' : ' (don’t tell the customer prices yourself)'
+        }:`,
+      );
+      for (const p of rc.catalogue)
+        out.push(
+          `  - ${quoteData(p.name)}${prices ? `, ${money(p.priceCents)} ${p.unitLabel === 'each' ? 'each' : `per ${quoteData(p.unitLabel)}`}` : ''} (product id ${p.id})`,
+        );
+    }
+    if (m.plans && rc.plans.length) {
+      out.push(
+        '  Maintenance plans you can offer when they want regular service; offer_plan asks the team to sign them up:',
+      );
+      for (const p of rc.plans)
+        out.push(
+          `  - ${quoteData(p.name)}, ${money(p.priceCents)} ${planEvery(p)}${
+            p.includes.length ? `: ${p.includes.map(quoteData).join('; ')}` : ''
+          } (plan id ${p.id})`,
+        );
+    }
+  }
   if (config.money.discounts === 'with_approval')
     out.push(
       `- Discounts: you may propose one, at most ${config.money.maxPercent}%, with offer_discount. A person decides before the customer hears about it.`,

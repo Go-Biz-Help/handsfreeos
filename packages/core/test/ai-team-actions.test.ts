@@ -29,6 +29,9 @@ import {
   aiTeammateSetStatus,
   appointmentBookForCustomer,
   conversationHandToAi,
+  estimateAnswerForCustomer,
+  estimateCreateForCustomer,
+  invoiceCreateForCustomer,
   leadCreate,
   leadMoveStage,
   leadUpdate,
@@ -36,8 +39,11 @@ import {
   organizationCreate,
   personCreate,
   phoneUpdateSettings,
+  planCreate,
+  productCreate,
   scheduleSet,
   seriesBookForCustomer,
+  subscriptionStartForCustomer,
   waitlistJoinForCustomer,
 } from '../src/server';
 import {
@@ -510,5 +516,213 @@ describe('deals, when the teammate’s settings let it handle them', () => {
     );
     await expectHfos(() => close(open!.id), 'rule_violation', 'stage_not_open');
     await saveTeammate(a, { deals: { enabled: false } });
+  });
+});
+
+describe('money, only with an owner’s or admin’s OK', () => {
+  let tuneUp: string;
+  let filter: string;
+  let planId: string;
+  let marco: TestUser;
+
+  beforeAll(async () => {
+    tuneUp = (
+      await run(
+        productCreate,
+        { workspaceId: a.wsId, name: 'AC tune-up', unitPriceCents: 12_900, taxable: false },
+        a.owner,
+      )
+    ).productId;
+    filter = (
+      await run(
+        productCreate,
+        { workspaceId: a.wsId, name: 'Filter', unitPriceCents: 2_500, taxable: false },
+        a.owner,
+      )
+    ).productId;
+    planId = (
+      await run(
+        planCreate,
+        {
+          workspaceId: a.wsId,
+          name: 'Comfort Club',
+          priceCents: 1_900,
+          includes: ['Two tune-ups'],
+        },
+        a.owner,
+      )
+    ).planId;
+    marco = await createTestUser('m18-marco', { fullName: 'Marco Member' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${a.wsId}, ${marco.id}, 'member')`,
+    );
+  });
+
+  it('bills from the price list, at its prices, only once an owner approved and the settings allow', async () => {
+    const kay = await aiChat(a, 'Kay');
+    const bill = (approvedBy: string | null) =>
+      asAva(a, { conversationId: kay.conversationId, approvedBy }, invoiceCreateForCustomer, {
+        workspaceId: a.wsId,
+        title: 'Tune-up',
+        lines: [
+          { productId: tuneUp, quantity: 1 },
+          { productId: filter, quantity: 2 },
+        ],
+      });
+    await expectHfos(() => bill(null), 'forbidden', 'money_needs_approval');
+    // Someone who doesn't manage money can't be the OK.
+    await expectHfos(() => bill(marco.id), 'forbidden', 'money_needs_approval');
+    await expectHfos(() => bill(a.owner.id), 'rule_violation', 'money_not_allowed');
+    await saveTeammate(a, { money: { newBills: true } });
+    const { output } = await bill(a.owner.id);
+    expect(output).toMatchObject({ status: 'sent', totalCents: 17_900 });
+    const [row] = await rows<{ origin: string; created_by: string; person_id: string }>(
+      admin(),
+      sql`select origin::text as origin, created_by, person_id from app.invoices where id = ${output.invoiceId}`,
+    );
+    expect(row).toEqual({ origin: 'ai_teammate', created_by: a.owner.id, person_id: kay.personId });
+    // A product that isn't on the price list is refused, whatever the model says.
+    await expectHfos(
+      () =>
+        asAva(
+          a,
+          { conversationId: kay.conversationId, approvedBy: a.owner.id },
+          invoiceCreateForCustomer,
+          {
+            workspaceId: a.wsId,
+            lines: [{ productId: randomUUID(), quantity: 1 }],
+          },
+        ),
+      'validation',
+    );
+    await saveTeammate(a, { money: { newBills: false } });
+  });
+
+  it('quotes from the price list only in build mode, and records the answer in the approver’s name', async () => {
+    const lee = await aiChat(a, 'Lee');
+    const me = { conversationId: lee.conversationId, approvedBy: a.owner.id };
+    const quote = () =>
+      asAva(a, me, estimateCreateForCustomer, {
+        workspaceId: a.wsId,
+        lines: [{ productId: tuneUp, quantity: 1 }],
+      });
+    await saveTeammate(a, { money: { quotes: 'send_only' } });
+    await expectHfos(quote, 'rule_violation', 'money_not_allowed');
+    await saveTeammate(a, { money: { quotes: 'build' } });
+    const sent = (await quote()).output;
+    expect(sent).toMatchObject({ status: 'sent', totalCents: 12_900 });
+    await asAva(a, me, estimateAnswerForCustomer, {
+      workspaceId: a.wsId,
+      estimateId: sent.estimateId,
+      accepted: true,
+      name: 'Lee Test',
+    });
+    const [yes] = await rows<{ status: string; accepted_via: string; accepted_by: string }>(
+      admin(),
+      sql`select status::text as status, accepted_via, accepted_by from app.estimates where id = ${sent.estimateId}`,
+    );
+    expect(yes).toEqual({ status: 'accepted', accepted_via: 'staff', accepted_by: a.owner.id });
+    const second = (await quote()).output;
+    await asAva(a, me, estimateAnswerForCustomer, {
+      workspaceId: a.wsId,
+      estimateId: second.estimateId,
+      accepted: false,
+      name: 'Lee Test',
+      reason: 'Too much right now',
+    });
+    const [no] = await rows<{ status: string; declined_reason: string }>(
+      admin(),
+      sql`select status::text as status, declined_reason from app.estimates where id = ${second.estimateId}`,
+    );
+    expect(no).toEqual({ status: 'declined', declined_reason: 'Too much right now' });
+    // Another customer's quote is never this conversation's to answer.
+    const mo = await aiChat(a, 'Mo');
+    await expectHfos(
+      () =>
+        asAva(
+          a,
+          { conversationId: mo.conversationId, approvedBy: a.owner.id },
+          estimateAnswerForCustomer,
+          {
+            workspaceId: a.wsId,
+            estimateId: second.estimateId,
+            accepted: true,
+            name: 'Mo',
+          },
+        ),
+      'forbidden',
+      'not_this_customer',
+    );
+    await saveTeammate(a, { money: { quotes: 'off' } });
+  });
+
+  it('signs the customer up for a plan, waiting on the card they’re sent a link for', async () => {
+    await saveTeammate(a, { money: { plans: true } });
+    const ned = await aiChat(a, 'Ned');
+    const { output } = await asAva(
+      a,
+      { conversationId: ned.conversationId, approvedBy: a.owner.id },
+      subscriptionStartForCustomer,
+      { workspaceId: a.wsId, planId },
+    );
+    const [sub] = await rows<{ plan_name: string; price_cents: string; created_by: string }>(
+      admin(),
+      sql`select plan_name, price_cents::text as price_cents, created_by from app.subscriptions
+          where id = ${output.subscriptionId}`,
+    );
+    expect(sub).toEqual({ plan_name: 'Comfort Club', price_cents: '1900', created_by: a.owner.id });
+    expect(await eventTypes(output.subscriptionId)).toEqual(
+      expect.arrayContaining(['subscription.started', 'subscription.card_requested']),
+    );
+    await saveTeammate(a, { money: { plans: false } });
+  });
+
+  it('goes out from an approval draft only an owner or admin may decide', async () => {
+    await saveTeammate(a, { money: { newBills: true } });
+    const ola = await aiChat(a, 'Ola');
+    const preview = {
+      message: { channel: 'sms', body: 'Here’s your bill for the tune-up.' },
+      actions: [
+        {
+          kind: 'create_invoice',
+          title: 'Tune-up',
+          lines: [{ productId: tuneUp, quantity: 1 }],
+          summary: 'Bill them $129.00 for AC tune-up',
+        },
+      ],
+    };
+    const [d] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.ai_teammate_drafts (workspace_id, teammate_id, conversation_id, person_id, kind, preview, client_id, expires_at)
+          values (${a.wsId}, ${a.teammateId}, ${ola.conversationId}, ${ola.personId}, 'approval',
+            ${JSON.stringify(preview)}::jsonb, ${`ai:${randomUUID()}:m`}, now() + interval '2 hours')
+          returning id`,
+    );
+    await expectHfos(
+      () =>
+        run(
+          aiTeammateDecideDraft,
+          { workspaceId: a.wsId, draftId: d!.id, decision: 'approve' },
+          marco,
+        ),
+      'forbidden',
+      'not_an_approver',
+    );
+    await run(
+      aiTeammateDecideDraft,
+      { workspaceId: a.wsId, draftId: d!.id, decision: 'approve' },
+      a.owner,
+    );
+    const sent = await sys(a, aiTeammateSendDraft, { workspaceId: a.wsId, draftId: d!.id });
+    expect(sent.output.actions).toEqual([{ kind: 'create_invoice', appointmentId: null }]);
+    expect(sent.output.messageId).not.toBeNull();
+    const bills = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.invoices where person_id = ${ola.personId}`,
+    );
+    expect(bills).toEqual([{ status: 'sent' }]);
+    await saveTeammate(a, { money: { newBills: false } });
   });
 });

@@ -47,6 +47,7 @@ import {
   toolInputSchema,
   type AiEmployeeActor,
   type AnswerSheet,
+  type CatalogueLine,
   type AnswerValue,
   type FormDefinition,
   type Question,
@@ -64,7 +65,8 @@ import { toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { TenantScope } from '../services';
-import { HELD_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
+import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
+import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
 import { upcomingAppointments, type RunContext } from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
 
@@ -107,6 +109,17 @@ export interface Discount {
   readonly message: string;
 }
 
+/**
+ * What the teammate asks an owner or admin for, with money in it (M18): the message the customer would get and
+ * the change it makes. One per reply, in its own approval draft, in every mode.
+ */
+export interface MoneyAsk {
+  readonly actions: readonly DraftAction[];
+  readonly message: string;
+  /** What the card and Activity say it's for. */
+  readonly summary: string;
+}
+
 export interface RunState {
   readonly offered: Map<string, OfferedTime>;
   readonly held: DraftAction[];
@@ -114,6 +127,7 @@ export interface RunState {
   /** A knowledge search ran (whether or not it found anything). */
   searched: boolean;
   discount: Discount | null;
+  moneyAsk: MoneyAsk | null;
   /** A lead open_deal opened in this run (the context loaded before it had one). */
   openedLeadId: string | null;
   end: RunEnd | null;
@@ -127,6 +141,7 @@ export function newRunState(): RunState {
     found: new Map(),
     searched: false,
     discount: null,
+    moneyAsk: null,
     openedLeadId: null,
     end: null,
     abort: null,
@@ -140,6 +155,7 @@ interface Effect {
   readonly searched?: boolean;
   readonly held?: DraftAction;
   readonly discount?: Discount;
+  readonly moneyAsk?: MoneyAsk;
   readonly openedLeadId?: string;
   readonly end?: RunEnd;
   readonly abort?: RunAbort;
@@ -157,6 +173,7 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.searched) state.searched = true;
   if (effect.held) state.held.push(effect.held);
   if (effect.discount) state.discount = effect.discount;
+  if (effect.moneyAsk) state.moneyAsk = effect.moneyAsk;
   if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
   // A hand-off outranks a reply, which outranks "no reply"; a later reply replaces an earlier one.
   if (effect.end && (!state.end || END_RANK[effect.end.kind] >= END_RANK[state.end.kind]))
@@ -179,6 +196,8 @@ export interface ExecutorDeps {
   readonly tools: readonly TeammateTool[];
   /** Training wheels: the held changes go into a draft. */
   readonly training: boolean;
+  /** Signs the pay and quote links a money ask carries (M18). */
+  readonly moneyLinks: MoneyLinks;
   readonly log: Logger;
 }
 
@@ -494,6 +513,60 @@ function answerFromWords(question: Question, said: string): AnswerValue {
     return Number.isFinite(n) ? n : text;
   }
   return text;
+}
+
+/** "a month", "every 3 months", "a year". */
+export function planEvery(p: { interval: string; intervalCount: number }): string {
+  const unit = p.interval === 'quarter' ? 'quarter' : p.interval === 'year' ? 'year' : 'month';
+  return p.intervalCount === 1 ? `a ${unit}` : `every ${p.intervalCount} ${unit}s`;
+}
+
+async function theirQuote(d: ExecutorDeps, tx: Tx, estimateId: string) {
+  const [q] = await rows<{ number: string | null; status: string; total_cents: string }>(
+    tx,
+    sql`select number, status::text as status, total_cents::text as total_cents from app.estimates
+        where id = ${estimateId} and workspace_id = ${d.scope.workspaceId}
+          and person_id = ${d.rc.customer!.id}`,
+  );
+  return q ?? null;
+}
+
+/** A bill's or a quote's lines from the price list in the context, and what they come to before tax. */
+function fromCatalogue(
+  d: ExecutorDeps,
+  args: Record<string, unknown>,
+): { lines: CatalogueLine[]; totalCents: number; words: string } | { error: string } {
+  if (!d.rc.customer || d.rc.unverifiedChat) return { error: NO_CUSTOMER };
+  if (d.state.moneyAsk) return { error: 'One request for money per reply.' };
+  const items = (Array.isArray(args['items']) ? args['items'] : []) as {
+    productId: string;
+    quantity: number;
+  }[];
+  const lines: CatalogueLine[] = [];
+  const names: string[] = [];
+  let totalCents = 0;
+  for (const i of items) {
+    const p = d.rc.catalogue.find((x) => x.id === i.productId);
+    if (!p) return { error: 'Use only product ids from the price list in your context.' };
+    lines.push({ productId: p.id, quantity: i.quantity });
+    names.push(i.quantity === 1 ? p.name : `${i.quantity} × ${p.name}`);
+    totalCents += Math.round(p.priceCents * i.quantity);
+  }
+  return { lines, totalCents, words: names.join(', ') };
+}
+
+function askForMoney(d: ExecutorDeps, ask: MoneyAsk): Outcome {
+  // A first message has no conversation yet for the approved message to go out in.
+  if (!d.rc.conversation.id)
+    return refused({ error: 'Wait until they write back before asking the team about money.' });
+  return {
+    status: 'held',
+    content: {
+      status: 'waiting_for_approval',
+      note: 'An owner or admin decides before the customer gets anything. In your reply, say only that you’ve asked the team and they’ll send it; never say it’s been sent.',
+    },
+    effect: { moneyAsk: ask },
+  };
 }
 
 const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
@@ -1154,6 +1227,210 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       d.meta,
     );
     return { status: 'done', command: 'task.create', content: { created: true } };
+  },
+
+  // ---- Money (M18): the look-ups run at once; anything asking for money becomes an owner's approval draft ----
+
+  async my_bills(d, tx) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const list = await rows<{
+      id: string;
+      number: string | null;
+      title: string | null;
+      status: string;
+      total_cents: string;
+      balance_cents: string;
+      due_on: string | null;
+      paying: string | null;
+    }>(
+      tx,
+      sql`select i.id, i.number, i.title, i.status::text as status, i.total_cents::text as total_cents,
+            i.balance_cents::text as balance_cents, i.due_on::text as due_on,
+            (select p.status::text from app.payments p where p.invoice_id = i.id
+              order by p.created_at desc limit 1) as paying
+          from app.invoices i
+          where i.workspace_id = ${d.scope.workspaceId} and i.person_id = ${d.rc.customer.id}
+            and i.status not in ('draft', 'void')
+          order by i.created_at desc limit ${MONEY_LIST_MAX}`,
+    );
+    return {
+      status: 'done',
+      content: {
+        bills: list.map((b) => ({
+          invoiceId: b.id,
+          what: quoteData(b.title ?? b.number ?? 'Bill'),
+          number: b.number,
+          total: money(Number(b.total_cents)),
+          owed: money(Number(b.balance_cents)),
+          status: b.paying === 'processing' ? 'payment on its way' : b.status.replace('_', ' '),
+          ...(b.due_on ? { due: b.due_on } : {}),
+          ...(b.paying === 'failed' ? { lastPayment: 'didn’t go through' } : {}),
+        })),
+        ...(list.length ? {} : { note: 'No bills on file for them.' }),
+      },
+    };
+  },
+
+  async send_payment_link(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.state.moneyAsk) return refused({ error: 'One request for money per reply.' });
+    const [bill] = await rows<{ number: string | null; status: string; balance_cents: string }>(
+      tx,
+      sql`select number, status::text as status, balance_cents::text as balance_cents from app.invoices
+          where id = ${String(args['invoiceId'])} and workspace_id = ${d.scope.workspaceId}
+            and person_id = ${d.rc.customer.id}`,
+    );
+    if (!bill)
+      return refused({ error: 'That isn’t one of their bills. Use an invoiceId from my_bills.' });
+    if (
+      !['sent', 'partly_paid', 'overdue'].includes(bill.status) ||
+      Number(bill.balance_cents) <= 0
+    )
+      return refused({ error: 'Nothing is owed on that bill.' });
+    const url = await invoiceUrlFor(tx, d.moneyLinks, String(args['invoiceId']));
+    if (!url) return refused({ error: 'That bill has no link to pay on.' });
+    const what = `${bill.number ?? 'their bill'} (${money(Number(bill.balance_cents))} owed)`;
+    const summary = `Send the link to pay ${what}`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [
+        { kind: 'share_link', document: 'invoice', documentId: String(args['invoiceId']), summary },
+      ],
+      message: `${String(args['message']).trim()} ${url}`,
+      summary,
+    });
+  },
+
+  async propose_bill(d, _tx, args) {
+    const built = fromCatalogue(d, args);
+    if ('error' in built) return refused(built);
+    const title = str(args['title']);
+    const summary = `Bill them ${money(built.totalCents)} for ${built.words}`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [{ kind: 'create_invoice', title, lines: built.lines, summary }],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
+  async my_quotes(d, tx) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const list = await rows<{
+      id: string;
+      number: string | null;
+      title: string | null;
+      status: string;
+      total_cents: string;
+      expires_on: string | null;
+    }>(
+      tx,
+      sql`select id, number, title, status::text as status, total_cents::text as total_cents,
+            expires_on::text as expires_on
+          from app.estimates
+          where workspace_id = ${d.scope.workspaceId} and person_id = ${d.rc.customer.id}
+            and status not in ('draft', 'void')
+          order by created_at desc limit ${MONEY_LIST_MAX}`,
+    );
+    return {
+      status: 'done',
+      content: {
+        quotes: list.map((q) => ({
+          estimateId: q.id,
+          what: quoteData(q.title ?? q.number ?? 'Quote'),
+          number: q.number,
+          total: money(Number(q.total_cents)),
+          status: q.status === 'sent' ? 'waiting on their answer' : q.status,
+          ...(q.expires_on && q.status === 'sent' ? { goodUntil: q.expires_on } : {}),
+        })),
+        ...(list.length ? {} : { note: 'No quotes on file for them.' }),
+      },
+    };
+  },
+
+  async send_quote(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.state.moneyAsk) return refused({ error: 'One request for money per reply.' });
+    const estimateId = String(args['estimateId']);
+    const quote = await theirQuote(d, tx, estimateId);
+    if (!quote)
+      return refused({
+        error: 'That isn’t one of their quotes. Use an estimateId from my_quotes.',
+      });
+    if (quote.status !== 'sent')
+      return refused({
+        error: `That quote is ${quote.status}, so there’s nothing to answer on it.`,
+      });
+    const url = await estimateUrlFor(tx, d.moneyLinks, estimateId);
+    if (!url) return refused({ error: 'That quote has no link.' });
+    const summary =
+      `Send the link to ${quote.number ?? 'their quote'} (${money(Number(quote.total_cents))})`.slice(
+        0,
+        300,
+      );
+    return askForMoney(d, {
+      actions: [{ kind: 'share_link', document: 'estimate', documentId: estimateId, summary }],
+      message: `${String(args['message']).trim()} ${url}`,
+      summary,
+    });
+  },
+
+  async propose_quote(d, _tx, args) {
+    const built = fromCatalogue(d, args);
+    if ('error' in built) return refused(built);
+    const summary = `Quote them ${money(built.totalCents)} for ${built.words}`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [
+        { kind: 'create_estimate', title: str(args['title']), lines: built.lines, summary },
+      ],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
+  async record_quote_answer(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.state.moneyAsk) return refused({ error: 'One request for money per reply.' });
+    const estimateId = String(args['estimateId']);
+    const quote = await theirQuote(d, tx, estimateId);
+    if (!quote)
+      return refused({
+        error: 'That isn’t one of their quotes. Use an estimateId from my_quotes.',
+      });
+    if (quote.status !== 'sent')
+      return refused({ error: `That quote is already ${quote.status}.` });
+    const accepted = args['accepted'] === true;
+    const reason = str(args['reason']);
+    const summary =
+      `Record that they ${accepted ? 'said yes to' : 'turned down'} ${quote.number ?? 'their quote'} (${money(Number(quote.total_cents))})${!accepted && reason ? `: ${reason}` : ''}`.slice(
+        0,
+        300,
+      );
+    return askForMoney(d, {
+      actions: [
+        {
+          kind: 'estimate_answer',
+          estimateId,
+          accepted,
+          name: String(args['name']),
+          reason,
+          summary,
+        },
+      ],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
+  async offer_plan(d, _tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const plan = d.rc.plans.find((p) => p.id === String(args['planId']));
+    if (!plan) return refused({ error: 'That isn’t one of the plans in your context.' });
+    const summary =
+      `Sign them up for ${plan.name} (${money(plan.priceCents)} ${planEvery(plan)})`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [{ kind: 'start_plan', planId: plan.id, summary }],
+      message: String(args['message']).trim(),
+      summary,
+    });
   },
 
   async offer_discount(d, _tx, args) {

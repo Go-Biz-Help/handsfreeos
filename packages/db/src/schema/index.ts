@@ -2679,6 +2679,8 @@ export const moneyOrigin = app.enum('money_origin', [
   'assistant',
   // Milestone 15: a form asked for it.
   'form',
+  // Milestone 18: the AI teammate put it together, and an owner or admin approved it.
+  'ai_teammate',
 ]);
 export const paymentProvider = app.enum('payment_provider', [
   'stripe',

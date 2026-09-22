@@ -59,6 +59,12 @@ import {
 } from '../schemas/ai-team';
 import { announceBooked } from './appointment';
 import {
+  estimateAnswerForCustomer,
+  estimateCreateForCustomer,
+  invoiceCreateForCustomer,
+  subscriptionStartForCustomer,
+} from './money-ai';
+import {
   assertBookable,
   bookingOutput,
   cancelBooking,
@@ -694,5 +700,51 @@ export async function runHeldAction(
       );
       return { kind: a.kind, appointmentId: null };
     }
+    // Money only ever sits in an approval draft; each command refuses without the approver on the actor.
+    case 'share_link':
+      // The approved message carries the link; there is nothing else to do.
+      return { kind: a.kind, appointmentId: null };
+    case 'create_invoice':
+      await executeCommandIn(
+        tx,
+        invoiceCreateForCustomer,
+        { workspaceId, title: a.title, lines: a.lines },
+        ai,
+        meta,
+      );
+      return { kind: a.kind, appointmentId: null };
+    case 'create_estimate':
+      await executeCommandIn(
+        tx,
+        estimateCreateForCustomer,
+        { workspaceId, title: a.title, lines: a.lines },
+        ai,
+        meta,
+      );
+      return { kind: a.kind, appointmentId: null };
+    case 'estimate_answer':
+      await executeCommandIn(
+        tx,
+        estimateAnswerForCustomer,
+        {
+          workspaceId,
+          estimateId: a.estimateId,
+          accepted: a.accepted,
+          name: a.name,
+          reason: a.reason,
+        },
+        ai,
+        meta,
+      );
+      return { kind: a.kind, appointmentId: null };
+    case 'start_plan':
+      await executeCommandIn(
+        tx,
+        subscriptionStartForCustomer,
+        { workspaceId, planId: a.planId },
+        ai,
+        meta,
+      );
+      return { kind: a.kind, appointmentId: null };
   }
 }

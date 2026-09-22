@@ -89,14 +89,7 @@ import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
 import { scheduleFollowUp } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
-import {
-  createExecutor,
-  newRunState,
-  toolDefinition,
-  type Discount,
-  type RunEnd,
-  type RunState,
-} from './tools';
+import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
 import {
   firstMessageTurn,
   handoverLines,
@@ -574,6 +567,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     state,
     tools,
     training: run.teammate.status === 'training',
+    moneyLinks: ctx.moneyLinks,
     log: ctx.log,
   });
   const onTurnUsage = (usage: AiUsage) =>
@@ -1040,22 +1034,40 @@ async function makeDraft(
   await insertDraft(tx, ctx, run, rc, 'reply', preview, `ai:${run.id}`, message?.body ?? null);
 }
 
-/** A discount waits for a manager in any mode: its own approval draft. */
-async function makeApproval(
+/**
+ * What waits for a manager in any mode, each in its own approval draft: a discount, and (M18) a request with
+ * money in it — a bill, a quote, an answer to a quote, a plan, or the link to pay or answer one already sent.
+ */
+async function makeApprovals(
   tx: Tx,
   ctx: JobContext,
   run: StartedRun,
   rc: RunContext,
-  discount: Discount,
+  state: RunState,
 ): Promise<void> {
   const channel = rc.conversation.channel;
-  const body = channel === 'sms' ? plainSmsText(discount.message) : discount.message.trim();
-  const preview = TeammateDraftPreview.parse({
-    message: { channel, body, subject: null, inReplyToMessageId: null },
-    actions: [],
-    discount: { percent: discount.percent, reason: discount.reason.slice(0, 300) },
-  });
-  await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:d`, body);
+  const bodyOf = (text: string) => (channel === 'sms' ? plainSmsText(text) : text.trim());
+  if (state.discount) {
+    const body = bodyOf(state.discount.message);
+    const preview = TeammateDraftPreview.parse({
+      message: { channel, body, subject: null, inReplyToMessageId: null },
+      actions: [],
+      discount: {
+        percent: state.discount.percent,
+        reason: state.discount.reason.slice(0, 300),
+      },
+    });
+    await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:d`, body);
+  }
+  if (state.moneyAsk) {
+    const body = bodyOf(state.moneyAsk.message);
+    const preview = TeammateDraftPreview.parse({
+      message: { channel, body, subject: null, inReplyToMessageId: null },
+      actions: state.moneyAsk.actions,
+      discount: null,
+    });
+    await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:m`, body);
+  }
 }
 
 async function insertDraft(
@@ -1190,7 +1202,7 @@ async function finish(
           body === null ? null : { body, subject: null },
           latest,
         );
-      if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
+      await makeApprovals(tx, ctx, run, rc, state);
       await markAnswered(tx, conversationId, through, false);
       const outcome = drafted ? 'drafted' : 'no_reply';
       await closeRun(tx, run.id, {
@@ -1261,7 +1273,7 @@ async function finish(
       return none;
     }
     await markAnswered(tx, conversationId, through, body !== null && disclosesAi(body));
-    if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
+    await makeApprovals(tx, ctx, run, rc, state);
     const outcome = body !== null ? 'replied' : 'no_reply';
     await closeRun(tx, run.id, {
       ...common,

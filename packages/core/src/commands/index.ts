@@ -236,6 +236,12 @@ import {
   waitlistJoinForCustomer,
 } from './appointment-ai';
 import {
+  estimateAnswerForCustomer,
+  estimateCreateForCustomer,
+  invoiceCreateForCustomer,
+  subscriptionStartForCustomer,
+} from './money-ai';
+import {
   conversationHandOff,
   conversationHandToAi,
   conversationPickUp,
@@ -687,6 +693,10 @@ export const commands: readonly CommandDef[] = [
   attendeeCancelForCustomer,
   seriesBookForCustomer,
   waitlistJoinForCustomer,
+  invoiceCreateForCustomer,
+  estimateCreateForCustomer,
+  estimateAnswerForCustomer,
+  subscriptionStartForCustomer,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -764,6 +774,7 @@ export * from './workflow-template';
 export * from './knowledge';
 export * from './ai-team';
 export * from './appointment-ai';
+export * from './money-ai';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

@@ -76,6 +76,22 @@ export const DraftMessage = z.object({
 });
 export type DraftMessage = z.infer<typeof DraftMessage>;
 
+/** One line of a bill or a quote the teammate puts together: a product on the price list and how many. */
+export const CatalogueLine = z.object({
+  productId: uuid,
+  quantity: z.number().gt(0).max(10_000),
+});
+export type CatalogueLine = z.infer<typeof CatalogueLine>;
+
+/** The held changes that ask for money: only ever in an approval draft (M18). */
+export const MONEY_DRAFT_ACTIONS = [
+  'share_link',
+  'create_invoice',
+  'create_estimate',
+  'estimate_answer',
+  'start_plan',
+] as const;
+
 /** How often repeat visits come round: every week, or every month on the same weekday ("2nd Tuesday"). */
 export const REPEAT_EVERY = ['week', 'month'] as const;
 export const repeatEvery = z.enum(REPEAT_EVERY);
@@ -106,6 +122,45 @@ export const DraftAction = z.discriminatedUnion('kind', [
     times: z.int().min(2).max(52),
     notes: z.string().trim().max(1000).nullable().default(null),
     postalCode: z.string().trim().max(20).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /**
+   * M18, money: these only ever sit in an **approval** draft, which an owner or admin decides in every mode. A bill
+   * or a quote is priced from the catalogue when it goes out, never by the model.
+   */
+  /**
+   * The link to pay a bill or answer a quote already sent: the draft's message carries it, so approving sends
+   * that and changes nothing else. It is here so the card says what the message is for.
+   */
+  z.object({
+    kind: z.literal('share_link'),
+    document: z.enum(['invoice', 'estimate']),
+    documentId: uuid,
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('create_invoice'),
+    title: z.string().trim().max(200).nullable().default(null),
+    lines: z.array(CatalogueLine).min(1).max(20),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('create_estimate'),
+    title: z.string().trim().max(200).nullable().default(null),
+    lines: z.array(CatalogueLine).min(1).max(20),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('estimate_answer'),
+    estimateId: uuid,
+    accepted: z.boolean(),
+    name: z.string().trim().min(1).max(120),
+    reason: z.string().trim().max(1000).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('start_plan'),
+    planId: uuid,
     summary: z.string().trim().max(300).default(''),
   }),
   /** M18: a place on a calendar's waitlist, for a full session or a window of time. */
@@ -264,8 +319,15 @@ export const AiTeammateSendDraftOutput = z.object({
   messageId: uuid.nullable(),
   actions: z.array(
     z.object({
-      kind: z.enum(['book', 'reschedule', 'cancel', 'book_series', 'waitlist']),
-      /** The visit it made or changed (the first of a series); null for a waitlist place. */
+      kind: z.enum([
+        'book',
+        'reschedule',
+        'cancel',
+        'book_series',
+        'waitlist',
+        ...MONEY_DRAFT_ACTIONS,
+      ]),
+      /** The visit it made or changed (the first of a series); null for a waitlist place or money. */
       appointmentId: uuid.nullable(),
     }),
   ),
@@ -359,6 +421,24 @@ export const SeriesBookForCustomerOutput = z.object({
   skipped: z.array(z.object({ date: z.string(), startsAt: isoDateTime, reason: z.string() })),
   duplicate: z.boolean(),
 });
+// ---------- money the teammate asks for (M18) ----------
+
+export const InvoiceCreateForCustomerInput = z.object({
+  workspaceId: uuid,
+  title: z.string().trim().min(1).max(200).nullable().default(null),
+  lines: z.array(CatalogueLine).min(1).max(20),
+});
+export const EstimateCreateForCustomerInput = InvoiceCreateForCustomerInput;
+export const EstimateAnswerForCustomerInput = z.object({
+  workspaceId: uuid,
+  estimateId: uuid,
+  accepted: z.boolean(),
+  /** Who said it, as they gave their name. */
+  name: z.string().trim().min(1).max(120),
+  reason: z.string().trim().max(1000).nullable().optional(),
+});
+export const SubscriptionStartForCustomerInput = z.object({ workspaceId: uuid, planId: uuid });
+
 export const WaitlistJoinForCustomerInput = z
   .object({
     workspaceId: uuid,

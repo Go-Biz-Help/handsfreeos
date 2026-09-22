@@ -179,7 +179,21 @@ export type DraftActionFacts =
   | { readonly kind: 'reschedule'; readonly startsAt: string; readonly summary: string }
   | { readonly kind: 'cancel'; readonly summary: string }
   | { readonly kind: 'book_series'; readonly startsAt: string; readonly summary: string }
-  | { readonly kind: 'waitlist'; readonly summary: string };
+  | { readonly kind: 'waitlist'; readonly summary: string }
+  | { readonly kind: MoneyDraftActionKind; readonly summary: string };
+
+/** The changes that ask the customer for money (M18): only ever in an approval draft. */
+export type MoneyDraftActionKind =
+  'share_link' | 'create_invoice' | 'create_estimate' | 'estimate_answer' | 'start_plan';
+export const MONEY_ACTION_KINDS: readonly MoneyDraftActionKind[] = [
+  'share_link',
+  'create_invoice',
+  'create_estimate',
+  'estimate_answer',
+  'start_plan',
+];
+const isMoneyAction = (kind: string): kind is MoneyDraftActionKind =>
+  (MONEY_ACTION_KINDS as readonly string[]).includes(kind);
 
 /** What a draft holds, for its words. */
 export interface DraftFacts {
@@ -197,7 +211,7 @@ export interface DraftFacts {
 /** "Will book Thu, Sep 24 at 9:00 AM on AC tune-up", from what the teammate wrote down when it held it. */
 export function draftActionLine(a: DraftActionFacts): string {
   const summary = a.summary.trim();
-  if (/^(book|move|cancel|add)\b/i.test(summary))
+  if (/^(book|move|cancel|add|send|bill|quote|record|sign)\b/i.test(summary))
     return `Will ${summary[0]!.toLowerCase()}${summary.slice(1)}`;
   const at = 'startsAt' in a ? plainSpaces(new Date(a.startsAt).toLocaleString('en-US')) : '';
   switch (a.kind) {
@@ -211,6 +225,16 @@ export function draftActionLine(a: DraftActionFacts): string {
       return `Will book repeat visits${at ? ` from ${at}` : ''}`;
     case 'waitlist':
       return 'Will add them to the waitlist';
+    case 'share_link':
+      return 'Will send the link in the message';
+    case 'create_invoice':
+      return 'Will send them a bill';
+    case 'create_estimate':
+      return 'Will send them a quote';
+    case 'estimate_answer':
+      return 'Will record their answer to the quote';
+    case 'start_plan':
+      return 'Will sign them up for a plan';
   }
 }
 
@@ -220,13 +244,26 @@ export const CHANNEL_WORD: Readonly<Record<string, string>> = {
   chat: 'website chat',
 };
 
+/** "asks to send … a bill": what each money request asks an owner for, before the customer's name. */
+const MONEY_ASKS: Readonly<Record<MoneyDraftActionKind, string>> = {
+  share_link: 'send a link to',
+  create_invoice: 'send a bill to',
+  create_estimate: 'send a quote to',
+  estimate_answer: 'record the answer to a quote from',
+  start_plan: 'sign up for a plan:',
+};
+
 /** "Ava’s reply to Mike Johnson, with a booking"; "Ava asks to offer Mike Johnson 10% off". */
 export function draftTitle(d: DraftFacts): string {
   const who = d.person?.fullName ?? 'a customer';
-  if (d.kind === 'approval')
-    return d.preview.discount
-      ? `${d.teammate.name} asks to offer ${who} ${d.preview.discount.percent}% off`
+  if (d.kind === 'approval') {
+    if (d.preview.discount)
+      return `${d.teammate.name} asks to offer ${who} ${d.preview.discount.percent}% off`;
+    const money = d.preview.actions.find((a) => isMoneyAction(a.kind));
+    return money
+      ? `${d.teammate.name} asks to ${MONEY_ASKS[money.kind as MoneyDraftActionKind]} ${who}`
       : `${d.teammate.name} asks for your OK about ${who}`;
+  }
   const kinds = new Set(d.preview.actions.map((a) => a.kind));
   const extra = kinds.has('book')
     ? ', with a booking'
@@ -249,6 +286,9 @@ export function draftShort(d: DraftFacts): string {
   const name = d.teammate.name;
   if (d.kind === 'approval' && d.preview.discount)
     return `${name} asks to offer ${d.preview.discount.percent}% off`;
+  const money = d.kind === 'approval' ? d.preview.actions.find((a) => isMoneyAction(a.kind)) : null;
+  if (money)
+    return `${name} asks to ${money.summary.trim() ? draftActionLine(money).replace(/^Will /, '') : MONEY_ASKS[money.kind as MoneyDraftActionKind]}`;
   const book = d.preview.actions.find((a) => a.kind === 'book');
   if (book) {
     const when = /^Book (.+?) on .+$/.exec(book.summary.trim())?.[1];

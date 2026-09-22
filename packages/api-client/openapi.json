@@ -26568,7 +26568,8 @@
                       "subscription",
                       "workflow",
                       "assistant",
-                      "form"
+                      "form",
+                      "ai_teammate"
                     ]
                   },
                   "estimateId": {
@@ -63551,6 +63552,238 @@
                                         "kind": {
                                           "type": "string",
                                           "enum": [
+                                            "share_link"
+                                          ]
+                                        },
+                                        "document": {
+                                          "type": "string",
+                                          "enum": [
+                                            "invoice",
+                                            "estimate"
+                                          ]
+                                        },
+                                        "documentId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "document",
+                                        "documentId",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "create_invoice"
+                                          ]
+                                        },
+                                        "title": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 200
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "lines": {
+                                          "minItems": 1,
+                                          "maxItems": 20,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "productId": {
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                              },
+                                              "quantity": {
+                                                "type": "number",
+                                                "exclusiveMinimum": 0,
+                                                "maximum": 10000
+                                              }
+                                            },
+                                            "required": [
+                                              "productId",
+                                              "quantity"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "title",
+                                        "lines",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "create_estimate"
+                                          ]
+                                        },
+                                        "title": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 200
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "lines": {
+                                          "minItems": 1,
+                                          "maxItems": 20,
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "properties": {
+                                              "productId": {
+                                                "type": "string",
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                              },
+                                              "quantity": {
+                                                "type": "number",
+                                                "exclusiveMinimum": 0,
+                                                "maximum": 10000
+                                              }
+                                            },
+                                            "required": [
+                                              "productId",
+                                              "quantity"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "title",
+                                        "lines",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "estimate_answer"
+                                          ]
+                                        },
+                                        "estimateId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "accepted": {
+                                          "type": "boolean"
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 120
+                                        },
+                                        "reason": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 1000
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "estimateId",
+                                        "accepted",
+                                        "name",
+                                        "reason",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "start_plan"
+                                          ]
+                                        },
+                                        "planId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "planId",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
                                             "waitlist"
                                           ]
                                         },
@@ -69074,7 +69307,8 @@
                               "subscription",
                               "workflow",
                               "assistant",
-                              "form"
+                              "form",
+                              "ai_teammate"
                             ]
                           },
                           "title": {
@@ -69474,7 +69708,8 @@
                             "subscription",
                             "workflow",
                             "assistant",
-                            "form"
+                            "form",
+                            "ai_teammate"
                           ]
                         },
                         "title": {
@@ -71872,7 +72107,8 @@
                               "subscription",
                               "workflow",
                               "assistant",
-                              "form"
+                              "form",
+                              "ai_teammate"
                             ]
                           },
                           "title": {

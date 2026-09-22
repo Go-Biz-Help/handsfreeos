@@ -255,6 +255,8 @@ type ToolFacts = {
   served?: boolean | null;
   /** set_deal_value: what it set, in words. */
   value?: string;
+  /** A money tool: what it asked an owner or admin for (M18). */
+  asked?: string;
 };
 type ToolCallRow = {
   tool: string;
@@ -299,6 +301,7 @@ const TOOL_FACTS = sql`jsonb_strip_nulls(jsonb_build_object(
     when tc.result #> '{content,words}' is not null then false end,
   'zip', left(tc.arguments ->> 'postalCode', 12),
   'value', left(tc.result #>> '{content,value}', 40),
+  'asked', left(tc.result #>> '{effect,moneyAsk,summary}', 300),
   'served', case when jsonb_typeof(tc.result #> '{content,served}') = 'boolean'
     then tc.result #> '{content,served}' end
 ))`;
@@ -436,6 +439,13 @@ function toolCallSummary(c: ToolCallRow): string | null {
       return f.title ? clip(f.title, 120) : null;
     case 'offer_discount':
       return typeof f.percent === 'number' ? `${f.percent}% off, waiting for an OK` : null;
+    case 'send_payment_link':
+    case 'propose_bill':
+    case 'send_quote':
+    case 'propose_quote':
+    case 'record_quote_answer':
+    case 'offer_plan':
+      return f.asked ? `${clip(f.asked, 150)}, waiting for an OK` : null;
     case 'hand_off':
       return f.note ? clip(f.note, 160) : null;
     case 'no_reply':

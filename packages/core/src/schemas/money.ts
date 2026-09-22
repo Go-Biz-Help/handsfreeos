@@ -49,6 +49,8 @@ export const MONEY_ORIGINS = [
   'assistant',
   /** A form asked for it (M15). */
   'form',
+  /** The AI teammate put it together and an owner or admin approved it (M18). */
+  'ai_teammate',
 ] as const;
 export type MoneyOrigin = (typeof MONEY_ORIGINS)[number];
 

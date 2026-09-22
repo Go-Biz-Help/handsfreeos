@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   applyTeammatePatch,
+  type TeammatePatch,
   TEAMMATE_TOOL_NAMES,
   TEAMMATE_TOOLS,
   TEAMMATE_TURN_ENDERS,
@@ -58,6 +59,14 @@ describe('the registry', () => {
       ['add_note', 'core', 'auto'],
       ['create_task', 'core', 'auto'],
       ['offer_discount', 'discounts', 'approval'],
+      ['my_bills', 'bills', 'auto'],
+      ['send_payment_link', 'bills', 'approval'],
+      ['propose_bill', 'newBills', 'approval'],
+      ['my_quotes', 'quotes', 'auto'],
+      ['send_quote', 'quotes', 'approval'],
+      ['propose_quote', 'buildQuotes', 'approval'],
+      ['record_quote_answer', 'quotes', 'approval'],
+      ['offer_plan', 'plans', 'approval'],
       ['hand_off', 'core', 'auto'],
       ['reply', 'core', 'draft'],
       ['no_reply', 'core', 'auto'],
@@ -78,6 +87,12 @@ describe('the registry', () => {
     ]);
     expect(TEAMMATE_TOOLS.filter((t) => t.autonomy === 'approval').map((t) => t.name)).toEqual([
       'offer_discount',
+      'send_payment_link',
+      'propose_bill',
+      'send_quote',
+      'propose_quote',
+      'record_quote_answer',
+      'offer_plan',
     ]);
     expect(TEAMMATE_TOOLS.map((t) => t.name)).not.toContain('refund');
     for (const t of TEAMMATE_TOOLS) expect(t.name).not.toMatch(/delete|archive|refund/);
@@ -208,6 +223,26 @@ describe('teammateTools', () => {
     const on = applyTeammatePatch(responder, { deals: { enabled: true } });
     expect(names(on)).toEqual(expect.arrayContaining(deals));
     for (const t of deals) expect(names(on, true)).not.toContain(t);
+  });
+
+  it('turns on the money tools with their switches, never for an unverified chat visitor (M18)', () => {
+    const money = (patch: TeammatePatch['money']) =>
+      names(applyTeammatePatch(responder, { money: patch }));
+    expect(money({ bills: true })).toEqual(
+      expect.arrayContaining(['my_bills', 'send_payment_link']),
+    );
+    expect(money({ newBills: true })).toContain('propose_bill');
+    expect(money({ quotes: 'send_only' })).not.toContain('propose_quote');
+    expect(money({ quotes: 'send_only' })).toEqual(
+      expect.arrayContaining(['my_quotes', 'send_quote', 'record_quote_answer']),
+    );
+    expect(money({ quotes: 'build' })).toContain('propose_quote');
+    expect(money({ plans: true })).toContain('offer_plan');
+    const all = applyTeammatePatch(responder, {
+      money: { bills: true, newBills: true, quotes: 'build', plans: true },
+    });
+    for (const t of ['my_bills', 'propose_bill', 'my_quotes', 'offer_plan'])
+      expect(names(all, true)).not.toContain(t);
   });
 
   it('follows the waitlist, repeats and service area switches (M18)', () => {

@@ -54,7 +54,14 @@ import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { systemActor, type TenantScope } from '../services';
 import { runtimeConfigOf } from './config';
-import { HELD_MAX, MAX_TOKENS, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
+import {
+  HELD_MAX,
+  MAX_TOKENS,
+  MONEY_LIST_MAX,
+  SEARCH_MATCHES,
+  TIMES_MAX_DAYS,
+  TIMES_SHOWN,
+} from './constants';
 import {
   loadRunContext,
   upcomingAppointments,
@@ -103,6 +110,7 @@ type WouldKind =
   | 'stage'
   | 'answers'
   | 'discount'
+  | 'money'
   | 'form'
   | 'hand_off';
 type Outcome = 'replied' | 'drafted' | 'handed_off' | 'no_reply';
@@ -356,6 +364,8 @@ const NO_CALLS = 'That isn’t a call in this conversation. Use a callId the his
 const CHAT_REFUSAL =
   'In website chat you can’t see or change existing bookings or records. Tell them the link in their confirmation changes a booking, or hand off.';
 const DONE_NOTE = 'It happens as your reply goes out. You can tell them it’s done.';
+const MONEY_NOTE =
+  'An owner or admin decides before the customer gets anything. In your reply, say only that you’ve asked the team.';
 
 async function theirVisits(h: Hands) {
   if (!h.rc.customer || h.rc.unverifiedChat) return null;
@@ -696,6 +706,123 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       return refuse('Say why it was lost, in their words.');
     would(h, 'stage', `marked ${h.rc.lead.title} ${outcome}`);
     return { content: { status: outcome } };
+  },
+
+  // Money (M18): the look-ups are real; what would ask an owner for money is only described.
+  async my_bills(h) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    const customerId = h.rc.customer.id;
+    const list = await asWorker(h.deps.db, h.t.scope, (tx) =>
+      rows<{ id: string; number: string | null; status: string; balance_cents: string }>(
+        tx,
+        sql`select id, number, status::text as status, balance_cents::text as balance_cents
+            from app.invoices where workspace_id = ${h.t.scope.workspaceId} and person_id = ${customerId}
+              and status not in ('draft', 'void')
+            order by created_at desc limit ${MONEY_LIST_MAX}`,
+      ),
+    );
+    h.send({
+      type: 'tool',
+      name: 'my_bills',
+      title: 'Looked up their bills',
+      detail: list.length
+        ? list.map((b) => `${b.number ?? 'Bill'}: ${b.status.replace('_', ' ')}`).join('; ')
+        : 'None on file.',
+      at: nowIso(),
+    });
+    return {
+      content: {
+        bills: list.map((b) => ({
+          invoiceId: b.id,
+          number: b.number,
+          owed: money(Number(b.balance_cents)),
+          status: b.status.replace('_', ' '),
+        })),
+      },
+    };
+  },
+
+  async send_payment_link(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    would(h, 'money', `asked an owner to send a pay link: “${String(args['message'])}”`);
+    return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
+  },
+
+  async propose_bill(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    would(
+      h,
+      'money',
+      `asked an owner to send a bill${str(args['title']) ? ` for ${String(args['title'])}` : ''}`,
+    );
+    return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
+  },
+
+  async my_quotes(h) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    const customerId = h.rc.customer.id;
+    const list = await asWorker(h.deps.db, h.t.scope, (tx) =>
+      rows<{ id: string; number: string | null; status: string; total_cents: string }>(
+        tx,
+        sql`select id, number, status::text as status, total_cents::text as total_cents
+            from app.estimates where workspace_id = ${h.t.scope.workspaceId} and person_id = ${customerId}
+              and status not in ('draft', 'void')
+            order by created_at desc limit ${MONEY_LIST_MAX}`,
+      ),
+    );
+    h.send({
+      type: 'tool',
+      name: 'my_quotes',
+      title: 'Looked up their quotes',
+      detail: list.length
+        ? list.map((q) => `${q.number ?? 'Quote'}: ${q.status}`).join('; ')
+        : 'None on file.',
+      at: nowIso(),
+    });
+    return {
+      content: {
+        quotes: list.map((q) => ({
+          estimateId: q.id,
+          number: q.number,
+          total: money(Number(q.total_cents)),
+          status: q.status,
+        })),
+      },
+    };
+  },
+
+  async send_quote(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    would(h, 'money', `asked an owner to send a quote’s link: “${String(args['message'])}”`);
+    return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
+  },
+
+  async propose_quote(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    would(
+      h,
+      'money',
+      `asked an owner to send a quote${str(args['title']) ? ` for ${String(args['title'])}` : ''}`,
+    );
+    return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
+  },
+
+  async record_quote_answer(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    would(
+      h,
+      'money',
+      `asked an owner to record a ${args['accepted'] === true ? 'yes' : 'no'} to a quote`,
+    );
+    return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
+  },
+
+  async offer_plan(h, args) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    const plan = h.rc.plans.find((p) => p.id === String(args['planId']));
+    if (!plan) return refuse('That isn’t one of the plans in your context.');
+    would(h, 'money', `asked an owner to sign them up for ${plan.name}`);
+    return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
   },
 
   async record_answers(h, args) {

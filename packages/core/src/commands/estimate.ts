@@ -13,6 +13,7 @@
  * given on the phone (`estimate.mark_accepted`) — in their own name, marked `staff`, never as the customer.
  */
 import { eq, sql as dsql } from 'drizzle-orm';
+import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { estimates } from '@hfos/db/schema';
 import { requirePerson, workspaceTimezone } from '../crm/records';
@@ -129,6 +130,53 @@ async function hashOf(ctx: CommandContext, row: EstimateRow): Promise<string> {
 
 // ---------- writing one ----------
 
+/**
+ * A new draft estimate, as a person starts one or as the AI teammate does once a person has approved it (M18).
+ * `by` is who it is from: its assignee unless one is named, and who created it.
+ */
+export async function createEstimate(
+  ctx: CommandContext,
+  input: z.infer<typeof EstimateCreateInput>,
+  by: string | null,
+) {
+  const ws = ctx.scope.workspaceId!;
+  await requirePerson(ctx.tx, ws, input.personId);
+  const settings = await loadMoneySettings(ctx.tx, ws);
+  const draft = draftOf(input.lines, settings, {
+    discount: input.discount,
+    // Left out, the business's default deposit is what it asks for.
+    deposit: input.deposit ?? settings.deposit,
+  });
+  const [row] = await ctx.tx
+    .insert(estimates)
+    .values({
+      workspaceId: ws,
+      // The Drizzle mirror leaves the column's own default off, so the database's generator is named here.
+      publicRef: dsql`private.new_public_ref()`,
+      personId: input.personId,
+      leadId: input.leadId ?? null,
+      assigneeUserId: input.assigneeUserId ?? by,
+      title: input.title ?? null,
+      notes: input.notes ?? (settings.notes.estimate || null),
+      expiresOn: input.expiresOn ?? null,
+      ...totalsColumns(draft),
+      ...depositColumns(draft),
+      createdBy: by,
+    })
+    .returning({ id: estimates.id });
+  if (!row) throw HfosError.forbidden();
+  await writeLines(ctx, 'estimate', row.id, input.lines);
+  const fresh = await requireEstimate(ctx, row.id);
+  await ctx.emit({
+    type: 'estimate.created',
+    entityType: 'estimate',
+    entityId: fresh.id,
+    payload: subjectOf(fresh),
+    after: { total: money(Number(fresh.total_cents)), lines: input.lines.length },
+  });
+  return stateOut(fresh, true);
+}
+
 export const estimateCreate = defineCommand({
   name: 'estimate.create',
   description:
@@ -140,43 +188,7 @@ export const estimateCreate = defineCommand({
   scope: inWorkspace,
   emits: ['estimate.created'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
-    const ws = ctx.scope.workspaceId!;
-    await requirePerson(ctx.tx, ws, input.personId);
-    const settings = await loadMoneySettings(ctx.tx, ws);
-    const draft = draftOf(input.lines, settings, {
-      discount: input.discount,
-      // Left out, the business's default deposit is what it asks for.
-      deposit: input.deposit ?? settings.deposit,
-    });
-    const [row] = await ctx.tx
-      .insert(estimates)
-      .values({
-        workspaceId: ws,
-        // The Drizzle mirror leaves the column's own default off, so the database's generator is named here.
-        publicRef: dsql`private.new_public_ref()`,
-        personId: input.personId,
-        leadId: input.leadId ?? null,
-        assigneeUserId: input.assigneeUserId ?? me,
-        title: input.title ?? null,
-        notes: input.notes ?? (settings.notes.estimate || null),
-        expiresOn: input.expiresOn ?? null,
-        ...totalsColumns(draft),
-        ...depositColumns(draft),
-        createdBy: me,
-      })
-      .returning({ id: estimates.id });
-    if (!row) throw HfosError.forbidden();
-    await writeLines(ctx, 'estimate', row.id, input.lines);
-    const fresh = await requireEstimate(ctx, row.id);
-    await ctx.emit({
-      type: 'estimate.created',
-      entityType: 'estimate',
-      entityId: fresh.id,
-      payload: subjectOf(fresh),
-      after: { total: money(Number(fresh.total_cents)), lines: input.lines.length },
-    });
-    return stateOut(fresh, true);
+    return createEstimate(ctx, input, requireHuman(ctx).userId);
   },
 });
 
@@ -249,6 +261,54 @@ export const estimateUpdate = defineCommand({
   },
 });
 
+/** Sends a draft estimate: its number, when it went, and the worker's text or email with the link. */
+export async function sendEstimate(ctx: CommandContext, input: z.infer<typeof EstimateSendInput>) {
+  const ws = ctx.scope.workspaceId!;
+  const before = await requireEstimate(ctx, input.estimateId);
+  // A second send is refused: an estimate that has gone out keeps its number and when it went.
+  assertMove(before, 'sent');
+  const lines = (await linesFor(ctx.tx, 'estimate', [before.id])).get(before.id) ?? [];
+  if (!lines.length)
+    throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
+  const settings = await loadMoneySettings(ctx.tx, ws);
+  const tz = await workspaceTimezone(ctx.tx, ws);
+  // The counter row is locked and incremented here, so two people sending at once can't share a number.
+  const { number } = await allocateDocumentNumber(ctx.tx, ws, 'estimate', settings);
+  const expiresOn = before.expires_on ?? addDays(businessToday(tz), settings.estimateGoodForDays);
+  await ctx.tx
+    .update(estimates)
+    .set({
+      status: 'sent',
+      number,
+      expiresOn,
+      // The guard replaces this with the database's own clock.
+      sentAt: dsql`now()`,
+    })
+    .where(eq(estimates.id, before.id));
+  const fresh = await requireEstimate(ctx, before.id);
+  await ctx.emit({
+    type: 'estimate.sent',
+    entityType: 'estimate',
+    entityId: fresh.id,
+    payload: {
+      ...subjectOf(fresh),
+      publicRef: fresh.public_ref,
+      linkVersion: fresh.link_version,
+      channels: input.channels,
+      message: input.message,
+      expiresOn,
+      depositCents: depositOf(fresh),
+    },
+    before: { status: before.status },
+    after: {
+      estimate: number,
+      total: money(Number(fresh.total_cents)),
+      sentBy: input.channels.join(', '),
+    },
+  });
+  return stateOut(fresh, true);
+}
+
 export const estimateSend = defineCommand({
   name: 'estimate.send',
   description:
@@ -262,50 +322,7 @@ export const estimateSend = defineCommand({
   offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     requireHuman(ctx);
-    const ws = ctx.scope.workspaceId!;
-    const before = await requireEstimate(ctx, input.estimateId);
-    // A second send is refused: an estimate that has gone out keeps its number and when it went.
-    assertMove(before, 'sent');
-    const lines = (await linesFor(ctx.tx, 'estimate', [before.id])).get(before.id) ?? [];
-    if (!lines.length)
-      throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
-    const settings = await loadMoneySettings(ctx.tx, ws);
-    const tz = await workspaceTimezone(ctx.tx, ws);
-    // The counter row is locked and incremented here, so two people sending at once can't share a number.
-    const { number } = await allocateDocumentNumber(ctx.tx, ws, 'estimate', settings);
-    const expiresOn = before.expires_on ?? addDays(businessToday(tz), settings.estimateGoodForDays);
-    await ctx.tx
-      .update(estimates)
-      .set({
-        status: 'sent',
-        number,
-        expiresOn,
-        // The guard replaces this with the database's own clock.
-        sentAt: dsql`now()`,
-      })
-      .where(eq(estimates.id, before.id));
-    const fresh = await requireEstimate(ctx, before.id);
-    await ctx.emit({
-      type: 'estimate.sent',
-      entityType: 'estimate',
-      entityId: fresh.id,
-      payload: {
-        ...subjectOf(fresh),
-        publicRef: fresh.public_ref,
-        linkVersion: fresh.link_version,
-        channels: input.channels,
-        message: input.message,
-        expiresOn,
-        depositCents: depositOf(fresh),
-      },
-      before: { status: before.status },
-      after: {
-        estimate: number,
-        total: money(Number(fresh.total_cents)),
-        sentBy: input.channels.join(', '),
-      },
-    });
-    return stateOut(fresh, true);
+    return sendEstimate(ctx, input);
   },
 });
 
@@ -347,6 +364,58 @@ export const estimateVoid = defineCommand({
   },
 });
 
+/**
+ * A yes the customer gave somewhere other than their own page, recorded as staff in the name of `by`: the person
+ * who took it on the phone, or who approved the AI teammate's record of it (M18). Never as the customer.
+ */
+export async function recordStaffAcceptance(
+  ctx: CommandContext,
+  input: z.infer<typeof EstimateMarkAcceptedInput>,
+  by: string,
+) {
+  const before = await requireEstimate(ctx, input.estimateId);
+  assertMove(before, 'accepted');
+  const tz = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
+  const hash = await hashOf(ctx, before);
+  const wording = `Approved by ${input.name} — recorded by staff${input.note ? `: ${input.note}` : ''}`;
+  // The guard checks accepted_by is the caller and writes accepted_at from the database's clock.
+  await ctx.tx
+    .update(estimates)
+    .set({
+      status: 'accepted',
+      acceptedAt: dsql`now()`,
+      acceptedVia: 'staff',
+      acceptedBy: by,
+      acceptedName: input.name,
+      acceptedWording: wording,
+      acceptedHash: hash,
+    })
+    .where(eq(estimates.id, before.id));
+  const fresh = await requireEstimate(ctx, before.id);
+  const at = isoAt(fresh.accepted_at!);
+  await ctx.emit({
+    type: 'estimate.accepted',
+    entityType: 'estimate',
+    entityId: fresh.id,
+    payload: { ...subjectOf(fresh), via: 'staff', name: input.name, acceptedAt: at },
+    before: { status: before.status },
+    after: {
+      estimate: nameOf(fresh),
+      approved: acceptedWording(input.name, at, tz),
+      by: 'staff',
+    },
+  });
+  return {
+    estimateId: fresh.id,
+    status: fresh.status,
+    acceptedAt: at,
+    acceptedName: input.name,
+    acceptedVia: 'staff' as const,
+    acceptedHash: hash,
+    wording,
+  };
+}
+
 export const estimateMarkAccepted = defineCommand({
   name: 'estimate.mark_accepted',
   description:
@@ -358,48 +427,7 @@ export const estimateMarkAccepted = defineCommand({
   scope: inWorkspace,
   emits: ['estimate.accepted'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
-    const before = await requireEstimate(ctx, input.estimateId);
-    assertMove(before, 'accepted');
-    const tz = await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!);
-    const hash = await hashOf(ctx, before);
-    const wording = `Approved by ${input.name} — recorded by staff${input.note ? `: ${input.note}` : ''}`;
-    // The guard checks accepted_by is the caller and writes accepted_at from the database's clock.
-    await ctx.tx
-      .update(estimates)
-      .set({
-        status: 'accepted',
-        acceptedAt: dsql`now()`,
-        acceptedVia: 'staff',
-        acceptedBy: me,
-        acceptedName: input.name,
-        acceptedWording: wording,
-        acceptedHash: hash,
-      })
-      .where(eq(estimates.id, before.id));
-    const fresh = await requireEstimate(ctx, before.id);
-    const at = isoAt(fresh.accepted_at!);
-    await ctx.emit({
-      type: 'estimate.accepted',
-      entityType: 'estimate',
-      entityId: fresh.id,
-      payload: { ...subjectOf(fresh), via: 'staff', name: input.name, acceptedAt: at },
-      before: { status: before.status },
-      after: {
-        estimate: nameOf(fresh),
-        approved: acceptedWording(input.name, at, tz),
-        by: 'staff',
-      },
-    });
-    return {
-      estimateId: fresh.id,
-      status: fresh.status,
-      acceptedAt: at,
-      acceptedName: input.name,
-      acceptedVia: 'staff' as const,
-      acceptedHash: hash,
-      wording,
-    };
+    return recordStaffAcceptance(ctx, input, requireHuman(ctx).userId);
   },
 });
 
@@ -563,6 +591,46 @@ export const estimateAcceptOnline = defineCommand({
   },
 });
 
+/** A no from the customer: on their own page, or told to the AI teammate and approved by a person (M18). */
+export async function declineEstimate(
+  ctx: CommandContext,
+  input: z.infer<typeof EstimateDeclineOnlineInput>,
+  opts: { readonly onTheirPage: boolean },
+) {
+  const before = await requireEstimate(ctx, input.estimateId);
+  assertMove(before, 'declined');
+  await ctx.tx
+    .update(estimates)
+    .set({
+      status: 'declined',
+      declinedAt: dsql`now()`,
+      declinedReason: input.reason,
+      // Declining on their page is seeing it; a no in a conversation says nothing about the page.
+      ...(opts.onTheirPage
+        ? {
+            lastViewedAt: dsql`now()`,
+            firstViewedAt: dsql`coalesce(${estimates.firstViewedAt}, now())`,
+          }
+        : {}),
+    })
+    .where(eq(estimates.id, before.id));
+  const fresh = await requireEstimate(ctx, before.id);
+  await ctx.emit({
+    type: 'estimate.declined',
+    entityType: 'estimate',
+    entityId: fresh.id,
+    payload: {
+      ...subjectOf(fresh),
+      name: input.name,
+      reason: input.reason,
+      declinedAt: moneyIso(fresh.declined_at),
+    },
+    before: { status: before.status },
+    after: { estimate: nameOf(fresh), status: 'declined', reason: input.reason },
+  });
+  return stateOut(fresh, true);
+}
+
 export const estimateDeclineOnline = defineCommand({
   name: 'estimate.decline_online',
   description:
@@ -575,33 +643,7 @@ export const estimateDeclineOnline = defineCommand({
   emits: ['estimate.declined'],
   actors: ['system'],
   async handler(ctx, input) {
-    const before = await requireEstimate(ctx, input.estimateId);
-    assertMove(before, 'declined');
-    await ctx.tx
-      .update(estimates)
-      .set({
-        status: 'declined',
-        declinedAt: dsql`now()`,
-        declinedReason: input.reason,
-        lastViewedAt: dsql`now()`,
-        firstViewedAt: dsql`coalesce(${estimates.firstViewedAt}, now())`,
-      })
-      .where(eq(estimates.id, before.id));
-    const fresh = await requireEstimate(ctx, before.id);
-    await ctx.emit({
-      type: 'estimate.declined',
-      entityType: 'estimate',
-      entityId: fresh.id,
-      payload: {
-        ...subjectOf(fresh),
-        name: input.name,
-        reason: input.reason,
-        declinedAt: moneyIso(fresh.declined_at),
-      },
-      before: { status: before.status },
-      after: { estimate: nameOf(fresh), status: 'declined', reason: input.reason },
-    });
-    return stateOut(fresh, true);
+    return declineEstimate(ctx, input, { onTheirPage: true });
   },
 });
 

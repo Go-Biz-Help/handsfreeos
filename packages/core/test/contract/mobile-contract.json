@@ -2214,7 +2214,8 @@
               "subscription",
               "workflow",
               "assistant",
-              "form"
+              "form",
+              "ai_teammate"
             ]
           },
           "estimateId": {

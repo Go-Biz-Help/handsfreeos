@@ -12,6 +12,7 @@
  * at the provider, no longer driven by us, and the plan page says so.
  */
 import { eq } from 'drizzle-orm';
+import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import { plans, subscriptions } from '@hfos/db/schema';
 import { requirePerson } from '../crm/records';
@@ -97,6 +98,69 @@ function assertManaged(row: SubscriptionLite, what: string): void {
     );
 }
 
+/**
+ * A customer on a maintenance plan, waiting on a card. `by` is who sold it: a person, or the person who approved
+ * the AI teammate's offer (M18).
+ */
+export async function startSubscription(
+  ctx: CommandContext,
+  input: z.infer<typeof SubscriptionStartInput>,
+  by: string | null,
+) {
+  const ws = ctx.scope.workspaceId!;
+  await requirePerson(ctx.tx, ws, input.personId);
+  const [catalogue] = input.planId
+    ? await ctx.tx.select().from(plans).where(eq(plans.id, input.planId))
+    : [];
+  if (input.planId && !catalogue)
+    throw HfosError.validation([{ path: 'planId', message: 'Pick a plan in this workspace.' }]);
+  const planName = input.planName ?? catalogue?.name;
+  if (!planName)
+    throw HfosError.validation([{ path: 'planName', message: 'Name the plan being sold.' }]);
+  const [row] = await ctx.tx
+    .insert(subscriptions)
+    .values({
+      workspaceId: ws,
+      publicRef: sql`private.new_public_ref()`,
+      planId: catalogue?.id ?? null,
+      planName,
+      priceCents: input.priceCents ?? Number(catalogue?.priceCents ?? 0),
+      interval: input.interval ?? catalogue?.interval ?? 'month',
+      intervalCount: input.intervalCount ?? catalogue?.intervalCount ?? 1,
+      taxable: input.taxable ?? catalogue?.taxable ?? true,
+      includes: input.includes ?? catalogue?.includes ?? [],
+      personId: input.personId,
+      leadId: input.leadId ?? null,
+      connectionId: input.connectionId ?? null,
+      startedOn: input.startedOn ?? null,
+      // A new plan has no card: neither provider will bill a customer they have no card for, so it starts
+      // waiting on them and the customer's own link is what closes it.
+      cardRequestedAt: new Date(),
+      createdBy: by,
+    })
+    .returning({ id: subscriptions.id });
+  if (!row) throw HfosError.forbidden();
+  const fresh = await requireSubscription(ctx, row.id);
+  await ctx.emit({
+    type: 'subscription.started',
+    entityType: 'subscription',
+    entityId: fresh.id,
+    payload: {
+      ...subjectOf(fresh),
+      startedOn: input.startedOn ?? null,
+      publicRef: fresh.public_ref,
+      payVersion: fresh.pay_version,
+      awaitingCard: true,
+    },
+    after: {
+      plan: planName,
+      price: money(Number(fresh.price_cents)),
+      status: 'waiting on a card',
+    },
+  });
+  return stateOut(fresh, true);
+}
+
 export const subscriptionStart = defineCommand({
   name: 'subscription.start',
   description:
@@ -108,59 +172,7 @@ export const subscriptionStart = defineCommand({
   scope: inWorkspace,
   emits: ['subscription.started'],
   async handler(ctx, input) {
-    const me = requireHuman(ctx).userId;
-    const ws = ctx.scope.workspaceId!;
-    await requirePerson(ctx.tx, ws, input.personId);
-    const [catalogue] = input.planId
-      ? await ctx.tx.select().from(plans).where(eq(plans.id, input.planId))
-      : [];
-    if (input.planId && !catalogue)
-      throw HfosError.validation([{ path: 'planId', message: 'Pick a plan in this workspace.' }]);
-    const planName = input.planName ?? catalogue?.name;
-    if (!planName)
-      throw HfosError.validation([{ path: 'planName', message: 'Name the plan being sold.' }]);
-    const [row] = await ctx.tx
-      .insert(subscriptions)
-      .values({
-        workspaceId: ws,
-        publicRef: sql`private.new_public_ref()`,
-        planId: catalogue?.id ?? null,
-        planName,
-        priceCents: input.priceCents ?? Number(catalogue?.priceCents ?? 0),
-        interval: input.interval ?? catalogue?.interval ?? 'month',
-        intervalCount: input.intervalCount ?? catalogue?.intervalCount ?? 1,
-        taxable: input.taxable ?? catalogue?.taxable ?? true,
-        includes: input.includes ?? catalogue?.includes ?? [],
-        personId: input.personId,
-        leadId: input.leadId ?? null,
-        connectionId: input.connectionId ?? null,
-        startedOn: input.startedOn ?? null,
-        // A new plan has no card: neither provider will bill a customer they have no card for, so it starts
-        // waiting on them and the customer's own link is what closes it.
-        cardRequestedAt: new Date(),
-        createdBy: me,
-      })
-      .returning({ id: subscriptions.id });
-    if (!row) throw HfosError.forbidden();
-    const fresh = await requireSubscription(ctx, row.id);
-    await ctx.emit({
-      type: 'subscription.started',
-      entityType: 'subscription',
-      entityId: fresh.id,
-      payload: {
-        ...subjectOf(fresh),
-        startedOn: input.startedOn ?? null,
-        publicRef: fresh.public_ref,
-        payVersion: fresh.pay_version,
-        awaitingCard: true,
-      },
-      after: {
-        plan: planName,
-        price: money(Number(fresh.price_cents)),
-        status: 'waiting on a card',
-      },
-    });
-    return stateOut(fresh, true);
+    return startSubscription(ctx, input, requireHuman(ctx).userId);
   },
 });
 
@@ -246,6 +258,50 @@ export const subscriptionResume = defineCommand({
  * Asking again never retires the link already sent: a customer who kept the first email can still use it, and a
  * card that expired has one honest answer rather than a phone call.
  */
+/** Asks the customer to put a card on their plan; the worker sends the link by the channels asked for. */
+export async function requestPlanCard(
+  ctx: CommandContext,
+  input: z.infer<typeof SubscriptionRequestCardInput>,
+) {
+  const before = await requireSubscription(ctx, input.subscriptionId);
+  if (before.status === 'cancelled')
+    throw HfosError.rule(
+      'subscription_cancelled',
+      409,
+      'That plan has ended. Start a new one instead.',
+    );
+  await ctx.tx
+    .update(subscriptions)
+    .set({ cardRequestedAt: new Date() })
+    .where(eq(subscriptions.id, before.id));
+  const fresh = await requireSubscription(ctx, before.id);
+  await ctx.emit({
+    type: 'subscription.card_requested',
+    entityType: 'subscription',
+    entityId: fresh.id,
+    payload: {
+      ...subjectOf(fresh),
+      publicRef: fresh.public_ref,
+      payVersion: fresh.pay_version,
+      channels: input.channels,
+      message: input.message,
+      // Changing a card that already works reads differently from a plan that cannot bill at all.
+      hasCard: fresh.has_card,
+    },
+    after: {
+      plan: fresh.plan_name,
+      asked: input.channels.length ? input.channels.join(', ') : 'link only',
+    },
+  });
+  return {
+    subscriptionId: fresh.id,
+    status: fresh.status as never,
+    cardRequestedAt: new Date().toISOString(),
+    hasCard: fresh.has_card,
+    changed: true,
+  };
+}
+
 export const subscriptionRequestCard = defineCommand({
   name: 'subscription.request_card',
   description:
@@ -259,43 +315,7 @@ export const subscriptionRequestCard = defineCommand({
   offline: { freshMinutes: FRESH_MINUTES },
   async handler(ctx, input) {
     requireHuman(ctx);
-    const before = await requireSubscription(ctx, input.subscriptionId);
-    if (before.status === 'cancelled')
-      throw HfosError.rule(
-        'subscription_cancelled',
-        409,
-        'That plan has ended. Start a new one instead.',
-      );
-    await ctx.tx
-      .update(subscriptions)
-      .set({ cardRequestedAt: new Date() })
-      .where(eq(subscriptions.id, before.id));
-    const fresh = await requireSubscription(ctx, before.id);
-    await ctx.emit({
-      type: 'subscription.card_requested',
-      entityType: 'subscription',
-      entityId: fresh.id,
-      payload: {
-        ...subjectOf(fresh),
-        publicRef: fresh.public_ref,
-        payVersion: fresh.pay_version,
-        channels: input.channels,
-        message: input.message,
-        // Changing a card that already works reads differently from a plan that cannot bill at all.
-        hasCard: fresh.has_card,
-      },
-      after: {
-        plan: fresh.plan_name,
-        asked: input.channels.length ? input.channels.join(', ') : 'link only',
-      },
-    });
-    return {
-      subscriptionId: fresh.id,
-      status: fresh.status as never,
-      cardRequestedAt: new Date().toISOString(),
-      hasCard: fresh.has_card,
-      changed: true,
-    };
+    return requestPlanCard(ctx, input);
   },
 });
 

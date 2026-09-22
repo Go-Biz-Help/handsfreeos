@@ -14140,7 +14140,7 @@ export interface operations {
                      * @default staff
                      * @enum {string}
                      */
-                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                     /** Format: uuid */
                     personId: string;
                     /**
@@ -22803,6 +22803,57 @@ export interface operations {
                                     summary: string;
                                     times: number;
                                 } | {
+                                    /** @enum {string} */
+                                    document: "invoice" | "estimate";
+                                    /** Format: uuid */
+                                    documentId: string;
+                                    /** @enum {string} */
+                                    kind: "share_link";
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "create_invoice";
+                                    lines: {
+                                        /** Format: uuid */
+                                        productId: string;
+                                        quantity: number;
+                                    }[];
+                                    /** @default  */
+                                    summary: string;
+                                    /** @default null */
+                                    title: string | null;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "create_estimate";
+                                    lines: {
+                                        /** Format: uuid */
+                                        productId: string;
+                                        quantity: number;
+                                    }[];
+                                    /** @default  */
+                                    summary: string;
+                                    /** @default null */
+                                    title: string | null;
+                                } | {
+                                    accepted: boolean;
+                                    /** Format: uuid */
+                                    estimateId: string;
+                                    /** @enum {string} */
+                                    kind: "estimate_answer";
+                                    name: string;
+                                    /** @default null */
+                                    reason: string | null;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "start_plan";
+                                    /** Format: uuid */
+                                    planId: string;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
                                     /** @default null */
                                     appointmentId: string | null;
                                     /** Format: uuid */
@@ -27078,7 +27129,7 @@ export interface operations {
                             notes: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -27226,7 +27277,7 @@ export interface operations {
                             leadId: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -28612,7 +28663,7 @@ export interface operations {
                             leadId: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
                             person: {
                                 email: string | null;

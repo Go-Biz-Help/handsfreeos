@@ -71,6 +71,7 @@ export const WOULD_KINDS = [
   'stage',
   'answers',
   'discount',
+  'money',
   'hand_off',
 ] as const;
 export type WouldKind = (typeof WOULD_KINDS)[number];

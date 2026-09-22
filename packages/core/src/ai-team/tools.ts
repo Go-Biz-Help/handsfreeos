@@ -9,7 +9,8 @@
  * - `auto` runs at once in every mode: look-ups and internal work (answers, stages, notes, tasks).
  * - `draft` reaches the customer, so with training wheels it's held in the reply's one draft until a person
  *   approves (a reply, a booking, a reschedule, a cancellation).
- * - `approval` always waits for a person, even once the teammate is automatic (a discount).
+ * - `approval` always waits for an owner or admin, even once the teammate is automatic (a discount, and M18's
+ *   bills, quotes, answers to quotes and plans).
  *
  * `hand_off`, `reply` and `no_reply` end the turn (`TEAMMATE_TURN_ENDERS`).
  */
@@ -20,10 +21,20 @@ import type { TeammateConfig, TeammateSkill } from './config';
 
 export type TeammateToolAutonomy = 'auto' | 'draft' | 'approval';
 /**
- * What turns a tool on: a skill, `core` (every teammate), `discounts` (discounts "with approval") or `deals`
- * (M18: opening and closing deals).
+ * What turns a tool on: a skill, `core` (every teammate), `discounts` (discounts "with approval"), or one of
+ * M18's switches: `deals`, and the money ones (`bills`, `newBills`, `quotes` for sending the team's quotes,
+ * `buildQuotes` for putting one together, `plans`).
  */
-export type TeammateToolSkill = TeammateSkill | 'core' | 'discounts' | 'deals';
+export type TeammateToolSkill =
+  | TeammateSkill
+  | 'core'
+  | 'discounts'
+  | 'deals'
+  | 'bills'
+  | 'newBills'
+  | 'quotes'
+  | 'buildQuotes'
+  | 'plans';
 
 export interface TeammateTool<I extends z.ZodType = z.ZodType> {
   readonly name: string;
@@ -40,6 +51,10 @@ const define = <N extends string, I extends z.ZodType>(t: TeammateTool<I> & { re
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 const uuid = z.uuid();
+const catalogueItem = z.strictObject({
+  productId: uuid.describe('A product id from the price list in the context'),
+  quantity: z.number().gt(0).max(10_000),
+});
 const zip = z
   .string()
   .trim()
@@ -356,6 +371,95 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'approval',
   }),
 
+  // ---------- money (M18): look-ups at once; anything asking for money waits for an owner or admin ----------
+  define({
+    name: 'my_bills',
+    description:
+      'The customer’s bills with the business, newest first: what each was for, its total, what’s still owed, whether it’s paid or overdue, and when it’s due. Use the invoiceId to resend one’s pay link.',
+    input: z.strictObject({}),
+    skill: 'bills',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'send_payment_link',
+    description:
+      'Ask an owner or admin to send the customer the link to pay one of their bills (an invoiceId from my_bills), with a short message to go with it. Don’t write the link yourself: it’s added for you. Tell the customer only that you’ve asked the team to send it.',
+    input: z.strictObject({
+      invoiceId: uuid.describe('A bill from my_bills'),
+      message: text(600).describe('What goes with the link, for the customer'),
+    }),
+    skill: 'bills',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'propose_bill',
+    description:
+      'Ask an owner or admin to bill the customer for things on the price list (product ids and quantities from the context), with a short message. The price list sets the prices. Tell the customer only that the team is getting their bill ready.',
+    input: z.strictObject({
+      title: optionalText(200).describe('What the bill is for'),
+      items: z.array(catalogueItem).min(1).max(20),
+      message: text(600).describe('What goes with the bill, for the customer'),
+    }),
+    skill: 'newBills',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'my_quotes',
+    description:
+      'The customer’s quotes (estimates), newest first: what each is for, its total, and whether it’s waiting on them, accepted, declined or expired. Use the estimateId to resend one or record their answer.',
+    input: z.strictObject({}),
+    skill: 'quotes',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'send_quote',
+    description:
+      'Ask an owner or admin to send the customer one of their quotes (an estimateId from my_quotes), with a short message. Don’t write the link yourself: it’s added for you.',
+    input: z.strictObject({
+      estimateId: uuid.describe('A quote from my_quotes'),
+      message: text(600).describe('What goes with the quote, for the customer'),
+    }),
+    skill: 'quotes',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'propose_quote',
+    description:
+      'Ask an owner or admin to send the customer a quote for things on the price list (product ids and quantities from the context), with a short message. The price list sets the prices. Tell the customer only that the team is getting it ready.',
+    input: z.strictObject({
+      title: optionalText(200).describe('What the quote is for'),
+      items: z.array(catalogueItem).min(1).max(20),
+      message: text(600).describe('What goes with the quote, for the customer'),
+    }),
+    skill: 'buildQuotes',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'record_quote_answer',
+    description:
+      'When the customer clearly says yes or no to one of their quotes (from my_quotes), ask an owner or admin to record it, with the name they gave and their reason for a no. Thank them, and say the team will confirm.',
+    input: z.strictObject({
+      estimateId: uuid.describe('A quote from my_quotes'),
+      accepted: z.boolean(),
+      name: text(120).describe('Who said it, as they gave their name'),
+      reason: optionalText(500).describe('Why not, for a no'),
+      message: text(600).describe('What you’d tell the customer once it’s recorded'),
+    }),
+    skill: 'quotes',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'offer_plan',
+    description:
+      'When the customer wants one of the business’s maintenance plans (ids in the context), ask an owner or admin to sign them up, with a short message. They then get a link to add a card. Tell them only that the team is setting it up.',
+    input: z.strictObject({
+      planId: uuid.describe('One of the plans in the context'),
+      message: text(600).describe('What goes with the sign-up, for the customer'),
+    }),
+    skill: 'plans',
+    autonomy: 'approval',
+  }),
+
   // ---------- ending the turn ----------
   define({
     name: 'hand_off',
@@ -413,6 +517,15 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'open_deal',
   'set_deal_value',
   'close_deal',
+  // M18: nor, until a chat can prove who it is, anything to do with their money.
+  'my_bills',
+  'send_payment_link',
+  'propose_bill',
+  'my_quotes',
+  'send_quote',
+  'propose_quote',
+  'record_quote_answer',
+  'offer_plan',
 ]);
 
 export interface TeammateToolOptions {
@@ -434,6 +547,11 @@ export function teammateTools(
     followUp: config.followUp.enabled,
     discounts: config.money.discounts === 'with_approval',
     deals: config.deals.enabled,
+    bills: config.money.bills,
+    newBills: config.money.newBills,
+    quotes: config.money.quotes !== 'off',
+    buildQuotes: config.money.quotes === 'build',
+    plans: config.money.plans,
   };
   return TEAMMATE_TOOLS.filter((t) => {
     if (!on[t.skill]) return false;
