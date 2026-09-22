@@ -995,6 +995,20 @@ In the Supabase dashboard, **Authentication** → **Users** shows the deleted pe
 
 The worker needs `SUPABASE_URL` and `SUPABASE_SECRET_KEY` for this. Without them the job logs `Deleting an account needs SUPABASE_URL and SUPABASE_SECRET_KEY on the worker, to end sessions and block sign-in`, tries 5 times and stops, and the person can ask again once the key is set. If the person became a business's only owner between asking and the job running, the job changes nothing and logs `an account deletion was not done: the person is now a business’s only owner`.
 
+### Deleting a business
+
+An owner of a business (or an owner of its organization) can delete it, with everything in it, under **Settings** → **Workspace** → **Delete this business**, typing the business's name to confirm (`workspace.delete`). Admins and members don't see the section. It can't be undone. What happens:
+
+1. **It is hidden at once.** From the moment the owner presses the button, nobody can open the business or change anything in it, on the web or the phone app, and it drops out of everyone's list of businesses. The browser goes to the next business the person has, or to onboarding if there is none.
+2. **The worker's job** (`workspace.delete`) starts within moments and lets go of what lives outside the database:
+   - The business's Twilio subaccount is closed with the master account. That releases every phone number in it and stops it billing. If Twilio refuses, the job tries again, up to 5 times, and nothing is deleted until it works.
+   - Every file under the business's folder in Storage (attachments, imports, call recordings, picture messages, email attachments, knowledge files, port papers) is removed.
+   - A connected Stripe or Square account is told we are disconnected, sending domains are removed from Postmark, and a branded web address is given back to Vercel. A refusal here is logged and the deletion carries on.
+3. **Everything in the database goes** (`private.purge_workspace`): customers, conversations, calls, calendars and bookings, estimates, invoices and payments, workflows, forms, the AI teammate, the knowledge base, the usage balance and its history, and the business's own event and audit log.
+4. **One line is kept** in the organization's audit log, `workspace.delete`, naming the business and who deleted it. The organization itself, and its other businesses, are untouched. A support ticket about the business stays on the support desk without its business, and an agency's migration stays on the agency's list.
+
+If the job fails 5 times it stops with the business hidden but not yet purged, and its last error is on the job in `app.scheduled_jobs` (kind `workspace.delete`). Fix the cause and set the job back to `pending` to finish it.
+
 ### Storage buckets
 
 The migrations create three private buckets. There is nothing to create by hand.

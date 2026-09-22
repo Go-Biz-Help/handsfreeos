@@ -61,6 +61,9 @@ function describeAction(e: AuditEntry): string {
         return `changed ${label[keys[0]!] ?? keys[0]} from ${s(e.before?.[keys[0]!])} to ${s(e.after?.[keys[0]!])}`;
       return `updated ${keys.map((k) => label[k] ?? k).join(', ')}`;
     }
+    // The one line a deleted business leaves, in its organization's log (the worker writes it once it's gone).
+    case 'workspace.delete':
+      return `deleted the workspace ${s(e.before?.name)} and everything in it`;
     case 'membership.invite':
       return `invited ${s(e.after?.email)} as ${ROLE[s(e.after?.role)] ?? s(e.after?.role)}`;
     case 'invitation.resend':

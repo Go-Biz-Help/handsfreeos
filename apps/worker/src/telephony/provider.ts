@@ -155,6 +155,11 @@ export interface TelephonyProvider {
   readonly masterAccountSid: string;
   readonly masterAuthToken: string;
   createSubaccount(friendlyName: string): Promise<{ sid: string; authToken: string }>;
+  /**
+   * Closes a business's subaccount for good, with the master account: every number in it is released and it
+   * stops billing. For a business being deleted. One already closed, or never known, is fine.
+   */
+  closeSubaccount(accountSid: string): Promise<void>;
   createMessagingService(
     account: ProviderAccount,
     opts: { friendlyName: string; inboundUrl: string; statusCallbackUrl: string },

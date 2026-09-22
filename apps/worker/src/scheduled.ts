@@ -12,6 +12,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
+import { workspaceJobs } from './workspace/delete';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
 import { teammateJobs } from './ai-team/index';
@@ -330,6 +331,7 @@ export const jobs: JobMap = {
   ...receiptJobs,
   // Deleting an account: off each business, the profile anonymized, sessions ended and sign-in blocked (account/).
   ...accountJobs,
+  ...workspaceJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */

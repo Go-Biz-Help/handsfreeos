@@ -1,4 +1,5 @@
 import { onAccountDeletionRequested } from '../account/delete';
+import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
 import { onChatReplySent } from '../chat/followup';
@@ -105,6 +106,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'user_phone.verification_requested': onVerificationRequested,
     // Someone deleted their account: the job takes them off each business, then the profile and sign-in go.
     'account.deletion_requested': onAccountDeletionRequested,
+    // An owner deleted a business: the job lets go of what is outside, then purges it (workspace/delete.ts).
+    'workspace.deletion_requested': onWorkspaceDeletionRequested,
     // A reply in a website chat is out: people's are marked sent, and the unread follow-up is armed (chat/).
     'message.sent': onChatReplySent,
     'conversation.linked': onConversationLinked,

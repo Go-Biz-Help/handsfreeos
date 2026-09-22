@@ -109,6 +109,7 @@ describe('registry', () => {
       'workspace.create',
       'workspace.join',
       'workspace.update',
+      'workspace.delete',
       'membership.invite',
       'invitation.resend',
       'invitation.revoke',
