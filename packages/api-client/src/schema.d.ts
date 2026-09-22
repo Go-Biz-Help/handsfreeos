@@ -6068,7 +6068,7 @@ export interface paths {
         put?: never;
         /**
          * Add another business (workspace) to an organization you administer.
-         * @description Risk level 1. Requires workspace.create. Emits workspace.created.
+         * @description Risk level 1. Requires workspace.create. Emits workspace.created, membership.created.
          */
         post: operations["command_workspace_create"];
         delete?: never;

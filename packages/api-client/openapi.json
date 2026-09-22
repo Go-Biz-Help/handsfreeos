@@ -114,7 +114,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires workspace.create. Emits workspace.created.",
+        "description": "Risk level 1. Requires workspace.create. Emits workspace.created, membership.created.",
         "requestBody": {
           "required": true,
           "content": {
