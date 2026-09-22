@@ -17,9 +17,13 @@ import {
   isWorkspaceUser,
   loadTeammate,
   localDateOf,
+  defaultNumber,
   openHoursOf,
+  plainSmsText,
   plainSpaces,
   scheduleJob,
+  uuidArray,
+  walletRoom,
   workspaceMessaging,
   type EmergencyKind,
   type TeammateConfig,
@@ -30,11 +34,16 @@ import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
 import { handoffEmail, teammateLimitEmail, urgentHandoffEmail } from '../emails/templates';
 import { managers, workspaceManagers } from '../handlers/telephony';
+import type { JobHandler } from '../jobs';
+import { queuePush } from '../push/queue';
+import { CHANNEL_WORD, conversationCollapseId } from '../push/urgent';
+import { loadAccount, webhookUrls } from '../telephony/accounts';
+import { isPermanentProviderError } from '../telephony/provider';
 import type { EventHandler, HandlerContext } from '../handlers/types';
-import type { TenantScope } from '../services';
+import { tenantOf, type TenantScope } from '../services';
 import { recordSystemEvent } from '../system-event';
 import { runtimeConfigOf } from './config';
-import { HANDOFF_UNANSWERED_MS } from './constants';
+import { HANDOFF_UNANSWERED_MS, handoffTextJobKey, TEAMMATE_JOBS } from './constants';
 import { afterOpenTime } from './hours';
 
 type Conversation = typeof conversations.$inferSelect;
@@ -211,10 +220,14 @@ async function tellTeam(ctx: HandlerContext, h: Hand): Promise<void> {
   const lastText = last ? (last.body_text || last.subject || '').trim().slice(0, 600) : '';
   const lastAt = last ? new Date(last.occurred_at).getTime() : Date.now();
   const urgent = h.reason === 'emergency';
+  // M18: how the team hears. An emergency reaches everyone every way, whatever the settings say.
+  const alerts = config?.handOff.alerts ?? { push: true, text: true, email: true };
   let recipients: Recipient[];
+  let told: Recipient[];
   if (urgent) {
     const everyone = [...(assignee ? [assignee] : []), ...(await managers(ctx.tx, ws))];
     recipients = [...new Map(everyone.map((u) => [u.id, u])).values()];
+    told = recipients;
     const [line] = await rows<{ body_text: string | null }>(
       ctx.tx,
       sql`select body_text from app.messages
@@ -234,9 +247,8 @@ async function tellTeam(ctx: HandlerContext, h: Hand): Promise<void> {
     });
     for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail, priority: 'high' });
   } else {
-    const list = assignee ? [assignee] : await handoffList(ctx.tx, ws, config);
-    recipients = list.filter(wantsHandoffs);
-    if (!recipients.length) return;
+    told = assignee ? [assignee] : await handoffList(ctx.tx, ws, config);
+    recipients = alerts.email ? told.filter(wantsHandoffs) : [];
     const mail = handoffEmail({
       teammate: h.teammate?.name ?? null,
       channel: h.conv.channel,
@@ -250,6 +262,26 @@ async function tellTeam(ctx: HandlerContext, h: Hand): Promise<void> {
     });
     for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
   }
+  const about = h.note?.trim() || lastText || 'Needs someone from the team.';
+  if (urgent || alerts.push)
+    await queuePush(ctx.tx, h.scope, {
+      key: `handoff:${ctx.event.id}`,
+      // Its switch is the "can't wait" one; its buttons don't offer handing it straight back.
+      category: 'customer_waiting_no_ai',
+      userIds: told.map((u) => u.id),
+      title: `${urgent ? 'Emergency' : 'Needs a person'} · ${who.name}`,
+      about: CHANNEL_WORD[h.conv.channel] ?? null,
+      body: about,
+      path: `/app/w/${ws}/inbox/${h.conv.id}`,
+      refs: {
+        conversationId: h.conv.id,
+        ...(h.conv.personId ? { personId: h.conv.personId } : {}),
+      },
+      collapseId: conversationCollapseId(h.conv.id),
+    }).catch((err: unknown) =>
+      ctx.log.warn({ err, conversationId: h.conv.id }, 'could not queue the hand-off push'),
+    );
+  const texted = urgent || alerts.text ? await textHandoff(ctx, h, told, who.name, about) : 0;
   await asWorker(ctx.db, h.scope, (tx) =>
     recordSystemEvent(tx, {
       type: 'ai_teammate.handoff_emailed',
@@ -258,13 +290,83 @@ async function tellTeam(ctx: HandlerContext, h: Hand): Promise<void> {
       workspaceId: ws,
       entityType: 'conversation',
       entityId: h.conv.id,
-      payload: { reason: h.reason, urgent, recipients: recipients.length, _broadcast: false },
-      after: { emailed: recipients.map((r) => r.full_name || r.email), urgent },
+      payload: {
+        reason: h.reason,
+        urgent,
+        recipients: recipients.length,
+        texted,
+        _broadcast: false,
+      },
+      after: { emailed: recipients.map((r) => r.full_name || r.email), urgent, texted },
       correlationId: ctx.event.correlationId,
       causationId: ctx.event.id,
     }),
   );
 }
+
+/**
+ * A hand-off's text (M18): one job per person with a verified cell, so a retry texts nobody twice. From the
+ * business number, to the cell each person confirmed in their settings; the words are ours and the note's.
+ */
+async function textHandoff(
+  ctx: HandlerContext,
+  h: Hand,
+  people: readonly Recipient[],
+  customer: string,
+  about: string,
+): Promise<number> {
+  if (!people.length) return 0;
+  const cells = await rows<{ user_id: string; e164: string }>(
+    ctx.tx,
+    sql`select user_id, e164 from app.user_phones
+        where verified_at is not null and user_id = any(${uuidArray(people.map((p) => p.id))})`,
+  );
+  const name = h.teammate?.name ?? 'The AI teammate';
+  const body = plainSmsText(
+    `${h.reason === 'emergency' ? 'EMERGENCY: ' : ''}${name} passed ${customer} to the team: ${about.slice(0, 200)} ${ctx.webUrl}/app/w/${h.scope.workspaceId}/inbox/${h.conv.id}`,
+  );
+  for (const c of cells)
+    await scheduleJob(ctx.tx, {
+      kind: TEAMMATE_JOBS.handoffText,
+      dedupeKey: handoffTextJobKey(ctx.event.id, c.user_id),
+      runAt: new Date(),
+      payload: { to: c.e164, body, conversationId: h.conv.id },
+      workspaceId: h.scope.workspaceId,
+      organizationId: h.scope.organizationId,
+    });
+  return cells.length;
+}
+
+/** `ai_teammate.handoff_text`: sends one hand-off text, when the business number and the balance allow it. */
+export const handoffTextJob: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const to = str(ctx.job.payload['to']);
+  const body = str(ctx.job.payload['body']);
+  if (!to || !body) return;
+  const ready = await asWorker(ctx.db, scope, async (tx) => {
+    const number = await defaultNumber(tx, scope.workspaceId);
+    const account = await loadAccount(tx, scope.workspaceId, ctx.sealer);
+    const room = await walletRoom(tx, scope.workspaceId, 'text', (msg, e) =>
+      ctx.log.error({ err: e }, msg),
+    );
+    return number?.status === 'active' && account && room.allowed ? { number, account } : null;
+  });
+  // No number, or no balance: the push and the email (when on) still reached them.
+  if (!ready) return;
+  try {
+    await ctx.telephony.sendMessage(ready.account, {
+      from: ready.number.e164,
+      messagingServiceSid: ready.account.messagingServiceSid,
+      to,
+      body,
+      mediaUrls: [],
+      statusCallbackUrl: webhookUrls(ctx.publicUrl).smsStatusUrl,
+    });
+  } catch (e) {
+    if (!isPermanentProviderError(e)) throw e;
+    ctx.log.warn({ err: e.message, to }, 'a hand-off text could not be sent');
+  }
+};
 
 /** The teammate used its share of today's AI limit: its owners hear once a day. */
 async function limitNotice(

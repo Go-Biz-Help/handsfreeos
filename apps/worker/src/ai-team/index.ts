@@ -7,6 +7,7 @@
 import type { JobMap } from '../jobs';
 import { TEAMMATE_JOBS } from './constants';
 import { sendDraftJob } from './drafts';
+import { handoffTextJob } from './escalation';
 import { expireDraftsJob } from './expiry';
 import { followUpJob } from './follow-up';
 import { handoffLineJob } from './handoff';
@@ -36,4 +37,5 @@ export const teammateJobs: JobMap = {
   [TEAMMATE_JOBS.followUp]: followUpJob,
   [TEAMMATE_JOBS.handoffLine]: handoffLineJob,
   [TEAMMATE_JOBS.expireDrafts]: expireDraftsJob,
+  [TEAMMATE_JOBS.handoffText]: handoffTextJob,
 };

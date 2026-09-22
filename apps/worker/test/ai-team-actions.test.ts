@@ -3,13 +3,24 @@
  * one before looking for times on a calendar that goes by ZIP, books repeat visits and puts a customer on a
  * waitlist — each held until its reply goes out, then carried out as one unit with it.
  */
-import { localDateOf, territoryCreate } from '@hfos/core/server';
+import { randomUUID } from 'node:crypto';
+import {
+  executeCommand,
+  invoiceCreate,
+  invoiceSend,
+  localDateOf,
+  pushDeviceRegister,
+  territoryCreate,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { scriptedAi, type TeammateRule } from '../src/ai/scripted';
 import {
   admin,
   aiReplies,
+  api,
+  decide,
+  draftsOf,
   makeCalendar,
   newCustomer,
   replyNow,
@@ -117,6 +128,31 @@ const RULES: TeammateRule[] = [
             : {
                 calls: [{ name: 'reply', arguments: { message: 'Great, we’ll get it ordered.' } }],
               },
+  },
+  {
+    when: /what do i owe/i,
+    step: (t) => {
+      const bills = t.results['my_bills']?.at(-1);
+      if (!bills) return { calls: [{ name: 'my_bills', arguments: {} }] };
+      const first = (bills['bills'] as { invoiceId: string }[])[0]!;
+      if (!t.results['send_payment_link'])
+        return {
+          calls: [
+            {
+              name: 'send_payment_link',
+              arguments: {
+                invoiceId: first.invoiceId,
+                message: 'Here’s the link to pay your bill:',
+              },
+            },
+          ],
+        };
+      return {
+        calls: [
+          { name: 'reply', arguments: { message: 'I’ve asked the team to send your pay link.' } },
+        ],
+      };
+    },
   },
   {
     when: /times near me/i,
@@ -276,5 +312,88 @@ describe('deals', () => {
       ['close_deal', 'done'],
       ['reply', 'done'],
     ]);
+  });
+});
+
+describe('money', () => {
+  it('asks an owner to send a bill’s pay link, and the link goes out once they approve', async () => {
+    await saveTeammate(w, { money: { bills: true } });
+    const c = await newCustomer(w, 'Fin');
+    const bill = await run(w, invoiceCreate, {
+      workspaceId: w.workspaceId,
+      personId: c.id,
+      title: 'Furnace repair',
+      lines: [{ name: 'Repair', quantity: 1, unitPriceCents: 45_000 }],
+    });
+    await run(w, invoiceSend, {
+      workspaceId: w.workspaceId,
+      invoiceId: bill.invoiceId,
+      channels: [],
+    });
+    const m = await textIn(w, c.phone, 'Hi, what do I owe you?');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    // The reply goes out on its own; the link waits for an owner.
+    expect((await aiReplies(m.conversationId)).map((x) => x.body_text)).toEqual([
+      "I've asked the team to send your pay link.",
+    ]);
+    const drafts = await draftsOf(m.conversationId);
+    const ask = drafts.find((d) => d.kind === 'approval')!;
+    expect(ask).toMatchObject({ status: 'pending' });
+    const preview = (
+      await rows<{ preview: { message: { body: string }; actions: { kind: string }[] } }>(
+        admin(),
+        sql`select preview from app.ai_teammate_drafts where id = ${ask.id}`,
+      )
+    )[0]!.preview;
+    expect(preview.actions.map((a) => a.kind)).toEqual(['share_link']);
+    expect(preview.message.body).toMatch(/^Here's the link to pay your bill: http\S+\/i\/\S+$/);
+    await decide(w, ask.id, 'approve');
+    await drain(w);
+    const sent = (await aiReplies(m.conversationId)).map((x) => x.body_text);
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toBe(preview.message.body);
+  });
+});
+
+describe('hand-off alerts', () => {
+  it('reach the team on their phones and by text to a verified cell, as the settings say', async () => {
+    const cell = '+15125550188';
+    await rows(
+      admin(),
+      sql`insert into app.user_phones (user_id, e164, verified_at) values (${w.owner.id}, ${cell}, now())
+          on conflict (user_id, e164) do update set verified_at = now()`,
+    );
+    const token = `ExponentPushToken[alerts-${randomUUID().slice(0, 12)}]`;
+    await executeCommand(
+      api(),
+      pushDeviceRegister,
+      { platform: 'ios', token, appVersion: '1.0.0', deviceName: 'alerts' },
+      { type: 'human', userId: w.owner.id, email: w.owner.email, claims: w.owner.claims },
+      { correlationId: randomUUID(), channel: 'test' },
+    );
+    const pushed = (title: string) =>
+      w.s.push.fake.sent.map((x) => x.message).filter((m) => m.to === token && m.title === title);
+    const texted = () => w.s.telephony.sent.filter((m) => m.to === cell);
+
+    const c = await newCustomer(w, 'Gil');
+    const m = await textIn(w, c.phone, 'Can I speak to someone about a new system?');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    expect(pushed('Needs a person · Gil Customer')).toHaveLength(1);
+    expect(texted()).toHaveLength(1);
+    expect(texted()[0]!.body).toContain(
+      // Asking for a person hands off before the model runs, with that as the note.
+      'Ava passed Gil Customer to the team: They asked for a person',
+    );
+
+    await saveTeammate(w, { handOff: { alerts: { push: false, text: false } } });
+    const d = await newCustomer(w, 'Hal');
+    const n = await textIn(w, d.phone, 'Please let me speak to someone.');
+    await replyNow(w, n.conversationId);
+    await drain(w);
+    expect(pushed('Needs a person · Hal Customer')).toHaveLength(0);
+    expect(texted()).toHaveLength(1);
+    await saveTeammate(w, { handOff: { alerts: { push: true, text: true } } });
   });
 });
