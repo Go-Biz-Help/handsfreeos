@@ -1,6 +1,7 @@
 'use client';
 import {
   addDays,
+  addMonths,
   hasWorkspacePermission,
   instantAt,
   minutesToClock,
@@ -393,14 +394,8 @@ export function CalendarPage(props: {
   };
 
   const step = q.view === 'week' ? 7 : 1;
-  /** Month steps a month at a time, so February's length never drags the date into the wrong one. */
-  const monthStep = (delta: number) => {
-    const [y, m] = date.split('-').map(Number);
-    const t = y! * 12 + (m! - 1) + delta;
-    return `${String(Math.floor(t / 12)).padStart(4, '0')}-${String((t % 12) + 1).padStart(2, '0')}-01`;
-  };
   const stepTo = (delta: number) =>
-    q.view === 'month' ? monthStep(delta) : addDays(date, delta * step);
+    q.view === 'month' ? addMonths(date, delta) : addDays(date, delta * step);
   const stepWord = q.view === 'month' ? 'month' : q.view === 'week' ? 'week' : 'day';
   const title =
     q.view === 'month'
@@ -801,7 +796,7 @@ export function CalendarPage(props: {
           // them — unlike the wide screens' switch, where Team's people mean something else.
           onView={(v) => go({ view: v })}
           onStep={(delta) =>
-            go({ date: q.view === 'month' ? monthStep(delta) : addDays(date, delta * 7) })
+            go({ date: q.view === 'month' ? addMonths(date, delta) : addDays(date, delta * 7) })
           }
           onToday={() => go({ date: today })}
           onDate={(d) => go({ date: d })}

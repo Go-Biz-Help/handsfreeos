@@ -2,6 +2,7 @@ import {
   appointmentChips,
   busyFrom,
   BUSY_TITLE,
+  dayHeadingShort,
   fmtLength,
   fmtTime,
   isNotBookedYet,
@@ -136,6 +137,47 @@ export function BusyRow({ busy, end }: { busy: BusyBlock; end: number }) {
         <Text className="text-[13px] text-text-3">{busyFrom(busy.provider)}</Text>
       </View>
     </View>
+  );
+}
+
+/**
+ * A day's heading in the week list: which day, and what is on it — "Today · Wed, Sep 23" and "2 appointments", or
+ * "Nothing booked". Pressing it opens that day on its own.
+ */
+export function DayHeadingRow({
+  date,
+  today,
+  countWords,
+  onPress,
+}: {
+  date: string;
+  today: string;
+  countWords: string;
+  onPress: (date: string) => void;
+}) {
+  const isToday = date === today;
+  const heading = dayHeadingShort(date, today, false);
+  return (
+    <Pressable
+      role="button"
+      accessibilityLabel={`${heading} · ${countWords}`}
+      testID={`agenda-week-day-${date}`}
+      onPress={() => onPress(date)}
+      className={cn(
+        'flex-row items-center justify-between gap-2 border-b border-border px-4 py-2 active:opacity-70',
+        isToday ? 'bg-accent-soft' : 'bg-card-2',
+      )}
+    >
+      <Text
+        className={cn('text-[13px] font-semibold', isToday ? 'text-accent-text' : 'text-text-2')}
+      >
+        {heading}
+      </Text>
+      <View className="flex-row items-center gap-1">
+        <Text className="text-xs text-text-3">{countWords}</Text>
+        <Icon as={ChevronRight} className="size-3.5 text-text-3" />
+      </View>
+    </Pressable>
   );
 }
 

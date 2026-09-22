@@ -2,8 +2,9 @@ appId: com.gobizhelp.handsfreeos
 name: Calendar - your day and week, an appointment, and confirming a customer with no signal
 tags:
   - ci
-# The day as a list with the week over it, Everyone and Just me, then one appointment's own screen. Marking a customer
-# confirmed reaches nobody, so it works with no signal: it shows the moment it is pressed and goes once by itself.
+# The day as a list with the week over it, Everyone and Just me, the week and the month, then one appointment's own
+# screen. Marking a customer confirmed reaches nobody, so it works with no signal: it shows the moment it is pressed
+# and goes once by itself.
 env:
   EMAIL: dale@lonestarhvac.test
   PASSWORD: HandsFree-Demo-2026
@@ -27,24 +28,28 @@ env:
 - tapOn:
     id: 'calendar-everyone'
 - waitForAnimationToEnd
-# The first copy is still filling right after a first sign-in, so give the day a moment before walking the week.
+# The first copy is still filling right after a first sign-in, so give the day a moment before leaving it.
 - extendedWaitUntil:
     visible:
       id: 'agenda'
     timeout: 60000
     optional: true
-# Walk the week to a day that has something on it, and open the first appointment.
-- repeat:
-    times: 7
-    while:
-      notVisible:
-        id: 'agenda'
-    commands:
-      - tapOn:
-          point: '75%,22%'
-      - waitForAnimationToEnd
-- assertVisible:
-    id: 'agenda'
+# The month: six whole weeks, and a day of it hands itself back to the day list.
+- tapOn:
+    id: 'calendar-view-month'
+- extendedWaitUntil:
+    visible:
+      id: 'calendar-month'
+    timeout: 20000
+- takeScreenshot: calendar-month
+- tapOn:
+    id: 'calendar-view-week'
+# The week is all seven days at once, so a day with something on it is one tap away rather than seven.
+- extendedWaitUntil:
+    visible:
+      id: 'agenda-week'
+    timeout: 20000
+- takeScreenshot: calendar-week
 - tapOn:
     id: 'agenda-appt-.*'
 - extendedWaitUntil:
@@ -54,9 +59,16 @@ env:
 - takeScreenshot: calendar-appointment
 - runFlow: subflows/open-test-changes.yaml
 - runFlow: subflows/no-signal.yaml
-# Confirming a customer reaches nobody, so it works with no signal. The first visit of the day may already be
+# Confirming a customer reaches nobody, so it works with no signal. The first visit of the week may already be
 # confirmed; `calendar-confirm.yaml` is the run that proves one by its receipt, on a visit named by its own link.
 - runFlow: subflows/open-calendar.yaml
+# The week again, whether or not the tab kept it: a visit is one tap away whichever day it is on.
+- tapOn:
+    id: 'calendar-view-week'
+- extendedWaitUntil:
+    visible:
+      id: 'agenda-week'
+    timeout: 20000
 - tapOn:
     id: 'agenda-appt-.*'
 - extendedWaitUntil:

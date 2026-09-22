@@ -1,5 +1,5 @@
-# Screenshots of the Calendar and Money canvas screens in one theme: the day, the week's strip, an appointment, the
-# money list, an invoice and Record cash or a check. Not run in CI:
+# Screenshots of the Calendar and Money canvas screens in one theme: the day, the week's strip, the week and the
+# month, an appointment, the money list, an invoice and Record cash or a check. Not run in CI:
 #   maestro test -e THEME=dark -e PREFIX=ios apps/mobile/maestro/screens/calendar-money.yaml --test-output-dir <dir>
 appId: com.gobizhelp.handsfreeos
 name: The Calendar's and Money's screens
@@ -34,16 +34,28 @@ env:
 - tapOn:
     id: 'calendar-everyone'
 - waitForAnimationToEnd
-# One appointment.
-- repeat:
-    times: 7
-    while:
-      notVisible:
-        id: 'agenda'
-    commands:
-      - tapOn:
-          point: '75%,22%'
-      - waitForAnimationToEnd
+# The week as one list, and the month at a glance.
+- tapOn:
+    id: 'calendar-view-week'
+- extendedWaitUntil:
+    visible:
+      id: 'agenda-week'
+    timeout: 20000
+- takeScreenshot: ${PREFIX}-calendar-week-${THEME}
+- tapOn:
+    id: 'calendar-view-month'
+- extendedWaitUntil:
+    visible:
+      id: 'calendar-month'
+    timeout: 20000
+- takeScreenshot: ${PREFIX}-calendar-month-${THEME}
+# One appointment, from the week's list.
+- tapOn:
+    id: 'calendar-view-week'
+- extendedWaitUntil:
+    visible:
+      id: 'agenda-week'
+    timeout: 20000
 - tapOn:
     id: 'agenda-appt-.*'
 - extendedWaitUntil:

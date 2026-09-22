@@ -15,6 +15,7 @@ import {
   dayHeadingShort,
   daysWithAppointments,
   NOT_BOOKED_YET,
+  NOTHING_BOOKED,
   nowLabel,
   seatsLabel,
   sourceLabel,
@@ -428,7 +429,7 @@ export function Agenda({
                     {dayHeadingShort(d, today, false)}
                   </span>
                   <span className="flex items-center gap-1 text-xs text-text-3">
-                    {appointmentCount(count) || 'Nothing booked'}
+                    {appointmentCount(count) || NOTHING_BOOKED}
                     <ChevronRight className="h-3.5 w-3.5" strokeWidth={1.5} />
                   </span>
                 </button>

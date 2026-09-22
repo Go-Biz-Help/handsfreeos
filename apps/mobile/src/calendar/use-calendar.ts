@@ -1,10 +1,13 @@
 import {
   addDays,
   agendaRows,
+  appointmentCount,
   appointmentsOnDay,
   daysWithAppointments,
   DEPOSIT_HOLD_MS,
+  localDayOf,
   localInstant,
+  NOTHING_BOOKED,
   parseConfig,
   weekOf,
   type AgendaAppointment,
@@ -43,11 +46,12 @@ import {
 } from './queries';
 
 /**
- * The Calendar from the phone's copy: the week around the chosen day, every appointment on it with who it is for,
+ * The Calendar from the phone's copy: the days around the chosen one, every appointment on them with who it is for,
  * who is going and where, with this phone's own changes over the synced rows — the same day the web's agenda shows
  * for the same person at the same moment (core's `agendaRows`).
  *
- * The whole week is read at once, as the web's `/calendar` page does, so moving between days never waits.
+ * The whole stretch is read at once, as the web's `/calendar` page does, so moving between days never waits: a week
+ * for the day and week views, and the month view's six of them.
  */
 
 export interface SeatRow {
@@ -215,8 +219,8 @@ export function useChangeNames(outbox: readonly OutboxRow[]): ChangeNames {
   }, [data, calendars]);
 }
 
-export interface CalendarWeek {
-  /** The seven days of the strip, Sunday first. */
+export interface CalendarRange {
+  /** The days it covers: the strip's week, or the month view's six of them. */
   readonly days: readonly string[];
   readonly appointments: readonly PhoneAppointment[];
   readonly busy: readonly BusyBlock[];
@@ -224,17 +228,19 @@ export interface CalendarWeek {
 }
 
 /**
- * Everything the week around `date` holds. One read for the appointments and one each for who is going, who it is
- * for and the deposits still being paid: the copy is on the phone, so four small queries beat one that SQLite
- * would have to flatten.
+ * Everything `days` holds — the week behind the strip, or the six weeks of a month. One read for the appointments
+ * and one each for who is going, who it is for and the deposits still being paid: the copy is on the phone, so four
+ * small queries beat one that SQLite would have to flatten.
+ *
+ * The copy keeps appointments from 90 days back (the sync window), so stepping the month view further back than that
+ * shows the days but not what was on them.
  */
-export function useCalendarWeek(date: string, timeZone: string): CalendarWeek {
+export function useCalendarRange(days: readonly string[], timeZone: string): CalendarRange {
   const { business, me } = useBusiness();
-  const days = React.useMemo(() => weekOf(date), [date]);
   const [from, to] = React.useMemo(
     () => [
       new Date(localInstant(days[0]!, '00:00', timeZone)).toISOString(),
-      new Date(localInstant(addDays(days[6]!, 1), '00:00', timeZone)).toISOString(),
+      new Date(localInstant(addDays(days[days.length - 1]!, 1), '00:00', timeZone)).toISOString(),
     ],
     [days, timeZone],
   );
@@ -364,7 +370,7 @@ export interface AgendaDay {
 
 /** The chosen day as a list, and which days of the strip have anything on them. */
 export function useAgendaDay(
-  week: CalendarWeek,
+  range: CalendarRange,
   date: string,
   today: string,
   timeZone: string,
@@ -377,8 +383,8 @@ export function useAgendaDay(
       date,
       today,
       timeZone,
-      appointments: week.appointments,
-      busy: week.busy,
+      appointments: range.appointments,
+      busy: range.busy,
       mine,
       myUserId: me.user.id,
       now,
@@ -388,7 +394,95 @@ export function useAgendaDay(
       onDay: appointmentsOnDay(input) as readonly PhoneAppointment[],
       marked: daysWithAppointments(input),
     };
-  }, [week.appointments, week.busy, date, today, timeZone, mine, me.user.id, now]);
+  }, [range.appointments, range.busy, date, today, timeZone, mine, me.user.id, now]);
+}
+
+/** A day's heading in the week list: the day it names, and what is on it in words. */
+export interface WeekHeading {
+  readonly kind: 'day';
+  readonly date: string;
+  /** "2 appointments", or "Nothing booked" where there are none. */
+  readonly countWords: string;
+}
+
+/** The week as one list: each day's heading, then that day's rows, so one scroll covers all seven. */
+export type WeekRow = WeekHeading | AgendaRow;
+
+export function useAgendaWeek(
+  range: CalendarRange,
+  date: string,
+  today: string,
+  timeZone: string,
+  mine: boolean,
+  now: number,
+): readonly WeekRow[] {
+  const { me } = useBusiness();
+  return React.useMemo(() => {
+    const out: WeekRow[] = [];
+    // The week around the date, whatever the range holds: a month's range would otherwise make this six of them.
+    for (const day of weekOf(date)) {
+      const input: AgendaInput = {
+        date: day,
+        today,
+        timeZone,
+        appointments: range.appointments,
+        busy: range.busy,
+        mine,
+        myUserId: me.user.id,
+        now,
+      };
+      const count = appointmentsOnDay(input).length;
+      out.push({ kind: 'day', date: day, countWords: appointmentCount(count) || NOTHING_BOOKED });
+      out.push(...agendaRows(input));
+    }
+    return out;
+  }, [range.appointments, range.busy, date, today, timeZone, mine, me.user.id, now]);
+}
+
+/** One day of the month grid: what is booked on it, and whether any of this person's busy time lands there. */
+export interface MonthDay {
+  readonly date: string;
+  readonly today: boolean;
+  /** False for the days of the neighbouring months that fill out the first and last weeks. */
+  readonly inMonth: boolean;
+  readonly appointments: readonly PhoneAppointment[];
+  readonly busy: boolean;
+}
+
+/**
+ * The month as six whole weeks. A cell says how full its day is rather than when things are on it, so it is the
+ * day's appointments in time order and a mark for busy time — the same Everyone or Just me the day list follows,
+ * and busy time only on Just me, because it is one person's own calendar.
+ */
+export function useAgendaMonth(
+  range: CalendarRange,
+  date: string,
+  today: string,
+  timeZone: string,
+  mine: boolean,
+  now: number,
+): readonly MonthDay[] {
+  const { me } = useBusiness();
+  return React.useMemo(
+    () =>
+      range.days.map((day) => ({
+        date: day,
+        today: day === today,
+        inMonth: day.slice(0, 7) === date.slice(0, 7),
+        appointments: appointmentsOnDay({
+          date: day,
+          today,
+          timeZone,
+          appointments: range.appointments,
+          busy: range.busy,
+          mine,
+          myUserId: me.user.id,
+          now,
+        }) as readonly PhoneAppointment[],
+        busy: mine && range.busy.some((b) => localDayOf(b.startsAt, timeZone) === day),
+      })),
+    [range.days, range.appointments, range.busy, date, today, timeZone, mine, me.user.id, now],
+  );
 }
 
 /** One appointment and everything its screen shows, from the copy plus this phone's own changes. */
