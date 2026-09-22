@@ -12,9 +12,9 @@
  *
  * None of the four had a test, which is why it shipped. The fix is `private.open_usage_wallet` (0094): one
  * security-definer function that checks `money.manage` for itself and writes defaults and only defaults. So
- * what is asserted here is both halves — that the press works, and that the wallet it opens is **empty**,
- * with the spending limit still on. A person opening a wallet with `stage` already `off` would be opening a
- * way around their own limit.
+ * what is asserted here is both halves — that the press works, and that the wallet it opens is the one
+ * every business starts with: nothing spent, no card, and `stage` where HandsFreeOS puts it rather than
+ * anywhere its owner named.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -97,22 +97,27 @@ describe('a business that has never spent anything', () => {
     expect(await walletRow()).toMatchObject({ floor_cents: 1000, topup_cents: 2500 });
   });
 
-  it('opens it empty, with the spending limit still on', async () => {
+  it('opens it the way every business starts, with nothing its owner chose', async () => {
     const w = await walletRow();
-    // `stage` is HandsFreeOS's to set and `off` is where every business starts; a person who could open a
-    // wallet with it already chosen would be choosing whether their own limit ever fires.
-    expect(w).toMatchObject({ stage: 'off', balance_cents: 0, auto_topup: false });
+    // Nothing spent and no card, the two things a person must never be able to hand themselves — and
+    // `stage` where a new business begins. Which stage a business is on is HandsFreeOS's to set (the
+    // update guard says so in those words); naming it on the way in would be naming it all the same.
+    expect(w).toMatchObject({ stage: 'off', balance_cents: 0 });
     expect(w?.method_token).toBeNull();
+    // Meaning to top itself up from the start, which is the table's own default and the kind one: a
+    // business that runs out mid-job did not choose to. It charges nothing until there is a card.
+    expect(w?.auto_topup).toBe(true);
   });
 });
 
 describe('the rules that were hidden behind the refusal', () => {
-  it('says there is no card, rather than refusing the press, when auto top-up is turned on', async () => {
-    const e = await settings(owner, { autoTopup: true }).catch((x: unknown) => x);
+  it('says there is no card, rather than refusing the press, when auto top-up is set', async () => {
+    const e = await settings(owner, { autoTopup: true, topupCents: 9999 }).catch((x: unknown) => x);
     expect(e).toBeInstanceOf(HfosError);
     expect((e as HfosError).rule).toBe('wallet_no_card');
     expect((e as HfosError).status).toBe(409);
-    expect((await walletRow())?.auto_topup).toBe(false);
+    // The whole press is refused, not the half of it the rule was about.
+    expect((await walletRow())?.topup_cents).toBe(2500);
   });
 
   it('says there is no card to charge, rather than refusing the press, on Top up', async () => {

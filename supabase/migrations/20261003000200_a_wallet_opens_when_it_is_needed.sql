@@ -23,9 +23,11 @@
 --        The closed table is not the bug and is not loosened here. A person
 --        still has no INSERT privilege, because what must stay impossible is a
 --        person opening a wallet *of their choosing* — with a balance on it, a
---        card on it, or `stage` set to `off` so their own spending limit never
---        fires. Opening an EMPTY one for a business they already run is
---        harmless, and it is the only thing this allows.
+--        card on it, or a `stage` they named rather than the one HandsFreeOS
+--        puts a business on, which `guard_usage_wallet` refuses them on every
+--        update and which the insert guard never looks at. Opening an EMPTY
+--        one for a business they already run is harmless, and it is the only
+--        thing this allows.
 --
 --        So it goes in the way the ledger's credit does: one `security
 --        definer` function that checks `money.manage` for itself rather than
