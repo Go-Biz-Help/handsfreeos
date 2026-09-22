@@ -13,6 +13,7 @@ import type { Me, WorkspaceSummary } from '@/lib/api/types';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
+import { useMenu } from './menu-provider';
 import { isActive, navItems, NavLinks, UnreadCount, UrgentCount } from './nav-links';
 import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
@@ -25,6 +26,10 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
   const [drawer, setDrawer] = useState(false);
   const [search, setSearch] = useState(false);
   const items = navItems(current.id);
+  // A place taken out of the menu is out of the bottom bar too; it still titles its own page, and search and
+  // links still reach it.
+  const { menu } = useMenu();
+  const bar = items.filter((i) => i.primary && !menu.hidden.includes(i.key));
   const active = items.find((i) => isActive(i, pathname));
   const nested = active && !active.exact && pathname !== active.href;
   const title = active?.label ?? current.name;
@@ -94,40 +99,38 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
           inThread && 'hidden',
         )}
       >
-        {items
-          .filter((i) => i.primary)
-          .map((item) => {
-            const Icon = item.icon;
-            const on = isActive(item, pathname);
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={on ? 'page' : undefined}
-                className={cn(
-                  'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium',
-                  on ? 'text-accent-text' : 'text-text-3',
-                )}
-              >
-                <span className="relative">
-                  <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2 : 1.5} />
-                  {item.key === 'home' ? (
-                    <UrgentCount
-                      count={urgent}
-                      className="absolute -right-2.5 -top-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-card"
-                    />
-                  ) : null}
-                  {item.key === 'inbox' ? (
-                    <UnreadCount
-                      count={unread}
-                      className="absolute -right-2.5 -top-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-card"
-                    />
-                  ) : null}
-                </span>
-                {item.label}
-              </Link>
-            );
-          })}
+        {bar.map((item) => {
+          const Icon = item.icon;
+          const on = isActive(item, pathname);
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={on ? 'page' : undefined}
+              className={cn(
+                'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium',
+                on ? 'text-accent-text' : 'text-text-3',
+              )}
+            >
+              <span className="relative">
+                <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2 : 1.5} />
+                {item.key === 'home' ? (
+                  <UrgentCount
+                    count={urgent}
+                    className="absolute -right-2.5 -top-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-card"
+                  />
+                ) : null}
+                {item.key === 'inbox' ? (
+                  <UnreadCount
+                    count={unread}
+                    className="absolute -right-2.5 -top-1.5 h-4 min-w-4 px-1 text-[10px] ring-2 ring-card"
+                  />
+                ) : null}
+              </span>
+              {item.label}
+            </Link>
+          );
+        })}
         <button
           type="button"
           onClick={() => setDrawer(true)}
@@ -138,17 +141,35 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
         </button>
       </nav>
 
+      {/* The drawer holds the whole menu, groups and all; only the menu scrolls, so the account stays put. */}
       <Sheet open={drawer} onOpenChange={setDrawer}>
-        <SheetContent side="left" title="Menu" hideHeader className="px-3 pb-4 pt-5">
-          <div className="px-2.5 pb-3.5 pt-1">
-            <Brand />
+        <SheetContent
+          side="left"
+          title="Menu"
+          hideHeader
+          className="overflow-y-hidden px-3 pb-4 pt-5"
+        >
+          <div className="flex-none">
+            <div className="px-2.5 pb-3.5 pt-1">
+              <Brand />
+            </div>
+            <WorkspaceSwitcher me={me} current={current} />
           </div>
-          <WorkspaceSwitcher me={me} current={current} />
-          <NavLinks workspaceId={current.id} onNavigate={() => setDrawer(false)} />
-          <div className="flex-1" />
-          <CallsPill />
-          <GetHelp workspaceId={current.id} />
-          <UserMenu user={me.user} />
+          <div
+            data-testid="drawer-menu"
+            className="-mx-1 mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-0.5"
+          >
+            <NavLinks
+              workspaceId={current.id}
+              variant="drawer"
+              onNavigate={() => setDrawer(false)}
+            />
+          </div>
+          <div className="flex-none pt-2">
+            <CallsPill />
+            <GetHelp workspaceId={current.id} />
+            <UserMenu user={me.user} />
+          </div>
         </SheetContent>
       </Sheet>
 

@@ -69,9 +69,27 @@ const LOA = Buffer.from(
   '%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n',
 );
 
-/** A number nobody else in the test database holds. The last four decide what the fake carrier does with it. */
-const aNumber = (ending: string) =>
-  `+1713${String(100 + Math.floor(Math.random() * 899))}${ending}`;
+/**
+ * A number nobody else in the test database holds, and nothing in this file has had before. The last four
+ * decide what the fake carrier does with it.
+ *
+ * The middle is still drawn at random, because `app.phone_numbers.e164` is unique across the whole database
+ * and other suites run beside this one. What it may not do is repeat within the file: `number_port.start`
+ * hands back a port already open on a number rather than opening a second one, so two tests drawing the same
+ * number left the later one saving a port the carrier already had, refused with `port_with_carrier`. Six
+ * draws of one ending out of 899 middles collided about once in sixty runs, which is what a green file and
+ * the occasional red one looked like.
+ */
+const drawn = new Set<string>();
+const aNumber = (ending: string) => {
+  for (;;) {
+    const n = `+1713${String(100 + Math.floor(Math.random() * 899))}${ending}`;
+    if (!drawn.has(n)) {
+      drawn.add(n);
+      return n;
+    }
+  }
+};
 
 let owner: TestUser;
 let member: TestUser;

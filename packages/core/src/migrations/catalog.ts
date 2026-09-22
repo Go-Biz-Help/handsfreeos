@@ -399,6 +399,22 @@ export const IMPORTABLE_CATEGORIES: readonly string[] = MIGRATION_CATEGORIES.fil
   (x) => x.release === 'ready',
 ).map((x) => x.id);
 
+/**
+ * The kinds of record a rollback leaves exactly where they are, and why.
+ *
+ * Everything else an import creates is taken back — archived where the table has somewhere to put a record
+ * that is out of the way but not gone, deleted where it has not (migrations/engine/run.ts). These three are
+ * not records the import owns:
+ *
+ *   tag            — the business's own label. By now people here have put "VIP" on customers of their own,
+ *                    and taking the tag away would strip it off those too.
+ *   user           — never made by an import, only recognised.
+ *   pipeline_stage — part of the board it is on, and goes with the board rather than on its own.
+ *
+ * Read by the rollback preview, so the number it shows is the number of records that will really go.
+ */
+export const MIGRATION_ROLLBACK_LEAVES: readonly string[] = ['tag', 'user', 'pipeline_stage'];
+
 /** Whether choosing this category could ever put a record in the business. */
 export function isImportable(id: string): boolean {
   return migrationCategory(id)?.release === 'ready';

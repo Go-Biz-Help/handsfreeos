@@ -5,6 +5,8 @@ import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
+import { MenuEditor } from '@/components/shell/menu-editor';
+import { MenuProvider } from '@/components/shell/menu-provider';
 import { MobileShell } from '@/components/shell/mobile-shell';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeSync } from '@/components/shell/theme-sync';
@@ -66,23 +68,27 @@ export default async function WorkspaceLayout({
               enabled={hasWorkspacePermission(current.role, 'assistant.use')}
               consentNeeded={me.assistantConsent.needed}
             >
-              <div className="flex min-h-screen flex-col bg-bg">
-                <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
-                {viewingAs ? (
-                  <ViewAsBanner
-                    businessName={viewingAs.businessName}
-                    expiresAt={viewingAs.expiresAt}
-                  />
-                ) : null}
-                <div className="flex min-h-0 flex-1">
-                  <Sidebar me={me} current={current} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <MobileShell me={me} current={current} />
-                    <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+              {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}
+              <MenuProvider settings={me.user.settings}>
+                <div className="flex min-h-screen flex-col bg-bg">
+                  <ThemeSync theme={parseTheme((me.user.settings as { theme?: unknown }).theme)} />
+                  {viewingAs ? (
+                    <ViewAsBanner
+                      businessName={viewingAs.businessName}
+                      expiresAt={viewingAs.expiresAt}
+                    />
+                  ) : null}
+                  <div className="flex min-h-0 flex-1">
+                    <Sidebar me={me} current={current} />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <MobileShell me={me} current={current} />
+                      <WorkspaceMain workspaceId={workspaceId}>{children}</WorkspaceMain>
+                    </div>
+                    <AssistantPanel />
                   </div>
-                  <AssistantPanel />
                 </div>
-              </div>
+                <MenuEditor workspaceId={workspaceId} />
+              </MenuProvider>
               <CallOverlays />
             </AssistantProvider>
           </CallProvider>
