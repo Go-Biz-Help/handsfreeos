@@ -82,14 +82,23 @@ jobs:
         run: |
           set -euo pipefail
           deadline=$(( SECONDS + 45 * 60 ))
+          unreachable=0
           while [ "$SECONDS" -lt "$deadline" ]; do
-            # A blip talking to EAS is not a failed release: say so and ask again in thirty seconds.
+            # A blip talking to EAS is not a failed release: say so and ask again in thirty seconds. Five in a row
+            # is not a blip, though — a revoked token answers 401 every time, and a job that shrugged at that for
+            # forty-five minutes and then passed would be claiming a release nobody can show happened.
             if ! run=$(curl -fsS "https://api.expo.dev/v2/workflows/runs/$RUN_ID" \
               -H "Authorization: Bearer $EXPO_TOKEN"); then
+              unreachable=$(( unreachable + 1 ))
+              if [ "$unreachable" -ge 5 ]; then
+                echo "::error::EAS has not answered five times running. The run may well be fine; this job cannot tell."
+                exit 1
+              fi
               echo "couldn't reach EAS, trying again"
               sleep 30
               continue
             fi
+            unreachable=0
             status=$(echo "$run" | jq -r '.data.status')
             case "$status" in
               success)
@@ -97,7 +106,19 @@ jobs:
                 exit 0
                 ;;
               failure|canceled)
-                echo "::error::The EAS run ended as $status. Open the run linked above to see which job stopped it."
+                # The run page has all of this, but a failure nobody can read without signing in to Expo is a
+                # failure nobody fixes. The same JSON already names every job and what went wrong in it, so say it
+                # here, next to the commit that caused it.
+                echo "::error::The EAS run ended as $status. Every job it ran:"
+                echo "$run" | jq -r '.data.jobs[]? | "  \(.status)\t\(.name)"'
+                echo "$run" | jq -r '
+                  .data.jobs[]?
+                  | select((.errors // []) | length > 0)
+                  | "::error::\(.name): \(
+                      (.errors // [])
+                      | map(if type == "object" then ((.title // "error") + ": " + (.message // "" | tostring)) else tostring end)
+                      | join("; ")
+                    )"'
                 exit 1
                 ;;
               action-required)
