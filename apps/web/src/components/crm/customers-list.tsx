@@ -19,6 +19,14 @@ import { TagChip } from './chips';
 import { CompanyDialog } from './company-dialog';
 import { PersonDialog } from './person-dialog';
 
+/**
+ * On a desktop the table scrolls inside its card (the shell gives the page the viewport's height) and the
+ * column names stay pinned at the top; the header cells carry their own background and bottom rule because
+ * a sticky cell leaves its row behind. Phones show a list and scroll the page as usual.
+ */
+const scrollingCard = 'overflow-hidden md:min-h-[200px] md:flex-1 md:overflow-y-auto';
+const stickyHead = 'sticky top-0 z-10 bg-card-2 px-3 py-2.5 shadow-[inset_0_-1px_0_var(--border)]';
+
 export interface CustomerFilters {
   q: string;
   tagId: string;
@@ -302,15 +310,15 @@ function PeopleTable({
   if (items.length === 0)
     return <Card>{emptyState(filters, 'people', onAdd, canImport, workspaceId)}</Card>;
   return (
-    <Card className="overflow-hidden">
+    <Card className={scrollingCard}>
       <table className="hidden w-full text-sm md:table" data-testid="people-table">
         <thead>
-          <tr className="bg-card-2 text-left text-xs font-medium text-text-2">
-            <th className="w-[30%] px-4 py-2.5">Person</th>
-            <th className="px-3 py-2.5">Contact</th>
-            <th className="px-3 py-2.5">Tags</th>
-            <th className="px-3 py-2.5">Open leads</th>
-            <th className="px-3 py-2.5">Last activity</th>
+          <tr className="text-left text-xs font-medium text-text-2">
+            <th className={cn(stickyHead, 'w-[30%] px-4')}>Person</th>
+            <th className={stickyHead}>Contact</th>
+            <th className={stickyHead}>Tags</th>
+            <th className={stickyHead}>Open leads</th>
+            <th className={stickyHead}>Last activity</th>
           </tr>
         </thead>
         <tbody>
@@ -440,15 +448,15 @@ function CompaniesTable({
   if (items.length === 0)
     return <Card>{emptyState(filters, 'companies', onAdd, canImport, workspaceId)}</Card>;
   return (
-    <Card className="overflow-hidden">
+    <Card className={scrollingCard}>
       <table className="hidden w-full text-sm md:table" data-testid="companies-table">
         <thead>
-          <tr className="bg-card-2 text-left text-xs font-medium text-text-2">
-            <th className="w-[32%] px-4 py-2.5">Company</th>
-            <th className="px-3 py-2.5">Contact</th>
-            <th className="px-3 py-2.5">Tags</th>
-            <th className="px-3 py-2.5">People</th>
-            <th className="px-3 py-2.5">Open leads</th>
+          <tr className="text-left text-xs font-medium text-text-2">
+            <th className={cn(stickyHead, 'w-[32%] px-4')}>Company</th>
+            <th className={stickyHead}>Contact</th>
+            <th className={stickyHead}>Tags</th>
+            <th className={stickyHead}>People</th>
+            <th className={stickyHead}>Open leads</th>
           </tr>
         </thead>
         <tbody>
