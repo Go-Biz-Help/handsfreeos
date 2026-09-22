@@ -7657,6 +7657,8 @@ You should see the redirect URI listed and saved. Stripe refuses the sign-in out
 
 Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8). Stripe calls the address before it saves it.
 
+**Check which environment you are in first.** Stripe gives you three, not two: live, the account's own test mode, and any **sandbox**, which is a separate account with its own id and its own webhooks. An endpoint built in a sandbox is invisible to live and to test mode, and its signing secret verifies nothing outside it. The endpoint list on each is the only way to be sure — a sandbox looks exactly like test mode while you are in it. You need one on live before a real business can be paid.
+
 1. Go to **Developers** → **Webhooks**.
 2. Press **Add endpoint**, and choose **Connect** (events from connected accounts), not **Account**.
 3. Endpoint URL:
@@ -7667,13 +7669,14 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
 
 4. Select these events, and no others. They are exactly the ones the worker acts on; anything else is answered with a 200 and dropped.
    - `payment_intent.succeeded`, `payment_intent.processing`, `payment_intent.amount_capturable_updated`, `payment_intent.payment_failed`, `payment_intent.canceled`
-   - `charge.refunded`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
+   - `charge.refunded`, `refund.updated`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
    - `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`
    - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.paused`, `customer.subscription.resumed`, `customer.subscription.deleted`
    - `account.updated`, `capability.updated`, `account.application.deauthorized`
-5. Press **Add endpoint**.
-6. On the endpoint's page, press **Reveal** under **Signing secret** and copy it. It starts with `whsec_`.
-7. Save it in your password manager as "Stripe Connect platform", under webhook signing secret.
+5. Set the endpoint's **API version** to the one the worker pins (`API_VERSION` in `apps/worker/src/payments/stripe.ts`, today `2026-08-26.dahlia`). Stripe otherwise sends events shaped by the account's default version, which would drift away from the version the code reads them with.
+6. Press **Add endpoint**.
+7. On the endpoint's page, press **Reveal** under **Signing secret** and copy it. It starts with `whsec_`.
+8. Save it in your password manager as "Stripe Connect platform", under webhook signing secret. **Each environment has its own**: a sandbox secret refuses every live event with a 403, and the log says `rejected an unsigned or mis-signed payment webhook`.
 
 You should see the endpoint listed as enabled. `account.application.deauthorized` is the one that matters most for trust: it is how a business revoking us in their own Stripe dashboard is noticed here, and the connection is marked disconnected without anybody having to tell us.
 
