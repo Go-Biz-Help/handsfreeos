@@ -11,9 +11,14 @@ import { ProductMock } from '@/components/product-mock';
 import { TrustLadderVisual } from '@/components/visuals';
 import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import { homeFaqs } from '@/content/faqs';
-import { foundingOffers, plan, urls } from '@/content/site';
+import { foundingContent, plan, urls } from '@/content/site';
 import { FoundingStrip } from '@/components/founding-counter';
-import { foundingCounts, type FoundingCount } from '@/lib/founding';
+import {
+  currentFoundingOffer,
+  foundingCounts,
+  monthlyOnSale,
+  type FoundingCount,
+} from '@/lib/founding';
 
 /*
  * Headline variants worth testing against the one below, each on a different angle:
@@ -32,7 +37,7 @@ export default async function HomePage() {
       <FoundingStrip counts={counts} />
       <OrganizationJsonLd />
       <WebSiteJsonLd />
-      <SoftwareApplicationJsonLd />
+      <SoftwareApplicationJsonLd monthlyOnSale={monthlyOnSale(counts)} />
       <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
       <Hero />
       <TheProblem />
@@ -414,55 +419,68 @@ function InYourPocket() {
  * and are passed down rather than fetched here, so the home page makes one request rather than three.
  */
 function PlansStrip({ counts }: { counts: readonly FoundingCount[] | null }) {
-  const open = counts?.filter((c) => c.status === 'open') ?? [];
+  // The same two facts the pricing page reads, from the same fetch: which founding offer is current, and
+  // whether the monthly plan has gone on sale beside it.
+  const count = currentFoundingOffer(counts);
+  const offer = count ? foundingContent(count.offerId) : null;
+  const monthly = monthlyOnSale(counts);
+  // Nothing to show is possible only if the database has every offer in draft — then there is nothing for sale.
+  if (!monthly && !count) return null;
   return (
     <Section className="bg-card-2 border-border border-y">
       <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <SectionHeading sub="One plan, every feature in it, and texts and calls billed for what you use.">
-          Priced against the one job a month it saves you.
-        </SectionHeading>
+        {monthly ? (
+          <SectionHeading sub="One plan, every feature in it, and texts and calls billed for what you use.">
+            Priced against the one job a month it saves you.
+          </SectionHeading>
+        ) : (
+          <SectionHeading sub="A few businesses get it before it goes on sale — for nothing, or for one payment. The count is live.">
+            Founding seats are open.
+          </SectionHeading>
+        )}
         <Button href="/pricing" variant="secondary" size="lg" className="shrink-0">
           See what is in it
         </Button>
       </div>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
-        <Link
-          href="/pricing"
-          className="bg-card border-accent hover:border-accent-hover rounded-[var(--radius-card)] border-2 p-5 transition-colors"
-        >
-          <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-            {plan.name}
-          </p>
-          <p className="mt-2 text-3xl font-bold">
-            ${plan.price}
-            <span className="text-text-3 text-base font-normal"> /month</span>
-          </p>
-          <p className="text-text-2 mt-2 text-base">{plan.blurb}</p>
-        </Link>
+        {/* No live count means no card: the home page never advertises a seat the database has not confirmed. */}
+        {count && offer ? (
+          <Link
+            href="/founding"
+            className={`bg-card rounded-[var(--radius-card)] p-5 transition-colors ${
+              monthly
+                ? 'border-border hover:border-border-strong border'
+                : 'border-accent hover:border-accent-hover border-2'
+            }`}
+          >
+            <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
+              {offer.name}
+            </p>
+            <p className="mt-2 text-3xl font-bold">{offer.priceLabel}</p>
+            <p className="text-text-2 mt-2 text-base">
+              {count.remaining > 0
+                ? `${count.remaining} of ${count.seatCap} left`
+                : `All ${count.seatCap} taken — waitlist open`}
+            </p>
+          </Link>
+        ) : null}
 
-        {foundingOffers.map((offer) => {
-          const count = open.find((c) => c.offerId === offer.id);
-          // No live count means no card: the home page never advertises a seat the database has not confirmed.
-          if (!count) return null;
-          return (
-            <Link
-              key={offer.id}
-              href="/founding"
-              className="bg-card border-border hover:border-border-strong rounded-[var(--radius-card)] border p-5 transition-colors"
-            >
-              <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-                {offer.name}
-              </p>
-              <p className="mt-2 text-3xl font-bold">{offer.priceLabel}</p>
-              <p className="text-text-2 mt-2 text-base">
-                {count.remaining > 0
-                  ? `${count.remaining} of ${count.seatCap} left`
-                  : `All ${count.seatCap} taken — waitlist open`}
-              </p>
-            </Link>
-          );
-        })}
+        {monthly ? (
+          <Link
+            href="/pricing"
+            className="bg-card border-accent hover:border-accent-hover rounded-[var(--radius-card)] border-2 p-5 transition-colors"
+          >
+            <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
+              {plan.name}
+            </p>
+            <p className="mt-2 text-3xl font-bold">
+              ${plan.price}
+              <span className="text-text-3 text-base font-normal"> /month</span>
+            </p>
+            <p className="text-text-2 mt-2 text-base">{plan.blurb}</p>
+          </Link>
+        ) : null}
       </div>
     </Section>
   );

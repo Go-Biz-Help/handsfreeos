@@ -9,7 +9,7 @@
  * is still a draft, or its counter is switched off. All three mean "no number to show", which the bar and
  * the sentence both handle by simply not appearing.
  */
-import type { FoundingCount } from '@/lib/founding';
+import { currentFoundingOffer, type FoundingCount } from '@/lib/founding';
 
 /** Full, and worth saying so plainly — an offer that pretends otherwise is the thing people resent. */
 const isFull = (c: FoundingCount) => c.remaining <= 0;
@@ -85,17 +85,18 @@ export function FoundingCounter({
  * rather than degrade — the home page has a job that does not depend on this.
  */
 export function FoundingStrip({ counts }: { counts: readonly FoundingCount[] | null }) {
-  const open = counts?.filter((c) => c.status === 'open' && c.remaining > 0) ?? [];
-  if (open.length === 0) return null;
+  // The one offer on sale now. Superseded offers and the monthly plan never make the banner: a superseded one is
+  // not for sale to the public, and the plan's seat count is not a number anybody should read.
+  const current = currentFoundingOffer(counts);
+  if (!current || current.status !== 'open' || current.remaining <= 0) return null;
   return (
     <div className="border-border bg-card-2 border-b">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-5 py-3 text-center text-sm sm:px-8">
-        {open.map((c) => (
-          <span key={c.offerId} className="text-text-2">
-            <span className="text-accent font-semibold">{c.remaining}</span> of {c.seatCap}{' '}
-            {c.name.toLowerCase()} {c.remaining === 1 ? 'seat' : 'seats'} left
-          </span>
-        ))}
+        <span className="text-text-2">
+          <span className="text-accent font-semibold">{current.remaining}</span> of{' '}
+          {current.seatCap} {current.name.toLowerCase()}{' '}
+          {current.remaining === 1 ? 'seat' : 'seats'} left
+        </span>
         <a
           href="/founding"
           className="text-accent font-semibold underline-offset-4 hover:underline"

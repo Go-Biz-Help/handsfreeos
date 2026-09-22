@@ -11,6 +11,10 @@
  *
  * Revoking asks for a reason and will not proceed without one, because the reason is kept forever and a
  * revocation nobody explained cannot be defended a year later when the business asks.
+ *
+ * The offers open one after another by themselves (0092): each card says what it is waiting for, and the
+ * earlier offer says when a later one has taken its place on the website. The page only reports this — the
+ * switch happens in the database, in the same transaction as the approval that crossed the line.
  */
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -77,6 +81,7 @@ export function FoundingPage({ queue }: { queue: Queue }) {
           <OfferCard
             key={offer.offerId}
             offer={offer}
+            offers={queue.offers}
             busy={busy}
             onCap={(seatCap) =>
               run(`cap:${offer.offerId}`, () =>
@@ -249,66 +254,120 @@ export function FoundingPage({ queue }: { queue: Queue }) {
 
 function OfferCard({
   offer,
+  offers,
   busy,
   onCap,
   onStatus,
 }: {
   offer: Offer;
+  offers: readonly Offer[];
   busy: string | null;
   onCap: (seatCap: number) => void;
   onStatus: (status: 'draft' | 'open' | 'closed') => void;
 }) {
   const [cap, setCap] = useState(String(offer.seatCap));
   const pct = offer.seatCap > 0 ? Math.min(100, (offer.claimed / offer.seatCap) * 100) : 0;
+  const monthly = offer.billing === 'monthly';
+  const after = offers.find((o) => o.offerId === offer.opensAfterOfferId);
+  // The same rule as the view's `superseded`: a later founding offer is open, so this one is off the website.
+  const replacedBy = offers.find(
+    (o) => o.opensAfterOfferId === offer.offerId && o.billing === 'once' && o.status !== 'draft',
+  );
+  const line = after ? (offer.opensAfterCount ?? after.seatCap) : null;
+
   return (
     <Card className="p-4">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">{offer.name}</h2>
         <span className="text-[13px] text-text-3">
-          {price(offer.priceCents)} · {offer.status}
+          {price(offer.priceCents)}
+          {monthly ? '/month' : ''} · {offer.status}
         </span>
       </div>
 
-      <p className="mt-3 text-2xl font-semibold">
-        {offer.remaining}
-        <span className="text-base font-normal text-text-3"> of {offer.seatCap} left</span>
-      </p>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-card-2">
-        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-      </div>
+      {monthly ? (
+        // No seats and no cap: this card is the switch for whether the website sells the plan.
+        <p className="mt-3 text-[13px] text-text-2">
+          The website shows this plan while it is open. No seat limit.
+        </p>
+      ) : (
+        <>
+          <p className="mt-3 text-2xl font-semibold">
+            {offer.remaining}
+            <span className="text-base font-normal text-text-3"> of {offer.seatCap} left</span>
+          </p>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-card-2">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+          </div>
+        </>
+      )}
+
+      {offer.status === 'draft' && after && line !== null ? (
+        <p className="mt-3 text-[13px] text-text-2">
+          Opens by itself when {after.name}{' '}
+          {offer.opensAfterCount === null ? 'is full' : `has ${line} seats out`} —{' '}
+          {Math.min(after.claimed, line)} of {line} now.
+        </p>
+      ) : offer.openedAt ? (
+        <p className="mt-3 text-[13px] text-text-3">Opened {when(offer.openedAt)}.</p>
+      ) : null}
+
+      {replacedBy ? (
+        <p className="mt-2 text-[13px] text-text-3">
+          Off the website since {replacedBy.name} opened. A seat that frees up here is for somebody
+          already waiting — approve them below.
+        </p>
+      ) : null}
+
+      {!monthly && offer.priceCents > 0 ? (
+        <p className="mt-2 rounded-[10px] bg-card-2 px-3 py-2 text-[13px] text-text-2">
+          Paying online is not built yet. You can approve people and hold their seat, but their link
+          will not work until it is.
+        </p>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap items-end gap-2">
-        <Field label="Seats" htmlFor={`cap-${offer.offerId}`} className="w-24">
-          <Input
-            id={`cap-${offer.offerId}`}
-            value={cap}
-            inputMode="numeric"
-            onChange={(e) => setCap(e.target.value)}
-          />
-        </Field>
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={busy === `cap:${offer.offerId}` || cap === String(offer.seatCap)}
-          onClick={() => {
-            const n = Number(cap);
-            if (Number.isInteger(n) && n >= 0) onCap(n);
-          }}
-        >
-          Save
-        </Button>
+        {monthly ? null : (
+          <>
+            <Field label="Seats" htmlFor={`cap-${offer.offerId}`} className="w-24">
+              <Input
+                id={`cap-${offer.offerId}`}
+                value={cap}
+                inputMode="numeric"
+                onChange={(e) => setCap(e.target.value)}
+              />
+            </Field>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy === `cap:${offer.offerId}` || cap === String(offer.seatCap)}
+              onClick={() => {
+                const n = Number(cap);
+                if (Number.isInteger(n) && n >= 0) onCap(n);
+              }}
+            >
+              Save
+            </Button>
+          </>
+        )}
         <Button
           size="sm"
           variant="secondary"
           disabled={busy === `status:${offer.offerId}`}
           onClick={() => onStatus(offer.status === 'open' ? 'closed' : 'open')}
         >
-          {offer.status === 'open' ? 'Close' : 'Open'}
+          {offer.status === 'open'
+            ? 'Close'
+            : offer.status === 'draft' && after
+              ? 'Open now'
+              : 'Open'}
         </Button>
       </div>
-      <p className="mt-2 text-[12px] text-text-3">
-        Raising this opens seats at once. It cannot go below the {offer.claimed} already out.
-      </p>
+      {monthly ? null : (
+        <p className="mt-2 text-[12px] text-text-3">
+          Raising this opens seats at once. It cannot go below the {offer.claimed} already out.
+        </p>
+      )}
     </Card>
   );
 }
