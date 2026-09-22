@@ -36,119 +36,89 @@ export const urls = {
   playStore: '',
 } as const;
 
-/** Growth includes eight people. Past that it is this much a month each. Pro has no per-person charge. */
-export const extraSeatPrice = 15;
-
-/** The number of people a Growth plan covers before `extraSeatPrice` starts. */
-export const includedSeats = 8;
+/**
+ * The plan.
+ *
+ * **One plan, and everything is in it.** Three tiers were three conversations to have before somebody could
+ * buy: which one am I, what am I missing, will I have to move later. A business with four people and a
+ * business with twenty need the same software, and charging the second one more for the same thing is a
+ * conversation nobody enjoys. So: one price, every feature, as many people as work there.
+ *
+ * What is *not* in it is usage — texts, calls, numbers and AI — because that is what actually costs us money
+ * and it varies tenfold between a quiet plumber and a busy clinic. Folding it in would mean charging the
+ * quiet one for the busy one.
+ */
+export const plan = {
+  id: 'handsfreeos',
+  name: 'HandsFreeOS',
+  price: 97,
+  blurb: 'Everything HandsFreeOS does, for one business.',
+  seats: 'As many people as work there. No per-person charge.',
+  includes: [
+    'Your own business number for texts and calls',
+    'One inbox for texts, calls, voicemail and email',
+    'Customers, leads and a pipeline that shows what is where',
+    'Calendar with a public booking page customers book themselves on',
+    'Estimates, invoices, deposits and plans, paid through your own Stripe or Square',
+    'An AI teammate that answers new leads by text, email and website chat',
+    'It books them straight into the calendar, and hands over to you when it should',
+    'Follow-up workflows that chase quotes and unpaid invoices on their own',
+    'The Action Center: one ranked list of what needs you, money first',
+    'The Assistant: ask it anything about your business, it drafts and fills things in',
+    'Your customers and history moved over from the system you use now',
+    'The phone app, working with no signal',
+    'Unlimited people and unlimited customers',
+  ],
+} as const;
 
 /**
- * The plans.
+ * The founding offers.
  *
- * The rule behind the split: **Growth has every feature HandsFreeOS has for one business.**
- * Nothing is held back from it except running more than one business, which is what Pro is.
- * Starter is the smaller plan for a one-person shop: it is missing the AI teammate answering
- * customers on its own, and the automatic follow-ups that go with it.
+ * These are the *marketing* copy for two rows that live in `platform.founding_offers`. The **numbers** —
+ * how many seats, how many are left — never come from here: they are read live from the database, because a
+ * page that says "7 left" while the database says none is worse than a page that says nothing. `id` is what
+ * ties the two together, and it has to match the row.
  */
-export const plans = [
+export const foundingOffers = [
   {
-    id: 'starter',
-    name: 'Starter',
-    price: 99,
-    blurb: 'For the owner who answers their own phone.',
-    seats: 'Up to 3 people',
-    featured: false,
+    id: 'founding_partner',
+    name: 'Founding Partner',
+    price: 0,
+    priceLabel: 'Free, for life',
+    blurb: 'For twenty-five businesses who will tell us the truth about what is missing.',
     includes: [
-      'Your own business number for texts and calls',
-      'One inbox for texts, calls, voicemail and email',
-      'Customers, leads and a pipeline that shows what is where',
-      'Calendar with a public booking page customers book themselves on',
-      'Estimates, invoices, deposits and plans, paid through your own Stripe or Square',
-      'Your customers and history moved over from the system you use now',
-      'The phone app, working with no signal',
-      'The Assistant: ask it anything about your business, it drafts and fills things in',
+      'Everything in HandsFreeOS, free for as long as it exists',
+      'We set it up with you, in a group of five, so you are never the only one going first',
+      '$10 of texts, calls and AI to start with',
+      'A say in what gets built next, because you are the reason we know',
     ],
-    missing: [
-      'An AI teammate that answers your customers on its own',
-      'Follow-up workflows and the Action Center',
+    asks: [
+      'Use it for your real business, not a trial account',
+      'Tell us when it is wrong — that is the whole trade',
+      'Let us write up what it did for you, if it does anything worth writing up',
     ],
   },
   {
-    id: 'growth',
-    name: 'Growth',
-    price: 249,
-    blurb: 'Everything HandsFreeOS does, for one business.',
-    seats: 'Unlimited people — 8 included, then $15 each a month',
-    featured: true,
+    id: 'founding_lifetime',
+    name: 'Founding Customer',
+    price: 497,
+    priceLabel: '$497 once',
+    blurb: 'Pay once. Use it for as long as HandsFreeOS exists.',
     includes: [
-      'Everything in Starter',
-      'An AI teammate that answers new leads by text, email and website chat',
-      'It books them straight into the calendar, and hands over to you when it should',
-      'Follow-up workflows that chase quotes and unpaid invoices on their own',
-      'The Action Center: one ranked list of what needs you, money first',
-      'A morning email with what happened and what is waiting',
-      'Every other feature HandsFreeOS has. Nothing is held back for a bigger plan',
+      'Everything in HandsFreeOS, for as long as it exists, with no monthly bill',
+      'Every feature we add to the core product, at no extra cost',
+      'The price of five months, instead of every month',
     ],
-    missing: ['More than one business under one login'],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 499,
-    blurb: 'For several locations, or an agency running this for its clients.',
-    seats: 'Unlimited people, no per-person charge',
-    featured: false,
-    includes: [
-      'Everything in Growth, for every business you run',
-      'Several businesses or locations under one login, each with its own number and books',
-      'Templates, knowledge and workflows shared across all of them at once',
-      'We move you over from your old CRM ourselves, rather than you running it',
-      'Priority support, and a person who sets the whole thing up with you',
-    ],
-    missing: [],
+    asks: [],
   },
 ] as const;
 
 /**
- * The plan differences, side by side, because three lists of different lengths are not something a
- * person can compare. `true` is a tick, `false` a dash, a string is the answer for that plan.
+ * What sits on top of every offer here, founding ones included: texts, calls, numbers and AI, billed for
+ * what you use. Saying it in the same breath as "free for life" is the point — a founding partner who finds
+ * out about it afterwards has been misled, however technically accurate the page was.
  */
-export const planComparison: readonly {
-  readonly what: string;
-  readonly starter: boolean | string;
-  readonly growth: boolean | string;
-  readonly pro: boolean | string;
-}[] = [
-  {
-    what: 'Business number, inbox, customers, calendar, quotes and invoices',
-    starter: true,
-    growth: true,
-    pro: true,
-  },
-  {
-    what: 'An AI teammate that answers your customers on its own',
-    starter: false,
-    growth: true,
-    pro: true,
-  },
-  { what: 'Follow-up workflows and the Action Center', starter: false, growth: true, pro: true },
-  { what: 'More than one business or location', starter: false, growth: false, pro: true },
-  { what: 'People', starter: 'Up to 3', growth: '8, then $15 each', pro: 'Unlimited, no extra' },
-  {
-    what: 'Moving off the CRM you use now',
-    starter: 'You run it',
-    growth: 'You run it',
-    pro: 'We do it with you',
-  },
-  { what: 'Support', starter: 'Email', growth: 'Email', pro: 'Priority, and setup with you' },
-];
-
-/** The cheapest and dearest plan, for the pricing page's title in a search result. */
-export const lowestPrice = Math.min(...plans.map((plan) => plan.price));
-export const highestPrice = Math.max(...plans.map((plan) => plan.price));
-
-/** What sits on top of a plan: texts, calls, numbers and AI, billed for what you use. */
 export const usageNote =
-  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. A typical Growth business spends about $30–$60 a month on top.';
+  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $30–$60 a month. This is the same on every offer here, the free one included — it is what the phone companies charge us, passed through.';
 
 export const annualNote = 'Pay for the year and get two months free.';
