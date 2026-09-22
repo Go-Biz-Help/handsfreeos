@@ -110,6 +110,18 @@ jobs:
       # the branch of the same name, so this reaches exactly the builds on that channel, and it works before the
       # channel exists.
       branch: production
+    hooks:
+      # `pnpm install --frozen-lockfile` on the worker writes something back into pnpm-lock.yaml — pnpm 12 records
+      # its own version and its supply-chain check there — and `requireCommit: true` in eas.json then refuses to
+      # publish from a dirty tree ("Commit all changes. Aborting..."). The install resolved nothing new: the frozen
+      # lockfile decided every version, so putting the file back the way the commit has it changes no package, only
+      # what git sees. Turning requireCommit off instead would buy this at the price of every build's provenance.
+      after_install_node_modules:
+        - name: Put the lockfile back the way the commit has it
+          run: |
+            root=$(git rev-parse --show-toplevel)
+            git -C "$root" checkout -- pnpm-lock.yaml
+            git -C "$root" status --porcelain
 
   update_android:
     name: Update the Android phones
@@ -120,6 +132,18 @@ jobs:
     params:
       platform: android
       branch: production
+    hooks:
+      # `pnpm install --frozen-lockfile` on the worker writes something back into pnpm-lock.yaml — pnpm 12 records
+      # its own version and its supply-chain check there — and `requireCommit: true` in eas.json then refuses to
+      # publish from a dirty tree ("Commit all changes. Aborting..."). The install resolved nothing new: the frozen
+      # lockfile decided every version, so putting the file back the way the commit has it changes no package, only
+      # what git sees. Turning requireCommit off instead would buy this at the price of every build's provenance.
+      after_install_node_modules:
+        - name: Put the lockfile back the way the commit has it
+          run: |
+            root=$(git rev-parse --show-toplevel)
+            git -C "$root" checkout -- pnpm-lock.yaml
+            git -C "$root" status --porcelain
 
   what_to_do_with_the_android_build:
     name: The Android build needs an upload by hand
