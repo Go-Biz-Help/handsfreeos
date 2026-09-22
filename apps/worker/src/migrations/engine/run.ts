@@ -1649,7 +1649,11 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
     guarded += result.kept;
   }
 
-  const files = await reapMedia(deps, job);
+  const files = await reapMedia(
+    deps,
+    job,
+    workspaces.map((w) => w.workspace_id),
+  );
 
   await asWorker(deps.db, { workspaceId: null, organizationId: job.organization_id }, (tx) =>
     tx.execute(sql`
@@ -1665,68 +1669,77 @@ async function rollback(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
  *
  * Only the ones nothing points at any more: the same bytes under two records are one copy in storage
  * (media.ts), so a file goes when no surviving message or call names it, and stays where it is when one does.
+ *
+ * Business by business, like everything above, and for a harder reason than tidiness: the worker's own policy
+ * on `app.migration_media` is `workspace_id = private.system_scope_workspace()`, so a read outside a business
+ * matches nothing at all. Asked once for the whole organization, this found no files, removed none, and said
+ * so — which is the quietest way possible to keep paying to store a cancelled system's photos for ever.
  */
-async function reapMedia(deps: MigrationDeps, job: JobRow): Promise<number> {
-  let after = '00000000-0000-0000-0000-000000000000';
+async function reapMedia(
+  deps: MigrationDeps,
+  job: JobRow,
+  workspaces: readonly string[],
+): Promise<number> {
   let removed = 0;
-  for (;;) {
-    const stored = await asWorker(
-      deps.db,
-      { workspaceId: null, organizationId: job.organization_id },
-      (tx) =>
-        rows<{ id: string; bucket: string; object_path: string; workspace_id: string }>(
-          tx,
-          sql`select id::text as id, bucket, object_path, workspace_id::text as workspace_id
-              from app.migration_media
-              where migration_id = ${job.migration_id} and state = 'stored'
-                and bucket is not null and object_path is not null and id > ${after}::uuid
-              order by id limit ${MEDIA_REAP_PAGE}`,
-        ),
-    );
-    if (stored.length === 0) return removed;
+  for (const workspaceId of workspaces) {
+    const scope = { workspaceId, organizationId: job.organization_id };
     // Paged by id rather than by state, so a file that has to stay is passed over once and not asked about
     // again on the next page.
-    after = stored[stored.length - 1]!.id;
-    for (const file of stored) {
-      const [held] = await asWorker(
-        deps.db,
-        { workspaceId: file.workspace_id, organizationId: job.organization_id },
-        (tx) =>
+    let after = '00000000-0000-0000-0000-000000000000';
+    for (;;) {
+      const stored = await asWorker(deps.db, scope, (tx) =>
+        rows<{ id: string; bucket: string; object_path: string }>(
+          tx,
+          sql`select id::text as id, bucket, object_path
+              from app.migration_media
+              where migration_id = ${job.migration_id} and workspace_id = ${workspaceId}
+                and state = 'stored' and bucket is not null and object_path is not null
+                and id > ${after}::uuid
+              order by id limit ${MEDIA_REAP_PAGE}`,
+        ),
+      );
+      if (stored.length === 0) break;
+      after = stored[stored.length - 1]!.id;
+      for (const file of stored) {
+        const [held] = await asWorker(deps.db, scope, (tx) =>
           rows<{ still: boolean }>(
             tx,
             sql`select (
                   exists (select 1 from app.calls c
-                           where c.workspace_id = ${file.workspace_id}
+                           where c.workspace_id = ${workspaceId}
                              and c.recording_object_path = ${file.object_path})
                   or exists (select 1 from app.messages m
-                              where m.workspace_id = ${file.workspace_id}
+                              where m.workspace_id = ${workspaceId}
                                 and m.media @> jsonb_build_array(
                                       jsonb_build_object('objectPath', ${file.object_path}::text)))
                 ) as still`,
           ),
-      );
-      if (held?.still) continue;
-      try {
-        await deps.store.remove(file.bucket, file.object_path);
-      } catch (err) {
-        // A file that will not go is worth saying out loud and not worth failing a rollback over: the records
-        // are already back the way they were, and a copy left behind costs storage, not correctness.
-        deps.log.warn(
-          { err, migrationId: job.migration_id, objectPath: file.object_path },
-          'could not remove a copied file while rolling a migration back',
         );
-        continue;
+        if (held?.still) continue;
+        try {
+          await deps.store.remove(file.bucket, file.object_path);
+        } catch (err) {
+          // A file that will not go is worth saying out loud and not worth failing a rollback over: the
+          // records are already back the way they were, and a copy left behind costs storage, not
+          // correctness.
+          deps.log.warn(
+            { err, migrationId: job.migration_id, objectPath: file.object_path },
+            'could not remove a copied file while rolling a migration back',
+          );
+          continue;
+        }
+        await asWorker(deps.db, scope, (tx) =>
+          tx.execute(sql`
+            update app.migration_media
+               set state = 'skipped', bucket = null, object_path = null, stored_at = null,
+                   last_error = 'Removed when the migration was taken back.'
+             where id = ${file.id}::uuid and workspace_id = ${workspaceId}`),
+        );
+        removed += 1;
       }
-      await asWorker(deps.db, { workspaceId: null, organizationId: job.organization_id }, (tx) =>
-        tx.execute(sql`
-          update app.migration_media
-             set state = 'skipped', bucket = null, object_path = null,
-                 last_error = 'Removed when the migration was taken back.'
-           where id = ${file.id}::uuid`),
-      );
-      removed += 1;
     }
   }
+  return removed;
 }
 
 // ---------- small loaders ----------
