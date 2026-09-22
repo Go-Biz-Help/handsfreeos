@@ -5,20 +5,22 @@
  * A booking, a reschedule, a seat moved to another session or an added attendee arms one appointment.reminder
  * job per attendee and reminder, keyed appt-reminder:<attendeeId>:<key>; arming again only ever pulls a job
  * earlier. The job re-reads everything when it runs, so cancels and reschedules need no cleanup:
- * - skipped when the booking or appointment is off, the calendar's reminders are off, or it has started;
+ * - skipped when the booking or appointment is off, the calendar's reminders are off, the business turned that
+ *   reminder off in Settings → Automations, or it has started;
  * - it waits again when its time, worked out from the current start, is still ahead;
  * - it is done once per start (reminder_state), and its clientId carries the start, so a retry sends once;
  * - a text that would land in quiet hours goes when they end if that is still 45 minutes before the start,
  *   otherwise by email at its time; with no email it is skipped. Every outcome is recorded.
  *
  * The day-before reminder also asks a one-on-one booking that isn't confirmed yet to confirm, when the business
- * lets customers (Settings, Action Center: "Reply C to confirm"): the text ends "Reply C to confirm.", the email
- * carries a Confirm link to the manage page's button. A sent one records the ask (attendee.record_reminder's
+ * lets customers (Settings → Automations, Day-before confirmation: "Reply C to confirm"): the text ends "Reply C
+ * to confirm.", the email carries a Confirm link to the manage page's button. A sent one records the ask (attendee.record_reminder's
  * askedToConfirm), which a reply of C, or YES, then answers.
  */
 import { eq } from 'drizzle-orm';
 import {
   attentionSettingsOf,
+  automationOn,
   bookedTooLate,
   parseReminderState,
   reminderDueAt,
@@ -165,6 +167,10 @@ export const appointmentReminder: JobHandler = async (ctx) => {
     return note({ status: 'skipped', reason: 'reminders_off' });
   const due = reminderDueAt(reminder, start, b.visit.timeZone);
   if (due > now + 250) return { rescheduleAt: new Date(due) };
+  // Settings → Automations: the day-before and day-of reminders each have a switch for the whole business, read
+  // when the reminder is due, so one turned back on before then still goes.
+  if (!automationOn(m.rawSettings, reminder.kind === 'day_before' ? 'dayBefore' : 'dayOf'))
+    return note({ status: 'skipped', reason: 'reminders_off' });
 
   const clientId = clientIdFor('remind', attendeeId, key, startIso);
   const firstName = b.person.firstName.trim();

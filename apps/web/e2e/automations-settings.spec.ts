@@ -2,10 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 import { api, ownerWithSite, type Owner } from './booking-helpers';
 
 /**
- * Settings → Action Center (design/m8 Settings): in the nav after Website chat; the kinds' switches and thresholds
- * save as they're changed; the follow-up wording's live preview and its problems in plain words (a price, a link,
- * a carrier keyword, double braces); follow-ups stay off until an owner reads the wording and chooses “Looks good,
- * turn on”; and Reply C to confirm. Every change is checked in the saved settings.
+ * Settings → Automations, which took in Settings → Action Center: last in the nav, and the old address lands on
+ * it; each row's switch saves where that automation's setting lives (an Action Center kind, or Automations' own
+ * switches); approvals are always on; and the Adjust sheets keep the Action Center's settings — thresholds that
+ * save as they're changed, the follow-up wording's live preview and its problems in plain words (a price, a link,
+ * a carrier keyword, double braces), follow-ups that stay off until an owner reads the wording and chooses “Looks
+ * good, turn on”, and Reply C to confirm. Every change is checked in the saved settings.
  */
 
 type Attention = {
@@ -18,15 +20,35 @@ type Attention = {
   replyToConfirm: boolean;
 };
 
+type Automations = { switches: Record<string, boolean> };
+
+async function settingsOf(owner: Owner) {
+  const { workspace } = await api<{
+    workspace: { settings: { attention?: Attention; automations?: Automations } };
+  }>(owner.token, 'queries', 'workspace.get', { workspaceId: owner.workspaceId });
+  return workspace.settings;
+}
+
 /** The saved Action Center settings (`workspaces.settings.attention`), or {} before the first save. */
 async function saved(owner: Owner): Promise<Partial<Attention>> {
-  const { workspace } = await api<{ workspace: { settings: { attention?: Attention } } }>(
-    owner.token,
-    'queries',
-    'workspace.get',
-    { workspaceId: owner.workspaceId },
-  );
-  return workspace.settings.attention ?? {};
+  return (await settingsOf(owner)).attention ?? {};
+}
+
+/** Automations' own switches (`workspaces.settings.automations`), or {} before the first save. */
+async function savedSwitches(owner: Owner): Promise<Record<string, boolean>> {
+  return (await settingsOf(owner)).automations?.switches ?? {};
+}
+
+/** Opens one automation's Adjust sheet. */
+async function adjust(page: Page, id: string) {
+  await page.getByTestId(`adjust-open-${id}`).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+}
+
+/** Closes the sheet that's open. */
+async function close(page: Page) {
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 }
 
 /** Types into a box and leaves it, which saves it. */
@@ -36,7 +58,7 @@ async function enter(page: Page, testId: string, value: string) {
   await box.press('Enter');
 }
 
-test('Action Center settings: switches, the wording’s preview and problems, and Looks good, turn on', async ({
+test('Automations: switches, the Adjust sheets, the wording’s preview and problems, and Looks good, turn on', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -58,28 +80,75 @@ test('Action Center settings: switches, the wording’s preview and problems, an
   await page.goto(`/app/w/${owner.workspaceId}/settings`);
   const nav = page.getByRole('navigation', { name: 'Settings' });
   const tabs = await nav.getByRole('link').allTextContents();
-  expect(tabs.indexOf('Action Center')).toBe(tabs.length - 1);
-  expect(tabs.indexOf('Action Center')).toBeGreaterThan(tabs.indexOf('Website chat'));
-  await nav.getByRole('link', { name: 'Action Center' }).click();
-  await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/action-center$`));
-  await expect(page.getByTestId('action-center-settings')).toBeVisible();
+  expect(tabs.indexOf('Automations')).toBe(tabs.length - 1);
+  expect(tabs.indexOf('Automations')).toBeGreaterThan(tabs.indexOf('Website chat'));
+  expect(tabs).not.toContain('Action Center');
+  await nav.getByRole('link', { name: 'Automations' }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/automations$`));
+  await expect(page.getByTestId('automations-settings')).toBeVisible();
+  // The old address lands here.
+  await page.goto(`/app/w/${owner.workspaceId}/settings/action-center`);
+  await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/automations$`));
 
-  // A kind off and on again, saved each time.
-  const hot = page.getByTestId('ac-kind-switch-hot_lead');
+  // Grouped the way the owner reads them, each with what it touches.
+  await expect(page.getByTestId('section-customers')).toContainText('Reaching customers');
+  await expect(page.getByTestId('section-business')).toContainText('Keeping the business on track');
+  await expect(page.getByTestId('group-leads')).toContainText('Leads and sales');
+  await expect(page.getByTestId('automation-day_before_confirmation')).toContainText(
+    'Texts customers',
+  );
+  await expect(page.getByTestId('automation-hot_lead_alert')).toContainText('Just alerts you');
+  // With no AI teammate yet, what it would write says so.
+  await expect(page.getByTestId('needs-setup-new_lead_greeting')).toContainText(
+    'Set up your AI teammate to start.',
+  );
+  await expect(page.getByTestId('automation-switch-new_lead_greeting')).toBeDisabled();
+  // The header counts only what's actually working: the greeting waits on the teammate.
+  await expect(page.getByTestId('automations-count')).toContainText(
+    '1 needs something set up first.',
+  );
+
+  // An Action Center kind off and on again, saved each time.
+  const hot = page.getByTestId('automation-switch-hot_lead_alert');
   await expect(hot).toHaveAttribute('aria-checked', 'true');
   await hot.click();
-  await expect(page.getByText('HandsFreeOS stops looking for hot leads.')).toBeVisible();
+  await expect(page.getByText('Hot lead alert is off.')).toBeVisible();
   await expect.poll(async () => (await saved(owner)).kinds?.hot_lead).toBe(false);
   // Its threshold waits while it's off.
+  await adjust(page, 'hot_lead_alert');
   await expect(page.getByTestId('ac-threshold-hot_lead')).toBeDisabled();
+  await close(page);
   await hot.click();
   await expect(hot).toHaveAttribute('aria-checked', 'true');
   await expect.poll(async () => (await saved(owner)).kinds?.hot_lead).toBe(true);
+  // One row, two kinds: both go off together, and each can be switched on its own in Adjust.
+  await page.getByTestId('automation-switch-unanswered_alert').click();
+  await expect
+    .poll(async () => {
+      const k = (await saved(owner)).kinds;
+      return [k?.unanswered_lead, k?.customer_waiting];
+    })
+    .toEqual([false, false]);
+  await adjust(page, 'unanswered_alert');
+  await page.getByTestId('ac-kind-switch-customer_waiting').click();
+  await expect.poll(async () => (await saved(owner)).kinds?.customer_waiting).toBe(true);
+  await close(page);
+  await expect(page.getByTestId('automation-switch-unanswered_alert')).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
   // Approvals are always on.
-  await expect(page.getByTestId('ac-kind-switch-ai_approval')).toBeDisabled();
-  await expect(page.getByTestId('ac-kind-ai_approval')).toContainText('Always on');
+  await expect(page.getByTestId('automation-drafts_awaiting_review')).toContainText('Always on');
+  await expect(page.getByTestId('automation-switch-drafts_awaiting_review')).toHaveCount(0);
+
+  // Automations' own switches: the day-of reminder off, saved in its own document.
+  await page.getByTestId('automation-switch-day_of_reminder').click();
+  await expect(page.getByText('Day-of reminder is off.')).toBeVisible();
+  await expect.poll(async () => (await savedSwitches(owner)).dayOf).toBe(false);
+  await expect.poll(async () => (await savedSwitches(owner)).dayBefore).toBe(true);
 
   // A threshold saves when it's left; one out of range goes back.
+  await adjust(page, 'hot_lead_alert');
   await enter(page, 'ac-threshold-hot_lead', '20');
   await expect(page.getByText('A hot lead is urgent after 20 min.')).toBeVisible();
   await expect.poll(async () => (await saved(owner)).hot?.urgentAfterMinutes).toBe(20);
@@ -91,6 +160,8 @@ test('Action Center settings: switches, the wording’s preview and problems, an
   await enter(page, 'ac-typical-value', '4200');
   await expect(page.getByTestId('ac-typical-value')).toHaveValue('$4,200');
   await expect.poll(async () => (await saved(owner)).typicalJobValueCents).toBe(420_000);
+  await close(page);
+  await adjust(page, 'stale_opportunities');
   const stage = page.locator('[data-testid^="ac-stale-"]').first();
   const stageId = (await stage.getAttribute('data-testid'))!.replace('ac-stale-', '');
   await stage.fill('3');
@@ -159,17 +230,31 @@ test('Action Center settings: switches, the wording’s preview and problems, an
   await nudges.click();
   await expect.poll(async () => (await saved(owner)).auto?.nudges).toBe(true);
 
+  await close(page);
+
   // Reply C to confirm: the reminder's sample loses its last line, and it's saved.
+  await adjust(page, 'day_before_confirmation');
   const replyC = page.getByTestId('ac-replyc-preview');
   await expect(replyC).toContainText('Reply C to confirm.');
   await page.getByTestId('ac-replyc-switch').click();
   await expect(replyC).not.toContainText('Reply C to confirm.');
   await expect.poll(async () => (await saved(owner)).replyToConfirm).toBe(false);
 
+  await close(page);
+
   // Everything is still there after a reload.
   await page.reload();
+  await expect(page.getByTestId('automation-switch-day_of_reminder')).toHaveAttribute(
+    'aria-checked',
+    'false',
+  );
+  await adjust(page, 'stale_opportunities');
   await expect(page.getByTestId('ac-nudge-switch')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByTestId('ac-replyc-switch')).toHaveAttribute('aria-checked', 'false');
-  await expect(page.getByTestId('ac-threshold-hot_lead')).toHaveValue('20');
   await expect(page.getByTestId(`ac-stale-${stageId}`)).toHaveValue('3');
+  await close(page);
+  await adjust(page, 'day_before_confirmation');
+  await expect(page.getByTestId('ac-replyc-switch')).toHaveAttribute('aria-checked', 'false');
+  await close(page);
+  await adjust(page, 'hot_lead_alert');
+  await expect(page.getByTestId('ac-threshold-hot_lead')).toHaveValue('20');
 });

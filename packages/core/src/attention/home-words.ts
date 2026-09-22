@@ -809,7 +809,7 @@ export function letHandleFootnote(confirm: boolean, channel: string | null | und
     ? channel === 'email'
       ? 'Confirm is a button on their booking page, so email scanners can’t confirm by accident.'
       : 'A reply of C, or the Confirm button on their booking page, confirms it.'
-    : 'Your wording from Settings, Action Center. It never adds prices or links.';
+    : 'Your wording from Settings, Automations. It never adds prices or links.';
 }
 
 /** "It stops on its own if Maria writes first, or replies STOP." */

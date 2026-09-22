@@ -142,6 +142,45 @@ describe('the morning summary', () => {
   });
 });
 
+describe('the morning brief switch', () => {
+  // Its own business again: a business sends one summary a day, and app.events is append-only.
+  it('sends nobody one while the business has it off, and keeps the job for the next morning', async () => {
+    const x = await attentionWorld('attndigbiz');
+    try {
+      await rows(
+        admin(),
+        sql`update app.workspaces
+            set settings = jsonb_set(settings, '{automations}',
+              ${JSON.stringify({ switches: { morningBrief: false } })}::jsonb)
+            where id = ${x.workspaceId}`,
+      );
+      const c = await filedCustomer(x, 'Vic');
+      const leadId = await typedLead(x, c.id, 'Vic: quote', { daysAgo: 8, nextActionInDays: 60 });
+      await run(x, leadUpdate, { workspaceId: x.workspaceId, leadId, assigneeUserId: null });
+      await drain(x);
+      await runSweep(x);
+
+      const res = await post(x, '/test/attention/digest', { workspaceId: x.workspaceId });
+      expect(res.statusCode, res.body).toBe(200);
+      await drain(x);
+      await pause(300);
+      for (const u of [x.owner, x.member])
+        expect(
+          (await mailTo(u.email)).filter((m) => m.Subject.includes('your attention today')),
+        ).toEqual([]);
+      const [job] = await rows<{ run_at: Date }>(
+        admin(),
+        sql`select run_at from app.scheduled_jobs
+            where kind = ${ATTENTION_JOBS.digest} and dedupe_key = ${digestJobKey(x.workspaceId)}
+              and status = 'pending'`,
+      );
+      expect(new Date(job!.run_at).getTime()).toBe(nextAttentionDigestAt(Date.now(), CHI));
+    } finally {
+      await x.app.close();
+    }
+  });
+});
+
 describe('the next 7 AM', () => {
   it('is today’s before 7, tomorrow’s from 7 on, and follows daylight saving', () => {
     const when = (iso: string, zone = CHI) =>

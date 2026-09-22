@@ -415,7 +415,7 @@ const updateActionCenterSettings: SettingsConfirmTool = {
           ? [
               {
                 kind: 'blocked',
-                text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Action Center.',
+                text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Automations.',
               },
             ]
           : [],
@@ -423,7 +423,7 @@ const updateActionCenterSettings: SettingsConfirmTool = {
       result: nudgeBlocked
         ? {
             blocked: true,
-            why: 'Automatic follow-ups can only be turned on from Settings → Action Center, where the message is shown to read first.',
+            why: 'Automatic follow-ups can only be turned on from Settings → Automations, where the message is shown to read first.',
           }
         : { waiting: true, changes: fields.map((f) => f.label) },
     };
@@ -436,7 +436,7 @@ const updateActionCenterSettings: SettingsConfirmTool = {
     });
     return {
       outcome: 'Saved',
-      href: `/app/w/${ctx.workspaceId}/settings/action-center`,
+      href: `/app/w/${ctx.workspaceId}/settings/automations`,
       command: 'attention.save_settings',
     };
   },

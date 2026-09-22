@@ -5985,7 +5985,7 @@ Some things it cannot do, and says so with the steps instead: signing in to Goog
 
 Three it can do that are worth knowing about, because they cost money or cannot be undone. Each carries a warning on its card: getting a business number (a monthly cost), giving one up (gone for good), and disconnecting a payout account (anything paying on a plan stops). Taking a teammate off the business is the fourth.
 
-One deliberate speed bump is kept rather than worked around: automatic follow-ups to quiet leads stay off until an owner has read the wording on **Settings** → **Action Center** and agreed to it. Asked to turn them on, the Assistant answers with a card that has no Confirm button and says where to go.
+One deliberate speed bump is kept rather than worked around: automatic follow-ups to quiet leads stay off until an owner has read the wording on **Settings** → **Automations** and agreed to it. Asked to turn them on, the Assistant answers with a card that has no Confirm button and says where to go.
 
 ### When a question fails
 
@@ -7473,7 +7473,7 @@ Replacing a key (the **⟳** button) takes effect at once — a form needs its n
 
 Home is the Action Center: one ranked list of what needs attention in a business right now, with the money affected at the top. HandsFreeOS watches for the things that matter, puts them in order, handles the safe ones itself, and emails the right person when something can't wait. The Assistant (⌘J) answers "What needs my attention?" from the same list, in the same order.
 
-Nothing here needs a new account, key or setting. It uses the business number, email address and calendars that are already set up, and its own settings live in **Settings** → **Action Center** (owners and admins). The tables come from the migrations `20260919000100_attention_items.sql` to `20260919000500_attention_grants.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
+Nothing here needs a new account, key or setting. It uses the business number, email address and calendars that are already set up, and its own settings live in **Settings** → **Automations** (owners and admins). The tables come from the migrations `20260919000100_attention_items.sql` to `20260919000500_attention_grants.sql`. If the hosted project doesn't have them yet, push them with "Apply new migrations" in "The database: Supabase (hosted)".
 
 ### What the list holds
 
@@ -7490,7 +7490,7 @@ Eight kinds of item. Each one opens when its facts hold, and clears itself when 
 | **Customer waiting** | A customer's message has gone unanswered past the business's reply time (**Settings** → **Texting & calls**), including conversations the teammate handed to a person                                                                                       |
 | **Overdue task**     | A task whose due date has passed                                                                                                                                                                                                                            |
 
-The thresholds in that table are the defaults; **Settings** → **Action Center** changes them, and can switch any kind off.
+The thresholds in that table are the defaults; **Settings** → **Automations** changes them, and can switch any kind off.
 
 **One card per lead.** If several of the lead kinds hold for the same lead, only the most pressing opens a card (hot, then unanswered, then gone quiet, then no next action). The others show as reason chips on it, so no lead appears twice and no money is counted twice. A waiting conversation joins its customer's lead card the same way.
 
@@ -7504,7 +7504,7 @@ The thresholds in that table are the defaults; **Settings** → **Action Center*
 
 ### What HandsFreeOS does on its own
 
-Only two things, and each can be switched off in **Settings** → **Action Center**:
+Only two things, and each can be switched off in **Settings** → **Automations**:
 
 - **A confirmation request** for a visit that isn't confirmed. **On** to begin with.
 - **A follow-up nudge** for a lead that has gone quiet or an overdue follow-up, in the business's own words. **Off** until an owner reads the wording and chooses **Looks good, turn on**.
@@ -7537,7 +7537,7 @@ Only one-on-one visits are ever asked. Group times and classes never are.
 - **By your team.** **Mark confirmed** on the appointment, in the calendar, for a customer who confirmed on the phone. Only a mark your team made can be taken back; a customer's own confirmation stays.
 - **CANCEL is never used.** For the carriers CANCEL means STOP, so HandsFreeOS never asks a customer to reply CANCEL for anything. To change or cancel a visit, customers use the link on their booking page.
 
-Confirming clears the item, shows **Confirmed by text 4:12 PM** on the appointment and **Confirmed** in Today, and is undone automatically if the visit is moved: a new time needs a new confirmation. **Reply C to confirm** can be switched off in **Settings** → **Action Center**; the email button stays.
+Confirming clears the item, shows **Confirmed by text 4:12 PM** on the appointment and **Confirmed** in Today, and is undone automatically if the visit is moved: a new time needs a new confirmation. **Reply C to confirm** can be switched off in **Settings** → **Automations**; the email button stays.
 
 ### The emails it sends
 
@@ -7552,12 +7552,12 @@ At most one urgent email per item, and a new one only if the facts change. It re
 
 The Action Center adds no environment variables, secrets or provider accounts. Everything it needs is in the app:
 
-| Where                                          | What                                                                                                                                                                                                         |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Settings** → **Action Center**               | Which kinds are on and their thresholds, the typical job value, quiet days per stage, the automatic switches, the follow-up wording with its preview and **Looks good, turn on**, and **Reply C to confirm** |
-| **Settings** → **Texting & calls**             | Quiet hours, and the reply time behind "Customer waiting"                                                                                                                                                    |
-| **Settings** → **Notifications** (each person) | **Morning summary** and **Urgent items**                                                                                                                                                                     |
-| **Settings** → **My hours** (the business)     | Open hours, which the 15-minute and urgent-email clocks count                                                                                                                                                |
+| Where                                          | What                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Settings** → **Automations**                 | Every automation's switch, grouped the way an owner reads them. Under each row's **Adjust**: which kinds are on and their thresholds, the typical job value, quiet days per stage, the automatic switches, the follow-up wording with its preview and **Looks good, turn on**, and **Reply C to confirm**. The day-before and day-of reminders, waitlist offers and the morning email each have a switch for the whole business there too |
+| **Settings** → **Texting & calls**             | Quiet hours, and the reply time behind "Customer waiting"                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Settings** → **Notifications** (each person) | **Morning summary** and **Urgent items**                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Settings** → **My hours** (the business)     | Open hours, which the 15-minute and urgent-email clocks count                                                                                                                                                                                                                                                                                                                                                                             |
 
 Locally, `UNANSWERED_ALERT_MS` in `apps/worker/.env` shortens the reply time for testing, as it always has. Nothing else changes.
 
@@ -7583,7 +7583,7 @@ Each answers with what it moved and ran. A record and the job behind it are comm
 
 ### Before turning it on for a client
 
-1. Read the follow-up wording in **Settings** → **Action Center** with the owner and agree it, then have an owner choose **Looks good, turn on**. Until they do, no nudge goes out, however the switches are set.
+1. Read the follow-up wording in **Settings** → **Automations** with the owner and agree it, then have an owner choose **Looks good, turn on**. Until they do, no nudge goes out, however the switches are set.
 2. Agree the thresholds with them: a hot lead at $5,000 or 10 minutes waiting, a new lead unanswered after 15 minutes, a lead gone quiet after 7 days, and visits asked to confirm 48 hours ahead.
 3. Check their open hours and quiet hours are right. The 15-minute clock and the urgent emails count open hours, and texts wait for quiet hours to end.
 4. Tell them that leads from a website form who never agreed to texts are followed up **by email**, and that a lead with no email address and no consent gets nothing automatic. If they want texts, the form has to ask for permission to text.

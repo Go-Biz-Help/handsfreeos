@@ -255,4 +255,36 @@ describe('appointment reminders', () => {
       reason: 'opted_out',
     });
   });
+
+  it('skips each reminder the business turned off in Settings → Automations, read when it is due', async () => {
+    const setSwitches = (switches: Record<string, boolean>) =>
+      rows(
+        admin(),
+        sql`update app.workspaces
+            set settings = jsonb_set(settings, '{automations}', ${JSON.stringify({ switches })}::jsonb)
+            where id = ${w.workspaceId}`,
+      );
+    try {
+      // Off when booked, back on before it's due: the day-before one still goes.
+      await setSwitches({ dayBefore: false, dayOf: false });
+      const { c, attendeeId, k } = await bookAt(at(12, '10:00'), 'Nina');
+      const sent = textsTo(w, c.phone).length; // the confirmation
+      await setSwitches({ dayBefore: true, dayOf: false });
+      await runDue(w, [k.day, k.two]);
+      const texts = textsTo(w, c.phone).map((t) => t.body);
+      expect(texts).toHaveLength(sent + 1);
+      expect(texts.at(-1)).toContain('is tomorrow');
+      const state = await stateOf(attendeeId);
+      expect(state.reminders['day_before']).toMatchObject({ status: 'sent', channel: 'sms' });
+      expect(state.reminders['before_120']).toMatchObject({
+        status: 'skipped',
+        reason: 'reminders_off',
+      });
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set settings = settings - 'automations' where id = ${w.workspaceId}`,
+      );
+    }
+  });
 });

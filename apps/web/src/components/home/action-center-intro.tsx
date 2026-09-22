@@ -49,7 +49,7 @@ export function ActionCenterIntro({
       </ul>
       <p className="mt-3 text-xs text-text-3">
         It can also ask customers to confirm visits and follow up on quiet leads. You choose what it
-        does in Settings, Action Center.
+        does in Settings, Automations.
       </p>
       <div className="mt-3.5 flex flex-wrap gap-2">
         <ButtonLink href={`/app/w/${workspaceId}/customers`} variant="primary" size="sm">

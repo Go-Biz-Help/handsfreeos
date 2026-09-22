@@ -6,6 +6,7 @@
  */
 import { eq } from 'drizzle-orm';
 import {
+  automationOn,
   executeCommand,
   HfosError,
   loadCalendar,
@@ -43,6 +44,8 @@ export async function offerFreedTime(
   now: number,
 ): Promise<void> {
   const m = await asWorker(s.db, scope, (tx) => workspaceMessaging(tx, scope.workspaceId));
+  // Settings → Automations: "Waitlist slot opened" is off, so the time just stays open for anyone to book.
+  if (!automationOn(m.rawSettings, 'waitlist')) return;
   const end = quietEndAt(m.settings.quietHours, m.timezone, now);
   if (end !== null) {
     await asWorker(s.db, scope, (tx) =>

@@ -360,6 +360,7 @@ describe('registry', () => {
       'attention.cancel_auto',
       'attention.save_settings',
       'attention.record_auto',
+      'automations.save_settings',
       'attendee.confirm',
       'attendee.confirm_online',
       'product.create',

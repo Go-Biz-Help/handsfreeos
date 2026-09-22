@@ -23936,6 +23936,129 @@
         }
       }
     },
+    "/v1/commands/automations.save_settings": {
+      "post": {
+        "operationId": "command_automations_save_settings",
+        "summary": "Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers and the morning email.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires workspace.update. Emits automations.settings_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "properties": {
+                      "switches": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "dayBefore": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "dayOf": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "waitlist": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "morningBrief": {
+                            "default": true,
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "settings"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "switches": {
+                          "type": "object",
+                          "properties": {
+                            "dayBefore": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "dayOf": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "waitlist": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "morningBrief": {
+                              "default": true,
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "dayBefore",
+                            "dayOf",
+                            "waitlist",
+                            "morningBrief"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "switches"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "settings",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/attendee.confirm": {
       "post": {
         "operationId": "command_attendee_confirm",

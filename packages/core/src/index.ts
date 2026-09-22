@@ -47,6 +47,8 @@ export * from './knowledge/index';
 export * from './ai-team/index';
 export * from './chat/index';
 export * from './attention/index';
+// Settings → Automations: the catalog and the switches it owns.
+export * from './automations/index';
 export * from './money/index';
 export * from './inbox/index';
 export * from './migrations/index';
