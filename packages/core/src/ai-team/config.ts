@@ -183,6 +183,20 @@ const Book = z.object({
     .default(() => []),
   reschedule: z.boolean().default(true),
   cancel: z.boolean().default(true),
+  /** Puts a customer on the waitlist of one of its calendars that keeps one, when nothing open suits them. */
+  waitlist: z.boolean().default(true),
+  /** Books repeat visits, only on its calendars that let customers repeat. */
+  repeats: z.boolean().default(false),
+  /** Checks the customer's ZIP code against the business's service areas before offering times. */
+  serviceArea: z.boolean().default(true),
+});
+
+/**
+ * Deals (M18): open a lead for a customer who has none, set what it's worth, and mark it won or lost. Off, it
+ * still moves an open lead between open stages when it qualifies.
+ */
+const Deals = z.object({
+  enabled: z.boolean().default(false),
 });
 
 const FollowUp = z.object({
@@ -238,10 +252,25 @@ const Limits = z.object({
   dailySharePercent: z.int().min(10).max(100).default(60),
 });
 
+/** off; send_only: it sends quotes the team made; build: it also puts one together from the price list. */
+export const QUOTE_MODES = ['off', 'send_only', 'build'] as const;
+export type QuoteMode = (typeof QUOTE_MODES)[number];
+
+/**
+ * Money (M18 adds everything but discounts). Anything that asks the customer for money, or promises them a
+ * price, waits for an owner's or admin's OK in every mode; look-ups run at once.
+ */
 const Money = z.object({
   /** never; with_approval: it may propose one and a person decides. Refunds always go to a person. */
   discounts: z.enum(['never', 'with_approval']).default('never'),
   maxPercent: z.int().min(1).max(50).default(10),
+  /** Tells the customer what they owe and what they paid, and resends a bill's pay link (with approval). */
+  bills: z.boolean().default(false),
+  /** Puts a new bill together from the price list (with approval). */
+  newBills: z.boolean().default(false),
+  quotes: z.enum(QUOTE_MODES).default('off'),
+  /** Offers the business's maintenance plans; signing a customer up waits for approval. */
+  plans: z.boolean().default(false),
 });
 
 // ---- Hand-off ----
@@ -262,6 +291,18 @@ const HandOff = z.object({
     .refine(uniqueWords, { error: 'Each topic once.' })
     .default(() => []),
   notify: NotifyWho.default({ kind: 'admins' }),
+  /**
+   * How the people it notifies hear about it: the phone app, a text to the cell they verified, and email.
+   * Email stays on for a teammate saved before M18, so nobody stops hearing without choosing to; new
+   * teammates start with it off (`teammateConfigFromPreset`).
+   */
+  alerts: z
+    .object({
+      push: z.boolean().default(true),
+      text: z.boolean().default(true),
+      email: z.boolean().default(true),
+    })
+    .prefault({}),
   /** What the customer is told; {expectation} becomes when they'll hear back. */
   tellCustomer: z
     .string()
@@ -283,6 +324,7 @@ export const TeammateConfig = z.object({
   answer: Answer.prefault({}),
   qualify: Qualify.prefault({}),
   book: Book.prefault({}),
+  deals: Deals.prefault({}),
   followUp: FollowUp.prefault({}),
   hours: Hours.prefault({}),
   autonomy: Autonomy.prefault({}),

@@ -616,6 +616,42 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
           onChange={(v) => patch({ book: { cancel: v } }, onOff(v, 'cancelling'))}
         />
       </SetRow>
+      <SetRow
+        center
+        title={`${name} can add customers to a waitlist`}
+        description="When nothing open suits them, on calendars that keep a waitlist. They hear when a spot opens."
+      >
+        <Switch
+          checked={b.waitlist}
+          label="Waitlist"
+          testId="book-waitlist"
+          onChange={(v) => patch({ book: { waitlist: v } }, onOff(v, 'the waitlist'))}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title={`${name} can book repeat visits`}
+        description="Weekly or monthly, on calendars that let customers repeat a visit."
+      >
+        <Switch
+          checked={b.repeats}
+          label="Repeat visits"
+          testId="book-repeats"
+          onChange={(v) => patch({ book: { repeats: v } }, onOff(v, 'repeat visits'))}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title={`${name} checks your service area`}
+        description="Asks for the ZIP code and checks it against your areas before offering times."
+      >
+        <Switch
+          checked={b.serviceArea}
+          label="Service area"
+          testId="book-service-area"
+          onChange={(v) => patch({ book: { serviceArea: v } }, onOff(v, 'the service area check'))}
+        />
+      </SetRow>
       <Callout className="mt-3">
         In the website chat, {name} never changes a visit that’s already booked. It sends a link to
         the phone or email on file, because anyone can type a name into a chat.
@@ -964,6 +1000,73 @@ function LimitsModule({ draft, patch, workspaceId, catalogs }: ModuleProps) {
           </Select>
         </SetRow>
       ) : null}
+      <GroupLabel className="mt-4">Bills, quotes and plans</GroupLabel>
+      <Note icon={ShieldCheck}>
+        Anything that asks a customer for money waits for an owner or admin to OK it, even after
+        training wheels. Until then {name} tells them the team is getting it ready.
+      </Note>
+      <SetRow
+        center
+        title="Bills and payments"
+        description={`${name} tells customers what they owe and what they’ve paid, and can resend a bill’s pay link.`}
+      >
+        <Switch
+          checked={m.bills}
+          label="Bills and payments"
+          testId="money-bills"
+          onChange={(v) => patch({ money: { bills: v } }, onOff(v, 'bills and payments'))}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title="New bills"
+        description="Puts a bill together from your price list, and sends it once you OK it."
+      >
+        <Switch
+          checked={m.newBills}
+          label="New bills"
+          testId="money-new-bills"
+          onChange={(v) => patch({ money: { newBills: v } }, onOff(v, 'new bills'))}
+        />
+      </SetRow>
+      <GroupLabel className="mt-2" id="money-quotes">
+        Quotes
+      </GroupLabel>
+      <div role="radiogroup" aria-labelledby="money-quotes" className="flex flex-col gap-2">
+        <Choice
+          on={m.quotes === 'off'}
+          onSelect={() => patch({ money: { quotes: 'off' } }, 'Turn off quotes')}
+          title="Off"
+          description={`${name} says someone from the team will send a quote.`}
+          testId="quotes-off"
+        />
+        <Choice
+          on={m.quotes === 'send_only'}
+          onSelect={() => patch({ money: { quotes: 'send_only' } }, 'Send the team’s quotes')}
+          title="Send quotes the team made"
+          description="Tells customers where their quote stands, resends it, and records their yes or no."
+          testId="quotes-send_only"
+        />
+        <Choice
+          on={m.quotes === 'build'}
+          onSelect={() => patch({ money: { quotes: 'build' } }, 'Build quotes from the price list')}
+          title="Also build quotes from your price list"
+          description="Puts a quote together from your price list for you to check and send."
+          testId="quotes-build"
+        />
+      </div>
+      <SetRow
+        center
+        title="Maintenance plans"
+        description={`${name} tells customers about your plans and signs them up once you OK it.`}
+      >
+        <Switch
+          checked={m.plans}
+          label="Maintenance plans"
+          testId="money-plans"
+          onChange={(v) => patch({ money: { plans: v } }, onOff(v, 'maintenance plans'))}
+        />
+      </SetRow>
       <SetRow
         center
         title="Quoting prices"
@@ -1195,9 +1298,47 @@ function HandOffModule({ draft, patch, catalogs }: ModuleProps) {
           </DropdownMenu>
         ) : null}
       </div>
+      <GroupLabel id="handoff-alerts">How they hear</GroupLabel>
+      <SetRow
+        first
+        center
+        title="Phone app alert"
+        description="On the HandsFreeOS app, for everyone who has it."
+      >
+        <Switch
+          checked={h.alerts.push}
+          label="Phone app alert"
+          testId="handoff-alert-push"
+          onChange={(v) =>
+            patch({ handOff: { alerts: { push: v } } }, onOff(v, 'hand-off phone alerts'))
+          }
+        />
+      </SetRow>
+      <SetRow
+        center
+        title="Text to their cell"
+        description="From your business number, to the cell each person confirmed in their settings."
+      >
+        <Switch
+          checked={h.alerts.text}
+          label="Text to their cell"
+          testId="handoff-alert-text"
+          onChange={(v) => patch({ handOff: { alerts: { text: v } } }, onOff(v, 'hand-off texts'))}
+        />
+      </SetRow>
+      <SetRow center title="Email">
+        <Switch
+          checked={h.alerts.email}
+          label="Email"
+          testId="handoff-alert-email"
+          onChange={(v) =>
+            patch({ handOff: { alerts: { email: v } } }, onOff(v, 'hand-off emails'))
+          }
+        />
+      </SetRow>
       <p className="mt-2 text-xs text-text-3">
-        They get a live alert and an email. If nobody replies in 15 minutes during open hours, the
-        usual “customer is waiting” reminder goes out too.
+        If nobody replies in 15 minutes during open hours, the usual “customer is waiting” reminder
+        goes out too. Emergencies always email everyone.
       </p>
 
       <DraftText

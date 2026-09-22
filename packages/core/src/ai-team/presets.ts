@@ -147,6 +147,8 @@ export function teammateConfigFromPreset(
       chat: !!ctx.widgetId,
       widgetId: ctx.widgetId ?? null,
     },
+    // A new teammate reaches the team on their phones; email is there to turn on.
+    handOff: { alerts: { email: false } },
   });
   if (preset === 'lead_qualifier')
     config = applyTeammatePatch(config, {

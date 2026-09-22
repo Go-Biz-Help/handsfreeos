@@ -5,7 +5,7 @@
 import { formatDuration, formatHours } from '../calendar/format';
 import type { NotifyWho } from '../workflows/actions';
 import type { TeammateCatalogs } from './catalogs';
-import type { DisclosureMode, HoursMode, TeammateConfig, UnsureAction } from './config';
+import type { DisclosureMode, HoursMode, QuoteMode, TeammateConfig, UnsureAction } from './config';
 
 export const DISCLOSURE_NAMES: Readonly<Record<DisclosureMode, string>> = {
   first_message: 'in its first message',
@@ -16,6 +16,12 @@ export const HOURS_MODE_NAMES: Readonly<Record<HoursMode, string>> = {
   always: 'all the time',
   after_hours: 'when you’re closed',
   custom: 'set hours',
+};
+
+export const QUOTE_MODE_NAMES: Readonly<Record<QuoteMode, string>> = {
+  off: 'off',
+  send_only: 'sends the team’s quotes',
+  build: 'builds and sends quotes',
 };
 
 const UNSURE_NAMES: Readonly<Record<UnsureAction, string>> = {
@@ -155,6 +161,12 @@ export function diffTeammateConfigs(
     if (!b.book.calendarIds.includes(id)) lines.push(calendarLine('Removed', id));
   change('Reschedules', a.book.reschedule, b.book.reschedule, onOff);
   change('Cancellations', a.book.cancel, b.book.cancel, onOff);
+  change('Waitlist', a.book.waitlist, b.book.waitlist, onOff);
+  change('Repeat visits', a.book.repeats, b.book.repeats, onOff);
+  change('Checks the service area', a.book.serviceArea, b.book.serviceArea, onOff);
+
+  // Deals
+  change('Opens and closes deals', a.deals.enabled, b.deals.enabled, onOff);
 
   // Follow up and hours
   change('Follows up', a.followUp.enabled, b.followUp.enabled, onOff);
@@ -189,6 +201,10 @@ export function diffTeammateConfigs(
     v === 'never' ? 'never' : 'with approval',
   );
   change('Largest discount', a.money.maxPercent, b.money.maxPercent, percent);
+  change('Bills and payments', a.money.bills, b.money.bills, onOff);
+  change('New bills', a.money.newBills, b.money.newBills, onOff);
+  change('Quotes', a.money.quotes, b.money.quotes, (v) => QUOTE_MODE_NAMES[v]);
+  change('Maintenance plans', a.money.plans, b.money.plans, onOff);
 
   // Hand-off
   change('Hands off when frustrated', a.handOff.onFrustration, b.handOff.onFrustration, onOff);
@@ -200,6 +216,9 @@ export function diffTeammateConfigs(
   change('Who hears about hand-offs', a.handOff.notify, b.handOff.notify, (v) =>
     notifyText(v, names),
   );
+  change('Hand-off phone alerts', a.handOff.alerts.push, b.handOff.alerts.push, onOff);
+  change('Hand-off texts', a.handOff.alerts.text, b.handOff.alerts.text, onOff);
+  change('Hand-off emails', a.handOff.alerts.email, b.handOff.alerts.email, onOff);
   if (a.handOff.tellCustomer !== b.handOff.tellCustomer) lines.push('Hand-off message changed');
   return lines;
 }
