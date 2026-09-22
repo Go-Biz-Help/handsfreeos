@@ -1,6 +1,6 @@
 'use client';
 import * as Popover from '@radix-ui/react-popover';
-import { MENU_KEYS, MENU_WORDS, type MenuGroup, type MenuKey } from '@hfos/core';
+import { MENU_KEYS, type MenuGroup, type MenuKey } from '@hfos/core';
 import {
   BookOpen,
   CalendarDays,
@@ -14,7 +14,6 @@ import {
   Layers,
   ListOrdered,
   Settings2,
-  SlidersHorizontal,
   Sparkles,
   UserCircle,
   Users,
@@ -343,9 +342,12 @@ function GroupAccordion({
 }
 
 /**
- * The workspace menu, as this person arranged it (menu-editor.tsx): places one under the other, groups that open
- * beside the sidebar or in place in the drawer, and a way into the editor at the end. The list scrolls on its
- * own, so a long menu never pushes the account away from the bottom of the sidebar.
+ * The workspace menu, as this person arranged it: places one under the other, and groups that open beside the
+ * sidebar or in place in the drawer. The list scrolls on its own, so a long menu never pushes the account away
+ * from the bottom of the sidebar.
+ *
+ * Arranging it is Settings → Side menu (components/settings/menu-section.tsx). The menu is places to go, and
+ * nothing else: a row for editing it would be one more thing to read past, every day, for something done once.
  */
 export function NavLinks({
   workspaceId,
@@ -357,7 +359,7 @@ export function NavLinks({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const { menu, openEditor } = useMenu();
+  const { menu } = useMenu();
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
   const badges = (key: MenuKey): ReactNode => {
@@ -392,21 +394,6 @@ export function NavLinks({
           />
         );
       })}
-      <button
-        type="button"
-        data-testid="menu-edit"
-        onClick={() => {
-          onNavigate?.();
-          openEditor();
-        }}
-        className={cn(
-          rowClass(false),
-          'mt-1 text-[13px] text-text-3 hover:text-text-2 max-md:text-sm',
-        )}
-      >
-        <SlidersHorizontal className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
-        {MENU_WORDS.edit}
-      </button>
     </nav>
   );
 }
