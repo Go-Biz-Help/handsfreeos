@@ -31,20 +31,21 @@ export const workspaceCreate = defineCommand({
       .returning({ id: workspaces.id });
     if (!ws) throw HfosError.internal('workspace insert returned no row');
     /*
-     * The creator joins as an owner, the way the bootstrap function does for the workspace made at
-     * sign-up. Administering the organization is what lets someone run this command; it does not make
-     * them a member of the workspace, and nearly everything inside one is scoped to its members, so a
-     * workspace with nobody on it has nobody to show, book or assign, and no way in from the app.
+     * A business you run yourself puts you on it; one you set up for a client does not, and while
+     * nobody is on it the organization's owners and admins hear about it instead. Either way the
+     * creator can open and change everything, which comes from administering the organization.
      *
-     * Through `private.add_workspace_owner` rather than an insert here: `app.workspace_memberships` has
-     * no insert policy, by design, so the two existing ways in are `security definer` functions too.
+     * Through `private.add_workspace_owner` rather than an insert here: `app.workspace_memberships`
+     * has no insert policy, by design, so the two other ways in are `security definer` functions too.
      */
-    const [owner] = await rows<{ add_workspace_owner: string }>(
-      ctx.tx,
-      sql`select private.add_workspace_owner(${ws.id})`,
-    );
-    if (!owner?.add_workspace_owner)
-      throw HfosError.internal('add_workspace_owner returned no membership');
+    if (input.joinAsOwner) {
+      const [owner] = await rows<{ add_workspace_owner: string }>(
+        ctx.tx,
+        sql`select private.add_workspace_owner(${ws.id})`,
+      );
+      if (!owner?.add_workspace_owner)
+        throw HfosError.internal('add_workspace_owner returned no membership');
+    }
     await ctx.emit({
       type: 'workspace.created',
       entityType: 'workspace',
@@ -53,15 +54,16 @@ export const workspaceCreate = defineCommand({
       payload: { name: input.name, slug, timezone: input.timezone, industry: input.industry },
       after: { name: input.name, slug, timezone: input.timezone, industry: input.industry },
     });
-    await ctx.emit({
-      type: 'membership.created',
-      entityType: 'workspace_membership',
-      entityId: requireHuman(ctx).userId,
-      organizationId: input.organizationId,
-      workspaceId: ws.id,
-      payload: { userId: requireHuman(ctx).userId, role: 'owner', via: 'workspace_create' },
-      after: { role: 'owner' },
-    });
+    if (input.joinAsOwner)
+      await ctx.emit({
+        type: 'membership.created',
+        entityType: 'workspace_membership',
+        entityId: requireHuman(ctx).userId,
+        organizationId: input.organizationId,
+        workspaceId: ws.id,
+        payload: { userId: requireHuman(ctx).userId, role: 'owner', via: 'workspace_create' },
+        after: { role: 'owner' },
+      });
     return { workspaceId: ws.id, slug };
   },
 });

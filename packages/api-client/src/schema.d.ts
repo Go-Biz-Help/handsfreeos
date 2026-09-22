@@ -6077,6 +6077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/workspace.join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put yourself on a business in an organization you administer, as an owner. For one set up for a client and since taken on.
+         * @description Risk level 1. Emits membership.created.
+         */
+        post: operations["command_workspace_join"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workspace.update": {
         parameters: {
             query?: never;
@@ -21792,6 +21812,8 @@ export interface operations {
                      * @enum {string}
                      */
                     industry?: "home_services" | "other";
+                    /** @default false */
+                    joinAsOwner?: boolean;
                     name: string;
                     /** Format: uuid */
                     organizationId: string;
@@ -21809,6 +21831,38 @@ export interface operations {
                 content: {
                     "application/json": {
                         slug: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_workspace_join: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        role: "owner" | "admin" | "member";
                         /** Format: uuid */
                         workspaceId: string;
                     };

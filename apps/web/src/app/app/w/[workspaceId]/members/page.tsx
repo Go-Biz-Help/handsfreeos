@@ -50,8 +50,11 @@ export default async function MembersPage({
       />
       {members.organizationAdmins.length > 0 ? (
         <OrgAdmins
+          workspaceId={workspaceId}
           people={members.organizationAdmins}
           organizationName={got.workspace.organizationName}
+          myUserId={userId}
+          canJoin={!members.members.some((m) => m.userId === userId)}
         />
       ) : null}
       {canManage ? (

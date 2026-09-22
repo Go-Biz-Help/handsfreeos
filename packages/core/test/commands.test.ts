@@ -25,6 +25,7 @@ import {
   workspaceCreate,
   workspaceGet,
   workspaceInvitations,
+  workspaceJoin,
   workspaceMembers,
   workspaceUpdate,
 } from '../src/server';
@@ -106,6 +107,7 @@ describe('registry', () => {
     expect(registry.commands.map((c) => c.name)).toEqual([
       'organization.create',
       'workspace.create',
+      'workspace.join',
       'workspace.update',
       'membership.invite',
       'invitation.resend',
@@ -680,7 +682,19 @@ describe('organization.create', () => {
   });
 });
 
-describe('workspace.create / workspace.update', () => {
+/** Who is on a workspace, by the admin client so no policy hides a row. */
+const membersOf = async (workspaceId: string) =>
+  (
+    await testDbs()
+      .admin.db.select({
+        userId: workspaceMemberships.userId,
+        role: workspaceMemberships.role,
+      })
+      .from(workspaceMemberships)
+      .where(eq(workspaceMemberships.workspaceId, workspaceId))
+  ).map((m) => ({ userId: m.userId, role: m.role as string }));
+
+describe('workspace.create / workspace.join / workspace.update', () => {
   it('org owners can add a workspace; outsiders and non-org members get 404', async () => {
     const { output } = await run(
       workspaceCreate,
@@ -688,16 +702,39 @@ describe('workspace.create / workspace.update', () => {
       owner,
     );
     expect(output.slug).toMatch(/^bayou-plumbing-co-[a-f0-9]{6}$/);
-    // The creator is on it. Administering the org is what allows the command, but the workspace's own
-    // people are its members, and a business with none has nobody to show, book or assign.
-    const members = await testDbs()
-      .admin.db.select()
-      .from(workspaceMemberships)
-      .where(eq(workspaceMemberships.workspaceId, output.workspaceId));
-    expect(members).toHaveLength(1);
-    expect(members[0]).toMatchObject({ userId: owner.id, role: 'owner' });
+    // Set up for a client: nobody is on it, so the organization's owners and admins hear about it
+    // until the client's own people are invited.
+    expect(await membersOf(output.workspaceId)).toEqual([]);
     await expectHfos(
       () => run(workspaceCreate, { organizationId: orgId, name: 'Nope' }, outsider),
+      'not_found',
+    );
+  });
+
+  it('puts the creator on a business they say they run, and lets them join one later', async () => {
+    const { output } = await run(
+      workspaceCreate,
+      { organizationId: orgId, name: 'Run By Me', joinAsOwner: true },
+      owner,
+    );
+    expect(await membersOf(output.workspaceId)).toEqual([{ userId: owner.id, role: 'owner' }]);
+
+    // The other answer, changed afterwards: set up for a client, then taken on.
+    const { output: later } = await run(
+      workspaceCreate,
+      { organizationId: orgId, name: 'Taken On Later' },
+      owner,
+    );
+    expect(await membersOf(later.workspaceId)).toEqual([]);
+    const joined = await run(workspaceJoin, { workspaceId: later.workspaceId }, owner);
+    expect(joined.output).toMatchObject({ workspaceId: later.workspaceId, role: 'owner' });
+    expect(await membersOf(later.workspaceId)).toEqual([{ userId: owner.id, role: 'owner' }]);
+    // Twice is the same once: joining again neither duplicates the row nor fails.
+    await run(workspaceJoin, { workspaceId: later.workspaceId }, owner);
+    expect(await membersOf(later.workspaceId)).toEqual([{ userId: owner.id, role: 'owner' }]);
+    // Somebody outside the organization can't put themselves on it.
+    await expectHfos(
+      () => run(workspaceJoin, { workspaceId: later.workspaceId }, outsider),
       'not_found',
     );
   });
