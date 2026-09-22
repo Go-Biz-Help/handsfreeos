@@ -84,7 +84,8 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
         why: 'the records go in with whoever you bought the domain from, which only you can sign in to',
         steps: [
           'Open Settings → Workspace and type the address you want, like booking.yourbusiness.com.',
-          'Put the two records it gives you in with whoever you bought the domain from (GoDaddy, Namecheap, wherever it is).',
+          'Give it a moment — it works out what your DNS needs and shows the records on that same card.',
+          'Put the records it shows you — usually one, sometimes two — in with whoever you bought the domain from (GoDaddy, Namecheap, wherever it is).',
           'DNS often takes a few hours. The card says when it is working, and it keeps checking on its own.',
         ],
       },
