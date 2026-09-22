@@ -5,7 +5,7 @@ import { brandedHostProxy } from './lib/hosting/branded-host';
 import { formFrameProxy } from './lib/forms/frame';
 import { safeNext } from './lib/utils';
 
-const PROTECTED = ['/app', '/onboarding', '/invite', '/chat-preview'];
+const PROTECTED = ['/app', '/onboarding', '/invite', '/chat-preview', '/founding'];
 const AUTH_PAGES = ['/sign-in', '/sign-up'];
 
 /** Refreshes the Supabase session cookie on every request and gates protected routes. */
