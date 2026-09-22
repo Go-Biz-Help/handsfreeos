@@ -11,6 +11,9 @@
  *   charges it on our account and not on the business's Stripe connection (`platform-charges.test.ts` holds
  *   the header itself to account).
  * - **Who may.** A member may read a balance and may not put a card on one.
+ * - **A business that has never spent anything.** This world has no wallet row at all, which is every business
+ *   until its first text — and a card is usually the first thing anybody does to a balance. Only HandsFreeOS
+ *   may open a wallet, so the route opens one; before it did, the first press was refused by Postgres.
  */
 import { createTokenVerifier } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -84,6 +87,8 @@ async function walletRow() {
 
 describe('a card for the business’s own balance', () => {
   it('hands back the provider’s page and says the wallet is waiting for one', async () => {
+    // Nothing has been spent here, so there is no wallet row yet: the first press has to open one.
+    expect(await walletRow()).toBeNull();
     const res = await addCard(ownerToken);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.headers['cache-control']).toBe('no-store');
