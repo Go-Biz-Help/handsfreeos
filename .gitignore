@@ -1,6 +1,10 @@
 # dependencies
 node_modules/
 
+# agent skills fetched by `npx skills add` (regenerable; pinned by skills-lock.json)
+.agents/
+.claude/skills/
+
 # env
 .env
 .env.*

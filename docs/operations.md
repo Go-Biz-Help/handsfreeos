@@ -7597,6 +7597,10 @@ HandsFreeOS takes money for a business, not from it. **Each business signs into 
 
 What you set up here is the **platform**: one Stripe Connect platform and one Square developer application, both owned by HandsFreeOS, which is what lets a business click Connect and sign in. Every value goes on `handsfreeos-worker`. The API refuses to start if it holds any variable starting with `STRIPE_`, `SQUARE_`, `PAYMENTS_`, `PAYPAL_`, `NMI_` or `AUTHORIZE_NET_`, and none of them ever goes in Vercel or GitHub.
 
+The same Stripe account is used a second way, in the other direction: it is what a business's **usage
+top-up** is charged to, which is how HandsFreeOS gets paid. That needs no extra account, key or webhook —
+see "Usage balances: what businesses pay us", Part 0.
+
 Money needs the migrations `20260920000100_money_catalog.sql` to `20260920001000_refunds_close.sql`. See "Apply new migrations".
 
 Without any of this, everything else in HandsFreeOS works. **Settings** → **Payments** simply says the provider isn't set up, and a business can still write estimates and invoices and record cash, cheques and card payments they took themselves.
@@ -7653,6 +7657,8 @@ You should see the redirect URI listed and saved. Stripe refuses the sign-in out
 
 Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8). Stripe calls the address before it saves it.
 
+**Check which environment you are in first.** Stripe gives you three, not two: live, the account's own test mode, and any **sandbox**, which is a separate account with its own id and its own webhooks. An endpoint built in a sandbox is invisible to live and to test mode, and its signing secret verifies nothing outside it. The endpoint list on each is the only way to be sure — a sandbox looks exactly like test mode while you are in it. You need one on live before a real business can be paid.
+
 1. Go to **Developers** → **Webhooks**.
 2. Press **Add endpoint**, and choose **Connect** (events from connected accounts), not **Account**.
 3. Endpoint URL:
@@ -7663,13 +7669,14 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
 
 4. Select these events, and no others. They are exactly the ones the worker acts on; anything else is answered with a 200 and dropped.
    - `payment_intent.succeeded`, `payment_intent.processing`, `payment_intent.amount_capturable_updated`, `payment_intent.payment_failed`, `payment_intent.canceled`
-   - `charge.refunded`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
+   - `charge.refunded`, `refund.updated`, `charge.refund.updated`, `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`
    - `invoice.paid`, `invoice.payment_succeeded`, `invoice.payment_failed`
    - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.paused`, `customer.subscription.resumed`, `customer.subscription.deleted`
    - `account.updated`, `capability.updated`, `account.application.deauthorized`
-5. Press **Add endpoint**.
-6. On the endpoint's page, press **Reveal** under **Signing secret** and copy it. It starts with `whsec_`.
-7. Save it in your password manager as "Stripe Connect platform", under webhook signing secret.
+5. Set the endpoint's **API version** to the one the worker pins (`API_VERSION` in `apps/worker/src/payments/stripe.ts`, today `2026-08-26.dahlia`). Stripe otherwise sends events shaped by the account's default version, which would drift away from the version the code reads them with.
+6. Press **Add endpoint**.
+7. On the endpoint's page, press **Reveal** under **Signing secret** and copy it. It starts with `whsec_`.
+8. Save it in your password manager as "Stripe Connect platform", under webhook signing secret. **Each environment has its own**: a sandbox secret refuses every live event with a 403, and the log says `rejected an unsigned or mis-signed payment webhook`.
 
 You should see the endpoint listed as enabled. `account.application.deauthorized` is the one that matters most for trust: it is how a business revoking us in their own Stripe dashboard is noticed here, and the connection is marked disconnected without anybody having to tell us.
 
@@ -7840,6 +7847,72 @@ business hears a word about it.
 is a one-line commit somebody reviewed.
 
 The wallet needs migrations `20260930000700_usage_rate_card.sql` through `20260930001200_support_can_credit_a_balance.sql`. See "Apply new migrations".
+
+### Part 0: The Stripe account the money lands in
+
+Before any of the parts below, the money has to have somewhere to go. That somewhere is **HandsFreeOS's own
+Stripe account** — the same one set up in "Money: Stripe and Square", used a second way.
+
+**There is nothing new to sign up for.** The `STRIPE_SECRET_KEY` already on the worker does two separate jobs:
+
+| The job                                   | How the key is used                                   | Whose money |
+| ----------------------------------------- | ----------------------------------------------------- | ----------- |
+| A business billing its own customers      | The key **plus** that business's connected account id | Theirs      |
+| A business topping up its balance with us | The key **on its own**, no connected account          | Ours        |
+
+That second line is this section. A top-up charge is made directly on the HandsFreeOS Stripe account, so it
+lands in the HandsFreeOS balance and pays out to the HandsFreeOS bank account on Stripe's own schedule.
+
+Three things follow from that, and all three surprise people:
+
+- **Square cannot be used for top-ups.** Square's OAuth only ever gives access to _someone else's_ account,
+  which is the wrong direction for taking our own money. A wallet whose card is a Square card cancels the
+  top-up with "Square can't be used for top-ups" rather than failing it. In practice every wallet card is a
+  Stripe card.
+- **The top-up needs no webhook.** Stripe answers the charge in the same call, and the job writes down what it
+  said. The `/webhooks/stripe` endpoint in "Money: Stripe and Square" is a **Connect** endpoint — it routes by
+  the connected account an event happened in, and an event from our own account belongs to no connected
+  account, so it is answered with a 200 and dropped. There is nothing to add there.
+- **The test key stays out of production.** The worker refuses to start in production with an `sk_test_` key,
+  because a test key would take nobody's money and look like it had.
+
+#### What to check before the shadow week
+
+1. Confirm the worker has all three Stripe values:
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+   You should see `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` and `STRIPE_CLIENT_ID`. The first two are what
+   a top-up uses: the secret key makes the charge, the publishable key is what the card page sends the card
+   details to from the browser. The client id is Connect's and is not used here.
+
+2. Confirm the worker is on real payments:
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see `"payments":"real"` on the `worker started` line. On `"payments":"fake"` no card is ever
+   charged, whatever `WALLET_MODE` says.
+
+3. Check the HandsFreeOS Stripe account can actually pay out: **Settings** → **Business** → **Payouts** in the
+   Stripe dashboard, with a bank account added and no outstanding verification. Charges succeed into a balance
+   that cannot pay out, and the money sits there until somebody notices.
+
+#### How a business puts a card on
+
+Worth knowing, because it is the one part of this a business sees:
+
+1. They open **Settings** → **Usage** and press to add a card.
+2. The worker opens a card page. The card details go from their browser straight to Stripe — the same as
+   everywhere else in HandsFreeOS, the number never reaches our database.
+3. Stripe hands back a customer and a token for the card. Those, plus the brand, last four and expiry, are all
+   that is written down. **Only the worker writes them**: the database refuses an update to any card column
+   from a person's own session.
+4. From then on, a balance under their floor charges that card for their top-up amount, without anybody
+   pressing anything.
 
 ### Part 1: The shadow week
 

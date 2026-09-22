@@ -71,6 +71,18 @@ export interface PaymentCapabilities {
   /** A card can be held now and captured later (a deposit at booking). */
   readonly holds: boolean;
   readonly flow: PaymentFlow;
+  /**
+   * The provider is waiting on the business for something — an identity document, a business detail, a bank
+   * account — and will stop them taking money if it doesn't arrive. Read on the same call as everything else
+   * above, and refreshed by the same `account.updated` webhook, so it is never more stale than the rest.
+   *
+   * We only ever *say* this; we never collect it. Every business here signs in with their own Stripe account
+   * and keeps their own full dashboard, so the fix belongs where the requirement does. (Stripe's embedded
+   * notification banner exists for accounts that have no dashboard to go to. Ours all do.)
+   */
+  readonly needsInfo: boolean;
+  /** When the provider says it starts refusing, in unix seconds, where it named a date. */
+  readonly needsInfoBy: number | null;
 }
 
 /** Nothing works until the provider says the account is ready. */
@@ -82,6 +94,8 @@ export const NO_CAPABILITIES = (flow: PaymentFlow): PaymentCapabilities => ({
   savedMethods: false,
   holds: false,
   flow,
+  needsInfo: false,
+  needsInfoBy: null,
 });
 
 /** The sign-in's result. Sealed as JSON before it touches the database, like mailboxes and calendars. */

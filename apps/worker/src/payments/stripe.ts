@@ -49,6 +49,13 @@ import {
 
 const CONNECT = 'https://connect.stripe.com';
 const API = 'https://api.stripe.com/v1';
+/**
+ * The API version every call is made against. **Pinned on purpose**: without this header Stripe uses the
+ * platform account's own default, which Stripe can move and a dashboard upgrade can change — so response
+ * shapes would shift under a running deploy that nobody made. Square is pinned the same way (`SQUARE_VERSION`).
+ * Moving it is a deliberate commit: read the changelog between the two versions first.
+ */
+const API_VERSION = '2026-08-26.dahlia';
 /** Stripe's own window for a signed webhook; anything older is a replay. */
 const TOLERANCE_MS = 5 * 60_000;
 /** Everything a platform needs to charge, refund and bill on the seller's behalf. */
@@ -177,7 +184,10 @@ export function createStripePayments(opts: {
     init: { method?: string; body?: Json; idempotencyKey?: string } = {},
   ): Promise<T> {
     const { secretKey } = keys();
-    const headers: Record<string, string> = { authorization: `Bearer ${secretKey}` };
+    const headers: Record<string, string> = {
+      authorization: `Bearer ${secretKey}`,
+      'stripe-version': API_VERSION,
+    };
     if (account) headers['stripe-account'] = account.externalAccountId;
     if (init.body) headers['content-type'] = 'application/x-www-form-urlencoded';
     if (init.idempotencyKey) headers['idempotency-key'] = idempotencyKey(init.idempotencyKey);
@@ -206,6 +216,7 @@ export function createStripePayments(opts: {
       method: 'POST',
       headers: {
         authorization: `Bearer ${secretKey}`,
+        'stripe-version': API_VERSION,
         ...(account ? { 'stripe-account': account.externalAccountId } : {}),
         'content-type': 'application/x-www-form-urlencoded',
         'idempotency-key': idempotencyKey(key),
@@ -265,9 +276,6 @@ export function createStripePayments(opts: {
       `/payment_intents/${encodeURIComponent(id)}?expand[]=latest_charge.balance_transaction`,
     );
 
-  const methodTypes = (methods: readonly string[]): string[] =>
-    methods.map((m) => (m === 'ach' ? 'us_bank_account' : 'card'));
-
   async function tokensFrom(params: Record<string, string>): Promise<PaymentTokens> {
     const { secretKey, clientId } = keys();
     const res = await f(`${CONNECT}/oauth/token`, {
@@ -311,6 +319,9 @@ export function createStripePayments(opts: {
     const caps = obj(a['capabilities']);
     const charges = a['charges_enabled'] === true;
     const card = charges && caps['card_payments'] === 'active';
+    // Free: it rides the account read we already make, and the same webhook already refreshes it.
+    const due = obj(a['requirements']);
+    const waiting = (key: string) => (Array.isArray(due[key]) ? (due[key] as unknown[]).length : 0);
     return {
       card,
       bankTransfer: charges && caps['us_bank_account_ach_payments'] === 'active',
@@ -319,6 +330,9 @@ export function createStripePayments(opts: {
       savedMethods: card,
       holds: card,
       flow: 'client_confirm',
+      needsInfo:
+        waiting('currently_due') > 0 || waiting('past_due') > 0 || !!due['disabled_reason'],
+      needsInfoBy: centsOf(due['current_deadline']),
     };
   }
 
@@ -422,7 +436,7 @@ export function createStripePayments(opts: {
         body: {
           amount,
           currency: 'usd',
-          payment_method_types: methodTypes(input.methods),
+          automatic_payment_methods: { enabled: true },
           ...(input.hold ? { capture_method: 'manual' } : {}),
           ...(input.customerRef ? { customer: input.customerRef } : {}),
           ...(input.description ? { description: input.description.slice(0, 200) } : {}),
@@ -461,7 +475,7 @@ export function createStripePayments(opts: {
           ...(input.sourceToken ? { payment_method: input.sourceToken } : {}),
           ...(input.customerRef ? { customer: input.customerRef } : {}),
           ...(input.description ? { description: input.description.slice(0, 200) } : {}),
-          payment_method_types: methodTypes([input.method]),
+          automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
           metadata: cleanMetadata(input.metadata),
         },
         input.idempotencyKey,
@@ -481,7 +495,7 @@ export function createStripePayments(opts: {
           off_session: true,
           ...(input.sourceToken ? { payment_method: input.sourceToken } : {}),
           ...(input.customerRef ? { customer: input.customerRef } : {}),
-          payment_method_types: ['card'],
+          automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
           metadata: cleanMetadata(input.metadata),
         },
         input.idempotencyKey,
@@ -610,7 +624,7 @@ export function createStripePayments(opts: {
             ...(input.sourceToken ? { payment_method: input.sourceToken } : {}),
             ...(input.customerRef ? { customer: input.customerRef } : {}),
             ...(input.description ? { description: input.description.slice(0, 200) } : {}),
-            payment_method_types: ['card'],
+            automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
             metadata: cleanMetadata(input.metadata),
           },
           input.idempotencyKey,
