@@ -17,7 +17,9 @@ appId: com.gobizhelp.handsfreeos
             - waitForAnimationToEnd
 - tapOn:
     id: 'tab-calendar'
+# The title, not the day's heading: the tab keeps whichever of Day, Week and Month it was left on, and only Day
+# heads its list with a day.
 - extendedWaitUntil:
     visible:
-      id: 'calendar-day-heading'
+      id: 'calendar-title'
     timeout: 30000

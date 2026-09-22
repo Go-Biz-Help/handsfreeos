@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addMonths,
   closedStretches,
   instantAt,
   localInstant,
@@ -154,6 +155,19 @@ describe('grid helpers', () => {
     expect(feb).toHaveLength(42);
     expect(feb[0]).toBe('2027-02-01');
     expect(monthGridOf('2026-09-21', 0)[0]).toBe('2026-08-30');
+  });
+
+  it('steps a month at a time, never letting a short month swallow a long one', () => {
+    expect(addMonths('2026-09-21', 1)).toBe('2026-10-01');
+    expect(addMonths('2026-09-21', -1)).toBe('2026-08-01');
+    // The 31st of January, stepped by days, would land inside March.
+    expect(addMonths('2026-01-31', 1)).toBe('2026-02-01');
+    expect(addMonths('2026-02-01', 1)).toBe('2026-03-01');
+    // Over the turn of the year, both ways.
+    expect(addMonths('2026-12-15', 1)).toBe('2027-01-01');
+    expect(addMonths('2026-01-15', -1)).toBe('2025-12-01');
+    expect(addMonths('2026-09-21', 0)).toBe('2026-09-01');
+    expect(addMonths('2026-09-21', 12)).toBe('2027-09-01');
   });
 
   it('widens the visible hours to whatever is on the grid', () => {

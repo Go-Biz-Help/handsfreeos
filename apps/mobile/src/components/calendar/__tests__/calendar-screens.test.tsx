@@ -1,14 +1,23 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
 
-import { AgendaRow, BusyRow, NowRow, TimeZoneProvider } from '@/components/calendar/agenda-row';
+import {
+  AgendaRow,
+  BusyRow,
+  DayHeadingRow,
+  NowRow,
+  TimeZoneProvider,
+} from '@/components/calendar/agenda-row';
+import { CalendarHeader } from '@/components/calendar/calendar-header';
 import { DayStrip } from '@/components/calendar/day-strip';
+import { MonthGrid } from '@/components/calendar/month-grid';
 import { StateBadge } from '@/components/money/money-rows';
-import type { PhoneAppointment } from '@/calendar/use-calendar';
+import type { MonthDay, PhoneAppointment } from '@/calendar/use-calendar';
 
 /**
  * The Calendar's and Money's own pieces with React Native Testing Library: a row of the day (with and without a time
- * anybody has been promised), the busy row and the now line, the week's strip, and a document's badge.
+ * anybody has been promised), the busy row and the now line, the week's strip, the header that switches between Day,
+ * Week and Month, the month at a glance, and a document's badge.
  */
 
 jest.mock('expo-router', () => ({
@@ -18,6 +27,16 @@ jest.mock('expo-router', () => ({
 
 const TZ = 'America/Chicago';
 const NOW = Date.parse('2026-09-22T13:50:00.000Z');
+/** The week the Tuesday above falls in, Monday first, as `weekOf` gives it. */
+const WEEK = [
+  '2026-09-21',
+  '2026-09-22',
+  '2026-09-23',
+  '2026-09-24',
+  '2026-09-25',
+  '2026-09-26',
+  '2026-09-27',
+];
 
 const appt = (over: Partial<PhoneAppointment> = {}): PhoneAppointment =>
   ({
@@ -127,29 +146,109 @@ describe('the rest of the day', () => {
   });
 
   it('marks today, the chosen day and the days with anything on them', async () => {
-    const days = [
-      '2026-09-20',
-      '2026-09-21',
-      '2026-09-22',
-      '2026-09-23',
-      '2026-09-24',
-      '2026-09-25',
-      '2026-09-26',
-    ];
     await render(
       <DayStrip
-        days={days}
+        days={WEEK}
         date="2026-09-22"
         today="2026-09-22"
         marked={new Set(['2026-09-22', '2026-09-24'])}
-        timeZone={TZ}
         onDate={() => undefined}
       />,
     );
-    expect(screen.getByText('September 2026')).toBeTruthy();
-    expect(screen.getByTestId('calendar-zone')).toHaveTextContent('Central Time');
     expect(screen.getByTestId('agenda-day-2026-09-22')).toBeTruthy();
     expect(screen.getByLabelText('Thu 24')).toBeTruthy();
+  });
+
+  it('names a day of the week list by what is on it, and offers to open it', async () => {
+    const opened: string[] = [];
+    await render(
+      wrap(
+        <DayHeadingRow
+          date="2026-09-24"
+          today="2026-09-22"
+          countWords="2 appointments"
+          onPress={(d) => opened.push(d)}
+        />,
+      ),
+    );
+    const row = screen.getByTestId('agenda-week-day-2026-09-24');
+    expect(row).toHaveTextContent('Thu, Sep 242 appointments');
+    expect(screen.getByLabelText('Thu, Sep 24 · 2 appointments')).toBeTruthy();
+    fireEvent.press(row);
+    expect(opened).toEqual(['2026-09-24']);
+  });
+});
+
+describe('the header over the calendar', () => {
+  const header = (over: Partial<React.ComponentProps<typeof CalendarHeader>> = {}) => (
+    <CalendarHeader
+      view="day"
+      date="2026-09-22"
+      today="2026-09-22"
+      days={WEEK}
+      marked={new Set<string>()}
+      timeZone={TZ}
+      mine={false}
+      onView={() => undefined}
+      onStep={() => undefined}
+      onToday={() => undefined}
+      onDate={() => undefined}
+      onMine={() => undefined}
+      {...over}
+    />
+  );
+
+  it('heads the day view with its month, the zone and the week strip', async () => {
+    await render(header());
+    expect(screen.getByTestId('calendar-title')).toHaveTextContent('September 2026');
+    expect(screen.getByTestId('calendar-zone')).toHaveTextContent('Central Time');
+    expect(screen.getByTestId('calendar-strip')).toBeTruthy();
+    expect(screen.getByLabelText('Previous week')).toBeTruthy();
+  });
+
+  it('heads the week with its dates, and drops the strip the list already names', async () => {
+    await render(header({ view: 'week' }));
+    expect(screen.getByTestId('calendar-title')).toHaveTextContent('Sep 21–27');
+    expect(screen.queryByTestId('calendar-strip')).toBeNull();
+  });
+
+  it('steps a month at a time on the month view', async () => {
+    const steps: number[] = [];
+    await render(header({ view: 'month', onStep: (d) => steps.push(d) }));
+    expect(screen.getByLabelText('Next month')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('calendar-prev'));
+    expect(steps).toEqual([-1]);
+  });
+});
+
+describe('the month at a glance', () => {
+  const cell = (date: string, over: Partial<MonthDay> = {}): MonthDay => ({
+    date,
+    today: date === '2026-09-22',
+    inMonth: date.slice(0, 7) === '2026-09',
+    appointments: [],
+    busy: false,
+    ...over,
+  });
+  const grid = [
+    // The week above, with the Sunday full and the Monday after it taken by this person's own calendar.
+    ...WEEK.slice(0, 6).map((d) => cell(d)),
+    cell('2026-09-27', { appointments: [appt(), appt({ id: 'a2' }), appt({ id: 'a3' })] }),
+    cell('2026-09-28', { busy: true }),
+    cell('2026-10-01'),
+  ];
+
+  it('gives each day a dot per booking, a grey one for busy time, and hands the day over', async () => {
+    const opened: string[] = [];
+    await render(wrap(<MonthGrid days={grid} onDay={(d) => opened.push(d)} />));
+    expect(screen.getByTestId('calendar-month')).toBeTruthy();
+    // The weekday heads come from the first seven days of the grid.
+    expect(screen.getByText('Mon')).toBeTruthy();
+    expect(screen.getAllByTestId(/^month-dot-/)).toHaveLength(3);
+    expect(screen.getByTestId('month-busy')).toBeTruthy();
+    expect(screen.getByLabelText('Sunday, September 27 · 3 appointments')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('month-day-2026-09-27'));
+    expect(opened).toEqual(['2026-09-27']);
   });
 });
 

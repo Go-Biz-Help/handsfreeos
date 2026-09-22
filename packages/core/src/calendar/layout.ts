@@ -118,6 +118,17 @@ export function weekOf(date: string, weekStartsOn: 0 | 1 = 1): string[] {
 }
 
 /**
+ * A month on from a date, or back, as the first of that month. Stepping by days would let February's
+ * length drag the date into the wrong month, and landing on the 1st means a month is never skipped for
+ * being shorter than the one before it.
+ */
+export function addMonths(date: string, months: number): string {
+  const [year, month] = date.split('-').map(Number);
+  const total = year! * 12 + (month! - 1) + months;
+  return `${String(Math.floor(total / 12)).padStart(4, '0')}-${String((total % 12) + 1).padStart(2, '0')}-01`;
+}
+
+/**
  * The local dates of the month grid holding a date: whole weeks, so it opens with the days of the
  * previous month that share the first week and closes with the next month's that share the last.
  * Always six rows of seven, because a grid that changes height between months moves everything under

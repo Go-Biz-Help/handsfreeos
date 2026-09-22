@@ -349,10 +349,13 @@ export interface EmptyWords {
   readonly action: string;
 }
 
+/** A day with nothing on it, where there is only room for the fact: a week list's heading. */
+export const NOTHING_BOOKED = 'Nothing booked';
+
 /** Nothing on this day, as the web's agenda says it. */
 export function agendaEmptyWords(mine: boolean): EmptyWords {
   return {
-    title: mine ? 'Nothing booked for you' : 'Nothing booked',
+    title: mine ? `${NOTHING_BOOKED} for you` : NOTHING_BOOKED,
     body: 'Open times can still be booked online.',
     action: 'New appointment',
   };
