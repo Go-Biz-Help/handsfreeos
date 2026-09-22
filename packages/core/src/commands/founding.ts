@@ -12,10 +12,15 @@
  * - A **person** does nothing here without `platform.founding.manage`, which only a staff admin has. Approving
  *   is giving the product away for life and revoking is taking it back; neither belongs to whoever is
  *   answering tickets today.
- * - The **worker** runs `founding.apply` and `founding.claim` for people who are signed out and, in the first
- *   case, have no account at all. They are `actors: ['system']`, so `apps/api/src/routes.ts` never mounts an
- *   HTTP route for them and no browser reaches them directly; the worker does its own rate limiting first,
- *   exactly as the public booking commands do.
+ * - **Claiming** is the one thing somebody outside HandsFreeOS does here, and they do it signed in: the link
+ *   proves the seat was approved, `workspace.update` proves they have any business attaching it to this
+ *   workspace. A link forwarded to a colleague cannot be spent by somebody who is only a member.
+ *
+ * **Applying is not here.** It is `private.founding_apply`, called straight from the worker's public route,
+ * because an applicant has no workspace and no organization — and the kernel's machine actor is *defined* by
+ * the tenant it may address. There is nothing honest to pass it, and a made-up workspace would be a lie told
+ * to every audit row afterwards. Deciding queue-or-waitlist in the same statement as the insert closes a gap
+ * besides: the last seat can go between a count and an insert.
  *
  * **Revoking frees the seat and does not touch the business.** The grant goes `revoked` — so `remaining` goes
  * up at once and the next applicant can be approved this afternoon — and the workspace's plan goes to `grace`
@@ -35,8 +40,6 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import {
   FoundingApplicationOutput,
-  FoundingApplyInput,
-  FoundingApplyOutput,
   FoundingApproveInput,
   FoundingApproveOutput,
   FoundingClaimInput,
@@ -128,81 +131,6 @@ const offerOut = (o: OfferRow, claimed: number) => ({
   claimed,
   remaining: Math.max(o.seatCap - claimed, 0),
   priceCents: o.priceCents,
-});
-
-// ---------- applying ----------
-
-export const foundingApply = defineCommand({
-  name: 'founding.apply',
-  description:
-    'Ask for a founding seat. Run by the worker for somebody signed out, after its own rate limits and bot checks.',
-  risk: 1,
-  input: FoundingApplyInput,
-  output: FoundingApplyOutput,
-  permission: null,
-  scope: onPlatform,
-  emits: ['founding.applied'],
-  actors: ['system'],
-  async handler(ctx, input) {
-    const found = await offer(ctx, input.offerId);
-    if (found.status === 'draft') throw HfosError.notFound('There is no offer by that name.');
-
-    /**
-     * Full or closed becomes a waitlist rather than a refusal. Somebody who wanted in badly enough to type
-     * their details is worth keeping hold of, and a revoked seat can be offered to them within the hour.
-     *
-     * This read is not the cap being enforced — it decides which of two honest answers to give. The seat, if
-     * one is ever taken for this application, is taken later by `founding.approve` under the lock.
-     */
-    const remaining = await remainingOn(ctx, found.id);
-    const status = found.status === 'open' && remaining > 0 ? 'pending' : 'waitlisted';
-
-    const [made] = await ctx.tx
-      .insert(foundingApplications)
-      .values({
-        offerId: found.id,
-        businessName: input.businessName,
-        contactName: input.contactName,
-        email: input.email,
-        phone: input.phone ?? null,
-        website: input.website ?? null,
-        industry: input.industry ?? null,
-        teamSize: input.teamSize ?? null,
-        note: input.note,
-        source: input.source,
-        status,
-      })
-      /**
-       * Applying twice is somebody pressing the button twice, not a second business. The live-per-email index
-       * makes the second a no-op, and the row they already have is what comes back — so the page says the same
-       * thing both times instead of "you have already applied", which reads like a telling-off.
-       */
-      .onConflictDoNothing()
-      .returning({ id: foundingApplications.id, status: foundingApplications.status });
-
-    if (!made) {
-      const [existing] = await ctx.tx
-        .select({ id: foundingApplications.id, status: foundingApplications.status })
-        .from(foundingApplications)
-        .where(
-          and(
-            eq(foundingApplications.offerId, found.id),
-            eq(foundingApplications.email, input.email),
-            dsql`${foundingApplications.status} in ('pending', 'approved', 'waitlisted')`,
-          ),
-        );
-      if (!existing) throw HfosError.internal();
-      return { applicationId: existing.id, status: existing.status, offerId: found.id };
-    }
-
-    await ctx.emit({
-      type: 'founding.applied',
-      entityType: 'founding_application',
-      entityId: made.id,
-      payload: { offerId: found.id, status, businessName: input.businessName },
-    });
-    return { applicationId: made.id, status: made.status, offerId: found.id };
-  },
 });
 
 // ---------- deciding ----------
@@ -345,14 +273,18 @@ export const foundingWaitlist = defineCommand({
 export const foundingClaim = defineCommand({
   name: 'founding.claim',
   description:
-    'Take up an approved seat: the workspace gets its founding plan and its starting usage credit. Run by the worker when somebody follows their claim link.',
+    'Take up an approved seat: this workspace gets its founding plan and its starting usage credit.',
   risk: 4,
   input: FoundingClaimInput,
   output: FoundingClaimOutput,
-  permission: null,
+  /**
+   * Whoever runs a workspace, not whoever holds the link. The link proves the seat was approved; this proves
+   * the person attaching it has any business attaching it to *this* workspace. A link forwarded to a
+   * colleague cannot be spent against a workspace they are only a member of.
+   */
+  permission: 'workspace.update',
   scope: inWorkspace,
   emits: ['founding.claimed'],
-  actors: ['system'],
   async handler(ctx, input) {
     const [application] = await ctx.tx
       .select()
@@ -655,7 +587,6 @@ export const foundingSetStatus = defineCommand({
 });
 
 export const foundingCommands = [
-  foundingApply,
   foundingApprove,
   foundingDecline,
   foundingWaitlist,

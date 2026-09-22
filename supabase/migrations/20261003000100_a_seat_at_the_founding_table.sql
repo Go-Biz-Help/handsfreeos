@@ -328,6 +328,86 @@ create or replace view platform.founding_counts as
 comment on view platform.founding_counts is
   'The four numbers the marketing site prints. No applicant and no business is reachable through it.';
 
+-- ---------- applying ----------
+/**
+ * Record an application, and decide in the same breath whether it joins the queue or the waitlist.
+ *
+ * This is a database function rather than a core command because the applicant **has no tenant at all** — no
+ * workspace, no organization, usually no account. The kernel's machine actor is defined by the tenant it may
+ * address (`resolveMachineScope`), so there is nothing honest to pass it here, and inventing a workspace to
+ * satisfy the signature would be a lie told to every audit row afterwards. The worker calls this from its
+ * public route, after its own rate limits, exactly as it reads the hosted policies in plain SQL.
+ *
+ * Deciding `pending` or `waitlisted` here rather than in the caller also closes a gap: the last seat can be
+ * taken between a caller's count and its insert, and somebody would be told they were in the queue when they
+ * were not. It costs nothing to answer both questions under one statement.
+ *
+ * Applying twice is somebody pressing the button twice. The live-per-email index makes the second a no-op and
+ * the row they already have comes back, so the page says the same thing both times rather than telling them
+ * off for something they did not do.
+ */
+create or replace function private.founding_apply(
+  p_offer text,
+  p_business_name text,
+  p_contact_name text,
+  p_email text,
+  p_phone text,
+  p_website text,
+  p_industry text,
+  p_team_size text,
+  p_note text,
+  p_source text
+)
+returns table (application_id uuid, status text, created boolean)
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_status platform.founding_application_status;
+  v_open boolean;
+  v_room boolean;
+  v_id uuid;
+begin
+  select o.status = 'open', private.founding_seats_held(o.id) < o.seat_cap
+    into v_open, v_room
+  from platform.founding_offers o
+  where o.id = p_offer and o.status <> 'draft';
+
+  if v_open is null then
+    raise exception 'There is no offer called %', p_offer
+      using errcode = '23503', detail = 'founding_offer_missing';
+  end if;
+
+  -- Full or closed becomes a waitlist rather than a refusal: somebody who typed their details is worth
+  -- keeping hold of, and a revoked seat can be offered to them within the hour.
+  v_status := case when v_open and v_room then 'pending' else 'waitlisted' end;
+
+  insert into platform.founding_applications
+    (offer_id, business_name, contact_name, email, phone, website, industry, team_size, note, source, status)
+  values
+    (p_offer, p_business_name, p_contact_name, p_email::extensions.citext,
+     nullif(p_phone, ''), nullif(p_website, ''), nullif(p_industry, ''), nullif(p_team_size, ''),
+     coalesce(p_note, ''), coalesce(p_source, ''), v_status)
+  on conflict do nothing
+  returning id into v_id;
+
+  if v_id is not null then
+    return query select v_id, v_status::text, true;
+    return;
+  end if;
+
+  -- citext's own equality (case-insensitive, and the unique index's), named because search_path is empty.
+  -- A bare `=` here resolves to text equality and quietly misses the row this insert just conflicted with,
+  -- which would answer somebody who capitalised their address differently with nothing at all.
+  return query
+    select a.id, a.status::text, false
+    from platform.founding_applications a
+    where a.offer_id = p_offer and a.email operator(extensions.=) p_email::extensions.citext
+      and a.status in ('pending', 'approved', 'waitlisted')
+    limit 1;
+end $$;
+
+grant execute on function private.founding_apply(text, text, text, text, text, text, text, text, text, text)
+  to service_actor;
+
 -- ---------- the starting credit ----------
 /**
  * Put an offer's starting credit in a workspace's wallet.

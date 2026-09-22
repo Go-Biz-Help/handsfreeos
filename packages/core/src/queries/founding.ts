@@ -43,8 +43,14 @@ export const foundingCounts = defineQuery({
   input: FoundingCountsInput,
   output: FoundingCountsOutput,
   permission: null,
-  scope: onPlatform,
-  actors: ['system', 'human'],
+  /**
+   * `none`, not `platform`: a machine actor may only address the tenant it belongs to, and the staff scope is
+   * shut to it outright (`resolveMachineScope`). This carries no tenant data at all, so it needs no scope.
+   * The worker's signed-out route reads the same view directly — one view, so the website and the app can
+   * never print different numbers.
+   */
+  scope: () => ({ kind: 'none' as const }),
+  actors: ['human'],
   async handler(ctx) {
     const found = await rows<CountRow>(
       ctx.tx,
