@@ -63,24 +63,18 @@ export function registerWalletCardRoutes(app: FastifyInstance, deps: HttpDeps): 
     const provider = deps.payments.providers[PLATFORM_PROVIDER];
     if (!provider?.platform.supported) throw new PlatformUnsupportedError(PLATFORM_PROVIDER);
 
-    const [row] = await asWorker(deps.httpDb, { workspaceId }, async (tx) => {
-      // A business that has never spent anything has no wallet row, and a card is usually the first thing
-      // anybody does to one. Only HandsFreeOS may open a wallet (`usage_wallets_service`), so it is opened
-      // here rather than inside `wallet.request_card`, which runs as the person and would be refused by
-      // Postgres. Empty, with no card on it, exactly as the insert guard insists.
-      await tx.execute(
-        sql`insert into app.usage_wallets (workspace_id, organization_id)
-            select ws.id, ws.organization_id from app.workspaces ws where ws.id = ${workspaceId}::uuid
-            on conflict (workspace_id) do nothing`,
-      );
-      return rows<WalletCardRow>(
+    // A business that has never spent anything has no wallet row yet, and a card is usually the first thing
+    // anybody does to one. `wallet.request_card` opens it below, through `private.open_usage_wallet`, so
+    // this read is a left join: no wallet here means no customer at the provider either.
+    const [row] = await asWorker(deps.httpDb, { workspaceId }, (tx) =>
+      rows<WalletCardRow>(
         tx,
         sql`select w.customer_ref, ws.name as workspace_name, ws.organization_id
             from app.workspaces ws
             left join app.usage_wallets w on w.workspace_id = ws.id
             where ws.id = ${workspaceId}::uuid`,
-      );
-    });
+      ),
+    );
     if (!row) throw HfosError.notFound('That business isn’t there.');
 
     // The provider's customer for this business: made once, found every time after, so a second card lands

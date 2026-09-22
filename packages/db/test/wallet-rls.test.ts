@@ -321,6 +321,67 @@ describe('who sees what', () => {
   });
 });
 
+/**
+ * Opening one, which is the only write on this table a person's own press makes.
+ *
+ * The table stays shut to them — no insert privilege, no insert policy — because what must stay impossible
+ * is opening a wallet of one's *choosing*: with money on it, a card on it, or `stage` set to `off` so the
+ * business's own spending limit never fires. An empty one for a business they already run is harmless, and
+ * `private.open_usage_wallet` is the one door to it.
+ */
+describe('opening a wallet', () => {
+  it('refuses somebody who cannot spend that business’s money', async () => {
+    expect(
+      await detailOf(() =>
+        as(owner)((tx) => tx.execute(sql`select private.open_usage_wallet(${B.ws}::uuid)`)),
+      ),
+    ).toEqual({ code: '42501', detail: 'wallet_open_is_money_manage' });
+    const [found] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.usage_wallets where workspace_id = ${B.ws}`,
+    );
+    expect(found?.n).toBe(0);
+  });
+
+  it('opens an empty one for somebody who can, with the limit still on', async () => {
+    await as(outsider)((tx) => tx.execute(sql`select private.open_usage_wallet(${B.ws}::uuid)`));
+    const [w] = await rows<{
+      org: string;
+      stage: string;
+      balance: number;
+      method_token: string | null;
+    }>(
+      dbs.admin.db,
+      sql`select organization_id as org, stage::text as stage, balance_cents::int as balance, method_token
+          from app.usage_wallets where workspace_id = ${B.ws}`,
+    );
+    // The organisation is read from the workspace, never taken from whoever asked.
+    expect(w).toMatchObject({ org: B.org, stage: 'off', balance: 0 });
+    expect(w?.method_token).toBeNull();
+  });
+
+  it('is one wallet however many times it is asked for', async () => {
+    await as(outsider)((tx) => tx.execute(sql`select private.open_usage_wallet(${B.ws}::uuid)`));
+    const [found] = await rows<{ n: number }>(
+      dbs.admin.db,
+      sql`select count(*)::int as n from app.usage_wallets where workspace_id = ${B.ws}`,
+    );
+    expect(found?.n).toBe(1);
+  });
+
+  it('is still the only way in: a person cannot write the row themselves', async () => {
+    // A's own owner, who may spend A's money and still may not open its wallet by hand.
+    await refused(() =>
+      as(owner)((tx) =>
+        tx.execute(
+          sql`insert into app.usage_wallets (workspace_id, organization_id)
+              values (${A.ws}, ${A.org}) on conflict (workspace_id) do nothing`,
+        ),
+      ),
+    );
+  });
+});
+
 describe('a top-up', () => {
   it('lets one business have only one waiting at a time', async () => {
     await worker(A)((tx) =>
