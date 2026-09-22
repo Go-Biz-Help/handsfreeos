@@ -8,20 +8,33 @@ import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
 import { WorkspaceSwitcher } from './workspace-switcher';
 
+/**
+ * The sidebar: the business and search at the top, the person's own menu in the middle, and the account at the
+ * bottom. The menu scrolls on its own — a long one, or a short screen, never pushes Get help and the account off
+ * the bottom — and the padding around it leaves room for a focus ring the scroller would otherwise clip.
+ */
 export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) {
   return (
-    <aside className="hidden w-60 flex-none flex-col gap-1 border-r border-border bg-card px-3 pb-3 pt-4 md:flex">
-      <div className="px-2.5 pb-3.5 pt-1">
-        <Brand />
+    <aside className="hidden w-60 flex-none flex-col border-r border-border bg-card px-3 pb-3 pt-4 md:flex">
+      <div className="flex-none">
+        <div className="px-2.5 pb-3.5 pt-1">
+          <Brand />
+        </div>
+        <WorkspaceSwitcher me={me} current={current} />
+        <SearchField workspaceId={current.id} className="mt-2" />
+        <AskButton className="mt-1.5" />
       </div>
-      <WorkspaceSwitcher me={me} current={current} />
-      <SearchField workspaceId={current.id} className="mt-2" />
-      <AskButton className="mt-1.5" />
-      <NavLinks workspaceId={current.id} />
-      <div className="flex-1" />
-      <CallsPill />
-      <GetHelp workspaceId={current.id} />
-      <UserMenu user={me.user} />
+      <div
+        data-testid="sidebar-menu"
+        className="-mx-1 mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-0.5 [scrollbar-width:thin]"
+      >
+        <NavLinks workspaceId={current.id} />
+      </div>
+      <div className="flex-none pt-2">
+        <CallsPill />
+        <GetHelp workspaceId={current.id} />
+        <UserMenu user={me.user} />
+      </div>
     </aside>
   );
 }

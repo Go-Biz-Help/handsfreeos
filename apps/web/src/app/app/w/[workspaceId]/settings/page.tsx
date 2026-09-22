@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { DeleteAccount } from '@/components/account/delete-account';
 import { AppearanceSection } from '@/components/settings/appearance-section';
 import { GoogleSection } from '@/components/settings/google-section';
+import { MenuSection } from '@/components/settings/menu-section';
 import { MyCellSection } from '@/components/settings/my-cell-section';
 import { NotificationsSection } from '@/components/settings/notifications-section';
 import { PasskeysSection } from '@/components/settings/passkeys-section';
@@ -71,6 +72,9 @@ export default async function SettingsPage({
               <AppearanceSection
                 initial={parseTheme((me.user.settings as { theme?: unknown }).theme)}
               />
+            </Card>
+            <Card className="p-6" id="menu">
+              <MenuSection />
             </Card>
           </div>
           <Card className="p-6">
