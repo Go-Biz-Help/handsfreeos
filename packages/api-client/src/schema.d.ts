@@ -2087,7 +2087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take up an approved seat: this workspace gets its founding plan and its starting usage credit.
+         * Take up an approved free seat: this workspace gets its founding plan and its starting usage credit. A paid seat is taken up by paying for it (founding.start_checkout).
          * @description Risk level 4. Requires workspace.update. Emits founding.claimed.
          */
         post: operations["command_founding_claim"];
@@ -2191,6 +2191,26 @@ export interface paths {
          * @description Risk level 4. Requires platform.founding.manage. Emits founding.status_changed.
          */
         post: operations["command_founding_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/founding.start_checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start paying for an approved paid seat, or pick up the payment already under way. The worker makes the Stripe page; ask founding.checkout_status for its address.
+         * @description Risk level 3. Requires workspace.update. Emits founding.checkout_requested.
+         */
+        post: operations["command_founding_start_checkout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7211,6 +7231,46 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_form_version_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/founding.checkout_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where a founding seat's payment has got to: waiting for Stripe's page, open, paid, or lapsed — and whether the seat is on the workspace yet.
+         * @description Any signed-in user.
+         */
+        post: operations["query_founding_checkout_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/founding.claim_preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a founding claim link is for: the offer, its price, the business it was approved for, and whether it can still be taken up.
+         * @description Any signed-in user.
+         */
+        post: operations["query_founding_claim_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13766,6 +13826,41 @@ export interface operations {
                         seatCap: number;
                         /** @enum {string} */
                         status: "draft" | "open" | "closed";
+                    };
+                };
+            };
+        };
+    };
+    command_founding_start_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        checkoutId: string;
+                        created: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed";
+                        url: string | null;
                     };
                 };
             };
@@ -26614,6 +26709,84 @@ export interface operations {
             };
         };
     };
+    query_founding_checkout_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    checkoutId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountCents: number;
+                        /** Format: uuid */
+                        checkoutId: string;
+                        expiresAt: string | null;
+                        offerName: string;
+                        problem: string;
+                        seatActive: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "open" | "paid" | "expired" | "failed";
+                        url: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_founding_claim_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businessName: string;
+                        checkoutId: string | null;
+                        checkoutWorkspaceId: string | null;
+                        expiresAt: string | null;
+                        offerId: string;
+                        offerName: string;
+                        /** Format: uuid */
+                        organizationId: string;
+                        priceCents: number;
+                        /** @enum {string} */
+                        state: "ready" | "claimed" | "expired" | "gone";
+                    };
+                };
+            };
+        };
+    };
     query_founding_counts: {
         parameters: {
             query?: never;
@@ -29662,6 +29835,8 @@ export interface operations {
                         }[];
                         grants: {
                             activatedAt: string | null;
+                            checkoutProblem: string;
+                            checkoutStatus: ("pending" | "open" | "paid" | "expired" | "failed") | null;
                             expiresAt: string | null;
                             graceEndsAt: string | null;
                             /** Format: uuid */
