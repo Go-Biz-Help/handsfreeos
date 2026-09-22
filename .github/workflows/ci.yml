@@ -5,9 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+# One run per branch, and a newer push cancels the one before it — on a pull request, where the only thing
+# lost is a result nobody was going to read.
+#
+# **Never on `main`.** Deploy runs `on: workflow_run` and only when the CI run it follows concluded `success`,
+# so a cancelled run on main is a merge that silently never ships. Merges arrive in bursts, each one cancelling
+# the last, and the deploy that matters is the one that never happened — nothing fails, nothing is red, and the
+# hosted apps quietly fall behind `main`. Three merges went out undeployed before anybody noticed.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   CI: true
