@@ -25,6 +25,19 @@ export interface ImportScope {
   /** Where phone numbers with no country code belong. */
   readonly defaultCountry: string;
   readonly log: Logger;
+  /**
+   * A person's answer to "is this somebody you already have?", for the one record it was asked about.
+   *
+   * Set only by the job that applies a decision from the review queue. The customer importer takes it over
+   * its own matching for that record and nothing else: `separate` makes a new customer, and a target joins
+   * the record to the customer named. Every other record on the same page is matched the usual way.
+   */
+  readonly decided?: {
+    readonly sourceObjectType: string;
+    readonly sourceObjectId: string;
+    readonly resolution: 'merged' | 'separate' | 'remapped';
+    readonly targetId: string | null;
+  };
 }
 
 export interface Mapped {

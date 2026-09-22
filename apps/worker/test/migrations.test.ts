@@ -21,6 +21,8 @@ import {
   migrationCreate,
   migrationGet,
   migrationMapScopes,
+  migrationResolveMerge,
+  migrationReviewQueue,
   migrationRollback,
   migrationResume,
   migrationScan,
@@ -420,6 +422,63 @@ describe('a business moves house', () => {
       'matches one customer and the email matches another',
     );
   });
+
+  it('brings the customer across the way a person decided, once they decide', async () => {
+    // The screen's question, answered: Chris Doyle is nobody already here. Until 0091 the answer was
+    // recorded and nothing acted on it — the batch it queued had no handler — so the customer waited forever.
+    const [candidate] = await rows<{ id: string }>(
+      admin(),
+      sql`select id::text as id from app.migration_merge_candidates
+          where migration_id = ${w.migrationId} and resolution = 'pending' and match_rule = 'conflict'`,
+    );
+    expect(candidate).toBeDefined();
+    const before = await ask<{ needsReview: number }>(migrationGet, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+    });
+    expect((await people()).some((p) => p.first_name === 'Chris')).toBe(false);
+
+    /**
+     * The queue as the screen reads it: the question, and both of the people he collides with, by name.
+     *
+     * Nothing called this query until the wizard did, and the lookup behind `here` handed the database a
+     * bare JS array, which the query builder spreads into a row constructor — `any(($1, $2)::uuid[])` — so
+     * it threw for every queue that had anybody in it and the screen sat on "Looking them up…".
+     */
+    const queue = await ask<{
+      candidates: { id: string; incoming: { name: string }; here: { name: string }[] }[];
+      remaining: number;
+    }>(migrationReviewQueue, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      limit: 10,
+    });
+    expect(queue.remaining).toBe(before.needsReview);
+    const waiting = queue.candidates.find((c) => c.id === candidate!.id);
+    expect(waiting?.incoming.name).toBe('Chris Doyle');
+    expect(waiting?.here.map((h) => h.name).sort()).toEqual(['Dave Smith', 'Maria Alvarez']);
+
+    await run(migrationResolveMerge, {
+      organizationId: w.organizationId,
+      migrationId: w.migrationId,
+      candidateId: candidate!.id,
+      decision: 'separate',
+    });
+    await drain();
+
+    const chris = (await people()).find((p) => p.first_name === 'Chris' && p.last_name === 'Doyle');
+    expect(chris).toBeDefined();
+    // With the date the old system first knew them, like everybody else who came across.
+    expect(new Date(chris!.created_at).getUTCFullYear()).toBe(2022);
+    const after = await ask<{
+      needsReview: number;
+      progress: { category: string; imported: number; found: number }[];
+    }>(migrationGet, { organizationId: w.organizationId, migrationId: w.migrationId });
+    expect(after.needsReview).toBe(before.needsReview - 1);
+    // Counted as brought across now, not as waiting.
+    const contacts = after.progress.filter((p) => p.category === 'contacts');
+    expect(contacts.reduce((n, p) => n + p.imported, 0)).toBeGreaterThanOrEqual(1);
+  }, 60_000);
 
   it('names the right person in every "no account here" note', async () => {
     // These are counted up by their key, so without a person of their own every one of them would land on

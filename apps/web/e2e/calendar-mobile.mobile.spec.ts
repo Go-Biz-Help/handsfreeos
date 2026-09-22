@@ -61,6 +61,10 @@ test('the phone bar has the calendar, and the agenda books, opens and cancels', 
     (await page.locator('[data-testid^="agenda-day-"]').first().getAttribute('data-testid'))!.slice(
       'agenda-day-'.length,
     );
+  // The strip is the day view's seven days, and the month hands its day over before the range has narrowed
+  // from the month's 42. `aria-pressed` above is true either way — the day is in both — so waiting on the
+  // week is what makes this read the week's first day and not the month grid's first cell, three weeks back.
+  await expect(page.locator('[data-testid^="agenda-day-"]')).toHaveCount(7);
   const first = await stripStart();
   await page.getByTestId('agenda-next').click();
   await expect

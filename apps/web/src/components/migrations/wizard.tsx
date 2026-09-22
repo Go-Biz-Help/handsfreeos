@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { MigrationDetail } from '@/lib/agency/migration-words';
+import type { MigrationDetail, MigrationReviewQueue } from '@/lib/agency/migration-words';
 import { STATUS_WORDS, stepOf } from '@/lib/agency/migration-words';
 import { cn } from '@/lib/utils';
 
@@ -606,10 +606,12 @@ function Running({
         {byCategory.size === 0 ? <p className="text-[13px] text-text-3">Starting…</p> : null}
       </div>
       {detail.needsReview > 0 ? (
-        <p className="mt-3 text-[13px] text-text-2">
-          {detail.needsReview} {detail.needsReview === 1 ? 'customer needs' : 'customers need'} you
-          to say whether they&apos;re somebody you already have. The rest carries on without them.
-        </p>
+        <ReviewQueue
+          organizationId={organizationId}
+          workspaceId={workspaceId}
+          migrationId={detail.migration.id}
+          waiting={detail.needsReview}
+        />
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         {detail.migration.status === 'paused' ? (
@@ -637,6 +639,157 @@ function Running({
         ) : null}
       </div>
     </Card>
+  );
+}
+
+type Candidate = MigrationReviewQueue['candidates'][number];
+
+/**
+ * The customers the import would not guess about, and the question each one is waiting on.
+ *
+ * The line "1 customer needs you to say whether they're somebody you already have" used to be the whole of
+ * it: there was nowhere on the screen to say so, and the customer waited forever. This is where. Each one
+ * shows who arrived and who here they might be, and the answer is a button — that person, or nobody here.
+ * Deciding queues the record to be brought across the decided way; the count above comes down as it lands.
+ *
+ * Loaded here rather than with the page, because it is asked for again after every answer and the rest of
+ * the page has no reason to reload for it.
+ */
+function ReviewQueue({
+  organizationId,
+  workspaceId,
+  migrationId,
+  waiting,
+}: {
+  organizationId: string;
+  workspaceId?: string;
+  migrationId: string;
+  /** How many are waiting, from the page: a change to it is the cue to ask for the list again. */
+  waiting: number;
+}) {
+  const router = useRouter();
+  const [candidates, setCandidates] = useState<readonly Candidate[] | null>(null);
+  const [remaining, setRemaining] = useState(waiting);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/queries/migration.review_queue', {
+            body: { organizationId, workspaceId, migrationId, limit: 10 },
+          }),
+        );
+        if (cancelled) return;
+        setCandidates(out.candidates);
+        setRemaining(out.remaining);
+      } catch (err) {
+        if (!cancelled) toast.error(errorMessage(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, workspaceId, migrationId, waiting]);
+
+  const decide = async (
+    candidate: Candidate,
+    decision: { decision: 'separate' } | { decision: 'remap'; targetId: string },
+  ) => {
+    setBusy(candidate.id);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/migration.resolve_merge', {
+          body: {
+            organizationId,
+            workspaceId,
+            migrationId,
+            candidateId: candidate.id,
+            ...decision,
+          },
+        }),
+      );
+      setCandidates((list) => (list ?? []).filter((c) => c.id !== candidate.id));
+      setRemaining((n) => Math.max(0, n - 1));
+      toast.success(
+        decision.decision === 'separate'
+          ? `${candidate.incoming.name} is coming across as a new customer.`
+          : `${candidate.incoming.name} is being joined to the customer you chose.`,
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const who = (p: { name: string; email: string | null; phone: string | null }) =>
+    [p.name, p.email, p.phone].filter(Boolean).join(' · ');
+
+  return (
+    <div
+      className="mt-4 rounded-control border border-border p-3"
+      data-testid="migration-review-queue"
+    >
+      <h3 className="text-sm font-medium">
+        {remaining} {remaining === 1 ? 'customer needs' : 'customers need'} you to say whether
+        they&apos;re somebody you already have
+      </h3>
+      <p className="mt-0.5 text-xs text-text-3">
+        The rest carries on without them. Each one is brought across the way you say, and nothing is
+        guessed.
+      </p>
+      {candidates === null ? (
+        <p className="mt-3 text-[13px] text-text-3">Looking them up…</p>
+      ) : candidates.length === 0 ? (
+        <p className="mt-3 text-[13px] text-text-3">
+          All decided. They are being brought across now.
+        </p>
+      ) : (
+        <ul className="mt-3 flex flex-col divide-y divide-border">
+          {candidates.map((c) => (
+            <li
+              key={c.id}
+              className="flex flex-col gap-2 py-3"
+              data-testid={`migration-review-candidate-${c.id}`}
+            >
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium">{who(c.incoming)}</p>
+                <p className="text-xs text-text-3">
+                  From {c.scopeName}. {c.reason}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {c.here.map((h) => (
+                  <Button
+                    key={h.id}
+                    variant="secondary"
+                    size="sm"
+                    loading={busy === c.id}
+                    disabled={busy !== null && busy !== c.id}
+                    onClick={() => decide(c, { decision: 'remap', targetId: h.id })}
+                  >
+                    Same as {who(h)}
+                  </Button>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={busy === c.id}
+                  disabled={busy !== null && busy !== c.id}
+                  onClick={() => decide(c, { decision: 'separate' })}
+                  data-testid="migration-review-separate"
+                >
+                  Somebody new
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -681,6 +834,16 @@ function Finished({
       </h2>
       <p className="mt-1 text-[26px] font-semibold tabular-nums">{total.toLocaleString()}</p>
       <p className="text-[13px] text-text-3">records now here</p>
+      {/* Somebody the import was not sure about is still waiting after it finished: the question stays on
+          the screen until it is answered, and answering brings them across. */}
+      {detail.needsReview > 0 && detail.migration.status !== 'rolled_back' ? (
+        <ReviewQueue
+          organizationId={organizationId}
+          workspaceId={workspaceId}
+          migrationId={detail.migration.id}
+          waiting={detail.needsReview}
+        />
+      ) : null}
       {/* Setup items are not failures, and the page never counts them as such. */}
       {open.length > 0 ? (
         <div className="mt-4">
