@@ -42,6 +42,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Before the stack starts, because a migration that shares a version with another is silently skipped
+      # rather than refused — here and on every environment after.
+      - name: Every migration has its own version
+        run: node scripts/migrations-check.mjs
+
       - uses: supabase/setup-cli@v1
         with:
           version: 2.117.0
