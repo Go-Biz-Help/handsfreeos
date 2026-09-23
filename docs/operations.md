@@ -8063,7 +8063,7 @@ the $497 seats open the moment the last free one goes — and the website follow
 in **Admin** → **Founding**.
 
 Founding needs the migrations `20261003000100_a_seat_at_the_founding_table.sql`,
-`20261003000200_one_offer_opens_the_next.sql` and `20261003000300_paying_for_a_seat.sql`. See "Apply new
+`20261003000200_one_offer_opens_the_next.sql` and `20261003000500_paying_for_a_seat.sql`. See "Apply new
 migrations".
 
 ### Approving somebody
