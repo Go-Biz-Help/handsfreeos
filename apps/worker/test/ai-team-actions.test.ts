@@ -221,6 +221,57 @@ const RULES: TeammateRule[] = [
           },
   },
   {
+    when: /book me a lawn visit/i,
+    step: (t) => {
+      const times = t.results['find_times']?.at(-1);
+      if (!times)
+        return {
+          calls: [
+            {
+              name: 'find_times',
+              arguments: {
+                calendarId: calendarIdIn(t.context, 'Lawn care'),
+                from: localDateOf(at(4, '00:00'), CHI),
+              },
+            },
+          ],
+        };
+      if (!t.results['book'])
+        return {
+          calls: [
+            {
+              name: 'book',
+              arguments: {
+                calendarId: calendarIdIn(t.context, 'Lawn care'),
+                startsAt: firstTime(times),
+              },
+            },
+          ],
+        };
+      return { calls: [{ name: 'reply', arguments: { message: 'You’re booked.' } }] };
+    },
+  },
+  {
+    when: /gate code/i,
+    step: (t) => {
+      const mine = t.results['my_appointments']?.at(-1);
+      if (!mine) return { calls: [{ name: 'my_appointments', arguments: {} }] };
+      const visit = (mine['appointments'] as { appointmentId: string }[])[0]!;
+      if (!t.results['add_to_appointment'])
+        return {
+          calls: [
+            {
+              name: 'add_to_appointment',
+              arguments: { appointmentId: visit.appointmentId, note: 'The gate code is 4321' },
+            },
+          ],
+        };
+      return {
+        calls: [{ name: 'reply', arguments: { message: 'Got it, I added that to your visit.' } }],
+      };
+    },
+  },
+  {
     when: /next visit/i,
     step: (t) =>
       t.tools.has('send_verification_code') && !t.results['send_verification_code']
@@ -592,5 +643,31 @@ describe('a website chat visitor proving who they are', () => {
     expect(again.at(-1)!.context).toContain('They just typed back the right code');
     const replies = (await aiMessages(first.conversationId)).map((m) => m.body_text);
     expect(replies.at(-1)).toBe('Thanks! You have nothing booked yet.');
+  });
+});
+
+describe('adding to a visit', () => {
+  it('adds what the customer says to their booked visit, as its reply goes out', async () => {
+    const c = await newCustomer(w, 'Gus');
+    const first = await textIn(w, c.phone, 'Can you book me a lawn visit?');
+    await replyNow(w, first.conversationId);
+    await drain(w);
+    const [visit] = await rows<{ id: string }>(
+      admin(),
+      sql`select a.id from app.appointments a join app.appointment_attendees t on t.appointment_id = a.id
+          where t.person_id = ${c.id} and a.status = 'scheduled'`,
+    );
+    expect(visit).toBeDefined();
+    const then = await textIn(w, c.phone, 'Oh and the gate code is 4321');
+    await replyNow(w, then.conversationId);
+    await drain(w);
+    const [row] = await rows<{ notes: string | null }>(
+      admin(),
+      sql`select notes from app.appointments where id = ${visit!.id}`,
+    );
+    expect(row!.notes).toBe('From the customer, via Ava: The gate code is 4321');
+    expect((await aiMessages(then.conversationId)).at(-1)!.body_text).toBe(
+      'Got it, I added that to your visit.',
+    );
   });
 });

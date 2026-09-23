@@ -12,6 +12,7 @@ import { TextInput, View } from 'react-native';
 
 import {
   CalendarCheck,
+  CalendarPlus,
   CalendarClock,
   CalendarX,
   Check,
@@ -45,6 +46,7 @@ const ACTION_ICON: Record<DraftActionFacts['kind'], LucideIcon> = {
   cancel: CalendarX,
   book_series: Repeat,
   waitlist: ListPlus,
+  add_to_visit: CalendarPlus,
   share_link: Link2,
   create_invoice: Receipt,
   create_estimate: ClipboardList,

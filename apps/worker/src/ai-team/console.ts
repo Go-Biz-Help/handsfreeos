@@ -602,6 +602,36 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { status: 'ready', when: slot.label, note: DONE_NOTE } };
   },
 
+  /** A rehearsal only says what it would add: whether the extra time fits is checked in a real conversation. */
+  async add_to_appointment(h, args) {
+    const list = await theirVisits(h);
+    const appt = list?.find((a) => a.id === String(args['appointmentId']));
+    if (!appt) return refuse(NOT_THEIRS);
+    if (h.state.held.length >= HELD_MAX)
+      return refuse('That’s as many changes as one reply can make.');
+    const service = h.rc.calendars
+      .flatMap((c) => c.services)
+      .find((x) => x.id === str(args['serviceId']));
+    if (str(args['serviceId']) && !service)
+      return refuse('That isn’t a service on your calendars. Use an id from the context.');
+    const guests = typeof args['guests'] === 'number' ? args['guests'] : null;
+    const what = [
+      service?.name ?? null,
+      guests ? `${guests} more ${guests === 1 ? 'person' : 'people'}` : null,
+      str(args['note']) ? 'a note' : null,
+    ].filter(Boolean);
+    h.state.held.push({
+      kind: 'add_to_visit',
+      appointmentId: appt.id,
+      serviceId: service?.id ?? null,
+      guests,
+      note: str(args['note']),
+      summary: `Add ${what.join(', ')} to ${appt.title}`.slice(0, 300),
+    });
+    would(h, 'reschedule', `added ${what.join(', ')} to ${appt.title}`);
+    return { content: { status: 'ready', note: DONE_NOTE } };
+  },
+
   async cancel(h, args) {
     const list = await theirVisits(h);
     const appt = list?.find((a) => a.id === String(args['appointmentId']));

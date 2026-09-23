@@ -23072,6 +23072,19 @@ export interface operations {
                                     reason: string | null;
                                     /** @default  */
                                     summary: string;
+                                } | {
+                                    /** Format: uuid */
+                                    appointmentId: string;
+                                    /** @default null */
+                                    guests: number | null;
+                                    /** @enum {string} */
+                                    kind: "add_to_visit";
+                                    /** @default null */
+                                    note: string | null;
+                                    /** @default null */
+                                    serviceId: string | null;
+                                    /** @default  */
+                                    summary: string;
                                 })[];
                                 /** @default null */
                                 discount: {
@@ -23369,6 +23382,12 @@ export interface operations {
                             } | null;
                             /** Format: date-time */
                             endsAt: string;
+                            extraServices: {
+                                durationMinutes: number;
+                                name: string;
+                                priceCents: number | null;
+                                source: string;
+                            }[];
                             heldUntil: string | null;
                             /** Format: uuid */
                             id: string;

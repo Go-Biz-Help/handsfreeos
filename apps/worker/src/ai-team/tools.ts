@@ -30,6 +30,7 @@ import {
   formResponseStart,
   formResponseSubmit,
   AI_TEAMMATE_SOURCE,
+  appointmentAddForCustomer,
   chatCheckCodeForCustomer,
   chatSendCodeForCustomer,
   leadCreate,
@@ -388,6 +389,25 @@ function refusalOf(e: HfosError): Outcome {
 }
 
 // ---- The tools ----
+
+/** Thrown at the end of a try so its savepoint rolls back. */
+class RolledBack extends Error {}
+
+/** Runs `fn` in a savepoint that always rolls back: would it work, and what would it give? Nothing is kept. */
+async function rolledBack<T>(tx: Tx, fn: (sp: Tx) => Promise<T>): Promise<T> {
+  const held: { done: boolean; value?: T } = { done: false };
+  try {
+    await tx.transaction(async (sp) => {
+      held.value = await fn(sp as Tx);
+      held.done = true;
+      throw new RolledBack();
+    });
+  } catch (e) {
+    if (!(e instanceof RolledBack)) throw e;
+  }
+  if (!held.done) throw new Error('The try did not finish.');
+  return held.value as T;
+}
 
 type Runner = (d: ExecutorDeps, tx: Tx, args: Record<string, unknown>) => Promise<Outcome>;
 
@@ -825,6 +845,68 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return {
       status: 'held',
       content: { status: 'ready', when: slot.label, note: heldNote(d) },
+      effect: { held },
+    };
+  },
+
+  /**
+   * M18: more on one of their visits. Held like a reschedule, but tried first in a savepoint that always rolls
+   * back, so the model hears now whether the extra time fits (and the visit's new end) rather than after it
+   * told the customer.
+   */
+  async add_to_appointment(d, tx, args) {
+    const appt = await customersAppointment(d, tx, String(args['appointmentId']));
+    if (!appt) return refused({ error: NOT_THEIRS });
+    if (d.state.held.length >= HELD_MAX)
+      return refused({ error: 'That’s as many changes as one reply can make.' });
+    const serviceId = str(args['serviceId']);
+    const guests = typeof args['guests'] === 'number' ? args['guests'] : null;
+    const note = str(args['note']);
+    const tried = await rolledBack(tx, (sp) =>
+      executeCommandIn(
+        sp,
+        appointmentAddForCustomer,
+        { workspaceId: d.scope.workspaceId, appointmentId: appt.id, serviceId, guests, note },
+        d.ai,
+        d.meta,
+      ),
+    );
+    const added = serviceId ? tried.output.services.at(-1) : undefined;
+    const what = [
+      added ? added.name : null,
+      guests ? `${guests} more ${guests === 1 ? 'person' : 'people'}` : null,
+      note ? 'a note' : null,
+    ].filter(Boolean);
+    const held: DraftAction = {
+      kind: 'add_to_visit',
+      appointmentId: appt.id,
+      serviceId,
+      guests,
+      note,
+      summary:
+        `Add ${what.join(', ')} to ${appt.title} on ${atLabel(appt.startsAt, appt.timeZone)}`.slice(
+          0,
+          300,
+        ),
+    };
+    const prices = d.rc.grounding.profile.allowPrices;
+    return {
+      status: 'held',
+      content: {
+        status: 'ready',
+        ...(added
+          ? {
+              added: {
+                service: quoteData(added.name),
+                minutes: added.durationMinutes,
+                ...(prices && added.priceCents !== null ? { price: money(added.priceCents) } : {}),
+              },
+              endsAt: atLabel(Date.parse(tried.output.endsAt), appt.timeZone),
+            }
+          : {}),
+        ...(guests ? { peopleComing: tried.output.seats } : {}),
+        note: heldNote(d),
+      },
       effect: { held },
     };
   },

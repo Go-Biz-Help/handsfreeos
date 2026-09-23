@@ -180,6 +180,7 @@ export type DraftActionFacts =
   | { readonly kind: 'cancel'; readonly summary: string }
   | { readonly kind: 'book_series'; readonly startsAt: string; readonly summary: string }
   | { readonly kind: 'waitlist'; readonly summary: string }
+  | { readonly kind: 'add_to_visit'; readonly summary: string }
   | { readonly kind: MoneyDraftActionKind; readonly summary: string };
 
 /** The changes that ask the customer for money (M18): only ever in an approval draft. */
@@ -225,6 +226,8 @@ export function draftActionLine(a: DraftActionFacts): string {
       return `Will book repeat visits${at ? ` from ${at}` : ''}`;
     case 'waitlist':
       return 'Will add them to the waitlist';
+    case 'add_to_visit':
+      return 'Will add to their visit';
     case 'share_link':
       return 'Will send the link in the message';
     case 'create_invoice':
@@ -271,7 +274,7 @@ export function draftTitle(d: DraftFacts): string {
       ? ', with repeat visits'
       : kinds.has('waitlist')
         ? ', with a waitlist place'
-        : kinds.has('reschedule')
+        : kinds.has('reschedule') || kinds.has('add_to_visit')
           ? ', with a change to their visit'
           : kinds.has('cancel')
             ? ', with a cancellation'
@@ -298,7 +301,7 @@ export function draftShort(d: DraftFacts): string {
     return `${name}’s reply and repeat visits`;
   if (d.preview.actions.some((a) => a.kind === 'waitlist'))
     return `${name}’s reply and a waitlist place`;
-  if (d.preview.actions.some((a) => a.kind === 'reschedule'))
+  if (d.preview.actions.some((a) => a.kind === 'reschedule' || a.kind === 'add_to_visit'))
     return `${name}’s reply and a change to their visit`;
   if (d.preview.actions.some((a) => a.kind === 'cancel'))
     return `${name}’s reply and a cancellation`;

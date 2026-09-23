@@ -336,6 +336,7 @@ describe('registry', () => {
       'attendee.cancel_for_customer',
       'series.book_for_customer',
       'waitlist.join_for_customer',
+      'appointment.add_for_customer',
       'invoice.create_for_customer',
       'estimate.create_for_customer',
       'estimate.answer_for_customer',

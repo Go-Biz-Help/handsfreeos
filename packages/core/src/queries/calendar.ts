@@ -6,6 +6,7 @@ import { and, asc, desc, eq, gt, inArray, lt, ne, sql as dsql, type SQL } from '
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   appointmentAttendees,
+  appointmentServices,
   appointmentResources,
   appointments,
   appointmentSeries,
@@ -569,6 +570,16 @@ export const appointmentGet = defineQuery({
         ...card,
         calendarRevision: row!.calendarRevision,
         priceCents: await visitPrice(ctx.tx, input.workspaceId, card.service?.id ?? null),
+        extraServices: await ctx.tx
+          .select({
+            name: appointmentServices.name,
+            durationMinutes: appointmentServices.durationMinutes,
+            priceCents: appointmentServices.priceCents,
+            source: appointmentServices.source,
+          })
+          .from(appointmentServices)
+          .where(eq(appointmentServices.appointmentId, card.id))
+          .orderBy(asc(appointmentServices.createdAt), asc(appointmentServices.id)),
         attendees: attendees.map(({ a, firstName, lastName }) => ({
           id: a.id,
           personId: a.personId,

@@ -582,6 +582,7 @@ export async function upcomingAppointments(
     id: string;
     title: string;
     service_name: string | null;
+    extras: string | null;
     starts_at: Date | string;
     ends_at: Date | string;
     calendar_id: string;
@@ -590,6 +591,8 @@ export async function upcomingAppointments(
   }>(
     tx,
     sql`select a.id, a.title, s.name as service_name, a.starts_at, a.ends_at, a.calendar_id,
+          (select string_agg(x.name, ' + ' order by x.created_at) from app.appointment_services x
+            where x.appointment_id = a.id) as extras,
           c.name as calendar_name, c.timezone
         from app.appointment_attendees t
         join app.appointments a on a.id = t.appointment_id
@@ -601,7 +604,7 @@ export async function upcomingAppointments(
   );
   return list.map((r) => ({
     id: r.id,
-    title: r.service_name ?? r.title,
+    title: withExtras(r.service_name ?? r.title, r.extras),
     startsAt: ms(r.starts_at),
     endsAt: ms(r.ends_at),
     calendarId: r.calendar_id,
@@ -616,6 +619,10 @@ export interface PastVisit extends RunAppointment {
   readonly outcome: 'completed' | 'no_show' | 'unmarked';
 }
 
+/** "AC tune-up + Filter change": a visit's own service, then those added to it (M18). */
+const withExtras = (title: string, extras: string | null) =>
+  extras ? `${title} + ${extras}` : title;
+
 /** The customer's visits that have happened, most recent first. */
 export async function pastAppointments(
   tx: Tx,
@@ -628,6 +635,7 @@ export async function pastAppointments(
     id: string;
     title: string;
     service_name: string | null;
+    extras: string | null;
     starts_at: Date | string;
     ends_at: Date | string;
     calendar_id: string;
@@ -638,6 +646,8 @@ export async function pastAppointments(
   }>(
     tx,
     sql`select a.id, a.title, s.name as service_name, a.starts_at, a.ends_at, a.calendar_id,
+          (select string_agg(x.name, ' + ' order by x.created_at) from app.appointment_services x
+            where x.appointment_id = a.id) as extras,
           c.name as calendar_name, c.timezone, a.status::text as status, t.status::text as attendee
         from app.appointment_attendees t
         join app.appointments a on a.id = t.appointment_id
@@ -650,7 +660,7 @@ export async function pastAppointments(
   );
   return list.map((r) => ({
     id: r.id,
-    title: r.service_name ?? r.title,
+    title: withExtras(r.service_name ?? r.title, r.extras),
     startsAt: ms(r.starts_at),
     endsAt: ms(r.ends_at),
     calendarId: r.calendar_id,

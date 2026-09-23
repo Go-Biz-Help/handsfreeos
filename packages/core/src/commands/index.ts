@@ -236,6 +236,7 @@ import {
   attendeeRescheduleForCustomer,
   seriesBookForCustomer,
   waitlistJoinForCustomer,
+  appointmentAddForCustomer,
 } from './appointment-ai';
 import {
   estimateAnswerForCustomer,
@@ -698,6 +699,7 @@ export const commands: readonly CommandDef[] = [
   attendeeCancelForCustomer,
   seriesBookForCustomer,
   waitlistJoinForCustomer,
+  appointmentAddForCustomer,
   invoiceCreateForCustomer,
   estimateCreateForCustomer,
   estimateAnswerForCustomer,

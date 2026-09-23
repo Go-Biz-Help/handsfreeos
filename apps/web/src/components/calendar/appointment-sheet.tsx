@@ -1,5 +1,12 @@
 'use client';
-import { addDays, hasWorkspacePermission, localInstant, type CalendarConfig } from '@hfos/core';
+import {
+  addDays,
+  formatDuration,
+  hasWorkspacePermission,
+  localInstant,
+  moneyLabel,
+  type CalendarConfig,
+} from '@hfos/core';
 import {
   CalendarClock,
   Check,
@@ -826,6 +833,29 @@ export function AppointmentSheet({
                           </div>
                         );
                       })}
+                    </div>
+                  ))}
+                </Section>
+              ) : null}
+
+              {appt.extraServices.length ? (
+                <Section label="Also on this visit">
+                  {appt.extraServices.map((x, i) => (
+                    <div
+                      key={`${x.name}-${i}`}
+                      className="flex items-baseline gap-2 py-1 text-[13px]"
+                      data-testid="sheet-extra-service"
+                    >
+                      <span className="min-w-0 flex-1 font-medium">{x.name}</span>
+                      <span className="text-text-3">
+                        {[
+                          x.durationMinutes ? formatDuration(x.durationMinutes) : null,
+                          x.priceCents !== null ? moneyLabel(x.priceCents) : null,
+                          x.source === 'ai_teammate' ? 'added by the AI teammate' : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
                     </div>
                   ))}
                 </Section>

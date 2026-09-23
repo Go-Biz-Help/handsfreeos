@@ -1774,6 +1774,25 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   syncWindow: syncWindow(),
 });
 
+/** M18: more services on one visit, each with its time and price as they read when added. */
+export const appointmentServices = app.table('appointment_services', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id')
+    .notNull()
+    .references(() => services.id),
+  name: text('name').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+  priceCents: integer('price_cents'),
+  /** staff, ai_teammate. */
+  source: text('source').notNull().default('staff'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const waitlistEntries = app.table('waitlist_entries', {
   id: id(),
   workspaceId: workspaceRef(),

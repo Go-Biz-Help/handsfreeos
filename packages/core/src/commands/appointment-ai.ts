@@ -11,6 +11,7 @@ import {
   appointmentAttendees,
   appointments,
   appointmentSeries,
+  appointmentServices,
   waitlistEntries,
 } from '@hfos/db/schema';
 import {
@@ -25,6 +26,7 @@ import {
   appointmentSnapshot,
   requireAppointment,
   requireScheduled,
+  staffIdsOf,
 } from '../calendar/appointments';
 import {
   bookAppointment,
@@ -46,6 +48,8 @@ import { executeCommandIn } from '../kernel/execute';
 import type { AiEmployeeActor, CommandContext, RequestMeta } from '../kernel/types';
 import { isOptedOut } from '../messaging/store';
 import {
+  AppointmentAddForCustomerInput,
+  AppointmentAddForCustomerOutput,
   AppointmentBookForCustomerInput,
   AppointmentBookForCustomerOutput,
   AttendeeCancelForCustomerInput,
@@ -58,7 +62,7 @@ import {
   WaitlistJoinForCustomerInput,
   WaitlistJoinForCustomerOutput,
 } from '../schemas/ai-team';
-import { announceBooked } from './appointment';
+import { announceBooked, checkExisting } from './appointment';
 import {
   estimateAnswerForCustomer,
   estimateCreateForCustomer,
@@ -602,6 +606,202 @@ export const waitlistJoinForCustomer = defineCommand({
   },
 });
 
+const MIN = 60_000;
+
+/**
+ * M18: more on one of the customer's upcoming visits, on the teammate's calendars:
+ * - another service the calendar offers: the visit runs that service's length longer, when the people on it
+ *   (and its resources) are free for it, at the price the price list gives it today. Never on a visit shared
+ *   with other customers, or one that takes a payment up front;
+ * - more people coming, on a visit with that many seats left;
+ * - a note for the team (a gate code, pets, what's wrong), added under what's there.
+ * The customer hears it from the teammate's reply; the calendar sync picks up a longer visit.
+ */
+export const appointmentAddForCustomer = defineCommand({
+  name: 'appointment.add_for_customer',
+  description:
+    'The AI teammate adds to an upcoming visit of the customer it’s talking to: another service the calendar offers (when the team is free for the extra time), more people (when seats are left), or a note for the team.',
+  risk: 2,
+  input: AppointmentAddForCustomerInput,
+  output: AppointmentAddForCustomerOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['appointment.updated'],
+  actors: ['ai_employee'],
+  async handler(ctx, input) {
+    const ai = aiOf(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const booked = await customerBooking(ctx, ai, input.appointmentId);
+    const { calendar } = booked;
+    if (input.serviceId || input.guests) {
+      // A visit paid for up front changes on the customer's page or by a person, never here.
+      try {
+        await assertTeammateMayBook(ctx.tx, ai, calendar.id, booked.appt.serviceId);
+      } catch (e) {
+        if (e instanceof HfosError && e.rule === 'deposit_required')
+          throw HfosError.rule(
+            'takes_payment',
+            409,
+            'That visit takes a payment up front, so only someone on the team can add to it. Add a note, or hand off.',
+          );
+        throw e;
+      }
+    } else await assertTeammateCalendar(ctx.tx, ai, calendar.id);
+    // Locked, so two changes at once don't both add their time.
+    const [appt] = await ctx.tx
+      .select()
+      .from(appointments)
+      .where(eq(appointments.id, booked.appt.id))
+      .for('update');
+    if (!appt) throw HfosError.notFound('Appointment not found.');
+    if (appt.startsAt.getTime() <= Date.now())
+      throw HfosError.rule(
+        'visit_started',
+        409,
+        'That visit has already started, so it can’t change now. Hand off if they need something.',
+      );
+    const [att] = await ctx.tx
+      .select()
+      .from(appointmentAttendees)
+      .where(eq(appointmentAttendees.id, booked.att.id))
+      .for('update');
+    const patch: Partial<typeof appointments.$inferInsert> = {};
+    const fields: string[] = [];
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+
+    if (input.serviceId) {
+      if (appt.capacity > 1 || appt.seatsTaken > att!.seats)
+        throw HfosError.rule(
+          'shared_visit',
+          409,
+          'Other customers share that visit, so its length can’t change. Book the extra service as its own visit, or hand off.',
+        );
+      const service = await resolveService(ctx.tx, calendar, input.serviceId);
+      if (!service || service.archived)
+        throw HfosError.validation([
+          { path: 'serviceId', message: 'That isn’t a service this calendar offers.' },
+        ]);
+      const [already] = await ctx.tx
+        .select({ id: appointmentServices.id })
+        .from(appointmentServices)
+        .where(
+          and(
+            eq(appointmentServices.appointmentId, appt.id),
+            eq(appointmentServices.serviceId, service.id),
+          ),
+        )
+        .limit(1);
+      if (already || appt.serviceId === service.id)
+        throw HfosError.rule('already_on_visit', 409, `${service.name} is already on that visit.`);
+      const staff = await staffIdsOf(ctx.tx, appt.id);
+      if (service.eligibleUserIds.length && !staff.some((u) => service.eligibleUserIds.includes(u)))
+        throw HfosError.rule(
+          'not_their_service',
+          409,
+          `Whoever is coming to that visit doesn’t do ${service.name}. Book it as its own visit, or hand off.`,
+        );
+      const minutes = resolveTerms(calendar.config, service).durations[0] ?? 0;
+      const total = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN) + minutes;
+      if (minutes > 0) {
+        try {
+          await checkExisting(
+            ctx,
+            calendar,
+            appt,
+            { start: appt.startsAt.getTime(), minutes: total, userIds: staff },
+            false,
+          );
+        } catch (e) {
+          if (!(e instanceof HfosError) || e.status !== 409) throw e;
+          throw HfosError.rule(
+            'does_not_fit',
+            409,
+            `There isn’t time for ${service.name} on that visit: something else is booked right after, or it runs past hours. Offer it as its own visit, or hand off.`,
+          );
+        }
+        patch.endsAt = new Date(appt.startsAt.getTime() + total * MIN);
+        before['endsAt'] = appt.endsAt.toISOString();
+        after['endsAt'] = patch.endsAt.toISOString();
+      }
+      await ctx.tx.insert(appointmentServices).values({
+        workspaceId: ws,
+        appointmentId: appt.id,
+        serviceId: service.id,
+        name: service.name,
+        durationMinutes: minutes,
+        priceCents: service.priceCents ?? null,
+        source: 'ai_teammate',
+      });
+      fields.push('services');
+      after['service'] = service.name;
+    }
+
+    let seats = att!.seats;
+    if (input.guests) {
+      if (appt.seatsTaken + input.guests > appt.capacity)
+        throw HfosError.rule(
+          'no_seats',
+          409,
+          appt.capacity - appt.seatsTaken > 0
+            ? `That visit has room for ${appt.capacity - appt.seatsTaken} more, not ${input.guests}.`
+            : 'That visit has no room for anyone else. Book them their own time, or hand off.',
+        );
+      seats = att!.seats + input.guests;
+      await ctx.tx
+        .update(appointmentAttendees)
+        .set({ seats })
+        .where(eq(appointmentAttendees.id, att!.id));
+      patch.seatsTaken = appt.seatsTaken + input.guests;
+      fields.push('seats');
+      before['seats'] = att!.seats;
+      after['seats'] = seats;
+    }
+
+    if (input.note) {
+      const line = `From the customer, via ${ai.teammateName}: ${input.note}`;
+      const notes = appt.notes?.trim() ? `${appt.notes.trim()}\n\n${line}` : line;
+      if (notes.length > 5000)
+        throw HfosError.rule(
+          'notes_full',
+          409,
+          'That visit’s notes are full. Add a note to the customer instead.',
+        );
+      patch.notes = notes;
+      fields.push('notes');
+      after['note'] = input.note;
+    }
+
+    const [updated] = Object.keys(patch).length
+      ? await ctx.tx.update(appointments).set(patch).where(eq(appointments.id, appt.id)).returning()
+      : [appt];
+    await ctx.emit({
+      type: 'appointment.updated',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { calendarId: appt.calendarId, fields, by: 'ai_teammate' },
+      before: { title: appt.title, ...before },
+      after: { title: appt.title, ...after },
+    });
+    const services = await ctx.tx
+      .select({
+        name: appointmentServices.name,
+        durationMinutes: appointmentServices.durationMinutes,
+        priceCents: appointmentServices.priceCents,
+      })
+      .from(appointmentServices)
+      .where(eq(appointmentServices.appointmentId, appt.id))
+      .orderBy(asc(appointmentServices.createdAt));
+    return {
+      appointmentId: appt.id,
+      endsAt: updated!.endsAt.toISOString(),
+      services,
+      seats,
+      noteAdded: !!input.note,
+    };
+  },
+});
+
 export type HeldActionKind = DraftAction['kind'];
 
 /**
@@ -700,6 +900,22 @@ export async function runHeldAction(
         meta,
       );
       return { kind: a.kind, appointmentId: null };
+    }
+    case 'add_to_visit': {
+      const r = await executeCommandIn(
+        tx,
+        appointmentAddForCustomer,
+        {
+          workspaceId,
+          appointmentId: a.appointmentId,
+          serviceId: a.serviceId,
+          guests: a.guests,
+          note: a.note,
+        },
+        ai,
+        meta,
+      );
+      return { kind: a.kind, appointmentId: r.output.appointmentId };
     }
     // Money only ever sits in an approval draft; each command refuses without the approver on the actor.
     case 'share_link':

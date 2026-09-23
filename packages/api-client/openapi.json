@@ -56032,6 +56032,44 @@
                             }
                           ]
                         },
+                        "extraServices": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "durationMinutes": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "priceCents": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "durationMinutes",
+                              "priceCents",
+                              "source"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "series": {
                           "anyOf": [
                             {
@@ -56157,6 +56195,7 @@
                         "updatedAt",
                         "calendarRevision",
                         "priceCents",
+                        "extraServices",
                         "series",
                         "waitlist",
                         "createdBy"
@@ -64256,6 +64295,74 @@
                                         "kind",
                                         "appointmentId",
                                         "reason",
+                                        "summary"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "add_to_visit"
+                                          ]
+                                        },
+                                        "appointmentId": {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        "serviceId": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "guests": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "integer",
+                                              "minimum": 1,
+                                              "maximum": 10
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "note": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "maxLength": 1000
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "summary": {
+                                          "default": "",
+                                          "type": "string",
+                                          "maxLength": 300
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "appointmentId",
+                                        "serviceId",
+                                        "guests",
+                                        "note",
                                         "summary"
                                       ],
                                       "additionalProperties": false

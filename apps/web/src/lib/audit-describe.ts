@@ -678,6 +678,8 @@ function describeAction(e: AuditEntry): string {
       return 'changed an offer';
     case 'offer.archive':
       return `removed the offer “${s(e.after?.name) || 'an offer'}”`;
+    case 'appointment.add_for_customer':
+      return `added to ${apptTitle(e)}${s(e.after?.service) ? `: ${s(e.after?.service)}` : ''}${e.after?.seats !== undefined ? `, now for ${String(e.after?.seats)}` : ''}${s(e.after?.note) ? ', with a note' : ''}`;
     case 'waitlist.join_for_customer':
       return `added ${s(e.after?.customer) || 'the customer'} to the waitlist for ${s(e.after?.calendar) || 'a calendar'}`;
     case 'message.record_opt_out':

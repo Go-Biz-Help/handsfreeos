@@ -235,6 +235,23 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'draft',
   }),
   define({
+    name: 'add_to_appointment',
+    description:
+      'Add to one of the customer’s upcoming appointments (from my_appointments): another service the calendar offers (it runs that much longer, at the price list’s price, when the team is free for it), more people coming (when seats are left), or a note for the team like a gate code, pets or what’s wrong. Tell them only once it succeeds.',
+    input: z
+      .strictObject({
+        appointmentId: uuid.describe('An upcoming appointment from my_appointments'),
+        serviceId: uuid.optional().describe('Another service from that calendar, in the context'),
+        guests: z.int().min(1).max(10).optional().describe('How many more people are coming'),
+        note: optionalText(1000).describe('For the team, in the customer’s words'),
+      })
+      .refine((v) => !!v.serviceId || !!v.guests || !!v.note, {
+        error: 'Add a service, people or a note.',
+      }),
+    skill: 'book',
+    autonomy: 'draft',
+  }),
+  define({
     name: 'cancel',
     description:
       'Cancel one of the customer’s upcoming appointments (from my_appointments) when they ask you to.',
@@ -554,6 +571,7 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'read_call_transcript',
   'reschedule',
   'cancel',
+  'add_to_appointment',
   'update_customer',
   // M18: a chat visitor can't open or close a deal for the customer they typed the number of.
   'open_deal',

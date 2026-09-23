@@ -11,6 +11,7 @@ import {
   activities,
   aiTeammateDrafts,
   appointmentAttendees,
+  appointments,
   auditLogs,
   conversations,
   events,
@@ -58,11 +59,13 @@ import {
   aiTeammateSetStatus,
   appointmentBookForCustomer,
   attendeeCancelForCustomer,
+  appointmentAddForCustomer,
   attendeeRescheduleForCustomer,
   calendarAvailability,
   chatIdentify,
   chatReceive,
   chatVisitorStart,
+  calendarSetStatus,
   chatCheckCodeForCustomer,
   chatSendCodeForCustomer,
   chatWidgetCreate,
@@ -87,6 +90,7 @@ import {
   recordSetTags,
   registry,
   scheduleSet,
+  serviceCreate,
   tagCreate,
   taskUpdate,
   workspaceUpdate,
@@ -1326,6 +1330,104 @@ describe('booking for the customer in the conversation', () => {
     await expectHfos(() => send(), 'rule_violation', 'too_many_codes');
   });
 
+  it('adds another service, people and a note to the customer’s visit, when the team has the time (M18)', async () => {
+    const t = { owner: a.owner, wsId: a.wsId } as unknown as Team;
+    const service = (name: string, minutes: number, priceCents: number) =>
+      run(serviceCreate, { workspaceId: a.wsId, name, durations: [minutes], priceCents }, a.owner);
+    const tune = await service('Tune-up', 60, 9000);
+    const filter = await service('Filter change', 30, 4900);
+    const ducts = await service('Duct check', 60, 12000);
+    const home = await makeCalendar(t, 'Home visits', {
+      public: true,
+      team: { members: [{ userId: a.owner.id }], assignment: 'round_robin' },
+      services: {
+        mode: 'choice',
+        items: [tune, filter, ducts].map((x) => ({ serviceId: x.serviceId })),
+      },
+    });
+    await saveTeammate(a, { book: { enabled: true, calendarIds: [visits.id, home.id] } });
+    const thu = nextWeekday(4);
+    const kit = await aiChat(a, 'Kit');
+    const asKit = { conversationId: kit.conversationId };
+    const booked = (
+      await asAva(a, asKit, appointmentBookForCustomer, {
+        workspaceId: a.wsId,
+        calendarId: home.id,
+        serviceId: tune.serviceId,
+        startsAt: isoAt(thu, '09:00'),
+        clientId: randomUUID(),
+      })
+    ).output;
+    const add = (input: Record<string, unknown>, over = asKit) =>
+      asAva(a, over, appointmentAddForCustomer, {
+        workspaceId: a.wsId,
+        appointmentId: booked.appointmentId,
+        ...input,
+      });
+
+    // The filter change: half an hour longer, at the price list's price.
+    const more = (await add({ serviceId: filter.serviceId })).output;
+    expect(more).toMatchObject({
+      endsAt: isoAt(thu, '10:30'),
+      services: [{ name: 'Filter change', durationMinutes: 30, priceCents: 4900 }],
+      seats: 1,
+      noteAdded: false,
+    });
+    await expectHfos(
+      () => add({ serviceId: filter.serviceId }),
+      'rule_violation',
+      'already_on_visit',
+    );
+
+    // Someone else is booked right after, so an hour more doesn't fit.
+    const jo = await aiChat(a, 'Jo');
+    await asAva(a, { conversationId: jo.conversationId }, appointmentBookForCustomer, {
+      workspaceId: a.wsId,
+      calendarId: home.id,
+      serviceId: tune.serviceId,
+      startsAt: isoAt(thu, '10:30'),
+      clientId: randomUUID(),
+    });
+    await expectHfos(() => add({ serviceId: ducts.serviceId }), 'rule_violation', 'does_not_fit');
+    // A one-person visit has no seat for someone else.
+    await expectHfos(() => add({ guests: 1 }), 'rule_violation', 'no_seats');
+
+    // A note for the team goes under what's there.
+    expect((await add({ note: 'Gate code 4321, and the dog is friendly' })).output.noteAdded).toBe(
+      true,
+    );
+    const [row] = await admin()
+      .select({ endsAt: appointments.endsAt, notes: appointments.notes })
+      .from(appointments)
+      .where(eq(appointments.id, booked.appointmentId));
+    expect(row!.endsAt.toISOString()).toBe(isoAt(thu, '10:30'));
+    expect(row!.notes).toBe('From the customer, via Ava: Gate code 4321, and the dog is friendly');
+    const [extra] = await rows<{ source: string; service_id: string }>(
+      admin(),
+      sql`select source, service_id from app.appointment_services where appointment_id = ${booked.appointmentId}`,
+    );
+    expect(extra).toEqual({ source: 'ai_teammate', service_id: filter.serviceId });
+
+    // Only their own visit, and not from a chat that hasn't typed back its code.
+    await expectHfos(
+      () => add({ note: 'Hi' }, { conversationId: jo.conversationId }),
+      'forbidden',
+      'not_this_customer',
+    );
+    await expectHfos(
+      async () => add({ note: 'Hi' }, { conversationId: await chatAs(a, kit.phone) }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
+    // Put the business back as the other tests expect it.
+    await saveTeammate(a, { book: { enabled: true, calendarIds: [visits.id] } });
+    await run(
+      calendarSetStatus,
+      { workspaceId: a.wsId, calendarId: home.id, status: 'archived' },
+      a.owner,
+    );
+  });
+
   it('carries out a draft that only cancels once, however often it’s delivered (F2)', async () => {
     const jules = await aiChat(a, 'Jules');
     const booked = (
@@ -1778,7 +1880,13 @@ describe('the teammate’s settings and status', () => {
       changedBy: { id: a.owner.id },
     });
     expect(seen.issues.map((i) => i.code)).toContain('thin_knowledge');
-    expect(seen.catalogs.calendars.map((c) => c.name).sort()).toEqual(['Office', 'Visits']);
+    // Archived ones (another test's) are listed as archived; these are the live ones.
+    expect(
+      seen.catalogs.calendars
+        .filter((c) => !c.archived)
+        .map((c) => c.name)
+        .sort(),
+    ).toEqual(['Office', 'Visits']);
     // The first revision says how it began ("an" before a vowel sound).
     expect(seen.revisions.at(-1)).toMatchObject({
       revision: 1,

@@ -48,6 +48,7 @@ describe('the registry', () => {
       ['reschedule', 'book', 'draft'],
       ['book_repeating', 'book', 'draft'],
       ['join_waitlist', 'book', 'draft'],
+      ['add_to_appointment', 'book', 'draft'],
       ['cancel', 'book', 'draft'],
       ['record_answers', 'qualify', 'auto'],
       ['ask_form', 'qualify', 'auto'],
@@ -85,6 +86,7 @@ describe('the registry', () => {
       'reschedule',
       'book_repeating',
       'join_waitlist',
+      'add_to_appointment',
       'cancel',
       'reply',
     ]);
@@ -191,6 +193,7 @@ describe('teammateTools', () => {
       'book',
       'reschedule',
       'join_waitlist',
+      'add_to_appointment',
       'cancel',
       'update_customer',
       'add_note',

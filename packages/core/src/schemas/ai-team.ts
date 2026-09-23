@@ -185,6 +185,15 @@ export const DraftAction = z.discriminatedUnion('kind', [
     reason: z.string().trim().max(300).nullable().default(null),
     summary: z.string().trim().max(300).default(''),
   }),
+  /** M18: more on one of their visits: another service, more people coming, or a note for the team. */
+  z.object({
+    kind: z.literal('add_to_visit'),
+    appointmentId: uuid,
+    serviceId: uuid.nullable().default(null),
+    guests: z.int().min(1).max(10).nullable().default(null),
+    note: z.string().trim().max(1000).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
 ]);
 export type DraftAction = z.infer<typeof DraftAction>;
 
@@ -325,6 +334,7 @@ export const AiTeammateSendDraftOutput = z.object({
         'cancel',
         'book_series',
         'waitlist',
+        'add_to_visit',
         ...MONEY_DRAFT_ACTIONS,
       ]),
       /** The visit it made or changed (the first of a series); null for a waitlist place or money. */
@@ -502,6 +512,32 @@ export const AttendeeCancelForCustomerInput = z.object({
   reason: z.string().trim().max(300).nullable().optional(),
 });
 export const AttendeeCancelForCustomerOutput = AttendeeCancelOnlineOutput;
+
+/** M18: more on one of the customer's visits. At least one of the three. */
+export const AppointmentAddForCustomerInput = z
+  .object({
+    workspaceId: uuid,
+    appointmentId: uuid,
+    /** Another service on the calendar: the visit runs its length longer, at its price today. */
+    serviceId: uuid.nullable().optional(),
+    /** More people coming, on a visit with seats left. */
+    guests: z.int().min(1).max(10).nullable().optional(),
+    /** For the team: a gate code, pets, what's wrong, who's coming. */
+    note: z.string().trim().min(1).max(1000).nullable().optional(),
+  })
+  .refine((v) => !!v.serviceId || !!v.guests || !!v.note, {
+    error: 'Add a service, people or a note.',
+  });
+export const AppointmentAddForCustomerOutput = z.object({
+  appointmentId: uuid,
+  endsAt: isoDateTime,
+  /** The services added to this visit so far. */
+  services: z.array(
+    z.object({ name: z.string(), durationMinutes: z.int(), priceCents: z.int().nullable() }),
+  ),
+  seats: z.int(),
+  noteAdded: z.boolean(),
+});
 
 // ---------- queries ----------
 

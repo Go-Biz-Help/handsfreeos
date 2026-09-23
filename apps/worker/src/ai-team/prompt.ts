@@ -168,6 +168,10 @@ function skillLines(rc: RunContext): string[] {
       out.push(
         `  You can also ${changes.join(' and ')} their upcoming visits; my_appointments lists them.`,
       );
+    if (!rc.unverifiedChat)
+      out.push(
+        '  When they want more on a visit already booked (another service, someone else coming, or something the team should know like a gate code or pets), use add_to_appointment rather than booking again.',
+      );
   }
   if (config.deals.enabled && !rc.unverifiedChat)
     out.push(

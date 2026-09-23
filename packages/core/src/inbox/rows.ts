@@ -552,7 +552,7 @@ export function teammateDraftOf(
   for (const a of Array.isArray(preview.actions) ? preview.actions : []) {
     const action = a as { kind?: unknown; startsAt?: unknown; summary?: unknown };
     const summary = typeof action.summary === 'string' ? action.summary : '';
-    if (action.kind === 'cancel' || action.kind === 'waitlist')
+    if (action.kind === 'cancel' || action.kind === 'waitlist' || action.kind === 'add_to_visit')
       actions.push({ kind: action.kind, summary });
     else if (
       typeof action.kind === 'string' &&

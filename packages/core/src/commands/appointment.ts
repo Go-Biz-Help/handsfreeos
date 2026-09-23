@@ -188,7 +188,8 @@ async function appointmentResourceNeeds(tx: Tx, appointmentId: string) {
  * Staff warnings for an existing appointment at a (new) time or with (new) people, on fresh data under the
  * calendar's lock. Throws when it can't happen at all, or needs_confirmation when not acknowledged.
  */
-async function checkExisting(
+/** Whether an appointment still fits at a new start and length (M18's add-to-visit uses it too). */
+export async function checkExisting(
   ctx: CommandContext,
   calendar: LoadedCalendar,
   appt: AppointmentRow,
