@@ -1,5 +1,6 @@
 import type { QueryDef } from '../kernel/types';
 import { formQueries } from './form';
+import { campaignQueries } from './campaign';
 import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
 import { templateQueries } from './template';
@@ -266,6 +267,7 @@ export const queries: readonly QueryDef[] = [
   moneySettingsGet,
   ...walletQueries,
   ...formQueries,
+  ...campaignQueries,
   ...templateQueries,
   ...reviewQueries,
 ] as unknown as readonly QueryDef[];
@@ -315,6 +317,7 @@ export {
 };
 
 export * from './form';
+export * from './campaign';
 export * from './maintenance';
 export * from './template';
 export * from './review';
