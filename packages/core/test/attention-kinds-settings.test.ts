@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the sixteen kinds in order', () => {
+  it('lists the twenty-one kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -47,6 +47,11 @@ describe('attention kinds', () => {
       'job_not_thanked',
       'referral_mentioned',
       'maintenance_due',
+      'pipeline_mismatch',
+      'quiet_after_price',
+      'job_unconfirmed',
+      'job_never_completed',
+      'job_no_address',
     ]);
   });
 
@@ -59,14 +64,15 @@ describe('attention kinds', () => {
     }
   });
 
-  it('puts one card on a lead: hot, then unanswered, then stale, then missing next action', () => {
+  it('puts one card on a lead: hot, unanswered, quiet after a price, stale, then missing next action', () => {
     expect(LEAD_PRECEDENCE).toEqual([
       'hot_lead',
       'unanswered_lead',
+      'quiet_after_price',
       'stale_opportunity',
       'missing_next_action',
     ]);
-    expect(ATTENTION_KINDS.filter(isLeadKind)).toEqual([...LEAD_PRECEDENCE]);
+    expect([...ATTENTION_KINDS.filter(isLeadKind)].sort()).toEqual([...LEAD_PRECEDENCE].sort());
   });
 
   it('asks only for permissions that exist', () => {
@@ -171,9 +177,14 @@ describe('attention kinds', () => {
     // Only the kinds nobody can hand off are refused; every other kind has something to offer.
     expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual([
       'ai_approval',
+      'job_never_completed',
+      'job_no_address',
       'job_not_thanked',
+      'job_unconfirmed',
       'maintenance_due',
       'overdue_task',
+      'pipeline_mismatch',
+      'quiet_after_price',
       'referral_mentioned',
       'wallet_card_declined',
       'wallet_empty',

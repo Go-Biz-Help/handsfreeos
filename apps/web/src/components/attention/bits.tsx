@@ -6,9 +6,13 @@
  */
 import { chipText, type AttentionKind } from '@hfos/core';
 import {
+  BadgeDollarSign,
   CalendarClock,
   Check,
+  ClipboardCheck,
+  ClipboardX,
   Clock,
+  MapPinOff,
   Wrench,
   CreditCard,
   FileText,
@@ -58,6 +62,11 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   job_not_thanked: { icon: Heart, tone: 'bg-accent-soft text-accent-text' },
   referral_mentioned: { icon: UserPlus, tone: 'bg-accent-soft text-accent-text' },
   maintenance_due: { icon: Wrench, tone: `${BR_SOFT} ${BR_TEXT}` },
+  pipeline_mismatch: { icon: Signpost, tone: 'bg-card-2 text-text-2' },
+  quiet_after_price: { icon: BadgeDollarSign, tone: 'bg-warning-soft text-warning-text' },
+  job_unconfirmed: { icon: ClipboardCheck, tone: `${BR_SOFT} ${BR_TEXT}` },
+  job_never_completed: { icon: ClipboardX, tone: 'bg-warning-soft text-warning-text' },
+  job_no_address: { icon: MapPinOff, tone: 'bg-warning-soft text-warning-text' },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -78,6 +87,11 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Referral',
   maintenance_due: 'Maintenance due',
+  pipeline_mismatch: 'Wrong stage',
+  quiet_after_price: 'Quiet after a price',
+  job_unconfirmed: 'Did it happen?',
+  job_never_completed: 'Never marked done',
+  job_no_address: 'No address',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

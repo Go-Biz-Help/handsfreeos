@@ -13,11 +13,16 @@ import { Pressable, View } from 'react-native';
 
 import { useAiColors } from '@/components/drafts';
 import {
+  BadgeDollarSign,
   CalendarClock,
   CalendarPlus,
   Check,
   ChevronDown,
+  ClipboardCheck,
+  ClipboardX,
   Clock,
+  MapPinOff,
+  Signpost,
   Wrench,
   CreditCard,
   FileText,
@@ -75,6 +80,11 @@ const KIND_LOOK: Readonly<
   job_not_thanked: { icon: Heart, tone: 'accent' },
   referral_mentioned: { icon: UserPlus, tone: 'accent' },
   maintenance_due: { icon: Wrench, tone: 'teal' },
+  pipeline_mismatch: { icon: Signpost, tone: 'gray' },
+  quiet_after_price: { icon: BadgeDollarSign, tone: 'warning' },
+  job_unconfirmed: { icon: ClipboardCheck, tone: 'teal' },
+  job_never_completed: { icon: ClipboardX, tone: 'warning' },
+  job_no_address: { icon: MapPinOff, tone: 'warning' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {

@@ -5,7 +5,7 @@
  *
  * - **Switches:** `users.settings.push`, one per moment, a key of its own beside the email switches (0058). Each is
  *   on unless the person turned it off, except `payment`, which is off until they turn it on. `pushSwitchOn` reads
- *   one exactly as `private.push_on` does. A save sends all seven: `user.update_profile` replaces a top-level key
+ *   one exactly as `private.push_on` does. A save sends them all: `user.update_profile` replaces a top-level key
  *   whole. `customerWaiting` is a new message nobody has answered yet, as it arrives; `missedCall` is a call nobody
  *   took, and the voicemail if one was left; `urgent` is what can't wait, a customer left waiting past the reply
  *   threshold among it.
@@ -29,6 +29,8 @@ export const PUSH_SWITCHES = [
   'payment',
   /** The usage wallet (M16): the balance ran out, or the card on it stopped working. */
   'wallet',
+  /** Automations' "Did the job happen?": a visit you were on is over; mark it done from the push. */
+  'jobs',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -42,7 +44,7 @@ export function pushSwitchOn(settings: unknown, key: PushSwitch): boolean {
   return typeof chosen === 'boolean' ? chosen : key !== 'payment';
 }
 
-/** All eight switches, as a save sends them (`settings: { push: … }`). */
+/** All nine switches, as a save sends them (`settings: { push: … }`). */
 export const PushSwitches = z.object({
   customerWaiting: z.boolean(),
   missedCall: z.boolean(),
@@ -52,10 +54,11 @@ export const PushSwitches = z.object({
   assigned: z.boolean(),
   payment: z.boolean(),
   wallet: z.boolean(),
+  jobs: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
-/** A person's eight switches with their defaults filled in, ready to show or to save back whole. */
+/** A person's nine switches with their defaults filled in, ready to show or to save back whole. */
 export function pushSwitchesOf(settings: unknown): PushSwitches {
   return Object.fromEntries(
     PUSH_SWITCHES.map((k) => [k, pushSwitchOn(settings, k)]),
@@ -111,6 +114,20 @@ export const PUSH_BUTTONS = {
     opensApp: false,
   },
   review: { title: 'Review', commands: [], unlock: false, opensApp: true },
+  // "How did it go?" after a visit: marking it done or missed, or saying it's still going (ask again in an hour).
+  done: { title: 'Done', commands: ['appointment.set_status'], unlock: true, opensApp: false },
+  no_show: {
+    title: 'Didn’t happen',
+    commands: ['appointment.set_status'],
+    unlock: true,
+    opensApp: false,
+  },
+  still_there: {
+    title: 'Still there',
+    commands: ['appointment.still_going'],
+    unlock: false,
+    opensApp: false,
+  },
   open: { title: 'Open', commands: [], unlock: false, opensApp: true },
 } as const satisfies Record<string, PushButtonDef>;
 export type PushButton = keyof typeof PUSH_BUTTONS;
@@ -146,6 +163,8 @@ export const PUSH_CATEGORIES = {
    * and a wallet that has run out means nothing the business sends is going anywhere.
    */
   wallet: { switch: 'wallet', buttons: ['open'] },
+  /** A visit you were on is over and nobody has said how it went (Automations' "Did the job happen?"). */
+  job_check: { switch: 'jobs', buttons: ['done', 'no_show', 'still_there'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }

@@ -38,6 +38,12 @@ const kindSwitches = {
   referral_mentioned: on(),
   // Its switch is Automations' "Maintenance due", which decides whether anyone is reminded at all.
   maintenance_due: always(),
+  pipeline_mismatch: on(),
+  quiet_after_price: on(),
+  // Its switch is Automations' "Did the job happen?", which also decides whether whoever was on it is asked.
+  job_unconfirmed: always(),
+  job_never_completed: on(),
+  job_no_address: on(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

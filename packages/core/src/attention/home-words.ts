@@ -32,12 +32,18 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   job_not_thanked: ['customer', 'customers'],
   referral_mentioned: ['referral', 'referrals'],
   maintenance_due: ['customer', 'customers'],
+  pipeline_mismatch: ['deal', 'deals'],
+  quiet_after_price: ['lead', 'leads'],
+  job_unconfirmed: ['job', 'jobs'],
+  job_never_completed: ['job', 'jobs'],
+  job_no_address: ['job', 'jobs'],
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
 export const LEAD_ITEM_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>([
   'hot_lead',
   'unanswered_lead',
+  'quiet_after_price',
   'stale_opportunity',
   'missing_next_action',
 ]);
@@ -419,6 +425,8 @@ export function attentionTargetOf(
     case 'unanswered_lead':
     case 'stale_opportunity':
     case 'missing_next_action':
+    case 'quiet_after_price':
+    case 'pipeline_mismatch':
       if (item.leadId) return { href: `${base}/leads/${item.leadId}`, label: 'Open the lead' };
       break;
     case 'customer_waiting':
@@ -426,6 +434,9 @@ export function attentionTargetOf(
         return { href: `${base}/inbox/${item.conversationId}`, label: 'Open the conversation' };
       break;
     case 'unconfirmed_appointment':
+    case 'job_unconfirmed':
+    case 'job_never_completed':
+    case 'job_no_address':
       if (item.appointmentId)
         return {
           href: `${base}/calendar?appt=${encodeURIComponent(item.appointmentId)}`,
@@ -564,6 +575,17 @@ export function handleButtonOf(
       if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
       if (email) return { label: `Email ${first}`, icon: 'mail' };
       return { label: `Text ${first}`, icon: 'message' };
+    case 'pipeline_mismatch':
+      return { label: 'Move deal', icon: 'check' };
+    case 'quiet_after_price':
+      if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
+      if (email) return { label: `Email ${first}`, icon: 'mail' };
+      return { label: `Text ${first}`, icon: 'message' };
+    case 'job_unconfirmed':
+    case 'job_never_completed':
+      return { label: 'Mark done', icon: 'check' };
+    case 'job_no_address':
+      return { label: 'Add address', icon: 'calendar-plus' };
   }
 }
 
@@ -576,6 +598,11 @@ export function letHandleOffReason(
   if (item.kind === 'job_not_thanked') return 'HandsFreeOS couldn’t send this one';
   if (item.kind === 'referral_mentioned') return 'Reaching out to someone new is your call';
   if (item.kind === 'maintenance_due') return 'It already texted them twice';
+  if (item.kind === 'pipeline_mismatch') return 'HandsFreeOS couldn’t move it itself';
+  if (item.kind === 'quiet_after_price') return 'The follow-up texts are already going';
+  if (item.kind === 'job_unconfirmed' || item.kind === 'job_never_completed')
+    return 'Only someone who was there knows';
+  if (item.kind === 'job_no_address') return 'Only you or the customer know where';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

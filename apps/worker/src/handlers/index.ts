@@ -25,6 +25,8 @@ import {
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
+import { onArmJobCheck, onStillGoing } from '../automations/job-check';
+import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
 import { onReviewReplied, onReviewSyncWanted } from './reviews';
 import {
   onEmailDomainAdded,
@@ -100,7 +102,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,
     'branded_domain.removed': onBrandedDomainRemoved,
-    'message.queued': onMessageQueued,
+    // Automations' pipeline rows (automations/pipeline.ts): someone got back to a customer, so their deal may move
+    // on; and someone really talking with the business may need a deal of their own.
+    'message.queued': [onMessageQueued, onPipelineEvidence, onEngaged],
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,
     'message.schedule_cancelled': onScheduleCancelled,
@@ -149,7 +153,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // it — an estimate's nudge and expiry, an invoice's reminder ladder and its overdue mark. A payment
     // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a
     // settled invoice brings the team its "you've been paid".
-    'estimate.sent': onEstimateSent,
+    'estimate.sent': [onEstimateSent, onPipelineEvidence],
+    'estimate.accepted': onPipelineEvidence,
     'invoice.sent': onInvoiceSent,
     'invoice.updated': onInvoiceChanged,
     'payment.recorded': [onPaymentRecorded, onInvoiceChanged],
@@ -176,19 +181,24 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onBookedTeamEmail,
       // Automations' "Intake questions": the form, two minutes after the confirmation (automations/intake.ts).
       onBookedIntake,
+      onPipelineEvidence,
+      // Automations' "Did the job happen?": a push to whoever is on it, once it's over (automations/job-check.ts).
+      onArmJobCheck,
     ],
     'appointment.updated': onAppointmentChanged,
-    'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice],
+    'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice, onArmJobCheck],
+    'appointment.still_going': onStillGoing,
     'appointment.reassigned': [onAppointmentChanged, onReassignedNotice],
     'appointment.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
-    'message.received': onMessageReferral,
+    'message.received': [onMessageReferral, onEngaged],
     'call.transcribed': onCallReferral,
+    'call.completed': [onPipelineEvidence, onEngaged],
     // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
-    'appointment.completed': [onAppointmentChanged, onCompletedThankYou],
+    'appointment.completed': [onAppointmentChanged, onCompletedThankYou, onPipelineEvidence],
     'appointment.no_show': onAppointmentChanged,
-    'attendee.added': [onAppointmentChanged, onArmReminders, onAddedConfirm],
+    'attendee.added': [onAppointmentChanged, onArmReminders, onAddedConfirm, onPipelineEvidence],
     'attendee.removed': [onAppointmentChanged, onCancelledNotice],
     'attendee.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice],
     'attendee.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],

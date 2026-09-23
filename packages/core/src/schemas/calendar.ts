@@ -679,6 +679,9 @@ export const AppointmentSetStatusOutput = z.object({
   appointmentId: uuid,
   status: AppointmentStatusValue,
 });
+/** "Still there" on the job-check push: the visit is running over; ask again in an hour. */
+export const AppointmentStillGoingInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+export const AppointmentStillGoingOutput = z.object({ appointmentId: uuid });
 export const AppointmentAddAttendeeInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,

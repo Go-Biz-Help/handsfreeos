@@ -25,6 +25,7 @@ export * from './ai-team/reach';
 export * from './messaging/handling';
 export * from './attention/load';
 export * from './automations/maintenance-load';
+export * from './automations/pipeline-load';
 export * from './attention/items';
 export * from './attention/auto-plan';
 export * from './attention/hints';

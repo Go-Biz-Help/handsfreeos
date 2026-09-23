@@ -15,6 +15,7 @@ import {
   appointmentRemoveAttendee,
   appointmentReschedule,
   appointmentSetStatus,
+  appointmentStillGoing,
   appointmentUpdate,
   seriesCancel,
   seriesCreate,
@@ -138,6 +139,7 @@ import { invitationResend } from './invitation.resend';
 import { invitationRevoke } from './invitation.revoke';
 import { leadArchive, leadRestore } from './lead.archive';
 import { leadCreate } from './lead.create';
+import { leadCatchUp } from './lead.catch_up';
 import { leadMoveStage } from './lead.move_stage';
 import { leadSetNextAction } from './lead.set_next_action';
 import { leadUpdate } from './lead.update';
@@ -391,6 +393,7 @@ export {
   invitationResend,
   invitationRevoke,
   leadArchive,
+  leadCatchUp,
   leadCreate,
   leadMoveStage,
   leadRestore,
@@ -454,6 +457,7 @@ export {
   appointmentReassign,
   appointmentCancel,
   appointmentSetStatus,
+  appointmentStillGoing,
   appointmentAddAttendee,
   appointmentRemoveAttendee,
   sessionPublish,
@@ -619,6 +623,7 @@ export const commands: readonly CommandDef[] = [
   appointmentReassign,
   appointmentCancel,
   appointmentSetStatus,
+  appointmentStillGoing,
   appointmentAddAttendee,
   appointmentRemoveAttendee,
   sessionPublish,
@@ -742,6 +747,7 @@ export const commands: readonly CommandDef[] = [
   automationsSaveSettings,
   referralCreateLead,
   maintenanceSetSchedule,
+  leadCatchUp,
   attendeeConfirm,
   attendeeConfirmOnline,
   productCreate,

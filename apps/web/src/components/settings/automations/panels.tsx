@@ -19,7 +19,10 @@ import {
   intakeMessageProblem,
   maintenanceTemplateProblem,
   followUpLadderWords,
+  guessStageRole,
   NUDGE_SAMPLE,
+  STAGE_ROLE_LABELS,
+  STAGE_ROLES,
   renderIntakeMessage,
   renderMaintenance,
   renderNudge,
@@ -32,6 +35,7 @@ import {
   type NudgeCheckContext,
   type NudgePlaceholder,
   type NudgeProblemCode,
+  type RoleOverride,
 } from '@hfos/core';
 import { ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
@@ -1024,6 +1028,83 @@ function MorningPanel({ env }: { env: PanelEnv }) {
   );
 }
 
+/**
+ * "Move deals along for you": which of the business's open stages means what. Each shows its guess from the
+ * name until someone picks, and a pick back to the guess goes back to following the name.
+ */
+function StagesPanel({ env }: { env: PanelEnv }) {
+  const roles = env.automations.pipeline.roles;
+  const openStages = env.pipelines
+    .map((p) => ({ ...p, open: p.stages.filter((st) => st.kind === 'open') }))
+    .filter((p) => p.open.length > 0);
+  const choose = (stage: { id: string; name: string }, next: RoleOverride) => {
+    const guess = guessStageRole(stage.name) ?? 'none';
+    const words =
+      next === 'none'
+        ? `Deals won’t be moved into ${stage.name}.`
+        : `${stage.name}: ${STAGE_ROLE_LABELS[next].toLowerCase()}.`;
+    void env.saveAutomations((s) => {
+      const nextRoles = { ...s.pipeline.roles };
+      if (next === guess) delete nextRoles[stage.id];
+      else nextRoles[stage.id] = next;
+      return { ...s, pipeline: { ...s.pipeline, roles: nextRoles } };
+    }, words);
+  };
+  return (
+    <>
+      <Block>
+        <Note>
+          A deal moves to the stage that matches what just happened, and its timeline says why. It
+          only moves forward, and never out of won or lost. When the customer accepts a quote or the
+          job is done, it moves to won.
+        </Note>
+        <Note>
+          We guessed each stage from its name. Pick another where the guess is wrong, or “Nothing”
+          for a stage deals should only reach by hand.
+        </Note>
+      </Block>
+      <Block title="What each stage means">
+        <div data-testid="stage-roles">
+          {openStages.length ? (
+            openStages.map((p) => (
+              <div key={p.id}>
+                <div className={`mb-1 mt-3 whitespace-nowrap ${heading}`}>{p.name}</div>
+                {p.open.map((st) => {
+                  const value = roles[st.id] ?? guessStageRole(st.name) ?? 'none';
+                  return (
+                    <div
+                      key={st.id}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,220px)] items-center gap-2.5 border-t border-border py-[7px] text-[13.5px]"
+                    >
+                      <span className="truncate">{st.name}</span>
+                      <Select
+                        selectSize="sm"
+                        aria-label={`${p.name}, ${st.name}: what moves a deal here`}
+                        value={value}
+                        onChange={(e) => choose(st, e.target.value as RoleOverride)}
+                        data-testid={`stage-role-${st.id}`}
+                      >
+                        {STAGE_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {STAGE_ROLE_LABELS[r]}
+                          </option>
+                        ))}
+                        <option value="none">Nothing</option>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          ) : (
+            <Note>No pipeline has an open stage yet.</Note>
+          )}
+        </div>
+      </Block>
+    </>
+  );
+}
+
 /** "6:00 PM" choices for the evening email, noon to 10 PM on the half hour. */
 const EVENING_TIMES = Array.from({ length: 21 }, (_, i) => {
   const minutes = 12 * 60 + i * 30;
@@ -1590,6 +1671,7 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   invoices: InvoicesPanel,
   morning: MorningPanel,
   evening: EveningPanel,
+  stages: StagesPanel,
   stale: StalePanel,
   estimates: EstimatesPanel,
   balance: BalancePanel,

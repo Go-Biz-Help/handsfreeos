@@ -27,6 +27,12 @@ export const ATTENTION_KINDS = [
   'job_not_thanked',
   'referral_mentioned',
   'maintenance_due',
+  // Pipeline and jobs (Automations, stage 3b).
+  'pipeline_mismatch',
+  'quiet_after_price',
+  'job_unconfirmed',
+  'job_never_completed',
+  'job_no_address',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -50,6 +56,11 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Referral',
   maintenance_due: 'Maintenance due',
+  pipeline_mismatch: 'Wrong stage',
+  quiet_after_price: 'Quiet after a price',
+  job_unconfirmed: 'Did it happen?',
+  job_never_completed: 'Never marked done',
+  job_no_address: 'No address',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -71,6 +82,11 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Customers to thank',
   referral_mentioned: 'Referrals',
   maintenance_due: 'Maintenance due',
+  pipeline_mismatch: 'Deals in the wrong stage',
+  quiet_after_price: 'Quiet after a price',
+  job_unconfirmed: 'Jobs to check',
+  job_never_completed: 'Jobs never marked done',
+  job_no_address: 'Jobs with no address',
 };
 
 /**
@@ -97,6 +113,14 @@ export const ATTENTION_SUBJECT_OF = {
   referral_mentioned: 'referral',
   // A row of app.maintenance_reminders: one customer, one service, one due day.
   maintenance_due: 'maintenance',
+  // A deal whose stage is behind what happened. Its own card beside the lead's (not folded into it), so the
+  // one-press move stays in reach.
+  pipeline_mismatch: 'lead',
+  quiet_after_price: 'lead',
+  // One visit each.
+  job_unconfirmed: 'appointment',
+  job_never_completed: 'appointment',
+  job_no_address: 'appointment',
 } as const satisfies Record<AttentionKind, string>;
 export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
 
@@ -104,6 +128,7 @@ export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
 export const LEAD_PRECEDENCE = [
   'hot_lead',
   'unanswered_lead',
+  'quiet_after_price',
   'stale_opportunity',
   'missing_next_action',
 ] as const satisfies readonly AttentionKind[];
@@ -266,6 +291,44 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Moving the deal is lead.move_stage: records.write, which the item already needs.
+  pipeline_mismatch: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // The follow-up texts are already going; this is a person picking up the phone.
+  quiet_after_price: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Marking a visit done (or not) is appointment.set_status; adding an address is appointment.update.
+  job_unconfirmed: {
+    handle: [ITEM, 'appointments.write'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  job_never_completed: {
+    handle: [ITEM, 'appointments.write'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  job_no_address: {
+    handle: [ITEM, 'appointments.write'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -310,6 +373,11 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Create lead',
   maintenance_due: 'Call',
+  pipeline_mismatch: 'Move',
+  quiet_after_price: 'Call',
+  job_unconfirmed: 'Mark done',
+  job_never_completed: 'Mark done',
+  job_no_address: 'Add address',
 };
 
 // ---- What runs on its own ----
@@ -379,6 +447,11 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   job_not_thanked: 'HandsFreeOS couldn’t send this thank-you, so it’s one for you.',
   referral_mentioned: 'Reaching out to somebody new is your call.',
   maintenance_due: 'HandsFreeOS already texted them twice, so this one needs a person.',
+  pipeline_mismatch: 'HandsFreeOS couldn’t move this deal itself, so it’s one for you.',
+  quiet_after_price: 'The follow-up texts are already going, so this one needs a person.',
+  job_unconfirmed: 'Only someone who was there knows whether it happened.',
+  job_never_completed: 'Only someone who was there knows whether it happened.',
+  job_no_address: 'Only you or the customer know where the job is.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

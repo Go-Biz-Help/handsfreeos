@@ -1,9 +1,14 @@
 import { LET_HANDLE_MODE_LABELS, type AttentionKind } from '@hfos/core';
 import {
+  BadgeDollarSign,
   CalendarClock,
   Check,
   ChevronDown,
+  ClipboardCheck,
+  ClipboardX,
   Clock,
+  MapPinOff,
+  Signpost,
   Wrench,
   CreditCard,
   FileText,
@@ -47,6 +52,11 @@ const KIND_LOOK: Readonly<
   job_not_thanked: { icon: Heart, tile: 'bg-accent-soft text-accent-text' },
   referral_mentioned: { icon: UserPlus, tile: 'bg-accent-soft text-accent-text' },
   maintenance_due: { icon: Wrench, tile: cn(BR_SOFT, BR_TEXT) },
+  pipeline_mismatch: { icon: Signpost, tile: 'bg-card-2 text-text-2' },
+  quiet_after_price: { icon: BadgeDollarSign, tile: 'bg-warning-soft text-warning-text' },
+  job_unconfirmed: { icon: ClipboardCheck, tile: cn(BR_SOFT, BR_TEXT) },
+  job_never_completed: { icon: ClipboardX, tile: 'bg-warning-soft text-warning-text' },
+  job_no_address: { icon: MapPinOff, tile: 'bg-warning-soft text-warning-text' },
 };
 
 /** The kind label's colour where it isn't grey: hot leads in red, approvals in the AI teammate's violet. */

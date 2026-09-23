@@ -89,6 +89,7 @@ const ALL_ON = {
   assigned: true,
   payment: false,
   wallet: true,
+  jobs: true,
 };
 
 beforeEach(() => {

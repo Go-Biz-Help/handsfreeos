@@ -19,7 +19,8 @@ export const leadMoveStage = defineCommand({
   permission: 'records.write',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['lead.stage_changed', 'lead.won', 'lead.lost', 'lead.reopened'],
-  actors: ['human', 'workflow', 'ai_employee'],
+  // HandsFreeOS itself: Automations' "Move deals along for you" (forward only, with its reason).
+  actors: ['human', 'workflow', 'ai_employee', 'system'],
   offline: 'anytime',
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
@@ -66,6 +67,18 @@ export const leadMoveStage = defineCommand({
         status: current.status,
         position: Number(current.position),
       };
+    if (input.because && ctx.actor.type !== 'system')
+      throw HfosError.validation([
+        { path: 'because', message: 'Only HandsFreeOS gives a reason for its own moves.' },
+      ]);
+    // HandsFreeOS only ever moves a deal forward, and never out of won or lost.
+    if (
+      ctx.actor.type === 'system' &&
+      (current.status !== 'open' ||
+        to.kind === 'lost' ||
+        (to.kind === 'open' && to.position <= from.position))
+    )
+      throw HfosError.rule('forward_only', 409, 'HandsFreeOS only moves an open deal forward.');
     if (to.kind === 'lost' && !input.lostReason)
       throw HfosError.validation([
         { path: 'lostReason', message: 'Add a reason to mark this lead lost.' },
@@ -161,8 +174,17 @@ export const leadMoveStage = defineCommand({
         leadId: current.id,
         personId: current.personId,
         companyId: current.companyId,
-        body: row.status === 'lost' ? `Lost: ${row.lostReason ?? ''}` : `${from.name} → ${to.name}`,
-        meta: { from: from.name, to: to.name, status: row.status, title: current.title },
+        body:
+          row.status === 'lost'
+            ? `Lost: ${row.lostReason ?? ''}`
+            : `${from.name} → ${to.name}${input.because ? ` (${input.because})` : ''}`,
+        meta: {
+          from: from.name,
+          to: to.name,
+          status: row.status,
+          title: current.title,
+          ...(input.because ? { because: input.because } : {}),
+        },
         eventId,
         // When the lead entered the stage, as the database stamped it: when the person moved it (on a phone, perhaps
         // well before it had signal), or when the move arrived if someone else moved the lead in the meantime.

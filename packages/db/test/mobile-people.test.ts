@@ -184,7 +184,7 @@ describe('private.push_on', () => {
     )[0]!.on;
 
   it('is on unless turned off, except payments, which are off until turned on', async () => {
-    for (const key of ['customerWaiting', 'urgent', 'approval', 'booking', 'assigned'])
+    for (const key of ['customerWaiting', 'urgent', 'approval', 'booking', 'assigned', 'jobs'])
       expect(await on({}, key), key).toBe(true);
     expect(await on({}, 'payment')).toBe(false);
     const chosen = { push: { payment: true, urgent: false } };

@@ -72,6 +72,9 @@ export const DONE_RESOLUTIONS = [
   // invoice that was withdrawn are not wins, so they stay out.
   'answered',
   'paid',
+  // Automations' pipeline and jobs: a deal put on the right stage, a visit given its address.
+  'moved',
+  'address_added',
 ] as const;
 const DONE: ReadonlySet<string> = new Set(DONE_RESOLUTIONS);
 
@@ -181,7 +184,9 @@ export function itemOut(
     personId: row.personId,
     leadId: row.leadId,
     conversationId: row.conversationId,
-    appointmentId: hints.appointmentId,
+    // A job card is about the visit itself.
+    appointmentId:
+      hints.appointmentId ?? (row.subjectType === 'appointment' ? row.subjectId : null),
     startsAt: hints.startsAt,
     reach: hints.reach,
     callable: hints.callable,

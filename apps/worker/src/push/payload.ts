@@ -43,6 +43,8 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   payment: 24 * HOUR_S,
   // A balance that has run out stays run out: worth telling a phone that comes back on tomorrow.
   wallet: 24 * HOUR_S,
+  // By the next morning the card on Home has it.
+  job_check: 12 * HOUR_S,
 };
 
 /**

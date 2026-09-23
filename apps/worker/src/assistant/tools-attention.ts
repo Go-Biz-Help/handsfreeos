@@ -58,6 +58,11 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Referral',
   maintenance_due: 'Maintenance due',
+  pipeline_mismatch: 'Wrong stage',
+  quiet_after_price: 'Quiet after a price',
+  job_unconfirmed: 'Did it happen?',
+  job_never_completed: 'Never marked done',
+  job_no_address: 'No address',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -612,6 +617,11 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Only who thanks them. The job stays as it is.',
   referral_mentioned: 'Only who reaches out. Nothing else changes.',
   maintenance_due: 'Only who calls them. Nothing else changes.',
+  pipeline_mismatch: 'Only who moves it. The deal stays as it is.',
+  quiet_after_price: 'Who owns the lead, too',
+  job_unconfirmed: 'Only who follows up on it. The appointment stays as it is.',
+  job_never_completed: 'Only who follows up on it. The appointment stays as it is.',
+  job_no_address: 'Only who follows up on it. The appointment stays as it is.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

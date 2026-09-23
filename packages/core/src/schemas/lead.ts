@@ -87,6 +87,16 @@ export const LeadMoveStageInput = z.object({
   /** Place the lead after this lead in the stage; omit for the bottom, null for the top. */
   afterLeadId: uuid.nullable().optional(),
   lostReason: lostReason.optional(),
+  /** Why HandsFreeOS moved it ("Quote 1042 went out"), for its timeline. Only HandsFreeOS gives one. */
+  because: z.string().trim().min(1).max(200).optional(),
+});
+/** The "Deal in the wrong stage" card's one press: move the deal to the stage what happened to it says. */
+export const LeadCatchUpInput = z.object({ workspaceId: uuid, leadId: uuid });
+export const LeadCatchUpOutput = z.object({
+  leadId: uuid,
+  stageId: uuid,
+  /** The stage's name, for the toast ("Moved to Estimate sent"). */
+  stageName: z.string(),
 });
 export const LeadMoveStageOutput = z.object({
   leadId: uuid,

@@ -116,6 +116,10 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'referral.lead_created',
   'maintenance.card',
   'maintenance.booked',
+  // Pipeline and jobs (Automations): a customer's address, which a visit at their place needs; and a visit
+  // someone said was still going, whose card waits.
+  'person.updated',
+  'appointment.still_going',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -136,6 +140,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'thank_you',
   'referral',
   'maintenance',
+  'appointment',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -226,6 +231,8 @@ export async function subjectsOf(
               and (appointment_id = any(${uuidArray(appointments)}) or id = any(${uuidArray(named)}))`,
       );
       for (const s of seats) add('attendee', s.id);
+      // The visit itself: whether it happened, and where (Automations' job cards).
+      for (const a of appointments) add('appointment', a);
       // A booking of a service a card asks about settles that card (Automations' "Maintenance due").
       const cards = await rows<{ id: string }>(
         tx,
@@ -262,6 +269,10 @@ export async function subjectsOf(
       break;
     case 'maintenance_reminder':
       add('maintenance', id);
+      break;
+    // Their address may be what a visit at their place was missing; reconcile widens a customer to their visits.
+    case 'person':
+      add('person', id);
       break;
     case 'attention_item':
       add(String(p['subjectType'] ?? ''), p['subjectId']);

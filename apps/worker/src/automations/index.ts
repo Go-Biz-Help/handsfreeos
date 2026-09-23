@@ -2,6 +2,7 @@
 import type { JobMap } from '../jobs';
 import { EVENING_JOB, eveningBriefJob } from './evening';
 import { INTAKE_JOB, intakeJob } from './intake';
+import { JOB_CHECK_JOB, jobCheckJob } from './job-check';
 import { MAINTENANCE_JOB, maintenanceJob } from './maintenance';
 import { REENGAGE_JOB, reengageJob } from './reengage';
 import { REFERRAL_JOB, referralJob } from './referrals';
@@ -29,6 +30,15 @@ export {
   REFERRAL_JOB,
   referralJobKey,
 } from './referrals';
+export {
+  eveningAfter,
+  JOB_CHECK_DELAY_MS,
+  JOB_CHECK_JOB,
+  jobCheckJobKey,
+  onArmJobCheck,
+  onStillGoing,
+} from './job-check';
+export { moveDeals, onEngaged, onPipelineEvidence } from './pipeline';
 export { INTAKE_DELAY_MS, INTAKE_JOB, intakeJobKey, onBookedIntake } from './intake';
 
 export const automationJobs: JobMap = {
@@ -38,4 +48,5 @@ export const automationJobs: JobMap = {
   [REFERRAL_JOB]: referralJob,
   [MAINTENANCE_JOB]: maintenanceJob,
   [EVENING_JOB]: eveningBriefJob,
+  [JOB_CHECK_JOB]: jobCheckJob,
 };

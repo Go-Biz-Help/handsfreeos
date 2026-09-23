@@ -83,6 +83,12 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     push: 'wallet',
     email: null,
   },
+  {
+    title: 'A job you were on is over',
+    detail: 'Mark it done, or say it didn’t happen',
+    push: 'jobs',
+    email: null,
+  },
 ];
 
 /** The moments that only email. */

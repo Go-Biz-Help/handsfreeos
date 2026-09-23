@@ -177,6 +177,8 @@ function describeAction(e: AuditEntry): string {
         return `moved ${title(e)} from ${s(e.before?.stage)} to ${s(e.after?.stage)}`;
       return `reopened the lead ${title(e)}`;
     }
+    case 'lead.catch_up':
+      return `put ${title(e)} on the stage that matches what happened`;
     case 'lead.set_next_action':
       return e.after?.nextAction
         ? `set the next action on ${title(e)}: ${s(e.after.nextAction)}`
@@ -440,6 +442,8 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.status) === 'no_show'
         ? `marked ${apptTitle(e)}${forWhom(e)} a no-show`
         : `marked ${apptTitle(e)}${forWhom(e)} done`;
+    case 'appointment.still_going':
+      return `said ${apptTitle(e)} was still going`;
     case 'appointment.add_attendee':
       return `added a customer to ${apptTitle(e)} on ${when(e.after?.startsAt)}${s(e.after?.seats) ? ` (${s(e.after?.seats)} seats taken)` : ''}`;
     case 'appointment.remove_attendee':

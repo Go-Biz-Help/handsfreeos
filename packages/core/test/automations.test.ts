@@ -70,6 +70,8 @@ describe('the automations catalog', () => {
       'wallet_card_declined',
       'job_not_thanked',
       'maintenance_due',
+      // "Did the job happen?" is its switch.
+      'job_unconfirmed',
     ];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],
@@ -108,6 +110,9 @@ describe('automation settings', () => {
       intake: true,
       thankYou: true,
       maintenance: true,
+      pipelineMoves: true,
+      engagedLeads: true,
+      jobCheck: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,

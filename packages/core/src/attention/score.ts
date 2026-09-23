@@ -47,6 +47,15 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   referral_mentioned: { grows: 'since', start: 1.5, stepMs: 2 * DAY },
   // Overdue already, and two texts went: steady, not urgent.
   maintenance_due: { grows: 'since', start: 1, stepMs: 5 * DAY },
+  // Housekeeping: a deal on the wrong stage skews the board, not a customer.
+  pipeline_mismatch: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  // A price with no answer goes cold in days.
+  quiet_after_price: { grows: 'since', start: 1, stepMs: 3 * DAY },
+  // A job nobody marked holds up its invoice and its thank-you: it climbs by the day.
+  job_unconfirmed: { grows: 'since', start: 1, stepMs: DAY },
+  job_never_completed: { grows: 'since', start: 1.5, stepMs: 3 * DAY },
+  // Someone has to know where to go before they set off.
+  job_no_address: { grows: 'until_due', windowMs: 48 * HOUR },
 };
 
 /**

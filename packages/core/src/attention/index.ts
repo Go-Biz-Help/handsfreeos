@@ -42,3 +42,21 @@ export type { UnconfirmedAppointmentFacts } from './detectors/unconfirmed-appoin
 export { THANK_YOU_CARD_DAYS, type JobNotThankedFacts } from './detectors/job-not-thanked';
 export { REFERRAL_CARD_DAYS, type ReferralMentionedFacts } from './detectors/referral-mentioned';
 export { MAINTENANCE_CARD_DAYS, type MaintenanceDueFacts } from './detectors/maintenance-due';
+export {
+  PIPELINE_MISMATCH_AFTER_MS,
+  type PipelineMismatchFacts,
+} from './detectors/pipeline-mismatch';
+export {
+  QUIET_AFTER_PRICE_DAYS,
+  QUIET_AFTER_PRICE_UNTIL_DAYS,
+  type QuietAfterPriceFacts,
+} from './detectors/quiet-after-price';
+export {
+  JOB_CHECK_MORNING,
+  JOB_NEVER_COMPLETED_DAYS,
+  morningAfter,
+  type JobFacts,
+  type JobUnconfirmedFacts,
+} from './detectors/job-unconfirmed';
+export { JOB_NEVER_COMPLETED_UNTIL_DAYS } from './detectors/job-never-completed';
+export { JOB_NO_ADDRESS_DAYS, type JobNoAddressFacts } from './detectors/job-no-address';

@@ -37,6 +37,15 @@ import {
   type ReferralInfo,
   type ThankYouInfo,
 } from './load-after-job';
+import {
+  loadDealStates,
+  loadJobs,
+  loadPrices,
+  type DealState,
+  type JobInfo,
+  type PriceState,
+} from './load-pipeline-jobs';
+import { automationSettingsOf } from '../automations/settings';
 import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } from './kinds';
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
@@ -66,7 +75,8 @@ export interface AttentionSubjectRef {
     | 'invoice'
     | 'thank_you'
     | 'referral'
-    | 'maintenance';
+    | 'maintenance'
+    | 'appointment';
   readonly id: string;
 }
 
@@ -139,6 +149,10 @@ const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set([
   'job_not_thanked',
   'referral_mentioned',
   'maintenance_due',
+  'pipeline_mismatch',
+  'job_unconfirmed',
+  'job_never_completed',
+  'job_no_address',
 ]);
 
 const DAY = 86_400_000;
@@ -217,6 +231,7 @@ interface SubjectSets {
   readonly thankYous: Set<string>;
   readonly referrals: Set<string>;
   readonly maintenance: Set<string>;
+  readonly appointments: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -231,6 +246,7 @@ const emptySets = (): SubjectSets => ({
   thankYous: new Set(),
   referrals: new Set(),
   maintenance: new Set(),
+  appointments: new Set(),
 });
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
@@ -245,6 +261,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'thank_you') s.thankYous.add(id);
   else if (type === 'referral') s.referrals.add(id);
   else if (type === 'maintenance') s.maintenance.add(id);
+  else if (type === 'appointment') s.appointments.add(id);
 }
 
 /**
@@ -318,7 +335,13 @@ async function expand(
           union all
           select 'maintenance', id from app.maintenance_reminders
           where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
-            and status = 'card'`,
+            and status = 'card'
+          union all
+          select distinct 'appointment', a.id from app.appointments a
+          join app.appointment_attendees aa on aa.appointment_id = a.id
+          where a.workspace_id = ${workspaceId} and aa.person_id = any(${uuidArray([...s.persons])})
+            and a.status = 'scheduled' and a.starts_at > now() - interval '31 days'
+            and a.starts_at < now() + interval '4 days'`,
     );
     for (const t of theirs) addSubject(s, t.type, t.id);
   }
@@ -1173,6 +1196,9 @@ interface Loaded {
   readonly thankYous: Map<string, ThankYouInfo>;
   readonly referrals: Map<string, ReferralInfo>;
   readonly maintenance: Map<string, MaintenanceInfo>;
+  readonly deals: Map<string, DealState>;
+  readonly prices: Map<string, PriceState>;
+  readonly jobs: Map<string, JobInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1374,6 +1400,37 @@ function resolutionOf(
       if (r.referral.status === 'dismissed') return 'dismissed';
       return 'expired';
     }
+    case 'pipeline_mismatch': {
+      const lead = loaded.leads.get(row.subjectId)?.facts;
+      if (!lead) return 'subject_gone';
+      if (lead.archived) return 'archived';
+      if (lead.status !== 'open') return 'closed';
+      return 'moved';
+    }
+    case 'quiet_after_price': {
+      const lead = loaded.leads.get(row.subjectId)?.facts;
+      if (!lead) return 'subject_gone';
+      if (lead.archived) return 'archived';
+      if (lead.status !== 'open') return 'closed';
+      const p = loaded.prices.get(row.subjectId);
+      if (p?.heardFromAt && p.price && p.heardFromAt > p.price.at) return 'replied';
+      return 'expired';
+    }
+    case 'job_unconfirmed':
+    case 'job_never_completed':
+    case 'job_no_address': {
+      const j = loaded.jobs.get(row.subjectId);
+      if (!j) return 'subject_gone';
+      const status = j.appointment.status;
+      if (status === 'cancelled') return 'cancelled';
+      if (status !== 'scheduled') return 'done';
+      if (kind === 'job_no_address') {
+        if (j.hasAddress) return 'address_added';
+        if (Date.parse(j.appointment.startsAt) <= now) return 'started';
+        return 'rescheduled';
+      }
+      return 'expired';
+    }
     case 'maintenance_due': {
       const m = loaded.maintenance.get(row.subjectId);
       if (!m) return 'subject_gone';
@@ -1513,6 +1570,7 @@ export async function reconcile(
     ...scope.thankYous,
     ...scope.referrals,
     ...scope.maintenance,
+    ...scope.appointments,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1577,6 +1635,17 @@ export async function reconcile(
   const thankYous = await loadThankYous(tx, workspaceId, [...scope.thankYous], all, now);
   const referrals = await loadReferrals(tx, workspaceId, [...scope.referrals], all, now);
   const maintenance = await loadMaintenance(tx, workspaceId, [...scope.maintenance], all, now);
+  const deals = await loadDealStates(tx, workspaceId, openLeadIds, all, ctx.rawSettings);
+  const prices = await loadPrices(
+    tx,
+    workspaceId,
+    [...leads.values()]
+      .filter((l) => l.facts.status === 'open' && !l.facts.archived)
+      .map((l) => ({ id: l.facts.id, personId: l.facts.personId, createdAt: l.facts.createdAt })),
+    now,
+  );
+  const jobs = await loadJobs(tx, workspaceId, [...scope.appointments], all, now, ctx.timeZone);
+  const jobCheckOn = automationSettingsOf(ctx.rawSettings).switches.jobCheck;
   // Only on a full sweep: a wallet has no subject row to be woken by, so it is looked at when everything is.
   const walletInfo = all ? await loadWallet(tx, workspaceId) : null;
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
@@ -1591,6 +1660,9 @@ export async function reconcile(
     thankYous,
     referrals,
     maintenance,
+    deals,
+    prices,
+    jobs,
   };
 
   // Detect.
@@ -1690,6 +1762,57 @@ export async function reconcile(
       ...base,
       detail: detailOf(lead.nextAction),
     });
+    const priced = prices.get(lead.id);
+    run(
+      'quiet_after_price',
+      {
+        business,
+        lead,
+        price: priced?.price ?? null,
+        heardFromAt: priced?.heardFromAt ?? null,
+        estimateWaitingDays: settings.money.estimateWaitingDays,
+      },
+      lead.id,
+      link,
+      { ...base, detail: detailOf(lead.nextAction) },
+    );
+    const deal = deals.get(lead.id);
+    if (deal)
+      run(
+        'pipeline_mismatch',
+        { business, lead, deal, assigneeUserId: lead.assigneeUserId },
+        lead.id,
+        link,
+        {
+          ...base,
+          detail: deal.target ? detailOf(`Belongs in ${deal.target.stageName}`) : null,
+        },
+      );
+  }
+
+  for (const j of jobs.values()) {
+    const facts = {
+      business,
+      appointment: j.appointment,
+      lead: j.lead,
+      assigneeUserId: j.assigneeUserId,
+    };
+    const link = { leadId: j.lead?.id ?? null, personId: j.personId };
+    const presentation = {
+      subjectType: 'appointment' as const,
+      title: itemTitle(j.personName ?? 'Customer', j.title),
+      detail: whenLabel(Date.parse(j.appointment.startsAt), ctx.timeZone),
+      conversationId: null,
+    };
+    run('job_unconfirmed', { ...facts, jobCheckOn }, j.appointment.id, link, presentation);
+    run('job_never_completed', facts, j.appointment.id, link, presentation);
+    run(
+      'job_no_address',
+      { ...facts, locationKind: j.locationKind, hasAddress: j.hasAddress },
+      j.appointment.id,
+      link,
+      presentation,
+    );
   }
 
   for (const c of conversations.values()) {

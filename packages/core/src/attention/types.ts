@@ -39,6 +39,12 @@ export const REASON_CODES = [
   'referral',
   /** A regular service that's due and not booked: "AC tune-up due Oct 5". */
   'maintenance',
+  /** A price the customer heard and hasn't answered: "$450 by text". */
+  'price',
+  /** A visit whose time has passed with nobody saying how it went: "AC tune-up · Tue 2:00 PM". */
+  'job_passed',
+  /** A visit at the customer's place with nowhere to go. */
+  'no_address',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

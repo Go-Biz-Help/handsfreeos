@@ -84,9 +84,9 @@ reacts to an event · **T** AI teammate change.
 | Pipeline and records | Stale opportunities           | E (`stale_opportunity`), with the follow-up in the business's words          | 1     |
 |                      | Leads with no next step       | E (`missing_next_action`)                                                    | 1     |
 |                      | Quotes with no decision       | E (`estimate_waiting`)                                                       | 1     |
-|                      | Open / move deals             | R: `pipeline_stages.automation_role`, forward only                           | 3b    |
+|                      | Open / move deals             | R: stage roles in `settings.automations.pipeline`, forward only              | 3b    |
 |                      | Pipeline reality check        | K `pipeline_mismatch`                                                        | 3b    |
-|                      | Engaged leads not in pipeline | K `engaged_no_lead`                                                          | 3b    |
+|                      | Engaged leads not in pipeline | R: a deal made for them (Chris: make it, no card)                            | 3b    |
 |                      | Went quiet after a price      | K `quiet_after_price`                                                        | 3b    |
 |                      | Confirm yesterday's jobs      | K `job_unconfirmed` + the job-check push                                     | 3b    |
 |                      | Booked, never completed       | K `job_never_completed`                                                      | 3b    |

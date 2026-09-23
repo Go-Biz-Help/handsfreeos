@@ -258,13 +258,15 @@ describe('what a push carries', () => {
     expect(commandButtonsOf('urgent_lead')).toEqual(['let_handle', 'snooze']);
     expect(commandButtonsOf('urgent_lead_no_ai')).toEqual(['snooze']);
     expect(commandButtonsOf('approval')).toEqual(['approve']);
+    expect(commandButtonsOf('job_check')).toEqual(['done', 'no_show', 'still_there']);
     for (const c of ['booking', 'assigned', 'payment'] as const)
       expect(commandButtonsOf(c)).toEqual([]);
     const unlock = Object.entries(PUSH_BUTTONS)
       .filter(([, b]) => b.unlock)
       .map(([id]) => id)
       .sort();
-    expect(unlock).toEqual(['approve', 'let_ai_handle', 'let_handle', 'reply']);
+    // Marking a visit changes the records; "Still there" only asks again later.
+    expect(unlock).toEqual(['approve', 'done', 'let_ai_handle', 'let_handle', 'no_show', 'reply']);
     expect(PUSH_BUTTONS.call.opensApp && PUSH_BUTTONS.review.opensApp).toBe(true);
   });
 

@@ -26,6 +26,7 @@ type Automations = {
   intake?: { formId: string | null; message: string };
   maintenance?: { leadDays: number };
   briefings?: { eveningAt: string };
+  pipeline?: { roles: Record<string, string> };
   reengage?: { reviewedAt: string | null; maxPerDay: number; template: string };
 };
 
@@ -454,6 +455,22 @@ test('Automations: intake questions’ form and message, the thank-you without a
   await expect
     .poll(async () => (await settingsOf(owner)).automations?.briefings?.eveningAt)
     .toBe('20:00');
+  await close(page);
+
+  // Moving deals along: each open stage shows what its name suggests, and a different pick is kept.
+  const { pipelines } = await api<{
+    pipelines: { stages: { id: string; name: string }[] }[];
+  }>(owner.token, 'queries', 'pipeline.list', { workspaceId: owner.workspaceId });
+  const stages = pipelines[0]!.stages;
+  const contacted = stages.find((st) => st.name === 'Contacted')!;
+  const quoted = stages.find((st) => st.name === 'Estimate sent')!;
+  await adjust(page, 'pipeline_moves');
+  await expect(page.getByTestId(`stage-role-${quoted.id}`)).toHaveValue('quoted');
+  await expect(page.getByTestId(`stage-role-${contacted.id}`)).toHaveValue('contacted');
+  await page.getByTestId(`stage-role-${contacted.id}`).selectOption('none');
+  await expect
+    .poll(async () => (await settingsOf(owner)).automations?.pipeline?.roles?.[contacted.id])
+    .toBe('none');
   await close(page);
 
   // Referrals are an Action Center kind: the row turns it off.

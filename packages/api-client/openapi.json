@@ -4143,6 +4143,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 300
+                  },
+                  "because": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
                   }
                 },
                 "required": [
@@ -13049,6 +13054,65 @@
                   "required": [
                     "appointmentId",
                     "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/appointment.still_going": {
+      "post": {
+        "operationId": "command_appointment_still_going",
+        "summary": "Say a visit is running over, so the \"How did it go?\" push asks again in an hour.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires appointments.write. Emits appointment.still_going. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "appointmentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "appointmentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "appointmentId"
                   ],
                   "additionalProperties": false
                 }
@@ -23790,6 +23854,29 @@
                             "enum": [
                               true
                             ]
+                          },
+                          "pipeline_mismatch": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "quiet_after_price": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "job_unconfirmed": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
+                          },
+                          "job_never_completed": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "job_no_address": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -24052,6 +24139,29 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "pipeline_mismatch": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "quiet_after_price": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "job_unconfirmed": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "job_never_completed": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "job_no_address": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -24070,7 +24180,12 @@
                             "wallet_card_declined",
                             "job_not_thanked",
                             "referral_mentioned",
-                            "maintenance_due"
+                            "maintenance_due",
+                            "pipeline_mismatch",
+                            "quiet_after_price",
+                            "job_unconfirmed",
+                            "job_never_completed",
+                            "job_no_address"
                           ],
                           "additionalProperties": false
                         },
@@ -24350,6 +24465,18 @@
                           "maintenance": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "pipelineMoves": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "engagedLeads": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "jobCheck": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -24467,6 +24594,30 @@
                             "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                           }
                         }
+                      },
+                      "pipeline": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "roles": {
+                            "default": {},
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "additionalProperties": {
+                              "type": "string",
+                              "enum": [
+                                "contacted",
+                                "quoted",
+                                "booked",
+                                "none"
+                              ]
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -24533,6 +24684,18 @@
                             "maintenance": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "pipelineMoves": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "engagedLeads": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "jobCheck": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -24544,7 +24707,10 @@
                             "reengage",
                             "intake",
                             "thankYou",
-                            "maintenance"
+                            "maintenance",
+                            "pipelineMoves",
+                            "engagedLeads",
+                            "jobCheck"
                           ],
                           "additionalProperties": false
                         },
@@ -24683,6 +24849,33 @@
                             "eveningAt"
                           ],
                           "additionalProperties": false
+                        },
+                        "pipeline": {
+                          "type": "object",
+                          "properties": {
+                            "roles": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "enum": [
+                                  "contacted",
+                                  "quoted",
+                                  "booked",
+                                  "none"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "roles"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -24690,7 +24883,8 @@
                         "reengage",
                         "intake",
                         "maintenance",
-                        "briefings"
+                        "briefings",
+                        "pipeline"
                       ],
                       "additionalProperties": false
                     },
@@ -24956,6 +25150,75 @@
                     "everyMonths",
                     "source",
                     "dueOn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/lead.catch_up": {
+      "post": {
+        "operationId": "command_lead_catch_up",
+        "summary": "Move a deal to the stage that matches what happened to it (a quote sent, a visit booked, a quote accepted or a job done). Forward only.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "leadId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "leadId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "leadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stageId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "stageName": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "leadId",
+                    "stageId",
+                    "stageName"
                   ],
                   "additionalProperties": false
                 }
@@ -53427,7 +53690,12 @@
                                               "wallet_card_declined",
                                               "job_not_thanked",
                                               "referral_mentioned",
-                                              "maintenance_due"
+                                              "maintenance_due",
+                                              "pipeline_mismatch",
+                                              "quiet_after_price",
+                                              "job_unconfirmed",
+                                              "job_never_completed",
+                                              "job_no_address"
                                             ]
                                           },
                                           "chips": {
@@ -66867,7 +67135,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 16,
+                    "maxItems": 21,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -66887,7 +67155,12 @@
                         "wallet_card_declined",
                         "job_not_thanked",
                         "referral_mentioned",
-                        "maintenance_due"
+                        "maintenance_due",
+                        "pipeline_mismatch",
+                        "quiet_after_price",
+                        "job_unconfirmed",
+                        "job_never_completed",
+                        "job_no_address"
                       ]
                     }
                   },
@@ -66951,7 +67224,12 @@
                               "wallet_card_declined",
                               "job_not_thanked",
                               "referral_mentioned",
-                              "maintenance_due"
+                              "maintenance_due",
+                              "pipeline_mismatch",
+                              "quiet_after_price",
+                              "job_unconfirmed",
+                              "job_never_completed",
+                              "job_no_address"
                             ]
                           },
                           "state": {
@@ -67110,7 +67388,10 @@
                                     "not_a_fit",
                                     "job_done",
                                     "referral",
-                                    "maintenance"
+                                    "maintenance",
+                                    "price",
+                                    "job_passed",
+                                    "no_address"
                                   ]
                                 },
                                 "label": {
@@ -67477,7 +67758,12 @@
                               "wallet_card_declined",
                               "job_not_thanked",
                               "referral_mentioned",
-                              "maintenance_due"
+                              "maintenance_due",
+                              "pipeline_mismatch",
+                              "quiet_after_price",
+                              "job_unconfirmed",
+                              "job_never_completed",
+                              "job_no_address"
                             ]
                           },
                           "state": {
@@ -67636,7 +67922,10 @@
                                     "not_a_fit",
                                     "job_done",
                                     "referral",
-                                    "maintenance"
+                                    "maintenance",
+                                    "price",
+                                    "job_passed",
+                                    "no_address"
                                   ]
                                 },
                                 "label": {
@@ -68003,7 +68292,12 @@
                               "wallet_card_declined",
                               "job_not_thanked",
                               "referral_mentioned",
-                              "maintenance_due"
+                              "maintenance_due",
+                              "pipeline_mismatch",
+                              "quiet_after_price",
+                              "job_unconfirmed",
+                              "job_never_completed",
+                              "job_no_address"
                             ]
                           },
                           "title": {
@@ -68287,7 +68581,12 @@
                               "wallet_card_declined",
                               "job_not_thanked",
                               "referral_mentioned",
-                              "maintenance_due"
+                              "maintenance_due",
+                              "pipeline_mismatch",
+                              "quiet_after_price",
+                              "job_unconfirmed",
+                              "job_never_completed",
+                              "job_no_address"
                             ]
                           },
                           "state": {
@@ -68446,7 +68745,10 @@
                                     "not_a_fit",
                                     "job_done",
                                     "referral",
-                                    "maintenance"
+                                    "maintenance",
+                                    "price",
+                                    "job_passed",
+                                    "no_address"
                                   ]
                                 },
                                 "label": {
@@ -68862,7 +69164,12 @@
                         "wallet_card_declined",
                         "job_not_thanked",
                         "referral_mentioned",
-                        "maintenance_due"
+                        "maintenance_due",
+                        "pipeline_mismatch",
+                        "quiet_after_price",
+                        "job_unconfirmed",
+                        "job_never_completed",
+                        "job_no_address"
                       ]
                     },
                     "mode": {
@@ -69286,6 +69593,29 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "pipeline_mismatch": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "quiet_after_price": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "job_unconfirmed": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "job_never_completed": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "job_no_address": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -69304,7 +69634,12 @@
                             "wallet_card_declined",
                             "job_not_thanked",
                             "referral_mentioned",
-                            "maintenance_due"
+                            "maintenance_due",
+                            "pipeline_mismatch",
+                            "quiet_after_price",
+                            "job_unconfirmed",
+                            "job_never_completed",
+                            "job_no_address"
                           ],
                           "additionalProperties": false
                         },

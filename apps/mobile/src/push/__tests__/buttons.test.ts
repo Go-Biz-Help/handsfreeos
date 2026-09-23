@@ -41,6 +41,7 @@ describe('the notification categories', () => {
       assigned: ['Open'],
       payment: ['Open'],
       wallet: ['Open'],
+      job_check: ['Done', 'Didn’t happen', 'Still there'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });
@@ -67,6 +68,18 @@ describe('the notification categories', () => {
         isDestructive: false,
       },
       snooze: {
+        opensAppToForeground: false,
+        isAuthenticationRequired: false,
+        isDestructive: false,
+      },
+      // Marking a visit changes the business's records; saying you're still there doesn't.
+      done: { opensAppToForeground: false, isAuthenticationRequired: true, isDestructive: false },
+      no_show: {
+        opensAppToForeground: false,
+        isAuthenticationRequired: true,
+        isDestructive: false,
+      },
+      still_there: {
         opensAppToForeground: false,
         isAuthenticationRequired: false,
         isDestructive: false,
