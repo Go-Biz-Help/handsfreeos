@@ -531,6 +531,23 @@ describe('registry', () => {
       'branded_domain.verify',
       'branded_domain.remove',
       'branded_domain.record',
+      // Ideas, the roadmap and What's new: the people's, then the team's.
+      'idea.share',
+      'idea.edit',
+      'idea.vote',
+      'idea.unvote',
+      'idea.follow',
+      'idea.comment',
+      'idea.set_comment_hidden',
+      'whats_new.mark_seen',
+      'idea.set_status',
+      'idea.merge',
+      'idea.set_hidden',
+      'idea_area.save',
+      'whats_new.save',
+      'whats_new.publish',
+      'whats_new.unpublish',
+      'whats_new.delete',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'migration.list',
@@ -665,6 +682,15 @@ describe('registry', () => {
       'form.results',
       'template.list',
       'review.list',
+      'idea.list',
+      'idea.get',
+      'idea.similar',
+      'idea.roadmap',
+      'idea.areas',
+      'whats_new.list',
+      'whats_new.unseen',
+      'idea.triage',
+      'idea.team_view',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });
