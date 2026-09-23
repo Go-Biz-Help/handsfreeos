@@ -11,7 +11,11 @@
  */
 import type { SourceConnection, SourceScope } from '@hfos/core/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createGoHighLevelAdapter, htmlToText } from '../src/migrations/adapters/gohighlevel';
+import {
+  createGoHighLevelAdapter,
+  htmlToText,
+  nameCase,
+} from '../src/migrations/adapters/gohighlevel';
 
 const adapter = createGoHighLevelAdapter({ clientId: '', clientSecret: '', configured: false });
 
@@ -289,5 +293,47 @@ describe('an email, as the words in it', () => {
         '<!--[if mso]>x<![endif]--><div>Book <a href="https://x.test/b">here</a><br>Thanks&nbsp;&#8212; Chris</div>',
       ),
     ).toBe('Book here (https://x.test/b)\nThanks — Chris');
+  });
+});
+
+describe("a customer's name", () => {
+  it("comes from what was typed, not HighLevel's lowercased copy", () => {
+    const [envelope] = adapter.normalize(
+      {
+        objectType: 'contact',
+        objectId: 'con_1',
+        payload: {
+          id: 'con_1',
+          firstName: 'bobby',
+          lastName: 'barber',
+          firstNameRaw: 'Bobby',
+          lastNameRaw: 'Barber',
+          contactName: 'bobby barber',
+        },
+      },
+      {
+        locationId: 'loc_1',
+        installationId: 'conn_1',
+        adapterVersion: '1',
+        timezone: 'America/Chicago',
+        defaultCountry: 'US',
+        customFields: new Map(),
+      },
+    );
+    expect(envelope!.data).toMatchObject({
+      firstName: 'Bobby',
+      lastName: 'Barber',
+      fullName: 'Bobby Barber',
+    });
+  });
+
+  it('is capitalized when it was typed all in lowercase, and left alone otherwise', () => {
+    expect(nameCase('david')).toBe('David');
+    expect(nameCase("mary-jane o'brien")).toBe("Mary-Jane O'Brien");
+    expect(nameCase('McDonald')).toBe('McDonald');
+    expect(nameCase('NYC SEO PRO')).toBe('NYC SEO PRO');
+    expect(nameCase('(805) 319-3388')).toBe('(805) 319-3388');
+    expect(nameCase('bob@example.com')).toBe('bob@example.com');
+    expect(nameCase(null)).toBeNull();
   });
 });

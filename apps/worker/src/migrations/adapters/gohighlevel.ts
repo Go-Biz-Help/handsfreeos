@@ -1731,12 +1731,28 @@ const leftovers = (payload: Record<string, unknown>, used: readonly string[]) =>
   return rest;
 };
 
+/**
+ * A name typed all in lowercase, capitalized the way a name is written: "david" is "David", "mary-jane
+ * o'brien" is "Mary-Jane O'Brien". Anything with a capital in it already is left exactly as it was typed —
+ * "McDonald", "DeShawn" and "NYC SEO Pro" were somebody's choice, and a rule would only get them wrong.
+ */
+export function nameCase(name: string | null): string | null {
+  // An email standing in for a name is left alone: "Bob@example.com" is nobody's name.
+  if (!name || name !== name.toLowerCase() || name.includes('@')) return name;
+  return name.replace(
+    /(^|[\s\-'’])(\p{Ll})/gu,
+    (_m, before: string, letter: string) => before + letter.toUpperCase(),
+  );
+}
+
 const CONTACT_USED = [
   'id',
   '_id',
   'locationId',
   'firstName',
   'lastName',
+  'firstNameRaw',
+  'lastNameRaw',
   'firstNameLowerCase',
   'lastNameLowerCase',
   'contactName',
@@ -1768,6 +1784,10 @@ const CONTACT_USED = [
 
 function contactEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
   const p = record.payload;
+  // The name as it was typed. `firstName` and `lastName` are HighLevel's lowercased copies ("bobby barber");
+  // `firstNameRaw` and `lastNameRaw` are what somebody actually entered ("Bobby Barber").
+  const firstName = nameCase(asString(p['firstNameRaw']) ?? asString(p['firstName']));
+  const lastName = nameCase(asString(p['lastNameRaw']) ?? asString(p['lastName']));
   const warnings: { code: string; field?: string | null; message: string }[] = [];
   const endpoints: { kind: 'phone' | 'email'; value: string; primary: boolean }[] = [];
   const email = asString(p['email']);
@@ -1837,9 +1857,11 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
     });
 
   const data = {
-    firstName: asString(p['firstName']),
-    lastName: asString(p['lastName']),
-    fullName: asString(p['contactName']),
+    firstName,
+    lastName,
+    // HighLevel's `contactName` is lowercased like the rest; built from the typed parts when there are any.
+    fullName:
+      [firstName, lastName].filter(Boolean).join(' ') || nameCase(asString(p['contactName'])),
     companyName: asString(p['companyName'])?.slice(0, 200) ?? null,
     email,
     phone,
