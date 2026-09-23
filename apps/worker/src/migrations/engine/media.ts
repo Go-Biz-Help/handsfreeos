@@ -92,6 +92,27 @@ const bareMime = (value: string | null | undefined): string | null => {
   return bare && bare.length <= 200 ? bare : null;
 };
 
+/**
+ * What the file is. The server's word first — unless its word is "some bytes", which is what a bucket says
+ * about a call recording it was never told the type of (the first real account's .wav recordings all came
+ * back as `application/octet-stream`, and were kept as that, so nothing would play them). Then what its
+ * name says, then what the old system said it was.
+ */
+const mimeOf = (
+  header: string | null | undefined,
+  declared: string | null | undefined,
+  locator: string,
+): string | null => {
+  const said = bareMime(header);
+  if (said && said !== 'application/octet-stream' && said !== 'binary/octet-stream') return said;
+  const fromPath = /\.([a-z0-9]{2,5})(?:$|[?#])/i.exec(locator)?.[1]?.toLowerCase();
+  const byExtension = fromPath
+    ? Object.entries(EXTENSIONS).find(([, ext]) => ext === fromPath)?.[0]
+    : undefined;
+  // The name before the label: the importer labels every recording an mp3, and some of them are .wav.
+  return byExtension ?? bareMime(declared) ?? said;
+};
+
 const extensionFor = (mime: string | null, locator: string): string => {
   if (mime && EXTENSIONS[mime]) return EXTENSIONS[mime]!;
   const fromPath = /\.([a-z0-9]{2,5})(?:$|[?#])/i.exec(locator)?.[1]?.toLowerCase();
@@ -185,6 +206,35 @@ export async function copyMediaBatch(
 
 type CopyOutcome = 'copied' | 'reused' | 'missing' | 'skipped';
 
+/**
+ * When a signed link stops working, if it says: Google's and Amazon's signed URLs carry it in the query —
+ * `Expires` as epoch seconds (Google's older form), or a start time and a lifetime in seconds.
+ */
+export function linkExpiry(locator: string): Date | null {
+  let url: URL;
+  try {
+    url = new URL(locator);
+  } catch {
+    return null;
+  }
+  const q = url.searchParams;
+  const epoch = Number(q.get('Expires'));
+  if (Number.isFinite(epoch) && epoch > 0) return new Date(epoch * 1000);
+  for (const [dateKey, lifeKey] of [
+    ['X-Goog-Date', 'X-Goog-Expires'],
+    ['X-Amz-Date', 'X-Amz-Expires'],
+  ] as const) {
+    const start = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(q.get(dateKey) ?? '');
+    const life = Number(q.get(lifeKey));
+    if (start && Number.isFinite(life))
+      return new Date(
+        Date.UTC(+start[1]!, +start[2]! - 1, +start[3]!, +start[4]!, +start[5]!, +start[6]!) +
+          life * 1000,
+      );
+  }
+  return null;
+}
+
 async function copyOne(
   deps: MediaDeps,
   scope: MediaJobScope,
@@ -222,6 +272,23 @@ async function copyOne(
   }
   if (res.status === 404 || res.status === 410)
     return settle(deps, scope, row, 'missing', 'The old system no longer has this file.');
+  /**
+   * A link that has run out, or a file the old system will not hand over. Asking again cannot change either,
+   * and both used to be asked four times and then called a failure with a status code nobody could read:
+   * the first real account's emailed payment receipts were links signed to expire in 2025.
+   */
+  if (res.status === 400 || res.status === 401 || res.status === 403) {
+    const ranOut = linkExpiry(row.source_locator);
+    return settle(
+      deps,
+      scope,
+      row,
+      'missing',
+      ranOut && ranOut.getTime() < Date.now()
+        ? `The old system's link to this file ran out on ${ranOut.toISOString().slice(0, 10)}.`
+        : `The old system would not hand this file over (it answered ${res.status}).`,
+    );
+  }
   if (res.status < 200 || res.status >= 300)
     throw new Error(`the old system answered ${res.status} for a file`);
   if (res.truncated)
@@ -235,7 +302,7 @@ async function copyOne(
   if (res.bytes.length === 0)
     return settle(deps, scope, row, 'missing', 'The file came back empty.');
 
-  const detected = bareMime(res.headers['content-type']) ?? bareMime(row.declared_mime);
+  const detected = mimeOf(res.headers['content-type'], row.declared_mime, row.source_locator);
   const ext = extensionFor(detected, row.source_locator);
   const name = nameFor(row, detected, ext);
   const checksum = createHash('sha256').update(res.bytes).digest('hex');
