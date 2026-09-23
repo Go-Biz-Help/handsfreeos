@@ -12,6 +12,7 @@ import {
   Inbox,
   KanbanSquare,
   Layers,
+  Lightbulb,
   ListOrdered,
   Settings2,
   Sparkles,
@@ -23,6 +24,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { NewDot, useWhatsNewUnseen } from '@/components/ideas/whats-new-signal';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { useMatches } from '@/lib/use-media';
@@ -75,6 +77,9 @@ const PLACES: Record<MenuKey, Place> = {
   tasks: { path: '/tasks', label: 'Tasks', icon: ClipboardList },
   members: { path: '/members', label: 'Members', icon: UserCircle },
   audit: { path: '/audit', label: 'Audit log', icon: ListOrdered },
+  // Ideas, the roadmap and What's new: about HandsFreeOS itself, so it sits last before Settings, and in the
+  // drawer on phones. A dot says What's new has something the person has not read.
+  ideas: { path: '/ideas', label: 'Ideas', icon: Lightbulb },
   settings: { path: '/settings', label: 'Settings', icon: Settings2 },
 };
 
@@ -362,9 +367,11 @@ export function NavLinks({
   const { menu } = useMenu();
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
+  const whatsNew = useWhatsNewUnseen();
   const badges = (key: MenuKey): ReactNode => {
     if (key === 'home') return <UrgentCount key="u" count={urgent} />;
     if (key === 'inbox') return <UnreadCount key="n" count={unread} />;
+    if (key === 'ideas') return <NewDot key="w" count={whatsNew} />;
     return null;
   };
   const Group = variant === 'drawer' ? GroupAccordion : GroupFlyout;

@@ -35,6 +35,8 @@ export const MENU_KEYS = [
   'tasks',
   'members',
   'audit',
+  // Ideas, the roadmap and What's new (0100): the one place about HandsFreeOS itself rather than the business.
+  'ideas',
   'settings',
 ] as const;
 export type MenuKey = (typeof MENU_KEYS)[number];
@@ -97,7 +99,7 @@ export const DEFAULT_MENU: Menu = {
 
 /**
  * The tidy-up the editor offers in one press: the places a day is spent in stay out, and the rest fold into
- * **More**. Nine rows instead of fifteen, and nothing is lost.
+ * **More**. Nine rows instead of sixteen, and nothing is lost.
  */
 export const SUGGESTED_MENU: Menu = {
   entries: [
@@ -112,7 +114,7 @@ export const SUGGESTED_MENU: Menu = {
       kind: 'group',
       id: 'more',
       label: MENU_GROUP_DEFAULT_LABEL,
-      keys: ['workflows', 'forms', 'reviews', 'knowledge', 'ai-team', 'members', 'audit'],
+      keys: ['workflows', 'forms', 'reviews', 'knowledge', 'ai-team', 'members', 'audit', 'ideas'],
     },
     { kind: 'link', key: 'settings' },
   ],

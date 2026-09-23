@@ -345,6 +345,9 @@ export const ideaGet = defineQuery({
   },
 });
 
+/** How alike two titles must look (trigram similarity, 0 to 1) to be the same idea whatever the words. */
+const SIMILAR_TITLE = 0.35;
+
 export const ideaSimilar = defineQuery({
   name: 'idea.similar',
   description:
@@ -357,7 +360,10 @@ export const ideaSimilar = defineQuery({
     const me = requireHuman(ctx).userId;
     const words = ideaSearchWords(input.text);
     if (!words.length) return { ideas: [] };
-    // Any of the words, not all of them: somebody half way through a title has not said everything yet.
+    // Any of the words finds a candidate — somebody half way through a title has not said everything yet — but
+    // one word in common is not the same idea: "text the customer" is no match for "two-way sync". So a match
+    // shares two of the words (one, for a one-word title), or has a title that looks like it, typos and all.
+    const needed = Math.min(2, words.length);
     const list = await rows<{
       id: string;
       number: string | number;
@@ -370,15 +376,22 @@ export const ideaSimilar = defineQuery({
       sql`with q as (
             select websearch_to_tsquery('english'::regconfig, ${words.join(' or ')}) as tsq,
               ${input.text}::text as raw
+          ),
+          found as (
+            select i.id, i.number, i.title, i.status::text as status, i.vote_count,
+              exists (select 1 from platform.idea_votes v where v.idea_id = i.id and v.user_id = ${me}) as voted,
+              (select count(*) from unnest(${textArray(words)}) w
+                where i.search @@ plainto_tsquery('english'::regconfig, w))::int as shared,
+              extensions.similarity(i.title, q.raw)::float8 as alike,
+              ts_rank_cd(i.search, q.tsq, 32)::float8 as rank
+            from platform.ideas i cross join q
+            where i.hidden_at is null and i.merged_into is null
+              ${input.excludeIdeaId ? sql`and i.id <> ${input.excludeIdeaId}` : sql``}
+              and (i.search @@ q.tsq or i.title operator(extensions.%) q.raw)
           )
-          select i.id, i.number, i.title, i.status::text as status, i.vote_count,
-            exists (select 1 from platform.idea_votes v where v.idea_id = i.id and v.user_id = ${me}) as voted
-          from platform.ideas i cross join q
-          where i.hidden_at is null and i.merged_into is null
-            ${input.excludeIdeaId ? sql`and i.id <> ${input.excludeIdeaId}` : sql``}
-            and (i.search @@ q.tsq or i.title operator(extensions.%) q.raw)
-          order by (ts_rank_cd(i.search, q.tsq, 32)
-            + 0.5::float8 * extensions.similarity(i.title, q.raw)) desc, i.vote_count desc, i.id
+          select id, number, title, status, vote_count, voted from found
+          where shared >= ${needed} or alike >= ${SIMILAR_TITLE}::float8
+          order by shared desc, (rank + 0.5::float8 * alike) desc, vote_count desc, id
           limit 5`,
     );
     return {

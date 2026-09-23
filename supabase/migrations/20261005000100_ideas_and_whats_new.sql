@@ -449,8 +449,9 @@ create table platform.idea_updates (
   notified_at timestamptz,
   actor_user_id uuid references app.users (id) on delete set null,
   created_at timestamptz not null default now(),
-  check (kind <> 'status' or to_status is not null),
-  check (kind = 'status' or other_idea_id is not null)
+  -- A merge names the other idea too, but not as a check: that idea may be deleted later, and its line in
+  -- this story stays, saying only that there was one.
+  check (kind <> 'status' or to_status is not null)
 );
 create index idea_updates_idea_idx on platform.idea_updates (idea_id, created_at);
 create index idea_updates_other_idx on platform.idea_updates (other_idea_id);

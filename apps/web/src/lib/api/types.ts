@@ -272,3 +272,17 @@ export type Template = TemplateList['templates'][number];
 export type ReviewListOut = Ok<'/v1/queries/review.list'>;
 export type ReviewRow = ReviewListOut['reviews'][number];
 export type ReviewConnectionRow = ReviewListOut['connections'][number];
+
+// Ideas, the roadmap and What's new (0100)
+export type IdeaList = Ok<'/v1/queries/idea.list'>;
+export type IdeaRow = IdeaList['ideas'][number];
+export type IdeaGet = Ok<'/v1/queries/idea.get'>;
+export type IdeaAreas = Ok<'/v1/queries/idea.areas'>['areas'];
+export type IdeaArea = IdeaAreas[number];
+export type Roadmap = Ok<'/v1/queries/idea.roadmap'>;
+export type RoadmapCardRow = Roadmap['planned'][number];
+export type WhatsNewList = Ok<'/v1/queries/whats_new.list'>;
+export type WhatsNewEntry = WhatsNewList['entries'][number];
+export type IdeaTriage = Ok<'/v1/queries/idea.triage'>;
+export type IdeaTriageRow = IdeaTriage['ideas'][number];
+export type IdeaTeamView = Ok<'/v1/queries/idea.team_view'>;

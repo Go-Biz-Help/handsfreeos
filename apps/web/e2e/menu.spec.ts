@@ -25,7 +25,7 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await expect(nav(page).getByRole('link', { name: 'Knowledge' })).toBeVisible();
   const menu = page.getByTestId('sidebar-menu');
   await expect(menu).toBeVisible();
-  // A window too short for fifteen places. The sidebar is kept to the window and pinned there, so it is the
+  // A window too short for sixteen places. The sidebar is kept to the window and pinned there, so it is the
   // menu that overflows rather than the page growing and taking the account with it.
   await page.setViewportSize({ width: 1280, height: 620 });
   await expect.poll(() => menu.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
