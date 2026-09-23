@@ -851,6 +851,27 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { status: 'waiting_for_approval', note: MONEY_NOTE } };
   },
 
+  /** A rehearsal sends no code, and checks none: a real chat does both. */
+  async send_verification_code(h) {
+    if (!h.rc.unverifiedChat || !h.rc.customer)
+      return refuse('There’s nobody on file for this chat to send a code to.');
+    would(h, 'note', 'texted a code to the phone on file (or emailed it)');
+    return {
+      content: {
+        sent: true,
+        note: 'This is a test: no code went out. Ask them to type the six-digit code here.',
+      },
+    };
+  },
+
+  async check_verification_code(h) {
+    if (!h.rc.unverifiedChat || !h.rc.customer)
+      return refuse('There’s nobody on file for this chat to check a code for.');
+    return refuse(
+      'This is a test: codes aren’t checked here. In a real chat, the right code opens their bookings, bills and quotes.',
+    );
+  },
+
   async record_answers(h, args) {
     if (!h.rc.lead) return refuse(NO_LEAD);
     const answers = Array.isArray(args['answers']) ? args['answers'] : [];
@@ -1030,7 +1051,7 @@ async function tellWhatItRead(
       type: 'context',
       title: 'A website chat visitor',
       detail:
-        'In chat it never sees a customer’s record or visits, even when the details they type match.',
+        'In chat it doesn’t see a customer’s record or visits, even when the details they type match, until they type back a code sent to the phone or email on file.',
       at,
     });
   else if (rc.customer)

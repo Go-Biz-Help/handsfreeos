@@ -9,6 +9,7 @@
 import { eq } from 'drizzle-orm';
 import {
   calendarMostCharged,
+  chatVerified,
   LeadQualification,
   loadCalendar,
   localDateOf,
@@ -245,7 +246,7 @@ export interface RunContext {
     readonly counterpart: string | null;
     readonly personId: string | null;
   };
-  /** A website chat: whoever is typing hasn't proved they're the customer it matched. */
+  /** A website chat whose visitor hasn't proved, with a code, that they're the customer it matched. */
   readonly unverifiedChat: boolean;
   /** The language the teammate last said the customer writes in (M18), or null. */
   readonly conversationLanguage: string | null;
@@ -314,7 +315,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const timeZone = w.timezone || 'UTC';
   const channel = (conv?.channel ?? target!.channel) as TeammateChannel;
   const personId = conv ? conv.personId : target!.personId;
-  const unverifiedChat = channel === 'chat';
+  // M18: a chat whose visitor typed back the code sent to the customer on file counts as theirs, like a text.
+  const unverifiedChat = channel === 'chat' && !(conv && (await chatVerified(tx, conv)));
   const grounding = await loadGrounding(tx, ws);
   const customer = personId ? await customerOf(tx, personId) : null;
   const lead = customer ? await openLeadOf(tx, ws, customer.id) : null;

@@ -421,6 +421,37 @@ export const SeriesBookForCustomerOutput = z.object({
   skipped: z.array(z.object({ date: z.string(), startsAt: isoDateTime, reason: z.string() })),
   duplicate: z.boolean(),
 });
+// ---------- a chat visitor proves who they are (M18) ----------
+
+export const ChatSendCodeForCustomerInput = z.object({
+  workspaceId: uuid,
+  /** The worker can text right now (a number and balance); when not, the code goes to the email on file. */
+  canText: z.boolean().default(true),
+});
+export const ChatSendCodeForCustomerOutput = z.object({
+  codeId: uuid,
+  channel: z.enum(['sms', 'email']),
+  /** Where it went, masked for the chat ("•••• 42", "d•••@example.com"). */
+  sentTo: z.string(),
+  /** The code, for the worker to send and nothing else: never stored, never logged. */
+  code: z.string().regex(/^\d{6}$/),
+  /** What it goes to: the phone or email on file. */
+  to: z.string(),
+});
+export const ChatCheckCodeForCustomerInput = z.object({
+  workspaceId: uuid,
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Six digits.'),
+});
+/** A wrong code isn't an error: the try it used has to be kept, so it answers `verified: false`. */
+export const ChatCheckCodeForCustomerOutput = z.object({
+  verified: z.boolean(),
+  /** Tries left on this code; 0 means send a new one. */
+  triesLeft: z.int().min(0),
+});
+
 // ---------- money the teammate asks for (M18) ----------
 
 export const InvoiceCreateForCustomerInput = z.object({

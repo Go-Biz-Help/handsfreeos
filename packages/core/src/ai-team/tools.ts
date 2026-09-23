@@ -369,6 +369,29 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
 
+  // ---------- a website chat visitor proving who they are (M18) ----------
+  define({
+    name: 'send_verification_code',
+    description:
+      'In a website chat linked to a customer, when they want something only the customer may see or change (their bookings, bills, quotes or details): text a six-digit code to the phone on file, or else email it. Tell them where it went (the masked number or address it returns), and ask them to type it here. Never send it anywhere they tell you.',
+    input: z.strictObject({}),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'check_verification_code',
+    description:
+      'Check the six-digit code the chat visitor typed back. When it’s right they count as the customer for this chat, and what they asked for is open to you on your next step.',
+    input: z.strictObject({
+      code: z
+        .string()
+        .trim()
+        .regex(/^\d{6}$/, 'Six digits.'),
+    }),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+
   // ---------- discounts ----------
   define({
     name: 'offer_discount',
@@ -547,6 +570,12 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'offer_plan',
 ]);
 
+/** Only for a website chat whose visitor hasn't proved who they are yet (M18). */
+export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
+  'send_verification_code',
+  'check_verification_code',
+]);
+
 export interface TeammateToolOptions {
   /** The conversation is a website chat whose visitor isn't verified as the matched customer. */
   readonly unverifiedChat?: boolean;
@@ -579,6 +608,7 @@ export function teammateTools(
     if (t.name === 'join_waitlist' && !config.book.waitlist) return false;
     if (t.name === 'book_repeating' && !config.book.repeats) return false;
     if (t.name === 'check_service_area' && !config.book.serviceArea) return false;
+    if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
     return !(opts.unverifiedChat && UNVERIFIED_CHAT_HIDDEN.has(t.name));
   }) as TeammateTool[];
 }

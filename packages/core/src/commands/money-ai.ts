@@ -7,14 +7,19 @@
  *
  * Like its bookings, the customer is always the one in the conversation the teammate is answering, never an id
  * the model gave; what a bill or a quote charges comes from the catalogue, never from the model; and a website
- * chat, whose visitor hasn't proved who they are, never gets any of it. Each command does what the person's own
+ * chat gets none of it until its visitor has proved who they are with a code. Each command does what the person's own
  * command does (the shared `createInvoice`, `sendEstimate`, `startSubscription`…), so a document the teammate
  * sends is the same document a person would have sent.
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { plans, products, workspaceMemberships } from '@hfos/db/schema';
-import { chatIdentityUnverified, notHandledByAi, outsideItsConversation } from '../ai-team/reach';
+import {
+  chatIdentityUnverified,
+  chatVerified,
+  notHandledByAi,
+  outsideItsConversation,
+} from '../ai-team/reach';
 import type { TeammateConfig } from '../ai-team/config';
 import { loadTeammate, teammateConfigOf } from '../ai-team/load';
 import { HfosError } from '../errors';
@@ -85,7 +90,7 @@ async function approvedFor(ctx: CommandContext): Promise<Approved> {
   if (!ai.conversationId) throw outsideItsConversation();
   const conv = await loadConversation(ctx, ai.conversationId);
   if (conv.handledBy !== 'ai' || conv.aiTeammateId !== ai.teammateId) throw notHandledByAi();
-  if (conv.channel === 'chat') throw chatIdentityUnverified();
+  if (!(await chatVerified(ctx.tx, conv))) throw chatIdentityUnverified();
   if (!conv.personId) throw outsideItsConversation();
   const row = await loadTeammate(ctx.tx, ws, { teammateId: ai.teammateId });
   if (!row) throw outsideItsConversation();

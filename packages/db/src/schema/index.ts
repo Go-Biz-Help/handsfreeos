@@ -2577,6 +2577,29 @@ export const chatVisitors = app.table('chat_visitors', {
   blockedAt: ts('blocked_at'),
   networkBlockedUntil: ts('network_blocked_until'),
   ...timestamps(),
+  // Milestone 18: typed back the code sent to this customer's phone or email; twelve hours from verifiedAt.
+  verifiedPersonId: uuid('verified_person_id').references(() => people.id, {
+    onDelete: 'set null',
+  }),
+  verifiedAt: ts('verified_at'),
+});
+
+/** A code sent to prove a chat visitor is the customer the chat matched (M18); only its hash is kept. */
+export const chatVerificationCodes = app.table('chat_verification_codes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  visitorId: uuid('visitor_id')
+    .notNull()
+    .references(() => chatVisitors.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  codeHash: bytea('code_hash').notNull(),
+  channel: text('channel').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: ts('expires_at').notNull(),
+  usedAt: ts('used_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 /** "Typing", for a few seconds; the worker's alone. */

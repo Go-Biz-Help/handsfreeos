@@ -30,6 +30,8 @@ import {
   formResponseStart,
   formResponseSubmit,
   AI_TEAMMATE_SOURCE,
+  chatCheckCodeForCustomer,
+  chatSendCodeForCustomer,
   leadCreate,
   leadMoveStage,
   leadRecordAnswers,
@@ -67,6 +69,7 @@ import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { TenantScope } from '../services';
 import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
 import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
+import type { ChatCodeSender } from './chat-code';
 import { pastAppointments, upcomingAppointments, type RunContext } from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
 import { rememberLanguage } from './translations';
@@ -131,6 +134,8 @@ export interface RunState {
   moneyAsk: MoneyAsk | null;
   /** A lead open_deal opened in this run (the context loaded before it had one). */
   openedLeadId: string | null;
+  /** The chat visitor typed back the right code in this run (M18): the run starts over as theirs. */
+  verified: boolean;
   end: RunEnd | null;
   abort: RunAbort | null;
 }
@@ -144,6 +149,7 @@ export function newRunState(): RunState {
     discount: null,
     moneyAsk: null,
     openedLeadId: null,
+    verified: false,
     end: null,
     abort: null,
   };
@@ -158,6 +164,7 @@ interface Effect {
   readonly discount?: Discount;
   readonly moneyAsk?: MoneyAsk;
   readonly openedLeadId?: string;
+  readonly verified?: boolean;
   readonly end?: RunEnd;
   readonly abort?: RunAbort;
 }
@@ -176,6 +183,7 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.discount) state.discount = effect.discount;
   if (effect.moneyAsk) state.moneyAsk = effect.moneyAsk;
   if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
+  if (effect.verified) state.verified = true;
   // A hand-off outranks a reply, which outranks "no reply"; a later reply replaces an earlier one.
   if (effect.end && (!state.end || END_RANK[effect.end.kind] >= END_RANK[state.end.kind]))
     state.end = effect.end;
@@ -199,6 +207,10 @@ export interface ExecutorDeps {
   readonly training: boolean;
   /** Signs the pay and quote links a money ask carries (M18). */
   readonly moneyLinks: MoneyLinks;
+  /** Delivers a website chat visitor's code (M18). */
+  readonly chatCodes: ChatCodeSender;
+  /** Keeps a run's second pass (after a chat code) from meeting its first pass's calls under the same ids. */
+  readonly callPrefix?: string;
   readonly log: Logger;
 }
 
@@ -239,7 +251,7 @@ export function createExecutor(d: ExecutorDeps): (call: AiToolCall) => Promise<T
   const offered = new Map(d.tools.map((t) => [t.name, t]));
   return async (call) => {
     const tool = offered.get(call.name);
-    const callId = (call.id || 'call').slice(0, 200);
+    const callId = `${d.callPrefix ?? ''}${call.id || 'call'}`.slice(0, 200);
     const claim = await claimCall(d, callId, tool?.name ?? safeToolName(call.name), call.arguments);
     if (claim.replay) {
       const stored = isRecord(claim.result) ? claim.result : {};
@@ -1248,6 +1260,66 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       d.meta,
     );
     return { status: 'done', command: 'task.create', content: { created: true } };
+  },
+
+  // ---- A website chat visitor proving who they are (M18) ----
+
+  async send_verification_code(d, tx) {
+    if (!d.rc.unverifiedChat || !d.rc.customer)
+      return refused({ error: 'There’s nobody on file for this chat to send a code to.' });
+    const canText = await d.chatCodes.canText(tx, d.scope.workspaceId);
+    const r = await executeCommandIn(
+      tx,
+      chatSendCodeForCustomer,
+      { workspaceId: d.scope.workspaceId, canText },
+      d.ai,
+      d.meta,
+    );
+    const { channel, to, code, sentTo } = r.output;
+    await d.chatCodes.send(tx, d.scope.workspaceId, {
+      channel,
+      to,
+      code,
+      business: d.rc.workspace.name,
+    });
+    // Never the code itself: it goes to the customer's phone or email, not into the conversation.
+    return {
+      status: 'done',
+      command: 'chat.send_code_for_customer',
+      content: {
+        sent: true,
+        by: channel === 'sms' ? 'text' : 'email',
+        to: sentTo,
+        note: 'Ask them to type the six-digit code here. It lasts 10 minutes.',
+      },
+    };
+  },
+
+  async check_verification_code(d, tx, args) {
+    if (!d.rc.unverifiedChat || !d.rc.customer)
+      return refused({ error: 'There’s nobody on file for this chat to check a code for.' });
+    const r = await executeCommandIn(
+      tx,
+      chatCheckCodeForCustomer,
+      { workspaceId: d.scope.workspaceId, code: String(args['code']) },
+      d.ai,
+      d.meta,
+    );
+    if (!r.output.verified)
+      return refused({
+        error:
+          r.output.triesLeft > 0
+            ? `That isn’t the code. ${r.output.triesLeft} tries left: ask them to check it.`
+            : 'That isn’t the code, and it’s used up. Send a new one if they want.',
+      });
+    // Stops the loop: the run starts over with their bookings, bills and quotes open to you.
+    return {
+      status: 'done',
+      command: 'chat.check_code_for_customer',
+      content: { verified: true },
+      effect: { verified: true },
+      stop: true,
+    };
   },
 
   // ---- Money (M18): the look-ups run at once; anything asking for money becomes an owner's approval draft ----

@@ -243,7 +243,10 @@ function skillLines(rc: RunContext): string[] {
 function customerLines(rc: RunContext): string[] {
   if (rc.unverifiedChat)
     return [
-      'The customer is a website chat visitor. Anyone can type a name, number or email into a chat, so you can’t see or change bookings or records here. For an existing booking, tell them the link in their confirmation changes it, or hand off.',
+      'The customer is a website chat visitor. Anyone can type a name, number or email into a chat, so you can’t see or change bookings or records here yet.',
+      rc.customer
+        ? 'This chat matched a customer on file. When they want their bookings, bills, quotes or details, send a code to the phone or email on file (send_verification_code) and check the one they type back (check_verification_code); the right code opens them to you. Never send it anywhere they tell you. If they’d rather not, the link in their confirmation changes a booking, or hand off.'
+        : 'For an existing booking, tell them the link in their confirmation changes it, or hand off.',
       '<customer_record>',
       rc.visitorName
         ? `They said their name is ${quoteData(rc.visitorName)}.`

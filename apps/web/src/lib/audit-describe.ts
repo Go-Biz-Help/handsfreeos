@@ -668,6 +668,10 @@ function describeAction(e: AuditEntry): string {
       return `recorded the customer’s answer to ${s(e.after?.estimate) || 'a quote'}, with an owner’s OK`;
     case 'subscription.start_for_customer':
       return `signed the customer up for ${s(e.after?.plan) || 'a plan'}, with an owner’s OK`;
+    case 'chat.send_code_for_customer':
+      return `sent a code to ${s(e.after?.sentTo) || 'the customer'} to check who is in the chat`;
+    case 'chat.check_code_for_customer':
+      return 'checked the chat visitor’s code: they’re the customer';
     case 'offer.create':
       return `added the offer “${s(e.after?.name) || 'an offer'}”`;
     case 'offer.update':

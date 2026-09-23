@@ -89,6 +89,7 @@ import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
 import { scheduleFollowUp } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
+import { chatCodeSender } from './chat-code';
 import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
 import {
   firstMessageTurn,
@@ -467,6 +468,10 @@ async function startFirstRun(
 
 // ---- One run ----
 
+const VERIFIED_LINES = [
+  'They just typed back the right code, so this chat is theirs now: their bookings, bills and quotes are open to you. Answer what they asked before the code.',
+];
+
 /** Tools a first message (no conversation yet) and a nudge may use: look things up, then write. */
 const FIRST_TOOLS: ReadonlySet<TeammateToolName> = new Set<TeammateToolName>([
   'search_knowledge',
@@ -495,7 +500,11 @@ function turnOf(run: StartedRun, rc: RunContext): string {
   return firstMessageTurn(rc, run.trigger === 'lead.created' ? 'new_lead' : 'workflow');
 }
 
-async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
+/**
+ * `verified`: this is the second pass of a run whose chat visitor typed back the right code in the first (M18).
+ * It starts over as theirs, with their bookings, bills and quotes, and answers what they asked.
+ */
+async function answer(ctx: JobContext, run: StartedRun, verified = false): Promise<JobResult> {
   const { scope } = run;
   const rc = await asWorker(ctx.db, scope, (tx) =>
     loadRunContext(tx, {
@@ -568,6 +577,8 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     tools,
     training: run.teammate.status === 'training',
     moneyLinks: ctx.moneyLinks,
+    chatCodes: chatCodeSender(ctx),
+    ...(verified ? { callPrefix: 'verified:' } : {}),
     log: ctx.log,
   });
   const onTurnUsage = (usage: AiUsage) =>
@@ -585,6 +596,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
       contextText(rc),
       ...(run.handover ? handoverLines(run.handover) : []),
       ...(run.retry ? retryLines(run.retry) : []),
+      ...(verified ? VERIFIED_LINES : []),
     ].join('\n'),
     maxTokens: MAX_TOKENS,
     execute,
@@ -653,6 +665,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
   steps += loop.rounds;
   const first = await settle(loop, [], null);
   if (first) return first.value;
+  if (state.verified && !verified) return answer(ctx, run, true);
   if (state.end?.kind === 'no_reply') return finish(ctx, run, rc, ai, meta, state, null, [], steps);
   let text = state.end?.kind === 'reply' ? state.end.message : finalText(loop.messages);
   if (!text.trim())

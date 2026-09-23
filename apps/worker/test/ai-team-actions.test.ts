@@ -22,6 +22,7 @@ import {
   aiMessages,
   aiReplies,
   api,
+  chatIn,
   decide,
   draftsOf,
   makeCalendar,
@@ -31,13 +32,14 @@ import {
   run,
   runsOf,
   saveTeammate,
+  teammateRequests,
   teammateWorld,
   textIn,
   toolCallsOf,
   useModel,
   type TeammateWorld,
 } from './ai-team-world';
-import { at, drain } from './booking-world';
+import { at, drain, textsTo } from './booking-world';
 
 const CHI = 'America/Chicago';
 let w: TeammateWorld;
@@ -217,6 +219,29 @@ const RULES: TeammateRule[] = [
               },
             ],
           },
+  },
+  {
+    when: /next visit/i,
+    step: (t) =>
+      t.tools.has('send_verification_code') && !t.results['send_verification_code']
+        ? { calls: [{ name: 'send_verification_code', arguments: {} }] }
+        : {
+            calls: [{ name: 'reply', arguments: { message: 'I sent you a code. Type it here.' } }],
+          },
+  },
+  {
+    when: /^\s*\d{6}\s*$/,
+    step: (t) => {
+      if (t.tools.has('check_verification_code'))
+        return {
+          calls: [{ name: 'check_verification_code', arguments: { code: t.words.trim() } }],
+        };
+      if (!t.results['my_appointments'])
+        return { calls: [{ name: 'my_appointments', arguments: {} }] };
+      return {
+        calls: [{ name: 'reply', arguments: { message: 'Thanks! You have nothing booked yet.' } }],
+      };
+    },
   },
 ];
 
@@ -534,5 +559,38 @@ describe('the customer’s language', () => {
     expect(last.startsWith('ES: If you smell gas, leave the building now.')).toBe(true);
     expect(last.endsWith("We've alerted our team.")).toBe(true);
     expect(last).toContain(' If you smell gas, leave the building now.');
+  });
+});
+
+describe('a website chat visitor proving who they are', () => {
+  it('texts a code to the phone on file, and the right code opens the customer’s visits', async () => {
+    await saveTeammate(w, { channels: { chat: true } });
+    const c = await newCustomer(w, 'Remy');
+    const first = await chatIn(w, c.id, 'When is my next visit?');
+    await drain(w);
+    const code = /code is (\d{6})/.exec(textsTo(w, c.phone).at(-1)?.body ?? '')?.[1];
+    expect(code).toMatch(/^\d{6}$/);
+    // The code reaches their phone only: not the tool result, not the chat.
+    const [sent] = await rows<{ status: string; result: unknown }>(
+      admin(),
+      sql`select c.status, c.result from app.ai_teammate_tool_calls c
+          join app.ai_teammate_runs r on r.id = c.run_id
+          where r.conversation_id = ${first.conversationId} and c.tool = 'send_verification_code'`,
+    );
+    expect(sent).toMatchObject({ status: 'done' });
+    expect(JSON.stringify(sent)).not.toContain(code);
+    expect(JSON.stringify(sent)).toContain(`•••• ${c.phone.slice(-2)}`);
+    expect(
+      (await aiMessages(first.conversationId)).map((m) => m.body_text).join(' '),
+    ).not.toContain(code);
+
+    await chatIn(w, c.id, code!, { visitorId: first.visitorId });
+    await drain(w);
+    // It starts over as theirs: their visits on offer, and told why.
+    const again = teammateRequests(w).filter((r) => JSON.stringify(r.messages[0]).includes(code!));
+    expect(again.at(-1)!.tools!.map((t) => t.name)).toContain('my_appointments');
+    expect(again.at(-1)!.context).toContain('They just typed back the right code');
+    const replies = (await aiMessages(first.conversationId)).map((m) => m.body_text);
+    expect(replies.at(-1)).toBe('Thanks! You have nothing booked yet.');
   });
 });

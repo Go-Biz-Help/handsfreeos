@@ -220,6 +220,7 @@ import {
   knowledgeSuggestionReject,
 } from './knowledge';
 import { offerArchive, offerCreate, offerUpdate } from './offer';
+import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
 import {
   aiTeammateCreate,
   aiTeammateDecideDraft,
@@ -701,6 +702,8 @@ export const commands: readonly CommandDef[] = [
   estimateCreateForCustomer,
   estimateAnswerForCustomer,
   subscriptionStartForCustomer,
+  chatSendCodeForCustomer,
+  chatCheckCodeForCustomer,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -780,6 +783,7 @@ export * from './ai-team';
 export * from './appointment-ai';
 export * from './money-ai';
 export * from './offer';
+export * from './chat-verify';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

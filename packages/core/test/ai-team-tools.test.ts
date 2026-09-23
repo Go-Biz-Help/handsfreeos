@@ -10,6 +10,7 @@ import {
   teammateToolByName,
   teammateTools,
   UNVERIFIED_CHAT_HIDDEN,
+  UNVERIFIED_CHAT_ONLY,
   type TeammateConfig,
   type TeammateTool,
 } from '../src/ai-team/index';
@@ -58,6 +59,8 @@ describe('the registry', () => {
       ['update_customer', 'core', 'auto'],
       ['add_note', 'core', 'auto'],
       ['create_task', 'core', 'auto'],
+      ['send_verification_code', 'core', 'auto'],
+      ['check_verification_code', 'core', 'auto'],
       ['offer_discount', 'discounts', 'approval'],
       ['my_bills', 'bills', 'auto'],
       ['send_payment_link', 'bills', 'approval'],
@@ -267,12 +270,21 @@ describe('teammateTools', () => {
       'join_waitlist',
       'add_note',
       'create_task',
+      'send_verification_code',
+      'check_verification_code',
       'hand_off',
       'reply',
       'no_reply',
     ]);
     for (const hidden of UNVERIFIED_CHAT_HIDDEN)
       expect(names(coordinator, true)).not.toContain(hidden);
+  });
+
+  it('offers the chat code tools only to an unverified chat visitor', () => {
+    for (const only of UNVERIFIED_CHAT_ONLY) {
+      expect(names(coordinator, true)).toContain(only);
+      expect(names(coordinator)).not.toContain(only);
+    }
   });
 
   it('always lets it end its turn', () => {

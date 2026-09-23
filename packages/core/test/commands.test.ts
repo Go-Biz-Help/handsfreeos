@@ -340,6 +340,8 @@ describe('registry', () => {
       'estimate.create_for_customer',
       'estimate.answer_for_customer',
       'subscription.start_for_customer',
+      'chat.send_code_for_customer',
+      'chat.check_code_for_customer',
       'intake_source.create',
       'intake_source.update',
       'intake_source.rotate_key',

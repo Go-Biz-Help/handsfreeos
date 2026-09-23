@@ -18,6 +18,7 @@ import {
   assertTeammateCalendar,
   assertTeammateMayBook,
   chatIdentityUnverified,
+  chatVerified,
   requireAiConversation,
 } from '../ai-team/reach';
 import {
@@ -99,9 +100,9 @@ async function customerOf(ctx: CommandContext, ai: AiEmployeeActor) {
 /** That customer's own booking on an appointment (the model names the appointment, never the person). */
 async function customerBooking(ctx: CommandContext, ai: AiEmployeeActor, appointmentId: string) {
   const { conv, person } = await customerOf(ctx, ai);
-  // Anyone can type someone else's number into a website chat, so a chat never changes existing bookings
-  // (the customer's manage link does).
-  if (conv.channel === 'chat') throw chatIdentityUnverified();
+  // Anyone can type someone else's number into a website chat, so a chat changes existing bookings only once
+  // its visitor typed back the code sent to the customer (M18); otherwise the customer's manage link does.
+  if (!(await chatVerified(ctx.tx, conv))) throw chatIdentityUnverified();
   const [att] = await ctx.tx
     .select({ id: appointmentAttendees.id })
     .from(appointmentAttendees)
