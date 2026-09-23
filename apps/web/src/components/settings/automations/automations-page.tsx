@@ -256,6 +256,22 @@ export function AutomationsSettings({
                     />
                   ))}
                 </Card>
+                {group === 'marketing' ? (
+                  <Link
+                    href={`/app/w/${workspaceId}/campaigns`}
+                    className="flex items-center justify-between gap-4 rounded-card border border-border bg-card px-[18px] py-3.5 shadow-1 hover:bg-card-2"
+                    data-testid="automation-campaigns"
+                  >
+                    <span className="flex min-w-0 flex-col gap-1">
+                      <span className="text-[13.5px] font-medium">Outreach campaigns</span>
+                      <span className="text-[12.5px] text-text-2">
+                        Text a list of customers, picked by tag or stage. The AI writes each text
+                        and you approve them all before any go.
+                      </span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 flex-none text-text-3" aria-hidden />
+                  </Link>
+                ) : null}
               </div>
             ))}
           </section>

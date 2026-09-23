@@ -299,6 +299,7 @@ import { teammateLessonApply } from './teammate-lesson';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
 import { paymentConnectionCommands } from './payment-connection';
+import { campaignCommands } from './campaign';
 import {
   moneySaveSettings,
   planArchive,
@@ -752,6 +753,7 @@ export const commands: readonly CommandDef[] = [
   automationsSaveSettings,
   referralCreateLead,
   teammateLessonApply,
+  ...campaignCommands,
   maintenanceSetSchedule,
   leadCatchUp,
   attendeeConfirm,
@@ -816,6 +818,7 @@ export * from './attention';
 export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
+export * from './campaign';
 export * from './maintenance';
 export * from './attendee-confirm';
 export * from './payment-connection';
