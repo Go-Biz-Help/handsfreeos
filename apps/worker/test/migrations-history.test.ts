@@ -242,11 +242,16 @@ describe('the history arrives as history', () => {
     const sms = list.filter((t) => t.channel === 'sms');
     const email = list.filter((t) => t.channel === 'email');
     const chat = list.filter((t) => t.channel === 'chat');
-    expect(email.map((t) => t.counterpart)).toEqual(['maria@example.com']);
+    expect(email.map((t) => t.counterpart)).toEqual([
+      'dave.smith@example.com',
+      'maria@example.com',
+    ]);
     // A WhatsApp thread has no website visitor id, so it is addressed as one of its own rather than being
     // folded onto the customer's texts — where a reply would have gone out as a text they never asked for.
-    expect(chat).toHaveLength(1);
+    // The Facebook message in Dave's mixed thread gets a chat thread of its own the same way.
+    expect(chat).toHaveLength(2);
     expect(chat[0]!.counterpart).toMatch(/^chat:gohighlevel-cnv_a4/);
+    expect(chat[1]!.counterpart).toMatch(/^chat:gohighlevel-cnv_a5-facebook/);
     // Every thread found the customer it belongs to rather than floating unattached.
     expect(list.every((t) => t.person_name !== null)).toBe(true);
     expect(sms.map((t) => t.counterpart)).toContain('+15125550101');
@@ -268,6 +273,8 @@ describe('the history arrives as history', () => {
       'We can be there Thursday at 9.',
       'Thursday works, thank you.',
       'Time for the annual service?',
+      // From the third source thread, the mixed one: its text lands here with the others.
+      'Can you send the invoice by email?',
     ]);
     // The dates are the old system's, not today's.
     expect(new Date(msgs[0]!.occurred_at).getUTCFullYear()).toBe(2019);
@@ -280,6 +287,35 @@ describe('the history arrives as history', () => {
       { organizationId, migrationId },
     );
     expect(got.findings.map((f) => f.code)).toContain('conversations.folded');
+  }, 60_000);
+
+  it('files each message of a mixed thread in the thread for its own channel', async () => {
+    // GoHighLevel keeps one thread per customer with everything in it. Dave's has a text, an email, a
+    // Facebook message and a dialer call: each has to land where it belongs, all of them on Dave.
+    const list = await threads();
+    const daves = list.filter((t) => t.person_name === 'Dave');
+    const bodies = async (id: string) =>
+      (
+        await rows<{ body_text: string; subject: string | null }>(
+          admin(),
+          sql`select body_text, subject from app.messages where conversation_id = ${id}::uuid
+              order by occurred_at`,
+        )
+      ).map((m) => [m.body_text, m.subject]);
+    const email = daves.find((t) => t.channel === 'email')!;
+    expect(email.counterpart).toBe('dave.smith@example.com');
+    expect(await bodies(email.id)).toEqual([['Here is your invoice.', 'Your invoice']]);
+    const facebook = daves.find((t) => t.counterpart.includes('cnv_a5-facebook'))!;
+    expect(facebook.channel).toBe('chat');
+    expect(await bodies(facebook.id)).toEqual([['Got it, thanks!', null]]);
+    // The dialer call sits with his texts, on the number it was placed to.
+    const [call] = await rows<{ counterpart: string; channel: string }>(
+      admin(),
+      sql`select c.counterpart, c.channel::text as channel from app.calls k
+          join app.conversations c on c.id = k.conversation_id
+          join app.migration_source_mappings m on m.target_id = k.id and m.source_object_id = 'cal_a3'`,
+    );
+    expect(call).toEqual({ counterpart: '+15125550101', channel: 'sms' });
   }, 60_000);
 
   it('keeps a channel it has no home for, and says what that means', async () => {

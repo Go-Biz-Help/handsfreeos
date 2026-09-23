@@ -388,6 +388,21 @@ describe('a business moves house', () => {
     expect(kept?.source_object_id).toBe('con_a7');
     expect(kept?.message).toContain('nothing here to bring');
     expect(kept?.retryable).toBe(false);
+    // Left out, not failed: the progress screen reads "failed" as "needs another go", and trying again can
+    // never find a name that was never there. It is said once, in words, instead.
+    const [counted] = await rows<{ failed: number; skipped: number }>(
+      admin(),
+      sql`select sum((counts ->> 'failed')::int)::int as failed, sum((counts ->> 'skipped')::int)::int as skipped
+          from app.migration_checkpoints where migration_id = ${w.migrationId} and category = 'contacts'`,
+    );
+    expect(counted?.failed).toBe(0);
+    expect(counted?.skipped).toBeGreaterThanOrEqual(1);
+    const [said] = await rows<{ summary: string }>(
+      admin(),
+      sql`select summary from app.migration_findings
+          where migration_id = ${w.migrationId} and code = 'contacts.nothing_to_bring'`,
+    );
+    expect(said?.summary).toContain('no name, email address or phone number');
   });
 
   /**

@@ -92,6 +92,27 @@ const bareMime = (value: string | null | undefined): string | null => {
   return bare && bare.length <= 200 ? bare : null;
 };
 
+/**
+ * What the file is. The server's word first — unless its word is "some bytes", which is what a bucket says
+ * about a call recording it was never told the type of (the first real account's .wav recordings all came
+ * back as `application/octet-stream`, and were kept as that, so nothing would play them). Then what its
+ * name says, then what the old system said it was.
+ */
+const mimeOf = (
+  header: string | null | undefined,
+  declared: string | null | undefined,
+  locator: string,
+): string | null => {
+  const said = bareMime(header);
+  if (said && said !== 'application/octet-stream' && said !== 'binary/octet-stream') return said;
+  const fromPath = /\.([a-z0-9]{2,5})(?:$|[?#])/i.exec(locator)?.[1]?.toLowerCase();
+  const byExtension = fromPath
+    ? Object.entries(EXTENSIONS).find(([, ext]) => ext === fromPath)?.[0]
+    : undefined;
+  // The name before the label: the importer labels every recording an mp3, and some of them are .wav.
+  return byExtension ?? bareMime(declared) ?? said;
+};
+
 const extensionFor = (mime: string | null, locator: string): string => {
   if (mime && EXTENSIONS[mime]) return EXTENSIONS[mime]!;
   const fromPath = /\.([a-z0-9]{2,5})(?:$|[?#])/i.exec(locator)?.[1]?.toLowerCase();
@@ -235,7 +256,7 @@ async function copyOne(
   if (res.bytes.length === 0)
     return settle(deps, scope, row, 'missing', 'The file came back empty.');
 
-  const detected = bareMime(res.headers['content-type']) ?? bareMime(row.declared_mime);
+  const detected = mimeOf(res.headers['content-type'], row.declared_mime, row.source_locator);
   const ext = extensionFor(detected, row.source_locator);
   const name = nameFor(row, detected, ext);
   const checksum = createHash('sha256').update(res.bytes).digest('hex');

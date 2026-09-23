@@ -337,3 +337,161 @@ describe("a customer's name", () => {
     expect(nameCase(null)).toBeNull();
   });
 });
+
+describe('what a GoHighLevel thread is made of', () => {
+  const context = {
+    locationId: 'loc_1',
+    installationId: 'conn_1',
+    adapterVersion: '1',
+    timezone: 'America/Chicago',
+    defaultCountry: 'US',
+    customFields: new Map(),
+  };
+
+  it('reads a TYPE_PHONE thread as a text thread, carrying the number and the address', () => {
+    const [envelope] = adapter.normalize(
+      {
+        objectType: 'conversation',
+        objectId: 'cnv_1',
+        payload: {
+          id: 'cnv_1',
+          type: 'TYPE_PHONE',
+          contactId: 'con_1',
+          phone: '+15125550101',
+          email: 'dave@example.com',
+        },
+      },
+      context,
+    );
+    expect(envelope!.data).toMatchObject({
+      channel: 'sms',
+      counterpart: '+15125550101',
+      phone: '+15125550101',
+      email: 'dave@example.com',
+    });
+  });
+
+  it("keeps an email's subject, and names the channel a chat came from", () => {
+    const [email] = adapter.normalize(
+      {
+        objectType: 'message',
+        objectId: 'm1',
+        parentObjectId: 'cnv_1',
+        payload: {
+          id: 'm1',
+          messageType: 'TYPE_EMAIL',
+          direction: 'outbound',
+          body: 'Here is your invoice.',
+          meta: { email: { subject: 'Your invoice' } },
+        },
+      },
+      context,
+    );
+    expect(email!.data).toMatchObject({ channel: 'email', subject: 'Your invoice' });
+    const [facebook] = adapter.normalize(
+      {
+        objectType: 'message',
+        objectId: 'm2',
+        parentObjectId: 'cnv_1',
+        payload: { id: 'm2', messageType: 'TYPE_FACEBOOK', direction: 'inbound', body: 'Hi' },
+      },
+      context,
+    );
+    expect(facebook!.data).toMatchObject({ channel: 'chat', channelName: 'facebook' });
+  });
+
+  it('files dialer and phone-menu calls as calls, and leaves chat notices out', async () => {
+    serve((url) =>
+      url.pathname === '/conversations/search'
+        ? { conversations: [{ id: 'cnv_1', lastMessageDate: 1 }], total: 1 }
+        : {
+            messages: {
+              messages: [
+                { id: 'c1', messageType: 'TYPE_CUSTOM_CALL', dateAdded: '2026-01-01' },
+                { id: 'c2', messageType: 'TYPE_IVR_CALL', dateAdded: '2026-01-01' },
+                { id: 'n1', messageType: 'TYPE_LIVE_CHAT_INFO_MESSAGE', dateAdded: '2026-01-01' },
+                { id: 'm1', messageType: 'TYPE_SMS_REACTION', dateAdded: '2026-01-01' },
+              ],
+              nextPage: false,
+            },
+          },
+    );
+    const calls = await adapter.list(connection, scope, 'calls', { cursor: null, limit: 100 });
+    expect(calls.records.map((r) => r.objectId)).toEqual(['c1', 'c2']);
+    const messages = await adapter.list(connection, scope, 'messages', {
+      cursor: null,
+      limit: 100,
+    });
+    expect(messages.records.map((r) => r.objectId)).toEqual(['m1']);
+    const [reaction] = adapter.normalize(messages.records[0]!, context);
+    expect(reaction!.data).toMatchObject({ channel: 'sms' });
+  });
+
+  it('counts invoices by asking the way the list insists on, with an offset', async () => {
+    const calls = serve((url) => {
+      if (url.pathname === '/invoices/' && !url.searchParams.has('offset'))
+        return { statusCode: 422, message: ['offset should not be empty'] };
+      if (url.pathname === '/invoices/') return { invoices: [{ _id: 'inv_1' }], total: 146 };
+      if (url.pathname.endsWith('/tags'))
+        return {
+          tags: [
+            { id: 't1', name: 'a' },
+            { id: 't2', name: 'b' },
+          ],
+        };
+      return {};
+    });
+    const seen: { category: string; count: number; countQuality: string }[] = [];
+    for await (const r of adapter.scan(connection, scope)) seen.push(r);
+    expect(seen.find((r) => r.category === 'invoices')).toMatchObject({
+      count: 146,
+      countQuality: 'complete',
+    });
+    // The tags list answers with every tag whatever the limit, so that is a whole count, not "at least".
+    expect(seen.find((r) => r.category === 'tags')).toMatchObject({
+      count: 2,
+      countQuality: 'complete',
+    });
+    expect(calls.find((c) => c.pathname === '/invoices/')!.searchParams.get('offset')).toBe('0');
+  });
+
+  it('counts email templates without the folders they are listed among', async () => {
+    serve((url) =>
+      url.pathname === '/emails/builder'
+        ? {
+            builders: [
+              { id: 't1', templateType: 'builder' },
+              { id: 't2', templateType: 'builder' },
+              { id: 'f1', templateType: 'folder' },
+            ],
+            total: [{ total: 3 }],
+          }
+        : {},
+    );
+    const seen: { category: string; count: number; countQuality: string }[] = [];
+    for await (const r of adapter.scan(connection, scope)) seen.push(r);
+    expect(seen.find((r) => r.category === 'templates')).toMatchObject({
+      count: 2,
+      countQuality: 'complete',
+    });
+  });
+
+  it('asks again when a request times out, rather than failing the page', async () => {
+    let dropped = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        if (dropped < 1) {
+          dropped += 1;
+          throw new TypeError('fetch failed');
+        }
+        return new Response(JSON.stringify({ tags: [{ id: 'tag_1', name: 'vip' }] }), {
+          status: 200,
+        });
+      }),
+    );
+    const page = await adapter.list(connection, scope, 'tags', { cursor: null, limit: 100 });
+    expect(page.records.map((r) => r.objectId)).toEqual(['tag_1']);
+    expect(dropped).toBe(1);
+  }, 15_000);
+});

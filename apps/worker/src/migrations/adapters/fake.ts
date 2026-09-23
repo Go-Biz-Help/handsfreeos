@@ -720,6 +720,48 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     '2022-08-01T12:10:00.000Z',
   ),
 
+  // The way GoHighLevel really keeps history: one thread per customer, typed TYPE_PHONE, with a text, an
+  // email, a Facebook message and a dialer call all in it. Here each lands in the thread for its own
+  // channel — the text in Dave's text thread, the email in a new email thread, Facebook in a chat thread.
+  thread(
+    'cnv_a5',
+    'con_a1',
+    'TYPE_PHONE',
+    { phone: '+15125550101', email: 'dave.smith@example.com' },
+    '2024-07-01T10:00:00.000Z',
+    '2024-07-01T10:30:00.000Z',
+  ),
+  said(
+    'msg_a8',
+    'cnv_a5',
+    'TYPE_SMS',
+    'inbound',
+    '2024-07-01T10:00:00.000Z',
+    'Can you send the invoice by email?',
+    { from: '+15125550101', to: '+15125550000' },
+  ),
+  said(
+    'msg_a9',
+    'cnv_a5',
+    'TYPE_EMAIL',
+    'outbound',
+    '2024-07-01T10:10:00.000Z',
+    'Here is your invoice.',
+    { meta: { email: { subject: 'Your invoice' } } },
+  ),
+  said(
+    'msg_a10',
+    'cnv_a5',
+    'TYPE_FACEBOOK',
+    'inbound',
+    '2024-07-01T10:20:00.000Z',
+    'Got it, thanks!',
+  ),
+  said('cal_a3', 'cnv_a5', 'TYPE_CUSTOM_CALL', 'outbound', '2024-07-01T10:30:00.000Z', '', {
+    from: '+15125550000',
+    to: '+15125550101',
+  }),
+
   // A photo of the unit, texted in: the kind of file the whole of the old system's storage is made of.
   said(
     'msg_a1',
@@ -1661,7 +1703,12 @@ export function createFakeSourceAdapter(): FakeSource {
         }
         case 'conversation': {
           const type = str(p['type']) ?? '';
-          const channel = type.includes('EMAIL') ? 'email' : type.includes('SMS') ? 'sms' : 'chat';
+          // TYPE_PHONE is GoHighLevel's own word for a customer's whole thread, and is a text thread here.
+          const channel = type.includes('EMAIL')
+            ? 'email'
+            : type.includes('SMS') || type === 'TYPE_PHONE'
+              ? 'sms'
+              : 'chat';
           const name = type.includes('WHATSAPP') ? 'whatsapp' : null;
           return [
             {
@@ -1684,6 +1731,8 @@ export function createFakeSourceAdapter(): FakeSource {
                   channel === 'email'
                     ? (str(p['email']) ?? 'unknown@example.com')
                     : (str(p['phone']) ?? str(p['contactName']) ?? 'unknown'),
+                phone: str(p['phone']),
+                email: str(p['email']),
                 subject: null,
                 status: 'closed',
                 startedAt: record.sourceCreatedAt?.toISOString() ?? null,
@@ -1695,6 +1744,12 @@ export function createFakeSourceAdapter(): FakeSource {
         case 'message': {
           const type = str(p['messageType']) ?? '';
           const channel = type.includes('EMAIL') ? 'email' : type.includes('SMS') ? 'sms' : 'chat';
+          const channelName = type.includes('FACEBOOK')
+            ? 'facebook'
+            : type.includes('WHATSAPP')
+              ? 'whatsapp'
+              : null;
+          const emailMeta = ((p['meta'] ?? {}) as { email?: { subject?: string } }).email;
           const direction = str(p['direction']) === 'inbound' ? 'inbound' : 'outbound';
           return [
             {
@@ -1712,9 +1767,10 @@ export function createFakeSourceAdapter(): FakeSource {
               ],
               data: {
                 channel,
+                channelName,
                 direction,
                 status: direction === 'inbound' ? 'received' : 'delivered',
-                subject: str(p['subject']),
+                subject: str(p['subject']) ?? str(emailMeta?.subject),
                 body: str(p['body']),
                 bodyHtml: null,
                 fromAddress: str(p['from']),

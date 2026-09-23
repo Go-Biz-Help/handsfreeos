@@ -21,6 +21,7 @@ import {
   AUTO_MERGE_SCORE,
   decideMerge,
   FormDefinition,
+  isUniqueViolation,
   mergeScalarFields,
   normalizePhone,
   stricterConsent,
@@ -123,7 +124,16 @@ function fieldValue(type: string, raw: unknown): unknown {
       return undefined;
     }
     case 'date': {
-      const d = new Date(String(text));
+      // A moment as a number is how GoHighLevel sends a date field ("1753660800000"), and `new Date` reads
+      // a string of digits as nothing at all — so those values used to end up in the notes instead. Ten
+      // digits is seconds, thirteen is milliseconds.
+      const digits = String(text);
+      const stamp = /^\d{10}$/.test(digits)
+        ? Number(digits) * 1000
+        : /^\d{12,14}$/.test(digits)
+          ? Number(digits)
+          : null;
+      const d = stamp !== null ? new Date(stamp) : new Date(String(text));
       // The date part only: a date field here holds a day, not a moment.
       return Number.isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
     }
@@ -335,10 +345,17 @@ const fieldKey = (raw: string, fallback: string): string => {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
   const key = /^[a-z]/.test(cleaned) ? cleaned : `f_${cleaned}`;
-  return (key.replace(/_+$/, '') || `f_${fallback.toLowerCase().replace(/[^a-z0-9]/g, '')}`).slice(
-    0,
-    40,
-  );
+  const full = key.replace(/_+$/, '') || `f_${fallback.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+  /**
+   * A key here is at most 40 characters, and cutting a longer one short made two different fields one:
+   * "where would you like to receive SMS notifications" and "… email notifications" both became
+   * `contact_where_would_you_like_to_receive_`, so the second was taken for the first and a phone number
+   * landed in the email field. A long key keeps its start, for whoever reads it, and ends in a short
+   * fingerprint of the whole thing — the same every time for the same field, and different for another.
+   */
+  if (full.length <= 40) return full;
+  const print = createHash('sha256').update(full).digest('hex').slice(0, 8);
+  return `${full.slice(0, 31).replace(/_+$/, '')}_${print}`;
 };
 
 /** The most fields one kind of record carries here: `private.custom_field_room`, in the database. */
@@ -686,17 +703,6 @@ export const importContact: Importer = async (tx, scope, envelope) => {
   lastName = lastName.slice(0, 80);
   const email = str(d.email)?.toLowerCase() ?? null;
   const phoneE164 = normalizePhone(str(d.phone), scope.defaultCountry as never);
-  /**
-   * What to call somebody the old system never named. A record here has to have a name, and GoHighLevel
-   * happily keeps customers with none — a form that captured nothing but an answer, say. One of those used to
-   * fail the whole page of a hundred it sat on, every time, so the customers never finished and nothing that
-   * hangs off them ever started. So: their company, their email, their number, or plainly "Unnamed customer".
-   * Only for a new record; matching and merging still see the name the old system really had, which is none.
-   */
-  const shownFirst =
-    firstName || lastName
-      ? firstName
-      : (str(d.companyName) ?? email ?? str(d.phone) ?? 'Unnamed customer').slice(0, 80);
   const smsConsent: SmsConsent = d.consent?.find((c) => c.channel === 'sms')?.state ?? 'unknown';
   const { createdAt, updatedAt } = sourceTimes(envelope);
 
@@ -711,7 +717,8 @@ export const importContact: Importer = async (tx, scope, envelope) => {
    * all, and is kept back with a reason rather than invented as "Someone" in the middle of the book.
    */
   if (!firstName && !lastName) {
-    const known = email ?? str(d.phone) ?? phoneE164;
+    // The business they work for is the most human of these, and the old system's own list shows it.
+    const known = str(d.companyName) ?? email ?? str(d.phone) ?? phoneE164;
     if (!known) {
       await quarantine(tx, scope, {
         category: 'contacts',
@@ -723,7 +730,22 @@ export const importContact: Importer = async (tx, scope, envelope) => {
           'A customer with no name, no email address and no phone number: there is nothing here to bring.',
         retryable: false,
       });
-      return { counts: { failed: 1 } };
+      /**
+       * Left out, not failed. "Failed" is what the progress screen reads as "needs another go", and trying
+       * again can never find a name that was never there — the first real account had five, each an empty
+       * form somebody opened and walked away from. Said once, in words, instead.
+       */
+      await finding(tx, scope, {
+        code: 'contacts.nothing_to_bring',
+        category: 'contacts',
+        capability: 'needs_review',
+        severity: 'info',
+        summary: 'Some customers in the old system had no name, email address or phone number.',
+        whatImports: 'Nothing for them: there is nothing to call them by or reach them on.',
+        whatChanges: 'They are left out. Everything else comes across.',
+        affected: 1,
+      });
+      return { counts: { skipped: 1 } };
     }
     firstName = known.slice(0, 80);
   }
@@ -880,7 +902,19 @@ export const importContact: Importer = async (tx, scope, envelope) => {
         changed['sms_consent'] = { before: here.sms_consent, after: consent };
       const alt = altPhones[0] ?? here.phone_alt;
       if (alt !== here.phone_alt) changed['phone_alt'] = { before: here.phone_alt, after: alt };
-      const nextNotes = notes ? [here.notes, notes].filter(Boolean).join('\n\n') : here.notes;
+      // A third number has no column of its own, and it is still how this customer was reached: it goes in
+      // the notes rather than nowhere. Four old records sharing one email address, each with its own
+      // number, lost two of them before this.
+      const extraNumber =
+        phoneE164 &&
+        ![here.phone_e164, alt].includes(phoneE164) &&
+        !(here.notes ?? '').includes(phoneE164)
+          ? `Another number from the old system: ${phoneE164}`
+          : null;
+      const nextNotes =
+        notes || extraNumber
+          ? [here.notes, notes, extraNumber].filter(Boolean).join('\n\n')
+          : here.notes;
       if (nextNotes !== here.notes) changed['notes'] = { before: here.notes, after: nextNotes };
       // Custom values merge the way every other field does: what is empty here is filled, what somebody has
       // already answered here is left alone. Two sub-accounts holding the same customer must not fight over
@@ -956,7 +990,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     insert into app.people (id, workspace_id, first_name, last_name, email, phone, phone_e164,
       address_line1, city, state, postal_code, country, source, notes, custom, sms_consent,
       created_at, updated_at)
-    values (${id}::uuid, ${scope.workspaceId}, ${shownFirst}, ${lastName},
+    values (${id}::uuid, ${scope.workspaceId}, ${firstName}, ${lastName},
       ${email}::extensions.citext, ${str(d.phone)}, ${phoneE164},
       ${str(d.address?.line1)}, ${str(d.address?.city)}, ${str(d.address?.state)},
       ${str(d.address?.postalCode)}, coalesce(${str(d.address?.country)}, 'US'),
@@ -1109,6 +1143,8 @@ export const importConversation: Importer = async (tx, scope, envelope) => {
     channel?: string;
     channelName?: string | null;
     counterpart?: string;
+    phone?: string | null;
+    email?: string | null;
     subject?: string | null;
     status?: string;
     startedAt?: string | null;
@@ -1122,38 +1158,35 @@ export const importConversation: Importer = async (tx, scope, envelope) => {
   );
   if (already) return { counts: { skipped: 1 } };
 
-  const channel = d.channel === 'sms' || d.channel === 'email' ? d.channel : 'chat';
   // The table decides what a counterpart may be, and it is strict for a reason: a text thread is addressed
   // by a real number and an email thread by a real address, or neither can ever be replied to from here.
-  const raw = str(d.counterpart);
+  // So the thread goes where the customer can really be reached: the channel the old system called it when
+  // that works, the other addressable one when it does not, and a chat thread of its own as the last resort
+  // — never nowhere, because every message in it would then have nowhere to go either.
+  const phoneOf = (v: string | null | undefined) =>
+    normalizePhone(str(v), scope.defaultCountry as never);
+  const emailOf = (v: string | null | undefined) => {
+    const e = str(v)?.toLowerCase() ?? null;
+    return e && e.includes('@') ? e : null;
+  };
+  const wanted = d.channel === 'sms' || d.channel === 'email' ? d.channel : 'chat';
+  const byChannel = {
+    sms: phoneOf(wanted === 'sms' ? d.counterpart : null) ?? phoneOf(d.phone),
+    email: emailOf(wanted === 'email' ? d.counterpart : null) ?? emailOf(d.email),
+  };
+  const order: ('sms' | 'email')[] =
+    wanted === 'sms' ? ['sms', 'email'] : wanted === 'email' ? ['email', 'sms'] : [];
+  const picked = order.find((c) => byChannel[c]);
+  const channel: 'sms' | 'email' | 'chat' = picked ?? 'chat';
   const counterpart =
-    channel === 'sms'
-      ? normalizePhone(raw, scope.defaultCountry as never)
-      : channel === 'email'
-        ? raw?.toLowerCase().includes('@')
-          ? raw.toLowerCase()
-          : null
-        : // A chat thread is addressed by a visitor id (`chat:…`), because that is what chat means here: the
-          // website window. A WhatsApp or Instagram thread has no visitor id, so it gets one of its own,
-          // named for where it came from — the customer is still attached by `person_id`, which is what the
-          // inbox shows. Deliberately not folded onto the customer's text thread: replying there would send
-          // a real text to somebody who wrote on WhatsApp, and they would never see it.
-          chatAddress(scope.sourceSystem, envelope.source.objectId);
-  if (!counterpart) {
-    await quarantine(tx, scope, {
-      category: 'conversations',
-      sourceObjectType: envelope.source.objectType,
-      sourceObjectId: envelope.source.objectId,
-      kind: 'mapping',
-      code: 'conversation_without_counterpart',
-      message:
-        channel === 'sms'
-          ? `A text thread whose number the old system gave as "${raw ?? 'nothing'}" cannot be placed: a thread here is addressed by a real number so it can be replied to.`
-          : `A ${channel} thread with nobody addressable on the other end cannot be placed.`,
-      retryable: false,
-    });
-    return { counts: { failed: 1 } };
-  }
+    picked !== undefined
+      ? byChannel[picked]!
+      : // A chat thread is addressed by a visitor id (`chat:…`), because that is what chat means here: the
+        // website window. A WhatsApp or Instagram thread has no visitor id, so it gets one of its own,
+        // named for where it came from — the customer is still attached by `person_id`, which is what the
+        // inbox shows. Deliberately not folded onto the customer's text thread: replying there would send
+        // a real text to somebody who wrote on WhatsApp, and they would never see it.
+        chatAddress(scope.sourceSystem, envelope.source.objectId);
 
   const personId = await conversationPerson(tx, scope, envelope);
   const { createdAt, updatedAt } = sourceTimes(envelope);
@@ -1282,21 +1315,125 @@ async function parentConversation(
   tx: Tx,
   scope: ImportScope,
   envelope: CanonicalEnvelope,
-): Promise<{ id: string; personId: string | null } | null> {
+): Promise<{ id: string; personId: string | null; channel: string; sourceId: string } | null> {
   const ref = envelope.relationships.find((r) => r.role === 'conversation');
   if (!ref) return null;
   const mapped = await existingMapping(tx, scope, ref.objectType, ref.objectId);
   if (!mapped || mapped.targetType !== 'conversation') return null;
-  const [row] = await rows<{ person_id: string | null }>(
+  const [row] = await rows<{ person_id: string | null; channel: string }>(
     tx,
-    sql`select person_id::text as person_id from app.conversations where id = ${mapped.targetId}::uuid`,
+    sql`select person_id::text as person_id, channel::text as channel from app.conversations
+        where id = ${mapped.targetId}::uuid`,
   );
-  return { id: mapped.targetId, personId: row?.person_id ?? null };
+  return {
+    id: mapped.targetId,
+    personId: row?.person_id ?? null,
+    channel: row?.channel ?? 'chat',
+    sourceId: ref.objectId,
+  };
+}
+
+/**
+ * The thread a message belongs in, which is not always the thread it came in.
+ *
+ * The old system keeps one thread per customer with everything in it — texts, emails, calls, Facebook — and a
+ * thread here is one channel, addressed by the number, the address or the chat it is on. So each message is
+ * filed by its own channel: a text in the customer's text thread (the number it was sent to or from), an
+ * email in their email thread, a Facebook or Instagram message in a chat thread of that source thread's own.
+ * A thread that does not exist yet is made, and journalled with the message that needed it, so taking the
+ * move back takes it away too. When a text or an email has nothing to be addressed by at all, it goes to a
+ * chat thread named for what it was rather than being lost.
+ *
+ * Before this, every one of the first real account's 19,000 messages was refused: the thread was a chat and
+ * the database will not file a text in a chat thread.
+ */
+async function threadFor(
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+  parent: { id: string; personId: string | null; channel: string; sourceId: string },
+  want: {
+    readonly channel: 'sms' | 'email' | 'chat';
+    readonly channelName?: string | null;
+    readonly customerPhone?: string | null;
+    readonly occurredAt: string | null;
+    /** A call has no chat of its own to fall back to: it stays in the thread it came in instead. */
+    readonly stayWhenUnaddressable?: boolean;
+  },
+): Promise<{ id: string; channel: 'sms' | 'email' | 'chat' }> {
+  // A chat message stays in a chat parent; a text or an email in a parent of its own channel.
+  if (parent.channel === want.channel) return { id: parent.id, channel: want.channel };
+  const [person] = parent.personId
+    ? await rows<{ phone_e164: string | null; email: string | null }>(
+        tx,
+        sql`select phone_e164, email::text as email from app.people where id = ${parent.personId}::uuid`,
+      )
+    : [];
+  let channel = want.channel;
+  let counterpart: string | null =
+    channel === 'sms'
+      ? (normalizePhone(str(want.customerPhone), scope.defaultCountry as never) ??
+        person?.phone_e164 ??
+        null)
+      : channel === 'email'
+        ? (person?.email?.toLowerCase() ?? null)
+        : chatAddress(scope.sourceSystem, `${parent.sourceId}-${str(want.channelName) ?? 'chat'}`);
+  if (!counterpart) {
+    if (want.stayWhenUnaddressable)
+      return { id: parent.id, channel: parent.channel as 'sms' | 'email' | 'chat' };
+    channel = 'chat';
+    counterpart = chatAddress(scope.sourceSystem, `${parent.sourceId}-${want.channel}`);
+  }
+  const [here] = await rows<{ id: string }>(
+    tx,
+    sql`select id::text as id from app.conversations
+        where workspace_id = ${scope.workspaceId} and channel = ${channel}::app.channel
+          and counterpart = ${counterpart} limit 1`,
+  );
+  if (here) {
+    if (parent.personId)
+      await tx.execute(sql`
+        update app.conversations set person_id = coalesce(person_id, ${parent.personId}::uuid)
+        where id = ${here.id}::uuid`);
+    return { id: here.id, channel };
+  }
+  const id = randomUUID();
+  try {
+    // Behind its own savepoint: the messages and the calls are read by different batches, which can run
+    // side by side, and both can reach for the same new thread. The one that loses uses the winner's.
+    await tx.transaction(async (one) => {
+      await one.execute(sql`
+        insert into app.conversations (id, workspace_id, channel, counterpart, person_id, status,
+          unread_count, last_message_at, created_at, updated_at)
+        values (${id}::uuid, ${scope.workspaceId}, ${channel}::app.channel, ${counterpart.slice(0, 320)},
+          ${parent.personId}::uuid, 'closed'::app.conversation_status, 0, ${want.occurredAt}::timestamptz,
+          coalesce(${want.occurredAt}::timestamptz, now()), coalesce(${want.occurredAt}::timestamptz, now()))`);
+      await journal(one, scope, {
+        action: 'create',
+        targetType: 'conversation',
+        targetId: id,
+        sourceObjectType: envelope.source.objectType,
+        sourceObjectId: envelope.source.objectId,
+      });
+    });
+  } catch (e) {
+    if (!isUniqueViolation(e)) throw e;
+    const [raced] = await rows<{ id: string }>(
+      tx,
+      sql`select id::text as id from app.conversations
+          where workspace_id = ${scope.workspaceId} and channel = ${channel}::app.channel
+            and counterpart = ${counterpart.slice(0, 320)} limit 1`,
+    );
+    if (!raced) throw e;
+    return { id: raced.id, channel };
+  }
+  return { id, channel };
 }
 
 export const importMessage: Importer = async (tx, scope, envelope) => {
   const d = envelope.data as {
     channel?: string;
+    channelName?: string | null;
     direction?: string;
     status?: string;
     subject?: string | null;
@@ -1338,9 +1475,16 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
     });
     return { counts: { failed: 1 } };
   }
-  const channel = d.channel === 'sms' || d.channel === 'email' ? d.channel : 'chat';
   const direction = d.direction === 'inbound' ? 'inbound' : 'outbound';
   const occurredAt = d.occurredAt ?? envelope.source.sourceCreatedAt ?? null;
+  // The customer's side of a text is who sent it when it came in, and who it went to when it went out.
+  const thread = await threadFor(tx, scope, envelope, parent, {
+    channel: d.channel === 'sms' || d.channel === 'email' ? d.channel : 'chat',
+    channelName: d.channelName ?? null,
+    customerPhone: direction === 'inbound' ? str(d.fromAddress) : (d.toAddresses ?? [])[0],
+    occurredAt,
+  });
+  const channel = thread.channel;
   // The table's own rule, and it is the right one: a message the customer sent is `received` and a message
   // the business sent never is. Whatever the old system called it, the direction decides.
   const status =
@@ -1363,7 +1507,7 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
     insert into app.messages (id, workspace_id, conversation_id, channel, direction, status,
       from_address, to_addresses, subject, body_text, body_html, media, provider, provider_message_id,
       dedupe_key, occurred_at, sent_at, delivered_at, created_at, updated_at)
-    values (${id}::uuid, ${scope.workspaceId}, ${parent.id}::uuid, ${channel}::app.channel,
+    values (${id}::uuid, ${scope.workspaceId}, ${thread.id}::uuid, ${channel}::app.channel,
       ${direction}::app.direction, ${status}::app.message_status,
       ${str(d.fromAddress)}, ${textArray(d.toAddresses ?? [])}, ${str(d.subject)?.slice(0, 998) ?? null},
       ${tooLong ? body!.slice(0, 10_000) : body}, ${bodyHtml},
@@ -1395,7 +1539,7 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
       last_outbound_at = case when ${direction} = 'outbound'
         then greatest(coalesce(last_outbound_at, ${occurredAt}::timestamptz), ${occurredAt}::timestamptz)
         else last_outbound_at end
-    where id = ${parent.id}::uuid`);
+    where id = ${thread.id}::uuid`);
   for (const file of (d.media ?? []).slice(0, 20))
     await queueMedia(tx, scope, {
       sourceObjectType: envelope.source.objectType,
@@ -1479,8 +1623,23 @@ export const importCall: Importer = async (tx, scope, envelope) => {
   );
   if (already) return { counts: { skipped: 1 } };
 
-  const parent = await parentConversation(tx, scope, envelope);
+  const found = await parentConversation(tx, scope, envelope);
   const startedAt = d.startedAt ?? envelope.source.sourceCreatedAt ?? null;
+  const inbound = d.direction === 'inbound';
+  // A call belongs with the customer's texts: the thread for the number they called from or were called on.
+  const parent = found
+    ? {
+        ...found,
+        id: (
+          await threadFor(tx, scope, envelope, found, {
+            channel: 'sms',
+            customerPhone: inbound ? str(d.fromNumber) : str(d.toNumber),
+            occurredAt: startedAt,
+            stayWhenUnaddressable: true,
+          })
+        ).id,
+      }
+    : null;
   const id = randomUUID();
   /**
    * No `provider_sid`, on purpose. That column is unique across the whole database because it holds a
@@ -2315,11 +2474,8 @@ export const importInvoice: Importer = async (tx, scope, envelope) => {
     return { counts: { failed: 1 } };
   }
 
-  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
-  const person = contactRef
-    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
-    : null;
-  if (person?.targetType !== 'person') {
+  const person = await moneyCustomer(tx, scope, envelope);
+  if (!person) {
     await quarantine(tx, scope, {
       category: 'invoices',
       sourceObjectType: envelope.source.objectType,
@@ -2455,11 +2611,8 @@ export const importEstimate: Importer = async (tx, scope, envelope) => {
     return { counts: { failed: 1 } };
   }
 
-  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
-  const person = contactRef
-    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
-    : null;
-  if (person?.targetType !== 'person') {
+  const person = await moneyCustomer(tx, scope, envelope);
+  if (!person) {
     await quarantine(tx, scope, {
       category: 'estimates',
       sourceObjectType: envelope.source.objectType,
@@ -2537,6 +2690,43 @@ export const importEstimate: Importer = async (tx, scope, envelope) => {
 };
 
 /**
+ * The customer a bill, a quote or a plan is for.
+ *
+ * By the old system's own id first. When that customer is gone over there — deleted, or merged into another
+ * — the record still names them, so the same person is found by the exact email address it carries, and by
+ * the number only when it carries no address at all. An address that matches nobody, or more than one
+ * person, finds nobody: a plan on the wrong customer is worse than a plan waiting for a person to place it.
+ * Nine of the first real account's forty plans were on customers deleted over there, all of them somebody
+ * still here under another record.
+ */
+async function moneyCustomer(
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+): Promise<{ targetType: 'person'; targetId: string } | null> {
+  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
+  const mapped = contactRef
+    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
+    : null;
+  if (mapped?.targetType === 'person') return { targetType: 'person', targetId: mapped.targetId };
+  const d = envelope.data as { customerEmail?: string | null; customerPhone?: string | null };
+  const email = str(d.customerEmail)?.toLowerCase() ?? null;
+  const phone = email ? null : normalizePhone(str(d.customerPhone), scope.defaultCountry as never);
+  if (!email && !phone) return null;
+  const found = await rows<{ id: string }>(
+    tx,
+    email
+      ? sql`select id::text as id from app.people
+            where workspace_id = ${scope.workspaceId} and archived_at is null
+              and email = ${email}::extensions.citext limit 2`
+      : sql`select id::text as id from app.people
+            where workspace_id = ${scope.workspaceId} and archived_at is null
+              and phone_e164 = ${phone} limit 2`,
+  );
+  return found.length === 1 ? { targetType: 'person', targetId: found[0]!.id } : null;
+}
+
+/**
  * A customer's recurring plan, as a record of what they are on — and never as something HandsFreeOS bills.
  *
  * `unmanaged` is already the word for this in the schema: a plan still charging at a processor we do not
@@ -2566,11 +2756,8 @@ export const importSubscription: Importer = async (tx, scope, envelope) => {
   );
   if (already) return { counts: { skipped: 1 } };
 
-  const contactRef = envelope.relationships.find((r) => r.role === 'contact');
-  const person = contactRef
-    ? await existingMapping(tx, scope, contactRef.objectType, contactRef.objectId)
-    : null;
-  if (person?.targetType !== 'person') {
+  const person = await moneyCustomer(tx, scope, envelope);
+  if (!person) {
     await quarantine(tx, scope, {
       category: 'subscriptions',
       sourceObjectType: envelope.source.objectType,

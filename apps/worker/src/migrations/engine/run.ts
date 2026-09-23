@@ -167,7 +167,15 @@ async function finishJob(
   );
 }
 
-/** Put the batch back with a little more delay each time, and give up after enough tries. */
+/**
+ * Put the batch back to carry on: its page is saved, or it is waiting its turn.
+ *
+ * Neither is a failure, so the count of tries starts again. Claiming counts a try every time, and a category
+ * is one batch claimed once per page — so without this, the messages of 800 conversations had used up every
+ * try by the seventh conversation, and the first hiccup after that (one 429, one timeout) failed the whole
+ * category for good, with no retry at all. `attempts` is what `failJob` reads as "tries in a row that went
+ * wrong", and now it is.
+ */
 async function requeueJob(
   deps: MigrationDeps,
   job: JobRow,
@@ -177,7 +185,7 @@ async function requeueJob(
   await asWorker(deps.db, { workspaceId: null, organizationId: job.organization_id }, (tx) =>
     tx.execute(sql`
       update app.migration_jobs
-         set state = 'pending', leased_by = null, leased_until = null,
+         set state = 'pending', leased_by = null, leased_until = null, attempts = 0,
              run_at = now() + make_interval(secs => ${Math.round(delayMs / 1000)}),
              input = ${JSON.stringify(input)}::jsonb
        where id = ${job.id}`),

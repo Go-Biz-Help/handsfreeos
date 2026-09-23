@@ -200,6 +200,13 @@ export const CanonicalConversation = z.object({
   channelName: z.string().max(40).nullish(),
   /** The customer's side of it: a number, an address or a handle. */
   counterpart: z.string().min(1).max(320),
+  /**
+   * The customer's number and address, each when the source gives it. One source thread can hold texts,
+   * emails and calls together while a thread here is one channel, so the importer needs both to put each
+   * message in the thread for its own channel — and to fall back when the preferred one is missing.
+   */
+  phone: z.string().max(40).nullish(),
+  email: z.string().max(320).nullish(),
   subject: z.string().max(400).nullish(),
   /** History arrives settled. An open thread is one the business was still in the middle of. */
   status: z.enum(['open', 'closed']).default('closed'),
@@ -223,6 +230,8 @@ export type CanonicalMedia = z.infer<typeof CanonicalMedia>;
  */
 export const CanonicalMessage = z.object({
   channel: z.enum(['sms', 'email', 'chat']),
+  /** What the source called the channel, when it is not one of ours ('facebook', 'instagram'). */
+  channelName: z.string().max(40).nullish(),
   direction: z.enum(['inbound', 'outbound']),
   /** Narrowed to what HandsFreeOS records; anything unrecognised becomes the settled state for its direction. */
   status: z
@@ -372,6 +381,12 @@ export type CanonicalMoneyLine = z.infer<typeof CanonicalMoneyLine>;
  * from the lines would quietly change history when a rounding rule differs.
  */
 export const CanonicalInvoice = z.object({
+  /**
+   * Who it was for, as the record itself spells it. Used only when the customer it names is gone over there
+   * — deleted, or merged into another — to find the same person by their exact email address.
+   */
+  customerEmail: z.string().max(320).nullish(),
+  customerPhone: z.string().max(40).nullish(),
   number: z.string().max(40).nullish(),
   title: z.string().max(200).nullish(),
   notes: z.string().max(5000).nullish(),
@@ -393,6 +408,12 @@ export type CanonicalInvoice = z.infer<typeof CanonicalInvoice>;
 
 /** A quote, as it stood, and what the customer did about it. */
 export const CanonicalEstimate = z.object({
+  /**
+   * Who it was for, as the record itself spells it. Used only when the customer it names is gone over there
+   * — deleted, or merged into another — to find the same person by their exact email address.
+   */
+  customerEmail: z.string().max(320).nullish(),
+  customerPhone: z.string().max(40).nullish(),
   number: z.string().max(40).nullish(),
   title: z.string().max(200).nullish(),
   notes: z.string().max(5000).nullish(),
@@ -419,6 +440,12 @@ export type CanonicalEstimate = z.infer<typeof CanonicalEstimate>;
  * mandate live at the old system's processor, and only the business moving them deliberately can change that.
  */
 export const CanonicalSubscription = z.object({
+  /**
+   * Who it was for, as the record itself spells it. Used only when the customer it names is gone over there
+   * — deleted, or merged into another — to find the same person by their exact email address.
+   */
+  customerEmail: z.string().max(320).nullish(),
+  customerPhone: z.string().max(40).nullish(),
   planName: z.string().min(1).max(160),
   priceCents: z.number().int().min(0).max(100_000_000_000).default(0),
   interval: z.enum(['day', 'week', 'month', 'year']).default('month'),
