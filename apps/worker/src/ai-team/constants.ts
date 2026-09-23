@@ -39,6 +39,15 @@ export const REPLY_DELAY_MS: Readonly<Record<TeammateChannel, number>> = {
   sms: 20_000,
   email: 60_000,
 };
+/**
+ * M18: once its replies go out on their own, a customer isn't waiting on a person's OK as well, so the wait for
+ * them to finish typing is shorter. Email keeps its minute: nobody expects an email back in seconds.
+ */
+export const REPLY_DELAY_AUTOMATIC_MS: Readonly<Record<TeammateChannel, number>> = {
+  chat: 1_500,
+  sms: 8_000,
+  email: 60_000,
+};
 /** A reply never waits longer than this after the first message it answers. */
 export const REPLY_CEILING_MS = 90_000;
 /** What waits for quiet hours goes this long after they end. */

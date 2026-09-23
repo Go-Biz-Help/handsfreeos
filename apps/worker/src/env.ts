@@ -57,6 +57,14 @@ export interface WorkerEnv {
   readonly geocoder: 'google' | 'fake' | 'off';
   readonly googleMapsServerKey: string | null;
   /**
+   * M18 step 5: who listens and speaks when the AI teammate answers a call live. `deepgram` needs
+   * DEEPGRAM_API_KEY (the same key transcripts use); `off` (production without one) keeps every call ringing
+   * the team and going to voicemail; `fake` is the stand-in for development and tests.
+   */
+  readonly voiceAgent: 'deepgram' | 'fake' | 'off';
+  /** The model that thinks on a call; unset uses ASSISTANT_MODEL. A faster one keeps the pauses short. */
+  readonly voiceModel: string | null;
+  /**
    * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
    * in-memory stand-in for development and tests. `off` is the honest default for a deployment that has not
    * been given a token yet: the feature is simply not offered, rather than offered and then failing.
@@ -252,6 +260,15 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('GEOCODER=fake is for development and tests only');
   if (geocoder === 'google' && !googleMapsServerKey)
     throw new Error('GOOGLE_MAPS_SERVER_KEY is required with GEOCODER=google');
+
+  const voiceAgent = (env.VOICE_AGENT ??
+    (production ? (deepgramApiKey ? 'deepgram' : 'off') : 'fake')) as string;
+  if (voiceAgent !== 'deepgram' && voiceAgent !== 'fake' && voiceAgent !== 'off')
+    throw new Error('VOICE_AGENT must be deepgram, fake or off');
+  if (production && voiceAgent === 'fake')
+    throw new Error('VOICE_AGENT=fake is for development and tests only');
+  if (voiceAgent === 'deepgram' && !deepgramApiKey)
+    throw new Error('DEEPGRAM_API_KEY is required with VOICE_AGENT=deepgram');
 
   // Branded domains (M17). `off` unless a token is there, because a business that adds a domain and then
   // waits forever for records that are never fetched is worse off than one that was never offered it.
@@ -491,6 +508,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     deepgramApiKey,
     geocoder: geocoder as 'google' | 'fake' | 'off',
     googleMapsServerKey,
+    voiceAgent: voiceAgent as 'deepgram' | 'fake' | 'off',
+    voiceModel: (env.VOICE_MODEL ?? '').trim() || null,
     walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,
     twilioAuthToken,

@@ -257,9 +257,11 @@ function describeCall(e: TimelineEntry, viewerId?: string): string {
       const how =
         e.meta.answeredVia === 'forwarding'
           ? 'answered on a forwarding phone'
-          : viewerId && e.meta.answeredByUserId === viewerId
-            ? 'you answered in the browser'
-            : 'answered in the browser';
+          : e.meta.answeredVia === 'ai'
+            ? 'the AI teammate answered'
+            : viewerId && e.meta.answeredByUserId === viewerId
+              ? 'you answered in the browser'
+              : 'answered in the browser';
       return `called · ${callClock(num(e.meta.durationSeconds))} · ${how}`;
     }
     default:

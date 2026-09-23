@@ -349,6 +349,25 @@ const HandOff = z.object({
     .default("Thanks for your patience. I've passed this to our team, and {expectation}."),
 });
 
+// ---- Phone (M18 step 5) ----
+
+/** no_answer: after the team's phones ring out; after_hours: while the business is closed; always: every call. */
+export const PHONE_ANSWER_MODES = ['no_answer', 'after_hours', 'always'] as const;
+export type PhoneAnswerMode = (typeof PHONE_ANSWER_MODES)[number];
+
+/** How it sounds on a call. Each has an English and a Spanish voice, so it can answer in the caller's language. */
+export const PHONE_VOICES = ['warm', 'bright', 'calm', 'deep'] as const;
+export type PhoneVoice = (typeof PHONE_VOICES)[number];
+
+const Phone = z.object({
+  /** Answers the business's phone numbers live, with the same tools, holds and hand-off as text. */
+  enabled: z.boolean().default(false),
+  answer: z.enum(PHONE_ANSWER_MODES).default('no_answer'),
+  voice: z.enum(PHONE_VOICES).default('warm'),
+  /** What it says when it picks up; empty says "Thanks for calling {business}, this is {name}…". */
+  greeting: z.string().trim().max(200).default(''),
+});
+
 // ---- The document ----
 
 export const TeammateConfig = z.object({
@@ -367,6 +386,7 @@ export const TeammateConfig = z.object({
   limits: Limits.prefault({}),
   money: Money.prefault({}),
   handOff: HandOff.prefault({}),
+  phone: Phone.prefault({}),
 });
 export type TeammateConfig = z.infer<typeof TeammateConfig>;
 export type TeammateConfigInput = z.input<typeof TeammateConfig>;

@@ -236,6 +236,12 @@ export interface TelephonyProvider {
    */
   endCall(account: ProviderAccount, callSid: string): Promise<void>;
   /**
+   * Gives a live call new instructions (M18 step 5): the AI teammate hands a caller to the team by ringing them
+   * on the same call. Whatever the call was doing (a live stream to the teammate) stops. One that already ended
+   * is fine.
+   */
+  redirectCall(account: ProviderAccount, callSid: string, twiml: string): Promise<void>;
+  /**
    * Asks for a whole call recording's words (a voicemail gets its own when it is recorded). The worker reads them
    * with fetchTranscription until they're ready.
    */

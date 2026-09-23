@@ -1,11 +1,23 @@
 import { and, eq, isNotNull } from 'drizzle-orm';
-import { callUpdateStatus, executeCommand, HfosError, userPhoneVerify } from '@hfos/core/server';
+import {
+  callUpdateStatus,
+  executeCommand,
+  HfosError,
+  loadTeammate,
+  openHoursOf,
+  userPhoneVerify,
+  type PhoneAnswerMode,
+} from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { calls, phoneNumbers, telephonyAccounts, userPhones } from '@hfos/db/schema';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { runtimeConfigOf } from '../ai-team/config';
+import { withinHours } from '../ai-team/gates';
 import { systemActor, workerMeta, type TenantScope } from '../services';
+import { sealTicket, type StreamTicket } from '../voice-agent/ticket';
 import {
+  agentTwiml,
   BRIDGE_NOT_PLACED_TWIML,
   bridgeDialTwiml,
   bridgeGateTwiml,
@@ -25,13 +37,16 @@ import {
   spokenPhone,
   twiml,
   UNAVAILABLE_TWIML,
+  UNAVAILABLE_VERBS,
   userIdOfIdentity,
   VERIFIED_TWIML,
   verifyTwiml,
   voiceAccessToken,
   voicemailTwiml,
+  voicemailVerbs,
   voiceUrls,
   type Routing,
+  type VoiceUrls,
 } from '../telephony/voice';
 import { mayRingOut, walletRoom } from '@hfos/core/server';
 import {
@@ -172,6 +187,138 @@ const noAnswerTwiml = (routing: Routing, route: Route, urls: ReturnType<typeof v
     : UNAVAILABLE_TWIML;
 
 /**
+ * Whether the AI teammate answers this business's calls live (M18 step 5), and when: its phone setting is on,
+ * it isn't off, calls can be heard and spoken (VOICE_AGENT), a model is set up, and the balance has room for AI.
+ * `closed`: the business is closed right now, for "after hours".
+ */
+async function aiAnswering(
+  deps: HttpDeps,
+  scope: TenantScope,
+): Promise<{ readonly mode: PhoneAnswerMode; readonly closed: boolean } | null> {
+  if (!deps.speech || !(deps.voiceAi ?? deps.ai.provider)) return null;
+  return asWorker(deps.httpDb, scope, async (tx) => {
+    const teammate = await loadTeammate(tx, scope.workspaceId);
+    if (!teammate || teammate.status === 'off') return null;
+    const config = runtimeConfigOf(teammate.config);
+    if (!config.phone.enabled) return null;
+    const room = await walletRoom(tx, scope.workspaceId, 'ai', (m, e) =>
+      deps.log.error({ err: e }, m),
+    );
+    if (!room.allowed) return null;
+    const [w] = await rows<{ timezone: string | null; settings: unknown }>(
+      tx,
+      sql`select timezone, settings from app.workspaces where id = ${scope.workspaceId}`,
+    );
+    const hours = openHoursOf(w?.settings as Record<string, unknown> | null);
+    return {
+      mode: config.phone.answer,
+      closed: !withinHours(hours, w?.timezone || 'UTC', Date.now()),
+    };
+  });
+}
+
+/** Sends the call to the AI teammate; if its stream ends without new instructions, the voicemail follows. */
+function toTeammate(
+  deps: HttpDeps,
+  route: Route,
+  call: { readonly callSid: string; readonly from: string },
+  urls: VoiceUrls,
+): string {
+  const routing = routingOf(route.routing);
+  const ticket = sealTicket(deps.sealer, {
+    workspaceId: route.workspace_id,
+    organizationId: route.organization_id,
+    callSid: call.callSid,
+    line: route.e164,
+    from: call.from,
+  });
+  const after = routing.voicemailEnabled
+    ? voicemailVerbs(routing.voicemailGreeting ?? defaultGreeting(route.workspace_name), urls)
+    : UNAVAILABLE_VERBS;
+  return agentTwiml(ticket, after, urls);
+}
+
+/**
+ * Rings the team for a call: every teammate's browser and each enabled forwarding phone, or the voicemail when
+ * nobody can be rung (or the balance can't pay for ringing out). `dialResult` is where Twilio says how the
+ * ringing went: the usual one, or the one after the AI teammate handed the call on.
+ */
+async function teamTwiml(
+  deps: HttpDeps,
+  route: Route,
+  call: { readonly callSid: string; readonly from: string | undefined },
+  urls: VoiceUrls,
+  opts: { readonly dialResult?: string; readonly ringOut?: boolean } = {},
+): Promise<{ readonly twiml: string; readonly rings: boolean }> {
+  const scope = scopeOf(route);
+  const routing = routingOf(route.routing);
+  const from = call.from;
+  // Calling the business line from a forwarding phone (the owner's cell) should not ring that phone.
+  const forwarding = routing.forwarding.filter((f) => f.e164 !== from);
+  const identities = (route.client_identities ?? []).slice(0, 10);
+  /**
+   * **Inbound is never hard-blocked** (M16, step 9). A customer hearing "not in service" is the business's
+   * reputation, and Twilio bills us for the inbound leg whether we answer or not — refusing saves almost
+   * nothing. What stops past the overdraft is the *extra*: the outbound legs that ring somebody's own cell,
+   * which cost real money on top. The call still goes to voicemail, so the customer is still heard, and the
+   * voicemail still gets transcribed and still lands in the inbox.
+   */
+  const ringOut =
+    opts.ringOut ??
+    mayRingOut(
+      await asWorker(deps.db, scope, (tx) =>
+        walletRoom(tx, route.workspace_id, 'call', (m, e) => deps.log.error({ err: e }, m)),
+      ),
+    );
+  if (identities.length + forwarding.length === 0 || !ringOut)
+    return { twiml: noAnswerTwiml(routing, route, urls), rings: false };
+  const caller = isPhone(from) ? await callerCard(deps, scope, from) : null;
+  return {
+    rings: true,
+    twiml: ringTwiml(
+      {
+        identities,
+        forwarding,
+        ringSeconds: routing.ringSeconds,
+        line: route.e164,
+        // The business number on forwarded phones, when the number is set to show it.
+        callerId: routing.forwardedCallerId === 'business' ? route.e164 : null,
+        params: {
+          workspaceId: route.workspace_id,
+          callSid: call.callSid,
+          from: isPhone(from) ? from : '',
+          callerName: caller?.name ?? '',
+          personId: caller?.personId ?? '',
+          leadTitle: caller?.leadTitle ?? '',
+          lineName: route.workspace_name,
+          alsoRinging: joinNames(forwarding.map((f) => f.label)),
+          teammates: String(identities.length),
+        },
+      },
+      opts.dialResult ? { ...urls, dialResult: opts.dialResult } : urls,
+    ),
+  };
+}
+
+/**
+ * The AI teammate hands a caller to a person (M18 step 5): the team rings on the same call, and nobody
+ * answering goes to voicemail, never back to the teammate.
+ */
+export async function transferTwimlFor(deps: HttpDeps, ticket: StreamTicket): Promise<string> {
+  const urls = voiceUrls(deps.publicUrl);
+  const route = await routeFor(deps, ticket.line);
+  if (!route || route.workspace_id !== ticket.workspaceId) return UNAVAILABLE_TWIML;
+  const { twiml: body } = await teamTwiml(
+    deps,
+    route,
+    { callSid: ticket.callSid, from: ticket.from },
+    urls,
+    { dialResult: urls.dialResultAfterAi },
+  );
+  return body;
+}
+
+/**
  * Calls. The TwiML routes answer at once from one lookup (Twilio waits on them); every status report is
  * stored and processed by the webhook loop like the texting webhooks.
  */
@@ -199,52 +346,17 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (!route) return xml(reply, NOT_IN_SERVICE_TWIML);
     const scope = scopeOf(route);
     if (p['CallSid']) await store(v, 'voice.inbound', `${p['CallSid']}:inbound`, scope);
-    const routing = routingOf(route.routing);
     const from = p['From'];
-    // Calling the business line from a forwarding phone (the owner's cell) should not ring that phone.
-    const forwarding = routing.forwarding.filter((f) => f.e164 !== from);
-    const identities = (route.client_identities ?? []).slice(0, 10);
-    /**
-     * **Inbound is never hard-blocked** (M16, step 9). A customer hearing "not in service" is the business's
-     * reputation, and Twilio bills us for the inbound leg whether we answer or not — refusing saves almost
-     * nothing. What stops past the overdraft is the *extra*: the outbound legs that ring somebody's own cell,
-     * which cost real money on top. The call still goes to voicemail, so the customer is still heard, and the
-     * voicemail still gets transcribed and still lands in the inbox.
-     *
-     * One extra condition on the test that was already here, which is exactly where the plan said to put it.
-     */
-    const room = await asWorker(deps.db, scope, (tx) =>
-      walletRoom(tx, route.workspace_id, 'call', (m, e) => deps.log.error({ err: e }, m)),
-    );
-    const ringOut = mayRingOut(room);
-    if (identities.length + forwarding.length === 0 || !ringOut)
-      return xml(reply, noAnswerTwiml(routing, route, urls));
-    const caller = isPhone(from) ? await callerCard(deps, scope, from) : null;
-    return xml(
-      reply,
-      ringTwiml(
-        {
-          identities,
-          forwarding,
-          ringSeconds: routing.ringSeconds,
-          line: route.e164,
-          // The business number on forwarded phones, when the number is set to show it.
-          callerId: routing.forwardedCallerId === 'business' ? route.e164 : null,
-          params: {
-            workspaceId: route.workspace_id,
-            callSid: p['CallSid'] ?? '',
-            from: isPhone(from) ? from : '',
-            callerName: caller?.name ?? '',
-            personId: caller?.personId ?? '',
-            leadTitle: caller?.leadTitle ?? '',
-            lineName: route.workspace_name,
-            alsoRinging: joinNames(forwarding.map((f) => f.label)),
-            teammates: String(identities.length),
-          },
-        },
-        urls,
-      ),
-    );
+    const callSid = p['CallSid'] ?? '';
+    const ai = callSid && isPhone(from) ? await aiAnswering(deps, scope) : null;
+    // M18 step 5: the AI teammate picks up every call, or every call while the business is closed.
+    if (ai && (ai.mode === 'always' || (ai.mode === 'after_hours' && ai.closed)))
+      return xml(reply, toTeammate(deps, route, { callSid, from: from! }, urls));
+    const team = await teamTwiml(deps, route, { callSid, from }, urls);
+    // Nobody to ring: the teammate answers now rather than after ringing nobody.
+    if (!team.rings && ai?.mode === 'no_answer')
+      return xml(reply, toTeammate(deps, route, { callSid, from: from! }, urls));
+    return xml(reply, team.twiml);
   });
 
   // A forwarded phone picked up: say who is calling; pressing 1 takes the call.
@@ -278,6 +390,14 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (v.params['DialCallStatus'] === 'completed') return xml(reply, HANGUP_TWIML);
     const route = await routeFor(deps, v.params['To']);
     if (!route) return xml(reply, HANGUP_TWIML);
+    // M18 step 5: nobody picked up, so the AI teammate does, unless it's the one that rang them.
+    const callSid = v.params['CallSid'];
+    const from = v.params['From'];
+    if (query(req)['after'] !== 'ai' && callSid && isPhone(from)) {
+      const ai = await aiAnswering(deps, scopeOf(route));
+      if (ai?.mode === 'no_answer')
+        return xml(reply, toTeammate(deps, route, { callSid, from }, urls));
+    }
     return xml(reply, noAnswerTwiml(routingOf(route.routing), route, urls));
   });
 

@@ -42,7 +42,13 @@ import {
 import { scheduleDebouncedJob } from '../jobs';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { answersChannel, runtimeConfigOf } from './config';
-import { REPLY_CEILING_MS, REPLY_DELAY_MS, replyJobKey, TEAMMATE_JOBS } from './constants';
+import {
+  REPLY_CEILING_MS,
+  REPLY_DELAY_AUTOMATIC_MS,
+  REPLY_DELAY_MS,
+  replyJobKey,
+  TEAMMATE_JOBS,
+} from './constants';
 import { unansweredMessages } from './context';
 import { onDraftDecided } from './drafts';
 import { onHandedOff } from './escalation';
@@ -76,6 +82,8 @@ export async function scheduleReply(
     /** When the first unanswered message was sent. */
     readonly firstAt: number;
     readonly trigger: string;
+    /** Its replies go out on their own (M18): a shorter wait for text and chat. */
+    readonly automatic?: boolean;
     /** The workflow run that handed the conversation over: its loop guard, for the run. */
     readonly origin?: AiEmployeeOrigin | null;
     /** "Try again": the person's reason and the draft they rejected, for the run's context. */
@@ -83,7 +91,10 @@ export async function scheduleReply(
   },
 ): Promise<Date> {
   const runAt = new Date(
-    Math.min(Date.now() + REPLY_DELAY_MS[input.channel], input.firstAt + REPLY_CEILING_MS),
+    Math.min(
+      Date.now() + (input.automatic ? REPLY_DELAY_AUTOMATIC_MS : REPLY_DELAY_MS)[input.channel],
+      input.firstAt + REPLY_CEILING_MS,
+    ),
   );
   await scheduleDebouncedJob(tx, {
     kind: TEAMMATE_JOBS.reply,
@@ -334,6 +345,7 @@ export const onCustomerMessage: EventHandler = async (ctx) => {
     channel,
     firstAt: batch[0]!.at,
     trigger: e.eventType,
+    automatic: teammate.status === 'automatic',
   });
 };
 
@@ -379,6 +391,7 @@ export const onHandedToAi: EventHandler = async (ctx) => {
     channel: conv.channel as TeammateChannel,
     firstAt: batch[0]!.at,
     trigger: e.eventType,
+    automatic: found.teammate.status === 'automatic',
     // A workflow step handed it over: its run's loop guard (the kernel put it on the event) goes with the run.
     origin: originOf(p['_workflow']),
   });

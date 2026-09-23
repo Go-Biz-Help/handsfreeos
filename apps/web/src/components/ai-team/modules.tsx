@@ -7,8 +7,12 @@ import {
   formatClock,
   formatDuration,
   formatHours,
+  PHONE_ANSWER_MODES,
+  PHONE_VOICES,
   TEAMMATE_LINKS,
   type NotifyWho,
+  type PhoneAnswerMode,
+  type PhoneVoice,
   type TeammateCatalogs,
   type TeammateConfig,
 } from '@hfos/core';
@@ -358,10 +362,125 @@ function ChannelsModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
           }
         />
       </SetRow>
+      <SetRow
+        center
+        title="Phone calls"
+        description={
+          catalogs.textingReady ? (
+            draft.phone.enabled ? (
+              `${name} picks up your business number and talks with callers live.`
+            ) : (
+              'Answers calls to your business number, live.'
+            )
+          ) : (
+            <>
+              Your business number isn’t set up yet.{' '}
+              <Link href={`${base}/${TEAMMATE_LINKS.texting}`} className={LINK}>
+                Set it up
+              </Link>
+            </>
+          )
+        }
+        body={draft.phone.enabled ? <PhoneSettings draft={draft} patch={patch} /> : null}
+      >
+        <Switch
+          checked={draft.phone.enabled}
+          label="Phone calls"
+          testId="channel-phone"
+          onChange={(v) => patch({ phone: { enabled: v } }, onOff(v, 'phone calls'))}
+        />
+      </SetRow>
       <Note className="mt-3" icon={Moon}>
-        Quiet hours apply to texts only. Email and website chat have none.
+        Quiet hours apply to texts only. Email, website chat and calls have none.
       </Note>
     </>
+  );
+}
+
+const PHONE_ANSWER_WORDS: Readonly<Record<PhoneAnswerMode, string>> = {
+  no_answer: 'When nobody picks up',
+  after_hours: 'When you’re closed',
+  always: 'Every call',
+};
+
+const PHONE_VOICE_WORDS: Readonly<Record<PhoneVoice, string>> = {
+  warm: 'Warm',
+  bright: 'Bright',
+  calm: 'Calm',
+  deep: 'Deep',
+};
+
+/** When it picks up, how it sounds, and what it says first (M18 step 5). */
+function PhoneSettings({ draft, patch }: Pick<ModuleProps, 'draft' | 'patch'>) {
+  const p = draft.phone;
+  const name = draft.identity.name;
+  return (
+    <div className="mt-1.5 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          selectSize="sm"
+          className="w-[220px] max-w-full"
+          aria-label="When it answers"
+          value={p.answer}
+          data-testid="phone-answer"
+          onChange={(e) =>
+            patch(
+              { phone: { answer: e.target.value as PhoneAnswerMode } },
+              'Change when it answers',
+            )
+          }
+        >
+          {PHONE_ANSWER_MODES.map((m) => (
+            <option key={m} value={m}>
+              {PHONE_ANSWER_WORDS[m]}
+            </option>
+          ))}
+        </Select>
+        <Select
+          selectSize="sm"
+          className="w-[140px] max-w-full"
+          aria-label="Its voice"
+          value={p.voice}
+          data-testid="phone-voice"
+          onChange={(e) =>
+            patch({ phone: { voice: e.target.value as PhoneVoice } }, 'Change its voice')
+          }
+        >
+          {PHONE_VOICES.map((v) => (
+            <option key={v} value={v}>
+              {PHONE_VOICE_WORDS[v]} voice
+            </option>
+          ))}
+        </Select>
+      </div>
+      <DraftText
+        id="teammate-phone-greeting"
+        label="What it says when it picks up"
+        value={p.greeting}
+        maxLength={200}
+        placeholder={
+          draft.identity.disclosure === 'first_message'
+            ? `Thanks for calling. This is ${name}, the AI assistant. How can I help?`
+            : `Thanks for calling, this is ${name}. How can I help?`
+        }
+        hint={
+          draft.identity.disclosure === 'first_message'
+            ? 'It says it’s an AI assistant, as Identity says. Leave empty for the usual greeting.'
+            : 'It says it’s an AI assistant when a caller asks. Leave empty for the usual greeting.'
+        }
+        testId="phone-greeting"
+        onChange={(v) =>
+          patch({ phone: { greeting: v } }, 'Change the greeting', {
+            group: 'phone.greeting',
+            quiet: true,
+          })
+        }
+      />
+      <span className="text-xs text-text-3">
+        Same tools and rules as texts. Money still waits for your OK: callers hear the team will
+        text the link. Asking for a person rings your team on the same call.
+      </span>
+    </div>
   );
 }
 

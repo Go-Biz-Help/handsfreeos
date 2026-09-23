@@ -17,6 +17,7 @@
     "@fastify/cors": "^11.0.0",
     "@fastify/formbody": "^8.0.0",
     "@fastify/rate-limit": "^10.3.0",
+    "@fastify/websocket": "^11.3.1",
     "@hfos/ai": "workspace:*",
     "@hfos/db": "workspace:*",
     "@supabase/supabase-js": "^2.116.0",
@@ -29,6 +30,7 @@
     "pino": "^10.0.0",
     "sanitize-html": "^2.17.7",
     "unpdf": "1.8.1",
+    "ws": "^8.21.3",
     "zod": "^4.6.0"
   },
   "devDependencies": {
@@ -38,6 +40,7 @@
     "@types/nodemailer": "^8.0.0",
     "@types/papaparse": "^5.5.2",
     "@types/sanitize-html": "^2.16.1",
+    "@types/ws": "^8.18.1",
     "pino-pretty": "^13.0.0",
     "tsup": "^8.5.0",
     "tsx": "^4.23.0",

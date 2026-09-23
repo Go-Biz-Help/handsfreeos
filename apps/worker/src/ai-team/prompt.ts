@@ -314,8 +314,11 @@ function customerLines(rc: RunContext): string[] {
   return lines;
 }
 
-/** The context written for each call. */
-export function contextText(rc: RunContext): string {
+/** The context written for each call. `channelLines` stands in for the channel's own line (a live phone call). */
+export function contextText(
+  rc: RunContext,
+  opts: { readonly channelLines?: readonly string[] } = {},
+): string {
   const { config } = rc;
   const tz = rc.workspace.timeZone;
   const business = rc.grounding.business.name;
@@ -333,7 +336,7 @@ export function contextText(rc: RunContext): string {
   if (config.identity.toneNote) lines.push(`How you sound: ${quoteData(config.identity.toneNote)}`);
   if (config.identity.signature)
     lines.push(`Sign your messages: ${quoteData(config.identity.signature)}`);
-  lines.push(CHANNEL_LINES[rc.conversation.channel]);
+  lines.push(...(opts.channelLines ?? [CHANNEL_LINES[rc.conversation.channel]]));
   lines.push(
     `Today is ${weekday}, ${localDateOf(rc.now, tz)} (${tz}). It’s ${clockLabel(rc.now, tz)} there now (${isoWithOffset(rc.now, tz)}).`,
   );

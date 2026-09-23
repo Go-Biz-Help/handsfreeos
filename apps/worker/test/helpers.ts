@@ -24,6 +24,7 @@ import { createSupabaseStore, type ObjectStore } from '../src/storage';
 import { createFakeHost } from '../src/hosting';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
 import { roughDriveTimer } from '../src/geo/driving';
+import { createFakeSpeech } from '../src/voice-agent/fake-speech';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
 
@@ -83,6 +84,8 @@ export function testServices(
     transcriber: createFakeTranscriber({ log }),
     geocoder: createFakeGeocoder(),
     driving: roughDriveTimer,
+    speech: createFakeSpeech(),
+    voiceAi: null,
     // The in-memory host: a branded domain can be driven end to end with no Vercel account (M17).
     siteHost: createFakeHost(),
     support: {

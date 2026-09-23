@@ -75,10 +75,11 @@ describe('the registry', () => {
       ['offer_plan', 'plans', 'approval'],
       ['hand_off', 'core', 'auto'],
       ['reply', 'core', 'draft'],
+      ['end_call', 'core', 'auto'],
       ['no_reply', 'core', 'auto'],
     ]);
     expect(TEAMMATE_TOOL_NAMES).toEqual(TEAMMATE_TOOLS.map((t) => t.name));
-    expect([...TEAMMATE_TURN_ENDERS].sort()).toEqual(['hand_off', 'no_reply', 'reply']);
+    expect([...TEAMMATE_TURN_ENDERS].sort()).toEqual(['end_call', 'hand_off', 'no_reply', 'reply']);
   });
 
   it('holds back only what reaches the customer, and a discount always waits for a person', () => {
@@ -304,11 +305,23 @@ describe('teammateTools', () => {
     }
   });
 
-  it('always lets it end its turn', () => {
+  it('always lets it end its turn: end_call on a phone call, no_reply everywhere else', () => {
     const bare = applyTeammatePatch(responder, {
       respond: { enabled: false },
       answer: { enabled: false },
     });
-    expect(names(bare)).toEqual(expect.arrayContaining([...TEAMMATE_TURN_ENDERS]));
+    expect(names(bare)).toEqual(expect.arrayContaining(['hand_off', 'reply', 'no_reply']));
+    expect(names(bare)).not.toContain('end_call');
+    const onCall = teammateTools(bare, { phone: true }).map((t) => t.name);
+    expect(onCall).toEqual(expect.arrayContaining(['hand_off', 'reply', 'end_call']));
+    expect(onCall).not.toContain('no_reply');
+  });
+
+  it('on a phone call: no photos and no chat codes (M18 step 5)', () => {
+    const all = applyTeammatePatch(responder, { photos: { enabled: true } });
+    const onCall = teammateTools(all, { phone: true }).map((t) => t.name);
+    expect(names(all)).toContain('note_photos');
+    for (const hidden of ['note_photos', 'send_verification_code', 'check_verification_code'])
+      expect(onCall).not.toContain(hidden);
   });
 });

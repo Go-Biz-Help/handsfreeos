@@ -69,6 +69,17 @@ afterAll(async () => {
 });
 
 describe('batching and debounce', () => {
+  it('waits less for a text once its replies go out on their own (M18)', async () => {
+    const a = await newCustomer(auto, 'Quin');
+    const fast = await textIn(auto, a.phone, 'Are you open Saturday?');
+    const t = await newCustomer(training, 'Remy');
+    const slow = await textIn(training, t.phone, 'Are you open Saturday?');
+    const automatic = (await pendingReply(fast.conversationId))!.runAt - fast.at;
+    const drafted = (await pendingReply(slow.conversationId))!.runAt - slow.at;
+    expect(automatic).toBeLessThanOrEqual(8_000 + 2_000);
+    expect(drafted).toBeGreaterThanOrEqual(20_000 - 2_000);
+  });
+
   it('answers three quick texts in one run, each text pushing the reply back', async () => {
     const c = await newCustomer(auto, 'Bea');
     const one = await textIn(auto, c.phone, 'Hi there');
@@ -113,9 +124,10 @@ describe('batching and debounce', () => {
 
   it('never waits more than 90 seconds after the first unanswered message', async () => {
     const c = await newCustomer(auto, 'Cal');
-    const m = await textIn(auto, c.phone, 'Hello, what are your hours?', { secondsAgo: 80 });
+    const m = await textIn(auto, c.phone, 'Hello, what are your hours?', { secondsAgo: 85 });
     const job = await pendingReply(m.conversationId);
-    // A text waits 20 seconds for more, but this one came in 80 seconds ago: its reply is due 10 seconds from now.
+    // An automatic teammate waits 8 seconds for more of a text, but this one came in 85 seconds ago: its reply
+    // is due 5 seconds from now.
     expect(Math.abs(job!.runAt - (m.at + 90_000))).toBeLessThan(5);
     await replyNow(auto, m.conversationId);
     expect(await aiMessages(m.conversationId)).toHaveLength(1);

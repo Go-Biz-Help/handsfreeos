@@ -634,7 +634,7 @@ type ThreadRow = {
   answered_name: string | null;
   recording_path: string | null;
   recording_seconds: number | null;
-  answered_via: 'browser' | 'forwarding' | 'bridge' | null;
+  answered_via: 'browser' | 'forwarding' | 'bridge' | 'ai' | null;
   scheduled_for: Date | null;
   body_html: string | null;
   to_addresses: string[] | null;
@@ -863,7 +863,7 @@ export const callLog = defineQuery({
       started_at: Date;
       duration_seconds: number | null;
       is_voicemail: boolean;
-      answered_via: 'browser' | 'forwarding' | 'bridge' | null;
+      answered_via: 'browser' | 'forwarding' | 'bridge' | 'ai' | null;
       answered_by: string | null;
       answered_name: string | null;
       recording_path: string | null;

@@ -89,6 +89,10 @@ export function voiceUrls(publicUrl: string) {
     status: `${base}/status`,
     legStatus: `${base}/leg-status`,
     dialResult: `${base}/dial-result`,
+    /** The ringing the AI teammate handed a caller to (M18 step 5): nobody answering goes to voicemail, never back. */
+    dialResultAfterAi: `${base}/dial-result?after=ai`,
+    /** The live stream to the AI teammate (M18 step 5): the same host, over a websocket. */
+    agent: `${base.replace(/^http/, 'ws')}/agent`,
     hangup: `${base}/hangup`,
     recording: `${base}/recording`,
     /**
@@ -221,6 +225,11 @@ export function ringTwiml(
  * transcription, which skips anything under two seconds and is deprecated.
  */
 export function voicemailTwiml(greeting: string, urls: VoiceUrls): string {
+  return twiml(voicemailVerbs(greeting, urls));
+}
+
+/** The voicemail's verbs on their own, for after something else (the AI teammate's stream) in one response. */
+export function voicemailVerbs(greeting: string, urls: VoiceUrls): string {
   const record = attrs({
     maxLength: 120,
     playBeep: true,
@@ -233,12 +242,22 @@ export function voicemailTwiml(greeting: string, urls: VoiceUrls): string {
     recordingStatusCallbackMethod: 'POST',
     recordingStatusCallbackEvent: 'completed absent',
   });
-  return twiml(`${say(greeting)}<Record${record}/>${HANGUP}`);
+  return `${say(greeting)}<Record${record}/>${HANGUP}`;
 }
 
-export const UNAVAILABLE_TWIML = twiml(
-  `${say('Sorry, nobody can take your call right now. Please try again later.')}${HANGUP}`,
-);
+export const UNAVAILABLE_VERBS = `${say('Sorry, nobody can take your call right now. Please try again later.')}${HANGUP}`;
+export const UNAVAILABLE_TWIML = twiml(UNAVAILABLE_VERBS);
+
+/**
+ * The AI teammate answers (M18 step 5): the call streams to it over a websocket, carrying a sealed ticket that
+ * says which call it is. When the stream ends without the teammate giving the call new instructions (it
+ * couldn't start, or it failed), Twilio goes on to `after`: the voicemail, so the caller is still heard.
+ */
+export function agentTwiml(ticket: string, after: string, urls: VoiceUrls): string {
+  return twiml(
+    `<Connect><Stream${attrs({ url: urls.agent })}><Parameter${attrs({ name: 't', value: ticket })}/></Stream></Connect>${after}`,
+  );
+}
 export const NOT_IN_SERVICE_TWIML = twiml(
   `${say('Sorry, this number is not in service.')}${HANGUP}`,
 );

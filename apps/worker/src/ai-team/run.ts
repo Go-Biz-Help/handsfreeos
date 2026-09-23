@@ -188,7 +188,7 @@ interface StartedRun extends RunSpec {
   readonly startedAt: Date;
 }
 
-interface HandOff {
+export interface HandOff {
   readonly reason: ConversationHandoffReason;
   readonly note: string;
   /** An emergency: the customer gets its safety text instead of the usual hand-off line. */
@@ -417,6 +417,7 @@ async function startRun(
       return null;
     }
     const epoch = free ? conv.aiEpoch + 1 : conv.aiEpoch;
+    await closeStaleCallRuns(tx, conv.id);
     const [made] = await rows<{ id: string; started_at: Date | string }>(
       tx,
       sql`insert into app.ai_teammate_runs
@@ -814,7 +815,7 @@ export function checkReply(rc: RunContext, state: RunState, text: string): Reply
 }
 
 /** For the Activity view: a failed attempt's problems; the final attempt's verdict on every rule. */
-function checkRows(attempt: number, verdict: ReplyCheck, final: boolean): unknown[] {
+export function checkRows(attempt: number, verdict: ReplyCheck, final: boolean): unknown[] {
   if (!final)
     return verdict.problems.map((p) => ({ rule: p.rule, ok: false, message: p.message, attempt }));
   const failed = new Map(verdict.problems.map((p) => [p.rule, p.message]));
@@ -826,7 +827,7 @@ function checkRows(attempt: number, verdict: ReplyCheck, final: boolean): unknow
 }
 
 /** The conversation with the check's problems added for the one rewrite. */
-function withFeedback(messages: readonly AiMessage[], verdict: ReplyCheck): AiMessage[] {
+export function withFeedback(messages: readonly AiMessage[], verdict: ReplyCheck): AiMessage[] {
   const out = [...messages];
   const note: AiContent = { type: 'text', text: rewriteFeedback(verdict.problems) };
   const last = out[out.length - 1];
@@ -840,7 +841,7 @@ function withFeedback(messages: readonly AiMessage[], verdict: ReplyCheck): AiMe
 const endOf = (state: RunState): RunEnd | null => state.end;
 
 /** The model's own last words, when it ended its turn without a tool. */
-function finalText(messages: readonly AiMessage[]): string {
+export function finalText(messages: readonly AiMessage[]): string {
   const last = messages[messages.length - 1];
   if (!last || last.role !== 'assistant') return '';
   return typeof last.content === 'string'
@@ -863,6 +864,21 @@ interface Closing {
   readonly toolSteps?: number;
   readonly error?: string | null;
   readonly leadId?: string | null;
+}
+
+/**
+ * A call's run left open by a worker that stopped mid-call (a deploy, a crash) would block every reply in its
+ * conversation, since a conversation has one running run. No call runs longer than the session's limit, so one
+ * still open well past it is closed here, before the next run starts.
+ */
+export async function closeStaleCallRuns(tx: Tx, conversationId: string): Promise<void> {
+  await tx.execute(
+    sql`update app.ai_teammate_runs
+        set status = 'failed', ended_at = now(), error = 'The call ended without closing its run.',
+          summary = coalesce(summary, 'A call that ended without closing its run.')
+        where conversation_id = ${conversationId} and status = 'running' and call_id is not null
+          and started_at < now() - interval '30 minutes'`,
+  );
 }
 
 /** Closes a run once, with its tokens summed from ai_usage (a resumed run's earlier tries included). */
@@ -1071,11 +1087,14 @@ async function supersededWhy(
   return null;
 }
 
+/** What a draft needs to know about the run that made it (a job's run, or a live call's). */
+export type DraftRun = Pick<StartedRun, 'id' | 'scope' | 'teammate' | 'target'>;
+
 /** Replaces the conversation's pending reply draft with this run's. */
-async function makeDraft(
+export async function makeDraft(
   tx: Tx,
-  ctx: JobContext,
-  run: StartedRun,
+  causationId: string,
+  run: DraftRun,
   rc: RunContext,
   state: RunState,
   message: { readonly body: string; readonly subject: string | null } | null,
@@ -1100,19 +1119,30 @@ async function makeDraft(
     actions: state.held,
     discount: null,
   });
-  await insertDraft(tx, ctx, run, rc, 'reply', preview, `ai:${run.id}`, message?.body ?? null);
+  await insertDraft(
+    tx,
+    causationId,
+    run,
+    rc,
+    'reply',
+    preview,
+    `ai:${run.id}`,
+    message?.body ?? null,
+  );
 }
 
 /**
  * What waits for a manager in any mode, each in its own approval draft: a discount, and (M18) a request with
  * money in it — a bill, a quote, an answer to a quote, a plan, or the link to pay or answer one already sent.
  */
-async function makeApprovals(
+export async function makeApprovals(
   tx: Tx,
-  ctx: JobContext,
-  run: StartedRun,
+  causationId: string,
+  run: DraftRun,
   rc: RunContext,
   state: RunState,
+  /** Tells apart a live call's approvals, one set per turn (M18 step 5). */
+  suffix = '',
 ): Promise<void> {
   const channel = rc.conversation.channel;
   const bodyOf = (text: string) => (channel === 'sms' ? plainSmsText(text) : text.trim());
@@ -1126,7 +1156,16 @@ async function makeApprovals(
         reason: state.discount.reason.slice(0, 300),
       },
     });
-    await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:d`, body);
+    await insertDraft(
+      tx,
+      causationId,
+      run,
+      rc,
+      'approval',
+      preview,
+      `ai:${run.id}:d${suffix}`,
+      body,
+    );
   }
   if (state.moneyAsk) {
     const body = bodyOf(state.moneyAsk.message);
@@ -1135,14 +1174,23 @@ async function makeApprovals(
       actions: state.moneyAsk.actions,
       discount: null,
     });
-    await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:m`, body);
+    await insertDraft(
+      tx,
+      causationId,
+      run,
+      rc,
+      'approval',
+      preview,
+      `ai:${run.id}:m${suffix}`,
+      body,
+    );
   }
 }
 
 async function insertDraft(
   tx: Tx,
-  ctx: JobContext,
-  run: StartedRun,
+  causationId: string,
+  run: DraftRun,
   rc: RunContext,
   kind: 'reply' | 'approval',
   preview: TeammateDraftPreview,
@@ -1183,7 +1231,7 @@ async function insertDraft(
       actions: preview.actions.length,
     },
     correlationId: run.id,
-    causationId: ctx.job.id,
+    causationId,
   });
 }
 
@@ -1264,14 +1312,14 @@ async function finish(
       if (drafted)
         await makeDraft(
           tx,
-          ctx,
+          ctx.job.id,
           run,
           rc,
           state,
           body === null ? null : { body, subject: null },
           latest,
         );
-      await makeApprovals(tx, ctx, run, rc, state);
+      await makeApprovals(tx, ctx.job.id, run, rc, state);
       await markAnswered(tx, conversationId, through, false);
       if (drafted && body !== null) await markReferralThanked(tx, rc);
       const outcome = drafted ? 'drafted' : 'no_reply';
@@ -1343,7 +1391,7 @@ async function finish(
       return none;
     }
     await markAnswered(tx, conversationId, through, body !== null && disclosesAi(body));
-    await makeApprovals(tx, ctx, run, rc, state);
+    await makeApprovals(tx, ctx.job.id, run, rc, state);
     const outcome = body !== null ? 'replied' : 'no_reply';
     if (body !== null) await markReferralThanked(tx, rc);
     await closeRun(tx, run.id, {
@@ -1424,7 +1472,7 @@ async function finishFirst(
       return { outcome: 'no_reply', waitUntil: null };
     }
     if (teammate.status === 'training') {
-      await makeDraft(tx, ctx, run, rc, state, { body, subject }, null);
+      await makeDraft(tx, ctx.job.id, run, rc, state, { body, subject }, null);
       await closeRun(tx, run.id, {
         ...common,
         status: 'done',

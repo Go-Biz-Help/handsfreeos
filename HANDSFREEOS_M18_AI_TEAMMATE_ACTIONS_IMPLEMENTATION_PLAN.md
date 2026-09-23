@@ -248,10 +248,43 @@ Decisions (Chris, 2026-09-23):
   - On my way asks for location (while in use only, `expo-location`) the first time it's tapped. It still works without it.
   - This needs a new store build, because `expo-location` is a native module.
 
-### Step 5 — Live phone answering
+### Step 5 — Live phone answering (done, 2026-09-23)
 
-- A voice agent on the business number, streaming speech in and out (Twilio Media Streams), using
-  the same tools, the same holds and the same hand-off (a warm transfer to a person's cell).
-- The owner chooses when it answers: always, after hours, or when nobody picks up.
-- Money still waits for an OK: on a call it says the team will text the link.
-- Faster text and chat: shorter debounce for chat and text once replies are automatic.
+Decisions (Chris, 2026-09-23):
+
+- Our own speech services: Twilio Media Streams, with Deepgram listening (Nova-3) and speaking (Aura 2), on the same `DEEPGRAM_API_KEY` as transcripts.
+- A hand-off rings the usual team (the number's browsers, apps and forwarding phones) on the same call. Nobody answering goes to voicemail, and the team has already been told why.
+- The business decides whether it says it's an AI, with the disclosure setting it already has (Identity). "Say it in the first message" puts it in the greeting.
+
+- **Settings** (`phone` in the teammate's settings, Channels in the builder):
+  - on or off (off by default)
+  - when it answers: when nobody picks up (the default), when the business is closed, or every call
+  - a voice (warm, bright, calm, deep), each with an English and a Spanish voice
+  - an optional greeting; it still says it's an AI when the disclosure setting says so
+- **Routing** (`http/voice.ts`):
+  - "Every call" and "when closed" send the call straight to the teammate.
+  - "When nobody picks up" rings the team first, and `dial-result` sends a missed call to the teammate.
+  - A call the teammate handed on (`dial-result?after=ai`) goes to voicemail, never back to it.
+  - The TwiML is `<Connect><Stream>` with a sealed ticket (`voice-agent/ticket.ts`), then the voicemail. So if the stream fails or the teammate can't take the call, the caller still reaches voicemail.
+- **The call** (`voice-agent/session.ts`, `http/voice-agent.ts`, `@fastify/websocket`):
+  - It listens for the whole call. A turn starts when the caller finishes a thought.
+  - It speaks a sentence at a time. Talking over it stops it (Twilio `clear`), except while it says goodbye or connects the caller.
+  - When the line goes quiet, it asks "Are you still there?" and then says goodbye.
+  - A call over 20 minutes goes to the team.
+- **Thinking** (`voice-agent/brain.ts`):
+  - It uses the same run, tools, immediate hand-offs, safety check and holds as a text reply.
+  - There is one run per call (`ai_teammate_runs.call_id`, migration 0099), and the call is answered by `ai`.
+  - Automatic: held changes run before it says they're done.
+  - Training: they wait in one draft for the team, and the caller hears the team will confirm by text.
+  - Money waits for an OK in every mode.
+  - A conversation a person looks after gets questions answered only; anything else connects the caller.
+  - Tools on a call:
+    - new: `end_call`
+    - hidden: `no_reply`, photos and chat codes
+  - Each turn is one message holding the call so far and the times it offered.
+- **Afterwards:** the call's words are saved on the call. The timeline, the inbox and the next text reply read them, and the run's summary says how the call went.
+- **Faster text and chat:** once replies go out on their own, chat waits 1.5 s and texts 8 s for the customer to finish typing (were 3 s and 20 s). Email keeps its minute.
+- **Setup:**
+  - Leave `VOICE_AGENT` unset; it follows `DEEPGRAM_API_KEY`.
+  - `VOICE_MODEL` can pick a faster model for calls.
+  - Nothing changes in Twilio: the stream is in our TwiML.

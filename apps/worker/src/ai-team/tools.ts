@@ -108,6 +108,8 @@ export interface FoundItem {
 export type RunEnd =
   | { readonly kind: 'reply'; readonly message: string }
   | { readonly kind: 'no_reply'; readonly reason: string }
+  /** On a phone call: the last thing it says, then it hangs up (M18 step 5). */
+  | { readonly kind: 'end_call'; readonly message: string }
   | {
       readonly kind: 'hand_off';
       readonly reason: ConversationHandoffReason;
@@ -185,7 +187,12 @@ interface Effect {
 export const timeKey = (calendarId: string, startsAt: string): string =>
   `${calendarId}|${new Date(startsAt).toISOString()}`;
 
-const END_RANK: Readonly<Record<RunEnd['kind'], number>> = { no_reply: 0, reply: 1, hand_off: 2 };
+const END_RANK: Readonly<Record<RunEnd['kind'], number>> = {
+  no_reply: 0,
+  reply: 1,
+  end_call: 1,
+  hand_off: 2,
+};
 
 function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (!effect) return;
@@ -226,6 +233,11 @@ export interface ExecutorDeps {
   readonly chatCodes: ChatCodeSender;
   /** Keeps a run's second pass (after a chat code) from meeting its first pass's calls under the same ids. */
   readonly callPrefix?: string;
+  /**
+   * A live phone call (M18 step 5): a hand-off is the call's to carry out (it rings the team on the same call),
+   * so the tool only says so.
+   */
+  readonly phone?: boolean;
   readonly log: Logger;
 }
 
@@ -1682,6 +1694,13 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const reason = conversationHandoffReasonOf(args['reason'] as HandOffReason);
     const note = String(args['note']).slice(0, 500);
     await rememberLanguage(tx, d.scope, d.rc.conversation.id, str(args['language']));
+    if (d.phone)
+      return {
+        status: 'done',
+        content: { status: 'connecting' },
+        effect: { end: { kind: 'hand_off', reason, note } },
+        stop: true,
+      };
     // The customer hears the hand-off line first (the safety text, for an emergency they described).
     const emergency = reason === 'emergency' ? emergencyIn(d.rc.batch.map((b) => b.text)) : null;
     await handOffInConversation(tx, d.ai, d.meta, reason, note, {
@@ -1703,6 +1722,16 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       status: 'done',
       content: { status: 'received' },
       effect: { end: { kind: 'reply', message: String(args['message']) } },
+      stop: true,
+    };
+  },
+
+  async end_call(d, tx, args) {
+    await rememberLanguage(tx, d.scope, d.rc.conversation.id, str(args['language']));
+    return {
+      status: 'done',
+      content: { status: 'received' },
+      effect: { end: { kind: 'end_call', message: String(args['message']) } },
       stop: true,
     };
   },
