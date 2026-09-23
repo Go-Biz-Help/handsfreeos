@@ -53,6 +53,7 @@ import { seedAttention } from './seed-attention';
 import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
 import { seedGlow } from './seed-glow';
+import { seedIdeas } from './seed-ideas';
 import { seedAi, seedKnowledge } from './seed-knowledge';
 import { LONE_STAR_NUMBER, seedMessaging } from './seed-messaging';
 import { seedMoney } from './seed-money';
@@ -480,13 +481,31 @@ async function main(): Promise<void> {
   );
 
   step('Northstar Electric: a separate organization that sees none of the above');
-  await executeCommand(
-    api.db,
-    organizationCreate,
-    { businessName: 'Northstar Electric', timezone: 'America/Los_Angeles' },
-    actor(riley),
-    meta(),
+  const northstar = (
+    await executeCommand(
+      api.db,
+      organizationCreate,
+      { businessName: 'Northstar Electric', timezone: 'America/Los_Angeles' },
+      actor(riley),
+      meta(),
+    )
+  ).output.workspaceId;
+
+  // Ideas, the roadmap and What's new (0102): the one board every business shares, so it comes last, once
+  // Northstar can take part too. Chris answers it as the team.
+  const ideas = await seedIdeas(
+    { api: api.db, actor, meta, step },
+    {
+      chris,
+      dale: { user: dale, workspaceId: lonestar },
+      priya: { user: priya, workspaceId: lonestar },
+      marco: { user: marco, workspaceId: lonestar },
+      renee: { user: renee, workspaceId: bayou },
+      tom: { user: tom, workspaceId: summit },
+      riley: { user: riley, workspaceId: northstar },
+    },
   );
+  await drainOutbox(deps, admin.db, since);
 
   console.log(`
 Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webUrl}/sign-in with password ${SEED_PASSWORD}:
@@ -536,6 +555,9 @@ nobody has answered. Under it, an overdue invoice, an estimate nobody answered, 
 nobody answered, leads gone quiet, leads with no next action, overdue tasks, customers waiting and Ava's reply to
 approve. ${attention.unconfirmed} visits aren't confirmed (they fold into one card), ${attention.confirmed} customers have confirmed theirs, and ${attention.handled} are
 under "Handled by HandsFreeOS".
+Ideas (in the menu of every business) holds ${ideas.ideas} ideas from four businesses: one planned, one being built with a
+duplicate merged into it, one shipped in What's new, one not planned and two under review. What's new has
+${ideas.published} entries published and a draft; Chris runs the roadmap at ${deps.webUrl}/admin/ideas.
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

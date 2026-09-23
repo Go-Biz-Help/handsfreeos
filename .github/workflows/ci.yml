@@ -30,6 +30,11 @@ jobs:
     # suite to a stopwatch, so it gets room. Better would be to run the browser tests as their own job beside
     # this one; they share nothing but the checkout.
     timeout-minutes: 75
+    # The token checks out the code and signs Docker in to ghcr.io, nothing else. Naming any permission here sets
+    # every one not named to none.
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -51,10 +56,10 @@ jobs:
         with:
           version: 2.117.0
 
-      # The stack's images come from ghcr.io, and anonymous downloads there share a much lower limit across
-      # GitHub's runners: on 2026-09-23 ghcr.io answered `toomanyrequests` to every run for the better part of an
-      # hour, and scripts/supabase.mjs's retries could not outlast it. Downloading as this workflow gets the
-      # higher limit. A login that fails leaves the download anonymous, as it was, rather than failing the job.
+      # Signed out, the stack's image downloads from ghcr.io share one limit with everything else on the runner's
+      # network address, and on 2026-09-23 that limit refused them for most of an hour. Signed in with this job's
+      # token they count against the token instead. The images are public, so `packages: read` is all it needs. A
+      # login that fails leaves the downloads anonymous, as they were, rather than failing the job.
       - name: Log in to ghcr.io, so image downloads get the higher limit
         continue-on-error: true
         env:
@@ -62,9 +67,15 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
 
+      # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again after 1, 2 and then 4
+      # minutes instead of failing the job before a single test has run. On a bad day that is 7 minutes of waiting,
+      # which the 75-minute limit above has room for.
+      #
+      # setup-cli points every later step at ghcr.io alone, and on 2026-09-23 ghcr.io refused this repository's runs
+      # for over an hour, signed in or not, through all four tries. Without that setting the CLI tries each image at
+      # public.ecr.aws, its own default, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't
+      # stop the stack.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
-        # supabase/setup-cli points the CLI at ghcr.io alone. Without it, the CLI tries each image at
-        # public.ecr.aws, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't stop the stack.
         run: env -u SUPABASE_INTERNAL_IMAGE_REGISTRY node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
       - name: Write local env files

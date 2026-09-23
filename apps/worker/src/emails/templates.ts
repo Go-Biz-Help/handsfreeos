@@ -1,5 +1,12 @@
 /** The emails the worker sends the team (Mailpit locally, the production provider elsewhere). Plain and short. */
-import { moneyLabel, PAYMENT_METHOD_WORDS, type PaymentMethod } from '@hfos/core/server';
+import {
+  IDEA_STATUS_MEANING,
+  ideaUpdateHeadline,
+  moneyLabel,
+  PAYMENT_METHOD_WORDS,
+  type IdeaStatus,
+  type PaymentMethod,
+} from '@hfos/core/server';
 
 export interface EmailContent {
   readonly subject: string;
@@ -1170,3 +1177,98 @@ export function chatCodeEmail(input: {
 /** The same code by text. */
 export const chatCodeText = (business: string, code: string, minutes: number): string =>
   `${business}: your chat code is ${code}. It expires in ${minutes} minutes. If you didn’t ask for it, ignore this text.`;
+
+// ---- Ideas, the roadmap and What's new (0102) ----
+
+const IDEA_FOOT =
+  'You get these because you follow this idea. To stop, open it and turn off “Email me updates”.';
+
+/**
+ * Somebody following an idea hears when the team moves it along the roadmap, ships it in What's new, or folds it
+ * into another idea that asks for the same thing. Whoever shared it is told it was theirs.
+ */
+export function ideaUpdateEmail(input: {
+  firstName: string;
+  title: string;
+  number: number;
+  /** They shared it. */
+  yours: boolean;
+  /** Where it went: its new status, or the idea it was merged into. */
+  change:
+    | { kind: 'status'; status: IdeaStatus; whatsNewTitle: string | null }
+    | { kind: 'merged'; intoNumber: number; intoTitle: string };
+  /** What the team said about it, and who. */
+  note: string;
+  by: string;
+  link: string;
+}): EmailContent {
+  const which = input.yours ? 'The idea you shared' : 'An idea you follow';
+  const quoted = `“${input.title}” (#${input.number})`;
+  const change = input.change;
+  const subject =
+    change.kind === 'status'
+      ? `“${input.title}” ${ideaUpdateHeadline(change.status)}`
+      : `“${input.title}” joined a matching idea`;
+  const what =
+    change.kind === 'status'
+      ? `${which}, ${quoted}, ${ideaUpdateHeadline(change.status)}. ${IDEA_STATUS_MEANING[change.status]}`
+      : `${which}, ${quoted}, asks for the same thing as #${change.intoNumber}, “${change.intoTitle}”, so we put them together. Its votes went with it, and from now on you will hear about #${change.intoNumber}.`;
+  const shipped =
+    change.kind === 'status' && change.whatsNewTitle
+      ? `It is in What’s new: “${change.whatsNewTitle}”.`
+      : '';
+  const said = input.note ? `${input.by || 'The HandsFreeOS team'} wrote: “${input.note}”` : '';
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const text = [hello, '', what, shipped, said, '', `See the idea: ${input.link}`, '', IDEA_FOOT]
+    .filter((l, i, all) => l !== '' || all[i - 1] !== '')
+    .join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(what)) +
+      (shipped ? para(escapeHtml(shipped)) : '') +
+      (said
+        ? `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin: 8px 0;">${escapeHtml(said)}</div>`
+        : '') +
+      button(input.link, 'See the idea') +
+      small(escapeHtml(IDEA_FOOT)),
+  );
+  return { subject, text, html };
+}
+
+/** Whoever shared an idea hears when the team answers it in the comments: often it is a question for them. */
+export function ideaTeamAnswerEmail(input: {
+  firstName: string;
+  title: string;
+  number: number;
+  by: string;
+  comment: string;
+  link: string;
+}): EmailContent {
+  const who = input.by ? `${input.by} from the HandsFreeOS team` : 'The HandsFreeOS team';
+  const subject = `${who} answered your idea “${input.title}”`;
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const what = `${who} answered your idea “${input.title}” (#${input.number}):`;
+  const text = [
+    hello,
+    '',
+    what,
+    '',
+    `“${input.comment}”`,
+    '',
+    `Reply: ${input.link}`,
+    '',
+    IDEA_FOOT,
+  ].join('\n');
+  const html = shell(
+    preheader(input.comment) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(what)) +
+      `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin: 8px 0; white-space: pre-wrap;">${escapeHtml(input.comment)}</div>` +
+      button(input.link, 'Reply') +
+      small(escapeHtml(IDEA_FOOT)),
+  );
+  return { subject, text, html };
+}

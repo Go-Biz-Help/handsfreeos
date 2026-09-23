@@ -8,6 +8,7 @@ import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
 import { supportQueries } from './support';
+import { ideaQueries } from './ideas';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -272,6 +273,8 @@ export const queries: readonly QueryDef[] = [
   ...templateQueries,
   ...reviewQueries,
   ...relationshipQueries,
+  // Ideas, the roadmap and What's new (0102).
+  ...ideaQueries,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -332,3 +335,4 @@ export * from './branded-domain';
 export * from './founding';
 export * from './offer';
 export * from './relationship';
+export * from './ideas';

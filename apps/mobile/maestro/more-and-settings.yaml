@@ -31,6 +31,13 @@ env:
     id: 'more-approvals'
 - assertVisible:
     id: 'more-settings'
+# Ideas and the last two rows: on a short screen they are under the tab bar until More scrolls.
+- scrollUntilVisible:
+    element:
+      id: 'more-open-on-web'
+    timeout: 10000
+- assertVisible:
+    id: 'more-ideas'
 # The sentence as the row itself says it. On the iPhone the row is one thing — a screen reader reads the label and
 # the sentence together and there is no separate text node to match — so asserting the loose sentence found nothing
 # there while the words were plainly on screen. Both phones expose the row's own words the same way.
