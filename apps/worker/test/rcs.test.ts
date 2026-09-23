@@ -560,6 +560,14 @@ describe('pausing and letting go', () => {
     const paused = await sender();
     expect(paused).toMatchObject({ status: 'active', enabled: false, inService: false });
     expect([...fake.rcsPools.values()]).not.toContain(paused.providerSid);
+    // Still approved, so no news from the carriers: an event of its own, for Settings to show the change.
+    const [offService] = await admin()
+      .select()
+      .from(events)
+      .where(
+        and(eq(events.entityId, paused.id), eq(events.eventType, 'rcs_sender.service_changed')),
+      );
+    expect(offService?.payload).toMatchObject({ inService: false });
     const { messageId } = await send({ personId: mikeId, body: 'Plain text again.' });
     await drain();
     expect(fake.sent.at(-1)).toMatchObject({ rcsFirst: false, via: 'sms' });

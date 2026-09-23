@@ -1,6 +1,8 @@
 'use client';
 import {
   formatClock,
+  RCS_LIMITS,
+  richSmsText,
   stepsBefore,
   UPDATABLE_PERSON_FIELDS,
   variablesAt,
@@ -9,7 +11,7 @@ import {
 } from '@hfos/core';
 import { Moon, Plus, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input, Select } from '@/components/ui/input';
@@ -308,6 +310,7 @@ function SendText({ step }: { step: Of<'send_text'> }) {
           testId="text-body"
         />
       </div>
+      <ReplyButtonsField step={step} />
       <QuietHoursNote />
       <BookingLink stepId={step.id} value={step.config.bookingCalendarId} />
       <PanelField
@@ -337,6 +340,106 @@ function SendText({ step }: { step: Of<'send_text'> }) {
         </Select>
       </PanelField>
     </>
+  );
+}
+
+/** "Reply 1 for Yes or 2 for No.": how a phone without RCS shows the buttons, in core's own words. */
+function choicesLine(titles: readonly string[]): string {
+  return richSmsText('', {
+    kind: 'buttons',
+    title: null,
+    cards: [],
+    buttons: titles.map((title, i) => ({ type: 'reply' as const, title, id: `preview.r${i + 1}` })),
+  });
+}
+
+/**
+ * Reply buttons under the text (0101): tapped where the customer's phone shows RCS, answered with a number where
+ * it doesn't. Either way the reply names the button, so a later check can branch on "Button they chose in
+ * their reply". Kept as typed while a name is still wrong, like the text itself.
+ */
+function ReplyButtonsField({ step }: { step: Of<'send_text'> }) {
+  const update = useStepUpdate(step.id);
+  const { readOnly } = useEditor();
+  const saved = step.config.replyButtons;
+  const [local, setLocal] = useState<string[]>([...saved]);
+  const [seen, setSeen] = useState(saved);
+  const [error, setError] = useState<string | null>(null);
+  if (saved !== seen) {
+    setSeen(saved);
+    // Undo, or another editor's change: show what is saved, unless it is what is being typed.
+    if (saved.join('\n') !== local.map((t) => t.trim()).join('\n')) {
+      setLocal([...saved]);
+      setError(null);
+    }
+  }
+  const change = (next: string[], label: string) => {
+    setLocal(next);
+    const out = update({ config: { replyButtons: next } }, label, {
+      group: 'reply-buttons',
+      quiet: true,
+    });
+    setError(out.ok ? null : out.message);
+  };
+  const named = local.map((t) => t.trim()).filter(Boolean);
+  return (
+    <PanelField
+      label="Reply buttons"
+      error={error}
+      hint={
+        named.length
+          ? `Phones without RCS get them written out: “${choicesLine(named)}”`
+          : 'Optional. Customers tap one where their phone supports RCS, or text back its number.'
+      }
+    >
+      <div className="flex flex-col gap-1.5" data-testid="reply-buttons">
+        {local.map((t, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <Input
+              inputSize="sm"
+              value={t}
+              maxLength={RCS_LIMITS.buttonTitle}
+              placeholder={i === 0 ? 'Yes' : i === 1 ? 'No' : 'Another choice'}
+              aria-label={`Reply button ${i + 1}`}
+              disabled={readOnly}
+              onChange={(e) =>
+                change(
+                  local.map((x, j) => (j === i ? e.target.value : x)),
+                  'Edit a reply button',
+                )
+              }
+              data-testid="reply-button"
+            />
+            {readOnly ? null : (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove reply button ${i + 1}`}
+                onClick={() =>
+                  change(
+                    local.filter((_, j) => j !== i),
+                    'Remove a reply button',
+                  )
+                }
+              >
+                <X className="h-4 w-4" strokeWidth={1.75} />
+              </Button>
+            )}
+          </div>
+        ))}
+        {!readOnly && local.length < RCS_LIMITS.cardButtons ? (
+          <button
+            type="button"
+            onClick={() => setLocal([...local, ''])}
+            className="inline-flex w-fit items-center gap-1 text-xs font-medium text-accent-text hover:underline"
+            data-testid="add-reply-button"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+            Add a reply button
+          </button>
+        ) : null}
+      </div>
+    </PanelField>
   );
 }
 

@@ -249,6 +249,23 @@ function describeAction(e: AuditEntry): string {
       return portStateSentence(e);
     case 'number_port.complete':
       return `${s(e.after?.number)} finished moving here`;
+    // 0101: RCS. The sender is made in the business's Twilio account; these connect it, pause it and let it go.
+    case 'rcs_sender.connect':
+      return e.before
+        ? `tried connecting the RCS sender ${s(e.after?.senderId)} again`
+        : `connected the RCS sender ${s(e.after?.senderId)}`;
+    case 'rcs_sender.update':
+      return s(e.after?.rcs) === 'off'
+        ? 'paused RCS: every text goes as SMS or MMS'
+        : s(e.after?.rcs) === 'on'
+          ? 'switched RCS back on'
+          : 'chose the number new RCS conversations start on';
+    case 'rcs_sender.refresh':
+      return `asked Twilio where the RCS sender ${s(e.after?.senderId)} stands`;
+    case 'rcs_sender.disconnect':
+      return 'disconnected RCS: texts go as SMS and MMS again';
+    case 'rcs_sender.record_state':
+      return rcsStateSentence(e);
     case 'registration.submit':
       return `sent ${s(e.after?.legalName)}'s ${s(e.after?.kind) === 'a2p_10dlc' ? 'local-number registration' : 'toll-free verification'} to the carriers`;
     case 'registration.update_status':
@@ -1288,6 +1305,29 @@ function portStateSentence(e: AuditEntry): string {
   }
 }
 
+function rcsStateSentence(e: AuditEntry): string {
+  // The same sender put on texting or taken off it (switched on or off in Settings), with no news from the carriers.
+  if (typeof e.after?.inService === 'boolean' && !s(e.after?.status))
+    return e.after.inService
+      ? 'put the RCS sender on texting: texts go as RCS where phones can show it'
+      : 'took the RCS sender off texting for now: texts go as SMS and MMS';
+  const reason = s(e.after?.reason) ? `: ${s(e.after?.reason)}` : '';
+  switch (s(e.after?.status)) {
+    case 'in_review':
+      return 'noted the carriers are reviewing the RCS sender';
+    case 'active':
+      return 'recorded that the RCS sender is approved: texts go as RCS where phones can show it';
+    case 'offline':
+      return `recorded that the RCS sender went offline${reason}`;
+    case 'failed':
+      return `could not connect the RCS sender${reason}`;
+    case 'disconnected':
+      return 'took the RCS sender off texting';
+    default:
+      return `recorded the RCS sender as ${s(e.after?.status) || 'changed'}`;
+  }
+}
+
 const withWho = (e: AuditEntry) =>
   s(e.after?.with) || s(e.before?.with) || e.entityName || 'a customer';
 
@@ -1516,6 +1556,7 @@ export function auditCategory(action: string): AuditCategory {
       'phone.',
       'registration.',
       'number_port.',
+      'rcs_sender.',
       'email.',
       'email_domain.',
       'email_address.',

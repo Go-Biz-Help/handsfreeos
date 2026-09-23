@@ -390,6 +390,7 @@ export function ConversationView({
     // A person's message takes the conversation from the teammate (the phone's draft bar says so itself).
     handoverNote: phone && waiting ? null : handoverNote(view, aiName),
     chatBlocked: data.chat?.blocked ?? false,
+    rcs: data.rcs,
   };
   /**
    * "All lines" reads and never writes (0089).

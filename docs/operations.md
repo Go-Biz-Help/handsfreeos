@@ -4423,6 +4423,36 @@ They also upload a **signed authorisation** (an LOA). HandsFreeOS will not send 
 
 **Locally and in tests**, the fake carrier decides from the last four digits: a number ending `0000` is turned down, one ending `0001` stays with the carrier forever, and anything else goes through. There is no way to test a real port without doing a real one.
 
+### RCS: branded texts with buttons
+
+RCS is the newer kind of text message. On a phone that supports it, a business's texts arrive with its name, logo and colors, pictures show full size, and the customer can tap buttons: a reply like **Confirm**, a web link, or a call. HandsFreeOS sends RCS through Twilio, and it is not a separate inbox. Once a business has an approved RCS sender, every text goes RCS first. A phone that can't show RCS gets the same message as an ordinary SMS or MMS instead, with any buttons written out as "Reply 1 for Confirm or 2 for Reschedule." Nobody picks RCS or SMS when they send. Each message in the thread shows how it actually went (**RCS**, **SMS** or **MMS**), and RCS messages also say when they were read.
+
+Replies come back to the same conversation. A tap on a reply button arrives as a normal incoming message that says which button it was, and so does a customer texting back "2" to a text with the choices written out. The AI teammate sees the choice, and workflows can check it: **Button they chose** on a "Message received" trigger, and **Button they chose in their reply** after "Wait for a reply". A workflow's **Send a text** step can add up to four reply buttons.
+
+#### Setting up a business's RCS sender
+
+Twilio makes RCS senders only in its own console: the carriers review the brand (its name, logo, colors, contact details, privacy policy and terms), and that happens there. So each business's sender is made by hand, once, in that business's own subaccount.
+
+1. Open the business's subaccount in the Twilio console (see "Number" above for where the list of subaccounts is).
+2. Under **Messaging** → **Senders**, create an RCS sender for the business and fill in the brand details Twilio asks for. If the menu has moved, search the console for `RCS`. Send it for carrier review.
+3. In HandsFreeOS, the business (or you, signed in to it) opens **Settings** → **Texting & calls**. The **RCS messaging** card lists the senders it finds in the subaccount. Pick the sender, or type its id (like `lonestar_hvac_agent`), and click **Connect RCS sender**. A business with more than one number can also pick where new RCS conversations start.
+
+The card then shows **In review** while the carriers look at the sender. That can take a few weeks, and texts keep going as SMS and MMS in the meantime. The worker checks with Twilio on the same schedule as a carrier registration, and once a day after the sender is approved. **Check now** asks straight away. When the carriers approve it, the worker adds the sender to the business's messaging service, the card says **On**, and owners and admins get an email ("RCS is on for …"). If the sender goes offline or can't be connected, they get "RCS stopped for …" and texts go as SMS and MMS until it is fixed.
+
+- **Pausing.** The switch on the card turns RCS off without letting the sender go: every text goes as SMS or MMS, and turning it back on needs no new review.
+- **Disconnecting.** Takes the sender off the messaging service. The sender stays in the Twilio subaccount and can be connected again later.
+- **One sender per business.** To switch senders, disconnect the old one first.
+- **Why the worker takes the sender off the messaging service when RCS is paused.** Twilio tries RCS first for every text sent through a messaging service that has an RCS sender in it. Taking it off is the only way to make sure nothing goes as RCS.
+
+#### What the worker sends
+
+- While RCS is on, every text goes through the business's messaging service with `FallbackFrom` set to the conversation's own number, so the SMS or MMS fallback comes from the number the customer already knows. Twilio keeps the same message SID through the fallback, and the status report says which way it went. While it is off, texts go exactly as they did before RCS.
+- A text with buttons, a card or a carousel is sent as a Twilio content template made for that one message. The template also holds the plain text (and the photo, for a card) that a phone without RCS gets. The worker deletes the template once the message is delivered or has failed. Twilio's content templates are listed under **Messaging** → **Content Template Builder** in the subaccount, named `hfos_` followed by the message id.
+- Nothing new is needed for webhooks. Incoming RCS messages and their status reports arrive at the same `messaging/inbound` and `messaging/status` paths as texts, with `rcs:` in front of the addresses.
+- **What it costs the business.** An RCS text counts like an SMS of the same length, and an RCS message with a picture, a card or a carousel counts like a picture message. The business's usage balance uses the same prices as texts.
+
+**Locally and in tests**, the fake carrier has three RCS senders in every business's account, so the **RCS messaging** card always has something to connect: `hfos_demo_agent` is approved straight away, `hfos_review_agent` is in review until the fake's carrier approval time has passed (`FAKE_APPROVAL_MS`), and `hfos_offline_agent` is offline. A customer number ending in `7` has a phone that can't show RCS, so texts to it fall back to SMS or MMS. Every other number gets RCS once the business's sender is on, and the fake reports each RCS message as delivered and then read.
+
 ### Where to look in the Twilio console
 
 Each client business's texts, calls and errors are logged in its own subaccount, not in the master account. Open the subaccount first (see "Number" above); the pages you open next show that subaccount's data.
@@ -9117,6 +9147,7 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
 - **Buying.** The fake carrier turns down any number that ends in `0000` with "That number is no longer available." **Show numbers** never lists one, so only the automated tests show this error.
 - **Carrier approval** arrives 3 seconds after you click **Submit for approval** on the business details step (`FAKE_APPROVAL_MS=3000`). A **Legal business name** that contains `reject` is turned down with "The website does not show how customers agree to receive texts."
 - **Sending.** A text shows as sent after about a quarter of a second and as delivered after about 0.7 seconds. A text whose body contains `[fail]` fails instead, with carrier error 30006.
+- **RCS.** Connect `hfos_demo_agent` in the **RCS messaging** card on **Settings** → **Texting & calls** and texts go as RCS, then show as read. Texts to a customer number ending in `7` fall back to SMS or MMS. See "RCS: branded texts with buttons" in "The phone carrier: Twilio".
 - **Calls from the browser** use a stand-in for Twilio's calling library. It is ready at once, and a call you place "picks up" after a moment. No sound leaves the browser.
 - **Voicemail recordings** are all the same three-second, two-note chime.
 - **Confirming a cell** presses 1 by itself about 2 seconds after the call is placed, so the cell is confirmed. A cell number ending in `0404` doesn't answer, and one ending in `0405` answers and presses nothing.

@@ -30,6 +30,7 @@ import {
   Moon,
   Paperclip,
   Phone,
+  RectangleEllipsis,
   Send,
   X,
   type LucideIcon,
@@ -52,6 +53,7 @@ import { cn } from '@/lib/utils';
 import { AttachmentChip } from './attachment-chip';
 import { ChannelIcon, QuietStrip, SegmentCounter, Words } from './bits';
 import type { PendingText } from './hooks';
+import { checkRich, emptyRichDraft, RichEditor, type RichDraft } from './rich-editor';
 
 /** A text in quiet hours: ask first, send now anyway, or hold it until quiet hours end. */
 type QuietChoice = 'ask' | 'now' | 'later';
@@ -96,6 +98,8 @@ export interface ComposerTarget {
   readonly handoverNote?: string | null;
   /** A website chat whose visitor was blocked: replies can't reach them. */
   readonly chatBlocked?: boolean;
+  /** Texts go RCS first for this business right now (0101): the buttons editor says what that means. */
+  readonly rcs?: boolean;
 }
 
 const NOTE_ICON: Record<ComposerNote['icon'], LucideIcon> = {
@@ -256,6 +260,8 @@ export function Composer({
   const [cc, setCc] = useState('');
   const [ccOpen, setCcOpen] = useState(false);
   const [fromKey, setFromKey] = useState<string | null>(null);
+  /** Buttons, a card or a carousel going with the text (0101), while the editor is open. */
+  const [rich, setRich] = useState<RichDraft | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);
   const previews = useRef(new Set<string>());
@@ -369,6 +375,10 @@ export function Composer({
           variant === 'desktop' && target.email ? () => switchMode('email') : undefined,
         );
   const off = chat ? !!target.chatBlocked : email ? !!opts && !opts.canEmail.ok : !canText.ok;
+  // The buttons belong to a text: switching to email keeps them for when the person switches back.
+  const richOn = !!rich && mode === 'sms';
+  const richCheck = rich && richOn ? checkRich(rich, text, files.length) : null;
+  const carousel = richOn && rich?.kind === 'carousel';
   const sendDisabled = off || busy || !text.trim() || (email && (!opts || !from));
 
   function switchMode(next: Mode) {
@@ -421,6 +431,11 @@ export function Composer({
    * when quiet hours end (`sendAfterQuietHours`: it waits in the thread, cancellable, and goes then).
    */
   async function sendText(body: string, when: QuietChoice) {
+    const extras = richOn && rich ? checkRich(rich, body, files.length) : null;
+    if (extras && !extras.ok) {
+      toast.error(extras.error);
+      return;
+    }
     if (target.quiet.quiet && when === 'ask') {
       setConfirmQuiet(true);
       return;
@@ -440,6 +455,7 @@ export function Composer({
             channel: 'sms',
             body,
             attachmentFileIds: files.map((f) => f.fileId),
+            ...(extras?.ok ? { rich: extras.value } : {}),
             clientId,
             ...(when === 'later'
               ? { sendAfterQuietHours: true }
@@ -449,6 +465,7 @@ export function Composer({
       );
       if (!cross) onSettled?.(clientId, { messageId: out.messageId });
       setFiles([]);
+      setRich(null);
       setConfirmQuiet(false);
       if (out.scheduledFor) toast.success(SENT_WORDS.held(who, out.scheduledFor));
       else if (cross) toast.success(SENT_WORDS.textElsewhere(target.phoneDisplay));
@@ -879,6 +896,19 @@ export function Composer({
       ) : null}
       {email && !off && variant === 'sheet' ? subjectInput : null}
       {tray}
+      {rich && richOn && !off ? (
+        <RichEditor
+          draft={rich}
+          onChange={setRich}
+          onClose={() => setRich(null)}
+          body={text}
+          photos={files.length}
+          rcs={!!target.rcs}
+          workspaceId={target.workspaceId}
+          personId={target.personId ?? null}
+          callNumber={target.fromNumber}
+        />
+      ) : null}
       <div
         className={cn(
           'rounded-card border transition-[border-color,box-shadow]',
@@ -907,18 +937,35 @@ export function Composer({
               title={
                 !target.personId
                   ? COMPOSER_WORDS.addCustomerForPhotos
-                  : email
-                    ? variant === 'sheet'
-                      ? COMPOSER_WORDS.attach
-                      : COMPOSER_WORDS.attachPhotoOrFile
-                    : COMPOSER_WORDS.attachPhoto
+                  : carousel
+                    ? COMPOSER_WORDS.carouselPictures
+                    : email
+                      ? variant === 'sheet'
+                        ? COMPOSER_WORDS.attach
+                        : COMPOSER_WORDS.attachPhotoOrFile
+                      : COMPOSER_WORDS.attachPhoto
               }
               aria-label={email ? COMPOSER_WORDS.attachFile : COMPOSER_WORDS.attachPhoto}
-              disabled={off || uploading || !target.personId}
+              disabled={off || uploading || !target.personId || carousel}
               loading={uploading}
               onClick={() => fileInput.current?.click()}
             >
               {uploading ? null : <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />}
+            </Button>
+          )}
+          {chat || email ? null : (
+            <Button
+              variant="ghost"
+              size="icon"
+              title={COMPOSER_WORDS.addButtons}
+              aria-label={COMPOSER_WORDS.addButtons}
+              aria-pressed={richOn}
+              disabled={off}
+              onClick={() => setRich(rich ? null : emptyRichDraft())}
+              className={cn(richOn && 'bg-accent-soft text-accent-text')}
+              data-testid="composer-rich"
+            >
+              <RectangleEllipsis className="h-[18px] w-[18px]" strokeWidth={1.5} />
             </Button>
           )}
           {variant === 'desktop' ? (
@@ -927,7 +974,13 @@ export function Composer({
             </span>
           ) : null}
           <span className="flex-1" />
-          {off || email || chat ? null : <SegmentCounter text={text} photos={files.length} />}
+          {off || email || chat ? null : (
+            // With buttons, a phone without RCS gets them written out: that is what counts.
+            <SegmentCounter
+              text={richCheck?.ok && richCheck.plain ? richCheck.plain : text}
+              photos={files.length}
+            />
+          )}
           <Button
             size="sm"
             disabled={sendDisabled}

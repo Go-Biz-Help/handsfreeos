@@ -248,7 +248,7 @@ export const rcsSenderRecordState = defineCommand({
   output: RcsSenderRefOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['rcs_sender.state_changed'],
+  emits: ['rcs_sender.state_changed', 'rcs_sender.service_changed'],
   actors: ['system'],
   async handler(ctx, input) {
     const [s] = await ctx.tx
@@ -295,6 +295,17 @@ export const rcsSenderRecordState = defineCommand({
           status: input.status,
           ...(input.lastError ? { reason: input.lastError.slice(0, 200) } : {}),
         },
+      });
+    else if (input.inService !== undefined && input.inService !== s.inService)
+      // The same sender put on the messaging service or taken off it — RCS switched back on, paused, or the pool
+      // put right — which is whether texts go RCS first. Nothing to email anybody about, but Settings shows it.
+      await ctx.emit({
+        type: 'rcs_sender.service_changed',
+        entityType: 'rcs_sender',
+        entityId: s.id,
+        payload: { senderId: s.senderId, inService: input.inService },
+        before: { inService: s.inService },
+        after: { inService: input.inService },
       });
     return { rcsSenderId: s.id, status: input.status };
   },
