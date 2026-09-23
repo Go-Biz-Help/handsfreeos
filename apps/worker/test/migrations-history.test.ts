@@ -370,10 +370,11 @@ describe('the history arrives as history', () => {
       transcript: string | null;
       provider_sid: string | null;
       started_at: Date;
+      from_e164: string | null;
     }>(
       admin(),
       sql`select id::text as id, direction::text as direction, duration_seconds, is_voicemail, transcript,
-            provider_sid, started_at
+            provider_sid, started_at, from_e164
           from app.calls where workspace_id = ${workspaceId}::uuid order by started_at`,
     );
     // Two from the phone system, and one placed from the dialer.
@@ -386,6 +387,10 @@ describe('the history arrives as history', () => {
     expect(list[1]).toMatchObject({ direction: 'inbound', is_voicemail: true });
     expect(list[1]!.transcript).toContain('thermostat');
     expect(list[2]).toMatchObject({ direction: 'outbound', is_voicemail: false });
+    // The phone system's call keeps its number; the dialer's call had the business's name where the number
+    // goes, and a name is left out rather than stored as a number.
+    expect(list[0]!.from_e164).toBe('+15125550000');
+    expect(list[2]!.from_e164).toBeNull();
     // No carrier id: that column is unique across the whole database and holds a carrier's own id, so an
     // imported call leaves it empty and is traced through the migration's mapping instead.
     expect(list[0]!.provider_sid).toBeNull();
@@ -715,6 +720,8 @@ describe('the history arrives as history', () => {
 
     // The number they rang customers from, found on an outbound call rather than asked for: GoHighLevel will
     // not list a sub-account's own numbers at all.
+    // Only the real one: the call with the business's name on its side is not a number to port.
+    expect(byKind('messaging').map((t) => t.label)).toEqual(['+15125550000']);
     const number = byKind('messaging')[0]!;
     expect(number.label).toBe('+15125550000');
     expect(number.instructions).toContain('the carrier ports it');
@@ -722,6 +729,8 @@ describe('the history arrives as history', () => {
     expect(number.blocks).toBe(true);
 
     // The domain they sent email from, found on an outbound email.
+    // Not gmail.com, which an email also went out from: nobody can add records to it.
+    expect(byKind('dns').map((t) => t.label)).toEqual(['lonestarhvac.example']);
     const dns = byKind('dns')[0]!;
     expect(dns.label).toBe('lonestarhvac.example');
     expect(dns.settings_path).toBe('/settings/email');

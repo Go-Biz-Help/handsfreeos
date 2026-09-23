@@ -768,8 +768,10 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     '2024-07-01T10:20:00.000Z',
     'Got it, thanks!',
   ),
+  // Placed from the dialer, with the business's name where its number should be: GoHighLevel does this on
+  // the business's side of a call. A name is not a number to port.
   said('cal_a3', 'cnv_a5', 'TYPE_CUSTOM_CALL', 'outbound', '2024-07-01T10:30:00.000Z', '', {
-    from: '+15125550000',
+    from: 'Lone Star HVAC',
     to: '+15125550101',
   }),
 
@@ -832,6 +834,8 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     `Spring checklist. ${'Check the filter. '.repeat(700)}`,
     {
       subject: 'Spring checklist',
+      // Sent from the owner's own Gmail, which is a mailbox and not a domain anybody can set up.
+      from: 'lonestarhvac@gmail.com',
     },
   ),
   said(
