@@ -36,6 +36,10 @@ test('assistant: ask, act at once, confirm before contacting or changing, audit 
   // Tests text at any hour.
   await page.getByTestId('quiet-hours-switch').click();
   await expect(page.getByText('Quiet hours off')).toBeVisible();
+  // The deal is moved by hand below, so the text sent to Mike mustn't move it first.
+  await page.goto(`/app/w/${workspaceId}/settings/automations`);
+  await page.getByTestId('automation-switch-pipeline_moves').click();
+  await expect(page.getByText('Move deals along for you is off.')).toBeVisible();
 
   // Mike Johnson, with an open lead that has nothing planned next.
   await page.goto(`/app/w/${workspaceId}/customers`);
