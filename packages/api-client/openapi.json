@@ -4585,7 +4585,7 @@
     "/v1/commands/record.assign": {
       "post": {
         "operationId": "command_record_assign",
-        "summary": "Assign a customer or a company to someone on the team (owners and admins). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.",
+        "summary": "Assign a customer or a company to someone on the team (whoever the business lets choose who is on a customer: owners and admins unless it says otherwise). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.",
         "tags": [
           "commands"
         ],
@@ -6172,7 +6172,7 @@
     "/v1/commands/task.delete": {
       "post": {
         "operationId": "command_task_delete",
-        "summary": "Delete a task you created (owners and admins can delete any).",
+        "summary": "Delete a task you created (anyone the business lets archive records can delete any).",
         "tags": [
           "commands"
         ],
@@ -76195,7 +76195,7 @@
     "/v1/queries/estimate.list": {
       "post": {
         "operationId": "query_estimate_list",
-        "summary": "Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones on the leads they own; owners and admins see them all.",
+        "summary": "Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones for the customers and leads they are on; whoever manages money sees them all.",
         "tags": [
           "queries"
         ],
@@ -79643,7 +79643,7 @@
     "/v1/queries/money.summary": {
       "post": {
         "operationId": "query_money_summary",
-        "summary": "What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Owners and admins only: the whole business’s receivables are exactly what the member rule withholds.",
+        "summary": "What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Only for whoever manages money: the whole business’s receivables are exactly what the member rule withholds.",
         "tags": [
           "queries"
         ],

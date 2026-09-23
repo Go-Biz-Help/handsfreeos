@@ -4967,7 +4967,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Assign a customer or a company to someone on the team (owners and admins). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.
+         * Assign a customer or a company to someone on the team (whoever the business lets choose who is on a customer: owners and admins unless it says otherwise). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.
          * @description Risk level 1. Requires records.assign. Emits person.updated, company.updated.
          */
         post: operations["command_record_assign"];
@@ -6207,7 +6207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Delete a task you created (owners and admins can delete any).
+         * Delete a task you created (anyone the business lets archive records can delete any).
          * @description Risk level 2. Requires records.write. Emits task.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_task_delete"];
@@ -8067,7 +8067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones on the leads they own; owners and admins see them all.
+         * Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones for the customers and leads they are on; whoever manages money sees them all.
          * @description Requires money.read.
          */
         post: operations["query_estimate_list"];
@@ -8867,7 +8867,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Owners and admins only: the whole business’s receivables are exactly what the member rule withholds.
+         * What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Only for whoever manages money: the whole business’s receivables are exactly what the member rule withholds.
          * @description Requires money.manage.
          */
         post: operations["query_money_summary"];
