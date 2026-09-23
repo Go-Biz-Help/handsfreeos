@@ -128,6 +128,15 @@ export async function loadPrices(
             and o.status not in ('failed', 'undelivered', 'bounced')
             and o.body_text ~ '\\$\\s?[0-9]'
             and o.created_at > l.created_at and o.created_at > ${since}::timestamptz
+            -- The message that carried a quote or an invoice to them isn't a price of its own: the document is.
+            and not exists (select 1 from app.estimates de
+                             where de.person_id = l.person_id and de.sent_at is not null
+                               and de.sent_at between o.created_at - interval '15 minutes'
+                                 and o.created_at + interval '15 minutes')
+            and not exists (select 1 from app.invoices di
+                            where di.person_id = l.person_id and di.sent_at is not null
+                              and di.sent_at between o.created_at - interval '15 minutes'
+                                and o.created_at + interval '15 minutes')
           order by o.created_at desc limit 1
         ) m on true
         left join lateral (
