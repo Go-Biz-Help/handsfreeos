@@ -933,6 +933,13 @@ describe('parity with core', () => {
       'client_quiet',
       'promise_due',
       'revenue_moved',
+      'channel_quiet',
+      'connection_error',
+      'connection_silent',
+      'ai_unreviewed',
+      'ai_corrections',
+      'website_changed',
+      'faq_suggestions',
     ]);
     await worker(A)((tx) =>
       tx.execute(

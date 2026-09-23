@@ -376,6 +376,7 @@ describe('registry', () => {
       'attention.record_auto',
       'automations.save_settings',
       'referral.create_lead',
+      'teammate_lesson.apply',
       'maintenance.set_schedule',
       'lead.catch_up',
       'attendee.confirm',

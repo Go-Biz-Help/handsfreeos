@@ -77,3 +77,28 @@ export {
   type RevenueMovedFacts,
 } from './detectors/revenue-moved';
 export { APPROVAL_EXPIRY_WARN_MS } from './detectors/ai-approval';
+export {
+  CHANNEL_QUIET_GAPS,
+  CHANNEL_QUIET_MIN_COUNT,
+  CHANNEL_WORDS,
+  gapWords,
+  type ChannelKind,
+  type ChannelQuietFacts,
+} from './detectors/channel-quiet';
+export {
+  CONNECTION_PROBLEM_WORDS,
+  CONNECTION_SILENT_GAPS,
+  CONNECTION_SILENT_MIN_MS,
+  silentAt,
+  type ConnectionFacts,
+  type ConnectionProblem,
+  type ConnectionSystem,
+} from './detectors/connection';
+export {
+  AI_UNREVIEWED_DAYS,
+  AI_UNREVIEWED_MIN_WORK,
+  type AiUnreviewedFacts,
+} from './detectors/ai-unreviewed';
+export { type AiCorrectionsFacts } from './detectors/ai-corrections';
+export { type WebsiteChangedFacts } from './detectors/website-changed';
+export { FAQ_SUGGESTION_MIN_ASKS, type FaqSuggestionsFacts } from './detectors/faq-suggestions';

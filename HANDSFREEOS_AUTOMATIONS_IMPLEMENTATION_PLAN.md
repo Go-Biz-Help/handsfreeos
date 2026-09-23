@@ -101,11 +101,11 @@ reacts to an event · **T** AI teammate change.
 | Ads and money        | Balance running low           | E (`wallet_low`)                                                             | 1     |
 |                      | Revenue moved                 | K `revenue_moved`, from payments                                             | 4a    |
 | Health and quality   | Channel went quiet            | K `channel_quiet`                                                            | 4b    |
-|                      | Connected system silent       | K `connection_silent`, over an `app.connection_health` view                  | 4b    |
-|                      | Connection error              | K `connection_error`                                                         | 4b    |
+|                      | Connected system silent       | K `connection_silent`, from each connection's last sync                      | 4b    |
+|                      | Connection error              | K `connection_error` (always on) + push switch `connections`                 | 4b    |
 |                      | Nobody reviewing the AI       | K `ai_unreviewed`                                                            | 4b    |
-|                      | Repeated corrections          | K `ai_corrections`                                                           | 4b    |
-|                      | Website changed               | K `website_changed`                                                          | 4b    |
+|                      | Repeated corrections          | K `ai_corrections`, over `app.teammate_lessons`                              | 4b    |
+|                      | Website changed               | K `website_changed` + a weekly automatic re-read                             | 4b    |
 |                      | FAQ suggestions               | K `faq_suggestions`                                                          | 4b    |
 
 ## Build order

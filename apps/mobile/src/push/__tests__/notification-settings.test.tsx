@@ -90,6 +90,7 @@ const ALL_ON = {
   payment: false,
   wallet: true,
   jobs: true,
+  connections: true,
 };
 
 beforeEach(() => {

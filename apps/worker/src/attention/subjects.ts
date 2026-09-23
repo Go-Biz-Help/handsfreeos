@@ -123,6 +123,33 @@ export const ATTENTION_EVENTS: readonly string[] = [
   // Service (Automations 4a): a promise the team made, and a hand-off the owners were told about.
   'promise.found',
   'conversation.handoff_escalated',
+  // Health and quality (Automations 4b): a connection that broke, came back or went away; the AI teammate's
+  // mode; a lesson from its corrections; the website's re-read and the questions it can't answer.
+  'payment_connection.reauth_required',
+  'payment_connection.failed',
+  'payment_connection.revoked',
+  'payment_connection.disconnected',
+  'payment_connection.connected',
+  'calendar_connection.reauth_required',
+  'calendar_connection.failed',
+  'calendar_connection.disconnected',
+  'calendar_connection.connected',
+  'mailbox.reauth_required',
+  'mailbox.failed',
+  'mailbox.disconnected',
+  'mailbox.connected',
+  'review_connection.needs_attention',
+  'review_connection.disconnected',
+  'review_connection.connected',
+  'phone_number.purchase_failed',
+  'phone_number.released',
+  'ai_teammate.status_changed',
+  'teammate_lesson.found',
+  'teammate_lesson.applied',
+  'knowledge_scan.finished',
+  'knowledge_suggestion.proposed',
+  'knowledge_suggestion.accepted',
+  'knowledge_suggestion.rejected',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -145,6 +172,15 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'maintenance',
   'appointment',
   'promise',
+  'payment_connection',
+  'calendar_connection',
+  'mailbox',
+  'review_connection',
+  'phone_number',
+  'teammate',
+  'lesson',
+  'scan',
+  'suggestion',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -183,6 +219,8 @@ export async function subjectsOf(
     case 'ai_teammate_draft':
       add('approval', id);
       add('conversation', p['conversationId']);
+      // Deciding a draft is someone reviewing the AI.
+      add('teammate', p['teammateId']);
       break;
     case 'conversation':
       add('conversation', id);
@@ -277,6 +315,28 @@ export async function subjectsOf(
     case 'promise':
       add('promise', id);
       add('person', p['personId']);
+      break;
+    // Health and quality: each connection's card is stored under its own table's type.
+    case 'payment_connection':
+    case 'calendar_connection':
+    case 'mailbox':
+    case 'review_connection':
+    case 'phone_number':
+      add(event.entityType, id);
+      break;
+    case 'ai_teammate':
+      add('teammate', id);
+      break;
+    case 'lesson':
+      add('lesson', id);
+      break;
+    case 'knowledge_scan':
+      add('scan', id);
+      break;
+    case 'knowledge_suggestion':
+      add('suggestion', id);
+      if (Array.isArray(p['suggestionIds']))
+        for (const s of p['suggestionIds'].slice(0, 50)) add('suggestion', s);
       break;
     // Their address may be what a visit at their place was missing; reconcile widens a customer to their visits.
     case 'person':

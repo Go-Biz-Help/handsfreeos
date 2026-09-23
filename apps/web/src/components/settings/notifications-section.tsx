@@ -100,6 +100,13 @@ const ROWS: readonly Row[] = [
     email: null,
   },
   {
+    title: 'A connection stops working',
+    description:
+      'When something you connected stops working: payments, a calendar, your email, reviews or a phone number. Owners and admins, and whoever the calendar or inbox belongs to.',
+    push: 'connections',
+    email: null,
+  },
+  {
     title: 'Morning summary',
     description:
       'One email at 7 AM with today’s jobs, who to call, and what needs your attention, urgent first.',

@@ -14,7 +14,14 @@ import { Pressable, View } from 'react-native';
 import { useAiColors } from '@/components/drafts';
 import {
   BadgeDollarSign,
+  BellOff,
   CalendarClock,
+  CircleQuestionMark,
+  EyeOff,
+  Globe,
+  GraduationCap,
+  Unplug,
+  WifiOff,
   ChartLine,
   Handshake,
   UserMinus,
@@ -91,6 +98,13 @@ const KIND_LOOK: Readonly<
   client_quiet: { icon: UserMinus, tone: 'gray' },
   promise_due: { icon: Handshake, tone: 'warning' },
   revenue_moved: { icon: ChartLine, tone: 'accent' },
+  channel_quiet: { icon: BellOff, tone: 'warning' },
+  connection_error: { icon: Unplug, tone: 'danger' },
+  connection_silent: { icon: WifiOff, tone: 'warning' },
+  ai_unreviewed: { icon: EyeOff, tone: 'ai' },
+  ai_corrections: { icon: GraduationCap, tone: 'ai' },
+  website_changed: { icon: Globe, tone: 'accent' },
+  faq_suggestions: { icon: CircleQuestionMark, tone: 'ai' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {

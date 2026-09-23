@@ -40,6 +40,26 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   client_quiet: ['customer', 'customers'],
   promise_due: ['promise', 'promises'],
   revenue_moved: ['week', 'weeks'],
+  channel_quiet: ['channel', 'channels'],
+  connection_error: ['connection', 'connections'],
+  connection_silent: ['connection', 'connections'],
+  ai_unreviewed: ['teammate', 'teammates'],
+  ai_corrections: ['lesson', 'lessons'],
+  website_changed: ['scan', 'scans'],
+  faq_suggestions: ['question', 'questions'],
+};
+
+/** The settings page that checks a channel or fixes a connection, by the card's stored subject type. */
+const HEALTH_TARGETS: Readonly<Record<string, AttentionTarget>> = {
+  channel_text: { href: '/settings/texting', label: 'Open texting settings' },
+  channel_call: { href: '/settings/texting', label: 'Open phone settings' },
+  channel_email: { href: '/settings/email', label: 'Open email settings' },
+  channel_chat: { href: '/settings/website-chat', label: 'Open website chat' },
+  payment_connection: { href: '/settings/payments', label: 'Open payments' },
+  calendar_connection: { href: '/settings/my-calendar', label: 'Open your calendar' },
+  mailbox: { href: '/settings/email', label: 'Open email settings' },
+  review_connection: { href: '/reviews', label: 'Open reviews' },
+  phone_number: { href: '/settings/texting', label: 'Open phone settings' },
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
@@ -478,6 +498,22 @@ export function attentionTargetOf(
     // What came in, and what's still owed.
     case 'revenue_moved':
       return { href: `${base}/money`, label: 'Open money' };
+    // The business's own set-up: the page that checks or fixes it.
+    case 'channel_quiet':
+    case 'connection_error':
+    case 'connection_silent': {
+      const t = HEALTH_TARGETS[item.subject.type];
+      if (t) return { href: `${base}${t.href}`, label: t.label };
+      return { href: `${base}/settings`, label: 'Open settings' };
+    }
+    case 'ai_unreviewed':
+      return { href: `${base}/ai-team`, label: 'Open the AI teammate' };
+    case 'ai_corrections':
+      return { href: `${base}/knowledge/profile`, label: 'Open what the AI knows' };
+    case 'website_changed':
+      return { href: `${base}/knowledge/suggestions?reason=scan`, label: 'Open the updates' };
+    case 'faq_suggestions':
+      return { href: `${base}/knowledge/suggestions?reason=gap`, label: 'Open the questions' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -601,6 +637,19 @@ export function handleButtonOf(
       return { label: `Text ${first}`, icon: 'message' };
     case 'revenue_moved':
       return { label: 'Open money', icon: 'receipt' };
+    case 'channel_quiet':
+    case 'connection_silent':
+      return { label: 'Check it', icon: 'list-checks' };
+    case 'connection_error':
+      return { label: 'Reconnect', icon: 'list-checks' };
+    case 'ai_unreviewed':
+      return { label: 'Review', icon: 'check' };
+    case 'ai_corrections':
+      return { label: 'Add to what the AI knows', icon: 'check' };
+    case 'website_changed':
+      return { label: 'Review updates', icon: 'file-text' };
+    case 'faq_suggestions':
+      return { label: 'Answer', icon: 'message' };
   }
 }
 
@@ -621,6 +670,16 @@ export function letHandleOffReason(
   if (item.kind === 'client_quiet') return 'A regular hears from a person';
   if (item.kind === 'promise_due') return 'The promise was yours';
   if (item.kind === 'revenue_moved') return 'This one is for you to look at';
+  if (item.kind === 'channel_quiet' || item.kind === 'connection_silent')
+    return 'Only you can check what’s wrong';
+  if (item.kind === 'connection_error') return 'Reconnecting needs you to sign in';
+  if (item.kind === 'ai_unreviewed') return 'Reviewing the AI is for a person';
+  if (
+    item.kind === 'ai_corrections' ||
+    item.kind === 'website_changed' ||
+    item.kind === 'faq_suggestions'
+  )
+    return 'What the AI learns is yours to decide';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

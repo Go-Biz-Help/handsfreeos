@@ -51,6 +51,8 @@ export function chipText(chip: AttentionChip, now: Date | number): string {
         return ms < MIN ? 'due now' : `${span(ms)} overdue`;
       case 'job_done':
         return ms < MIN ? 'job done just now' : `job done ${span(ms)} ago`;
+      case 'silent':
+        return ms < MIN ? 'nothing just now' : `nothing for ${span(ms)}`;
       default:
         return chip.label;
     }
@@ -124,6 +126,13 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'quiet',
   'promise',
   'revenue',
+  'broken',
+  'quiet_channel',
+  'silent',
+  'unreviewed',
+  'corrected',
+  'site_changed',
+  'asked',
 ];
 
 /** Chips in CHIP_ORDER, one per code (the first of each wins). */

@@ -66,6 +66,13 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   client_quiet: 'Gone quiet',
   promise_due: 'Promise due',
   revenue_moved: 'Money in changed',
+  channel_quiet: 'Channel quiet',
+  connection_error: 'Connection broken',
+  connection_silent: 'Connection silent',
+  ai_unreviewed: 'AI not reviewed',
+  ai_corrections: 'AI keeps being corrected',
+  website_changed: 'Website changed',
+  faq_suggestions: 'Question to answer',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -628,6 +635,13 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   client_quiet: 'Only who checks in with them. Nothing else changes.',
   promise_due: 'Only who follows through. Nothing else changes.',
   revenue_moved: 'A week of money belongs to the business, not to a person.',
+  channel_quiet: 'A channel belongs to the business, not to a person.',
+  connection_error: 'A connection is fixed by whoever it belongs to.',
+  connection_silent: 'A connection is fixed by whoever it belongs to.',
+  ai_unreviewed: 'Only who reviews the AI’s work. Nothing else changes.',
+  ai_corrections: 'What the AI learns belongs to the business, not to a person.',
+  website_changed: 'Only who reviews the updates. Nothing else changes.',
+  faq_suggestions: 'Only who answers the question. Nothing else changes.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

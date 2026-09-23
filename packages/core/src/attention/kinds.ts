@@ -37,6 +37,14 @@ export const ATTENTION_KINDS = [
   'client_quiet',
   'promise_due',
   'revenue_moved',
+  // Health and quality (Automations, stage 4b): the business's own set-up, not a customer.
+  'channel_quiet',
+  'connection_error',
+  'connection_silent',
+  'ai_unreviewed',
+  'ai_corrections',
+  'website_changed',
+  'faq_suggestions',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -68,6 +76,13 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   client_quiet: 'Gone quiet',
   promise_due: 'Promise due',
   revenue_moved: 'Money in changed',
+  channel_quiet: 'Channel quiet',
+  connection_error: 'Connection broken',
+  connection_silent: 'Connection silent',
+  ai_unreviewed: 'AI not reviewed',
+  ai_corrections: 'AI keeps being corrected',
+  website_changed: 'Website changed',
+  faq_suggestions: 'Question to answer',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -97,6 +112,13 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   client_quiet: 'Regulars gone quiet',
   promise_due: 'Promises due',
   revenue_moved: 'Money in changed',
+  channel_quiet: 'Channels gone quiet',
+  connection_error: 'Connections broken',
+  connection_silent: 'Connections silent',
+  ai_unreviewed: 'AI not reviewed',
+  ai_corrections: 'Things to teach the AI',
+  website_changed: 'Website changes',
+  faq_suggestions: 'Questions to answer',
 };
 
 /**
@@ -137,8 +159,36 @@ export const ATTENTION_SUBJECT_OF = {
   promise_due: 'promise',
   // One per business, like the wallet's: the subject is the workspace's own id.
   revenue_moved: 'revenue',
+  // One of the business's channels. Stored as the channel's own type (HEALTH_SUBJECT_TYPES), so the card knows
+  // which page checks it; the id is derived from the business and the channel.
+  channel_quiet: 'channel',
+  // A row of payment_connections, calendar_connections, mailbox_connections, review_connections or
+  // phone_numbers, stored as that table's type (HEALTH_SUBJECT_TYPES).
+  connection_error: 'connection',
+  connection_silent: 'connection',
+  // An AI teammate.
+  ai_unreviewed: 'teammate',
+  // A row of app.teammate_lessons: one line of guidance made of repeated corrections.
+  ai_corrections: 'lesson',
+  // A website scan that found changes.
+  website_changed: 'scan',
+  // A row of app.knowledge_suggestions: a question the AI couldn't answer, asked again and again.
+  faq_suggestions: 'suggestion',
 } as const satisfies Record<AttentionKind, string>;
-export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
+/** What a quiet channel's or a connection's card is stored as: the page that fixes it. */
+export const HEALTH_SUBJECT_TYPES = [
+  'channel_text',
+  'channel_call',
+  'channel_email',
+  'channel_chat',
+  'payment_connection',
+  'calendar_connection',
+  'mailbox',
+  'review_connection',
+  'phone_number',
+] as const;
+export type HealthSubjectType = (typeof HEALTH_SUBJECT_TYPES)[number];
+export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind] | HealthSubjectType;
 
 /** The kinds about a lead. One card per lead: only the first of these that holds opens. */
 export const LEAD_PRECEDENCE = [
@@ -369,6 +419,61 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  /**
+   * Health and quality. The business's own set-up: opening the page that fixes it is all the button does, and the
+   * page asks for its own permission. Nobody to assign most of them to, and nothing HandsFreeOS can fix itself.
+   */
+  channel_quiet: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  connection_error: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    // Never dismissed: payments, bookings or messages are failing until it's reconnected.
+    dismiss: null,
+  },
+  connection_silent: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  ai_unreviewed: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Adding the line changes what the AI knows: knowledge.manage, like any knowledge edit.
+  ai_corrections: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  website_changed: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  faq_suggestions: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -421,6 +526,13 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   client_quiet: 'Check in',
   promise_due: 'Follow through',
   revenue_moved: 'Open money',
+  channel_quiet: 'Check it',
+  connection_error: 'Reconnect',
+  connection_silent: 'Check it',
+  ai_unreviewed: 'Review',
+  ai_corrections: 'Add to what the AI knows',
+  website_changed: 'Review updates',
+  faq_suggestions: 'Answer',
 };
 
 // ---- What runs on its own ----
@@ -498,6 +610,13 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   client_quiet: 'A regular hears from a person, not an automatic text.',
   promise_due: 'The promise was yours, so keeping it is too.',
   revenue_moved: 'This is for you to look at, not something to send.',
+  channel_quiet: 'Only you can check what’s wrong with it.',
+  connection_error: 'Reconnecting needs you to sign in again.',
+  connection_silent: 'Only you can check what’s wrong with it.',
+  ai_unreviewed: 'Reviewing the AI’s work is for a person.',
+  ai_corrections: 'What the AI learns is yours to decide.',
+  website_changed: 'What the AI learns is yours to decide.',
+  faq_suggestions: 'Only you know the answer.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

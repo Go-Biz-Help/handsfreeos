@@ -111,10 +111,10 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
     'Set up your AI teammate to start.',
   );
   await expect(page.getByTestId('automation-switch-new_lead_greeting')).toBeDisabled();
-  // The header counts only what's actually working: the AI teammate's four rows wait on it, intake
-  // questions on a form, and maintenance reminders on a service that repeats.
+  // The header counts only what's actually working: the AI teammate's four rows and the three health rows
+  // about its work wait on it, intake questions on a form, and maintenance reminders on a service that repeats.
   await expect(page.getByTestId('automations-count')).toContainText(
-    '6 need something set up first.',
+    '9 need something set up first.',
   );
 
   // An Action Center kind off and on again, saved each time.

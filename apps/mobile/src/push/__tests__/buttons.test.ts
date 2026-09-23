@@ -42,6 +42,7 @@ describe('the notification categories', () => {
       payment: ['Open'],
       wallet: ['Open'],
       job_check: ['Done', 'Didn’t happen', 'Still there'],
+      connection: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });

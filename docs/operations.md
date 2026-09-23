@@ -7685,6 +7685,20 @@ Which stage means what is guessed from each stage's name ("Estimate sent" means 
 
 The promises found are kept in `app.promises`; dismissing the card is enough to drop one. Needs `20261004000800_service_and_revenue.sql`. See "Apply new migrations".
 
+### Health and quality
+
+| Row                               | What it does                                                                                                                                                                                                          | On to begin with |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Channel went quiet**            | A card when texts, calls, email or website chat usually bring something in (10 or more in 30 days) and nothing has come for 3 times the usual gap, counted in open hours and at least one open day                    | Yes              |
+| **Connection broke**              | When Stripe or Square, a calendar, an email inbox, Google or Facebook reviews, or a phone number stops working, an urgent card and a push to the owners and admins (and whoever the calendar or inbox belongs to)     | Always           |
+| **Connection went silent**        | A card when a calendar, inbox or reviews connection says it's fine but hasn't synced for 3 times its usual gap, and at least 2 hours                                                                                  | Yes              |
+| **Nobody reviewing the AI**       | A card when the AI teammate made 3 or more drafts (training) or replied in 3 or more conversations (automatic) in the last week and nobody approved, rejected, read or answered any of it for 7 days                  | Yes              |
+| **Repeated corrections**          | After 3 edits or rejections of the AI's replies in 2 weeks, the AI looks for what they have in common and suggests one line. **Add to what the AI knows** puts it at the end of the policies in the knowledge profile | Yes              |
+| **Website changed**               | Every Monday at 4 AM the website is read again (only once someone scanned it before). A card when it proposes updates, until they're accepted or turned down                                                          | Yes              |
+| **Questions the AI can't answer** | A card as soon as a question the AI couldn't answer has come up 3 times. **Answer** opens it in Knowledge → Suggestions, where the answer is typed once and saved                                                     | Yes              |
+
+The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons`, and the weekly re-read marks its scans `automatic`. Needs `20261004000900_health_and_quality.sql`. See "Apply new migrations".
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.

@@ -51,6 +51,20 @@ export const REASON_CODES = [
   'promise',
   /** Last week's money in against the usual week: "$6,200 last week · usually $9,000 (−31%)". */
   'revenue',
+  /** A channel's usual pace: "Texts usually every 2 h". */
+  'quiet_channel',
+  /** Nothing for a while, counting up: "nothing for 1 day" (a quiet channel, a silent connection). */
+  'silent',
+  /** What broke on a connection: "Sign-in expired", "Access removed". */
+  'broken',
+  /** The AI's work nobody looked at: "14 drafts · none reviewed in 7 days". */
+  'unreviewed',
+  /** What the AI keeps being corrected on, as one line of guidance. */
+  'corrected',
+  /** What changed on the website: "3 pages changed · 4 updates". */
+  'site_changed',
+  /** A question customers keep asking: "“Do you work Sundays?” · asked 4 times". */
+  'asked',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

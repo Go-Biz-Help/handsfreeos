@@ -4,6 +4,7 @@ import { EVENING_JOB, eveningBriefJob } from './evening';
 import { INTAKE_JOB, intakeJob } from './intake';
 import { EXPIRING_JOB, expiringJob } from './expiring';
 import { HANDOFF_NUDGE_JOB, handoffNudgeJob } from './handoff';
+import { LESSON_JOB, lessonJob, WEBSITE_RESCAN_JOB, websiteRescanJob } from './health';
 import { JOB_CHECK_JOB, jobCheckJob } from './job-check';
 import { PROMISE_JOB, promiseJob } from './promises';
 import { MAINTENANCE_JOB, maintenanceJob } from './maintenance';
@@ -59,6 +60,19 @@ export {
   teamLines,
 } from './promises';
 export { INTAKE_DELAY_MS, INTAKE_JOB, intakeJobKey, onBookedIntake } from './intake';
+export {
+  CONNECTION_BROKE_EVENTS,
+  ensureWebsiteRescan,
+  LESSON_ASK,
+  LESSON_JOB,
+  LESSON_MIN_CORRECTIONS,
+  lessonJobKey,
+  nextRescanAt,
+  onConnectionBroke,
+  onCorrection,
+  WEBSITE_RESCAN_JOB,
+  websiteRescanKey,
+} from './health';
 
 export const automationJobs: JobMap = {
   [REENGAGE_JOB]: reengageJob,
@@ -71,4 +85,6 @@ export const automationJobs: JobMap = {
   [HANDOFF_NUDGE_JOB]: handoffNudgeJob,
   [PROMISE_JOB]: promiseJob,
   [EXPIRING_JOB]: expiringJob,
+  [LESSON_JOB]: lessonJob,
+  [WEBSITE_RESCAN_JOB]: websiteRescanJob,
 };

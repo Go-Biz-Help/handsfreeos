@@ -47,6 +47,14 @@ const kindSwitches = {
   client_quiet: on(),
   promise_due: on(),
   revenue_moved: on(),
+  channel_quiet: on(),
+  // A broken connection is always shown: payments, bookings or messages are failing until it's fixed.
+  connection_error: always(),
+  connection_silent: on(),
+  ai_unreviewed: on(),
+  ai_corrections: on(),
+  website_changed: on(),
+  faq_suggestions: on(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

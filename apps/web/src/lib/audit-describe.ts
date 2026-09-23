@@ -730,6 +730,10 @@ function describeAction(e: AuditEntry): string {
       return s(e.after?.lead)
         ? `made a lead from a referral: “${s(e.after?.lead)}” (${s(e.after?.source) || 'Referral'})`
         : 'made a lead from a referral';
+    case 'teammate_lesson.apply':
+      return s(e.after?.line)
+        ? `added to what the AI knows: “${s(e.after?.line)}”`
+        : 'added a line to what the AI knows';
     case 'attention.record_auto':
       return recordAutoSentence(e);
     default:

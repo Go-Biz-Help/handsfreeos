@@ -2382,6 +2382,8 @@ export const knowledgeScans = app.table('knowledge_scans', {
   suggestionCount: integer('suggestion_count').notNull().default(0),
   errors: jsonb('errors').$type<Json[]>().notNull().default([]),
   startedBy: userRef('started_by'),
+  /** Automations 4b: the worker's weekly re-read, not a person's Scan. */
+  automatic: boolean('automatic').notNull().default(false),
   startedAt: ts('started_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),
@@ -5019,6 +5021,26 @@ export const promises = app.table('promises', {
   ...timestamps(),
 });
 
+/** Automations 4b: one line of guidance the worker made of repeated corrections to the AI teammate. */
+export const teammateLessons = app.table('teammate_lessons', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  line: text('line').notNull(),
+  why: text('why'),
+  draftIds: uuid('draft_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  /** open, applied or dismissed. */
+  status: text('status').notNull().default('open'),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
+  ...timestamps(),
+});
+
 /** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
 export const serviceSchedules = app.table('service_schedules', {
   id: id(),
@@ -5068,6 +5090,7 @@ export const tables = {
   thankYous,
   referrals,
   promises,
+  teammateLessons,
   foundingOffers,
   foundingGrants,
   foundingApplications,

@@ -46,7 +46,7 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
 
   const { token } = await signInOwner(email);
   const me = await api<{ user: { settings: Settings } }>(token, 'queries', 'account.me', {});
-  // All nine, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
+  // All ten, in the order `PushSwitches` declares them (packages/core/src/push.ts). Exact equality on
   // purpose: a switch arriving without anybody deciding it should is the thing this catches.
   expect(me.user.settings.push).toEqual({
     customerWaiting: true,
@@ -58,6 +58,7 @@ test('notifications: push beside email, each saved whole', async ({ page }) => {
     payment: true,
     wallet: true,
     jobs: true,
+    connections: true,
   });
   expect(me.user.settings.notifications).toMatchObject({
     attentionDigest: false,

@@ -45,6 +45,8 @@ export const PUSH_TTL_SECONDS: Readonly<Record<PushCategory, number>> = {
   wallet: 24 * HOUR_S,
   // By the next morning the card on Home has it.
   job_check: 12 * HOUR_S,
+  // Broken until someone reconnects it: still worth hearing about tomorrow.
+  connection: 24 * HOUR_S,
 };
 
 /**

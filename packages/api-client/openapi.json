@@ -24080,6 +24080,37 @@
                           "revenue_moved": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "channel_quiet": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "connection_error": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
+                          },
+                          "connection_silent": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "ai_unreviewed": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "ai_corrections": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "website_changed": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "faq_suggestions": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -24377,6 +24408,37 @@
                             "revenue_moved": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "channel_quiet": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "connection_error": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "connection_silent": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "ai_unreviewed": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "ai_corrections": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "website_changed": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "faq_suggestions": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -24403,7 +24465,14 @@
                             "job_no_address",
                             "client_quiet",
                             "promise_due",
-                            "revenue_moved"
+                            "revenue_moved",
+                            "channel_quiet",
+                            "connection_error",
+                            "connection_silent",
+                            "ai_unreviewed",
+                            "ai_corrections",
+                            "website_changed",
+                            "faq_suggestions"
                           ],
                           "additionalProperties": false
                         },
@@ -25251,6 +25320,74 @@
                     "personId",
                     "leadId",
                     "existingPerson"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/teammate_lesson.apply": {
+      "post": {
+        "operationId": "command_teammate_lesson_apply",
+        "summary": "Add the line of guidance made of repeated corrections to the AI teammate to the business’s policies, which the AI reads on every reply.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "lessonId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "line": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "lessonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lessonId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "line": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "lessonId",
+                    "line"
                   ],
                   "additionalProperties": false
                 }
@@ -53934,7 +54071,14 @@
                                               "job_no_address",
                                               "client_quiet",
                                               "promise_due",
-                                              "revenue_moved"
+                                              "revenue_moved",
+                                              "channel_quiet",
+                                              "connection_error",
+                                              "connection_silent",
+                                              "ai_unreviewed",
+                                              "ai_corrections",
+                                              "website_changed",
+                                              "faq_suggestions"
                                             ]
                                           },
                                           "chips": {
@@ -67524,7 +67668,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 24,
+                    "maxItems": 31,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -67552,7 +67696,14 @@
                         "job_no_address",
                         "client_quiet",
                         "promise_due",
-                        "revenue_moved"
+                        "revenue_moved",
+                        "channel_quiet",
+                        "connection_error",
+                        "connection_silent",
+                        "ai_unreviewed",
+                        "ai_corrections",
+                        "website_changed",
+                        "faq_suggestions"
                       ]
                     }
                   },
@@ -67624,7 +67775,14 @@
                               "job_no_address",
                               "client_quiet",
                               "promise_due",
-                              "revenue_moved"
+                              "revenue_moved",
+                              "channel_quiet",
+                              "connection_error",
+                              "connection_silent",
+                              "ai_unreviewed",
+                              "ai_corrections",
+                              "website_changed",
+                              "faq_suggestions"
                             ]
                           },
                           "state": {
@@ -67789,7 +67947,14 @@
                                     "no_address",
                                     "quiet",
                                     "promise",
-                                    "revenue"
+                                    "revenue",
+                                    "quiet_channel",
+                                    "silent",
+                                    "broken",
+                                    "unreviewed",
+                                    "corrected",
+                                    "site_changed",
+                                    "asked"
                                   ]
                                 },
                                 "label": {
@@ -68164,7 +68329,14 @@
                               "job_no_address",
                               "client_quiet",
                               "promise_due",
-                              "revenue_moved"
+                              "revenue_moved",
+                              "channel_quiet",
+                              "connection_error",
+                              "connection_silent",
+                              "ai_unreviewed",
+                              "ai_corrections",
+                              "website_changed",
+                              "faq_suggestions"
                             ]
                           },
                           "state": {
@@ -68329,7 +68501,14 @@
                                     "no_address",
                                     "quiet",
                                     "promise",
-                                    "revenue"
+                                    "revenue",
+                                    "quiet_channel",
+                                    "silent",
+                                    "broken",
+                                    "unreviewed",
+                                    "corrected",
+                                    "site_changed",
+                                    "asked"
                                   ]
                                 },
                                 "label": {
@@ -68704,7 +68883,14 @@
                               "job_no_address",
                               "client_quiet",
                               "promise_due",
-                              "revenue_moved"
+                              "revenue_moved",
+                              "channel_quiet",
+                              "connection_error",
+                              "connection_silent",
+                              "ai_unreviewed",
+                              "ai_corrections",
+                              "website_changed",
+                              "faq_suggestions"
                             ]
                           },
                           "title": {
@@ -68996,7 +69182,14 @@
                               "job_no_address",
                               "client_quiet",
                               "promise_due",
-                              "revenue_moved"
+                              "revenue_moved",
+                              "channel_quiet",
+                              "connection_error",
+                              "connection_silent",
+                              "ai_unreviewed",
+                              "ai_corrections",
+                              "website_changed",
+                              "faq_suggestions"
                             ]
                           },
                           "state": {
@@ -69161,7 +69354,14 @@
                                     "no_address",
                                     "quiet",
                                     "promise",
-                                    "revenue"
+                                    "revenue",
+                                    "quiet_channel",
+                                    "silent",
+                                    "broken",
+                                    "unreviewed",
+                                    "corrected",
+                                    "site_changed",
+                                    "asked"
                                   ]
                                 },
                                 "label": {
@@ -69585,7 +69785,14 @@
                         "job_no_address",
                         "client_quiet",
                         "promise_due",
-                        "revenue_moved"
+                        "revenue_moved",
+                        "channel_quiet",
+                        "connection_error",
+                        "connection_silent",
+                        "ai_unreviewed",
+                        "ai_corrections",
+                        "website_changed",
+                        "faq_suggestions"
                       ]
                     },
                     "mode": {
@@ -70044,6 +70251,37 @@
                             "revenue_moved": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "channel_quiet": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "connection_error": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "connection_silent": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "ai_unreviewed": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "ai_corrections": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "website_changed": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "faq_suggestions": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -70070,7 +70308,14 @@
                             "job_no_address",
                             "client_quiet",
                             "promise_due",
-                            "revenue_moved"
+                            "revenue_moved",
+                            "channel_quiet",
+                            "connection_error",
+                            "connection_silent",
+                            "ai_unreviewed",
+                            "ai_corrections",
+                            "website_changed",
+                            "faq_suggestions"
                           ],
                           "additionalProperties": false
                         },

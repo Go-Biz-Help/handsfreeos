@@ -26,6 +26,7 @@ import {
   sweepJobKey,
 } from './constants';
 import { ensureEvening } from '../automations/evening';
+import { ensureWebsiteRescan } from '../automations/health';
 import { ensureMaintenance } from '../automations/maintenance';
 import { ensureReengage } from '../automations/reengage';
 import { ensureDigests, sendAttentionDigest } from './digest';
@@ -86,6 +87,7 @@ export const BUSINESS_PLANNERS: readonly BusinessPlanner[] = [
   ensureReengage,
   ensureMaintenance,
   ensureEvening,
+  ensureWebsiteRescan,
 ];
 
 /** Hourly: every business has its sweep (new ones get theirs within the next hour). */

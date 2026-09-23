@@ -62,6 +62,14 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   promise_due: { grows: 'since', start: 1.5, stepMs: DAY },
   // Worth a look this week, never urgent.
   revenue_moved: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  // The business's own set-up. A quiet channel may be losing leads today; the AI ones keep for days.
+  channel_quiet: { grows: 'since', start: 1.5, stepMs: DAY },
+  connection_error: { grows: 'since', start: 2, stepMs: DAY },
+  connection_silent: { grows: 'since', start: 1.5, stepMs: DAY },
+  ai_unreviewed: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  ai_corrections: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  website_changed: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  faq_suggestions: { grows: 'since', start: 1, stepMs: 3 * DAY },
 };
 
 /**

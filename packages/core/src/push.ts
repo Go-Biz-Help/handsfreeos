@@ -31,6 +31,8 @@ export const PUSH_SWITCHES = [
   'wallet',
   /** Automations' "Did the job happen?": a visit you were on is over; mark it done from the push. */
   'jobs',
+  /** Automations' "Connection broke": payments, a calendar, email, reviews or a phone number stopped working. */
+  'connections',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -44,7 +46,7 @@ export function pushSwitchOn(settings: unknown, key: PushSwitch): boolean {
   return typeof chosen === 'boolean' ? chosen : key !== 'payment';
 }
 
-/** All nine switches, as a save sends them (`settings: { push: … }`). */
+/** All ten switches, as a save sends them (`settings: { push: … }`). */
 export const PushSwitches = z.object({
   customerWaiting: z.boolean(),
   missedCall: z.boolean(),
@@ -55,10 +57,11 @@ export const PushSwitches = z.object({
   payment: z.boolean(),
   wallet: z.boolean(),
   jobs: z.boolean(),
+  connections: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
-/** A person's nine switches with their defaults filled in, ready to show or to save back whole. */
+/** A person's ten switches with their defaults filled in, ready to show or to save back whole. */
 export function pushSwitchesOf(settings: unknown): PushSwitches {
   return Object.fromEntries(
     PUSH_SWITCHES.map((k) => [k, pushSwitchOn(settings, k)]),
@@ -165,6 +168,8 @@ export const PUSH_CATEGORIES = {
   wallet: { switch: 'wallet', buttons: ['open'] },
   /** A visit you were on is over and nobody has said how it went (Automations' "Did the job happen?"). */
   job_check: { switch: 'jobs', buttons: ['done', 'no_show', 'still_there'] },
+  /** Something the business connected stopped working (Automations' "Connection broke"): Open goes to fix it. */
+  connection: { switch: 'connections', buttons: ['open'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }

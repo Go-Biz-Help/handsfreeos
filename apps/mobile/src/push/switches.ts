@@ -89,6 +89,12 @@ export const NOTIFICATION_ROWS: readonly NotificationRow[] = [
     push: 'jobs',
     email: null,
   },
+  {
+    title: 'A connection stops working',
+    detail: 'Payments, a calendar, email, reviews or a phone number',
+    push: 'connections',
+    email: null,
+  },
 ];
 
 /** The moments that only email. */

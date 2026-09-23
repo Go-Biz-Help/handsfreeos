@@ -293,6 +293,7 @@ import {
 } from './attention';
 import { automationsSaveSettings } from './automations';
 import { referralCreateLead } from './referral';
+import { teammateLessonApply } from './teammate-lesson';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
 import { paymentConnectionCommands } from './payment-connection';
@@ -746,6 +747,7 @@ export const commands: readonly CommandDef[] = [
   attentionRecordAuto,
   automationsSaveSettings,
   referralCreateLead,
+  teammateLessonApply,
   maintenanceSetSchedule,
   leadCatchUp,
   attendeeConfirm,
@@ -807,6 +809,7 @@ export * from './chat';
 export * from './attention';
 export * from './automations';
 export * from './referral';
+export * from './teammate-lesson';
 export * from './maintenance';
 export * from './attendee-confirm';
 export * from './payment-connection';

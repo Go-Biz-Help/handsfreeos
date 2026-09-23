@@ -46,6 +46,20 @@ import {
   type PriceState,
 } from './load-pipeline-jobs';
 import {
+  loadChannels,
+  loadConnections,
+  loadGaps,
+  loadLessons,
+  loadScans,
+  loadTeammates,
+  type ChannelInfo,
+  type ConnectionInfo,
+  type GapInfo,
+  type LessonInfo,
+  type ScanInfo,
+  type TeammateInfo,
+} from './load-health';
+import {
   loadPromises,
   loadRegulars,
   loadRevenue,
@@ -54,6 +68,8 @@ import {
 } from './load-service';
 import { automationSettingsOf } from '../automations/settings';
 import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } from './kinds';
+import type { ChannelKind } from './detectors/channel-quiet';
+import type { ConnectionSystem } from './detectors/connection';
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
 import type { AttentionCandidate, AttentionChip, Detection } from './types';
@@ -84,7 +100,16 @@ export interface AttentionSubjectRef {
     | 'referral'
     | 'maintenance'
     | 'appointment'
-    | 'promise';
+    | 'promise'
+    | 'payment_connection'
+    | 'calendar_connection'
+    | 'mailbox'
+    | 'review_connection'
+    | 'phone_number'
+    | 'teammate'
+    | 'lesson'
+    | 'scan'
+    | 'suggestion';
   readonly id: string;
 }
 
@@ -242,6 +267,12 @@ interface SubjectSets {
   readonly maintenance: Set<string>;
   readonly appointments: Set<string>;
   readonly promises: Set<string>;
+  // Health and quality (4b): the business's own set-up.
+  readonly connections: Set<string>;
+  readonly teammates: Set<string>;
+  readonly lessons: Set<string>;
+  readonly scans: Set<string>;
+  readonly suggestions: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -258,7 +289,21 @@ const emptySets = (): SubjectSets => ({
   maintenance: new Set(),
   appointments: new Set(),
   promises: new Set(),
+  connections: new Set(),
+  teammates: new Set(),
+  lessons: new Set(),
+  scans: new Set(),
+  suggestions: new Set(),
 });
+
+/** A connection's card is stored under its own table's type. */
+const CONNECTION_TYPES: ReadonlySet<string> = new Set([
+  'payment_connection',
+  'calendar_connection',
+  'mailbox',
+  'review_connection',
+  'phone_number',
+]);
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
   if (type === 'lead') s.leads.add(id);
@@ -274,6 +319,11 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'maintenance') s.maintenance.add(id);
   else if (type === 'appointment') s.appointments.add(id);
   else if (type === 'promise') s.promises.add(id);
+  else if (CONNECTION_TYPES.has(type)) s.connections.add(id);
+  else if (type === 'teammate') s.teammates.add(id);
+  else if (type === 'lesson') s.lessons.add(id);
+  else if (type === 'scan') s.scans.add(id);
+  else if (type === 'suggestion') s.suggestions.add(id);
 }
 
 /**
@@ -1228,6 +1278,11 @@ interface Loaded {
   readonly jobs: Map<string, JobInfo>;
   readonly regulars: Map<string, RegularInfo>;
   readonly promises: Map<string, PromiseInfo>;
+  readonly connections: Map<string, ConnectionInfo>;
+  readonly teammates: Map<string, TeammateInfo>;
+  readonly lessons: Map<string, LessonInfo>;
+  readonly scans: Map<string, ScanInfo>;
+  readonly gaps: Map<string, GapInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1307,6 +1362,23 @@ function walletWords(w: WalletInfo): string {
   if (!w.autoTopup) return `${balance} · automatic top-up is off${soon}`;
   return `${balance}${soon}`;
 }
+
+/** A quiet channel's card title. */
+const CHANNEL_TITLES: Readonly<Record<ChannelKind, string>> = {
+  text: 'Texts have gone quiet',
+  call: 'Calls have gone quiet',
+  email: 'Email has gone quiet',
+  chat: 'Website chat has gone quiet',
+};
+
+/** What a connection is for, under its name. */
+const CONNECTION_DETAILS: Readonly<Record<ConnectionSystem, string>> = {
+  payments: 'Takes your customers’ payments',
+  calendar: 'Keeps bookings off busy times',
+  mailbox: 'Brings in and sends your email',
+  reviews: 'Brings in your reviews',
+  phone: 'Your business phone number',
+};
 
 /** "Thu, Sep 17" for a stored day (`2026-09-17`), read where the business is. */
 const dayOf = (date: string, timeZone: string): string =>
@@ -1446,6 +1518,29 @@ function resolutionOf(
     // The week passed, or it came back into line: nothing was done about it either way.
     case 'revenue_moved':
       return 'expired';
+    // Something came in again.
+    case 'channel_quiet':
+      return 'recovered';
+    case 'connection_error':
+    case 'connection_silent': {
+      const c = loaded.connections.get(row.subjectId);
+      if (!c) return 'subject_gone';
+      return 'recovered';
+    }
+    case 'ai_unreviewed':
+      return loaded.teammates.get(row.subjectId)?.teammate.status === 'off' ? 'turned_off' : 'done';
+    case 'ai_corrections': {
+      const l = loaded.lessons.get(row.subjectId);
+      if (!l) return 'subject_gone';
+      return l.lesson.status === 'applied' ? 'done' : 'dismissed';
+    }
+    case 'website_changed':
+      return loaded.scans.has(row.subjectId) ? 'done' : 'expired';
+    case 'faq_suggestions': {
+      const g = loaded.gaps.get(row.subjectId);
+      if (!g) return 'subject_gone';
+      return g.suggestion.status === 'accepted' ? 'done' : 'dismissed';
+    }
     case 'pipeline_mismatch': {
       const lead = loaded.leads.get(row.subjectId)?.facts;
       if (!lead) return 'subject_gone';
@@ -1620,6 +1715,11 @@ export async function reconcile(
     ...scope.promises,
     // A regular gone quiet is about the person themselves.
     ...scope.persons,
+    ...scope.connections,
+    ...scope.teammates,
+    ...scope.lessons,
+    ...scope.scans,
+    ...scope.suggestions,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1710,6 +1810,15 @@ export async function reconcile(
   const jobCheckOn = automations.switches.jobCheck;
   // Only on a full sweep: a wallet has no subject row to be woken by, so it is looked at when everything is.
   const walletInfo = all ? await loadWallet(tx, workspaceId) : null;
+  // Health and quality. A channel has no row to be woken by either: full sweep only.
+  const channels = all
+    ? await loadChannels(tx, workspaceId, now, ctx.timeZone, business.openHours)
+    : new Map<string, ChannelInfo>();
+  const connections = await loadConnections(tx, workspaceId, [...scope.connections], all);
+  const teammates = await loadTeammates(tx, workspaceId, [...scope.teammates], all, now);
+  const lessons = await loadLessons(tx, workspaceId, [...scope.lessons], all);
+  const scans = await loadScans(tx, workspaceId, [...scope.scans], all, now);
+  const gaps = await loadGaps(tx, workspaceId, [...scope.suggestions], all);
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
   const loaded: Loaded = {
     leads,
@@ -1727,6 +1836,11 @@ export async function reconcile(
     jobs,
     regulars,
     promises,
+    connections,
+    teammates,
+    lessons,
+    scans,
+    gaps,
   };
 
   // Detect.
@@ -1885,6 +1999,103 @@ export async function reconcile(
         title: itemTitle(p.personName ?? 'Customer', p.promise.what),
         detail: `Due ${p.promise.dueLabel}`,
         conversationId: p.conversationId,
+      },
+    );
+
+  for (const c of channels.values())
+    run(
+      'channel_quiet',
+      { business, channel: c.channel },
+      c.channel.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: c.subjectType as AttentionSubjectType,
+        title: CHANNEL_TITLES[c.channel.kind],
+        detail: null,
+        conversationId: null,
+      },
+    );
+
+  for (const c of connections.values()) {
+    const presentation = {
+      subjectType: c.subjectType as AttentionSubjectType,
+      title: c.connection.name,
+      detail: CONNECTION_DETAILS[c.connection.system],
+      conversationId: null,
+    };
+    const link = { leadId: null, personId: null };
+    run(
+      'connection_error',
+      { business, connection: c.connection },
+      c.connection.id,
+      link,
+      presentation,
+    );
+    run(
+      'connection_silent',
+      { business, connection: c.connection },
+      c.connection.id,
+      link,
+      presentation,
+    );
+  }
+
+  for (const t of teammates.values())
+    run(
+      'ai_unreviewed',
+      { business, teammate: t.teammate },
+      t.teammate.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'teammate',
+        title: `${t.teammate.name}’s work`,
+        detail:
+          t.teammate.status === 'training'
+            ? 'Its replies wait for someone to approve them'
+            : 'It replies on its own',
+        conversationId: null,
+      },
+    );
+
+  for (const l of lessons.values())
+    run(
+      'ai_corrections',
+      { business, lesson: l.lesson },
+      l.lesson.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'lesson',
+        title: `${l.teammateName} keeps being corrected`,
+        detail: detailOf(l.lesson.why),
+        conversationId: null,
+      },
+    );
+
+  for (const g of scans.values())
+    run(
+      'website_changed',
+      { business, scan: g.scan },
+      g.scan.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'scan',
+        title: 'Your website changed',
+        detail: detailOf(g.url),
+        conversationId: null,
+      },
+    );
+
+  for (const g of gaps.values())
+    run(
+      'faq_suggestions',
+      { business, suggestion: g.suggestion },
+      g.suggestion.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'suggestion',
+        title: 'Customers keep asking',
+        detail: detailOf(g.suggestion.question),
+        conversationId: null,
       },
     );
 

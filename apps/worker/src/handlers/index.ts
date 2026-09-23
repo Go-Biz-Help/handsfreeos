@@ -27,6 +27,7 @@ import {
 } from './calendar';
 import { onExpiringArm } from '../automations/expiring';
 import { onHandoffNudge } from '../automations/handoff';
+import { onConnectionBroke, onCorrection } from '../automations/health';
 import { onArmJobCheck, onStillGoing } from '../automations/job-check';
 import { onCallPromise, onMessagePromise } from '../automations/promises';
 import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
@@ -131,17 +132,25 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'email.unmatched_claimed': onUnmatchedClaimed,
     'mailbox.connected': onMailboxSyncWanted,
     'mailbox.resync_requested': onMailboxSyncWanted,
-    'mailbox.reauth_required': onMailboxReauthRequired,
+    'mailbox.reauth_required': [onMailboxReauthRequired, onConnectionBroke],
+    'mailbox.failed': onConnectionBroke,
     'calendar_connection.connected': onCalendarRefreshWanted,
     // What customers said in public: a person asks, and the queue does it.
     'review_connection.connected': onReviewSyncWanted,
     'review_connection.sync_requested': onReviewSyncWanted,
     'review.replied': onReviewReplied,
     'calendar_connection.sync_requested': onCalendarRefreshWanted,
-    'calendar_connection.reauth_required': onCalendarReauthRequired,
+    'calendar_connection.reauth_required': [onCalendarReauthRequired, onConnectionBroke],
+    'calendar_connection.failed': onConnectionBroke,
     // A connected payment account: its token refresh starts, and disconnecting tells the provider too.
     'payment_connection.connected': onPaymentConnectionConnected,
     'payment_connection.disconnected': onPaymentConnectionDisconnected,
+    // Automations' "Connection broke" (automations/health.ts): whoever can fix it hears at once.
+    'payment_connection.reauth_required': onConnectionBroke,
+    'payment_connection.failed': onConnectionBroke,
+    'payment_connection.revoked': onConnectionBroke,
+    'review_connection.needs_attention': onConnectionBroke,
+    'phone_number.purchase_failed': onConnectionBroke,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
     // Somebody pressed Pay on a founding seat (0093): Stripe's page is made by a job, which retries on its own.
@@ -203,6 +212,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'conversation.handed_off': onHandoffNudge,
     'workflow.approval_requested': onExpiringArm,
     'ai_teammate.drafted': onExpiringArm,
+    // Automations' "Repeated corrections": an edit or a rejection may be the third alike (automations/health.ts).
+    'ai_teammate.draft_decided': onCorrection,
     'call.completed': [onPipelineEvidence, onEngaged],
     // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
     'appointment.completed': [onAppointmentChanged, onCompletedThankYou, onPipelineEvidence],

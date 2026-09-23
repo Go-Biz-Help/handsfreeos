@@ -286,6 +286,28 @@ export function useItemActions(o: {
       settle();
     }
 
+    /** The line made of repeated corrections goes into what the AI knows. */
+    async function addLesson(item: AttentionItem) {
+      hide([item.id]);
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/teammate_lesson.apply', {
+            body: { workspaceId, lessonId: item.subject.id },
+          }),
+        );
+        toast.success('Added to what the AI knows.', {
+          action: {
+            label: 'See it',
+            onClick: () => router.push(`${base}/knowledge/profile`),
+          },
+        });
+      } catch (e) {
+        unhide([item.id]);
+        throw e;
+      }
+      settle();
+    }
+
     /** A visit whose time passed: it happened. The toast offers the other answer. */
     async function markDone(item: AttentionItem) {
       const setStatus = (status: 'completed' | 'no_show') =>
@@ -372,6 +394,16 @@ export function useItemActions(o: {
             return router.push(reachOf(item));
           case 'revenue_moved':
             return router.push(targetOf(item, workspaceId).href);
+          // Health and quality: the page that checks or fixes it; a lesson is added in one press.
+          case 'channel_quiet':
+          case 'connection_error':
+          case 'connection_silent':
+          case 'ai_unreviewed':
+          case 'website_changed':
+          case 'faq_suggestions':
+            return router.push(targetOf(item, workspaceId).href);
+          case 'ai_corrections':
+            return void withBusy(item.id, () => addLesson(item));
           // Pipeline and jobs: the deal moves in one press; a visit is marked done in one; an address is
           // added on the customer (where every visit at their place reads it).
           case 'pipeline_mismatch':

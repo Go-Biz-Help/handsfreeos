@@ -1,7 +1,14 @@
 import { LET_HANDLE_MODE_LABELS, type AttentionKind } from '@hfos/core';
 import {
   BadgeDollarSign,
+  BellOff,
   CalendarClock,
+  CircleHelp,
+  EyeOff,
+  Globe,
+  GraduationCap,
+  Unplug,
+  WifiOff,
   ChartLine,
   Handshake,
   UserMinus,
@@ -63,6 +70,13 @@ const KIND_LOOK: Readonly<
   client_quiet: { icon: UserMinus, tile: 'bg-card-2 text-text-2' },
   promise_due: { icon: Handshake, tile: 'bg-warning-soft text-warning-text' },
   revenue_moved: { icon: ChartLine, tile: 'bg-accent-soft text-accent-text' },
+  channel_quiet: { icon: BellOff, tile: 'bg-warning-soft text-warning-text' },
+  connection_error: { icon: Unplug, tile: 'bg-danger-soft text-danger-text' },
+  connection_silent: { icon: WifiOff, tile: 'bg-warning-soft text-warning-text' },
+  ai_unreviewed: { icon: EyeOff, tile: cn(AI_SOFT, AI_TEXT) },
+  ai_corrections: { icon: GraduationCap, tile: cn(AI_SOFT, AI_TEXT) },
+  website_changed: { icon: Globe, tile: 'bg-accent-soft text-accent-text' },
+  faq_suggestions: { icon: CircleHelp, tile: cn(AI_SOFT, AI_TEXT) },
 };
 
 /** The kind label's colour where it isn't grey: hot leads in red, approvals in the AI teammate's violet. */

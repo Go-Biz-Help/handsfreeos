@@ -176,6 +176,16 @@ export function useHomeActions(o: {
           // The week's money opens Money.
           case 'revenue_moved':
             return target(item);
+          // Health and quality: the page that checks or fixes it (a lesson's one-tap Add is on the web's card,
+          // and on the page it opens).
+          case 'channel_quiet':
+          case 'connection_error':
+          case 'connection_silent':
+          case 'ai_unreviewed':
+          case 'ai_corrections':
+          case 'website_changed':
+          case 'faq_suggestions':
+            return target(item);
           case 'job_no_address':
             return item.personId
               ? openWebPath(`/app/w/${workspaceId}/customers/people/${item.personId}`)

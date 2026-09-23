@@ -7,7 +7,14 @@
 import { chipText, type AttentionKind } from '@hfos/core';
 import {
   BadgeDollarSign,
+  BellOff,
   CalendarClock,
+  CircleHelp,
+  EyeOff,
+  Globe,
+  GraduationCap,
+  Unplug,
+  WifiOff,
   ChartLine,
   Handshake,
   UserMinus,
@@ -73,6 +80,13 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   client_quiet: { icon: UserMinus, tone: 'bg-card-2 text-text-2' },
   promise_due: { icon: Handshake, tone: 'bg-warning-soft text-warning-text' },
   revenue_moved: { icon: ChartLine, tone: 'bg-accent-soft text-accent-text' },
+  channel_quiet: { icon: BellOff, tone: 'bg-warning-soft text-warning-text' },
+  connection_error: { icon: Unplug, tone: `${HOT_SOFT} ${HOT_TEXT}` },
+  connection_silent: { icon: WifiOff, tone: 'bg-warning-soft text-warning-text' },
+  ai_unreviewed: { icon: EyeOff, tone: `${AI_SOFT} ${AI_TEXT}` },
+  ai_corrections: { icon: GraduationCap, tone: `${AI_SOFT} ${AI_TEXT}` },
+  website_changed: { icon: Globe, tone: 'bg-accent-soft text-accent-text' },
+  faq_suggestions: { icon: CircleHelp, tone: `${AI_SOFT} ${AI_TEXT}` },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -101,6 +115,13 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   client_quiet: 'Gone quiet',
   promise_due: 'Promise due',
   revenue_moved: 'Money in changed',
+  channel_quiet: 'Channel quiet',
+  connection_error: 'Connection broken',
+  connection_silent: 'Connection silent',
+  ai_unreviewed: 'AI not reviewed',
+  ai_corrections: 'AI keeps being corrected',
+  website_changed: 'Website changed',
+  faq_suggestions: 'Question to answer',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

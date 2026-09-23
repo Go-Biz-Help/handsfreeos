@@ -863,7 +863,27 @@ export function scriptedPromise(message: string): Record<string, unknown> {
   return { promise: true, what, kind, due };
 }
 
+/**
+ * "Repeated corrections": the corrections have one thing in common when every reason given shares a word (of five
+ * letters or more); the line is the first reason, as the business wrote it.
+ */
+export function scriptedLesson(message: string): Record<string, unknown> {
+  const reasons = [...message.matchAll(/^Why: (.+)$/gm)].map((m) => m[1]!.trim());
+  const none = { similar: false, line: null, why: null };
+  if (reasons.length < 3) return none;
+  const wordsOf = (t: string) => new Set(t.toLowerCase().match(/[a-z]{5,}/g) ?? ([] as string[]));
+  const [first, ...rest] = reasons.map(wordsOf);
+  const shared = [...first!].find((w) => rest.every((r) => r.has(w)));
+  if (!shared) return none;
+  const line = reasons[0]!.replace(/[.!]*$/, '.');
+  return { similar: true, line, why: `Every correction mentions “${shared}”` };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Say whether these corrections have one thing in common, and if so write one line of guidance for the AI\.$/,
+    json: (message) => scriptedLesson(message),
+  },
   {
     when: /Say whether the team’s words above promise the customer something by a time, and when it is due\.$/,
     json: (message) => scriptedPromise(message),
