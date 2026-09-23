@@ -68,6 +68,8 @@ export const CampaignCreateInput = z.object({
   goal: z.string().trim().min(1, 'Say what it’s for.').max(500),
   audience: CampaignAudience,
   perHour: perHour.default(CAMPAIGN_PER_HOUR_DEFAULT),
+  /** An offer from Knowledge → Offers the texts are about: the AI gets its details and end date. */
+  offerId: uuid.nullable().default(null),
 });
 export const CampaignCreateOutput = z.object({
   campaignId: uuid,
@@ -121,6 +123,8 @@ export const CampaignSummary = z.object({
   status: campaignStatus,
   perHour: z.number().int(),
   counts: CampaignCounts,
+  /** The offer it's about, if any. */
+  offer: z.object({ id: uuid, name: z.string() }).nullable(),
   createdAt: isoDateTime,
   approvedAt: isoDateTime.nullable(),
   finishedAt: isoDateTime.nullable(),

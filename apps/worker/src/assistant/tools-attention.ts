@@ -73,6 +73,7 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'AI keeps being corrected',
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
+  offer_lapsing: 'Offer ending',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -642,6 +643,7 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'What the AI learns belongs to the business, not to a person.',
   website_changed: 'Only who reviews the updates. Nothing else changes.',
   faq_suggestions: 'Only who answers the question. Nothing else changes.',
+  offer_lapsing: 'Only who looks after the offer. Nothing else changes.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

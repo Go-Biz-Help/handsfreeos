@@ -185,6 +185,7 @@ export function useHomeActions(o: {
           case 'ai_corrections':
           case 'website_changed':
           case 'faq_suggestions':
+          case 'offer_lapsing':
             return target(item);
           case 'job_no_address':
             return item.personId

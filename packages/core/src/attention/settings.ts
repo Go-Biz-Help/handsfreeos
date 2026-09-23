@@ -55,6 +55,7 @@ const kindSwitches = {
   ai_corrections: on(),
   website_changed: on(),
   faq_suggestions: on(),
+  offer_lapsing: on(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

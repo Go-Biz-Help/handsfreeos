@@ -50,12 +50,14 @@ import {
   loadConnections,
   loadGaps,
   loadLessons,
+  loadOffers,
   loadScans,
   loadTeammates,
   type ChannelInfo,
   type ConnectionInfo,
   type GapInfo,
   type LessonInfo,
+  type OfferInfo,
   type ScanInfo,
   type TeammateInfo,
 } from './load-health';
@@ -109,7 +111,8 @@ export interface AttentionSubjectRef {
     | 'teammate'
     | 'lesson'
     | 'scan'
-    | 'suggestion';
+    | 'suggestion'
+    | 'offer';
   readonly id: string;
 }
 
@@ -273,6 +276,8 @@ interface SubjectSets {
   readonly lessons: Set<string>;
   readonly scans: Set<string>;
   readonly suggestions: Set<string>;
+  // Promotions: the business's offers.
+  readonly offers: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -294,6 +299,7 @@ const emptySets = (): SubjectSets => ({
   lessons: new Set(),
   scans: new Set(),
   suggestions: new Set(),
+  offers: new Set(),
 });
 
 /** A connection's card is stored under its own table's type. */
@@ -324,6 +330,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'lesson') s.lessons.add(id);
   else if (type === 'scan') s.scans.add(id);
   else if (type === 'suggestion') s.suggestions.add(id);
+  else if (type === 'offer') s.offers.add(id);
 }
 
 /**
@@ -1283,6 +1290,7 @@ interface Loaded {
   readonly lessons: Map<string, LessonInfo>;
   readonly scans: Map<string, ScanInfo>;
   readonly gaps: Map<string, GapInfo>;
+  readonly offers: Map<string, OfferInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1536,6 +1544,13 @@ function resolutionOf(
     }
     case 'website_changed':
       return loaded.scans.has(row.subjectId) ? 'done' : 'expired';
+    case 'offer_lapsing': {
+      const o = loaded.offers.get(row.subjectId);
+      if (!o) return 'subject_gone';
+      if (o.archived) return 'archived';
+      // Still running past its old end date: it was extended.
+      return o.endsOn && localInstant(o.endsOn, '23:59', ctx.timeZone) > now ? 'done' : 'expired';
+    }
     case 'faq_suggestions': {
       const g = loaded.gaps.get(row.subjectId);
       if (!g) return 'subject_gone';
@@ -1720,6 +1735,7 @@ export async function reconcile(
     ...scope.lessons,
     ...scope.scans,
     ...scope.suggestions,
+    ...scope.offers,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1819,6 +1835,7 @@ export async function reconcile(
   const lessons = await loadLessons(tx, workspaceId, [...scope.lessons], all);
   const scans = await loadScans(tx, workspaceId, [...scope.scans], all, now);
   const gaps = await loadGaps(tx, workspaceId, [...scope.suggestions], all);
+  const offers = await loadOffers(tx, workspaceId, [...scope.offers], all);
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
   const loaded: Loaded = {
     leads,
@@ -1841,6 +1858,7 @@ export async function reconcile(
     lessons,
     scans,
     gaps,
+    offers,
   };
 
   // Detect.
@@ -2081,6 +2099,20 @@ export async function reconcile(
         subjectType: 'scan',
         title: 'Your website changed',
         detail: detailOf(g.url),
+        conversationId: null,
+      },
+    );
+
+  for (const o of offers.values())
+    run(
+      'offer_lapsing',
+      { business, offer: o },
+      o.id,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'offer',
+        title: `${o.name} is ending`,
+        detail: null,
         conversationId: null,
       },
     );

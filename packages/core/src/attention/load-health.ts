@@ -485,3 +485,41 @@ export async function loadGaps(
     ]),
   );
 }
+
+// ---------- promotions ----------
+
+export type OfferInfo = AttentionFacts<'offer_lapsing'>['offer'];
+
+/**
+ * The business's offers with an end date not yet a day behind (Automations' "Offer ending"), and any named even
+ * archived or over, so their cards can close.
+ */
+export async function loadOffers(
+  tx: Tx,
+  workspaceId: string,
+  ids: readonly string[],
+  all: boolean,
+): Promise<Map<string, OfferInfo>> {
+  if (!all && ids.length === 0) return new Map();
+  const list = await rows<{
+    id: string;
+    name: string;
+    ends_on: string | null;
+    archived: boolean;
+  }>(
+    tx,
+    sql`select o.id, o.name, o.ends_on::text as ends_on, o.archived_at is not null as archived
+        from app.offers o
+        where o.workspace_id = ${workspaceId}
+          and (o.id = any(${uuidArray([...ids])})
+            ${
+              all
+                ? sql`or (o.archived_at is null and o.ends_on is not null
+                      and o.ends_on >= current_date - 1)`
+                : sql``
+            })`,
+  );
+  return new Map(
+    list.map((r) => [r.id, { id: r.id, name: r.name, endsOn: r.ends_on, archived: r.archived }]),
+  );
+}

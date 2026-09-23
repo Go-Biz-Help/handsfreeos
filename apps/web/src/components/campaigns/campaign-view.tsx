@@ -141,6 +141,11 @@ export function CampaignView({
           ) : null}
         </div>
         <p className="text-[13.5px]">{c.goal}</p>
+        {c.offer ? (
+          <p className="text-[12.5px] text-text-2" data-testid="campaign-offer-name">
+            About the offer {c.offer.name}
+          </p>
+        ) : null}
         <PaceLine workspaceId={workspaceId} data={data} canManage={canManage} />
       </Card>
 

@@ -133,6 +133,7 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'corrected',
   'site_changed',
   'asked',
+  'offer_ends',
 ];
 
 /** Chips in CHIP_ORDER, one per code (the first of each wins). */
