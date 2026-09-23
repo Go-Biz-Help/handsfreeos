@@ -1789,6 +1789,21 @@ async function queueMedia(
     on conflict (scope_id, source_object_type, source_object_id, md5(source_locator)) do nothing`);
 }
 
+/**
+ * A number for either end of a call, or nothing. GoHighLevel puts the business's own name on its side of an
+ * AI-answered or dialer call instead of a number, and that went into the number column as it was — so the
+ * business was then asked to port a phone number that was its own name. Something that reads as a number
+ * but will not normalize is kept as it came; a name is not a number and is left out.
+ */
+function callNumber(value: unknown, scope: ImportScope): string | null {
+  const raw = str(value);
+  if (!raw) return null;
+  return (
+    normalizePhone(raw, scope.defaultCountry as never) ??
+    (/^\+?[\d\s().-]+$/.test(raw) ? raw : null)
+  );
+}
+
 export const importCall: Importer = async (tx, scope, envelope) => {
   const d = envelope.data as {
     direction?: string;
@@ -1845,8 +1860,7 @@ export const importCall: Importer = async (tx, scope, envelope) => {
       recording_seconds, transcript, created_at, updated_at)
     values (${id}::uuid, ${scope.workspaceId}, ${parent?.id ?? null}::uuid,
       ${parent?.personId ?? null}::uuid, ${d.direction === 'inbound' ? 'inbound' : 'outbound'}::app.direction,
-      ${normalizePhone(str(d.fromNumber), scope.defaultCountry as never) ?? str(d.fromNumber)},
-      ${normalizePhone(str(d.toNumber), scope.defaultCountry as never) ?? str(d.toNumber)},
+      ${callNumber(d.fromNumber, scope)}, ${callNumber(d.toNumber, scope)},
       null, ${d.status ?? 'completed'}::app.call_status,
       coalesce(${startedAt}::timestamptz, now()), ${d.answeredAt ?? null}::timestamptz,
       ${d.endedAt ?? null}::timestamptz, ${d.durationSeconds ?? null},

@@ -19,6 +19,7 @@ import type { SQL } from 'drizzle-orm';
 import {
   CANONICAL_SCHEMA_VERSION,
   categoriesInOrder,
+  isConsumerMailDomain,
   migrationCategory,
   MIGRATION_PASSES,
   parseCanonical,
@@ -1202,7 +1203,7 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
         sql`select distinct number from (
             select c.from_e164 as number from app.calls c
             where c.workspace_id = ${workspaceId}::uuid and c.direction = 'outbound'
-              and c.from_e164 is not null
+              and c.from_e164 like '+%'
             union
             select m.from_address from app.messages m
             where m.workspace_id = ${workspaceId}::uuid and m.direction = 'outbound'
@@ -1234,7 +1235,9 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
             and m.channel = 'email' and position('@' in coalesce(m.from_address, '')) > 1
           order by domain limit 10`,
       );
-      for (const { domain } of domains)
+      // A Gmail or Outlook address is somebody's own mailbox, not a domain the business owns: nobody can add
+      // DNS records to gmail.com, so asking for them is a step that can never be ticked off.
+      for (const { domain } of domains.filter((d) => !isConsumerMailDomain(d.domain)))
         await put(tx, {
           workspaceId,
           kind: 'dns',
