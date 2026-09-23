@@ -1,4 +1,4 @@
-import { MORE_WORDS } from '@hfos/core';
+import { IDEAS_WORDS, MORE_WORDS } from '@hfos/core';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
@@ -9,6 +9,7 @@ import {
   CloudCheck,
   Globe,
   LifeBuoy,
+  Lightbulb,
   Settings2,
   Sparkles,
   Users,
@@ -19,16 +20,22 @@ import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { UpToDate } from '@/components/shell/up-to-date';
 import { Avatar } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { useWhatsNewUnseen } from '@/ideas/whats-new-signal';
 import { ROLE_LABELS } from '@/lib/businesses';
 import { openWeb } from '@/lib/open-web';
 
-/** More: Customers, Tasks, Money, Approvals and Settings, then Open on the web for the desk work. */
+/**
+ * More: Customers, Tasks, Money, Approvals and Settings, then Ideas and Get help, which are about HandsFreeOS itself,
+ * and Open on the web for the desk work.
+ */
 export default function More() {
   const { me, business, userId, openSwitcher } = useBusiness();
   const name = me.user.fullName || me.user.email;
+  const unseen = useWhatsNewUnseen(userId);
   const go = (path: string) => router.push(businessHref(business.id, path));
   return (
     <Screen title={MORE_WORDS.title} testID="more">
@@ -95,6 +102,20 @@ export default function More() {
         />
       </List>
       <List>
+        <ListRow
+          icon={Lightbulb}
+          label={IDEAS_WORDS.title}
+          detail={IDEAS_WORDS.moreDetail}
+          end={
+            unseen > 0 ? (
+              <Badge variant="accent" testID="more-ideas-new">
+                <Text>{IDEAS_WORDS.unseenBadge}</Text>
+              </Badge>
+            ) : undefined
+          }
+          onPress={() => go('ideas')}
+          testID="more-ideas"
+        />
         <ListRow
           icon={LifeBuoy}
           label={MORE_WORDS.getHelp}

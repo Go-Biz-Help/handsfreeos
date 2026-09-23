@@ -45,6 +45,11 @@ describe('the route map', () => {
       settings: { href: 'settings', later: false },
       // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
       'settings/usage': { href: 'settings/usage', later: false },
+      // Ideas, the roadmap and What's new (0100), all live on the phone.
+      ideas: { href: 'ideas', later: false },
+      'ideas/roadmap': { href: 'ideas/roadmap', later: false },
+      'ideas/whats-new': { href: 'ideas/whats-new', later: false },
+      'ideas/:ideaId': { href: `ideas/${ID}`, later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
     expect(screens.map((r) => r.web).sort()).toEqual(Object.keys(expected).sort());
@@ -186,6 +191,38 @@ describe('the route map', () => {
 
   it('opens /app itself on the phone’s own choice of business', () => {
     expect(routeFor('/app')).toMatchObject({ kind: 'screen', href: '/app', businessId: null });
+  });
+
+  it('opens an email’s idea in the business the phone had open last, since the board is everybody’s', () => {
+    // The worker's emails link to /app/ideas/<id>, which names no business (app/ideas/[ideaId].tsx picks one).
+    expect(routeFor(`/app/ideas/${ID}`)).toEqual({
+      kind: 'screen',
+      href: `/app/ideas/${ID}`,
+      businessId: null,
+      later: null,
+      params: { ideaId: ID },
+    });
+    expect(
+      decideLink(`https://app.handsfreeos.com/app/ideas/${ID}`, { businessIds: [WS] }),
+    ).toEqual({
+      kind: 'screen',
+      href: `/app/ideas/${ID}`,
+      later: null,
+    });
+    // The roadmap and What's new are pages of a business; an idea's own page takes only an id.
+    expect(routeFor(`/app/w/${WS}/ideas/roadmap`)).toMatchObject({
+      href: `/app/w/${WS}/ideas/roadmap`,
+    });
+    expect(routeFor(`/app/w/${WS}/ideas/not-an-id`)).toEqual({
+      kind: 'web',
+      path: `/app/w/${WS}/ideas/not-an-id`,
+      businessId: WS,
+    });
+    expect(routeFor('/app/ideas/not-an-id')).toEqual({
+      kind: 'web',
+      path: '/app/ideas/not-an-id',
+      businessId: null,
+    });
   });
 
   it('never handles a customer’s page, or anything else outside /app', () => {

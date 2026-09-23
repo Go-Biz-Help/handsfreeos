@@ -8556,6 +8556,9 @@ migration `20261005000100_ideas_and_whats_new.sql`, in the `platform` schema bes
   and nothing else: never their email, never their business, never what they voted for.
 - **Limits.** Ten ideas a day and thirty comments an hour per person, so a script cannot fill the board. The
   database holds the line; the team is never counted.
+- **On the phone** it is **Ideas** under **More**, with the same three tabs, sharing, voting, comments and
+  **Email me updates**, and **New** beside it while What's new has something unread. None of it is kept on the
+  phone, so with no signal each screen says it needs one; nothing waits in the queue of changes.
 
 ### The team's side
 
@@ -8592,7 +8595,8 @@ It is **Ideas** in `/admin` (see the role table above: every support role answer
 - **Nobody is told twice.** Each email is written down as it goes, so a retry after a failure carries on
   where it stopped.
 - The link in an email is `app.handsfreeos.com/app/ideas/<id>`, which opens the idea in the business the
-  person was last in (or on the admin side, for somebody who works here and in no business).
+  person was last in (or on the admin side, for somebody who works here and in no business). On a phone with
+  the app, the same link opens the idea in the app, in the business it had open last.
 
 Locally, `pnpm db:seed` puts seven ideas from four businesses on the board, three What's new entries and a
 draft. Sign in as `chris@gobizhelp.test` and open `/admin/ideas`; the emails land in Mailpit.
