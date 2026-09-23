@@ -170,11 +170,7 @@ describe('campaigns', () => {
         ),
       'forbidden',
     );
-    const { tagId: empty } = await run(
-      tagCreate,
-      { workspaceId: t.wsId, name: 'Nobody' },
-      t.owner,
-    );
+    const { tagId: empty } = await run(tagCreate, { workspaceId: t.wsId, name: 'Nobody' }, t.owner);
     await expectHfos(
       () =>
         run(
