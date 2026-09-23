@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { bookingSites, workspaces } from '@hfos/db/schema';
 import type { Tx } from '@hfos/db/client';
+import { isUniqueViolation } from '../kernel/pg-errors';
 import { slugify } from '../slug';
 
 /**
@@ -50,21 +51,24 @@ export async function ensureBookingSite(
   const name = ws?.name?.trim() || 'Business';
   const wanted = siteSlugFrom(name);
 
-  // A handful of tries rather than a loop without end: past that, something else is wrong.
+  // A handful of tries rather than a loop without end: past that, something else is wrong. Another business's site
+  // is invisible here (row security shows only this one's), so a name that looks free can still be held: the insert
+  // runs in a savepoint and a clash on the name moves on to the next number.
   for (let attempt = 0; attempt < 25; attempt++) {
     const slug = attempt === 0 ? wanted : `${wanted.slice(0, 58)}-${attempt + 1}`;
-    const [taken] = await tx
-      .select({ id: bookingSites.id })
-      .from(bookingSites)
-      .where(eq(bookingSites.slug, slug));
-    if (taken) continue;
-    const [row] = await tx
-      .insert(bookingSites)
-      // Not enabled: this names the business's pages, it does not put its calendars up for booking. The booking
-      // site's own screen turns that on, and a form's page never reads it.
-      .values({ workspaceId, slug, name, enabled: false, createdBy })
-      .returning({ id: bookingSites.id });
-    if (row) return { id: row.id, slug };
+    try {
+      const [row] = await tx.transaction((sp) =>
+        sp
+          .insert(bookingSites)
+          // Not enabled: this names the business's pages, it does not put its calendars up for booking. The booking
+          // site's own screen turns that on, and a form's page never reads it.
+          .values({ workspaceId, slug, name, enabled: false, createdBy })
+          .returning({ id: bookingSites.id }),
+      );
+      if (row) return { id: row.id, slug };
+    } catch (e) {
+      if (!isUniqueViolation(e, 'booking_sites_slug_key')) throw e;
+    }
   }
   throw new Error(`could not find a free link name for workspace ${workspaceId}`);
 }
