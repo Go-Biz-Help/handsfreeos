@@ -14,8 +14,8 @@ import {
   readiness,
   workspaceMessaging,
 } from '../messaging/store';
-import { hasWorkspacePermission } from '../permissions';
 import { PhoneSetupStatusInput, PhoneSetupStatusOutput } from '../schemas/telephony';
+import { scopeCan } from '../kernel/execute';
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
@@ -91,7 +91,7 @@ export const phoneSetupStatus = defineQuery({
       settings: m.settings,
       timezone: m.timezone,
       quiet: quietHoursState(m.settings.quietHours, m.timezone),
-      canManage: hasWorkspacePermission(ctx.scope.workspaceRole, 'channels.manage'),
+      canManage: scopeCan(ctx.scope, 'channels.manage'),
       rcsSender: rcs
         ? {
             id: rcs.id,

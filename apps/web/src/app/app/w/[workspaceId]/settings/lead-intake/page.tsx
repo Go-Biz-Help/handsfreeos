@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { LeadIntakeSettings } from '@/components/settings/lead-intake-page';
@@ -23,15 +24,14 @@ export default async function LeadIntakeSettingsPage({
     api.POST('/v1/queries/workspace.get', body).then(unwrapPage),
     api.POST('/v1/queries/intake.list', body).then(unwrapPage),
   ]);
-  const role = got.workspace.role;
-  if (role !== 'owner' && role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   return (
     <>
       <PageHeader
         title="Lead intake"
         description="Leads that arrive on their own, without anybody typing them in."
       />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <LeadIntakeSettings
         workspaceId={workspaceId}
         sources={intake.sources}

@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MyCalendar } from '@/components/settings/my-calendar';
@@ -25,8 +25,7 @@ export default async function MyCalendarPage({
   const { calendar, user } = await searchParams;
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const role = got.workspace.role;
-  const canManage = hasWorkspacePermission(role, 'calendars.manage');
+  const canManage = can(got.workspace.permissions, 'calendars.manage');
   const targetId = typeof user === 'string' && canManage ? user : userId;
   const members = unwrapPage(
     await api.POST('/v1/queries/workspace.members', { body: { workspaceId } }),
@@ -58,7 +57,7 @@ export default async function MyCalendarPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage={role === 'owner' || role === 'admin'} />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <MyCalendar
         workspaceId={workspaceId}
         person={person}

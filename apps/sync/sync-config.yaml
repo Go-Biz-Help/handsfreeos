@@ -19,11 +19,14 @@
 #     a compatibility shim here, it is a bypass: an old app build would go on syncing every thread in the
 #     business after that business asked us to stop. The full recopy is the price of the narrowing actually
 #     narrowing. Nothing was taken out of what a phone receives, so an old build reads what it always did.
+#     0106 is the same kind of narrowing: a business now says who manages its money, so `managed` reads the
+#     trigger-kept `manages_money` flag instead of the role, in place. An admin the business took money away from
+#     stops receiving it on every build; me_v1's access row gains `permissions`, which an old build ignores.
 #
 # Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +
 # agency_v1 1 per agency they belong to. business_v1 has three arms: `access` matches everyone who can open
-# the business, `managed` everyone who is not a member, and `inbox` everyone who still sees the whole inbox
-# (0083). So two arms for a member, three for an owner or admin. Parameter results are that count less the
+# the business, `managed` everyone who manages its money (0106: owners and admins unless it says otherwise), and
+# `inbox` everyone who still sees the whole inbox (0083). So two arms for a member, three for an owner or admin. Parameter results are that count less the
 # me_v1 one, which needs no lookup. An agency owner keeping 12 businesses offline: 38 buckets, 37 results.
 # `sees_whole_inbox` defaults true, so the `inbox` arm costs its bucket whether or not any business has
 # narrowed anything — the price of it being a separate arm rather than an OR, which is what keeps the
@@ -38,7 +41,7 @@ streams:
   me_v1:
     auto_subscribe: true
     queries:
-      - SELECT user_id || ':' || workspace_id AS id, user_id, workspace_id, role FROM app.workspace_access WHERE user_id = auth.user_id()
+      - SELECT user_id || ':' || workspace_id AS id, user_id, workspace_id, role, permissions FROM app.workspace_access WHERE user_id = auth.user_id()
       - SELECT id, email, full_name, avatar_url, settings, deleted_at, created_at, updated_at FROM app.users AS my_profile WHERE id = auth.user_id()
       - SELECT id, command_id, workspace_id, command, outcome, answer, occurred_at, received_at FROM app.command_receipts WHERE user_id = auth.user_id()
       - SELECT id, platform, app_version, device_name, last_seen_at, disabled_at, disabled_reason, created_at, updated_at FROM app.push_devices WHERE user_id = auth.user_id()
@@ -61,11 +64,11 @@ streams:
 
   # One business kept offline: the app subscribes with {workspace_id} for each (the last one opened by default).
   # `access` is the person's own workspace_access row for that business, so a business they can't open gives
-  # nothing, and each subscription looks up one row. `managed` is the same row when their role manages money.
+  # nothing, and each subscription looks up one row. `managed` is the same row when they manage its money (0106).
   business_v1:
     with:
       access: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id')
-      managed: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND role != 'member'
+      managed: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND manages_money = true
       # The inbox, when this person sees all of it here: everyone until a business narrows its inbox (0083),
       # and owners and admins always. The narrowed case is in me_v1, on each thread's member_viewer_ids.
       inbox: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND sees_whole_inbox = true
@@ -80,8 +83,8 @@ streams:
       - SELECT id, workspace_id, name, color, created_at, updated_at FROM app.tags WHERE workspace_id IN access
       - SELECT tag_id || ':' || record_type || ':' || record_id AS id, workspace_id, tag_id, record_type, record_id, created_by, created_at FROM app.record_tags WHERE workspace_id IN access
       # Every customer, company, lead and task.
-      - SELECT id, workspace_id, company_id, first_name, last_name, email, phone, phone_e164, phone_alt, address_line1, address_line2, city, state, postal_code, country, notes, source, owner_user_id, archived_at, sms_consent, sms_consent_at, sms_consent_source, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.people WHERE workspace_id IN access
-      - SELECT id, workspace_id, name, email, phone, phone_e164, website, address_line1, address_line2, city, state, postal_code, country, notes, source, owner_user_id, archived_at, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.companies WHERE workspace_id IN access
+      - SELECT id, workspace_id, company_id, first_name, last_name, email, phone, phone_e164, phone_alt, address_line1, address_line2, city, state, postal_code, country, other_emails, other_phones, other_addresses, notes, source, owner_user_id, team_user_ids, archived_at, sms_consent, sms_consent_at, sms_consent_source, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.people WHERE workspace_id IN access
+      - SELECT id, workspace_id, name, email, phone, phone_e164, website, address_line1, address_line2, city, state, postal_code, country, other_emails, other_phones, other_addresses, notes, source, owner_user_id, team_user_ids, archived_at, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.companies WHERE workspace_id IN access
       - SELECT id, workspace_id, pipeline_id, stage_id, person_id, company_id, title, value_cents, source, assignee_user_id, expected_close_on, next_action, next_action_at, status, won_at, lost_at, lost_reason, position, stage_entered_at, archived_at, qualification, last_contact_at, first_response_at, field_times, created_by, created_at, updated_at FROM app.leads WHERE workspace_id IN access
       - SELECT id, workspace_id, title, notes, due_at, all_day, assignee_user_id, person_id, company_id, lead_id, done_at, done_by, field_times, created_by, created_at, updated_at FROM app.tasks WHERE workspace_id IN access
       # The timeline from the last 12 months, and files (their details; the file itself is downloaded when opened).
@@ -125,7 +128,7 @@ streams:
       # The catalogue.
       - SELECT id, workspace_id, name, description, sku, kind, unit_price_cents, unit_label, taxable, service_id, archived_at, created_at, updated_at FROM app.products WHERE workspace_id IN access
       - SELECT id, workspace_id, name, description, price_cents, "interval", interval_count, taxable, includes, archived_at, created_at, updated_at FROM app.plans WHERE workspace_id IN access
-      # Money for owners and admins: open documents, and closed ones from the last 12 months; plans that bill.
+      # Money for whoever manages it: open documents, and closed ones from the last 12 months; plans that bill.
       - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, deposit_percent_bp, deposit_cents, expires_on, sent_at, first_viewed_at, last_viewed_at, accepted_at, accepted_via, accepted_by, accepted_name, declined_at, declined_reason, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.estimates WHERE workspace_id IN managed AND sync_window = true
       - SELECT id, workspace_id, estimate_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.estimate_lines WHERE workspace_id IN managed AND sync_window = true
       - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, estimate_id, attendee_id, subscription_id, purpose, origin, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, due_on, terms, amount_paid_cents, amount_refunded_cents, sent_at, first_viewed_at, last_viewed_at, paid_at, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.invoices WHERE workspace_id IN managed AND sync_window = true

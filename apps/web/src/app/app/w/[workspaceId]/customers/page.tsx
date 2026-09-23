@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { CustomersList } from '@/components/crm/customers-list';
 import { PageHeader } from '@/components/shell/page-header';
@@ -23,7 +24,8 @@ export default async function CustomersPage({
   const filters = {
     q: one(sp.q).trim().slice(0, 120),
     tagId: /^[0-9a-f-]{36}$/.test(one(sp.tag)) ? one(sp.tag) : '',
-    ownerUserId: /^[0-9a-f-]{36}$/.test(one(sp.owner)) ? one(sp.owner) : '',
+    // `owner` is what links said before a customer could have a team.
+    assignedUserId: [one(sp.assigned), one(sp.owner)].find((v) => /^[0-9a-f-]{36}$/.test(v)) ?? '',
     archived: one(sp.archived) === '1',
   };
   const { api } = await apiServer();
@@ -36,6 +38,7 @@ export default async function CustomersPage({
     workspaceId,
     q: filters.q || undefined,
     tagId: filters.tagId || undefined,
+    assignedUserId: filters.assignedUserId || undefined,
     includeArchived: filters.archived,
     limit: 50,
   };
@@ -45,11 +48,7 @@ export default async function CustomersPage({
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/crm.summary', { body: { workspaceId } })),
     tab === 'people'
-      ? unwrapPage(
-          await api.POST('/v1/queries/person.list', {
-            body: { ...common, ownerUserId: filters.ownerUserId || undefined },
-          }),
-        )
+      ? unwrapPage(await api.POST('/v1/queries/person.list', { body: common }))
       : Promise.resolve(null),
     tab === 'companies'
       ? unwrapPage(await api.POST('/v1/queries/company.list', { body: common }))
@@ -75,7 +74,6 @@ export default async function CustomersPage({
         ).fields
       : [],
   ]);
-  const role = got.workspace.role;
   return (
     <>
       <PageHeader title="Customers" description={`Everyone ${got.workspace.name} works with.`} />
@@ -88,7 +86,7 @@ export default async function CustomersPage({
         people={people}
         companies={companies}
         counts={{ people: summary.people, companies: summary.companies }}
-        canImport={role === 'owner' || role === 'admin'}
+        canImport={can(got.workspace.permissions, 'records.import')}
         kinds={kinds}
         kind={kind}
         records={records}

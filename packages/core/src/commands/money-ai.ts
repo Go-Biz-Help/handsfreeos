@@ -13,7 +13,7 @@
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { plans, products, workspaceMemberships } from '@hfos/db/schema';
+import { plans, products } from '@hfos/db/schema';
 import {
   chatIdentityUnverified,
   chatVerified,
@@ -27,7 +27,6 @@ import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import { loadConversation } from '../messaging/store';
-import { hasWorkspacePermission } from '../permissions';
 import {
   EstimateAnswerForCustomerInput,
   EstimateCreateForCustomerInput,
@@ -76,13 +75,12 @@ async function approvedFor(ctx: CommandContext): Promise<Approved> {
       'money_needs_approval',
     );
   const ws = ctx.scope.workspaceId!;
-  const [member] = await ctx.tx
-    .select({ role: workspaceMemberships.role })
-    .from(workspaceMemberships)
-    .where(
-      and(eq(workspaceMemberships.workspaceId, ws), eq(workspaceMemberships.userId, ai.approvedBy)),
-    );
-  if (!member || !hasWorkspacePermission(member.role, 'money.manage'))
+  // Whoever approved it still manages money here, as the business has set it (0106).
+  const [approver] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.user_has_permission(${ai.approvedBy}::uuid, ${ws}::uuid, 'money.manage') as ok`,
+  );
+  if (!approver?.ok)
     throw HfosError.forbidden(
       'Whoever approved this no longer manages money here, so it didn’t go out.',
       'money_needs_approval',

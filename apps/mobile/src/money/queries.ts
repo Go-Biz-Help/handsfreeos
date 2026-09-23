@@ -135,7 +135,3 @@ export const MONEY_OUTBOX_SQL = `
   WHERE workspace_id = ? AND (name LIKE 'invoice.%' OR name LIKE 'estimate.%' OR name = 'subscription.request_card')
     AND (state != 'sent' OR sent_at >= ?)
   ORDER BY seq`;
-
-/** This person's role in the business, which decides whether they see the business's money or only their jobs'. */
-export const MY_ROLE_SQL = `
-  SELECT role FROM workspace_access WHERE workspace_id = ? AND user_id = ? LIMIT 1`;

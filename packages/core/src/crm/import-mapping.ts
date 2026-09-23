@@ -7,6 +7,7 @@ export const PERSON_FIELDS = [
   'last_name',
   'full_name',
   'email',
+  'email_alt',
   'phone',
   'phone_alt',
   'company',
@@ -22,7 +23,9 @@ export const PERSON_FIELDS = [
 export const COMPANY_FIELDS = [
   'name',
   'email',
+  'email_alt',
   'phone',
+  'phone_alt',
   'website',
   'address_line1',
   'address_line2',
@@ -36,14 +39,37 @@ export const COMPANY_FIELDS = [
 export type PersonField = (typeof PERSON_FIELDS)[number];
 export type CompanyField = (typeof COMPANY_FIELDS)[number];
 export const SKIP = 'skip';
+/**
+ * Fields several columns may map to at once: every "Home phone", "Work phone" and "Phone 2" joins the other numbers
+ * (0103), and every extra email column the other emails.
+ */
+export const REPEATABLE_FIELDS: readonly string[] = ['phone_alt', 'email_alt'];
 
 const GUESSES: Record<string, string[]> = {
   first_name: ['first name', 'firstname', 'first', 'given name'],
   last_name: ['last name', 'lastname', 'last', 'surname', 'family name'],
   full_name: ['name', 'full name', 'contact', 'contact name', 'customer', 'customer name'],
   email: ['email', 'e-mail', 'email address'],
+  email_alt: [
+    'email 2',
+    'alt email',
+    'other email',
+    'secondary email',
+    'work email',
+    'personal email',
+    'additional email',
+  ],
   phone: ['phone', 'phone number', 'mobile', 'cell', 'telephone', 'primary phone'],
-  phone_alt: ['phone 2', 'alt phone', 'other phone', 'secondary phone', 'home phone', 'work phone'],
+  phone_alt: [
+    'phone 2',
+    'alt phone',
+    'other phone',
+    'secondary phone',
+    'home phone',
+    'work phone',
+    'office phone',
+    'additional phone',
+  ],
   company: ['company', 'business', 'organization', 'account'],
   name: ['company', 'company name', 'business', 'business name', 'name', 'account'],
   website: ['website', 'web', 'url', 'site'],
@@ -78,7 +104,7 @@ export function guessMapping(
         break;
       }
     }
-    if (best !== SKIP) taken.add(best);
+    if (best !== SKIP && !REPEATABLE_FIELDS.includes(best)) taken.add(best);
     out[header] = best;
   }
   return out;
@@ -89,7 +115,9 @@ export interface MappedPerson {
   lastName: string;
   email: string | null;
   phone: string | null;
-  phoneAlt: string | null;
+  /** Every column mapped to "Other email" and "Other phone", in column order (validated by the command). */
+  otherEmails: string[];
+  otherPhones: string[];
   company: string | null;
   address: {
     line1: string | null;
@@ -106,6 +134,8 @@ export interface MappedCompany {
   name: string;
   email: string | null;
   phone: string | null;
+  otherEmails: string[];
+  otherPhones: string[];
   website: string | null;
   address: MappedPerson['address'];
   tags: string[];
@@ -125,6 +155,19 @@ const cell = (
     }
   }
   return null;
+};
+/** Every value mapped to a field, in column order, each once (a repeatable field can have several columns). */
+const cells = (
+  row: Record<string, string>,
+  mapping: Record<string, string>,
+  field: string,
+): string[] => {
+  const out: string[] = [];
+  for (const [column, f] of Object.entries(mapping)) {
+    const v = f === field ? row[column]?.trim() : '';
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
 };
 const splitName = (full: string): [string, string] => {
   const parts = full.trim().split(/\s+/);
@@ -157,7 +200,8 @@ export function mapPersonRow(
     lastName,
     email: cell(row, mapping, 'email'),
     phone: cell(row, mapping, 'phone'),
-    phoneAlt: cell(row, mapping, 'phone_alt'),
+    otherEmails: cells(row, mapping, 'email_alt'),
+    otherPhones: cells(row, mapping, 'phone_alt'),
     company: cell(row, mapping, 'company'),
     address: {
       line1: cell(row, mapping, 'address_line1'),
@@ -180,6 +224,8 @@ export function mapCompanyRow(
     name: cell(row, mapping, 'name') ?? '',
     email: cell(row, mapping, 'email'),
     phone: cell(row, mapping, 'phone'),
+    otherEmails: cells(row, mapping, 'email_alt'),
+    otherPhones: cells(row, mapping, 'phone_alt'),
     website: cell(row, mapping, 'website'),
     address: {
       line1: cell(row, mapping, 'address_line1'),

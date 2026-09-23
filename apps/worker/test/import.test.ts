@@ -315,6 +315,42 @@ describe('CSV import through the outbox', () => {
     expect(people.find((p) => p.fullName === 'Mike Johnson')?.address.city).toBe('Katy');
   });
 
+  it('adds a matched customer’s new number and email beside theirs instead of replacing them', async () => {
+    const { output } = await executeCommand(
+      testDbs().api.db,
+      personCreate,
+      {
+        workspaceId,
+        firstName: 'Dana',
+        lastName: 'Reyes',
+        phone: '713-555-0171',
+        email: 'dana@home.example',
+        otherPhones: [{ phone: '713-555-0172', label: 'Work' }],
+      },
+      actor(owner),
+      meta(),
+    );
+    // Matched on her work number; the file's email is new to her.
+    const csv = `${HEADERS.join(',')}\nDana,Reyes,dana@office.example,713-555-0172,,,,,,,\n`;
+    const { event } = await startImport(csv, { onMatch: 'update' });
+    await deps.db.transaction(async (tx) =>
+      runImport({ ...contextFor(event), tx }, { batchSize: 2 }),
+    );
+    const [row] = await rows<{
+      email: string;
+      phone_e164: string;
+      other_emails: { email: string }[];
+      other_phones: { phone: string; label?: string }[];
+    }>(
+      testDbs().admin.db,
+      sql`select email::text, phone_e164, other_emails, other_phones from app.people where id = ${output.personId}`,
+    );
+    expect(row!.phone_e164).toBe('+17135550171');
+    expect(row!.other_phones).toEqual([{ phone: '+17135550172', label: 'Work' }]);
+    expect(row!.email).toBe('dana@home.example');
+    expect(row!.other_emails).toEqual([{ email: 'dana@office.example' }]);
+  });
+
   it('resumes after a crash without duplicating rows, and stops between batches when cancelled', async () => {
     const lines = Array.from(
       { length: 6 },

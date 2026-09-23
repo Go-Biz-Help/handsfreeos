@@ -144,7 +144,8 @@ export const peopleByIdSql = (count: number): string => `
  * is a generated column, so it never reaches the phone — `compute.ts` works the same string out here).
  */
 export const PEOPLE_SQL = `
-  SELECT id, first_name, last_name, email, phone_e164, city, address_line1, address_line2, state, postal_code
+  SELECT id, first_name, last_name, email, phone_e164, city, address_line1, address_line2, state, postal_code,
+    other_emails, other_phones, other_addresses
   FROM people WHERE workspace_id = ? AND archived_at IS NULL
   ORDER BY last_name, first_name`;
 

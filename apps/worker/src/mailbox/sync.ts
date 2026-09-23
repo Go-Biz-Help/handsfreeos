@@ -4,8 +4,8 @@
  * `email.receive`. Everything else in the mailbox stays private: not stored, not even its attachments.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
-import { emailReceive, executeCommand, mailboxFail } from '@hfos/core/server';
+import { and, eq, inArray, or, sql as dsql } from 'drizzle-orm';
+import { emailReceive, executeCommand, mailboxFail, otherEmailsOf } from '@hfos/core/server';
 import { asWorker, sql, type Db, type Tx } from '@hfos/db/client';
 import { conversations, mailboxConnections, people } from '@hfos/db/schema';
 import { htmlToText, sanitizeInboundHtml } from '../email/render';
@@ -129,6 +129,24 @@ async function knownCustomers(
       .where(
         and(eq(people.workspaceId, scope.workspaceId), inArray(dsql`lower(${people.email})`, list)),
       );
+    // A customer's other emails count too (0103): one probe of the list's index per address.
+    const byOther = await tx
+      .select({ others: people.otherEmails })
+      .from(people)
+      .where(
+        and(
+          eq(people.workspaceId, scope.workspaceId),
+          or(
+            ...list.map(
+              (a) =>
+                dsql`${people.otherEmails} @> ${JSON.stringify([{ email: a.toLowerCase() }])}::jsonb`,
+            ),
+          ),
+        ),
+      );
+    const others = byOther
+      .flatMap((r) => otherEmailsOf(r.others).map((e) => ({ address: e.email })))
+      .filter((r) => list.some((a) => a.toLowerCase() === r.address));
     const byThread = await tx
       .select({ address: conversations.counterpart })
       .from(conversations)
@@ -139,7 +157,7 @@ async function knownCustomers(
           inArray(conversations.counterpart, list),
         ),
       );
-    return new Set([...byPerson, ...byThread].map((r) => r.address));
+    return new Set([...byPerson, ...others, ...byThread].map((r) => r.address));
   });
 }
 

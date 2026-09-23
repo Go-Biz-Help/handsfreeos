@@ -13,6 +13,7 @@ import { useBusiness } from '@/components/shell/business-context';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 import { api } from '@/lib/api';
+import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 
 import { buildHome, type HomeList } from './build';
@@ -132,6 +133,7 @@ export function useHome(
   now: number,
 ): HomeList & { loading: boolean } {
   const { business, userId } = useBusiness();
+  const who = useGrants();
   const ws = business.id;
   const since = React.useMemo(() => new Date(Date.now() - SENT_SHOWN_MS).toISOString(), []);
   const items = useQuery<SyncedAttentionRow>(ATTENTION_SQL, [ws]);
@@ -157,7 +159,8 @@ export function useHome(
     () =>
       buildHome({
         userId,
-        role: business.role,
+        role: who.role,
+        permissions: who.permissions,
         timeZone,
         now,
         scope,
@@ -180,7 +183,7 @@ export function useHome(
       }),
     [
       userId,
-      business.role,
+      who,
       timeZone,
       now,
       scope,

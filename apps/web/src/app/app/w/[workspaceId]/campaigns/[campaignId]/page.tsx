@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { CampaignView } from '@/components/campaigns/campaign-view';
 import { PageHeader } from '@/components/shell/page-header';
@@ -23,7 +23,7 @@ export default async function CampaignPage({
       <CampaignView
         workspaceId={workspaceId}
         data={data}
-        canManage={hasWorkspacePermission(got.workspace.role, 'workflows.manage')}
+        canManage={can(got.workspace.permissions, 'workflows.manage')}
       />
     </>
   );

@@ -3,6 +3,8 @@ import { HeadlineStrip } from '@/components/money/headline-strip';
 import { MoneyFilterBar } from '@/components/money/filters';
 import { InvoicesList } from '@/components/money/invoices-list';
 import {
+  accountChoices,
+  accountNames,
   INVOICE_STATUS_CHOICES,
   invoiceListBody,
   readFilters,
@@ -10,7 +12,7 @@ import {
 import { MoneyActions, MoneySubnav } from '@/components/money/subnav';
 import { PageHeader } from '@/components/shell/page-header';
 import { unwrapPage } from '@/lib/api/server';
-import { COLLECTED_DAYS, loadMoneyShell } from './load';
+import { COLLECTED_DAYS, loadAccounts, loadMoneyShell } from './load';
 
 export const metadata: Metadata = { title: 'Money' };
 
@@ -25,20 +27,21 @@ export default async function MoneyPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
-  const filters = readFilters(await searchParams, { status: STATUSES });
+  const filters = readFilters(await searchParams, { status: STATUSES, account: true });
   const shell = await loadMoneyShell(workspaceId);
-  const invoices = unwrapPage(
-    await shell.api.POST('/v1/queries/invoice.list', {
-      body: invoiceListBody(workspaceId, filters),
-    }),
-  );
+  const [invoices, accounts] = await Promise.all([
+    shell.api
+      .POST('/v1/queries/invoice.list', { body: invoiceListBody(workspaceId, filters) })
+      .then((r) => unwrapPage(r)),
+    loadAccounts(shell.api, workspaceId, shell.canBill),
+  ]);
 
   return (
     <>
       <PageHeader
         title="Money"
         description="What you have quoted, what you are owed and what has come in."
-        actions={shell.canManage ? <MoneyActions workspaceId={workspaceId} /> : undefined}
+        actions={shell.canBill ? <MoneyActions workspaceId={workspaceId} /> : undefined}
       />
       {shell.summary ? (
         <HeadlineStrip summary={shell.summary} days={COLLECTED_DAYS} timeZone={shell.timeZone} />
@@ -47,6 +50,7 @@ export default async function MoneyPage({
         <MoneyFilterBar
           filters={filters}
           statuses={INVOICE_STATUS_CHOICES}
+          accounts={accountChoices(accounts, filters.account)}
           searchLabel="Search invoices"
           count={invoices.invoices.length}
         />
@@ -55,9 +59,10 @@ export default async function MoneyPage({
         workspaceId={workspaceId}
         initial={invoices}
         filters={filters}
-        canManage={shell.canManage}
+        canBill={shell.canBill}
         timeZone={shell.timeZone}
         now={shell.now}
+        accountNames={accountNames(accounts)}
       />
     </>
   );

@@ -1,13 +1,9 @@
-import {
-  hasWorkspacePermission,
-  teammateDraftOf,
-  type TeammateDraftRow,
-  type TeammateDraftShape,
-} from '@hfos/core';
+import { holds, teammateDraftOf, type TeammateDraftRow, type TeammateDraftShape } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
+import { useGrants } from '@/lib/grants';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 
@@ -107,7 +103,7 @@ export function useWaitingDrafts(
     kind,
   ]);
   const decisions = useDraftDecisions(business.id);
-  const canManage = hasWorkspacePermission(business.role, 'ai_team.manage');
+  const canManage = holds(useGrants(), 'ai_team.manage');
   return React.useMemo(() => {
     const items = data.map((row) => ({
       draft: teammateDraftOf(row, { canManage }),

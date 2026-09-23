@@ -502,9 +502,11 @@ export const onPaidPush = pushMoment('payment', async (ctx, scope) => {
   if (!invoice) return;
   const people = await rows<{ id: string }>(
     ctx.tx,
+    // As the paid email: whoever manages money here (0106), and the invoice's own person.
     sql`select wm.user_id as id from app.workspace_memberships wm
+        join app.workspace_access wa on wa.user_id = wm.user_id and wa.workspace_id = wm.workspace_id
         where wm.workspace_id = ${ws}
-          and (wm.role in ('owner', 'admin') or wm.user_id = ${invoice.assignee_user_id}::uuid)`,
+          and (wa.manages_money or wm.user_id = ${invoice.assignee_user_id}::uuid)`,
   );
   const how = invoice.method
     ? ` by ${PAYMENT_METHOD_WORDS[invoice.method as PaymentMethod] ?? invoice.method}`

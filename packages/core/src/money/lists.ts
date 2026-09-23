@@ -23,14 +23,26 @@ import { dueWording } from './words';
 export type MoneyRole = 'owner' | 'admin' | 'member';
 
 /**
- * Whether this person sees the business's money rather than only their own jobs'. Owners and admins do; a member
- * sees the documents they are on and no totals — the canvas's "Marco is a member, so the phone only ever receives
- * the invoices for jobs he is on: no totals, no other customers."
+ * What a person may do here, as the API (workspace.get) or the phone's own access row gives it (0106): their role's
+ * permissions with the business's settings for the role and for them applied.
  */
-export const seesWholeBusiness = (role: MoneyRole): boolean => role === 'owner' || role === 'admin';
+export type MoneyPermissions = readonly string[];
 
-/** And whether they may raise, send or void one. The same two roles today, but a different question. */
-export const canManageMoney = (role: MoneyRole): boolean => seesWholeBusiness(role);
+/**
+ * Whether this person sees the business's money rather than only their own jobs' (money.manage). Owners and admins
+ * do unless the business says otherwise; anyone else sees the documents they are on and no totals — the canvas's
+ * "Marco is a member, so the phone only ever receives the invoices for jobs he is on: no totals, no other customers."
+ */
+export const seesWholeBusiness = (permissions: MoneyPermissions): boolean =>
+  permissions.includes('money.manage');
+
+/** Whether they may write, send and void estimates and invoices and run plans (money.bill), for what they see. */
+export const canBill = (permissions: MoneyPermissions): boolean =>
+  permissions.includes('money.bill');
+
+/** Whether they run the business's money: refunds, the catalogue, the settings and the accounts. */
+export const canManageMoney = (permissions: MoneyPermissions): boolean =>
+  seesWholeBusiness(permissions);
 
 // ---- The tabs ----
 
@@ -45,9 +57,13 @@ export const MONEY_TAB_LABELS: Readonly<Record<MoneyTab, string>> = {
 
 export const MONEY_TABS: readonly MoneyTab[] = ['invoices', 'estimates', 'payments', 'plans'];
 
-/** Payments and plans are the whole business's, so a member gets Invoices and Estimates only. */
-export function moneyTabsFor(role: MoneyRole): readonly MoneyTab[] {
-  return seesWholeBusiness(role) ? MONEY_TABS : ['invoices', 'estimates'];
+/**
+ * The phone's tabs. Payments and Plans are the whole business's, and its copy of them is the managers' (the sync
+ * rules' `managed` arm), so only someone who manages money gets them; anyone else, Invoices and Estimates — someone
+ * who bills starts and runs their customers' plans on the web.
+ */
+export function moneyTabsFor(permissions: MoneyPermissions): readonly MoneyTab[] {
+  return seesWholeBusiness(permissions) ? MONEY_TABS : ['invoices', 'estimates'];
 }
 
 /** What Money is for, under its title. */

@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SettingsNav } from '@/components/settings/settings-nav';
@@ -15,15 +16,14 @@ export default async function TemplatesSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'templates.manage')) notFound();
   const { templates, folders } = unwrapPage(
     await api.POST('/v1/queries/template.list', { body: { workspaceId, includeArchived: true } }),
   );
   return (
     <>
       <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <div className="mb-3">
         <h2 className="text-lg font-semibold tracking-tight">Templates</h2>
         <p className="text-[13px] text-text-2">

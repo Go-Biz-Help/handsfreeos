@@ -74,14 +74,129 @@ export const AddressOut = z.object({
 });
 export type AddressOut = z.infer<typeof AddressOut>;
 
+/**
+ * The other emails, numbers and addresses a person or company keeps beside the main ones (0103). An update sends
+ * the whole list it wants; the command tidies it the way the database would (crm/contact-points).
+ */
+const contactLabel = z.string().trim().max(40).nullable().optional();
+
+export const OtherEmailInput = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(254)
+    .transform((value, ctx) => {
+      if (!z.email().safeParse(value).success) {
+        ctx.addIssue({ code: 'custom', message: 'Enter a valid email address.' });
+        return z.NEVER;
+      }
+      return value;
+    }),
+  label: contactLabel,
+});
+
+export const OtherPhoneInput = z.object({
+  phone: z
+    .string()
+    .trim()
+    .max(40)
+    .transform((value, ctx) => {
+      const e164 = normalizePhone(value);
+      if (!e164) {
+        ctx.addIssue({ code: 'custom', message: 'Enter a valid phone number.' });
+        return z.NEVER;
+      }
+      return e164;
+    }),
+  label: contactLabel,
+});
+
+export const OtherAddressInput = z
+  .object({
+    label: contactLabel,
+    line1: optionalText(200),
+    line2: optionalText(200),
+    city: optionalText(100),
+    state: optionalText(50),
+    postalCode: optionalText(20),
+    country: z.string().trim().length(2).toUpperCase().optional(),
+  })
+  .refine((a) => [a.line1, a.city, a.postalCode].some((v) => !!v?.trim()), {
+    path: ['line1'],
+    error: 'Enter a street, a town or a ZIP code.',
+  });
+
+export const otherEmailsInput = z
+  .array(OtherEmailInput)
+  .max(20, 'Keep it to 20 other emails.')
+  .optional();
+export const otherPhonesInput = z
+  .array(OtherPhoneInput)
+  .max(20, 'Keep it to 20 other numbers.')
+  .optional();
+export const otherAddressesInput = z
+  .array(OtherAddressInput)
+  .max(20, 'Keep it to 20 other addresses.')
+  .optional();
+
+export const OtherEmailOut = z.object({ email: z.string(), label: z.string().nullable() });
+export const OtherPhoneOut = z.object({
+  phone: z.string(),
+  phoneE164: z.string(),
+  label: z.string().nullable(),
+});
+export const OtherAddressOut = AddressOut.extend({ label: z.string().nullable() });
+export type OtherEmailOut = z.infer<typeof OtherEmailOut>;
+export type OtherPhoneOut = z.infer<typeof OtherPhoneOut>;
+export type OtherAddressOut = z.infer<typeof OtherAddressOut>;
+
+/** A list as the editor saw it, in the shape it is stored in: compared, never validated as a new value. */
+export const seenList = z.array(z.record(z.string(), z.unknown())).max(50).nullable().optional();
+
 export const TagRef = z.object({ id: uuid, name: z.string(), color: z.string() });
 export type TagRef = z.infer<typeof TagRef>;
 
 export const tagIds = z.array(uuid).max(20);
 
 export const PersonRef = z.object({ id: uuid, fullName: z.string(), archived: z.boolean() });
+
+/**
+ * Everyone on a customer besides the owner (0104), in the order they were added. With the owner they are who the
+ * customer is assigned to; somebody who has left the business reads "Former member".
+ */
+export const TeamRef = z.array(z.object({ id: uuid, fullName: z.string() }));
+export type TeamRef = z.infer<typeof TeamRef>;
+
+/** A person or a company: the records a team can be on. */
+export const customerType = z.enum(['person', 'company']);
+
+export const RecordAssignInput = z.object({
+  workspaceId: uuid,
+  recordType: customerType,
+  recordId: uuid,
+  userId: uuid,
+  /**
+   * Make them the customer's main person, their owner. Whoever was the owner stays on the customer. Left out, they
+   * join the team — or become the owner of a customer nobody owns.
+   */
+  main: z.boolean().default(false),
+});
+export const RecordUnassignInput = z.object({
+  workspaceId: uuid,
+  recordType: customerType,
+  recordId: uuid,
+  userId: uuid,
+});
 export const CompanyRef = z.object({ id: uuid, name: z.string(), archived: z.boolean() });
 export const UserRef = z.object({ id: uuid, fullName: z.string() }).nullable();
+
+export const RecordAssignOutput = z.object({
+  owner: UserRef,
+  team: TeamRef,
+  /** False when they were already where this puts them (or already off). */
+  changed: z.boolean(),
+});
 
 export const notes = optionalText(10000);
 export const source = optionalText(80);

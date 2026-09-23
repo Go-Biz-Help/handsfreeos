@@ -41,7 +41,7 @@ export default async function CalendarRoute({
     <CalendarPage
       workspaceId={workspaceId}
       myUserId={userId}
-      role={got.workspace.role}
+      permissions={got.workspace.permissions}
       timeZone={timeZone}
       today={today}
       query={query}

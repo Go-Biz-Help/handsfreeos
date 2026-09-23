@@ -1,7 +1,7 @@
 'use client';
 import {
+  can,
   customSummary,
-  hasWorkspacePermission,
   lowerLabel,
   monthYear,
   RECORD_WORDS,
@@ -51,7 +51,6 @@ import type {
   FileItem,
   Relationship,
   RelationshipType,
-  Role,
   Task,
   TimelineList,
 } from '@/lib/api/types';
@@ -66,7 +65,8 @@ const TABS: readonly Tab[] = ['timeline', 'appointments', 'tasks', 'files', 'det
 export interface CustomRecordPageProps {
   workspaceId: string;
   myUserId: string;
-  role: Role;
+  /** What the business lets them do (0106), as workspace.get gives it. */
+  permissions: readonly string[];
   record: CustomRecordDetail;
   /** Its kind's fields. */
   fields: CustomField[];
@@ -88,12 +88,13 @@ export interface CustomRecordPageProps {
  * owners.
  */
 export function CustomRecordPage(props: CustomRecordPageProps) {
-  const { workspaceId, myUserId, role, record, members } = props;
+  const { workspaceId, myUserId, permissions, record, members } = props;
   const router = useRouter();
   const kind = record.type;
   const archived = !!record.archivedAt;
-  const canModerate = role === 'owner' || role === 'admin';
-  const canWrite = hasWorkspacePermission(role, 'records.write');
+  // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
+  const canModerate = can(permissions, 'records.archive');
+  const canWrite = can(permissions, 'records.write');
   const wanted = useSearchParams().get('tab');
   const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
   const [log, setLog] = useState<LoggableKind | null>(null);
@@ -349,7 +350,11 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
                   recordId={record.id}
                 />
               )}
-              <FileGrid workspaceId={workspaceId} files={props.files} canDelete={canModerate} />
+              <FileGrid
+                workspaceId={workspaceId}
+                files={props.files}
+                canDelete={can(permissions, 'files.delete')}
+              />
             </div>
           </TabsContent>
           <TabsContent value="details">
@@ -385,7 +390,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
                 values={record.custom}
                 canEdit={!archived && canWrite}
                 manageHref={
-                  hasWorkspacePermission(role, 'fields.manage')
+                  can(permissions, 'fields.manage')
                     ? `/app/w/${workspaceId}/settings/fields?for=${kind.id}`
                     : null
                 }
@@ -406,7 +411,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
             relationships={props.relationships}
             types={props.relationshipTypes}
             archived={archived}
-            canManage={hasWorkspacePermission(role, 'fields.manage')}
+            canManage={can(permissions, 'fields.manage')}
           />
           <UpcomingAppointments
             timeZone={props.timeZone}
@@ -460,7 +465,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
           timeZone={props.timeZone}
           people={staff}
           myUserId={myUserId}
-          myRole={role}
+          myPermissions={permissions}
           onClose={() => setOpenAppt(null)}
           onChanged={() => router.refresh()}
         />

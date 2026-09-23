@@ -1,6 +1,6 @@
 /** Email helpers shared by the commands and queries: conversations, the from address, threading, suppressions. */
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
 import {
   type conversations,
@@ -13,6 +13,7 @@ import {
   people,
   type MediaRef,
 } from '@hfos/db/schema';
+import { hasEmail, mainEmailFirst } from '../crm/matching';
 import { requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
@@ -25,7 +26,10 @@ const EMAIL_ATTACHMENTS_MAX_BYTES = 10 * 1024 * 1024;
 
 type Conversation = typeof conversations.$inferSelect;
 
-/** The customer with this email address (the most recently touched one when several share it). */
+/**
+ * The customer with this email address: their main one, or one of their others (0103). When several have it, the
+ * one whose main address it is, then the most recently touched.
+ */
 export async function matchPersonByEmail(
   tx: Tx,
   workspaceId: string,
@@ -37,11 +41,11 @@ export async function matchPersonByEmail(
     .where(
       and(
         eq(people.workspaceId, workspaceId),
-        sql`lower(${people.email}::text) = ${address.toLowerCase()}`,
+        hasEmail(people, address),
         isNull(people.archivedAt),
       ),
     )
-    .orderBy(desc(people.updatedAt))
+    .orderBy(mainEmailFirst(people, address), desc(people.updatedAt))
     .limit(1);
   return p?.id ?? null;
 }

@@ -33,6 +33,8 @@ export const Member = z.object({
   fullName: z.string(),
   avatarUrl: z.string().nullable(),
   role: workspaceRole,
+  /** What they may do here (0106), their role's permissions with the business's settings applied. */
+  permissions: z.array(z.string()),
   joinedAt: isoDateTime,
 });
 export type Member = z.infer<typeof Member>;
@@ -43,6 +45,8 @@ export const OrganizationPerson = z.object({
   fullName: z.string(),
   avatarUrl: z.string().nullable(),
   orgRole: z.enum(['owner', 'admin']),
+  /** What they may do in this business (0106). */
+  permissions: z.array(z.string()),
 });
 
 export const WorkspaceMembersInput = z.object({ workspaceId: uuid });

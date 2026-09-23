@@ -4,6 +4,7 @@ import {
   ArchiveRestore,
   Building2,
   CalendarPlus,
+  ChevronDown,
   ClipboardList,
   KanbanSquare,
   Mail,
@@ -17,9 +18,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { Fragment, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { firstName } from '@/components/calendar/appt';
@@ -55,13 +56,19 @@ import type {
   Pipeline,
   Relationship,
   RelationshipType,
-  Role,
   Tag,
   Task,
   TimelineList,
 } from '@/lib/api/types';
 import { addressLine, daysLabel, formatDate, formatMoney, telHref } from '@/lib/format';
-import { archivedNotice, customerSince, recordTabLabel, RECORD_WORDS } from '@hfos/core';
+import {
+  archivedNotice,
+  contactLabelWords,
+  customerSince,
+  formatPhone,
+  recordTabLabel,
+  RECORD_WORDS,
+} from '@hfos/core';
 import { useCalls } from '@/lib/calls/call-provider';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { ConversationsCard } from '@/components/inbox/conversations-card';
@@ -73,6 +80,7 @@ import {
 } from '@/components/workflows/contact-workflows';
 import { RelationshipsCard } from '@/components/relationships/relationships-card';
 import { ArchiveDialog } from './archive-dialog';
+import { AssignedCard } from './assigned-card';
 import { CustomFieldsSection } from './custom-fields';
 import { MaintenanceCard } from './maintenance-card';
 import { NextActionChip, StageBadge } from './chips';
@@ -96,7 +104,8 @@ const TABS: readonly Tab[] = [
 export interface RecordPageProps {
   workspaceId: string;
   myUserId: string;
-  role: Role;
+  /** What the business lets them do (0106), as workspace.get gives it. */
+  permissions: readonly string[];
   person?: PersonDetail;
   company?: CompanyDetail;
   companyPeople?: CompanyGet['people'];
@@ -121,18 +130,37 @@ export interface RecordPageProps {
 
 /** The Customer 360 for a person or a company. */
 export function RecordPage(props: RecordPageProps) {
-  const { workspaceId, myUserId, role, person, company, tags, members, pipelines } = props;
+  const { workspaceId, myUserId, permissions, person, company, tags, members, pipelines } = props;
   const router = useRouter();
   const kind = person ? 'person' : 'company';
   const recordId = (person?.id ?? company?.id)!;
   const name = person ? person.fullName : company!.name;
   const archived = !!(person?.archivedAt ?? company?.archivedAt);
-  const canModerate = role === 'owner' || role === 'admin';
+  // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
+  const canModerate = can(permissions, 'records.archive');
   const address = addressLine(person ? person.address : company!.address);
   const phoneE164 = person ? person.phoneE164 : company!.phoneE164;
   const phone = person ? person.phone : company!.phone;
   const email = person ? person.email : company!.email;
   const currentTags = (person ?? company)!.tags;
+  const record = (person ?? company)!;
+  // Every number and email on file (0103): the main one first, then the others with their labels.
+  const numbers = [
+    ...(phoneE164 ? [{ phone: phoneE164, label: 'Main' }] : []),
+    ...record.otherPhones.map((p) => ({
+      phone: p.phoneE164,
+      label: contactLabelWords(p.label, 'phone'),
+    })),
+  ];
+  const emails = [
+    ...(email ? [{ email, label: 'Main' }] : []),
+    ...record.otherEmails.map((e) => ({
+      email: e.email,
+      label: contactLabelWords(e.label, 'email'),
+    })),
+  ];
+  const others =
+    record.otherPhones.length + record.otherEmails.length + record.otherAddresses.length;
   const openLeads = props.leads.filter((l) => l.status === 'open' && !l.archivedAt);
   const openTasks = props.tasks.filter((t) => !t.doneAt);
   const lead = openLeads[0] ?? null;
@@ -141,9 +169,10 @@ export function RecordPage(props: RecordPageProps) {
   /**
    * This customer's money, for the header's "Owes $X" and the Money tab. `money.for_record` already holds a
    * member to the jobs they are on, so a member who is on none of this customer's simply finds nothing here.
+   * Whoever the business lets bill (0106) may write them an estimate or an invoice.
    */
   const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
-  const canBill = hasWorkspacePermission(props.role, 'money.manage');
+  const canBill = can(permissions, 'money.bill');
   // `?tab=money` so the inbox's "See their money" lands on the tab it names.
   const wanted = useSearchParams().get('tab');
   const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
@@ -155,13 +184,16 @@ export function RecordPage(props: RecordPageProps) {
   const [addPerson, setAddPerson] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetChannel, setSheetChannel] = useState<'sms' | 'email'>('sms');
+  /** Another of their numbers or emails the sheet is opened on; null for the main one. */
+  const [sheetTo, setSheetTo] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [openAppt, setOpenAppt] = useState<string | null>(null);
   const upcoming = props.upcoming ?? [];
   const recent = props.recent ?? [];
   const people = members.map((m) => ({ userId: m.id, fullName: m.fullName }));
-  const openSheet = (channel: 'sms' | 'email') => {
+  const openSheet = (channel: 'sms' | 'email', to: string | null = null) => {
     setSheetChannel(channel);
+    setSheetTo(to);
     setSheetOpen(true);
   };
   const calls = useCalls();
@@ -285,8 +317,18 @@ export function RecordPage(props: RecordPageProps) {
                   {address}
                 </span>
               ) : null}
-              {!phone && !email && !address ? (
+              {!phone && !email && !address && others === 0 ? (
                 <span className="text-text-3">{RECORD_WORDS.noContact}</span>
+              ) : null}
+              {others > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setTab('details')}
+                  className="text-text-3 hover:text-text hover:underline"
+                  data-testid="header-more-contacts"
+                >
+                  +{others} more
+                </button>
               ) : null}
             </div>
             <TagPicker
@@ -347,17 +389,18 @@ export function RecordPage(props: RecordPageProps) {
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            {person && (phoneE164 || person.email) ? (
+            {person && (numbers.length > 0 || emails.length > 0) ? (
               <>
-                {phoneE164 && calls.available ? (
+                {numbers[0] && calls.available ? (
                   <Button
                     variant="primary"
                     size="sm"
                     onClick={() =>
                       calls.openDialer({
                         name: person.fullName,
-                        phone: phoneE164,
+                        phone: numbers[0]!.phone,
                         personId: person.id,
+                        numbers,
                       })
                     }
                     data-testid="action-call-customer"
@@ -366,22 +409,48 @@ export function RecordPage(props: RecordPageProps) {
                     Call
                   </Button>
                 ) : null}
-                {phoneE164 ? (
+                {numbers.length > 1 ? (
+                  <ChooseOne
+                    label="Text"
+                    icon={MessageCircle}
+                    testId="action-text"
+                    choices={numbers.map((n) => ({
+                      key: n.phone,
+                      text: `${formatPhone(n.phone) || n.phone} · ${n.label}`,
+                      onSelect: () => openSheet('sms', n.phone === phoneE164 ? null : n.phone),
+                    }))}
+                  />
+                ) : numbers[0] ? (
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => openSheet('sms')}
+                    onClick={() =>
+                      openSheet('sms', numbers[0]!.phone === phoneE164 ? null : numbers[0]!.phone)
+                    }
                     data-testid="action-text"
                   >
                     <MessageCircle className="h-4 w-4" strokeWidth={1.5} />
                     Text
                   </Button>
                 ) : null}
-                {person.email ? (
+                {emails.length > 1 ? (
+                  <ChooseOne
+                    label="Email"
+                    icon={Mail}
+                    testId="action-email"
+                    choices={emails.map((e) => ({
+                      key: e.email,
+                      text: `${e.email} · ${e.label}`,
+                      onSelect: () => openSheet('email', e.email === email ? null : e.email),
+                    }))}
+                  />
+                ) : emails[0] ? (
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => openSheet('email')}
+                    onClick={() =>
+                      openSheet('email', emails[0]!.email === email ? null : emails[0]!.email)
+                    }
                     data-testid="action-email"
                   >
                     <Mail className="h-4 w-4" strokeWidth={1.5} />
@@ -453,7 +522,7 @@ export function RecordPage(props: RecordPageProps) {
                 workspaceId={workspaceId}
                 person={{ id: person.id, fullName: person.fullName }}
                 timeZone={props.timeZone ?? 'America/Chicago'}
-                canManageWorkflows={canModerate}
+                canManageWorkflows={can(permissions, 'workflows.manage')}
               />
             ) : null}
           </div>
@@ -507,7 +576,7 @@ export function RecordPage(props: RecordPageProps) {
                 personId={person.id}
                 personName={firstName(person.fullName)}
                 found={recordMoney}
-                canManage={canBill}
+                canBill={canBill}
                 timeZone={props.timeZone ?? 'UTC'}
               />
             </TabsContent>
@@ -642,7 +711,11 @@ export function RecordPage(props: RecordPageProps) {
               {archived ? null : (
                 <UploadZone workspaceId={workspaceId} recordType={kind} recordId={recordId} />
               )}
-              <FileGrid workspaceId={workspaceId} files={props.files} canDelete={canModerate} />
+              <FileGrid
+                workspaceId={workspaceId}
+                files={props.files}
+                canDelete={can(permissions, 'files.delete')}
+              />
             </div>
           </TabsContent>
           <TabsContent value="details">
@@ -660,8 +733,24 @@ export function RecordPage(props: RecordPageProps) {
               >
                 <dt className="text-text-2">{RECORD_WORDS.labels.phone}</dt>
                 <dd className="font-medium">{phone ?? RECORD_WORDS.none}</dd>
+                {record.otherPhones.map((p) => (
+                  <Fragment key={`phone-${p.phoneE164}`}>
+                    <dt className="text-text-2">{contactLabelWords(p.label, 'phone')}</dt>
+                    <dd className="font-medium">
+                      <a href={telHref(p.phoneE164) ?? '#'} className="hover:underline">
+                        {p.phone}
+                      </a>
+                    </dd>
+                  </Fragment>
+                ))}
                 <dt className="text-text-2">{RECORD_WORDS.labels.email}</dt>
                 <dd className="break-all font-medium">{email ?? RECORD_WORDS.none}</dd>
+                {record.otherEmails.map((e) => (
+                  <Fragment key={`email-${e.email}`}>
+                    <dt className="text-text-2">{contactLabelWords(e.label, 'email')}</dt>
+                    <dd className="break-all font-medium">{e.email}</dd>
+                  </Fragment>
+                ))}
                 {company ? (
                   <>
                     <dt className="text-text-2">{RECORD_WORDS.labels.website}</dt>
@@ -672,15 +761,24 @@ export function RecordPage(props: RecordPageProps) {
                 ) : null}
                 <dt className="text-text-2">{RECORD_WORDS.labels.address}</dt>
                 <dd className="font-medium">{address || RECORD_WORDS.none}</dd>
+                {record.otherAddresses.map((a, i) => (
+                  <Fragment key={`address-${i}`}>
+                    <dt className="text-text-2">{contactLabelWords(a.label, 'address')}</dt>
+                    <dd className="font-medium">{addressLine(a)}</dd>
+                  </Fragment>
+                ))}
                 {person ? (
                   <>
                     <dt className="text-text-2">{RECORD_WORDS.labels.company}</dt>
                     <dd className="font-medium">{person.company?.name ?? RECORD_WORDS.none}</dd>
                   </>
                 ) : null}
-                <dt className="text-text-2">{RECORD_WORDS.labels.owner}</dt>
+                <dt className="text-text-2">{RECORD_WORDS.labels.assignedTo}</dt>
                 <dd className="font-medium">
-                  {(person ?? company)!.owner?.fullName ?? RECORD_WORDS.none}
+                  {[record.owner, ...record.team]
+                    .filter((p): p is NonNullable<typeof p> => !!p)
+                    .map((p) => p.fullName)
+                    .join(', ') || RECORD_WORDS.none}
                 </dd>
                 <dt className="text-text-2">{RECORD_WORDS.labels.source}</dt>
                 <dd className="font-medium">{(person ?? company)!.source ?? RECORD_WORDS.none}</dd>
@@ -697,9 +795,9 @@ export function RecordPage(props: RecordPageProps) {
                 recordId={recordId}
                 fields={props.fields}
                 values={(person ?? company)!.custom}
-                canEdit={!archived && hasWorkspacePermission(role, 'records.write')}
+                canEdit={!archived && can(permissions, 'records.write')}
                 manageHref={
-                  hasWorkspacePermission(role, 'fields.manage')
+                  can(permissions, 'fields.manage')
                     ? `/app/w/${workspaceId}/settings/fields?for=${kind}`
                     : null
                 }
@@ -709,6 +807,15 @@ export function RecordPage(props: RecordPageProps) {
         </Tabs>
 
         <div className="flex flex-col gap-4">
+          <AssignedCard
+            workspaceId={workspaceId}
+            recordType={kind}
+            recordId={recordId}
+            owner={record.owner}
+            team={record.team}
+            members={members}
+            canEdit={!archived && can(permissions, 'records.assign')}
+          />
           {person && props.timeZone ? (
             <UpcomingAppointments
               timeZone={props.timeZone}
@@ -721,7 +828,7 @@ export function RecordPage(props: RecordPageProps) {
             <MaintenanceCard
               workspaceId={workspaceId}
               personId={person.id}
-              canEdit={!archived && hasWorkspacePermission(role, 'records.write')}
+              canEdit={!archived && can(permissions, 'records.write')}
             />
           ) : null}
           {person ? (
@@ -834,7 +941,7 @@ export function RecordPage(props: RecordPageProps) {
             relationships={props.relationships}
             types={props.relationshipTypes}
             archived={archived}
-            canManage={hasWorkspacePermission(role, 'fields.manage')}
+            canManage={can(permissions, 'fields.manage')}
             company={person?.company ?? null}
             companyPeople={company ? (props.companyPeople ?? []) : undefined}
             onAddPerson={company ? () => setAddPerson(true) : undefined}
@@ -865,7 +972,7 @@ export function RecordPage(props: RecordPageProps) {
           timeZone={props.timeZone}
           people={people}
           myUserId={myUserId}
-          myRole={props.role}
+          myPermissions={permissions}
           onClose={() => setOpenAppt(null)}
           onChanged={() => router.refresh()}
         />
@@ -891,6 +998,7 @@ export function RecordPage(props: RecordPageProps) {
             email: person.email,
           }}
           channel={sheetChannel}
+          to={sheetTo}
           open={sheetOpen}
           onOpenChange={setSheetOpen}
           onEditPerson={() => {
@@ -958,5 +1066,37 @@ export function RecordPage(props: RecordPageProps) {
         />
       ) : null}
     </div>
+  );
+}
+
+/** A Text or Email button for a customer with more than one number or address: pick which one first. */
+function ChooseOne({
+  label,
+  icon: Icon,
+  testId,
+  choices,
+}: {
+  label: string;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  testId: string;
+  choices: readonly { key: string; text: string; onSelect: () => void }[];
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="sm" data-testid={testId}>
+          <Icon className="h-4 w-4" strokeWidth={1.5} />
+          {label}
+          <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {choices.map((c) => (
+          <DropdownMenuItem key={c.key} onSelect={c.onSelect}>
+            {c.text}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -833,6 +833,292 @@
         }
       }
     },
+    "/v1/commands/permission.set_role": {
+      "post": {
+        "operationId": "command_permission_set_role",
+        "summary": "Turn one permission on or off for everyone with the Admin or Member role in this business, or (allowed null) back to the default. A person’s own setting still wins. Owners only.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires permissions.manage. Emits permission.role_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "member"
+                    ]
+                  },
+                  "permission": {
+                    "type": "string",
+                    "enum": [
+                      "records.write",
+                      "records.assign",
+                      "records.archive",
+                      "records.import",
+                      "tags.manage",
+                      "pipelines.manage",
+                      "fields.manage",
+                      "files.delete",
+                      "inbox.use",
+                      "channels.manage",
+                      "appointments.write",
+                      "calendars.manage",
+                      "money.read",
+                      "money.bill",
+                      "money.manage",
+                      "workflows.manage",
+                      "forms.manage",
+                      "reviews.manage",
+                      "templates.manage",
+                      "assistant.use",
+                      "knowledge.manage",
+                      "ai_team.manage",
+                      "workspace.update",
+                      "audit.read",
+                      "migrations.manage",
+                      "members.invite",
+                      "invitations.read",
+                      "invitations.revoke",
+                      "members.change_role",
+                      "members.remove"
+                    ]
+                  },
+                  "allowed": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "role",
+                  "permission",
+                  "allowed"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "effective": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "effective"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/permission.set_member": {
+      "post": {
+        "operationId": "command_permission_set_member",
+        "summary": "Turn one permission on or off for one person in this business, whatever their role says, or (allowed null) back to what their role says. Not for owners. Owners only.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires permissions.manage. Emits permission.member_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "permission": {
+                    "type": "string",
+                    "enum": [
+                      "records.write",
+                      "records.assign",
+                      "records.archive",
+                      "records.import",
+                      "tags.manage",
+                      "pipelines.manage",
+                      "fields.manage",
+                      "files.delete",
+                      "inbox.use",
+                      "channels.manage",
+                      "appointments.write",
+                      "calendars.manage",
+                      "money.read",
+                      "money.bill",
+                      "money.manage",
+                      "workflows.manage",
+                      "forms.manage",
+                      "reviews.manage",
+                      "templates.manage",
+                      "assistant.use",
+                      "knowledge.manage",
+                      "ai_team.manage",
+                      "workspace.update",
+                      "audit.read",
+                      "migrations.manage",
+                      "members.invite",
+                      "invitations.read",
+                      "invitations.revoke",
+                      "members.change_role",
+                      "members.remove"
+                    ]
+                  },
+                  "allowed": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "userId",
+                  "permission",
+                  "allowed"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "effective": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "effective"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/permission.reset": {
+      "post": {
+        "operationId": "command_permission_reset",
+        "summary": "Put every permission for the Admin or Member role back to the default, or every permission for one person back to what their role says. Owners only.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires permissions.manage. Emits permission.reset.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "member"
+                    ]
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "effective": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "effective"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/organization.add_owner": {
       "post": {
         "operationId": "command_organization_add_owner",
@@ -1779,6 +2065,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -1998,6 +2418,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -2149,6 +2703,60 @@
                             ]
                           }
                         }
+                      },
+                      "otherEmails": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherPhones": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherAddresses": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "notes": {
                         "anyOf": [
@@ -2508,6 +3116,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -2741,6 +3483,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -2915,6 +3791,60 @@
                             ]
                           }
                         }
+                      },
+                      "otherEmails": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherPhones": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherAddresses": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "notes": {
                         "anyOf": [
@@ -3643,6 +4573,248 @@
                     "tags",
                     "changed",
                     "notApplied"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/record.assign": {
+      "post": {
+        "operationId": "command_record_assign",
+        "summary": "Assign a customer or a company to someone on the team (whoever the business lets choose who is on a customer: owners and admins unless it says otherwise). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.assign. Emits person.updated, company.updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recordType": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "company"
+                    ]
+                  },
+                  "recordId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "main": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "recordType",
+                  "recordId",
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "team": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fullName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "team",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/record.unassign": {
+      "post": {
+        "operationId": "command_record_unassign",
+        "summary": "Take someone off a customer or a company (owners and admins). Taking the owner off makes the next person on its team the owner.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.assign. Emits person.updated, company.updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recordType": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "company"
+                    ]
+                  },
+                  "recordId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "recordType",
+                  "recordId",
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "team": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fullName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "team",
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -5000,7 +6172,7 @@
     "/v1/commands/task.delete": {
       "post": {
         "operationId": "command_task_delete",
-        "summary": "Delete a task you created (owners and admins can delete any).",
+        "summary": "Delete a task you created (anyone the business lets archive records can delete any).",
         "tags": [
           "commands"
         ],
@@ -6707,6 +7879,11 @@
                       "sms",
                       "email"
                     ]
+                  },
+                  "to": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 254
                   }
                 },
                 "required": [
@@ -28253,6 +29430,103 @@
         }
       }
     },
+    "/v1/commands/payment_connection.set_access": {
+      "post": {
+        "operationId": "command_payment_connection_set_access",
+        "summary": "Choose who may bill into a connected account: everyone who bills, only the people chosen, or only them — and they bill into nothing that is open to everyone. For a team whose people are each paid into their own account.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires money.manage. Emits payment_connection.access_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "usedBy": {
+                    "type": "string",
+                    "enum": [
+                      "everyone",
+                      "chosen",
+                      "only_theirs"
+                    ]
+                  },
+                  "userIds": {
+                    "default": [],
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "connectionId",
+                  "usedBy"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connectionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "active",
+                        "reauth_required",
+                        "error",
+                        "disconnected"
+                      ]
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "connectionId",
+                    "status",
+                    "isDefault",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/payment_connection.disconnect": {
       "post": {
         "operationId": "command_payment_connection_disconnect",
@@ -28342,7 +29616,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires money.manage. Emits estimate.created.",
+        "description": "Risk level 1. Requires money.bill. Emits estimate.created.",
         "requestBody": {
           "required": true,
           "content": {
@@ -28612,7 +29886,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires money.manage. Emits estimate.updated.",
+        "description": "Risk level 1. Requires money.bill. Emits estimate.updated.",
         "requestBody": {
           "required": true,
           "content": {
@@ -28894,7 +30168,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits estimate.sent. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 2. Requires money.bill. Emits estimate.sent. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29012,7 +30286,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits estimate.accepted.",
+        "description": "Risk level 2. Requires money.bill. Emits estimate.accepted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29126,7 +30400,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits estimate.converted.",
+        "description": "Risk level 2. Requires money.bill. Emits estimate.converted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29243,7 +30517,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits estimate.voided.",
+        "description": "Risk level 2. Requires money.bill. Emits estimate.voided.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29346,7 +30620,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires money.manage. Emits invoice.created.",
+        "description": "Risk level 1. Requires money.bill. Emits invoice.created.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29694,7 +30968,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires money.manage. Emits invoice.updated.",
+        "description": "Risk level 1. Requires money.bill. Emits invoice.updated.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29992,7 +31266,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits invoice.sent. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 2. Requires money.bill. Emits invoice.sent. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30127,7 +31401,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits invoice.voided.",
+        "description": "Risk level 2. Requires money.bill. Emits invoice.voided.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30247,7 +31521,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.",
+        "description": "Risk level 2. Requires money.bill. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30486,7 +31760,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires money.manage. Emits subscription.started.",
+        "description": "Risk level 3. Requires money.bill. Emits subscription.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30657,7 +31931,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits subscription.paused.",
+        "description": "Risk level 2. Requires money.bill. Emits subscription.paused.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30745,7 +32019,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits subscription.resumed.",
+        "description": "Risk level 2. Requires money.bill. Emits subscription.resumed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30833,7 +32107,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits subscription.card_requested. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 2. Requires money.bill. Emits subscription.card_requested. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -30949,7 +32223,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires money.manage. Emits subscription.connection_changed.",
+        "description": "Risk level 2. Requires money.bill. Emits subscription.connection_changed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -31050,7 +32324,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires money.manage. Emits subscription.cancelled.",
+        "description": "Risk level 3. Requires money.bill. Emits subscription.cancelled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -47499,7 +48773,7 @@
     "/v1/queries/account.me": {
       "post": {
         "operationId": "query_account_me",
-        "summary": "Your profile plus every organization and workspace you can reach, with your role in each.",
+        "summary": "Your profile plus every organization and workspace you can reach, with your role and what you may do in each.",
         "tags": [
           "queries"
         ],
@@ -47636,6 +48910,12 @@
                               "admin",
                               "member"
                             ]
+                          },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -47646,7 +48926,8 @@
                           "slug",
                           "timezone",
                           "industry",
-                          "role"
+                          "role",
+                          "permissions"
                         ],
                         "additionalProperties": false
                       }
@@ -48162,6 +49443,12 @@
                             "member"
                           ]
                         },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "settings": {
                           "type": "object",
                           "propertyNames": {
@@ -48187,6 +49474,7 @@
                         "timezone",
                         "industry",
                         "role",
+                        "permissions",
                         "settings",
                         "inboxPerPerson",
                         "createdAt"
@@ -48292,6 +49580,12 @@
                               "member"
                             ]
                           },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "joinedAt": {
                             "type": "string",
                             "format": "date-time",
@@ -48304,6 +49598,7 @@
                           "fullName",
                           "avatarUrl",
                           "role",
+                          "permissions",
                           "joinedAt"
                         ],
                         "additionalProperties": false
@@ -48337,6 +49632,12 @@
                               "owner",
                               "admin"
                             ]
+                          },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -48344,7 +49645,8 @@
                           "email",
                           "fullName",
                           "avatarUrl",
-                          "orgRole"
+                          "orgRole",
+                          "permissions"
                         ],
                         "additionalProperties": false
                       }
@@ -48353,6 +49655,142 @@
                   "required": [
                     "members",
                     "organizationAdmins"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/permission.settings": {
+      "post": {
+        "operationId": "query_permission_settings",
+        "summary": "What the Admin and Member roles may do in this business, with the business’s own settings for them, and what each person may do, with theirs. Owners only.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires permissions.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "member"
+                            ]
+                          },
+                          "settings": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "boolean"
+                            }
+                          },
+                          "effective": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "role",
+                          "settings",
+                          "effective"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "owner",
+                              "admin",
+                              "member"
+                            ]
+                          },
+                          "settings": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {
+                              "type": "boolean"
+                            }
+                          },
+                          "effective": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "fullName",
+                          "email",
+                          "role",
+                          "settings",
+                          "effective"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "roles",
+                    "people"
                   ],
                   "additionalProperties": false
                 }
@@ -49050,6 +50488,11 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "assignedUserId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
                   "includeArchived": {
                     "default": false,
                     "type": "boolean"
@@ -49154,6 +50597,111 @@
                             ],
                             "additionalProperties": false
                           },
+                          "otherEmails": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "email": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "email",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherPhones": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "phone": {
+                                  "type": "string"
+                                },
+                                "phoneE164": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "phone",
+                                "phoneE164",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherAddresses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "line1": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "line2": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "city": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "state": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "postalCode": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "country": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "line1",
+                                "line2",
+                                "city",
+                                "state",
+                                "postalCode",
+                                "country",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "source": {
                             "type": [
                               "string",
@@ -49184,6 +50732,27 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "team": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
                           },
                           "tags": {
                             "type": "array",
@@ -49251,8 +50820,12 @@
                           "phoneE164",
                           "website",
                           "address",
+                          "otherEmails",
+                          "otherPhones",
+                          "otherAddresses",
                           "source",
                           "owner",
+                          "team",
                           "tags",
                           "peopleCount",
                           "openLeads",
@@ -49406,6 +50979,111 @@
                           ],
                           "additionalProperties": false
                         },
+                        "otherEmails": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "email",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherPhones": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "phone": {
+                                "type": "string"
+                              },
+                              "phoneE164": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "phone",
+                              "phoneE164",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherAddresses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "line1": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "line2": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "state": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "postalCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "line1",
+                              "line2",
+                              "city",
+                              "state",
+                              "postalCode",
+                              "country",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "source": {
                           "type": [
                             "string",
@@ -49436,6 +51114,27 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "team": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          }
                         },
                         "tags": {
                           "type": "array",
@@ -49516,8 +51215,12 @@
                         "phoneE164",
                         "website",
                         "address",
+                        "otherEmails",
+                        "otherPhones",
+                        "otherAddresses",
                         "source",
                         "owner",
+                        "team",
                         "tags",
                         "peopleCount",
                         "openLeads",
@@ -49626,6 +51329,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "ownerUserId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "assignedUserId": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -49748,6 +51456,111 @@
                             ],
                             "additionalProperties": false
                           },
+                          "otherEmails": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "email": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "email",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherPhones": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "phone": {
+                                  "type": "string"
+                                },
+                                "phoneE164": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "phone",
+                                "phoneE164",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherAddresses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "line1": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "line2": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "city": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "state": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "postalCode": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "country": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "line1",
+                                "line2",
+                                "city",
+                                "state",
+                                "postalCode",
+                                "country",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "source": {
                             "type": [
                               "string",
@@ -49807,6 +51620,27 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "team": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
                           },
                           "tags": {
                             "type": "array",
@@ -49883,9 +51717,13 @@
                           "phoneE164",
                           "phoneAlt",
                           "address",
+                          "otherEmails",
+                          "otherPhones",
+                          "otherAddresses",
                           "source",
                           "company",
                           "owner",
+                          "team",
                           "tags",
                           "openLeads",
                           "lastActivityAt",
@@ -50045,6 +51883,111 @@
                           ],
                           "additionalProperties": false
                         },
+                        "otherEmails": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "email",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherPhones": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "phone": {
+                                "type": "string"
+                              },
+                              "phoneE164": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "phone",
+                              "phoneE164",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherAddresses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "line1": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "line2": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "state": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "postalCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "line1",
+                              "line2",
+                              "city",
+                              "state",
+                              "postalCode",
+                              "country",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "source": {
                           "type": [
                             "string",
@@ -50104,6 +52047,27 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "team": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          }
                         },
                         "tags": {
                           "type": "array",
@@ -50193,9 +52157,13 @@
                         "phoneE164",
                         "phoneAlt",
                         "address",
+                        "otherEmails",
+                        "otherPhones",
+                        "otherAddresses",
                         "source",
                         "company",
                         "owner",
+                        "team",
                         "tags",
                         "openLeads",
                         "lastActivityAt",
@@ -76377,7 +78345,7 @@
         "tags": [
           "queries"
         ],
-        "description": "Requires money.manage.",
+        "description": "Requires money.bill.",
         "requestBody": {
           "required": true,
           "content": {
@@ -76556,6 +78524,25 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "usedBy": {
+                            "type": "string",
+                            "enum": [
+                              "everyone",
+                              "chosen",
+                              "only_theirs"
+                            ]
+                          },
+                          "userIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "usableByMe": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -76575,7 +78562,10 @@
                           "disconnectedReason",
                           "connectedAt",
                           "disconnectedAt",
-                          "liveSubscriptions"
+                          "liveSubscriptions",
+                          "usedBy",
+                          "userIds",
+                          "usableByMe"
                         ],
                         "additionalProperties": false
                       }
@@ -76595,7 +78585,7 @@
     "/v1/queries/estimate.list": {
       "post": {
         "operationId": "query_estimate_list",
-        "summary": "Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones on the leads they own; owners and admins see them all.",
+        "summary": "Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones for the customers and leads they are on; whoever manages money sees them all.",
         "tags": [
           "queries"
         ],
@@ -77623,6 +79613,18 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "openOnly": {
                     "default": false,
@@ -78857,6 +80859,18 @@
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                   },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "limit": {
                     "default": 25,
                     "type": "integer",
@@ -79122,11 +81136,11 @@
     "/v1/queries/subscription.list": {
       "post": {
         "operationId": "query_subscription_list",
-        "summary": "The maintenance plans customers are on: what each bills, when it next bills and where it stands. A plan is money a business is owed every month, so it is owners and admins only.",
+        "summary": "The maintenance plans customers are on: what each bills, when it next bills and where it stands. Whoever manages money sees every plan; someone who only bills sees the plans of the customers they bill.",
         "tags": [
           "queries"
         ],
-        "description": "Requires money.manage.",
+        "description": "Requires money.bill.",
         "requestBody": {
           "required": true,
           "content": {
@@ -79163,6 +81177,18 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "limit": {
                     "default": 25,
@@ -79554,7 +81580,7 @@
         "tags": [
           "queries"
         ],
-        "description": "Requires money.manage.",
+        "description": "Requires money.bill.",
         "requestBody": {
           "required": true,
           "content": {
@@ -80007,7 +82033,7 @@
     "/v1/queries/money.summary": {
       "post": {
         "operationId": "query_money_summary",
-        "summary": "What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Owners and admins only: the whole business’s receivables are exactly what the member rule withholds.",
+        "summary": "What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Only for whoever manages money: the whole business’s receivables are exactly what the member rule withholds.",
         "tags": [
           "queries"
         ],
@@ -81171,7 +83197,7 @@
         "tags": [
           "queries"
         ],
-        "description": "Requires money.manage.",
+        "description": "Requires money.bill.",
         "requestBody": {
           "required": true,
           "content": {

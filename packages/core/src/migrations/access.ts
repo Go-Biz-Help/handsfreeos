@@ -15,7 +15,7 @@
  * the permission's name, so one command can hold either an organization permission or a workspace one, never
  * both. These commands genuinely accept both addresses, so they declare none and ask here.
  */
-import { hasOrgPermission, hasWorkspacePermission } from '../permissions';
+import { hasOrgPermission, holds } from '../permissions';
 import type { OrgRole, WorkspaceRole } from '../permissions';
 
 /** The two ways in. `organization` reaches every business in the migration; `workspace` reaches one. */
@@ -24,6 +24,8 @@ export type MigrationDoor = 'organization' | 'workspace';
 export interface MigrationReader {
   readonly orgRole: OrgRole | null;
   readonly workspaceRole: WorkspaceRole | null;
+  /** What the business lets them do (0106), when the scope knows it. */
+  readonly workspacePermissions?: readonly string[] | null;
   readonly workspaceId: string | null;
 }
 
@@ -43,7 +45,13 @@ export interface MigrationAccess {
 export function migrationAccess(reader: MigrationReader): MigrationAccess | null {
   if (hasOrgPermission(reader.orgRole, 'org.migrations.manage'))
     return { door: 'organization', onlyWorkspaceId: null };
-  if (reader.workspaceId && hasWorkspacePermission(reader.workspaceRole, 'migrations.manage'))
+  if (
+    reader.workspaceId &&
+    holds(
+      { role: reader.workspaceRole, permissions: reader.workspacePermissions },
+      'migrations.manage',
+    )
+  )
     return { door: 'workspace', onlyWorkspaceId: reader.workspaceId };
   return null;
 }

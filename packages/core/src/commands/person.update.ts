@@ -1,6 +1,18 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { leads, people } from '@hfos/db/schema';
 import { assertAiReach, refuseInChat } from '../ai-team/reach';
+import {
+  addressKey,
+  emailKey,
+  listEdit,
+  otherAddressesOf,
+  otherEmailsOf,
+  otherPhonesOf,
+  phoneKey,
+  tidyOtherAddresses,
+  tidyOtherEmails,
+  tidyOtherPhones,
+} from '../crm/contact-points';
 import { formatPhone } from '../crm/phone';
 import { fullName, requireCompany } from '../crm/records';
 import { HfosError } from '../errors';
@@ -14,6 +26,7 @@ import {
 } from '../kernel/field-merge';
 import { changeMoment } from '../kernel/moment';
 import { PersonUpdateInput, PersonUpdateOutput } from '../schemas/person';
+import { requireAssigner } from './record.assign';
 
 export const personUpdate = defineCommand({
   name: 'person.update',
@@ -38,9 +51,18 @@ export const personUpdate = defineCommand({
     // The AI teammate fills in its own customer's blank names and contact details; what's on file stays.
     const blankOnly = ctx.actor.type === 'ai_employee';
     if (blankOnly) {
-      const other = (['phoneAlt', 'companyId', 'notes', 'source', 'ownerUserId'] as const).filter(
-        (k) => input[k] !== undefined,
-      );
+      const other = (
+        [
+          'phoneAlt',
+          'otherEmails',
+          'otherPhones',
+          'otherAddresses',
+          'companyId',
+          'notes',
+          'source',
+          'ownerUserId',
+        ] as const
+      ).filter((k) => input[k] !== undefined);
       if (other.length)
         throw HfosError.validation(
           other.map((path) => ({
@@ -59,6 +81,48 @@ export const personUpdate = defineCommand({
     const seen: NonNullable<typeof input.base> = input.base ?? {};
     const address: NonNullable<typeof input.address> = input.address ?? {};
     const seenAddress: NonNullable<typeof seen.address> = seen.address ?? {};
+    // The main ones as they will stand, which the other lists never repeat.
+    const then = <T>(value: T | undefined, now: T): T => (value === undefined ? now : value);
+    const main = {
+      email: then(input.email, current.email),
+      phone: then(input.phone, current.phoneE164),
+      address: {
+        line1: then(address.line1, current.addressLine1),
+        line2: then(address.line2, current.addressLine2),
+        city: then(address.city, current.city),
+        state: then(address.state, current.state),
+        postalCode: then(address.postalCode, current.postalCode),
+      },
+    };
+    // An older phone's "other phone" joins the other numbers at the end, unless the whole list came with it; a
+    // number already on file keeps its label and its place.
+    const wantedPhones =
+      input.otherPhones ??
+      (input.phoneAlt
+        ? [...otherPhonesOf(current.otherPhones), { phone: input.phoneAlt, label: 'Other' }]
+        : undefined);
+    // Each list merges entry by entry with the row (0103), so two people adding a number at once both keep theirs.
+    const emails = listEdit(
+      input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
+      seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+      otherEmailsOf(current.otherEmails),
+      emailKey,
+      (l) => tidyOtherEmails(l, main.email),
+    );
+    const phones = listEdit(
+      wantedPhones && tidyOtherPhones(wantedPhones, main.phone),
+      seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+      otherPhonesOf(current.otherPhones),
+      phoneKey,
+      (l) => tidyOtherPhones(l, main.phone),
+    );
+    const addresses = listEdit(
+      input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
+      seen.otherAddresses === undefined ? undefined : otherAddressesOf(seen.otherAddresses ?? []),
+      otherAddressesOf(current.otherAddresses),
+      addressKey,
+      (l) => tidyOtherAddresses(l, main.address),
+    );
     const fields: MergeField[] = [
       {
         key: 'firstName',
@@ -93,17 +157,7 @@ export const personUpdate = defineCommand({
         label: 'phone number',
         also: { phone: input.phone ? formatPhone(input.phone) : null },
       },
-      {
-        key: 'phoneAlt',
-        column: 'phoneAlt',
-        value:
-          input.phoneAlt === undefined
-            ? undefined
-            : edit('phoneAlt', input.phoneAlt ? formatPhone(input.phoneAlt) : null),
-        base: seen.phoneAlt,
-        kind: 'phone',
-        label: 'other phone number',
-      },
+
       {
         key: 'companyId',
         column: 'companyId',
@@ -161,6 +215,27 @@ export const personUpdate = defineCommand({
         label: 'country',
       },
       {
+        key: 'otherEmails',
+        column: 'otherEmails',
+        ...emails,
+        kind: 'json',
+        label: 'other emails',
+      },
+      {
+        key: 'otherPhones',
+        column: 'otherPhones',
+        ...phones,
+        kind: 'json',
+        label: 'other numbers',
+      },
+      {
+        key: 'otherAddresses',
+        column: 'otherAddresses',
+        ...addresses,
+        kind: 'json',
+        label: 'other addresses',
+      },
+      {
         key: 'notes',
         column: 'notes',
         value: edit('notes', input.notes),
@@ -187,6 +262,8 @@ export const personUpdate = defineCommand({
     ];
     const merged = mergeFields(current, fields, mergeColumns(people), ctx.meta);
     const { patch } = merged;
+    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0104).
+    if ('ownerUserId' in patch && patch.ownerUserId !== current.ownerUserId) requireAssigner(ctx);
     const nextFirst = (patch.firstName as string | undefined) ?? current.firstName;
     const nextLast = (patch.lastName as string | undefined) ?? current.lastName;
     if (!(nextFirst + nextLast).trim())

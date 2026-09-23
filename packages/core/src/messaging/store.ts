@@ -10,6 +10,7 @@ import {
   telephonyRegistrations,
   workspaces,
 } from '@hfos/db/schema';
+import { hasPhone, mainPhoneFirst } from '../crm/matching';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -296,7 +297,10 @@ export async function isOptedOut(tx: Tx, workspaceId: string, e164: string): Pro
   return row?.optedOut ?? false;
 }
 
-/** The customer with this number (the most recently touched one when several share it). */
+/**
+ * The customer with this number: their main one, or one of their others (0103). When several have it, the one whose
+ * main number it is, then the most recently touched.
+ */
 export async function matchPersonByPhone(
   tx: Tx,
   workspaceId: string,
@@ -306,13 +310,9 @@ export async function matchPersonByPhone(
     .select({ id: people.id })
     .from(people)
     .where(
-      and(
-        eq(people.workspaceId, workspaceId),
-        eq(people.phoneE164, e164),
-        isNull(people.archivedAt),
-      ),
+      and(eq(people.workspaceId, workspaceId), hasPhone(people, e164), isNull(people.archivedAt)),
     )
-    .orderBy(desc(people.updatedAt))
+    .orderBy(mainPhoneFirst(people, e164), desc(people.updatedAt))
     .limit(1);
   return p?.id ?? null;
 }

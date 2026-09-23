@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can, effectivePermissions } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
@@ -51,7 +51,9 @@ export default async function WorkspaceLayout({
     ).session;
     if (!looking || looking.workspaceId !== workspaceId) notFound();
     const w = workspace!.workspace;
-    current = { ...w, role: 'member' };
+    // They see every place the business has, as before (0106): the API decides what each look-up may read, and
+    // refuses every change, so nothing here widens what they can do.
+    current = { ...w, role: 'member', permissions: effectivePermissions('owner') };
     viewingAs = { businessName: looking.businessName || w.name, expiresAt: looking.expiresAt };
   }
   return (
@@ -65,7 +67,7 @@ export default async function WorkspaceLayout({
               key={workspaceId}
               workspaceId={workspaceId}
               workspaceName={current.name}
-              enabled={hasWorkspacePermission(current.role, 'assistant.use')}
+              enabled={can(current.permissions, 'assistant.use')}
               consentNeeded={me.assistantConsent.needed}
             >
               {/* The person's own side menu (settings.menu), so the sidebar and the drawer read the same one. */}

@@ -50,7 +50,12 @@ export interface RecordBodyProps {
   readonly tags: readonly TagRef[];
   readonly tab: RecordTab;
   readonly onTab: (tab: RecordTab) => void;
-  readonly details: readonly { readonly label: string; readonly value: string | null }[];
+  /** `key` tells two rows under the same label apart ("Work" twice); the label is the key otherwise. */
+  readonly details: readonly {
+    readonly key?: string;
+    readonly label: string;
+    readonly value: string | null;
+  }[];
   readonly onEdit: () => void;
   readonly sheets: {
     readonly note: boolean;
@@ -218,7 +223,7 @@ export function RecordBody(props: RecordBodyProps) {
       {tab === 'details' ? (
         <Card className="gap-1 px-3.5 py-2" testID="record-details">
           {props.details.map((d) => (
-            <DetailRow key={d.label} label={d.label} value={d.value} />
+            <DetailRow key={d.key ?? d.label} label={d.label} value={d.value} />
           ))}
           <View className="py-2.5">
             <Button

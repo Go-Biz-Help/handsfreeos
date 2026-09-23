@@ -940,6 +940,7 @@ describe('parity with core', () => {
       'ai_corrections',
       'website_changed',
       'faq_suggestions',
+      'offer_lapsing',
     ]);
     await worker(A)((tx) =>
       tx.execute(
@@ -960,15 +961,18 @@ describe('parity with core', () => {
     ).toBe('23514');
   });
 
-  it('money.read is everyone’s and money.manage is the owner’s and the admin’s', async () => {
+  it('money.read is everyone’s, and billing and money.manage the owner’s and the admin’s by default', async () => {
     const live = await rows<{ role: string; permission: string }>(
       dbs.admin.db,
       sql`select role, permission from app.role_permissions where permission like 'money.%' order by 1, 2`,
     );
+    // The defaults: a business can hand billing, or all of it, to anyone (0106).
     expect(live).toEqual([
+      { role: 'admin', permission: 'money.bill' },
       { role: 'admin', permission: 'money.manage' },
       { role: 'admin', permission: 'money.read' },
       { role: 'member', permission: 'money.read' },
+      { role: 'owner', permission: 'money.bill' },
       { role: 'owner', permission: 'money.manage' },
       { role: 'owner', permission: 'money.read' },
     ]);

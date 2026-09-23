@@ -8,7 +8,10 @@ import {
   IMPORT_MAX_ROWS,
   mapCompanyRow,
   mapPersonRow,
+  MAX_OTHER_CONTACTS,
   normalizePhone,
+  otherEmailsOf,
+  otherPhonesOf,
   personCreate,
   personUpdate,
   companyUpdate,
@@ -149,6 +152,81 @@ export async function runImport(
       return id;
     };
 
+    /**
+     * The emails and numbers an update brings to a matched record (0103): an import adds what it brings and never
+     * drops what the business had. The file's email or number becomes the main one only where there is none; next
+     * to a different main one it joins the others, as do the file's extra ones — each once, up to the limit.
+     */
+    const contactsFor = async (
+      table: 'people' | 'companies',
+      id: string,
+      m: {
+        email: string | null;
+        phone: string | null;
+        otherEmails: string[];
+        otherPhones: string[];
+      },
+    ) => {
+      const [had] = await transact((tx) =>
+        rows<{
+          email: string | null;
+          phone_e164: string | null;
+          other_emails: unknown;
+          other_phones: unknown;
+        }>(
+          tx,
+          table === 'people'
+            ? sql`select email::text, phone_e164, other_emails, other_phones from app.people where id = ${id}`
+            : sql`select email::text, phone_e164, other_emails, other_phones from app.companies where id = ${id}`,
+        ),
+      );
+      const out: {
+        email?: string;
+        phone?: string;
+        otherEmails?: { email: string }[];
+        otherPhones?: { phone: string }[];
+      } = {};
+      const emails = [...m.otherEmails];
+      if (m.email && !had?.email) out.email = m.email;
+      else if (m.email && m.email.toLowerCase() !== had?.email?.toLowerCase())
+        emails.unshift(m.email);
+      const phones = [...m.otherPhones];
+      if (m.phone && !had?.phone_e164) out.phone = m.phone;
+      else if (m.phone && (normalizePhone(m.phone) ?? m.phone) !== had?.phone_e164)
+        phones.unshift(m.phone);
+      const mainEmail = (out.email ?? had?.email ?? '').toLowerCase();
+      const mainPhone = out.phone ? normalizePhone(out.phone) : (had?.phone_e164 ?? null);
+      if (emails.length) {
+        const seen = new Set([mainEmail]);
+        out.otherEmails = [
+          ...otherEmailsOf(had?.other_emails),
+          ...emails.map((email) => ({ email })),
+        ]
+          .filter((e) => {
+            const key = e.email.trim().toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, MAX_OTHER_CONTACTS);
+      }
+      if (phones.length) {
+        const seen = new Set([mainPhone]);
+        out.otherPhones = [
+          ...otherPhonesOf(had?.other_phones),
+          ...phones.map((phone) => ({ phone })),
+        ]
+          .filter((p) => {
+            const key = normalizePhone(p.phone) ?? p.phone.trim();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, MAX_OTHER_CONTACTS);
+      }
+      return out;
+    };
+
     const processRow = async (raw: Record<string, string>, importRow: number): Promise<Outcome> => {
       if (job.kind === 'people') {
         const m = mapPersonRow(raw, job.mapping);
@@ -169,7 +247,6 @@ export async function runImport(
           lastName: m.lastName,
           email: m.email,
           phone: m.phone,
-          phoneAlt: m.phoneAlt,
           address: m.address,
           notes: m.notes,
           source: m.source,
@@ -177,7 +254,9 @@ export async function runImport(
         if (matches[0]) {
           if (onMatch === 'skip') return 'skipped';
           const patch = Object.fromEntries(
-            Object.entries(fields).filter(([k, v]) => v !== null && v !== '' && k !== 'address'),
+            Object.entries(fields).filter(
+              ([k, v]) => v !== null && v !== '' && !['address', 'email', 'phone'].includes(k),
+            ),
           );
           const address = Object.fromEntries(Object.entries(m.address).filter(([, v]) => v));
           await executeCommand(
@@ -188,6 +267,7 @@ export async function runImport(
               personId: matches[0].id,
               ...patch,
               ...(Object.keys(address).length ? { address } : {}),
+              ...(await contactsFor('people', matches[0].id, m)),
               ...(m.company ? { companyId: await resolveCompany(m.company) } : {}),
             },
             actor,
@@ -201,6 +281,8 @@ export async function runImport(
           {
             workspaceId,
             ...fields,
+            otherEmails: m.otherEmails.map((email) => ({ email })),
+            otherPhones: m.otherPhones.map((phone) => ({ phone })),
             companyId: m.company ? await resolveCompany(m.company) : null,
             tagIds: await resolveTags(m.tags),
             ignoreDuplicates: true,
@@ -237,7 +319,9 @@ export async function runImport(
       if (matches[0]) {
         if (onMatch === 'skip') return 'skipped';
         const patch = Object.fromEntries(
-          Object.entries(fields).filter(([k, v]) => v !== null && v !== '' && k !== 'address'),
+          Object.entries(fields).filter(
+            ([k, v]) => v !== null && v !== '' && !['address', 'email', 'phone'].includes(k),
+          ),
         );
         const address = Object.fromEntries(Object.entries(m.address).filter(([, v]) => v));
         await executeCommand(
@@ -248,6 +332,7 @@ export async function runImport(
             companyId: matches[0].id,
             ...patch,
             ...(Object.keys(address).length ? { address } : {}),
+            ...(await contactsFor('companies', matches[0].id, m)),
           },
           actor,
           meta,
@@ -260,6 +345,8 @@ export async function runImport(
         {
           workspaceId,
           ...fields,
+          otherEmails: m.otherEmails.map((email) => ({ email })),
+          otherPhones: m.otherPhones.map((phone) => ({ phone })),
           tagIds: await resolveTags(m.tags),
           ignoreDuplicates: true,
           importId,

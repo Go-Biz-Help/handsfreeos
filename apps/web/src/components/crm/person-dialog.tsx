@@ -11,6 +11,22 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { editedOnly, orNull, saveTagChanges } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Match, PersonDetail, Tag } from '@/lib/api/types';
+import {
+  addressesOut,
+  addressRows,
+  emailRows,
+  emailsOut,
+  listErrorsOf,
+  OtherAddresses,
+  OtherPoints,
+  phoneRows,
+  phonesOut,
+  storedLists,
+  swapMainAddress,
+  swapMainPoint,
+  type AddressRow,
+  type PointRow,
+} from './contact-points';
 import { DuplicateWarning } from './duplicate-warning';
 import { TagPicker } from './tag-picker';
 
@@ -21,9 +37,16 @@ interface Form {
   email: string;
   companyId: string;
   line1: string;
+  /** Not shown: carried so a swap with another address moves them too (0103). */
+  line2: string;
+  country: string;
   city: string;
   state: string;
   postalCode: string;
+  /** The other emails, numbers and addresses (0103); a blank row is not saved. */
+  otherEmails: PointRow[];
+  otherPhones: PointRow[];
+  otherAddresses: AddressRow[];
   source: string;
   notes: string;
   tagIds: string[];
@@ -36,9 +59,14 @@ const empty = (companyId = '', phone = '', email = '', name = ''): Form => ({
   email,
   companyId,
   line1: '',
+  line2: '',
+  country: '',
   city: '',
   state: '',
   postalCode: '',
+  otherEmails: [],
+  otherPhones: [],
+  otherAddresses: [],
   source: '',
   notes: '',
   tagIds: [],
@@ -51,14 +79,19 @@ const saveable = (f: Form) => ({
   email: orNull(f.email),
   phone: orNull(f.phone),
   companyId: f.companyId || null,
+  otherEmails: emailsOut(f.otherEmails),
+  otherPhones: phonesOut(f.otherPhones),
+  otherAddresses: addressesOut(f.otherAddresses),
   source: orNull(f.source),
   notes: orNull(f.notes),
 });
 const addressOf = (f: Form) => ({
   line1: orNull(f.line1),
+  line2: orNull(f.line2),
   city: orNull(f.city),
   state: orNull(f.state),
   postalCode: orNull(f.postalCode),
+  ...(f.country ? { country: f.country } : {}),
 });
 
 const fromPerson = (p: PersonDetail): Form => ({
@@ -68,9 +101,14 @@ const fromPerson = (p: PersonDetail): Form => ({
   email: p.email ?? '',
   companyId: p.company?.id ?? '',
   line1: p.address.line1 ?? '',
+  line2: p.address.line2 ?? '',
+  country: p.address.country ?? '',
   city: p.address.city ?? '',
   state: p.address.state ?? '',
   postalCode: p.address.postalCode ?? '',
+  otherEmails: emailRows(p.otherEmails),
+  otherPhones: phoneRows(p.otherPhones),
+  otherAddresses: addressRows(p.otherAddresses),
   source: p.source ?? '',
   notes: p.notes ?? '',
   tagIds: p.tags.map((t) => t.id),
@@ -110,6 +148,7 @@ export function PersonDialog({
   );
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [listErrors, setListErrors] = useState<Record<string, string>>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(!!initial);
@@ -122,6 +161,7 @@ export function PersonDialog({
         : empty(defaultCompanyId, defaultPhone, defaultEmail, defaultName),
     );
     setErrors({});
+    setListErrors({});
     setMatches([]);
     setMore(!!initial);
     void (async () => {
@@ -173,11 +213,28 @@ export function PersonDialog({
     setErrors((er) => (key in er ? { ...er, [key]: '' } : er));
   };
 
+  /** One of the others becomes the main one, and the main one takes its place in the list. */
+  const makeMainPoint = (kind: 'phone' | 'email') => (row: PointRow) =>
+    setForm((f) => {
+      if (kind === 'phone') {
+        const { main, list } = swapMainPoint(f.phone, f.otherPhones, row);
+        return { ...f, phone: main, otherPhones: list };
+      }
+      const { main, list } = swapMainPoint(f.email, f.otherEmails, row);
+      return { ...f, email: main, otherEmails: list };
+    });
+  const makeMainAddress = (row: AddressRow) =>
+    setForm((f) => {
+      const { main, list } = swapMainAddress(f, f.otherAddresses, row);
+      return { ...f, ...main, otherAddresses: list };
+    });
+
   async function save(ignoreDuplicates = false) {
     if (!form.firstName.trim() && !form.lastName.trim())
       return setErrors({ firstName: 'Enter a first or last name.' });
     setBusy(true);
     setErrors({});
+    setListErrors({});
     try {
       const fields = {
         firstName: form.firstName.trim(),
@@ -185,12 +242,10 @@ export function PersonDialog({
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         companyId: form.companyId || null,
-        address: {
-          line1: form.line1.trim() || null,
-          city: form.city.trim() || null,
-          state: form.state.trim() || null,
-          postalCode: form.postalCode.trim() || null,
-        },
+        address: addressOf(form),
+        otherEmails: emailsOut(form.otherEmails),
+        otherPhones: phonesOut(form.otherPhones),
+        otherAddresses: addressesOut(form.otherAddresses),
         source: form.source.trim() || null,
         notes: form.notes.trim() || null,
       };
@@ -201,6 +256,7 @@ export function PersonDialog({
         const details = editedOnly(saveable(opened), saveable(form), {
           ...saveable(opened),
           phone: initial.phoneE164 ?? orNull(opened.phone),
+          ...storedLists(initial),
         });
         const address = editedOnly(addressOf(opened), addressOf(form));
         if (details.any || address.any)
@@ -242,8 +298,10 @@ export function PersonDialog({
       if (e instanceof ApiError && e.rule === 'duplicate') {
         setMatches(((e.details as { matches?: Match[] })?.matches ?? []) as Match[]);
       } else {
-        const fe = fieldErrors(e);
-        if (Object.keys(fe).length) setErrors(fe);
+        const onRows = listErrorsOf(e, form);
+        const fe = Object.keys(onRows).length ? {} : fieldErrors(e);
+        if (Object.keys(onRows).length) setListErrors(onRows);
+        else if (Object.keys(fe).length) setErrors(fe);
         else toast.error(errorMessage(e));
       }
     } finally {
@@ -318,6 +376,20 @@ export function PersonDialog({
               />
             </Field>
           </div>
+          <OtherPoints
+            kind="phone"
+            rows={form.otherPhones}
+            onChange={(otherPhones) => setForm((f) => ({ ...f, otherPhones }))}
+            onMakeMain={makeMainPoint('phone')}
+            errors={listErrors}
+          />
+          <OtherPoints
+            kind="email"
+            rows={form.otherEmails}
+            onChange={(otherEmails) => setForm((f) => ({ ...f, otherEmails }))}
+            onMakeMain={makeMainPoint('email')}
+            errors={listErrors}
+          />
           {matches.length > 0 ? (
             <DuplicateWarning
               workspaceId={workspaceId}
@@ -374,6 +446,12 @@ export function PersonDialog({
               />
             </div>
           </Field>
+          <OtherAddresses
+            rows={form.otherAddresses}
+            onChange={(otherAddresses) => setForm((f) => ({ ...f, otherAddresses }))}
+            onMakeMain={makeMainAddress}
+            errors={listErrors}
+          />
           <div>
             <Label>Tags</Label>
             <TagPicker

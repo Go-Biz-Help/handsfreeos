@@ -1,6 +1,6 @@
 'use client';
 import * as Popover from '@radix-ui/react-popover';
-import { MENU_KEYS, type MenuGroup, type MenuKey } from '@hfos/core';
+import { MENU_KEYS, menuFor, type MenuGroup, type MenuKey } from '@hfos/core';
 import {
   BookOpen,
   CalendarDays,
@@ -359,15 +359,18 @@ function GroupAccordion({
  */
 export function NavLinks({
   workspaceId,
+  permissions,
   variant = 'sidebar',
   onNavigate,
 }: {
   workspaceId: string;
+  /** What the business lets them do (0106): a place they may not open isn't offered. */
+  permissions?: readonly string[] | null;
   variant?: 'sidebar' | 'drawer';
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const { menu } = useMenu();
+  const menu = menuFor(useMenu().menu, permissions);
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
   const whatsNew = useWhatsNewUnseen();

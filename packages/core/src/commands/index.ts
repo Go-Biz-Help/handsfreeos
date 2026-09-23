@@ -149,6 +149,7 @@ import { leadMoveStage } from './lead.move_stage';
 import { leadSetNextAction } from './lead.set_next_action';
 import { leadUpdate } from './lead.update';
 import { membershipChangeRole } from './membership.change_role';
+import { permissionReset, permissionSetMember, permissionSetRole } from './permission';
 import { membershipInvite } from './membership.invite';
 import { membershipRemove } from './membership.remove';
 import { organizationAddOwner } from './organization.add_owner';
@@ -160,6 +161,7 @@ import { personUpdate } from './person.update';
 import { pipelineArchive } from './pipeline.archive';
 import { pipelineCreate } from './pipeline.create';
 import { pipelineUpdate } from './pipeline.update';
+import { recordAssign, recordUnassign } from './record.assign';
 import { recordAddTag, recordRemoveTag, recordSetTags } from './record.set_tags';
 import { stageCreate } from './stage.create';
 import { stageDelete } from './stage.delete';
@@ -412,6 +414,9 @@ export {
   membershipRemove,
   organizationAddOwner,
   organizationCreate,
+  permissionReset,
+  permissionSetMember,
+  permissionSetRole,
   personArchive,
   personCreate,
   personRestore,
@@ -420,8 +425,10 @@ export {
   pipelineCreate,
   pipelineUpdate,
   recordAddTag,
+  recordAssign,
   recordRemoveTag,
   recordSetTags,
+  recordUnassign,
   stageCreate,
   stageDelete,
   stageReorder,
@@ -499,6 +506,9 @@ export const commands: readonly CommandDef[] = [
   invitationAccept,
   membershipChangeRole,
   membershipRemove,
+  permissionSetRole,
+  permissionSetMember,
+  permissionReset,
   organizationAddOwner,
   userUpdateProfile,
   accountDelete,
@@ -525,6 +535,8 @@ export const commands: readonly CommandDef[] = [
   recordSetTags,
   recordAddTag,
   recordRemoveTag,
+  recordAssign,
+  recordUnassign,
   leadCreate,
   leadUpdate,
   leadMoveStage,

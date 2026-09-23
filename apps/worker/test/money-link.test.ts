@@ -1,7 +1,8 @@
 /**
- * `POST /v1/money/link`: a customer's own link, for an owner or an admin to copy. Signed in, with
- * `money.manage`, only for something a customer can actually use, never cached — and **exactly the link the
- * messages send**, which is also what `/test/money/link` hands a browser test.
+ * `POST /v1/money/link`: a customer's own link, for whoever bills to copy. Signed in, with `money.bill` — and
+ * only for the customers they're on unless they manage money (0106) — only for something a customer can
+ * actually use, never cached — and **exactly the link the messages send**, which is also what
+ * `/test/money/link` hands a browser test.
  */
 import {
   createTokenVerifier,
@@ -34,12 +35,14 @@ let w: MoneyWorld;
 let app: FastifyInstance;
 let ownerToken: string;
 let memberToken: string;
+let memberId: string;
 
 const ONE_LINE = [{ name: 'AC tune-up', quantity: 1, unitPriceCents: 18_000, taxable: true }];
 
 beforeAll(async () => {
   w = await moneyWorld('money-link');
   const member = await createTestUser('money-link-marco', { fullName: 'Marco Tech' });
+  memberId = member.id;
   await rows(
     admin(),
     sql`insert into app.workspace_memberships (workspace_id, user_id, role)
@@ -139,6 +142,43 @@ describe('copying a customer’s link', () => {
     const member = await copyLink(memberToken, { kind: 'invoice', id: invoice.id });
     expect(member.statusCode).toBe(403);
     expect(member.body).not.toContain('/i/');
+  });
+
+  it('gives a member the business lets bill the links of their own customers, and nobody else’s', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.member_permission_overrides (workspace_id, user_id, permission, allowed)
+          values (${w.workspaceId}, ${memberId}, 'money.bill', true)`,
+    );
+    try {
+      const invoice = await sentInvoice(w);
+      // Not on the customer: to them it isn't there, and nothing about it comes back.
+      const notTheirs = await copyLink(memberToken, { kind: 'invoice', id: invoice.id });
+      expect(notTheirs.statusCode).toBe(404);
+      expect(notTheirs.body).not.toContain('/i/');
+
+      await rows(
+        admin(),
+        sql`update app.people set team_user_ids = array_append(team_user_ids, ${memberId}::uuid)
+            where id = ${w.person.id}`,
+      );
+      const theirs = await copyLink(memberToken, { kind: 'invoice', id: invoice.id });
+      expect(theirs.statusCode, theirs.body).toBe(200);
+      expect((theirs.json() as { url: string }).url).toBe(
+        await sentLink({ invoiceId: invoice.id }),
+      );
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.people set team_user_ids = array_remove(team_user_ids, ${memberId}::uuid)
+            where id = ${w.person.id}`,
+      );
+      await rows(
+        admin(),
+        sql`delete from app.member_permission_overrides
+            where workspace_id = ${w.workspaceId} and user_id = ${memberId}`,
+      );
+    }
   });
 
   it('refuses a draft, a voided document and a plan that has ended, in words', async () => {

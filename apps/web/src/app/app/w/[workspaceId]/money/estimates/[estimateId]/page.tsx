@@ -26,14 +26,14 @@ export default async function EstimatePage({
     loadEditorCatalogs(shell.api, workspaceId),
   ]);
   const est = data.estimate;
-  const editable = shell.canManage && est.status === 'draft' && !est.sentAt;
+  const editable = shell.canBill && est.status === 'draft' && !est.sentAt;
 
   if (!editable)
     return (
       <EstimateDocument
         workspaceId={workspaceId}
         data={data}
-        canManage={shell.canManage}
+        canBill={shell.canBill}
         connections={catalogs.connections}
         timeZone={shell.timeZone}
         now={shell.now}

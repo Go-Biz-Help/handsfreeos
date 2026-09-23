@@ -154,6 +154,11 @@ export const WorkspaceSummary = z.object({
   timezone: z.string(),
   industry: z.string(),
   role: workspaceRole,
+  /**
+   * What you may do here (0106): your role's permissions with the business's settings for the role and for you
+   * applied. Screens ask this, not the role, so they show what the server will allow.
+   */
+  permissions: z.array(z.string()),
 });
 export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 

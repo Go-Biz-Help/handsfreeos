@@ -393,7 +393,7 @@ export const companies = app.table('companies', {
   createdBy: userRef('created_by'),
   ...timestamps(),
   searchText: text('search_text').generatedAlwaysAs(
-    sql`lower(coalesce(name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, ''))`,
+    sql`lower(coalesce(name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, '') || ' ' || private.other_contacts_text(other_emails, other_phones, other_addresses))`,
   ),
   // Milestone 10
   fieldTimes: fieldTimes(),
@@ -403,6 +403,15 @@ export const companies = app.table('companies', {
   possibleDuplicateOf: uuid('possible_duplicate_of').references((): AnyPgColumn => companies.id, {
     onDelete: 'set null',
   }),
+  /** The emails, numbers and addresses besides the main ones (0103): see crm/contact-points. */
+  otherEmails: jsonb('other_emails').$type<object[]>().notNull().default([]),
+  otherPhones: jsonb('other_phones').$type<object[]>().notNull().default([]),
+  otherAddresses: jsonb('other_addresses').$type<object[]>().notNull().default([]),
+  /** Everyone on the company besides the owner (0104), in the order they were added. */
+  teamUserIds: uuid('team_user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });
 
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
@@ -429,7 +438,7 @@ export const people = app.table('people', {
   createdBy: userRef('created_by'),
   ...timestamps(),
   searchText: text('search_text').generatedAlwaysAs(
-    sql`lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, ''))`,
+    sql`lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, '') || ' ' || private.other_contacts_text(other_emails, other_phones, other_addresses))`,
   ),
   // Milestone 3
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
@@ -443,6 +452,15 @@ export const people = app.table('people', {
   }),
   // Milestone 15: the fields this business invented, keyed by custom_fields.id.
   custom: jsonb('custom').$type<Json>().notNull().default({}),
+  /** The emails, numbers and addresses besides the main ones (0103): see crm/contact-points. */
+  otherEmails: jsonb('other_emails').$type<object[]>().notNull().default([]),
+  otherPhones: jsonb('other_phones').$type<object[]>().notNull().default([]),
+  otherAddresses: jsonb('other_addresses').$type<object[]>().notNull().default([]),
+  /** Everyone on the customer besides the owner (0104), in the order they were added. */
+  teamUserIds: uuid('team_user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });
 
 export const tags = app.table('tags', {
@@ -2944,6 +2962,12 @@ export const paymentConnectionStatus = app.enum('payment_connection_status', [
   'error',
   'disconnected',
 ]);
+/** Who may bill into an account (0105): everyone who bills, the people it names, or only them and only there. */
+export const paymentAccountUse = app.enum('payment_account_use', [
+  'everyone',
+  'chosen',
+  'only_theirs',
+]);
 export const paymentMethod = app.enum('payment_method', ['card', 'ach', 'cash', 'check', 'other']);
 export const paymentStatus = app.enum('payment_status', [
   'requires_payment',
@@ -3254,6 +3278,12 @@ export const paymentConnections = app.table('payment_connections', {
   disconnectedAt: ts('disconnected_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** Who may bill into it (0105), and the people it is kept to (empty exactly when it is open to everyone). */
+  usedBy: paymentAccountUse('used_by').notNull().default('everyone'),
+  userIds: uuid('user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });
 
 /** Status only moves forward, so a late webhook can never un-pay an invoice (a guard trigger, 0047). */
@@ -3420,8 +3450,60 @@ export const workspaceAccess = app.table(
      * `inbox` sync parameter reads, so it is one of the rows the database keeps equal to RLS.
      */
     seesWholeInbox: boolean('sees_whole_inbox').notNull().default(true),
+    /**
+     * Everything this person may do in this business (0106): their role's permissions with the business's settings
+     * for the role and for them applied, private.user_permissions(). What private.has_permission() reads.
+     */
+    permissions: text('permissions')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    /** Whether they manage money here (money.manage): what the `managed` sync parameter reads. */
+    managesMoney: boolean('manages_money').notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })],
+);
+/** The permissions an owner may turn on or off for a role or a person (0106), and what each stands on. */
+export const customizablePermissions = app.table('customizable_permissions', {
+  permission: text('permission').primaryKey(),
+  requires: text('requires')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+});
+
+/** A business's own answer for one role and one permission (0106), in place of the default. Never for owners. */
+export const rolePermissionOverrides = app.table(
+  'role_permission_overrides',
+  {
+    workspaceId: workspaceRef(),
+    role: memberRole('role').notNull(),
+    permission: text('permission')
+      .notNull()
+      .references(() => customizablePermissions.permission, { onDelete: 'cascade' }),
+    allowed: boolean('allowed').notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.role, t.permission] })],
+);
+
+/** A business's own answer for one person and one permission (0106), in place of their role's. */
+export const memberPermissionOverrides = app.table(
+  'member_permission_overrides',
+  {
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    permission: text('permission')
+      .notNull()
+      .references(() => customizablePermissions.permission, { onDelete: 'cascade' }),
+    allowed: boolean('allowed').notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId, t.permission] })],
 );
 
 export const pushPlatform = app.enum('push_platform', ['ios', 'android']);
@@ -5628,6 +5710,9 @@ export const tables = {
   migrationTombstones,
   commandReceipts,
   workspaceAccess,
+  customizablePermissions,
+  rolePermissionOverrides,
+  memberPermissionOverrides,
   pushDevices,
   userPhones,
   products,

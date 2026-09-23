@@ -82,7 +82,7 @@ export default async function PersonPage({
     <RecordPage
       workspaceId={workspaceId}
       myUserId={userId}
-      role={got.workspace.role}
+      permissions={got.workspace.permissions}
       person={person.person}
       timeline={timeline}
       tasks={tasks.items}

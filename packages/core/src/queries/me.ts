@@ -10,7 +10,7 @@ import { requireHuman } from '../kernel/actor';
 export const me = defineQuery({
   name: 'account.me',
   description:
-    'Your profile plus every organization and workspace you can reach, with your role in each.',
+    'Your profile plus every organization and workspace you can reach, with your role and what you may do in each.',
   input: MeInput,
   output: MeOutput,
   permission: null,
@@ -41,11 +41,13 @@ export const me = defineQuery({
       timezone: string;
       industry: string;
       role: 'owner' | 'admin' | 'member';
+      permissions: string[];
     }>(
       ctx.tx,
       // The businesses this person works in. Support staff can see every business's name (M13), so the
       // filter is written here rather than left to the read rules: this list is "yours", not "visible".
-      sql`select w.id, w.organization_id, o.name as organization_name, w.name, w.slug, w.timezone, w.industry, private.effective_workspace_role(w.id)::text as role
+      sql`select w.id, w.organization_id, o.name as organization_name, w.name, w.slug, w.timezone, w.industry, private.effective_workspace_role(w.id)::text as role,
+            private.my_permissions(w.id) as permissions
           from app.workspaces w join app.organizations o on o.id = w.organization_id
           where private.effective_workspace_role(w.id) is not null
           order by o.name, w.name`,
@@ -69,6 +71,7 @@ export const me = defineQuery({
         timezone: w.timezone,
         industry: w.industry,
         role: w.role,
+        permissions: w.permissions,
       })),
       // What the Assistant panels read before the first question (the same answer the worker enforces).
       assistantConsent: assistantConsentOf(user.settings),

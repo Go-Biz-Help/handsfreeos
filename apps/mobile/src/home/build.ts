@@ -156,6 +156,8 @@ export function overlay(
 export interface HomeInput {
   readonly userId: string;
   readonly role: WorkspaceRole | null;
+  /** What the business lets them do (0106), when the copy holds it; else their role's defaults. */
+  readonly permissions?: readonly string[] | null;
   readonly timeZone: string;
   readonly now: number;
   /** Mine or Everyone; null for this person's default. */
@@ -183,7 +185,11 @@ export interface HomeList extends Omit<Overlaid, 'rows'> {
 export function buildHome(o: HomeInput): HomeList {
   const today = attentionToday(o.now, o.timeZone);
   const over = overlay(o.items.map(attentionRowOfSynced), homeChangesOf(o.outbox), o.now);
-  const viewer = attentionViewerOfSynced(o.userId, o.role, o.approvals);
+  const viewer = attentionViewerOfSynced(
+    o.userId,
+    { role: o.role, permissions: o.permissions ?? null },
+    o.approvals,
+  );
   const rows = over.rows.filter(
     (r) =>
       inAttentionList(r, today) &&

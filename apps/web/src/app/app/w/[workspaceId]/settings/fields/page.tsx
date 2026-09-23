@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import { lowerLabel } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -22,8 +23,7 @@ export default async function FieldsSettingsPage({
   const sp = await searchParams;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'fields.manage')) notFound();
   const { types: kinds } = unwrapPage(
     await api.POST('/v1/queries/custom_record_type.list', { body: { workspaceId } }),
   );
@@ -65,7 +65,7 @@ export default async function FieldsSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <FieldsSettings workspaceId={workspaceId} targets={targets} target={target} fields={fields} />
     </>
   );

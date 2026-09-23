@@ -71,7 +71,7 @@ export default async function RecordPage({
     <CustomRecordPage
       workspaceId={workspaceId}
       myUserId={userId}
-      role={got.workspace.role}
+      permissions={got.workspace.permissions}
       record={record.record}
       fields={fields}
       timeline={timeline}

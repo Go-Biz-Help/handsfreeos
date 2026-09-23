@@ -504,11 +504,16 @@ async function matchPerson(
     if (id) return id;
   }
   if (by !== 'phone' && who.email) {
+    // Their main email or one of their others (0103); the one whose main email it is first.
+    const email = who.email.toLowerCase();
     const [p] = await rows<{ id: string }>(
       tx,
       sql`select id from app.people
-          where workspace_id = ${workspaceId} and email = ${who.email}::extensions.citext and archived_at is null
-          order by updated_at desc limit 1`,
+          where workspace_id = ${workspaceId} and archived_at is null
+            and (email = ${email}::extensions.citext
+              or other_emails @> ${JSON.stringify([{ email }])}::jsonb)
+          order by (email is not distinct from ${email}::extensions.citext) desc, updated_at desc
+          limit 1`,
     );
     if (p) return p.id;
   }

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { scopeCan } from '../kernel/execute';
 import { canActOnRole } from '../permissions';
 import { MembershipRemoveInput, MembershipRemoveOutput } from '../schemas/membership';
 import { requireHuman } from '../kernel/actor';
@@ -28,8 +29,10 @@ export const membershipRemove = defineCommand({
       );
     if (!target) throw HfosError.notFound('That person is not a member of this workspace.');
     if (!leaving) {
+      // Removing someone else is `members.remove`, as the business has set it up (0106), and only at their own
+      // level or below; anyone may leave.
       const role = ctx.scope.workspaceRole;
-      const mayRemove = role === 'owner' || role === 'admin';
+      const mayRemove = scopeCan(ctx.scope, 'members.remove');
       if (!mayRemove || !canActOnRole(role, target.role))
         throw HfosError.forbidden(
           'You can only remove people at your own level or below.',

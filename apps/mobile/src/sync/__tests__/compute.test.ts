@@ -18,9 +18,10 @@ describe('what the phone works out', () => {
       city: 'Houston',
       address_line1: '1204 Oak Hollow Dr',
     };
-    // lower(first || ' ' || last || ' ' || email || ' ' || phone_e164 || ' ' || city || ' ' || address_line1)
+    // lower(first || ' ' || last || ' ' || email || ' ' || phone_e164 || ' ' || city || ' ' || address_line1
+    //   || ' ' || private.other_contacts_text(…)), and she has no other ways to reach her yet.
     expect(personSearchText(maria)).toBe(
-      'maria lópez maria.lopez@example.com +17135550142 houston 1204 oak hollow dr',
+      'maria lópez maria.lopez@example.com +17135550142 houston 1204 oak hollow dr ',
     );
     // Missing details are empty, so the spaces stay where the database puts them.
     expect(
@@ -31,10 +32,40 @@ describe('what the phone works out', () => {
         city: null,
         address_line1: null,
       }),
-    ).toBe('maria lópez    ');
+    ).toBe('maria lópez     ');
     expect(matchesSearch(personSearchText(maria), 'OAK HOLLOW')).toBe(true);
     expect(matchesSearch(personSearchText(maria), '713555')).toBe(true);
     expect(matchesSearch(personSearchText(maria), '(713)')).toBe(false);
+  });
+
+  it('finds a customer by their other emails, numbers and addresses, spaced as the database spaces them', () => {
+    const row = {
+      first_name: 'Maria',
+      last_name: null,
+      email: null,
+      phone_e164: null,
+      city: null,
+      address_line1: null,
+      other_emails: '[{"email":"a@b.co"}]',
+      other_phones: '[{"phone":"+1555"},{"phone":"+1666","label":"Work"}]',
+      other_addresses: '[{"label":"x"},{"city":"Austin","line1":"1 Main"}]',
+    };
+    // select private.other_contacts_text(<the same three lists>) → 'a@b.co +1555 +1666  Austin 1 Main'
+    expect(personSearchText(row)).toBe('maria      a@b.co +1555 +1666  austin 1 main');
+    expect(matchesSearch(personSearchText(row), '+1666')).toBe(true);
+    // An address with neither a city nor a first line still takes its place, as an empty one.
+    expect(
+      personSearchText({
+        ...row,
+        other_emails: '[]',
+        other_phones: null,
+        other_addresses: '[{"state":"TX"}]',
+      }),
+    ).toBe('maria      ');
+    // Something that isn't a list reads as none.
+    expect(
+      personSearchText({ ...row, other_emails: 'oops', other_phones: '{}', other_addresses: '[]' }),
+    ).toBe('maria      ');
   });
 
   it('gives companies and leads theirs', () => {
@@ -46,7 +77,7 @@ describe('what the phone works out', () => {
         city: 'Houston',
         address_line1: null,
       }),
-    ).toBe('oak hollow hoa  +17135550100 houston ');
+    ).toBe('oak hollow hoa  +17135550100 houston  ');
     expect(leadSearchText({ title: 'AC Replacement' })).toBe('ac replacement');
     expect(leadSearchText({ title: null })).toBe('');
   });

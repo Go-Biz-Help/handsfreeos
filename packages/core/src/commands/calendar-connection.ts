@@ -13,8 +13,8 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { hasWorkspacePermission } from '../permissions';
 import { email, isoDateTime, uuid } from '../schemas/common';
+import { scopeCan } from '../kernel/execute';
 
 const calendarProvider = z.enum(['google', 'microsoft']);
 const connectionStatus = z.enum(['pending', 'active', 'reauth_required', 'error', 'disconnected']);
@@ -144,7 +144,7 @@ export const calendarConnectionDisconnect = defineCommand({
     const me = requireHuman(ctx);
     const c = await loadConnection(ctx, input.connectionId);
     const own = c.userId === me.userId;
-    if (!own && !hasWorkspacePermission(ctx.scope.workspaceRole, 'calendars.manage'))
+    if (!own && !scopeCan(ctx.scope, 'calendars.manage'))
       throw HfosError.forbidden('You can only disconnect your own calendar.');
     if (c.status === 'disconnected') return { connectionId: c.id };
     // The update guard clears the sealed tokens, the sign-in secret and the refresh schedule, and a trigger

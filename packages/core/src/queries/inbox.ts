@@ -181,9 +181,12 @@ const SAME_AS = (workspaceId: string) => sql`
     where x.person_id is null
       and sp.workspace_id = ${workspaceId}
       and sp.archived_at is null
-      and ((x.channel = 'sms' and sp.phone_e164 = x.counterpart)
-        or (x.channel = 'email' and lower(sp.email::text) = x.counterpart))
-    order by sp.updated_at desc
+      and ((x.channel = 'sms' and (sp.phone_e164 = x.counterpart
+             or sp.other_phones @> jsonb_build_array(jsonb_build_object('phone', x.counterpart))))
+        or (x.channel = 'email' and (lower(sp.email::text) = x.counterpart
+             or sp.other_emails @> jsonb_build_array(jsonb_build_object('email', x.counterpart)))))
+    order by (sp.phone_e164 = x.counterpart or lower(sp.email::text) = x.counterpart) desc nulls last,
+      sp.updated_at desc
     limit 1)`;
 
 /** `sortBy` needs_person: the "Needs a person" box, by how long it has waited. */

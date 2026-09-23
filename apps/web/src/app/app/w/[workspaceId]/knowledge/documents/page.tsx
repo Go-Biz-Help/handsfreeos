@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { Documents } from '@/components/knowledge/documents';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -28,7 +28,7 @@ export default async function KnowledgeDocumentsPage({
   return (
     <Documents
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       items={unwrapPage(list).items}
     />
   );

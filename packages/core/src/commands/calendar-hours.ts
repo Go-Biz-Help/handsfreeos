@@ -18,7 +18,6 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
-import { hasWorkspacePermission } from '../permissions';
 import {
   ScheduleSetInput,
   ScheduleSetOutput,
@@ -27,6 +26,7 @@ import {
   TimeOffRemoveInput,
   TimeOffRemoveOutput,
 } from '../schemas/calendar';
+import { scopeCan } from '../kernel/execute';
 
 type OwnerKind = 'user' | 'resource' | 'service' | 'calendar';
 
@@ -39,7 +39,7 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 function assertMayEditHours(ctx: CommandContext, ownerKind: OwnerKind, ownerId: string): void {
   const me = requireHuman(ctx).userId;
   if (ownerKind === 'user' && ownerId === me) return;
-  if (!hasWorkspacePermission(ctx.scope.workspaceRole, 'calendars.manage'))
+  if (!scopeCan(ctx.scope, 'calendars.manage'))
     throw HfosError.forbidden(
       ownerKind === 'user'
         ? 'Only owners and admins change someone else’s hours.'

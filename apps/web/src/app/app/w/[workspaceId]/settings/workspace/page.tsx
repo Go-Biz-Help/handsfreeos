@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BrandedDomainCard } from '@/components/settings/branded-domain-card';
@@ -18,8 +19,7 @@ export default async function WorkspaceSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'workspace.update')) notFound();
   // The domain lives here rather than under Calendars: it carries the forms, the estimates and the
   // payment links too, and nobody looking for "my own web address" thinks to open the booking site.
   const branded = unwrapPage(
@@ -28,7 +28,7 @@ export default async function WorkspaceSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <div className="flex flex-col gap-5">
         <Card className="p-6">
           <h2 className="text-lg font-semibold tracking-tight">Workspace</h2>
@@ -37,7 +37,12 @@ export default async function WorkspaceSettingsPage({
           </p>
           <WorkspaceForm workspace={got.workspace} />
         </Card>
-        <BrandedDomainCard workspaceId={workspaceId} domain={branded.domain} canManage />
+        {/* Adding the domain is setting up where the business is reached (channels.manage), as email's is. */}
+        <BrandedDomainCard
+          workspaceId={workspaceId}
+          domain={branded.domain}
+          canManage={can(got.workspace.permissions, 'channels.manage')}
+        />
         {got.workspace.role === 'owner' ? (
           <Card className="p-6" id="delete-workspace">
             <DeleteWorkspace workspaceId={workspaceId} name={got.workspace.name} />

@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { EmailPage } from '@/components/settings/email-page';
@@ -20,8 +21,7 @@ export default async function EmailSettingsPage({
   const { mailbox } = await searchParams;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   const [status, blocked, unmatched, tags] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/email.setup_status', { body: { workspaceId } })),
     unwrapPage(
@@ -35,7 +35,7 @@ export default async function EmailSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <EmailPage
         workspaceId={workspaceId}
         workspaceName={got.workspace.name}

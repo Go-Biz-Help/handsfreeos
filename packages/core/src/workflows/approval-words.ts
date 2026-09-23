@@ -5,7 +5,7 @@
  * Browser-safe.
  */
 import { smsSegments } from '../messaging/sms';
-import { hasWorkspacePermission, type WorkspaceRole } from '../permissions';
+import { holds, type WorkspaceRole } from '../permissions';
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -308,6 +308,8 @@ export function workflowApprovalOfSynced(
   o: {
     readonly names: ReadonlyMap<string, string>;
     readonly role: WorkspaceRole | null;
+    /** What the business lets them do (0106), when the copy holds it. */
+    readonly permissions?: readonly string[] | null;
     readonly userId: string;
     readonly now: number;
     /** Its Action Center item: the title, and the customer it names. */
@@ -343,6 +345,6 @@ export function workflowApprovalOfSynced(
     canDecide:
       pending &&
       (!expiresAt || Date.parse(expiresAt) > o.now) &&
-      (hasWorkspacePermission(o.role, 'workflows.manage') || approverIds.includes(o.userId)),
+      (holds(o, 'workflows.manage') || approverIds.includes(o.userId)),
   };
 }

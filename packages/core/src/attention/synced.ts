@@ -10,7 +10,7 @@
  *   when it has an address on the shared domain or a verified one.
  */
 import { openHoursOf } from '../schemas/workspace';
-import type { WorkspaceRole } from '../permissions';
+import type { Grants } from '../permissions';
 import type { HintConsent, HintConversation, HintFacts, HintSeat } from './hint-facts';
 import { isOpenAt } from './open-time';
 import type { ReachBusiness } from './reach';
@@ -130,7 +130,7 @@ export interface SyncedApproval {
 /** Who is looking, with the waiting approvals they may decide (only waiting ones reach phones). */
 export function attentionViewerOfSynced(
   userId: string,
-  role: WorkspaceRole | null,
+  who: Grants,
   approvals: readonly SyncedApproval[],
 ): AttentionViewer {
   const decidable = new Set<string>();
@@ -138,7 +138,7 @@ export function attentionViewerOfSynced(
     if (a.status !== 'pending') continue;
     const approvers = json<unknown>(a.approvers, []);
     if (
-      mayDecideApproval(role, userId, {
+      mayDecideApproval(who, userId, {
         source: a.source,
         approvers: Array.isArray(approvers)
           ? approvers.filter((x): x is string => typeof x === 'string')
@@ -148,7 +148,7 @@ export function attentionViewerOfSynced(
     )
       decidable.add(a.id);
   }
-  return { userId, role, decidable };
+  return { userId, role: who.role, permissions: who.permissions ?? null, decidable };
 }
 
 /** People's names by id, as the server's `userNames` gives them: the full name, else the email. */

@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -24,7 +25,7 @@ export default async function WorkspaceMigrationPage({
   const me = await fetchMe(api);
   const current = me.workspaces.find((w) => w.id === workspaceId);
   if (!current) notFound();
-  if (current.role !== 'owner' && current.role !== 'admin') notFound();
+  if (!can(current.permissions, 'migrations.manage')) notFound();
 
   const detail = await loadMigration(api, current.organizationId, migrationId, workspaceId);
   if (!detail?.migration) notFound();
@@ -32,7 +33,7 @@ export default async function WorkspaceMigrationPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={current.permissions} />
       <PageHeader
         title={detail.migration.name}
         description={

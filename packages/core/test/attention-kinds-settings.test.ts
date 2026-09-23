@@ -126,25 +126,25 @@ describe('attention kinds', () => {
       for (const kind of ATTENTION_KINDS)
         for (const action of ATTENTION_ACTIONS) {
           if (money.includes(kind) && (action === 'handle' || action === 'let_handle')) continue;
-          expect(mayTakeAttentionAction(role, kind, action), `${role} ${kind}.${action}`).toBe(
+          expect(mayTakeAttentionAction({ role }, kind, action), `${role} ${kind}.${action}`).toBe(
             ATTENTION_PERMISSIONS[kind][action] !== null,
           );
         }
     expect(ATTENTION_PERMISSIONS.ai_approval.let_handle).toBeNull();
     expect(ATTENTION_PERMISSIONS.overdue_task.let_handle).toBeNull();
-    expect(mayTakeAttentionAction(null, 'hot_lead', 'snooze')).toBe(false);
+    expect(mayTakeAttentionAction({ role: null }, 'hot_lead', 'snooze')).toBe(false);
   });
 
   it('shows a member the money cards but never the button that chases someone', () => {
     for (const kind of ['estimate_waiting', 'invoice_overdue'] as AttentionKind[]) {
       expect(ATTENTION_PERMISSIONS[kind].handle).toEqual(['records.write', 'money.manage']);
       for (const role of ['owner', 'admin'] as const)
-        expect(mayTakeAttentionAction(role, kind, 'handle')).toBe(true);
-      expect(mayTakeAttentionAction('member', kind, 'handle')).toBe(false);
-      expect(mayTakeAttentionAction('member', kind, 'let_handle')).toBe(false);
+        expect(mayTakeAttentionAction({ role }, kind, 'handle')).toBe(true);
+      expect(mayTakeAttentionAction({ role: 'member' }, kind, 'handle')).toBe(false);
+      expect(mayTakeAttentionAction({ role: 'member' }, kind, 'let_handle')).toBe(false);
       // They can still pass it on, put it off or let it go.
       for (const action of ['assign', 'snooze', 'dismiss'] as const)
-        expect(mayTakeAttentionAction('member', kind, action)).toBe(true);
+        expect(mayTakeAttentionAction({ role: 'member' }, kind, action)).toBe(true);
     }
   });
 

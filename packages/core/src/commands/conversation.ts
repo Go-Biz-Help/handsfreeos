@@ -1,6 +1,13 @@
 import { and, eq, isNull, ne, or } from 'drizzle-orm';
 import { conversations, people } from '@hfos/db/schema';
-import { formatPhone } from '../crm/phone';
+import {
+  MAX_OTHER_CONTACTS,
+  otherEmailsOf,
+  otherPhonesOf,
+  tidyOtherEmails,
+  tidyOtherPhones,
+} from '../crm/contact-points';
+import { formatPhone, normalizePhone } from '../crm/phone';
 import { fullName, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -52,6 +59,35 @@ async function withWhom(
   return (await personLabel(ctx, c.personId)) ?? withWho(c);
 }
 
+/**
+ * The number or email `to` names, when the customer has it on file — main or other (0103) — as a thread's
+ * counterpart; anything else is refused rather than texted.
+ */
+function onFile(
+  person: {
+    phoneE164: string | null;
+    email: string | null;
+    otherPhones: readonly object[];
+    otherEmails: readonly object[];
+  },
+  channel: 'sms' | 'email',
+  to: string,
+): string {
+  if (channel === 'sms') {
+    const e164 = normalizePhone(to);
+    const theirs = [person.phoneE164, ...otherPhonesOf(person.otherPhones).map((p) => p.phone)];
+    if (e164 && theirs.includes(e164)) return e164;
+    throw HfosError.rule('not_their_number', 400, 'That number isn’t on this customer’s record.');
+  }
+  const email = to.trim().toLowerCase();
+  const theirs = [
+    person.email?.toLowerCase() ?? null,
+    ...otherEmailsOf(person.otherEmails).map((e) => e.email),
+  ];
+  if (theirs.includes(email)) return email;
+  throw HfosError.rule('not_their_email', 400, 'That email isn’t on this customer’s record.');
+}
+
 export const conversationOpen = defineCommand({
   name: 'conversation.open',
   description: 'Open the text or email conversation with a customer, starting it if needed.',
@@ -65,8 +101,11 @@ export const conversationOpen = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const person = await requirePerson(ctx.tx, workspaceId, input.personId);
-    const counterpart =
-      input.channel === 'sms' ? person.phoneE164 : (person.email?.toLowerCase() ?? null);
+    const counterpart = input.to
+      ? onFile(person, input.channel, input.to)
+      : input.channel === 'sms'
+        ? person.phoneE164
+        : (person.email?.toLowerCase() ?? null);
     if (!counterpart)
       throw input.channel === 'sms'
         ? HfosError.rule('no_phone', 400, 'Add a mobile number to text this customer.')
@@ -484,6 +523,42 @@ export const conversationLinkPerson = defineCommand({
         .set({ email: c.counterpart, fieldTimes: stampSql(['email'], changeMoment(ctx.meta)) })
         .where(eq(people.id, person.id));
       phoneAdded = true;
+    } else if (c.channel === 'sms' || c.channel === 'email') {
+      // They already have a main one: this number or address joins their others (0103), so the next text from
+      // it finds them on its own.
+      const column = c.channel === 'sms' ? 'other_phones' : 'other_emails';
+      const theirs =
+        c.channel === 'sms'
+          ? [person.phoneE164, ...otherPhonesOf(person.otherPhones).map((p) => p.phone)]
+          : [person.email?.toLowerCase(), ...otherEmailsOf(person.otherEmails).map((e) => e.email)];
+      // A customer with a full list keeps it as it is: the link still stands, the number just isn't added.
+      const full =
+        (c.channel === 'sms'
+          ? otherPhonesOf(person.otherPhones).length
+          : otherEmailsOf(person.otherEmails).length) >= MAX_OTHER_CONTACTS;
+      if (!theirs.includes(c.counterpart) && !full) {
+        await ctx.tx
+          .update(people)
+          .set(
+            c.channel === 'sms'
+              ? {
+                  otherPhones: tidyOtherPhones(
+                    [...otherPhonesOf(person.otherPhones), { phone: c.counterpart }],
+                    person.phoneE164,
+                  ),
+                  fieldTimes: stampSql([column], changeMoment(ctx.meta)),
+                }
+              : {
+                  otherEmails: tidyOtherEmails(
+                    [...otherEmailsOf(person.otherEmails), { email: c.counterpart }],
+                    person.email,
+                  ),
+                  fieldTimes: stampSql([column], changeMoment(ctx.meta)),
+                },
+          )
+          .where(eq(people.id, person.id));
+        phoneAdded = true;
+      }
     }
     /**
      * Every unlinked lane on this address, not only the one somebody clicked (0089).

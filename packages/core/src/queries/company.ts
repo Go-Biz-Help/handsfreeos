@@ -1,7 +1,9 @@
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { companies, people } from '@hfos/db/schema';
+import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contact-points';
 import { addressOut, phoneOut, tagsByRecord, userRef } from '../crm/records';
+import { TEAM } from './person';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
@@ -27,6 +29,9 @@ type Row = {
   state: string | null;
   postal_code: string | null;
   country: string;
+  other_emails: unknown;
+  other_phones: unknown;
+  other_addresses: unknown;
   source: string | null;
   owner_user_id: string | null;
   archived_at: string | Date | null;
@@ -36,6 +41,7 @@ type Row = {
   open_leads: number;
   owner_name: string | null;
   owner_email: string | null;
+  team: { id: string; fullName: string | null }[] | null;
   sort_key: string;
 };
 
@@ -55,10 +61,14 @@ function summary(r: Row, tags: CompanySummary['tags']): CompanySummary {
       postalCode: r.postal_code,
       country: r.country,
     }),
+    otherEmails: otherEmailsOut(r.other_emails),
+    otherPhones: otherPhonesOut(r.other_phones),
+    otherAddresses: otherAddressesOut(r.other_addresses),
     source: r.source,
     owner: r.owner_user_id
       ? { id: r.owner_user_id, fullName: r.owner_name || r.owner_email || 'Former member' }
       : null,
+    team: (r.team ?? []).map((m) => ({ id: m.id, fullName: m.fullName || 'Former member' })),
     tags,
     peopleCount: Number(r.people_count),
     openLeads: Number(r.open_leads),
@@ -70,6 +80,7 @@ function summary(r: Row, tags: CompanySummary['tags']): CompanySummary {
 
 const base = (workspaceId: string) => sql`
   select c.*, lower(c.name) as sort_key, u.full_name as owner_name, u.email::text as owner_email,
+    ${TEAM('c')} as team,
     (select count(*) from app.people p where p.company_id = c.id and p.archived_at is null)::int as people_count,
     (select count(*) from app.leads l where l.company_id = c.id and l.status = 'open' and l.archived_at is null)::int as open_leads
   from app.companies c
@@ -92,6 +103,7 @@ export const companyList = defineQuery({
           ${input.includeArchived ? sql`` : sql`and c.archived_at is null`}
           ${q ? sql`and c.search_text like ${q}` : sql``}
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'company' and rt.record_id = c.id and rt.tag_id = ${input.tagId})` : sql``}
+          ${input.assignedUserId ? sql`and (c.owner_user_id = ${input.assignedUserId} or c.team_user_ids @> array[${input.assignedUserId}::uuid])` : sql``}
         ) x
         ${cursor ? sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
         order by x.sort_key, x.id
@@ -130,6 +142,10 @@ export const companyGet = defineQuery({
                  (select count(*) from app.leads l where l.company_id = ${c.id} and l.status = 'open' and l.archived_at is null)::int as open_leads`,
     );
     const owner = await userRef(ctx.tx, c.ownerUserId);
+    const [team] = await rows<{ team: Row['team'] }>(
+      ctx.tx,
+      sql`select ${TEAM('c')} as team from app.companies c where c.id = ${c.id}`,
+    );
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'company', [c.id]);
     const members = await ctx.tx
       .select()
@@ -151,6 +167,9 @@ export const companyGet = defineQuery({
             state: c.state,
             postal_code: c.postalCode,
             country: c.country,
+            other_emails: c.otherEmails,
+            other_phones: c.otherPhones,
+            other_addresses: c.otherAddresses,
             source: c.source,
             owner_user_id: c.ownerUserId,
             archived_at: c.archivedAt,
@@ -160,6 +179,7 @@ export const companyGet = defineQuery({
             open_leads: counts?.open_leads ?? 0,
             owner_name: owner?.fullName ?? null,
             owner_email: null,
+            team: team?.team ?? [],
             sort_key: '',
           },
           tags.get(c.id) ?? [],

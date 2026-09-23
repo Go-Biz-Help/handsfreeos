@@ -36,7 +36,6 @@ export default async function SettingsPage({
       .catch(() => null),
   ]);
   const current = me.workspaces.find((w) => w.id === workspaceId);
-  const role = current?.role;
   // All on unless turned off. The daily agency digest is for organization owners and admins only.
   const notifications = (
     me.user.settings as {
@@ -62,7 +61,7 @@ export default async function SettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage={role === 'owner' || role === 'admin'} />
+      <SettingsNav workspaceId={workspaceId} permissions={current?.permissions ?? []} />
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
           <div className="flex flex-col gap-5">
