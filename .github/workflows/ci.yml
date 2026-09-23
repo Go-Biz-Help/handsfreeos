@@ -51,6 +51,9 @@ jobs:
         with:
           version: 2.117.0
 
+      # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again after 1, 2 and then 4
+      # minutes instead of failing the job before a single test has run. On a bad day that is 7 minutes of waiting,
+      # which the 75-minute limit above has room for.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
         run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
