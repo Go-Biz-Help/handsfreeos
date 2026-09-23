@@ -406,7 +406,7 @@ test('Automations: intake questions’ form and message, the thank-you without a
   await expect(page.getByTestId('intake-message-save')).toBeDisabled();
   await box.fill('Hi {firstName}! A few questions from {businessName} before we come: {link}');
   await expect(page.getByTestId('intake-preview')).toHaveText(
-    'Hi Maria! A few questions from Lone Star After HVAC before we come: https://…/f/your-form',
+    'Hi Maria! A few questions from Lone Star After HVAC before we come: https://.../f/your-form',
   );
   await page.getByTestId('intake-message-save').click();
   await expect
@@ -428,7 +428,7 @@ test('Automations: intake questions’ form and message, the thank-you without a
   );
   await adjust(page, 'maintenance_due');
   await expect(page.getByTestId('maint-preview')).toHaveText(
-    "Hi Maria, it's Lone Star After HVAC. Your AC tune-up is due soon. Book a time that suits you here: https://…/book/your-calendar",
+    "Hi Maria, it's Lone Star After HVAC. Your AC tune-up is due soon. Book a time that suits you here: https://.../book/your-calendar",
   );
   await expect(page.getByTestId('maint-plan-preview')).toContainText(
     "it's included in your Comfort Club",
