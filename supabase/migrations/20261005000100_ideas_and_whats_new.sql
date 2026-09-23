@@ -714,12 +714,13 @@ create policy idea_update_deliveries_service on platform.idea_update_deliveries 
 
 -- ---------- grants ----------
 -- Reading is by policy. Writing is by column: nobody's grant reaches a count, a stamp or who wrote something.
+-- Nor `merged_into`: a merge is private.merge_idea's alone, which moves the votes and followers with it.
 grant select on platform.idea_areas, platform.ideas, platform.idea_votes, platform.idea_followers,
   platform.idea_comments, platform.whats_new, platform.whats_new_ideas, platform.whats_new_reads,
   platform.idea_updates to authenticated;
 grant insert, update, delete on platform.idea_areas to authenticated;
 grant insert (title, body, area_id, author_user_id, workspace_id) on platform.ideas to authenticated;
-grant update (title, body, area_id, status, merged_into, hidden_at) on platform.ideas to authenticated;
+grant update (title, body, area_id, status, hidden_at) on platform.ideas to authenticated;
 grant insert (idea_id, user_id, workspace_id), delete on platform.idea_votes to authenticated;
 grant insert (idea_id, user_id, following), update (following) on platform.idea_followers to authenticated;
 grant insert (idea_id, author_user_id, body), update (hidden_at) on platform.idea_comments to authenticated;

@@ -155,10 +155,7 @@ describe('what is nobody’s to write', () => {
     expect(
       await detail(() =>
         as(dale)((tx) =>
-          rows(
-            tx,
-            sql`update platform.ideas set merged_into = null, hidden_at = now() where id = ${id}`,
-          ),
+          rows(tx, sql`update platform.ideas set hidden_at = now() where id = ${id}`),
         ),
       ),
     ).toBe('idea_protected');
@@ -383,6 +380,14 @@ describe('the team', () => {
     expect(
       await code(() =>
         as(dale)((tx) => rows(tx, sql`select * from private.merge_idea(${dup}, ${into})`)),
+      ),
+    ).toBe('42501');
+    // Only the merge itself points a duplicate somewhere, so its votes and followers never stay behind.
+    expect(
+      await code(() =>
+        as(agent)((tx) =>
+          rows(tx, sql`update platform.ideas set merged_into = ${into} where id = ${dup}`),
+        ),
       ),
     ).toBe('42501');
     const [moved] = await as(agent)((tx) =>
