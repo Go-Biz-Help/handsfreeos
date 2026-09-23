@@ -31,7 +31,8 @@ describe('labels', () => {
   it('name each preset (Blank has nothing on, so it’s Custom)', () => {
     expect(labelOf('lead_responder')).toBe('Lead Responder · Follows up');
     expect(labelOf('lead_qualifier')).toBe('Lead Qualifier · Follows up');
-    expect(labelOf('appointment_coordinator')).toBe('Appointment Coordinator');
+    // Follow-ups are on unless a preset says otherwise (Automations): only Blank turns them off.
+    expect(labelOf('appointment_coordinator')).toBe('Appointment Coordinator · Follows up');
     expect(labelOf('blank')).toBe('Custom');
   });
 
@@ -59,7 +60,7 @@ describe('labels', () => {
 
   it('follow the skills as they switch', () => {
     expect(labelOf('appointment_coordinator', { qualify: { enabled: true } })).toBe(
-      'Lead Qualifier · Books appointments',
+      'Lead Qualifier · Books appointments · Follows up',
     );
     expect(labelOf('lead_responder', { respond: { newLeads: { enabled: false } } })).toBe(
       'Answers questions · Follows up',
@@ -72,7 +73,7 @@ describe('labels', () => {
     ).toBe('Custom');
     expect(inferTeammateLabels(emptyTeammateConfig())).toEqual({
       primary: 'lead_responder',
-      tags: ['lead_responder'],
+      tags: ['lead_responder', 'follows_up'],
     });
   });
 });

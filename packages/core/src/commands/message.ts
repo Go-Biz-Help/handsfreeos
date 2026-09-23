@@ -47,6 +47,7 @@ import { claimOnReply, personTakesOver, takeOver } from '../messaging/handling';
 import {
   CANCELLED_TEXT,
   formatClock,
+  QUIET_FIRST_MESSAGE_WINDOW_MS,
   QUIET_REPLY_LIMIT,
   QUIET_REPLY_WINDOW_MS,
   quietHoursEndAt,
@@ -250,8 +251,11 @@ async function assertQuietReply(
       { localTime: q.localTime, endsAt: q.endsAt, reason },
       'quiet_hours',
     );
-  if (opts.created || !opts.inReplyToMessageId)
+  if (opts.created || !opts.inReplyToMessageId) {
+    // A lead that just came in on its own gets its greeting at once, whatever the hour.
+    if (ctx.actor.type === 'ai_employee' && (await freshLeadGreeting(ctx, ctx.actor.runId))) return;
     throw refuse('first_text', 'Until then the AI teammate only answers a text that just came in.');
+  }
   const [latest] = await ctx.tx
     .select({ id: messages.id, occurredAt: messages.occurredAt })
     .from(messages)
@@ -283,6 +287,23 @@ async function assertQuietReply(
       'reply_limit',
       `The AI teammate already answered ${QUIET_REPLY_LIMIT} texts here, so the next reply waits.`,
     );
+}
+
+/**
+ * Whether this AI run is greeting a lead that came in on its own (nobody typed it in) within
+ * QUIET_FIRST_MESSAGE_WINDOW_MS: the one first text quiet hours let through.
+ */
+async function freshLeadGreeting(ctx: CommandContext, runId: string | null): Promise<boolean> {
+  if (!runId) return false;
+  const since = new Date(Date.now() - QUIET_FIRST_MESSAGE_WINDOW_MS).toISOString();
+  const [r] = await rows<{ fresh: boolean }>(
+    ctx.tx,
+    sql`select exists (
+          select 1 from app.ai_teammate_runs r join app.leads l on l.id = r.lead_id
+          where r.id = ${runId} and r.triggered_by = 'lead.created'
+            and l.created_by is null and l.created_at >= ${since}::timestamptz) as fresh`,
+  );
+  return !!r?.fresh;
 }
 
 /**

@@ -2,7 +2,14 @@
 import { BALANCE_WORDS, balanceHeadline, cardLine, money, topUpCapLine } from '@hfos/core';
 import { CreditCard, Download, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition, type ChangeEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +17,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { walletCard } from '@/lib/api/worker';
 import type { Ok } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 
@@ -132,6 +140,21 @@ export function UsagePage({
       }
     });
 
+  /**
+   * Phase one: ask the worker for the provider's own card page and go there. The worker builds the address it
+   * sends them back to, so nothing here can point it anywhere else.
+   */
+  const addCard = () =>
+    startSaving(async () => {
+      try {
+        const started = await walletCard({ workspaceId });
+        if (started.stage !== 'started') return;
+        window.location.assign(started.hostedUrl);
+      } catch (e) {
+        toast.error(errorMessage(e));
+      }
+    });
+
   const topUpNow = () =>
     startSaving(async () => {
       try {
@@ -142,6 +165,45 @@ export function UsagePage({
         toast.error(errorMessage(e));
       }
     });
+
+  /**
+   * Phase two: back from the card page. The session on the address is only a name for what happened — the
+   * worker reads the card off the provider itself — and it is taken off the address either way, so a refresh
+   * never saves anything twice.
+   */
+  const returned = useRef(false);
+  useEffect(() => {
+    // Read off the address itself rather than through `useSearchParams`, which would put this page behind a
+    // Suspense boundary for one query parameter it reads once, on the way back from the provider.
+    const mark = new URLSearchParams(window.location.search).get('card');
+    if (!mark || returned.current) return;
+    returned.current = true;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (mark === 'cancelled') {
+      toast.info(BALANCE_WORDS.cardNotSaved);
+      return;
+    }
+    startSaving(async () => {
+      try {
+        const answer = await walletCard({ workspaceId, sessionRef: mark });
+        if (answer.stage === 'saved' && answer.card.cardLast4)
+          toast.success(
+            BALANCE_WORDS.cardSaved(
+              cardLine({
+                brand: answer.card.cardBrand,
+                last4: answer.card.cardLast4,
+                expiryMonth: answer.card.cardExpiryMonth,
+                expiryYear: answer.card.cardExpiryYear,
+              }),
+            ),
+          );
+        else toast.info(BALANCE_WORDS.cardNotSaved);
+        router.refresh();
+      } catch (e) {
+        toast.error(errorMessage(e));
+      }
+    });
+  }, [router, workspaceId]);
 
   /** The statement as a spreadsheet. Built in the browser: it is already on the page. */
   const download = () => {
@@ -268,16 +330,21 @@ export function UsagePage({
         description={BALANCE_WORDS.cardDetail}
         testId="usage-card"
         action={
-          wallet.card ? (
-            <Button
-              variant="secondary"
-              onClick={forgetCard}
-              disabled={saving}
-              data-testid="usage-forget-card"
-            >
-              {BALANCE_WORDS.removeCard}
+          <div className="flex gap-2">
+            <Button onClick={addCard} disabled={saving} data-testid="usage-add-card">
+              {wallet.card ? BALANCE_WORDS.changeCard : BALANCE_WORDS.addCard}
             </Button>
-          ) : null
+            {wallet.card ? (
+              <Button
+                variant="secondary"
+                onClick={forgetCard}
+                disabled={saving}
+                data-testid="usage-forget-card"
+              >
+                {BALANCE_WORDS.removeCard}
+              </Button>
+            ) : null}
+          </div>
         }
       >
         <div className="mt-4 flex items-center gap-3 text-[13px]">
@@ -295,6 +362,7 @@ export function UsagePage({
             </>
           )}
         </div>
+        <p className="mt-3 text-[13px] text-text-3">{BALANCE_WORDS.cardOnProvider}</p>
       </Section>
 
       <Section

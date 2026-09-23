@@ -8,9 +8,11 @@
  */
 import { eq } from 'drizzle-orm';
 import {
+  allQuestions,
   calendarMostCharged,
   chatVerified,
   LeadQualification,
+  parseStoredForm,
   loadCalendar,
   localDateOf,
   openHoursOf,
@@ -138,6 +140,11 @@ export interface RunLead {
   readonly pipelineId: string;
   readonly assigneeUserId: string | null;
   readonly qualification: LeadQualification;
+  /**
+   * What they sent when they came in: their form's answers ("Question: answer" lines), or what a website or
+   * another system sent. Their own words, so always quoted as data. Null when there's nothing.
+   */
+  readonly cameInWith: string | null;
 }
 
 export interface RunCalendar {
@@ -455,7 +462,68 @@ async function openLeadOf(tx: Tx, workspaceId: string, personId: string): Promis
     pipelineId: l.pipeline_id,
     assigneeUserId: l.assignee_user_id,
     qualification: q.success ? q.data : LeadQualification.parse({}),
+    cameInWith: await cameInWithOf(tx, l.id),
   };
+}
+
+/** The most of what they sent that the teammate reads. */
+const CAME_IN_WITH_MAX = 1200;
+/** What a website or another system sends that says who they are, not what they need: left out. */
+const CONTACT_KEY =
+  /^(first_?name|last_?name|full_?name|name|e-?mail|phone|mobile|tel|consent|sms_?consent|utm_.*|source|page|url|referr?er|ip|user_?agent|token|id|created_?at|timestamp)$/i;
+
+/** Plain words for one answer: a choice's label, a list joined, anything else as text. */
+function answerText(value: unknown, choices: readonly { id: string; label: string }[]): string {
+  const one = (v: unknown): string => {
+    if (typeof v === 'string') return choices.find((c) => c.id === v)?.label ?? v;
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (v && typeof v === 'object') return JSON.stringify(v).slice(0, 200);
+    return '';
+  };
+  return (Array.isArray(value) ? value.map(one) : [one(value)]).filter(Boolean).join(', ');
+}
+
+/** What this lead sent when they came in: the latest form they submitted for it, else a website's submission. */
+async function cameInWithOf(tx: Tx, leadId: string): Promise<string | null> {
+  const [form] = await rows<{ answers: Record<string, unknown>; definition: unknown }>(
+    tx,
+    sql`select r.answers, v.definition from app.form_responses r
+        join app.form_versions v on v.id = r.version_id
+        where r.lead_id = ${leadId} and r.status = 'completed'
+        order by r.completed_at desc limit 1`,
+  );
+  const lines: string[] = [];
+  if (form) {
+    try {
+      for (const question of allQuestions(parseStoredForm(form.definition))) {
+        const choices =
+          (question.config as { choices?: { id: string; label: string }[] }).choices ?? [];
+        const text = answerText(form.answers?.[question.id], choices).trim();
+        // Their contact details are already on the record: only what they asked for helps.
+        if (
+          text &&
+          !['email', 'phone', 'signature', 'file', 'payment', 'content'].includes(question.type)
+        )
+          lines.push(`${question.title}: ${text}`);
+      }
+    } catch {
+      // A form this version of the app can't read: fall back to the website's submission, if any.
+    }
+  }
+  if (!lines.length) {
+    const [sub] = await rows<{ payload: Record<string, unknown> }>(
+      tx,
+      sql`select payload from app.intake_submissions
+          where lead_id = ${leadId} order by received_at desc limit 1`,
+    );
+    for (const [key, value] of Object.entries(sub?.payload ?? {})) {
+      if (CONTACT_KEY.test(key)) continue;
+      const text = answerText(value, []).trim();
+      if (text) lines.push(`${key.replace(/[_-]+/g, ' ')}: ${text}`);
+    }
+  }
+  const all = lines.join('\n');
+  return all ? all.slice(0, CAME_IN_WITH_MAX) : null;
 }
 
 async function stagesOf(tx: Tx, pipelineId: string) {

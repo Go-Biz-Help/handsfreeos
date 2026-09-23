@@ -55,7 +55,7 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   // Presets only turn skills on: the labels follow the pick.
   const presetLabels = page.getByTestId('teammate-preset-labels').locator('span');
   await page.getByTestId('teammate-preset-appointment_coordinator').click();
-  await expect(presetLabels).toHaveText(['Appointment Coordinator']);
+  await expect(presetLabels).toHaveText(['Appointment Coordinator', 'Follows up']);
   await page.getByTestId('teammate-preset-lead_qualifier').click();
   await expect(presetLabels).toHaveText(['Lead Qualifier', 'Follows up']);
   // "Only when asked" explains the California rule; either way it never claims to be a person.

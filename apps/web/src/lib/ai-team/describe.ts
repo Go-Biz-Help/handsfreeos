@@ -4,6 +4,8 @@
  * results. Computed from the draft, so they change as it is edited.
  */
 import {
+  followUpLadderWords,
+  followUpScheduleHours,
   formatHours,
   TEAMMATE_LABEL_NAMES,
   type DisclosureMode,
@@ -178,7 +180,7 @@ export function moduleSummary(
     }
     case 'followUp':
       return config.followUp.enabled
-        ? `Up to ${plural(config.followUp.maxNudges, 'nudge', 'nudges')}`
+        ? plural(followUpScheduleHours(config.followUp).length, 'follow-up', 'follow-ups')
         : 'Off';
     case 'hours':
       return config.hours.mode === 'always'
@@ -257,7 +259,11 @@ export function describeTeammate(config: TeammateConfig, catalogs: TeammateCatal
   }
   if (config.followUp.enabled)
     out.push(
-      `Nudges leads who go quiet, up to ${plural(config.followUp.maxNudges, 'time', 'times')}.`,
+      `Follows up when a customer goes quiet: ${followUpLadderWords(config.followUp.ladderHours)}${
+        config.followUp.monthlyForMonths
+          ? `, then monthly for ${plural(config.followUp.monthlyForMonths, 'month', 'months')}`
+          : ''
+      }.`,
     );
   out.push(
     `Says it’s an AI ${config.identity.disclosure === 'first_message' ? 'in its first message' : 'when asked'}. Never claims to be a person.`,

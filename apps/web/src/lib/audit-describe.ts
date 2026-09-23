@@ -714,6 +714,8 @@ function describeAction(e: AuditEntry): string {
       return `cancelled the ${autoNoun(e)} waiting to go out for ${itemOf(e)}`;
     case 'attention.save_settings':
       return attentionSettingsSentence(e);
+    case 'automations.save_settings':
+      return automationsSettingsSentence(e);
     case 'attention.record_auto':
       return recordAutoSentence(e);
     default:
@@ -825,6 +827,38 @@ function attentionSettingsSentence(e: AuditEntry): string {
   return changed.length
     ? `changed the Action Center settings: ${andJoin(changed.map((k) => SETTING_WORDS[k]!))}`
     : 'saved the Action Center settings';
+}
+
+/** Automations' own switches, in the words the page gives them. */
+const SWITCH_WORDS: Readonly<Record<string, string>> = {
+  dayBefore: 'the day-before confirmation',
+  dayOf: 'the day-of reminder',
+  waitlist: 'waitlist offers',
+  morningBrief: 'the morning brief',
+  reengage: 're-engaging dead leads',
+};
+
+function automationsSettingsSentence(e: AuditEntry): string {
+  const obj = (v: unknown): Record<string, unknown> =>
+    v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  const was = obj(obj(e.before?.automations).switches);
+  const now = obj(obj(e.after?.automations).switches);
+  if (
+    !obj(obj(e.before?.automations).reengage).reviewedAt &&
+    obj(obj(e.after?.automations).reengage).reviewedAt
+  )
+    return 'read the re-engage message and turned re-engaging dead leads on';
+  const words = (on: boolean) =>
+    Object.keys(SWITCH_WORDS)
+      .filter((k) => now[k] === on && was[k] !== on)
+      .map((k) => SWITCH_WORDS[k]!);
+  const on = words(true);
+  const off = words(false);
+  const parts = [
+    ...(on.length ? [`turned ${andJoin(on)} on`] : []),
+    ...(off.length ? [`turned ${andJoin(off)} off`] : []),
+  ];
+  return parts.length ? parts.join(' and ') : 'saved the automation settings';
 }
 
 /** What the worker notices as facts change: an item opened, came back, became urgent or cleared. */

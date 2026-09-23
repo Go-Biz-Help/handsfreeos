@@ -3,6 +3,10 @@ import { ZodError } from 'zod';
 import * as core from '../src/index';
 import {
   applyTeammatePatch,
+  DEFAULT_FOLLOW_UP_LADDER_HOURS,
+  followUpDueAt,
+  followUpLadderWords,
+  followUpScheduleHours,
   emptyTeammateConfig,
   inferTeammateLabels,
   parseTeammateConfig,
@@ -31,7 +35,7 @@ import {
 describe('defaults', () => {
   it('fills every module with the plan’s defaults', () => {
     const c = emptyTeammateConfig();
-    expect(c.version).toBe(1);
+    expect(c.version).toBe(2);
     expect(c.identity).toEqual({
       name: 'Ava',
       disclosure: 'first_message',
@@ -66,7 +70,13 @@ describe('defaults', () => {
       serviceArea: true,
     });
     expect(c.deals).toEqual({ enabled: false });
-    expect(c.followUp).toEqual({ enabled: false, maxNudges: 2 });
+    expect(c.followUp).toEqual({
+      enabled: true,
+      neverReplied: true,
+      chaseTimes: true,
+      ladderHours: [4, 24, 48, 96, 168, 240, 336, 504, 720],
+      monthlyForMonths: 6,
+    });
     expect(c.hours).toEqual({
       mode: 'always',
       custom: [1, 2, 3, 4, 5].map((day) => ({ day, start: '09:00', end: '17:00' })),
@@ -178,7 +188,62 @@ describe('parse and upgrade', () => {
   });
 
   it('refuses a document from a newer app', () => {
-    expect(() => parseTeammateConfig({ version: 2 })).toThrow(TeammateConfigVersionError);
+    expect(() => parseTeammateConfig({ version: TEAMMATE_CONFIG_VERSION + 1 })).toThrow(
+      TeammateConfigVersionError,
+    );
+  });
+
+  it('moves a version 1 document to the follow-up ladder, on, whatever it had', () => {
+    for (const old of [
+      { enabled: false, maxNudges: 2 },
+      { enabled: true, maxNudges: 5 },
+      undefined,
+    ]) {
+      const c = parseTeammateConfig({ version: 1, followUp: old });
+      expect(c.version).toBe(2);
+      expect(c.followUp).toEqual({
+        enabled: true,
+        neverReplied: true,
+        chaseTimes: true,
+        ladderHours: [...DEFAULT_FOLLOW_UP_LADDER_HOURS],
+        monthlyForMonths: 6,
+      });
+    }
+    // A version 2 document keeps what the owner chose.
+    const off = parseTeammateConfig({ version: 2, followUp: { enabled: false } });
+    expect(off.followUp.enabled).toBe(false);
+  });
+
+  it('works out when each follow-up goes: the ladder, then monthly, then none', () => {
+    const f = { ladderHours: [4, 24, 720], monthlyForMonths: 2 };
+    const H = 3_600_000;
+    expect(followUpScheduleHours(f)).toEqual([4, 24, 720, 1440, 2160]);
+    expect(followUpDueAt(f, 0, 1)).toBe(4 * H);
+    expect(followUpDueAt(f, 1000, 3)).toBe(1000 + 720 * H);
+    expect(followUpDueAt(f, 0, 5)).toBe(2160 * H);
+    expect(followUpDueAt(f, 0, 6)).toBeNull();
+    expect(followUpScheduleHours({ ladderHours: [4], monthlyForMonths: 0 })).toEqual([4]);
+  });
+
+  it('says the ladder in plain words', () => {
+    expect(followUpLadderWords(DEFAULT_FOLLOW_UP_LADDER_HOURS)).toBe(
+      '4 hours, then days 1, 2, 4, 7, 10, 14, 21 and 30',
+    );
+    expect(followUpLadderWords([24])).toBe('day 1');
+    expect(followUpLadderWords([2, 6])).toBe('2 hours, 6 hours');
+  });
+
+  it('refuses a ladder that goes backwards, is empty, or runs too long', () => {
+    for (const followUp of [
+      { ladderHours: [24, 4] },
+      { ladderHours: [4, 4] },
+      { ladderHours: [] },
+      { ladderHours: Array.from({ length: 13 }, (_, i) => i + 1) },
+      { monthlyForMonths: 13 },
+    ])
+      expect(() => parseTeammateConfig({ version: 2, followUp }), JSON.stringify(followUp)).toThrow(
+        ZodError,
+      );
   });
 
   it('runs upgrade steps in order up to the target version', () => {
@@ -227,7 +292,7 @@ describe('parse and upgrade', () => {
       { handOff: { notify: { kind: 'users', userIds: [] } } },
     ];
     for (const patch of bad)
-      expect(() => parseTeammateConfig({ version: 1, ...patch }), JSON.stringify(patch)).toThrow(
+      expect(() => parseTeammateConfig({ version: 2, ...patch }), JSON.stringify(patch)).toThrow(
         ZodError,
       );
   });
@@ -432,7 +497,7 @@ describe('labels never gate a setting', () => {
       },
     },
     book: { book: { enabled: true, calendarIds: [SERVICE_CAL], reschedule: false, cancel: false } },
-    followUp: { followUp: { enabled: true, maxNudges: 5 } },
+    followUp: { followUp: { enabled: true, ladderHours: [2, 24], monthlyForMonths: 0 } },
     hours: { hours: { mode: 'custom', custom: [{ day: 6, start: '10:00', end: '14:00' }] } },
     autonomy: { autonomy: { approvalsNeeded: 5, draftExpiresMinutes: 60 } },
     limits: {

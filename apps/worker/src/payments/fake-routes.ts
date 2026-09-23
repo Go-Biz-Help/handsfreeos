@@ -50,6 +50,13 @@ interface PayQuery {
   decision?: string;
 }
 
+interface CardQuery {
+  session?: string;
+  return?: string;
+  instrument?: string;
+  decision?: string;
+}
+
 const methodOf = (value: string | undefined): PaymentMethodKind =>
   value === 'ach' ? 'ach' : 'card';
 
@@ -129,6 +136,62 @@ export function registerFakePaymentRoutes(app: FastifyInstance, deps: HttpDeps):
             `</div></form>`,
         ),
       );
+  });
+
+  /**
+   * Putting a card on HandsFreeOS's own balance, in place of Stripe's hosted page. The same two ends as the
+   * real one: a session it was opened for, and a return address it sends them back to with `?card=` saying
+   * which session — or that nobody finished it.
+   */
+  app.get('/payments/fake/card', async (req, reply) => {
+    const q = req.query as CardQuery;
+    const sessionRef = q.session ?? '';
+    if (!sessionRef || !fake.page.cardSession(sessionRef))
+      return problem(reply, 'Go back and start adding the card again.');
+    return reply
+      .type('text/html; charset=utf-8')
+      .header('cache-control', 'no-store')
+      .send(
+        shell(
+          'Add a card',
+          `<h1 style="font-size: 18px; margin: 0 0 6px;">Add a card</h1>` +
+            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">` +
+            `A stand-in for Stripe’s page on this development server. The card tops up this business’s ` +
+            `HandsFreeOS balance. No real money moves.</p>` +
+            `<form method="post" action="/payments/fake/card">` +
+            hidden('session', sessionRef) +
+            (q.return ? hidden('return', q.return) : '') +
+            `<label for="instrument" style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">Card number</label>` +
+            `<input id="instrument" name="instrument" inputmode="numeric" autocomplete="off" required value="${escapeHtml(FAKE_CARDS.succeeds)}" ` +
+            `style="width: 100%; box-sizing: border-box; height: 38px; padding: 0 10px; border: 1px solid #c9ced6; border-radius: 8px; font-size: 15px;">` +
+            `<p style="font-size: 12px; line-height: 1.6; color: #5b616a; margin: 10px 0 0;">` +
+            `Goes through: ${escapeHtml(FAKE_CARDS.succeeds)}<br>` +
+            `Declined: ${escapeHtml(FAKE_CARDS.declines)}<br>` +
+            `Fails when the balance tops itself up: ${escapeHtml(FAKE_CARDS.failsOffSession)}</p>` +
+            `<div style="display: flex; gap: 8px; margin-top: 18px;">` +
+            `<button type="submit" name="decision" value="save" data-testid="fake-save-card" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Save the card</button>` +
+            `<button type="submit" name="decision" value="cancel" formnovalidate data-testid="fake-cancel-card" style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
+            `</div></form>`,
+        ),
+      );
+  });
+
+  app.post('/payments/fake/card', async (req, reply) => {
+    const b = (req.body ?? {}) as CardQuery;
+    const sessionRef = b.session ?? '';
+    if (!sessionRef || !fake.page.cardSession(sessionRef))
+      return problem(reply, 'Go back and start adding the card again.');
+    const returnUrl = safeReturn(b.return);
+    // Nothing typed: the session stays empty, and the route that reads it back says so in words.
+    if (b.decision === 'cancel')
+      return returnUrl
+        ? back(reply, returnUrl, { card: 'cancelled' })
+        : problem(reply, 'Nothing was saved.');
+    if (!b.instrument) return problem(reply, 'There was no card number.');
+    fake.page.saveCard({ sessionRef, instrument: b.instrument });
+    return returnUrl
+      ? back(reply, returnUrl, { card: sessionRef })
+      : problem(reply, 'The card was saved, but there is nowhere to go back to.');
   });
 
   app.post('/payments/fake/pay', async (req, reply) => {

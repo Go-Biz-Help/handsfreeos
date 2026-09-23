@@ -97,6 +97,11 @@ export const foundingOffers = [
       'Tell us when it is wrong — that is the whole trade',
       'Let us write up what it did for you, if it does anything worth writing up',
     ],
+    // What /founding says while this is the offer on sale.
+    headline: 'Twenty-five founding partners.',
+    sub: 'Not a beta, and not a discount. Twenty-five real businesses using it for real work, telling us what is wrong, for as long as HandsFreeOS exists.',
+    afterwards: 'When these are gone, a pay-once seat opens on its own: $497, a hundred of them.',
+    softwareLine: 'The software is free for life. The phone company is not.',
   },
   {
     id: 'founding_lifetime',
@@ -110,8 +115,18 @@ export const foundingOffers = [
       'The price of five months, instead of every month',
     ],
     asks: [],
+    headline: 'A hundred founding customers.',
+    sub: 'The free seats are gone. The next hundred businesses pay once, $497, and never see a monthly bill for the software.',
+    afterwards: 'Partway through these, HandsFreeOS also goes on sale month to month, at $97.',
+    softwareLine: 'The software is paid for once. The phone company is not.',
   },
 ] as const;
+
+export type FoundingOfferContent = (typeof foundingOffers)[number];
+
+/** The page copy for an offer the database names, or the first offer's when it names one this file lacks. */
+export const foundingContent = (offerId: string | null | undefined): FoundingOfferContent =>
+  foundingOffers.find((o) => o.id === offerId) ?? foundingOffers[0];
 
 /**
  * What sits on top of every offer here, founding ones included: texts, calls, numbers and AI, billed for
@@ -119,6 +134,6 @@ export const foundingOffers = [
  * out about it afterwards has been misled, however technically accurate the page was.
  */
 export const usageNote =
-  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $30–$60 a month. This is the same on every offer here, the free one included — it is what the phone companies charge us, passed through.';
+  'Texts, calls, phone numbers and AI replies are billed for what you use, on top of the plan. Most businesses spend about $30–$60 a month. This is the same on every offer, founding seats included — it is what the phone companies charge us, passed through.';
 
 export const annualNote = 'Pay for the year and get two months free.';

@@ -7,13 +7,15 @@
  * Each person sees their own list, the way Home does: a member gets their items plus the ones nobody has taken,
  * an owner or admin gets everything, and approval items only reach the people who can decide them. It goes out
  * once a day per business (`workspace.attention_digest_sent` carries the day and who got it), and someone who
- * turned Morning summary off gets none.
+ * turned Morning summary off gets none. A business that turned "Morning brief" off in Settings → Automations sends
+ * nobody one; the job keeps its place for the next morning, so turning it back on needs nothing else.
  */
 import { randomUUID } from 'node:crypto';
 import {
   addDays,
   affectedCents,
   ATTENTION_KIND_LABELS,
+  automationOn,
   chipsOf,
   chipText,
   decidableApprovals,
@@ -155,11 +157,16 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const now = ctx.now;
   const found = await asWorker(ctx.db, scope, async (tx) => {
-    const [ws] = await rows<{ name: string; timezone: string }>(
+    const [w] = await rows<{
+      name: string;
+      timezone: string;
+      settings: Record<string, unknown> | null;
+    }>(
       tx,
-      sql`select name, timezone from app.workspaces where id = ${scope.workspaceId}`,
+      sql`select name, timezone, settings from app.workspaces where id = ${scope.workspaceId}`,
     );
-    if (!ws) return null;
+    if (!w) return null;
+    const ws = { name: w.name, timezone: w.timezone };
     const timeZone = ws.timezone || 'UTC';
     const day = localDateOf(now, timeZone);
     const sent = await rows(
@@ -177,7 +184,8 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       items: [] as AttentionItemRow[],
       decidable: new Map<string, ReadonlySet<string>>(),
     };
-    if (sent.length > 0) return { ...nobody, done: true };
+    if (sent.length > 0 || !automationOn(w.settings, 'morningBrief'))
+      return { ...nobody, done: true };
     const items = await tx
       .select()
       .from(attentionItems)

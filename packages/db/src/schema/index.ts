@@ -4792,6 +4792,16 @@ export const foundingOffers = platform.table('founding_offers', {
   graceDays: integer('grace_days').notNull().default(14),
   sort: integer('sort').notNull().default(0),
   blurb: text('blurb').notNull().default(''),
+  /** `once` is a founding seat, free or paid once. `monthly` is the plan: no seats, no applications (0092). */
+  billing: text('billing').$type<'once' | 'monthly'>().notNull().default('once'),
+  /**
+   * The offer this one opens after, and how many of that one's seats must be out first — null meaning "when
+   * it is full". Opened by a trigger at the seat that crosses the line, only ever from `draft`.
+   */
+  opensAfterOfferId: text('opens_after_offer_id').references((): AnyPgColumn => foundingOffers.id),
+  opensAfterCount: integer('opens_after_count'),
+  /** The first time it opened, by hand or by the chain. */
+  openedAt: ts('opened_at'),
   ...timestamps(),
 });
 

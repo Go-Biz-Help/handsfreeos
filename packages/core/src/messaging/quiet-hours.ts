@@ -91,6 +91,12 @@ export function scheduledForOf(m: {
  */
 export const QUIET_REPLY_WINDOW_MS = 15 * 60_000;
 export const QUIET_REPLY_LIMIT = 3;
+/**
+ * The one first message it may start in quiet hours (Automations, "New lead greeting"): to a lead who came in on
+ * their own (a form, a text, a call) this long ago at most. A lead someone typed in, or an older one, waits for
+ * the morning.
+ */
+export const QUIET_FIRST_MESSAGE_WINDOW_MS = 15 * 60_000;
 
 /** When the quiet period `now` falls in began, or null when it isn't quiet hours. */
 export function quietPeriodStart(

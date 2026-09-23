@@ -55,6 +55,103 @@ function stripeWatching() {
   return { provider, calls };
 }
 
+/** A Stripe adapter whose answers are chosen per path, for calls that read something back. */
+function stripeAnswering(answers: Record<string, unknown>) {
+  const calls: { url: string; headers: Record<string, string>; body: string }[] = [];
+  const fetchStub = async (url: string | URL, init?: RequestInit): Promise<Response> => {
+    const target = String(url);
+    calls.push({
+      url: target,
+      headers: Object.fromEntries(
+        Object.entries((init?.headers ?? {}) as Record<string, string>).map(([k, v]) => [
+          k.toLowerCase(),
+          v,
+        ]),
+      ),
+      body: String(init?.body ?? ''),
+    });
+    const key = Object.keys(answers).find((path) => target.includes(path));
+    return new Response(JSON.stringify(key ? answers[key] : {}), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const provider = createStripePayments({
+    clientId: 'ca_test',
+    secretKey: 'sk_test',
+    publishableKey: 'pk_test',
+    webhookSecret: 'whsec_test',
+    fetch: fetchStub as typeof fetch,
+  });
+  return { provider, calls };
+}
+
+describe('the page a card is typed on', () => {
+  it('is the provider\u2019s own, opened as us, and sends them back with the session on the address', async () => {
+    const { provider, calls } = stripeAnswering({
+      '/checkout/sessions': {
+        id: 'cs_test_1',
+        url: 'https://checkout.stripe.test/c/pay/cs_test_1',
+      },
+    });
+    const session = await provider.platform.startCardSession({
+      customerRef: 'cus_hfos_1',
+      returnUrl: 'https://app.test/app/w/ws-1/settings/usage',
+      idempotencyKey: 'wallet-card:ws-1:1',
+    });
+    expect(session).toEqual({
+      sessionRef: 'cs_test_1',
+      hostedUrl: 'https://checkout.stripe.test/c/pay/cs_test_1',
+    });
+    // Ours, not a seller's: the same header that decides whose money a charge is.
+    expect(calls[0]!.headers).not.toHaveProperty('stripe-account');
+    const sent = new URLSearchParams(calls[0]!.body);
+    // Setting a card up for later, unattended — which is what a top-up is — and only a card.
+    expect(sent.get('mode')).toBe('setup');
+    expect(sent.get('customer')).toBe('cus_hfos_1');
+    expect(sent.get('setup_intent_data[usage]')).toBe('off_session');
+    expect(sent.get('payment_method_types[0]')).toBe('card');
+    expect(sent.get('success_url')).toBe(
+      'https://app.test/app/w/ws-1/settings/usage?card={CHECKOUT_SESSION_ID}',
+    );
+    expect(sent.get('cancel_url')).toBe(
+      'https://app.test/app/w/ws-1/settings/usage?card=cancelled',
+    );
+  });
+
+  it('reads what it ended with from the provider, never from the address it came back on', async () => {
+    const { provider, calls } = stripeAnswering({
+      '/checkout/sessions/': {
+        id: 'cs_test_1',
+        status: 'complete',
+        customer: 'cus_hfos_1',
+        setup_intent: 'seti_1',
+      },
+      '/setup_intents/': { id: 'seti_1', payment_method: 'pm_new', customer: 'cus_hfos_1' },
+    });
+    await expect(provider.platform.readCardSession('cs_test_1')).resolves.toEqual({
+      sourceToken: 'pm_new',
+      customerRef: 'cus_hfos_1',
+    });
+    // Both reads are ours, and both are reads: nothing about a card is taken on trust from the browser.
+    expect(calls).toHaveLength(2);
+    for (const c of calls) {
+      expect(c.headers, c.url).not.toHaveProperty('stripe-account');
+      expect(c.body, c.url).toBe('');
+    }
+  });
+
+  it('answers with no card when nobody finished the page', async () => {
+    const { provider } = stripeAnswering({
+      '/checkout/sessions/': { id: 'cs_test_1', status: 'open', customer: 'cus_hfos_1' },
+    });
+    await expect(provider.platform.readCardSession('cs_test_1')).resolves.toEqual({
+      sourceToken: null,
+      customerRef: 'cus_hfos_1',
+    });
+  });
+});
+
 describe('a charge of ours', () => {
   it('carries no business account, which is what makes the money ours', async () => {
     const { provider, calls } = stripeWatching();
@@ -140,6 +237,64 @@ describe('Square', () => {
         metadata: {},
       }),
     ).rejects.toThrow(/Connect Stripe/);
+    // And there is no page for them to type one on either, in the same words.
+    await expect(
+      providers.square.platform.startCardSession({
+        customerRef: 'cus_1',
+        returnUrl: 'https://app.test/app/w/ws-1/settings/usage',
+        idempotencyKey: 'wallet-card:ws-1:1',
+      }),
+    ).rejects.toThrow(/Connect Stripe/);
+    await expect(providers.square.platform.readCardSession('cs_1')).rejects.toBeInstanceOf(
+      PlatformUnsupportedError,
+    );
+  });
+});
+
+describe('the stand-in’s card page', () => {
+  it('carries a session from its page to a card the wallet can be charged with', async () => {
+    const fake = fakePaymentServices('http://localhost:4000');
+    const stripe = fake.providers.stripe;
+    const { customerRef } = await stripe.platform.ensureCustomer({
+      customerRef: null,
+      name: 'Lone Star Plumbing',
+      email: null,
+      phone: null,
+      idempotencyKey: 'cus-1',
+    });
+    const session = await stripe.platform.startCardSession({
+      customerRef,
+      returnUrl: 'http://localhost:3000/app/w/ws-1/settings/usage',
+      idempotencyKey: 'wallet-card:ws-1:1',
+    });
+    expect(session.hostedUrl).toContain('/payments/fake/card');
+    expect(session.hostedUrl).toContain(`session=${session.sessionRef}`);
+    // Nobody has typed anything yet, and that is an answer rather than a failure.
+    await expect(stripe.platform.readCardSession(session.sessionRef)).resolves.toEqual({
+      sourceToken: null,
+      customerRef,
+    });
+
+    fake.fake.page.saveCard({ sessionRef: session.sessionRef, instrument: FAKE_CARDS.succeeds });
+    const ended = await stripe.platform.readCardSession(session.sessionRef);
+    expect(ended.sourceToken).toBeTruthy();
+    const saved = await stripe.platform.saveMethod({
+      customerRef,
+      sourceToken: ended.sourceToken!,
+      idempotencyKey: 'save-1',
+    });
+    expect(saved.last4).toBe(FAKE_CARDS.succeeds.replace(/\D+/g, '').slice(-4));
+    // And that card is one our own charges can use.
+    const charged = await stripe.platform.charge({
+      amountCents: 2500,
+      method: 'card',
+      sourceToken: saved.token,
+      idempotencyKey: 'topup:rc-card',
+      description: 'HandsFreeOS usage top-up',
+      customerRef,
+      metadata: {},
+    });
+    expect(charged.status).toBe('succeeded');
   });
 });
 

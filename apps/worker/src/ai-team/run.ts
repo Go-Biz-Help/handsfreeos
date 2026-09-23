@@ -87,7 +87,7 @@ import {
 import { scheduleExpirySweep } from './expiry';
 import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
-import { scheduleFollowUp } from './nudges';
+import { scheduleFollowUp, type OfferedSlot } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
 import { chatCodeSender } from './chat-code';
 import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
@@ -124,6 +124,25 @@ export interface FirstTarget {
   readonly stopWording: boolean;
 }
 
+/** A follow-up: which one on the ladder, the message it follows up, and what that message offered. */
+export interface NudgeSpec {
+  readonly n: number;
+  /** When the message they didn't answer went out. */
+  readonly lastAt: number;
+  /** How many the ladder has in all (the steps, then the monthly ones). */
+  readonly total: number;
+  /** Past the ladder's steps: one of the monthly check-ins. */
+  readonly monthly: boolean;
+  /** They never wrote in this conversation: it follows up the teammate's first message, from what they sent. */
+  readonly neverWrote: boolean;
+  /** The times that message offered, and whether each is still open. */
+  readonly offered: readonly {
+    readonly label: string;
+    readonly startsAt: string;
+    readonly open: boolean;
+  }[];
+}
+
 /** How a job starts its run. */
 export interface RunSpec {
   readonly kind: RunKind;
@@ -133,8 +152,8 @@ export interface RunSpec {
   readonly origin: AiEmployeeOrigin | null;
   /** The workflow's goal and note. */
   readonly handover: Handover | null;
-  /** A nudge: which one, and when the message it follows went out. */
-  readonly nudge?: { readonly n: number; readonly lastAt: number } | null;
+  /** A nudge: which one, and what it follows up. */
+  readonly nudge?: NudgeSpec | null;
   /** A person's "Try again": their reason and the draft they rejected. */
   readonly retry?: Retry | null;
 }
@@ -258,7 +277,7 @@ export async function runNudge(
   ctx: JobContext,
   scope: TenantScope,
   conversationId: string,
-  nudge: { readonly n: number; readonly lastAt: number },
+  nudge: NudgeSpec,
   trigger: string,
 ): Promise<JobResult> {
   const run = await startRun(ctx, scope, conversationId, {
@@ -494,8 +513,7 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
 
 /** The message the model answers: the conversation and their new messages, a first message, or a nudge. */
 function turnOf(run: StartedRun, rc: RunContext): string {
-  if (run.kind === 'nudge' && run.nudge)
-    return nudgeTurn(rc, run.nudge.n, rc.config.followUp.maxNudges, run.nudge.lastAt);
+  if (run.kind === 'nudge' && run.nudge) return nudgeTurn(rc, run.nudge);
   if (rc.batch.length) return conversationTurn(rc);
   return firstMessageTurn(rc, run.trigger === 'lead.created' ? 'new_lead' : 'workflow');
 }
@@ -842,6 +860,16 @@ export async function closeRun(tx: Tx, runId: string, c: Closing): Promise<void>
   );
 }
 
+/** The times find_times showed in this run, as a follow-up job carries them (a chase needs them). */
+const shownTimes = (state: RunState): OfferedSlot[] =>
+  [...state.offered.values()].map((o) => ({
+    calendarId: o.calendarId,
+    startsAt: o.startsAt,
+    label: o.label,
+    serviceId: o.serviceId,
+    durationMinutes: o.durationMinutes,
+  }));
+
 const knowledgeOf = (state: RunState) =>
   [...state.found.values()].map((f) => ({ itemId: f.id, title: f.title }));
 
@@ -854,8 +882,7 @@ const whom = (rc: RunContext) =>
 const handedOffSummary = (reason: ConversationHandoffReason, note: string) =>
   `Handed to a person (${REASON_WORDS[reason]}): ${note}`;
 function repliedSummary(run: StartedRun, rc: RunContext): string {
-  if (run.kind === 'nudge')
-    return `Followed up (${run.nudge?.n ?? 1} of ${rc.config.followUp.maxNudges})`;
+  if (run.kind === 'nudge') return `Followed up (${run.nudge?.n ?? 1} of ${run.nudge?.total ?? 1})`;
   return rc.batch.length ? `Replied to “${snippet(rc)}”` : `Wrote first to ${whom(rc)}`;
 }
 function draftedSummary(run: StartedRun, rc: RunContext, state: RunState): string {
@@ -1295,7 +1322,16 @@ async function finish(
       summary: outcome === 'replied' ? repliedSummary(run, rc) : noReplySummary(state),
     });
     // It asked them something: a nudge waits in case they go quiet.
-    if (body !== null) await scheduleFollowUp(tx, run.scope, conversationId, rc.config, body);
+    if (body !== null)
+      await scheduleFollowUp(
+        tx,
+        run.scope,
+        conversationId,
+        rc.config,
+        body,
+        Date.now(),
+        shownTimes(state),
+      );
     return { outcome, waitUntil: null };
   });
   if (result.outcome !== 'other') await bookkeeping(ctx, run, rc, state, false);
@@ -1396,7 +1432,15 @@ async function finishFirst(
         outcome: 'replied',
         summary: repliedSummary(run, rc),
       });
-      await scheduleFollowUp(tx, run.scope, conversationId, rc.config, body);
+      await scheduleFollowUp(
+        tx,
+        run.scope,
+        conversationId,
+        rc.config,
+        body,
+        Date.now(),
+        shownTimes(state),
+      );
       return { outcome: 'replied', waitUntil: null };
     } catch (e) {
       if (!(e instanceof HfosError)) throw e;

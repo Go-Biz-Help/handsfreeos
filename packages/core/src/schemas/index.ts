@@ -29,6 +29,7 @@ export * from './knowledge';
 export * from './ai-team';
 export * from './chat';
 export * from './attention';
+export * from './automations';
 export * from './money';
 export * from './push';
 export * from './migration';
