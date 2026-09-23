@@ -90,6 +90,12 @@ function asRefusal(err: unknown): never {
       409,
       'This offer is not taking anybody new. Open it first.',
     );
+  if (detail === 'founding_offer_not_seats')
+    throw HfosError.rule(
+      'founding_offer_not_seats',
+      409,
+      'The monthly plan has no seats to hand out. People sign up for it; nobody is approved into it.',
+    );
   if (detail === 'founding_cap_below_held')
     throw HfosError.rule(
       'founding_cap_below_held',
@@ -131,6 +137,10 @@ const offerOut = (o: OfferRow, claimed: number) => ({
   claimed,
   remaining: Math.max(o.seatCap - claimed, 0),
   priceCents: o.priceCents,
+  billing: o.billing,
+  opensAfterOfferId: o.opensAfterOfferId,
+  opensAfterCount: o.opensAfterCount,
+  openedAt: o.openedAt?.toISOString() ?? null,
 });
 
 // ---------- deciding ----------
@@ -311,6 +321,20 @@ export const foundingClaim = defineCommand({
     if (!grant || grant.status !== 'reserved') throw dead();
 
     const found = await offer(ctx, grant.offerId);
+    /**
+     * A paid seat is not taken up by following a link — it is taken up by paying for it, and there is no
+     * checkout yet. Without this, claiming the $497 offer would activate a lifetime account and charge nothing:
+     * the plan below is picked from the price, and nothing between here and there asks for the money.
+     *
+     * The seat stays held until its reservation runs out, so turning this away costs the business nothing but
+     * the wait. When the checkout lands, it takes this check's place rather than sitting beside it.
+     */
+    if (found.priceCents > 0)
+      throw HfosError.rule(
+        'founding_claim_needs_checkout',
+        409,
+        `This seat is paid, and paying for it online isn't set up yet — so it can't be taken up from this link. It stays held for you${grant.expiresAt ? ` until ${grant.expiresAt.toISOString().slice(0, 10)}` : ''}, and we'll send a link to pay as soon as there is one.`,
+      );
     const now = new Date();
 
     // `reserved` and `active` both hold a seat, so this transition never touches the cap. The guard lets it by.

@@ -13711,9 +13711,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        billing: "once" | "monthly";
                         claimed: number;
                         name: string;
                         offerId: string;
+                        openedAt: string | null;
+                        opensAfterCount: number | null;
+                        opensAfterOfferId: string | null;
                         priceCents: number;
                         remaining: number;
                         seatCap: number;
@@ -13748,9 +13753,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        billing: "once" | "monthly";
                         claimed: number;
                         name: string;
                         offerId: string;
+                        openedAt: string | null;
+                        opensAfterCount: number | null;
+                        opensAfterOfferId: string | null;
                         priceCents: number;
                         remaining: number;
                         seatCap: number;
@@ -26627,6 +26637,8 @@ export interface operations {
                         /** Format: date-time */
                         generatedAt: string;
                         offers: {
+                            /** @enum {string} */
+                            billing: "once" | "monthly";
                             blurb: string;
                             claimed: number;
                             name: string;
@@ -26634,8 +26646,10 @@ export interface operations {
                             priceCents: number;
                             remaining: number;
                             seatCap: number;
+                            showCounter: boolean;
                             /** @enum {string} */
                             status: "draft" | "open" | "closed";
+                            superseded: boolean;
                         }[];
                     };
                 };
@@ -29665,9 +29679,14 @@ export interface operations {
                             workspaceId: string | null;
                         }[];
                         offers: {
+                            /** @enum {string} */
+                            billing: "once" | "monthly";
                             claimed: number;
                             name: string;
                             offerId: string;
+                            openedAt: string | null;
+                            opensAfterCount: number | null;
+                            opensAfterOfferId: string | null;
                             priceCents: number;
                             remaining: number;
                             seatCap: number;

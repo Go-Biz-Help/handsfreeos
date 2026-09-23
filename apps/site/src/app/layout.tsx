@@ -22,8 +22,9 @@ export const metadata: Metadata = {
     default: 'AI receptionist and CRM for service businesses · HandsFreeOS',
     template: '%s · HandsFreeOS',
   },
+  // No price: what is on sale changes by itself (0092), and a search result keeps this for weeks.
   description:
-    'HandsFreeOS answers your calls and texts, books the job, sends the quote and chases the invoice — one system for small service businesses, from $99 a month.',
+    'HandsFreeOS answers your calls and texts, books the job, sends the quote and chases the invoice — one system for small service businesses.',
   applicationName: 'HandsFreeOS',
   alternates: { canonical: '/' },
   openGraph: {

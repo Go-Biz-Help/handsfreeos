@@ -24,14 +24,22 @@ export interface FoundingCount {
   readonly seatCap: number;
   readonly claimed: number;
   readonly remaining: number;
+  /** `once` is a founding seat, free or paid once. `monthly` is the plan itself, which has no seats. */
+  readonly billing: 'once' | 'monthly';
+  /** Whether its numbers are for printing. Off for the monthly plan. */
+  readonly showCounter: boolean;
+  /** A later founding offer has opened after this one: it is no longer what is on sale. */
+  readonly superseded: boolean;
 }
 
 /** Where the worker answers. The same address the providers call; never the fly.dev one. */
 export const workerUrl = (): string =>
   process.env.WORKER_PUBLIC_URL?.replace(/\/$/, '') ?? 'https://hooks.handsfreeos.com';
 
-const isCount = (v: unknown): v is FoundingCount => {
-  const o = v as Record<string, unknown>;
+type RawCount = Record<string, unknown>;
+
+const isCount = (v: unknown): v is RawCount => {
+  const o = v as RawCount;
   return (
     typeof o?.['offerId'] === 'string' &&
     typeof o['name'] === 'string' &&
@@ -40,6 +48,18 @@ const isCount = (v: unknown): v is FoundingCount => {
     typeof o['remaining'] === 'number'
   );
 };
+
+/**
+ * The three stage fields arrived after the first four (0092). A worker that has not been deployed with them yet
+ * answers without them, and that answer is read as it would have been before: every offer a founding seat, its
+ * numbers printed, nothing superseded. Refusing it outright would hide offers the database has open.
+ */
+const normalise = (o: RawCount): FoundingCount => ({
+  ...(o as unknown as FoundingCount),
+  billing: o['billing'] === 'monthly' ? 'monthly' : 'once',
+  showCounter: typeof o['showCounter'] === 'boolean' ? o['showCounter'] : true,
+  superseded: o['superseded'] === true,
+});
 
 /**
  * Every open offer's numbers, or null if the worker could not be reached.
@@ -57,7 +77,7 @@ export async function foundingCounts(): Promise<readonly FoundingCount[] | null>
     const offers = (body as { offers?: unknown })?.offers;
     if (!Array.isArray(offers)) return null;
     // A partly-malformed answer is no answer: showing half the offers would be its own kind of wrong.
-    return offers.every(isCount) ? (offers as FoundingCount[]) : null;
+    return offers.every(isCount) ? offers.map(normalise) : null;
   } catch {
     return null;
   }
@@ -67,4 +87,33 @@ export async function foundingCounts(): Promise<readonly FoundingCount[] | null>
 export async function foundingCount(offerId: string): Promise<FoundingCount | null> {
   const all = await foundingCounts();
   return all?.find((o) => o.offerId === offerId) ?? null;
+}
+
+/**
+ * The founding offer on sale right now: the one seat-based offer that nothing later has superseded. In the
+ * growth plan that is the free seats until they are all out, then the $497 seats.
+ *
+ * Null when the worker could not be reached, or when no founding offer is open or closed at all. The pages
+ * read that as "say nothing about founding seats" rather than guess which stage it is.
+ */
+export function currentFoundingOffer(
+  counts: readonly FoundingCount[] | null,
+): FoundingCount | null {
+  const live = (counts ?? []).filter(
+    (c) => c.billing === 'once' && c.status !== 'draft' && !c.superseded,
+  );
+  // Several at once only if somebody opened offers out of order by hand; the later one is the later stage.
+  return live.at(-1) ?? null;
+}
+
+/**
+ * Whether the $97 plan is on sale. It opens itself partway through the $497 seats.
+ *
+ * When the worker cannot be reached this answers **yes**. The plan is the product that outlasts every founding
+ * offer, and a pricing page that hid it on a network blip would have nothing on it to buy at all. Signing up
+ * charges nothing by itself, so the cost of being wrong for a minute is a sign-up, not a sale.
+ */
+export function monthlyOnSale(counts: readonly FoundingCount[] | null): boolean {
+  if (counts === null) return true;
+  return counts.some((c) => c.billing === 'monthly' && c.status === 'open');
 }

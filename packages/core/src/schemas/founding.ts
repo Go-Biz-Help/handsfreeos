@@ -32,6 +32,8 @@ export const applicationStatus = z.enum([
   'withdrawn',
 ]);
 export const offerStatus = z.enum(['draft', 'open', 'closed']);
+/** `once` is a founding seat, free or paid once. `monthly` is the plan: no seats, no applications (0092). */
+export const offerBilling = z.enum(['once', 'monthly']);
 export const planKind = z.enum(['founding_free', 'founding_lifetime', 'monthly']);
 export const planStatus = z.enum(['active', 'grace', 'past_due', 'canceled']);
 
@@ -145,6 +147,12 @@ export const FoundingOfferOutput = z.strictObject({
   claimed: z.int(),
   remaining: z.int(),
   priceCents: z.int(),
+  billing: offerBilling,
+  /** What opens this one on its own. Null: only a person does. */
+  opensAfterOfferId: offerId.nullable(),
+  /** How many of that offer's seats first. Null with an offer set: when that offer is full. */
+  opensAfterCount: z.int().nullable(),
+  openedAt: z.iso.datetime().nullable(),
 });
 
 // ---------- reading ----------
@@ -162,6 +170,14 @@ export const FoundingCountsOutput = z.strictObject({
       seatCap: z.int(),
       claimed: z.int(),
       remaining: z.int(),
+      billing: offerBilling,
+      /** Whether its numbers are for printing. Off for the monthly plan, whose seat count means nothing. */
+      showCounter: z.boolean(),
+      /**
+       * A later founding offer has opened after this one, so it is no longer what is on sale — a seat freed in
+       * it goes to somebody on the waitlist, not back on the website. The monthly plan never supersedes.
+       */
+      superseded: z.boolean(),
     }),
   ),
   generatedAt: z.iso.datetime(),
