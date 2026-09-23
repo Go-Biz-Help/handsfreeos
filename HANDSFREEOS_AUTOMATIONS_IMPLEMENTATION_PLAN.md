@@ -119,7 +119,20 @@ reacts to an event · **T** AI teammate change.
    **c. Maintenance due** — `services.repeat_months`, a plan's service and `visit_every_months`, a customer's own
    `app.service_schedules`, the daily `automations.maintenance` job with `app.maintenance_reminders`, and the
    Action Center kind `maintenance_due`.
-3. **a. Briefings** — the morning email's additions and the evening email. **b. Pipeline and jobs.**
+3. **a. Briefings** — the morning email's additions and the evening email. **b. Pipeline and jobs**
+   (Chris, 2026-09-23):
+   - **Moving deals** also marks them **won** when the customer says yes: the quote is accepted, or the job is
+     done. Always noted on the timeline, forward only.
+   - **Someone really talking with you** (a back-and-forth, or a real call) who has no open deal gets a lead made
+     for them in the first stage, with the reason noted.
+   - **Went quiet after a price**: a Home card 2 days after a price with no reply; the follow-up texts carry on.
+   - **Wrong stage**: when a deal's stage disagrees with what happened and it couldn't move itself, a card with a
+     one-tap move.
+   - **Job check**: 30 minutes after a job ends, the staff member on it gets a push (Done / Didn't happen / Still
+     there). Unanswered, a second push that evening; then the owner's morning email and a Home card.
+   - **Booked, never completed**: a card 3 days after the job's time.
+   - **No address**: for services done at the customer's address, a card 2 days before; it clears when the
+     address is added.
 4. **a. Service, handoffs and revenue.** **b. Health.**
 5. **Outreach campaigns.**
 
