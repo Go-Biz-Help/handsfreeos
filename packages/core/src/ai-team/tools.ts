@@ -150,6 +150,9 @@ export const TEAMMATE_TOOLS = [
       postalCode: zip
         .optional()
         .describe('The customer’s ZIP code, needed on a calendar that goes by ZIP code'),
+      address: optionalText(300).describe(
+        'The customer’s street address with city, needed on a calendar that goes by distance or a drawn area',
+      ),
     }),
     skill: 'book',
     autonomy: 'auto',
@@ -157,8 +160,13 @@ export const TEAMMATE_TOOLS = [
   define({
     name: 'check_service_area',
     description:
-      'Whether the business serves a ZIP code, and which of your calendars do. Ask for their ZIP and check it before offering times for a visit at their place.',
-    input: z.strictObject({ postalCode: zip }),
+      'Whether the business serves the customer, and which of your calendars do: by their ZIP code, or by their street address where the business’s areas go by distance or a drawn map area. Ask for it and check before offering times for a visit at their place.',
+    input: z
+      .strictObject({
+        postalCode: zip.optional(),
+        address: optionalText(300).describe('Their street address with city'),
+      })
+      .refine((v) => !!v.postalCode || !!v.address, { error: 'Give their ZIP code or address.' }),
     skill: 'book',
     autonomy: 'auto',
   }),

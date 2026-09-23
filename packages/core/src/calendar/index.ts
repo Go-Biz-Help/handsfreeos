@@ -18,3 +18,4 @@ export * from './layout';
 export * from './when';
 export * from './agenda';
 export * from './reminder-words';
+export * from './areas';

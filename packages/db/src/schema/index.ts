@@ -9,6 +9,7 @@ import {
   char,
   customType,
   date,
+  doublePrecision,
   jsonb,
   integer,
   numeric,
@@ -1443,6 +1444,23 @@ export const territories = app.table('territories', {
     .default(sql`'{}'`),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  // M18: zip, radius (miles from a point) or polygon (corners drawn on the map).
+  kind: text('kind').notNull().default('zip'),
+  centerAddress: text('center_address'),
+  centerLat: doublePrecision('center_lat'),
+  centerLng: doublePrecision('center_lng'),
+  radiusMiles: numeric('radius_miles', { precision: 6, scale: 2 }),
+  /** [[lat, lng], …]. */
+  polygon: jsonb('polygon').$type<[number, number][]>(),
+});
+
+/** M18: an address the worker looked up once (hashed) and where it is. The worker's only. */
+export const geocodes = app.table('geocodes', {
+  queryHash: text('query_hash').primaryKey(),
+  lat: doublePrecision('lat').notNull(),
+  lng: doublePrecision('lng').notNull(),
+  postalCode: text('postal_code'),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 export const territoryMembers = app.table(

@@ -34,6 +34,7 @@ import { createSupabaseStore, unconfiguredStore } from './storage';
 import { ensurePlatformOwners } from './support/owners';
 import { createTelephony } from './telephony/index';
 import { createSiteHost } from './hosting';
+import { createGeocoder } from './geo/geocoder';
 import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
@@ -67,6 +68,7 @@ const services: EngineServices = {
   publicUrl: env.publicUrl,
   telephony,
   transcriber: createTranscriber(env, log, telephony),
+  geocoder: createGeocoder(env, log),
   siteHost: createSiteHost(env),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),

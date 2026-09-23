@@ -38,7 +38,7 @@ export interface ApiEnv {
 // EXPO_TOKEN can build and publish the app. EXPO_PUBLIC_* names are left alone: Expo writes those into the phone
 // app itself, so they are public by design, and a shell set up for the app may have them.
 const FORBIDDEN =
-  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
+  /SECRET|SERVICE_ROLE|SIGNING_KEY|ENCRYPTION_KEY|^TWILIO_|^POSTMARK_|^TURNSTILE_|^(?!CLAUDE_CODE_).*_OAUTH_|^(ANTHROPIC|OPENAI|DEEPGRAM)_|^CHAT_IP_KEY$|^GOOGLE_MAPS_SERVER_KEY$|^STRIPE_|^SQUARE_|^PAYMENTS_|^PAYPAL_|^NMI_|^AUTHORIZE_NET_|^EXPO_(?!PUBLIC_)/i;
 
 /** Reads and validates the API process environment. Refuses to boot with privileged keys present. */
 export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {

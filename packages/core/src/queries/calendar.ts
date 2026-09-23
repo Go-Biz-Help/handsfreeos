@@ -252,6 +252,7 @@ export const calendarAvailability = defineQuery({
         durationMinutes: input.durationMinutes,
         partySize: input.partySize,
         postalCode: input.postalCode ?? null,
+        point: input.point ?? null,
         chosenUserId: input.chosenUserId ?? null,
         locationKind: input.locationKind,
       },
@@ -861,7 +862,12 @@ export const territoryList = defineQuery({
       items: list.map((t) => ({
         id: t.id,
         name: t.name,
+        kind: t.kind,
         postalCodes: [...t.postalCodes],
+        centerAddress: t.centerAddress,
+        center: t.center,
+        radiusMiles: t.radiusMiles,
+        polygon: t.polygon ? t.polygon.map(([a, b]) => [a, b]) : null,
         userIds: [...t.userIds],
       })),
     };

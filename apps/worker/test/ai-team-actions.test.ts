@@ -272,6 +272,30 @@ const RULES: TeammateRule[] = [
     },
   },
   {
+    when: /come to (.+) for a repair/i,
+    step: (t) => {
+      const address = /come to (.+) for a repair/i.exec(t.words)![1]!;
+      if (!t.results['check_service_area'])
+        return { calls: [{ name: 'check_service_area', arguments: { address } }] };
+      if (t.results['check_service_area'].at(-1)!['served'] !== true)
+        return { calls: [{ name: 'reply', arguments: { message: 'Sorry, we do not go there.' } }] };
+      if (!t.results['find_times'])
+        return {
+          calls: [
+            {
+              name: 'find_times',
+              arguments: {
+                calendarId: calendarIdIn(t.context, 'Repairs'),
+                from: localDateOf(at(3, '00:00'), CHI),
+                address,
+              },
+            },
+          ],
+        };
+      return { calls: [{ name: 'reply', arguments: { message: 'I have times for you.' } }] };
+    },
+  },
+  {
     when: /next visit/i,
     step: (t) =>
       t.tools.has('send_verification_code') && !t.results['send_verification_code']
@@ -669,5 +693,50 @@ describe('adding to a visit', () => {
     expect((await aiMessages(then.conversationId)).at(-1)!.body_text).toBe(
       'Got it, I added that to your visit.',
     );
+  });
+});
+
+// Last in the file: a distance area makes the ZIP calendar go by address for every test after it.
+describe('service areas by distance', () => {
+  it('checks the customer’s address, and finds times there', async () => {
+    await run(w, territoryCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Around the office',
+      shape: {
+        kind: 'radius',
+        address: '1500 Marilla St, Dallas',
+        lat: 32.7767,
+        lng: -96.797,
+        miles: 15,
+      },
+      userIds: [w.owner.id],
+    });
+    const near = await newCustomer(w, 'Dot');
+    const a = await textIn(w, near.phone, 'Can you come to 1500 Marilla St, Dallas for a repair?');
+    await replyNow(w, a.conversationId);
+    const [ra] = await runsOf(a.conversationId);
+    const callsA = await toolCallsOf(ra!.id);
+    expect(callsA.find((x) => x.tool === 'check_service_area')!.result).toMatchObject({
+      content: { served: true },
+    });
+    const times = callsA.find((x) => x.tool === 'find_times');
+    expect(times).toMatchObject({ status: 'done' });
+    expect(
+      (times!.result as { content: { times: unknown[] } }).content.times.length,
+    ).toBeGreaterThan(0);
+    const seen = requestAbout(w, '1500 Marilla St')!.context;
+    expect(seen).toContain('goes by where they are');
+
+    const far = await newCustomer(w, 'Eli');
+    const b = await textIn(
+      w,
+      far.phone,
+      'Can you come to 1 Congress Ave, Austin @30.27,-97.74 for a repair?',
+    );
+    await replyNow(w, b.conversationId);
+    await drain(w);
+    expect((await aiReplies(b.conversationId)).map((x) => x.body_text)).toEqual([
+      'Sorry, we do not go there.',
+    ]);
   });
 });

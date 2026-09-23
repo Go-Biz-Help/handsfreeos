@@ -479,8 +479,14 @@ export function BookingFlow({
   const [party, setParty] = useState(1);
   const maxParty = info.capacity.maxPartySize;
   const zipRouting = info.zipRouting;
+  // M18: areas by distance or drawn on a map go by the street address; the open times say if it's served.
+  const byAddress = !!zipRouting?.byAddress;
+  const [where, setWhere] = useState('');
+  const whereComplete = where.trim().length >= 8 && /\d/.test(where);
   const zipComplete = /^\d{5}$/.test(zip);
-  const zipCovered = !zipRouting || (zipComplete && zipRouting.postalCodes.includes(zip));
+  const zipCovered =
+    !zipRouting ||
+    (byAddress ? whereComplete : zipComplete && zipRouting.postalCodes.includes(zip));
   const chooseLocation = info.customerChoosesLocation && info.locations.length > 1;
   const hasChoices =
     !sessionsMode &&
@@ -516,7 +522,7 @@ export function BookingFlow({
   const maxDate = info.window.dateTo && info.window.dateTo < horizon ? info.window.dateTo : horizon;
   const [slot, setSlot] = useState<PublicSlot | null>(null);
   const [noTimes, setNoTimes] = useState(false);
-  const loadKey = JSON.stringify([serviceId, duration, party, zip, personId, locationKind]);
+  const loadKey = JSON.stringify([serviceId, duration, party, zip, where, personId, locationKind]);
   const load = useCallback(
     (from: string, to: string) =>
       getOpenTimes(site, calendarSlug, {
@@ -525,7 +531,8 @@ export function BookingFlow({
         serviceId,
         durationMinutes: sessionsMode ? undefined : duration,
         partySize: party,
-        postalCode: zipRouting ? zip : null,
+        postalCode: zipRouting && !byAddress ? zip : null,
+        address: byAddress ? where.trim() : null,
         chosenUserId: personId || null,
         locationKind,
       }),
@@ -537,7 +544,9 @@ export function BookingFlow({
       duration,
       party,
       zipRouting,
+      byAddress,
       zip,
+      where,
       personId,
       locationKind,
     ],
@@ -677,8 +686,8 @@ export function BookingFlow({
         durationMinutes: sessionsMode ? undefined : duration,
         partySize: party,
         locationKind,
-        address: needsAddress ? form.address.trim() || null : null,
-        postalCode: zipRouting ? zip : null,
+        address: needsAddress || byAddress ? form.address.trim() || where.trim() || null : null,
+        postalCode: zipRouting && !byAddress ? zip : null,
         chosenUserId: personId || null,
         name: form.name,
         phone: form.phone.trim() || null,
@@ -926,7 +935,24 @@ export function BookingFlow({
     content = (
       <>
         <StepHead label={stepLabel} title={page.calendar.name} sub={page.calendar.description} />
-        {zipRouting ? (
+        {byAddress ? (
+          <div>
+            <Label htmlFor="bk-where">Your street address</Label>
+            <Input
+              id="bk-where"
+              autoComplete="street-address"
+              placeholder="123 Main St, Dallas, TX 75201"
+              value={where}
+              onChange={(e) => {
+                setWhere(e.target.value);
+                set('address')(e.target.value);
+              }}
+            />
+            <p className="mt-1.5 text-xs text-text-3">
+              We check it against where we go. The times you see next are for your address.
+            </p>
+          </div>
+        ) : zipRouting ? (
           <div>
             <div className="flex items-center gap-2.5">
               <Label htmlFor="bk-zip" className="mb-0 flex-1">

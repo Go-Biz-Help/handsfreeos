@@ -82,10 +82,25 @@ export const catalogs: CalendarCatalogs = {
     {
       id: NORTH,
       name: 'North Dallas',
+      kind: 'zip' as const,
+      centerAddress: null,
+      center: null,
+      radiusMiles: null,
+      polygon: null,
       postalCodes: ['75201', '75202'],
       userIds: [DALE, PRIYA, MARCO],
     },
-    { id: SOUTH, name: 'South Dallas', postalCodes: ['75215'], userIds: [MARCO] },
+    {
+      id: SOUTH,
+      name: 'South Dallas',
+      kind: 'zip' as const,
+      centerAddress: null,
+      center: null,
+      radiusMiles: null,
+      polygon: null,
+      postalCodes: ['75215'],
+      userIds: [MARCO],
+    },
   ],
   pipelines: [
     {

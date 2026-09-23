@@ -46,7 +46,7 @@ Carried over from M7, not re-asked:
 | -------------------------------------- | ---------------------------------------------------------------------------- |
 | Open times, book, move, cancel         | Works (`find_times`, `book`, `reschedule`, `cancel`)                         |
 | Find their appointments                | Upcoming only (`my_appointments`)                                            |
-| Add to an appointment                  | Not built: a visit holds one service                                         |
+| Add to an appointment                  | Not built: a visit holds one service (M18 step 2: built)                     |
 | Service area                           | ZIP territories exist (`app.territories`); the teammate reads only free text |
 | Waitlist                               | Built (`waitlist.*`); not the teammate's                                     |
 | Repeat visits / plans                  | Built (`series.create`, `subscription.start`); not the teammate's            |
@@ -137,21 +137,48 @@ Build order for step 1 (all done, 2026-09-22):
 9. Alerts: push and text on hand-off
 10. The prompt, the scripted provider for tests, docs
 
-### Step 2 — Small new pieces
+### Step 2 — Small new pieces (all done, 2026-09-23)
 
-- **Offers list**: `app.offers` (name, details, starts, ends, active); a screen under Knowledge; the
-  brief lists live offers; the teammate shares them and never invents one.
-- **Service areas, three ways**: `app.service_areas` with kind `zip` · `radius` (address, miles) ·
-  `polygon` (drawn on a map), several per business, each optionally tied to calendars. ZIP
-  territories move across. Addresses are geocoded once and kept.
-- **More on one visit**: `appointment_services` (extra services, their time and price);
-  `add_to_appointment` for a service, a person (`appointment.add_attendee`) or notes (gate code,
-  pets, what's wrong).
-- **Past visits**: `my_appointments` takes `when: 'past'`; the brief carries the last visit.
-- **Reply in their language**: the prompt answers in the customer's language; hand-off lines and the
-  STOP wording are translated from a fixed list, never by the model.
-- **Chat verification**: a code texted to the phone on file lifts the website chat's limits for that
-  conversation.
+- **Offers list** (migration 0093): `app.offers` (name, details, starts on, ends on). There is a screen
+  under Knowledge → Offers. The brief lists the offers running today (at most 10), and the teammate
+  never makes one up.
+- **Past visits**: `my_appointments` takes `when: 'past'`, with how each visit went. The brief carries
+  their last visit.
+- **Reply in their language** (0094):
+  - `reply` and `hand_off` say the language the customer writes in, and it is kept on
+    `conversations.language`.
+  - The hand-off line and the emergency steps are translated once per English text and language by
+    the `ai_teammate.translate` job, into `app.fixed_text_translations`. They are never written by the
+    model as it goes.
+  - A teammate's own `translatedLine` is used when it passes the check (words only).
+  - The emergency text always ends with the English.
+- **Chat verification** (0095):
+  - In a chat matched to a customer, `send_verification_code` sends a six-digit code to the phone on
+    file (the email on file when the business can't text), never to anything the visitor typed.
+  - `check_verification_code` makes the chat theirs for 12 hours (`chat_visitors.verified_person_id`).
+    The run then starts over with their bookings, bills and quotes.
+  - Only a hash of the code is kept. A code lasts 10 minutes, a visitor gets 3 codes an hour, and 5
+    wrong tries end a code.
+- **More on one visit** (0096): `add_to_appointment` → `appointment.add_for_customer` adds one of:
+  - another service from the calendar: the visit runs longer when the team and resources are free, at
+    the price list's price, recorded in `app.appointment_services`
+  - more people, on a visit with seats left
+  - a note for the team
+
+  It is tried in a savepoint first, so the teammate knows the change fits before it says so. It is held
+  like a reschedule. The calendar sheet shows the added services.
+
+- **Service areas, three ways** (0097):
+  - A territory is now `zip`, `radius` (miles from a point, with the address it was found from) or
+    `polygon` (corners drawn on the map). There can be several, each with its people.
+  - Scheduling routes by the customer's ZIP for ZIP areas, and by where their address is for the
+    others (`areaCovers`).
+  - The worker looks addresses up with Google's Geocoding API (`GOOGLE_MAPS_SERVER_KEY`) and keeps
+    each one in `app.geocodes`.
+  - The teammate's `find_times` and `check_service_area` take the street address.
+  - The booking page asks for the full address when a calendar has a distance or drawn area.
+  - The settings screen draws areas on a Google map (`NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`).
+  - Without the keys, only ZIP areas are offered.
 
 ### Step 3 — Photos
 

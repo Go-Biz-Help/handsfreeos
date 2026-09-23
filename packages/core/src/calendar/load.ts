@@ -6,6 +6,7 @@
  *
  * Raw queries return epoch milliseconds as float8: Drizzle leaves timestamptz as text in raw results.
  */
+import type { GeoPoint } from './areas';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
@@ -282,7 +283,13 @@ export async function loadTerritories(tx: Tx, workspaceId: string): Promise<Cata
   return list.map((t) => ({
     id: t.id,
     name: t.name,
+    kind: (t.kind as CatalogTerritory['kind']) ?? 'zip',
     postalCodes: t.postalCodes,
+    centerAddress: t.centerAddress,
+    center:
+      t.centerLat !== null && t.centerLng !== null ? { lat: t.centerLat, lng: t.centerLng } : null,
+    radiusMiles: t.radiusMiles === null ? null : Number(t.radiusMiles),
+    polygon: t.polygon ?? null,
     userIds: members.filter((m) => m.territoryId === t.id).map((m) => m.userId),
   }));
 }
@@ -805,6 +812,8 @@ export interface SlotRequest {
   readonly durationMinutes?: number;
   readonly partySize?: number;
   readonly postalCode?: string | null;
+  /** M18: where the customer's address is, for distance and drawn service areas. */
+  readonly point?: GeoPoint | null;
   readonly chosenUserId?: string | null;
   /** undefined: the calendar's first location. */
   readonly locationKind?: LocationKind | null;
@@ -932,6 +941,7 @@ export async function loadSlotInput(
     partySize: req.partySize ?? 1,
     locationKind,
     postalCode: req.postalCode ?? null,
+    point: req.point ?? null,
     chosenUserId: req.chosenUserId ?? null,
     calendarWindows,
     serviceWindows,

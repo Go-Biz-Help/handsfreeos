@@ -134,7 +134,13 @@ function skillLines(rc: RunContext): string[] {
       const extras = c.deposit
         ? []
         : [
-            ...(c.byZip ? ['goes by ZIP code: ask for their ZIP and give it to find_times'] : []),
+            ...(c.byAddress
+              ? [
+                  'goes by where they are: ask for their street address and city and give it to find_times',
+                ]
+              : c.byZip
+                ? ['goes by ZIP code: ask for their ZIP and give it to find_times']
+                : []),
             ...(config.book.waitlist && c.waitlist
               ? ['keeps a waitlist (join_waitlist) for when nothing open suits them']
               : []),

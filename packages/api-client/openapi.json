@@ -11499,7 +11499,7 @@
     "/v1/commands/territory.create": {
       "post": {
         "operationId": "command_territory_create",
-        "summary": "Add a territory: a list of ZIP codes and the people who cover them.",
+        "summary": "Add a service area (territory) and the people who cover it: a list of ZIP codes, so many miles from an address, or a shape drawn on the map.",
         "tags": [
           "commands"
         ],
@@ -11529,6 +11529,103 @@
                       "type": "string",
                       "pattern": "^\\d{5}$"
                     }
+                  },
+                  "shape": {
+                    "default": {
+                      "kind": "zip"
+                    },
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "zip"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "radius"
+                            ]
+                          },
+                          "address": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "miles": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 250
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "address",
+                          "lat",
+                          "lng",
+                          "miles"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "polygon"
+                            ]
+                          },
+                          "corners": {
+                            "minItems": 3,
+                            "maxItems": 200,
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "prefixItems": [
+                                {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                }
+                              ],
+                              "items": false,
+                              "minItems": 2,
+                              "maxItems": 2
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "corners"
+                        ]
+                      }
+                    ]
                   },
                   "userIds": {
                     "default": [],
@@ -11577,7 +11674,7 @@
     "/v1/commands/territory.update": {
       "post": {
         "operationId": "command_territory_update",
-        "summary": "Rename a territory or change its ZIP codes or people.",
+        "summary": "Rename a service area (territory) or change what it covers (its ZIP codes, distance or drawn shape) or its people.",
         "tags": [
           "commands"
         ],
@@ -11611,6 +11708,100 @@
                       "type": "string",
                       "pattern": "^\\d{5}$"
                     }
+                  },
+                  "shape": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "zip"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "radius"
+                            ]
+                          },
+                          "address": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          },
+                          "miles": {
+                            "type": "number",
+                            "minimum": 0.1,
+                            "maximum": 250
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "address",
+                          "lat",
+                          "lng",
+                          "miles"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "polygon"
+                            ]
+                          },
+                          "corners": {
+                            "minItems": 3,
+                            "maxItems": 200,
+                            "type": "array",
+                            "items": {
+                              "type": "array",
+                              "prefixItems": [
+                                {
+                                  "type": "number",
+                                  "minimum": -90,
+                                  "maximum": 90
+                                },
+                                {
+                                  "type": "number",
+                                  "minimum": -180,
+                                  "maximum": 180
+                                }
+                              ],
+                              "items": false,
+                              "minItems": 2,
+                              "maxItems": 2
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "corners"
+                        ]
+                      }
+                    ]
                   },
                   "userIds": {
                     "maxItems": 100,
@@ -54995,6 +55186,32 @@
                       }
                     ]
                   },
+                  "point": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          }
+                        },
+                        "required": [
+                          "lat",
+                          "lng"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "chosenUserId": {
                     "anyOf": [
                       {
@@ -57380,11 +57597,72 @@
                           "name": {
                             "type": "string"
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "zip",
+                              "radius",
+                              "polygon"
+                            ]
+                          },
                           "postalCodes": {
                             "type": "array",
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "centerAddress": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "center": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lat": {
+                                    "type": "number"
+                                  },
+                                  "lng": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "lat",
+                                  "lng"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "radiusMiles": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "polygon": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "minItems": 2,
+                                  "maxItems": 2,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  }
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "userIds": {
                             "type": "array",
@@ -57398,7 +57676,12 @@
                         "required": [
                           "id",
                           "name",
+                          "kind",
                           "postalCodes",
+                          "centerAddress",
+                          "center",
+                          "radiusMiles",
+                          "polygon",
                           "userIds"
                         ],
                         "additionalProperties": false
@@ -64170,6 +64453,34 @@
                                             }
                                           ]
                                         },
+                                        "point": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "lat": {
+                                                  "type": "number",
+                                                  "minimum": -90,
+                                                  "maximum": 90
+                                                },
+                                                "lng": {
+                                                  "type": "number",
+                                                  "minimum": -180,
+                                                  "maximum": 180
+                                                }
+                                              },
+                                              "required": [
+                                                "lat",
+                                                "lng"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "summary": {
                                           "default": "",
                                           "type": "string",
@@ -64185,6 +64496,7 @@
                                         "sessionId",
                                         "notes",
                                         "postalCode",
+                                        "point",
                                         "summary"
                                       ],
                                       "additionalProperties": false
@@ -64276,6 +64588,34 @@
                                             }
                                           ]
                                         },
+                                        "point": {
+                                          "default": null,
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "lat": {
+                                                  "type": "number",
+                                                  "minimum": -90,
+                                                  "maximum": 90
+                                                },
+                                                "lng": {
+                                                  "type": "number",
+                                                  "minimum": -180,
+                                                  "maximum": 180
+                                                }
+                                              },
+                                              "required": [
+                                                "lat",
+                                                "lng"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
                                         "summary": {
                                           "default": "",
                                           "type": "string",
@@ -64293,6 +64633,7 @@
                                         "times",
                                         "notes",
                                         "postalCode",
+                                        "point",
                                         "summary"
                                       ],
                                       "additionalProperties": false

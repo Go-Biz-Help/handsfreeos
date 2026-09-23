@@ -14,14 +14,26 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { TerritoryItem } from '@/lib/api/types';
+import { findPlace, mapsKey, type LatLngLiteral } from '@/lib/maps/google';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { AreaMap } from './area-map';
 
 /** Five-digit ZIP codes found in some text ("77002, 77003 77004"). */
 export function zipsIn(text: string): string[] {
   return [...new Set((text.match(/\d{5}/g) ?? []).map((z) => z))];
 }
 
-/** Settings → Calendars → Territories: ZIP code lists and who covers them. */
+/** "10 miles from 1500 Marilla St", "An area drawn on the map (6 corners)". */
+export function areaSummary(
+  t: Pick<TerritoryItem, 'kind' | 'radiusMiles' | 'centerAddress' | 'polygon' | 'postalCodes'>,
+): string {
+  if (t.kind === 'radius')
+    return `${t.radiusMiles ?? 0} miles from ${t.centerAddress ?? 'a point on the map'}`;
+  if (t.kind === 'polygon') return `An area drawn on the map (${t.polygon?.length ?? 0} corners)`;
+  return `${t.postalCodes.length} ZIP code${t.postalCodes.length === 1 ? '' : 's'}`;
+}
+
+/** Settings → Calendars → Territories: ZIP code lists, distances and drawn areas, and who covers them. */
 export function TerritoriesPage({
   workspaceId,
   territories,
@@ -51,7 +63,9 @@ export function TerritoriesPage({
   }
   async function remove(t: TerritoryItem) {
     if (
-      !confirm(`Delete ${t.name}? Calendars routing by ZIP stop sending its codes to its people.`)
+      !confirm(
+        `Delete ${t.name}? Calendars that route by service area stop sending visits there to its people.`,
+      )
     )
       return;
     try {
@@ -76,7 +90,8 @@ export function TerritoriesPage({
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Territories</h2>
             <p className="mt-1 text-[13px] text-text-2">
-              ZIP codes and the people who cover them, for calendars that route by ZIP.
+              Where you go and who covers it, for calendars that route by service area: a list of
+              ZIP codes, so many miles from an address, or an area drawn on a map.
             </p>
           </div>
           <Button variant="secondary" size="sm" onClick={() => setEditing('new')}>
@@ -86,7 +101,8 @@ export function TerritoriesPage({
         </div>
         {territories.length === 0 ? (
           <EmptyState title="No territories yet" className="mt-3 border-t border-border">
-            A territory is a list of ZIP codes and the people who go there.
+            A territory is where you go (ZIP codes, a distance, or an area on the map) and the
+            people who go there.
           </EmptyState>
         ) : (
           <ul className="mt-1.5">
@@ -122,73 +138,79 @@ export function TerritoriesPage({
                     </Button>
                   </span>
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-[5px]">
-                  {t.postalCodes.map((z) => (
-                    <span
-                      key={z}
-                      className="inline-flex h-6 items-center gap-1 rounded-[6px] border border-border bg-card-2 pl-2 pr-1 font-mono text-xs"
-                    >
-                      {z}
-                      <button
-                        type="button"
-                        aria-label={`Remove ${z} from ${t.name}`}
-                        className="text-text-3 hover:text-text"
-                        onClick={() =>
-                          void update(
-                            t,
-                            t.postalCodes.filter((x) => x !== z),
-                          )
-                        }
+                {t.kind !== 'zip' ? (
+                  <p className="mt-1 text-[12.5px] text-text-2" data-testid="area-summary">
+                    {areaSummary(t)}
+                  </p>
+                ) : (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-[5px]">
+                    {t.postalCodes.map((z) => (
+                      <span
+                        key={z}
+                        className="inline-flex h-6 items-center gap-1 rounded-[6px] border border-border bg-card-2 pl-2 pr-1 font-mono text-xs"
                       >
-                        <X className="h-3 w-3" strokeWidth={1.75} />
-                      </button>
-                    </span>
-                  ))}
-                  {adding === t.id ? (
-                    <form
-                      className="flex items-center gap-1"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const extra = zipsIn(zipText).filter((z) => !t.postalCodes.includes(z));
-                        if (extra.length) void update(t, [...t.postalCodes, ...extra]);
-                        setAdding(null);
-                        setZipText('');
-                      }}
-                    >
-                      <Input
-                        inputSize="sm"
-                        autoFocus
-                        className="h-7 w-[150px] font-mono text-xs"
-                        placeholder="77002, 77003"
-                        aria-label={`ZIP codes to add to ${t.name}`}
-                        value={zipText}
-                        onChange={(e) => setZipText(e.target.value)}
-                      />
-                      <Button type="submit" size="sm" className="h-7">
-                        Add
+                        {z}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${z} from ${t.name}`}
+                          className="text-text-3 hover:text-text"
+                          onClick={() =>
+                            void update(
+                              t,
+                              t.postalCodes.filter((x) => x !== z),
+                            )
+                          }
+                        >
+                          <X className="h-3 w-3" strokeWidth={1.75} />
+                        </button>
+                      </span>
+                    ))}
+                    {adding === t.id ? (
+                      <form
+                        className="flex items-center gap-1"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const extra = zipsIn(zipText).filter((z) => !t.postalCodes.includes(z));
+                          if (extra.length) void update(t, [...t.postalCodes, ...extra]);
+                          setAdding(null);
+                          setZipText('');
+                        }}
+                      >
+                        <Input
+                          inputSize="sm"
+                          autoFocus
+                          className="h-7 w-[150px] font-mono text-xs"
+                          placeholder="77002, 77003"
+                          aria-label={`ZIP codes to add to ${t.name}`}
+                          value={zipText}
+                          onChange={(e) => setZipText(e.target.value)}
+                        />
+                        <Button type="submit" size="sm" className="h-7">
+                          Add
+                        </Button>
+                      </form>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-xs"
+                        onClick={() => {
+                          setAdding(t.id);
+                          setZipText('');
+                        }}
+                      >
+                        <Plus className="h-3 w-3" strokeWidth={1.75} />
+                        ZIP
                       </Button>
-                    </form>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-1.5 text-xs"
-                      onClick={() => {
-                        setAdding(t.id);
-                        setZipText('');
-                      }}
-                    >
-                      <Plus className="h-3 w-3" strokeWidth={1.75} />
-                      ZIP
-                    </Button>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
         )}
         <p className="mt-1 text-[12.5px] text-text-3">
-          A ZIP can be in more than one area. Anyone outside every area is asked to call.
+          A place can be in more than one area. Anyone outside every area is asked to call.
         </p>
       </Card>
       {editing ? (
@@ -203,6 +225,13 @@ export function TerritoriesPage({
   );
 }
 
+type Kind = TerritoryItem['kind'];
+const KIND_LABEL: Record<Kind, string> = {
+  zip: 'ZIP codes',
+  radius: 'Distance',
+  polygon: 'Draw on map',
+};
+
 function TerritoryDialog({
   workspaceId,
   territory,
@@ -215,15 +244,73 @@ function TerritoryDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const withMap = !!mapsKey();
   const [name, setName] = useState(territory?.name ?? '');
+  const [kind, setKind] = useState<Kind>(territory?.kind ?? 'zip');
   const [zips, setZips] = useState(territory?.postalCodes.join(', ') ?? '');
+  const [address, setAddress] = useState(territory?.centerAddress ?? '');
+  const [center, setCenter] = useState<LatLngLiteral | null>(territory?.center ?? null);
+  const [miles, setMiles] = useState(String(territory?.radiusMiles ?? 15));
+  const [corners, setCorners] = useState<LatLngLiteral[]>(
+    (territory?.polygon ?? []).map(([lat, lng]) => ({ lat: lat ?? 0, lng: lng ?? 0 })),
+  );
+  const [focus, setFocus] = useState<LatLngLiteral | null>(null);
+  const [finding, setFinding] = useState(false);
   const [userIds, setUserIds] = useState<string[]>(territory?.userIds ?? []);
   const [busy, setBusy] = useState(false);
+  const milesValue = Number(miles);
+  const milesOk = Number.isFinite(milesValue) && milesValue >= 0.1 && milesValue <= 250;
+
+  async function find() {
+    if (!address.trim()) return;
+    setFinding(true);
+    try {
+      const found = await findPlace(address.trim());
+      if (!found) {
+        toast.error('That address wasn’t found on the map. Check it and try again.');
+        return;
+      }
+      setFocus(found.point);
+      if (kind === 'radius') {
+        setCenter(found.point);
+        setAddress(found.formatted);
+      }
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setFinding(false);
+    }
+  }
+
+  const ready =
+    !!name.trim() &&
+    (kind === 'zip' || (kind === 'radius' ? !!center && milesOk : corners.length >= 3));
 
   async function save() {
     setBusy(true);
     try {
-      const body = { workspaceId, name: name.trim(), postalCodes: zipsIn(zips), userIds };
+      const shape =
+        kind === 'radius' && center
+          ? {
+              kind: 'radius' as const,
+              address: address.trim(),
+              lat: center.lat,
+              lng: center.lng,
+              miles: milesValue,
+            }
+          : kind === 'polygon'
+            ? {
+                kind: 'polygon' as const,
+                corners: corners.map((c) => [c.lat, c.lng] as [number, number]),
+              }
+            : { kind: 'zip' as const };
+      const body = {
+        workspaceId,
+        name: name.trim(),
+        postalCodes: kind === 'zip' ? zipsIn(zips) : [],
+        shape,
+        userIds,
+      };
       if (territory)
         unwrap(
           await apiBrowser().POST('/v1/commands/territory.update', {
@@ -254,18 +341,135 @@ function TerritoryDialog({
               onChange={(e) => setName(e.target.value)}
             />
           </Field>
-          <Field
-            label="ZIP codes"
-            htmlFor="territory-zips"
-            hint={`${zipsIn(zips).length} ZIP codes. Separate them with commas, spaces or new lines.`}
-          >
-            <Textarea
-              id="territory-zips"
-              value={zips}
-              className="font-mono text-[13px]"
-              onChange={(e) => setZips(e.target.value)}
-            />
-          </Field>
+          <div>
+            <Label>Where it covers</Label>
+            <div className="flex gap-1.5" role="radiogroup" aria-label="Where it covers">
+              {(['zip', 'radius', 'polygon'] as const).map((k) => (
+                <Button
+                  key={k}
+                  type="button"
+                  size="sm"
+                  variant={kind === k ? 'primary' : 'secondary'}
+                  role="radio"
+                  aria-checked={kind === k}
+                  disabled={k !== 'zip' && !withMap}
+                  onClick={() => setKind(k)}
+                  data-testid={`area-kind-${k}`}
+                >
+                  {KIND_LABEL[k]}
+                </Button>
+              ))}
+            </div>
+            {!withMap ? (
+              <p className="mt-1.5 text-xs text-text-3">
+                Distance and drawn areas need a Google Maps key. Ask whoever set up HandsFreeOS to
+                add one.
+              </p>
+            ) : null}
+          </div>
+          {kind === 'zip' ? (
+            <Field
+              label="ZIP codes"
+              htmlFor="territory-zips"
+              hint={`${zipsIn(zips).length} ZIP codes. Separate them with commas, spaces or new lines.`}
+            >
+              <Textarea
+                id="territory-zips"
+                value={zips}
+                className="font-mono text-[13px]"
+                onChange={(e) => setZips(e.target.value)}
+              />
+            </Field>
+          ) : (
+            <>
+              <Field
+                label={kind === 'radius' ? 'Measured from' : 'Go to an address'}
+                htmlFor="territory-address"
+                hint={
+                  kind === 'radius'
+                    ? 'Usually your shop or office. Find it, then set how far you go.'
+                    : 'Then click the map to add each corner of the area, in order.'
+                }
+              >
+                <div className="flex gap-2">
+                  <Input
+                    id="territory-address"
+                    value={address}
+                    maxLength={300}
+                    placeholder="1500 Marilla St, Dallas, TX"
+                    onChange={(e) => setAddress(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void find();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    loading={finding}
+                    onClick={() => void find()}
+                  >
+                    Find
+                  </Button>
+                </div>
+              </Field>
+              {kind === 'radius' ? (
+                <Field label="How far, in miles" htmlFor="territory-miles">
+                  <Input
+                    id="territory-miles"
+                    inputMode="decimal"
+                    className="w-[120px]"
+                    value={miles}
+                    invalid={!milesOk}
+                    onChange={(e) => setMiles(e.target.value)}
+                  />
+                </Field>
+              ) : null}
+              <AreaMap
+                kind={kind}
+                center={center}
+                miles={milesOk ? milesValue : 0}
+                corners={corners}
+                focus={focus}
+                onCorner={
+                  kind === 'polygon'
+                    ? (p) => setCorners((cs) => (cs.length >= 200 ? cs : [...cs, p]))
+                    : undefined
+                }
+              />
+              {kind === 'polygon' ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-text-3">
+                    {corners.length < 3
+                      ? `Add at least ${3 - corners.length} more corner${3 - corners.length === 1 ? '' : 's'}.`
+                      : `${corners.length} corners.`}
+                  </span>
+                  <span className="flex gap-1.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={!corners.length}
+                      onClick={() => setCorners((cs) => cs.slice(0, -1))}
+                    >
+                      Undo corner
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={!corners.length}
+                      onClick={() => setCorners([])}
+                    >
+                      Start over
+                    </Button>
+                  </span>
+                </div>
+              ) : null}
+            </>
+          )}
           <div>
             <Label>Who covers it</Label>
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
@@ -288,7 +492,7 @@ function TerritoryDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button loading={busy} disabled={!name.trim()} onClick={() => void save()}>
+          <Button loading={busy} disabled={!ready} onClick={() => void save()}>
             {territory ? 'Save' : 'Add territory'}
           </Button>
         </div>

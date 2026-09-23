@@ -13,6 +13,7 @@ import {
   AppointmentBookOnlineOutput,
   AttendeeCancelOnlineOutput,
   AttendeeRescheduleOnlineOutput,
+  GeoPointInput,
 } from './calendar';
 import { isoDateTime, uuid, workspaceRole } from './common';
 import { ListInput, notApplied, UserRef } from './crm';
@@ -108,6 +109,8 @@ export const DraftAction = z.discriminatedUnion('kind', [
     notes: z.string().trim().max(1000).nullable().default(null),
     /** The ZIP the times were found for, on a calendar that routes by ZIP (M18). */
     postalCode: z.string().trim().max(20).nullable().default(null),
+    /** M18: where their address is, for distance and drawn service areas. */
+    point: GeoPointInput.nullable().default(null),
     summary: z.string().trim().max(300).default(''),
   }),
   /** M18: repeat visits, the first at a time find_times offered. */
@@ -122,6 +125,8 @@ export const DraftAction = z.discriminatedUnion('kind', [
     times: z.int().min(2).max(52),
     notes: z.string().trim().max(1000).nullable().default(null),
     postalCode: z.string().trim().max(20).nullable().default(null),
+    /** M18: where their address is, for distance and drawn service areas. */
+    point: GeoPointInput.nullable().default(null),
     summary: z.string().trim().max(300).default(''),
   }),
   /**
@@ -406,6 +411,7 @@ export const AppointmentBookForCustomerInput = z.object({
   notes: z.string().trim().max(2000).nullable().optional(),
   /** The customer's ZIP, for a calendar that routes by ZIP. */
   postalCode: z.string().trim().max(20).nullable().optional(),
+  point: GeoPointInput.nullable().optional(),
   /** Its idempotency key: a retry books once. */
   clientId,
 });
@@ -423,6 +429,7 @@ export const SeriesBookForCustomerInput = z.object({
   times: z.int().min(2).max(52),
   notes: z.string().trim().max(2000).nullable().optional(),
   postalCode: z.string().trim().max(20).nullable().optional(),
+  point: GeoPointInput.nullable().optional(),
   clientId,
 });
 export const SeriesBookForCustomerOutput = z.object({

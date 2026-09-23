@@ -10,6 +10,8 @@ import { eq } from 'drizzle-orm';
 import {
   allQuestions,
   calendarMostCharged,
+  loadTerritories,
+  needsAddress,
   chatVerified,
   LeadQualification,
   parseStoredForm,
@@ -161,6 +163,8 @@ export interface RunCalendar {
   readonly bookingPath: string | null;
   /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */
   readonly byZip: boolean;
+  /** M18: some of its service areas go by distance or a drawn shape, so find_times needs their address. */
+  readonly byAddress: boolean;
   /** The service areas (territories) it serves when it goes by ZIP; empty means all of them. */
   readonly areaIds: readonly string[];
   /** It keeps a waitlist the teammate may add customers to (M18). */
@@ -547,6 +551,7 @@ async function calendarsOf(
                 where b.workspace_id = ${workspaceId} and b.enabled) as site`,
   );
   const site = row?.site ?? null;
+  const areas = await loadTerritories(tx, workspaceId);
   for (const id of ids) {
     const cal = await loadCalendar(tx, workspaceId, id).catch(() => null);
     if (!cal || cal.status === 'archived') continue;
@@ -571,6 +576,14 @@ async function calendarsOf(
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
       bookingPath: site ? `/book/${site}/${cal.slug}` : null,
       byZip: cal.config.territory.routing === 'zip',
+      byAddress:
+        cal.config.territory.routing === 'zip' &&
+        areas.some(
+          (a) =>
+            needsAddress(a) &&
+            (!cal.config.territory.territoryIds.length ||
+              cal.config.territory.territoryIds.includes(a.id)),
+        ),
       areaIds: cal.config.territory.territoryIds,
       waitlist: cal.config.waitlist.enabled,
       maxRepeats:

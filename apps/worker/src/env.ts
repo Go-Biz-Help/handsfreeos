@@ -51,6 +51,12 @@ export interface WorkerEnv {
   readonly transcriber: 'deepgram' | 'twilio' | 'fake';
   readonly deepgramApiKey: string | null;
   /**
+   * M18: who finds where an address is, for distance and drawn service areas. `google` needs
+   * GOOGLE_MAPS_SERVER_KEY; `off` (production without one) means only ZIP areas work; `fake` is the stand-in.
+   */
+  readonly geocoder: 'google' | 'fake' | 'off';
+  readonly googleMapsServerKey: string | null;
+  /**
    * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
    * in-memory stand-in for development and tests. `off` is the honest default for a deployment that has not
    * been given a token yet: the feature is simply not offered, rather than offered and then failing.
@@ -230,6 +236,16 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('TRANSCRIBER=fake is for development and tests only');
   if (transcriber === 'deepgram' && !deepgramApiKey)
     throw new Error('DEEPGRAM_API_KEY is required with TRANSCRIBER=deepgram');
+
+  const googleMapsServerKey = (env.GOOGLE_MAPS_SERVER_KEY ?? '').trim() || null;
+  const geocoder = (env.GEOCODER ??
+    (production ? (googleMapsServerKey ? 'google' : 'off') : 'fake')) as string;
+  if (geocoder !== 'google' && geocoder !== 'fake' && geocoder !== 'off')
+    throw new Error('GEOCODER must be google, fake or off');
+  if (production && geocoder === 'fake')
+    throw new Error('GEOCODER=fake is for development and tests only');
+  if (geocoder === 'google' && !googleMapsServerKey)
+    throw new Error('GOOGLE_MAPS_SERVER_KEY is required with GEOCODER=google');
 
   // Branded domains (M17). `off` unless a token is there, because a business that adds a domain and then
   // waits forever for records that are never fetched is worse off than one that was never offered it.
@@ -467,6 +483,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     vercelProjectId,
     vercelTeamId: env.VERCEL_TEAM_ID || null,
     deepgramApiKey,
+    geocoder: geocoder as 'google' | 'fake' | 'off',
+    googleMapsServerKey,
     walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,
     twilioAuthToken,

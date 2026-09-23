@@ -42,8 +42,16 @@ export interface CatalogResource {
 export interface CatalogTerritory {
   readonly id: string;
   readonly name: string;
-  /** 5-digit ZIP codes. */
+  /** M18: ZIP codes, miles from a point, or a shape drawn on the map. */
+  readonly kind: 'zip' | 'radius' | 'polygon';
+  /** 5-digit ZIP codes (a ZIP area). */
   readonly postalCodes: readonly string[];
+  /** A distance area: the address it is measured from, where that is, and how far. */
+  readonly centerAddress: string | null;
+  readonly center: { readonly lat: number; readonly lng: number } | null;
+  readonly radiusMiles: number | null;
+  /** A drawn area: its corners, [lat, lng]. */
+  readonly polygon: readonly (readonly [number, number])[] | null;
   readonly userIds: readonly string[];
 }
 

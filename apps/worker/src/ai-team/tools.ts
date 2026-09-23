@@ -60,7 +60,6 @@ import {
   type RequestMeta,
   type TeammateTool,
   type TeammateToolName,
-  zip5,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
@@ -70,6 +69,8 @@ import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { TenantScope } from '../services';
 import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
 import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
+import type { Geocoder } from '../geo/geocoder';
+import { ADDRESS_NOT_FOUND, serviceAreaAnswer, whereabouts } from './areas';
 import type { ChatCodeSender } from './chat-code';
 import { pastAppointments, upcomingAppointments, type RunContext } from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
@@ -87,6 +88,8 @@ export interface OfferedTime {
   readonly durationMinutes: number | null;
   /** The ZIP it was found for, on a calendar that goes by ZIP. */
   readonly postalCode: string | null;
+  /** M18: where their address is, on a calendar whose areas go by distance or a drawn shape. */
+  readonly point: { readonly lat: number; readonly lng: number } | null;
   readonly label: string;
 }
 
@@ -208,6 +211,8 @@ export interface ExecutorDeps {
   readonly training: boolean;
   /** Signs the pay and quote links a money ask carries (M18). */
   readonly moneyLinks: MoneyLinks;
+  /** Finds where a customer's address is, for distance and drawn service areas (M18). */
+  readonly geocoder: Geocoder;
   /** Delivers a website chat visitor's code (M18). */
   readonly chatCodes: ChatCodeSender;
   /** Keeps a run's second pass (after a chat code) from meeting its first pass's calls under the same ids. */
@@ -669,15 +674,25 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     };
   },
 
-  async find_times(d, _tx, args) {
+  async find_times(d, tx, args) {
     const calendarId = String(args['calendarId']);
     const cal = d.rc.calendars.find((c) => c.id === calendarId);
     if (!cal)
       return refused({
         error: 'That isn’t one of your calendars. Use a calendar id from the context.',
       });
-    const postalCode = str(args['postalCode']);
-    if (cal.byZip && !postalCode)
+    const address = str(args['address']);
+    if (cal.byAddress && !address && d.geocoder.name !== 'off')
+      return refused({
+        error: `${cal.name} offers times by where the customer is. Ask for their street address and city, then look again with it.`,
+      });
+    const where = await whereabouts(tx, d.geocoder, {
+      postalCode: str(args['postalCode']),
+      address,
+    });
+    if (where.notFound) return refused({ error: ADDRESS_NOT_FOUND });
+    const postalCode = where.zip;
+    if (cal.byZip && !postalCode && !where.point)
       return refused({
         error: `${cal.name} offers times by ZIP code. Ask for their ZIP code, then look again with it.`,
       });
@@ -711,6 +726,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         serviceId,
         ...(durationMinutes ? { durationMinutes } : {}),
         ...(postalCode ? { postalCode } : {}),
+        ...(where.point ? { point: where.point } : {}),
       },
       d.ai,
       d.meta,
@@ -725,6 +741,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         serviceId: out.serviceId,
         durationMinutes: durationMinutes ?? null,
         postalCode: cal.byZip ? postalCode : null,
+        point: cal.byZip ? where.point : null,
         label: atLabel(at, tz),
       };
     });
@@ -814,6 +831,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       sessionId: slot.sessionId,
       notes: str(args['notes']),
       postalCode: slot.postalCode,
+      point: slot.point,
       summary: `Book ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     return {
@@ -934,36 +952,18 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
    * which of the teammate's calendars do. With no areas listed, the business profile's words are all there is.
    */
   async check_service_area(d, tx, args) {
-    const zip = zip5(String(args['postalCode']));
+    const where = await whereabouts(tx, d.geocoder, {
+      postalCode: str(args['postalCode']),
+      address: str(args['address']),
+    });
+    if (!where.zip && !where.point && !where.notFound)
+      return refused({
+        error: 'That isn’t a ZIP code. Ask them for their 5-digit ZIP or address.',
+      });
     const areas = await loadTerritories(tx, d.scope.workspaceId);
-    if (!zip) return refused({ error: 'That isn’t a ZIP code. Ask them for their 5-digit ZIP.' });
-    if (!areas.length)
-      return {
-        status: 'done',
-        content: {
-          served: null,
-          note: 'The business hasn’t listed the ZIP codes it serves. Go by the service area in the business profile; if it doesn’t say, follow your “when unsure” rule.',
-        },
-      };
-    const covering = areas.filter((a) => a.postalCodes.some((p) => zip5(p) === zip));
-    const calendars = d.rc.calendars
-      .filter((c) => c.byZip)
-      .map((c) => ({
-        calendar: quoteData(c.name),
-        served: covering.some((a) => !c.areaIds.length || c.areaIds.includes(a.id)),
-      }));
     return {
       status: 'done',
-      content: {
-        served: covering.length > 0,
-        ...(covering.length ? { areas: covering.map((a) => quoteData(a.name)) } : {}),
-        ...(calendars.length ? { calendars } : {}),
-        ...(covering.length
-          ? {}
-          : {
-              note: 'The business doesn’t list this ZIP code. Tell them kindly, and don’t book a visit at their place. Hand off if they want someone to double-check.',
-            }),
-      },
+      content: serviceAreaAnswer(areas, d.rc.calendars, where, d.geocoder.name !== 'off'),
     };
   },
 
@@ -1007,6 +1007,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       times,
       notes: str(args['notes']),
       postalCode: slot.postalCode,
+      point: slot.point,
       summary: `Book ${times} ${how} visits from ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     return {

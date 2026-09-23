@@ -66,6 +66,8 @@ export interface SlotInput {
   readonly locationKind?: LocationKind | null;
   /** The customer's ZIP for ZIP routing; without one, routing is not applied (staff booking). */
   readonly postalCode?: string | null;
+  /** M18: where the customer's address is, for distance and drawn areas; without it those can't match. */
+  readonly point?: { readonly lat: number; readonly lng: number } | null;
   /** Customer's choice: the person they picked. */
   readonly chosenUserId?: string | null;
   /** The calendar-hours layer; null or missing means no layer. */

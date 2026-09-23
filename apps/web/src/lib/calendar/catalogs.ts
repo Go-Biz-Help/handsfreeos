@@ -70,7 +70,12 @@ export function buildCatalogs(input: CatalogInput): CalendarCatalogs {
     territories: input.territories.map((t) => ({
       id: t.id,
       name: t.name,
+      kind: t.kind,
       postalCodes: t.postalCodes,
+      centerAddress: t.centerAddress,
+      center: t.center,
+      radiusMiles: t.radiusMiles,
+      polygon: t.polygon ? t.polygon.map(([a, b]) => [a ?? 0, b ?? 0] as [number, number]) : null,
       userIds: t.userIds,
     })),
     pipelines: input.pipelines.map((p): CatalogPipeline => ({

@@ -490,6 +490,8 @@ export interface BookingRequest {
   readonly partySize: number;
   readonly locationKind?: LocationKind | null;
   readonly postalCode?: string | null;
+  /** M18: where the customer's address is, for distance and drawn service areas. */
+  readonly point?: { readonly lat: number; readonly lng: number } | null;
   readonly chosenUserId?: string | null;
   /** Join this session or group time (customers; staff use the add-attendee path). */
   readonly sessionId?: string | null;
@@ -613,6 +615,7 @@ export async function bookAppointment(
     durationMinutes: req.durationMinutes,
     partySize: req.partySize,
     postalCode: req.postalCode ?? null,
+    point: req.point ?? null,
     chosenUserId: req.chosenUserId ?? null,
     locationKind: req.locationKind,
   };

@@ -596,6 +596,7 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
     training: run.teammate.status === 'training',
     moneyLinks: ctx.moneyLinks,
     chatCodes: chatCodeSender(ctx),
+    geocoder: ctx.geocoder,
     ...(verified ? { callPrefix: 'verified:' } : {}),
     log: ctx.log,
   });
