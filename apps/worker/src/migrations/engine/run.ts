@@ -370,31 +370,22 @@ async function scanScope(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
  * A category is finished when its checkpoint says complete, or when it was never going to run at all — not
  * chosen, or not something this release imports. Anything else is still working, and a child that reads now
  * would look for parents that have not arrived.
- *
- * The ones it only *prefers* — the team, the custom fields, the tags a customer points at — are waited for
- * too, but only while they are really on their way: a batch of them queued for this sub-account and not yet
- * complete. Without the wait, customers read before their custom fields had landed put every value in the
- * notes. Without the "really on their way", a preference nobody chose, or one that has given up, would hold
- * the customers back for ever.
  */
 async function unfinishedParents(
   deps: MigrationDeps,
   job: JobRow,
   dependsOn: readonly string[],
-  prefers: readonly string[] = [],
 ): Promise<string[]> {
-  const ready = (c: string) => {
+  const wanted = dependsOn.filter((c) => {
     const parent = migrationCategory(c);
-    return !!parent && parent.release === 'ready';
-  };
-  const wanted = dependsOn.filter(ready);
-  const liked = prefers.filter((c) => ready(c) && !dependsOn.includes(c));
-  if (wanted.length === 0 && liked.length === 0) return [];
-  const [done, running] = await asWorker(
+    return parent && parent.release === 'ready';
+  });
+  if (wanted.length === 0) return [];
+  const done = await asWorker(
     deps.db,
     { workspaceId: null, organizationId: job.organization_id },
-    async (tx) => [
-      await rows<{ category: string }>(
+    (tx) =>
+      rows<{ category: string }>(
         tx,
         sql`select category from app.migration_checkpoints
             where migration_id = ${job.migration_id} and scope_id = ${job.scope_id} and complete
@@ -402,23 +393,9 @@ async function unfinishedParents(
             select category from app.migration_selections
             where migration_id = ${job.migration_id} and scope_id = ${job.scope_id} and not selected`,
       ),
-      liked.length === 0
-        ? []
-        : await rows<{ category: string }>(
-            tx,
-            sql`select distinct category from app.migration_jobs
-                where migration_id = ${job.migration_id} and scope_id = ${job.scope_id}
-                  and kind = 'fetch' and state in ('pending', 'retry', 'leased')
-                  and category = any(${textArray(liked)})`,
-          ),
-    ],
   );
   const finished = new Set(done.map((d) => d.category));
-  const onTheirWay = new Set(running.map((r) => r.category));
-  return [
-    ...wanted.filter((c) => !finished.has(c)),
-    ...liked.filter((c) => onTheirWay.has(c) && !finished.has(c)),
-  ];
+  return wanted.filter((c) => !finished.has(c));
 }
 
 /**
@@ -472,7 +449,7 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
    * per category says so. A category still working gets this one put back with a short wait, which costs a
    * second and saves a hand-run retry.
    */
-  const waitingFor = await unfinishedParents(deps, job, cat.dependsOn, cat.prefers);
+  const waitingFor = await unfinishedParents(deps, job, cat.dependsOn);
   if (waitingFor.length > 0) {
     await requeueJob(deps, job, job.input, 1_000);
     return 'again';
