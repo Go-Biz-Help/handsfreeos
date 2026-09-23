@@ -102,6 +102,8 @@ export interface AppointmentPrefill {
   readonly person?: PickedCustomer | null;
   readonly personId?: string | null;
   readonly leadId?: string | null;
+  /** The pet, vehicle or property the visit is for (0101), booked from its own page. */
+  readonly customRecordId?: string | null;
 }
 
 /**
@@ -321,6 +323,7 @@ export function AppointmentDialog({
             partySize: 1,
             ...(location ? { location } : {}),
             leadId: prefill.leadId ?? null,
+            customRecordId: prefill.customRecordId ?? null,
             acknowledgeWarnings: !!warnings,
             clientId: clientId.current,
             notify: tell,

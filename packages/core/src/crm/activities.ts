@@ -8,6 +8,8 @@ export interface SystemActivityInput {
   readonly personId?: string | null;
   readonly companyId?: string | null;
   readonly leadId?: string | null;
+  /** A record of a kind the business made up: a pet, a vehicle, a property (0101). */
+  readonly customRecordId?: string | null;
   readonly body?: string | null;
   readonly meta?: Record<string, unknown>;
   /** The event this entry mirrors (unique per activity). */
@@ -111,6 +113,7 @@ export async function logSystemActivity(
       personId: input.personId ?? null,
       companyId: input.companyId ?? null,
       leadId: input.leadId ?? null,
+      customRecordId: input.customRecordId ?? null,
       body: input.body ?? null,
       occurredAt: input.occurredAt ?? changeMoment(ctx.meta),
       authorUserId: ctx.actor.type === 'human' ? ctx.actor.userId : null,

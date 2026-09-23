@@ -121,7 +121,14 @@ export async function loadFormCatalogs(tx: Tx, workspaceId: string): Promise<For
       type: customFields.type,
     })
     .from(customFields)
-    .where(and(eq(customFields.workspaceId, workspaceId), sql`archived_at is null`))
+    .where(
+      and(
+        eq(customFields.workspaceId, workspaceId),
+        sql`archived_at is null`,
+        // A form fills in a customer, their company or their lead; a pet's or a car's fields are its own (0101).
+        ne(customFields.entity, 'custom_record'),
+      ),
+    )
     .orderBy(asc(customFields.position));
   return {
     pipelines: pipelineList.map((p) => ({
@@ -134,7 +141,10 @@ export async function loadFormCatalogs(tx: Tx, workspaceId: string): Promise<For
     })),
     tags: tagList.map((t) => ({ id: t.id, name: String(t.name) })),
     workflows: workflowList,
-    customFields: fieldList,
+    customFields: fieldList.map((f) => ({
+      ...f,
+      entity: f.entity as Exclude<typeof f.entity, 'custom_record'>,
+    })),
   };
 }
 

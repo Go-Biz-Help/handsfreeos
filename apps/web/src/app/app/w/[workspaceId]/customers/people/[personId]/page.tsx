@@ -20,42 +20,64 @@ export default async function PersonPage({
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const now = Date.now();
-  const [person, timeline, tasks, files, leads, tags, members, pipelines, soon, before] =
-    await Promise.all([
-      unwrapPage(await api.POST('/v1/queries/person.get', { body: { workspaceId, personId } })),
-      unwrapPage(
-        await api.POST('/v1/queries/timeline.list', {
-          body: { workspaceId, recordType: 'person', recordId: personId, limit: 30 },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/task.list', {
-          body: { workspaceId, scope: 'all', status: 'all', personId, limit: 100 },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/file.list', {
-          body: { workspaceId, recordType: 'person', recordId: personId },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/lead.list', { body: { workspaceId, personId, limit: 50 } }),
-      ),
-      unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
-      unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-      unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
-      // The appointment list reads at most 62 days at a time: the next and the last 62.
-      unwrapPage(
-        await api.POST('/v1/queries/appointment.list', {
-          body: { workspaceId, personId, ...range(now, now + 62 * DAY) },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/appointment.list', {
-          body: { workspaceId, personId, ...range(now - 62 * DAY, now) },
-        }),
-      ),
-    ]);
+  const [
+    person,
+    timeline,
+    tasks,
+    files,
+    leads,
+    tags,
+    members,
+    pipelines,
+    soon,
+    before,
+    relationships,
+    relationshipTypes,
+    fields,
+  ] = await Promise.all([
+    unwrapPage(await api.POST('/v1/queries/person.get', { body: { workspaceId, personId } })),
+    unwrapPage(
+      await api.POST('/v1/queries/timeline.list', {
+        body: { workspaceId, recordType: 'person', recordId: personId, limit: 30 },
+      }),
+    ),
+    unwrapPage(
+      await api.POST('/v1/queries/task.list', {
+        body: { workspaceId, scope: 'all', status: 'all', personId, limit: 100 },
+      }),
+    ),
+    unwrapPage(
+      await api.POST('/v1/queries/file.list', {
+        body: { workspaceId, recordType: 'person', recordId: personId },
+      }),
+    ),
+    unwrapPage(
+      await api.POST('/v1/queries/lead.list', { body: { workspaceId, personId, limit: 50 } }),
+    ),
+    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
+    // The appointment list reads at most 62 days at a time: the next and the last 62.
+    unwrapPage(
+      await api.POST('/v1/queries/appointment.list', {
+        body: { workspaceId, personId, ...range(now, now + 62 * DAY) },
+      }),
+    ),
+    unwrapPage(
+      await api.POST('/v1/queries/appointment.list', {
+        body: { workspaceId, personId, ...range(now - 62 * DAY, now) },
+      }),
+    ),
+    unwrapPage(
+      await api.POST('/v1/queries/relationship.list', {
+        body: { workspaceId, recordType: 'person', recordId: personId },
+      }),
+    ),
+    unwrapPage(await api.POST('/v1/queries/relationship_type.list', { body: { workspaceId } })),
+    unwrapPage(
+      await api.POST('/v1/queries/custom_field.list', { body: { workspaceId, entity: 'person' } }),
+    ),
+  ]);
   return (
     <RecordPage
       workspaceId={workspaceId}
@@ -72,6 +94,9 @@ export default async function PersonPage({
       timeZone={got.workspace.timezone}
       upcoming={soon.items.filter((a) => Date.parse(a.endsAt) > now)}
       recent={before.items.filter((a) => Date.parse(a.endsAt) <= now).reverse()}
+      relationships={relationships.items}
+      relationshipTypes={relationshipTypes.types}
+      fields={fields.fields}
     />
   );
 }

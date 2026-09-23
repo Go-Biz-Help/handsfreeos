@@ -636,6 +636,8 @@ export const AppointmentCreateInput = z.object({
   notes: notesText,
   location: AppointmentLocation.optional(),
   leadId: uuid.nullable().optional(),
+  /** The pet, vehicle or property the visit is for (0101). */
+  customRecordId: uuid.nullable().optional(),
   /** Book anyway despite buffers, hours, busy times, time off or a time in the past. */
   acknowledgeWarnings: z.boolean().default(false),
   clientId: clientId.optional(),
@@ -660,6 +662,7 @@ export const AppointmentSeen = z.object({
   notes: seenText,
   location: z.record(z.string(), z.unknown()).nullable().optional(),
   leadId: seenId,
+  customRecordId: seenId,
 });
 /** Only the details that were edited, each merged on its own: newest wins. */
 export const AppointmentUpdateInput = z.object({
@@ -669,6 +672,7 @@ export const AppointmentUpdateInput = z.object({
   notes: notesText,
   location: AppointmentLocation.optional(),
   leadId: uuid.nullable().optional(),
+  customRecordId: uuid.nullable().optional(),
   base: AppointmentSeen.optional(),
 });
 export const AppointmentUpdateOutput = z.object({
@@ -902,6 +906,8 @@ export const AppointmentOut = z.object({
   occurrence: z.int().nullable(),
   source: AppointmentSourceValue,
   leadId: uuid.nullable(),
+  /** The pet, vehicle or property the visit is for (0101), with its kind's name. */
+  customRecord: z.object({ id: uuid, name: z.string(), kind: z.string() }).nullable(),
   notes: z.string().nullable(),
   staff: z.array(z.object({ userId: uuid, fullName: z.string(), role: z.enum(['host', 'crew']) })),
   resources: z.array(z.object({ resourceId: uuid, name: z.string(), quantity: z.int() })),
@@ -926,6 +932,8 @@ export const AppointmentListInput = z.object({
   /** Defaults to everything but cancelled. */
   status: z.array(AppointmentStatusValue).max(4).optional(),
   personId: uuid.optional(),
+  /** Only visits for this pet, vehicle or property (0101). */
+  customRecordId: uuid.optional(),
 });
 export const AppointmentListOutput = z.object({
   timezone: z.string(),
