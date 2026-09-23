@@ -16,6 +16,7 @@ import {
   htmlToText,
   nameCase,
 } from '../src/migrations/adapters/gohighlevel';
+import { linkExpiry } from '../src/migrations/engine/media';
 
 const adapter = createGoHighLevelAdapter({ clientId: '', clientSecret: '', configured: false });
 
@@ -718,4 +719,26 @@ describe('what a GoHighLevel thread is made of', () => {
     expect(page.records.map((r) => r.objectId)).toEqual(['tag_1']);
     expect(dropped).toBe(1);
   }, 15_000);
+});
+
+describe('a file behind a signed link', () => {
+  it('knows when the link ran out, in the forms Google and Amazon sign them', () => {
+    expect(
+      linkExpiry(
+        'https://storage.googleapis.com/highlevel-backend.appspot.com/receipts/r.pdf?GoogleAccessId=x&Expires=1749515963&Signature=y',
+      )?.toISOString(),
+    ).toBe('2025-06-10T00:39:23.000Z');
+    expect(
+      linkExpiry(
+        'https://storage.googleapis.com/b/o.pdf?X-Goog-Date=20250101T000000Z&X-Goog-Expires=3600&X-Goog-Signature=z',
+      )?.toISOString(),
+    ).toBe('2025-01-01T01:00:00.000Z');
+    expect(
+      linkExpiry(
+        'https://bucket.s3.amazonaws.com/o.pdf?X-Amz-Date=20250102T030405Z&X-Amz-Expires=60',
+      ),
+    ).toEqual(new Date('2025-01-02T03:05:05.000Z'));
+    expect(linkExpiry('https://brand.example.com/photo.jpg')).toBeNull();
+    expect(linkExpiry('not a link')).toBeNull();
+  });
 });

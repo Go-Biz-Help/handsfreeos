@@ -2876,13 +2876,24 @@ export const importSubscription: Importer = async (tx, scope, envelope) => {
 
   const person = await moneyCustomer(tx, scope, envelope);
   if (!person) {
+    // Who it was, so a person can find them: on the first real account the one plan like this belonged to a
+    // customer the old system had merged into another, and the plan still named the one that was gone.
+    const who = [
+      str((envelope.data as { customerEmail?: string | null }).customerEmail),
+      str((envelope.data as { customerPhone?: string | null }).customerPhone),
+    ].filter(Boolean);
     await quarantine(tx, scope, {
       category: 'subscriptions',
       sourceObjectType: envelope.source.objectType,
       sourceObjectId: envelope.source.objectId,
       kind: 'dependency',
       code: 'subscription_without_customer',
-      message: 'The customer on this plan is not here.',
+      message: who.length
+        ? `The customer on this plan (${who.join(', ')}) is not here — the old system may have deleted or merged them.`.slice(
+            0,
+            2000,
+          )
+        : 'The customer on this plan is not here.',
       retryable: true,
     });
     return { counts: { failed: 1 } };
