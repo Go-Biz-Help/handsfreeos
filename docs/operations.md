@@ -7668,7 +7668,7 @@ Each person can turn off their own copy of either in **Settings** → **Account*
 | **Booked, never marked done**      | A card when a visit's time passed three days ago and nobody marked it. It lets go after 30 days                                                                                                                                                                                                                                                       | Yes              |
 | **Job missing an address**         | A card two days before a visit at the customer's place when neither the visit nor the customer has an address                                                                                                                                                                                                                                         | Yes              |
 
-Which stage means what is guessed from each stage's name ("Estimate sent" means a quote went out; "Scheduled" a visit was booked) and fixed per stage in **Adjust**, stored in `workspaces.settings.automations.pipeline.roles`. The push has its own switch, **A job you were on is over** (`jobs`), under Notifications. Needs `20261003000700_pipeline_and_jobs.sql`. See "Apply new migrations".
+Which stage means what is guessed from each stage's name ("Estimate sent" means a quote went out; "Scheduled" a visit was booked) and fixed per stage in **Adjust**, stored in `workspaces.settings.automations.pipeline.roles`. The push has its own switch, **A job you were on is over** (`jobs`), under Notifications. Needs `20261004000600_pipeline_and_jobs.sql`. See "Apply new migrations".
 
 ## Money: Stripe and Square
 
