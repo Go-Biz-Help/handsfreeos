@@ -33,6 +33,7 @@ import { addressOf, useAppointment, useNow, useVisitInvoices } from '@/calendar/
 import { useCalendarZone } from '@/calendar/use-calendar';
 import { Check, CircleDollarSign, MapPin, Undo2 } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
+import { VisitJob } from '@/components/calendar/visit-job';
 import { Screen } from '@/components/shell/screen';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -273,6 +274,10 @@ export default function Appointment() {
         <Section label="Notes">
           <Text className="text-[13.5px] leading-[1.45]">{a.notes}</Text>
         </Section>
+      ) : null}
+
+      {a.status === 'scheduled' && a.kind === 'booking' ? (
+        <VisitJob appointmentId={appointmentId} timeZone={timeZone} />
       ) : null}
 
       {a.status === 'scheduled' ? (

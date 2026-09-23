@@ -72,7 +72,13 @@ import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
 import type { Geocoder } from '../geo/geocoder';
 import { ADDRESS_NOT_FOUND, serviceAreaAnswer, whereabouts } from './areas';
 import type { ChatCodeSender } from './chat-code';
-import { pastAppointments, upcomingAppointments, type RunContext } from './context';
+import {
+  jobsOf,
+  jobStatusContent,
+  pastAppointments,
+  upcomingAppointments,
+  type RunContext,
+} from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
 import { rememberLanguage } from './translations';
 
@@ -810,6 +816,13 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         })),
       },
     };
+  },
+
+  /** M18: where their jobs stand. */
+  async job_status(d, tx) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const list = await jobsOf(tx, d.scope.workspaceId, d.rc.customer.id);
+    return { status: 'done', content: jobStatusContent(list, d.rc.workspace.timeZone) };
   },
 
   async book(d, _tx, args) {

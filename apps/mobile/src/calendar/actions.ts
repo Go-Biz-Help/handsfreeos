@@ -116,3 +116,16 @@ export function confirmSeat(input: {
 }): Promise<{ id: string }> {
   return change('attendee.confirm', input);
 }
+
+/**
+ * M18: move a visit's job along. It reaches the customer (a text for each change), so a change that waited too long
+ * for signal asks before it goes. On my way carries where the phone is, for the arrival time; never kept.
+ */
+export function setJobStatus(input: {
+  workspaceId: string;
+  appointmentId: string;
+  status: 'scheduled' | 'on_the_way' | 'in_progress' | 'waiting_on_parts' | 'done';
+  origin?: { lat: number; lng: number } | null;
+}): Promise<{ id: string }> {
+  return change('job.set_status', { ...input, notify: true });
+}

@@ -1713,6 +1713,25 @@ export const appointments = app.table('appointments', {
   syncWindow: syncWindow(),
   /** When its start last moved, at the moment the change was made (0063, a trigger's). */
   rescheduledAt: ts('rescheduled_at'),
+  /** M18: the job this visit is part of (every booked visit starts one). */
+  jobId: uuid('job_id').references((): AnyPgColumn => jobs.id, { onDelete: 'set null' }),
+});
+
+/** M18: the work a customer waits on — one visit or several — with a status they hear about. */
+export const jobs = app.table('jobs', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  /** scheduled, on_the_way, in_progress, waiting_on_parts, done, cancelled. */
+  status: text('status').notNull().default('scheduled'),
+  customerNote: text('customer_note'),
+  statusChangedAt: ts('status_changed_at'),
+  statusChangedBy: userRef('status_changed_by'),
+  etaAt: ts('eta_at'),
+  open: boolean('open').generatedAlwaysAs(sql`status not in ('done', 'cancelled')`),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
 });
 
 /** Staff on an appointment; `during`, `blocked` and `active` follow the appointment (trigger). */

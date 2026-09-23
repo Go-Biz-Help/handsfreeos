@@ -325,6 +325,8 @@ export function describe(
       }[row.name];
       return words(title, lower(title), 'calendar', personOf(input.personId));
     }
+    case 'job.set_status':
+      return words('Job status', 'the job’s status', 'calendar', null);
     case 'invoice.record_cash_payment':
       return words('Cash payment recorded', 'a cash payment', 'money', null);
     case 'invoice.send':

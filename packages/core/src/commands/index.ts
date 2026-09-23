@@ -221,6 +221,7 @@ import {
 } from './knowledge';
 import { offerArchive, offerCreate, offerUpdate } from './offer';
 import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
+import { jobAddVisit, jobSetStatus } from './job';
 import {
   aiTeammateCreate,
   aiTeammateDecideDraft,
@@ -703,6 +704,8 @@ export const commands: readonly CommandDef[] = [
   seriesBookForCustomer,
   waitlistJoinForCustomer,
   appointmentAddForCustomer,
+  jobSetStatus,
+  jobAddVisit,
   invoiceCreateForCustomer,
   estimateCreateForCustomer,
   estimateAnswerForCustomer,
@@ -819,3 +822,4 @@ export * from './port';
 export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
+export * from './job';

@@ -33,7 +33,7 @@ declare
   member uuid := current_setting('streams.member')::uuid;
   suffix text := substr(md5(random()::text), 1, 8);
   person uuid; lead uuid; tag uuid; conversation uuid; teammate uuid; workflow uuid; version uuid; run uuid;
-  calendar uuid; service uuid; schedule uuid; connection uuid; appointment uuid; attendee uuid; product uuid;
+  calendar uuid; service uuid; schedule uuid; connection uuid; appointment uuid; attendee uuid; job uuid; product uuid;
   estimate uuid; staffed_invoice uuid; other_invoice uuid; invoice uuid; payment uuid;
   form uuid; form_version uuid;
 begin
@@ -86,6 +86,9 @@ begin
     values (ws, calendar, 1, 'Visit', now() + interval '2 days', now() + interval '2 days 1 hour', 'staff') returning id into appointment;
   insert into app.appointment_attendees (workspace_id, appointment_id, person_id) values (ws, appointment, person) returning id into attendee;
   insert into app.appointment_staff (workspace_id, appointment_id, user_id) values (ws, appointment, member);
+  -- An open job for the visit (0098), so business_v1's jobs stream has something to send.
+  insert into app.jobs (workspace_id, person_id, title) values (ws, person, 'Visit') returning id into job;
+  update app.appointments set job_id = job where id = appointment;
 
   insert into app.products (workspace_id, name, unit_price_cents) values (ws, 'Filter', 5000) returning id into product;
   insert into app.plans (workspace_id, name, price_cents) values (ws, 'Comfort Club', 2900);

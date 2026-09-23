@@ -19,6 +19,9 @@ import {
   localDateOf,
   openHoursOf,
   uuidArray,
+  JOB_STATUS_WORDS,
+  quoteData,
+  type JobStatus,
   type KnowledgeMatch,
   type TeammateChannel,
   type TeammateConfig,
@@ -27,6 +30,7 @@ import {
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
+import { atLabel } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { loadGrounding, type Grounding } from '../knowledge/grounding';
 import type { TenantScope } from '../services';
@@ -983,5 +987,70 @@ async function allowedFor(
     urlPrefixes: r?.site ? [`${webUrl}/book/${r.site}`] : [],
     phones: [...new Set([...(r?.phones ?? []), ...present(contacts.phones)])],
     emails: [...new Set([...(r?.emails ?? []), ...present(contacts.emails)])],
+  };
+}
+
+/** A customer's job, for the teammate's job_status (M18 step 4). */
+export interface RunJob {
+  readonly title: string;
+  readonly status: JobStatus;
+  readonly note: string | null;
+  /** On the way: when they should get there. */
+  readonly etaAt: number | null;
+  readonly visits: readonly { title: string; startsAt: number; status: string }[];
+}
+
+/** Their open jobs, and ones done in the last two weeks: the open first, then the latest change first. */
+export async function jobsOf(tx: Tx, workspaceId: string, personId: string): Promise<RunJob[]> {
+  const list = await rows<{
+    title: string;
+    status: JobStatus;
+    customer_note: string | null;
+    eta_at: Date | string | null;
+    visits: { title: string; starts_at: string; status: string }[] | null;
+  }>(
+    tx,
+    sql`select j.title, j.status, j.customer_note, j.eta_at,
+          (select json_agg(json_build_object('title', a.title, 'starts_at', a.starts_at, 'status', a.status)
+             order by a.starts_at)
+           from app.appointments a where a.job_id = j.id) as visits
+        from app.jobs j
+        where j.workspace_id = ${workspaceId} and j.person_id = ${personId}
+          and (j.open or (j.status = 'done' and j.status_changed_at > now() - interval '14 days'))
+        order by j.open desc, coalesce(j.status_changed_at, j.created_at) desc
+        limit 5`,
+  );
+  return list.map((j) => ({
+    title: j.title,
+    status: j.status,
+    note: j.customer_note,
+    etaAt: j.status === 'on_the_way' && j.eta_at ? ms(j.eta_at) : null,
+    visits: (j.visits ?? []).map((v) => ({
+      title: v.title,
+      startsAt: ms(v.starts_at),
+      status: v.status,
+    })),
+  }));
+}
+
+/** job_status's answer, for the model. */
+export function jobStatusContent(
+  list: readonly RunJob[],
+  timeZone: string,
+): Record<string, unknown> {
+  if (!list.length)
+    return { jobs: [], note: 'They have no open jobs, and none finished in the last two weeks.' };
+  return {
+    jobs: list.map((j) => ({
+      job: quoteData(j.title),
+      status: JOB_STATUS_WORDS[j.status],
+      ...(j.etaAt ? { arrivingAround: atLabel(j.etaAt, timeZone) } : {}),
+      ...(j.note ? { noteForThem: quoteData(j.note) } : {}),
+      visits: j.visits.map((v) => ({
+        what: quoteData(v.title),
+        when: atLabel(v.startsAt, timeZone),
+        ...(v.status !== 'scheduled' ? { visit: v.status } : {}),
+      })),
+    })),
   };
 }
