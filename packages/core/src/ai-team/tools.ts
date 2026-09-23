@@ -185,6 +185,14 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
   define({
+    name: 'job_status',
+    description:
+      'Where the customer’s jobs stand: each open job (and ones finished in the last two weeks) with its status — scheduled, on the way (and when they should arrive), started, waiting on parts, done — the team’s note for them, and its visits. Use it when they ask “where’s my tech?” or “how’s my job going?”.',
+    input: z.strictObject({}),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
     name: 'book',
     description:
       'Book the customer at a time find_times offered in this conversation. They get the usual confirmation. Only say they’re booked after this succeeds.',
@@ -591,6 +599,7 @@ export const TEAMMATE_TURN_ENDERS: ReadonlySet<TeammateToolName> = new Set([
  */
 export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'my_appointments',
+  'job_status',
   'read_call_transcript',
   'reschedule',
   'cancel',

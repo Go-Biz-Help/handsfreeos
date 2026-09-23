@@ -43,6 +43,8 @@ import {
   peopleByIdSql,
   VISIT_INVOICES_SQL,
   WORKSPACE_SQL,
+  JOB_OUTBOX_SQL,
+  VISIT_JOB_SQL,
 } from './queries';
 
 /**
@@ -671,4 +673,52 @@ export function useCalendarServices(): readonly CalendarService[] {
       })),
     [data],
   );
+}
+
+export interface VisitJob {
+  readonly id: string | null;
+  readonly title: string | null;
+  readonly status: string;
+  readonly customerNote: string | null;
+  readonly etaAt: string | null;
+  /** A change tapped here that hasn't reached HandsFreeOS yet. */
+  readonly pending: boolean;
+}
+
+/**
+ * M18: the job a visit is part of, as the phone's copy has it, with a status tapped here and still waiting for
+ * signal shown straight away. Null for a job that's done (done jobs leave the phone) and no change waiting.
+ */
+export function useVisitJob(appointmentId: string): VisitJob | null {
+  const { business } = useBusiness();
+  const { data } = useQuery<{
+    id: string;
+    title: string | null;
+    status: string | null;
+    customer_note: string | null;
+    eta_at: string | null;
+  }>(VISIT_JOB_SQL, [business.id, appointmentId]);
+  const { data: waiting } = useQuery<OutboxRow>(JOB_OUTBOX_SQL, [business.id]);
+  return React.useMemo(() => {
+    const row = data[0];
+    const mine = waiting
+      .map((w) => {
+        try {
+          return JSON.parse(w.input) as { appointmentId?: string; status?: string };
+        } catch {
+          return {};
+        }
+      })
+      .filter((i) => i.appointmentId === appointmentId && typeof i.status === 'string');
+    const tapped = mine.at(-1)?.status ?? null;
+    if (!row && !tapped) return null;
+    return {
+      id: row?.id ?? null,
+      title: row?.title ?? null,
+      status: tapped ?? row?.status ?? 'scheduled',
+      customerNote: row?.customer_note ?? null,
+      etaAt: row?.eta_at ?? null,
+      pending: !!tapped,
+    };
+  }, [data, waiting, appointmentId]);
 }

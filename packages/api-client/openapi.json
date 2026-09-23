@@ -22057,6 +22057,204 @@
         }
       }
     },
+    "/v1/commands/job.set_status": {
+      "post": {
+        "operationId": "command_job_set_status",
+        "summary": "Move a job along: on the way (with where you are, for an arrival time), started, waiting on parts, done, or back to scheduled, with an optional note the customer may see. The customer gets a text about it when they can.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits job.status_changed. Can wait on a phone for 30 minutes, then asks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "scheduled",
+                      "on_the_way",
+                      "in_progress",
+                      "waiting_on_parts",
+                      "done"
+                    ]
+                  },
+                  "customerNote": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "origin": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "lng": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          }
+                        },
+                        "required": [
+                          "lat",
+                          "lng"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "notify": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "appointmentId",
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "scheduled",
+                        "on_the_way",
+                        "in_progress",
+                        "waiting_on_parts",
+                        "done",
+                        "cancelled"
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "jobId",
+                    "status",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/job.add_visit": {
+      "post": {
+        "operationId": "command_job_add_visit",
+        "summary": "Make a job a project: add another of the same customer’s visits to it. A job the visit leaves with no visits of its own is removed.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits job.visit_added.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "jobId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "jobId",
+                  "appointmentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "jobId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "appointmentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "jobId",
+                    "appointmentId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/intake_source.create": {
       "post": {
         "operationId": "command_intake_source_create",
@@ -58049,6 +58247,136 @@
                             }
                           ]
                         },
+                        "job": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "scheduled",
+                                    "on_the_way",
+                                    "in_progress",
+                                    "waiting_on_parts",
+                                    "done",
+                                    "cancelled"
+                                  ]
+                                },
+                                "customerNote": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "statusChangedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "etaAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "visits": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "appointmentId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "startsAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      "status": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "appointmentId",
+                                      "title",
+                                      "startsAt",
+                                      "status"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "otherVisits": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "appointmentId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "startsAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      }
+                                    },
+                                    "required": [
+                                      "appointmentId",
+                                      "title",
+                                      "startsAt"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "title",
+                                "status",
+                                "customerNote",
+                                "statusChangedAt",
+                                "etaAt",
+                                "visits",
+                                "otherVisits"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "extraServices": {
                           "type": "array",
                           "items": {
@@ -58212,6 +58540,7 @@
                         "updatedAt",
                         "calendarRevision",
                         "priceCents",
+                        "job",
                         "extraServices",
                         "series",
                         "waitlist",

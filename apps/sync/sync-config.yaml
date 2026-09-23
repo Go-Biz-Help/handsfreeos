@@ -117,7 +117,9 @@ streams:
       - SELECT id, workspace_id, owner_kind, owner_id, timezone, weekly, created_at, updated_at FROM app.schedules WHERE workspace_id IN access
       - SELECT id, workspace_id, schedule_id, kind, starts_at, ends_at, all_day, note, created_at, updated_at FROM app.schedule_exceptions WHERE workspace_id IN access
       # Appointments from 90 days back, with who comes and who works them.
-      - SELECT id, workspace_id, calendar_id, calendar_revision, service_id, kind, title, starts_at, ends_at, buffer_before, buffer_after, capacity, seats_taken, status, location, series_id, occurrence, owner_user_id, lead_id, source, notes, client_id, field_times, created_by, created_at, updated_at FROM app.appointments WHERE workspace_id IN access AND sync_window = true
+      - SELECT id, workspace_id, calendar_id, calendar_revision, service_id, kind, title, starts_at, ends_at, buffer_before, buffer_after, capacity, seats_taken, status, location, series_id, occurrence, owner_user_id, lead_id, source, notes, client_id, field_times, job_id, created_by, created_at, updated_at FROM app.appointments WHERE workspace_id IN access AND sync_window = true
+      # Open jobs (M18): what a tech moves along from the visit screen (On my way, started, done).
+      - SELECT id, workspace_id, person_id, title, status, customer_note, status_changed_at, eta_at, created_at, updated_at FROM app.jobs WHERE workspace_id IN access AND open = true
       - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE workspace_id IN access AND sync_window = true
       - SELECT appointment_id || ':' || user_id AS id, workspace_id, appointment_id, user_id, role, active, created_at FROM app.appointment_staff WHERE workspace_id IN access AND sync_window = true
       # The catalogue.

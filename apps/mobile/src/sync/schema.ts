@@ -121,6 +121,7 @@ export const syncedTables = {
       notes: column.text,
       client_id: column.text,
       field_times: column.text,
+      job_id: column.text,
       created_by: column.text,
       created_at: column.text,
       updated_at: column.text,
@@ -519,6 +520,21 @@ export const syncedTables = {
       voided_by: column.text,
       void_reason: column.text,
       created_by: column.text,
+      created_at: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
+  /** business_v1 */
+  jobs: new Table(
+    {
+      workspace_id: column.text,
+      person_id: column.text,
+      title: column.text,
+      status: column.text,
+      customer_note: column.text,
+      status_changed_at: column.text,
+      eta_at: column.text,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -1170,6 +1186,8 @@ export interface AppointmentsRow {
   /** jsonb: JSON text here */
   readonly field_times: string | null;
   /** uuid */
+  readonly job_id: string | null;
+  /** uuid */
   readonly created_by: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
@@ -1773,6 +1791,26 @@ export interface InvoicesRow {
   readonly void_reason: string | null;
   /** uuid */
   readonly created_by: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly updated_at: string | null;
+}
+
+/** A row of `jobs` (business_v1). */
+export interface JobsRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly person_id: string | null;
+  readonly title: string | null;
+  readonly status: string | null;
+  readonly customer_note: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly status_changed_at: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly eta_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
@@ -2502,6 +2540,7 @@ export interface SyncedRows {
   forms: FormsRow;
   invoice_lines: InvoiceLinesRow;
   invoices: InvoicesRow;
+  jobs: JobsRow;
   leads: LeadsRow;
   messages: MessagesRow;
   my_profile: MyProfileRow;

@@ -2577,6 +2577,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/job.add_visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a job a project: add another of the same customer’s visits to it. A job the visit leaves with no visits of its own is removed.
+         * @description Risk level 1. Requires appointments.write. Emits job.visit_added.
+         */
+        post: operations["command_job_add_visit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/job.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a job along: on the way (with where you are, for an arrival time), started, waiting on parts, done, or back to scheduled, with an optional note the customer may see. The customer gets a text about it when they can.
+         * @description Risk level 1. Requires appointments.write. Emits job.status_changed. Can wait on a phone for 30 minutes, then asks.
+         */
+        post: operations["command_job_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/knowledge_document.add": {
         parameters: {
             query?: never;
@@ -15027,6 +15067,86 @@ export interface operations {
             };
         };
     };
+    command_job_add_visit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_job_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    customerNote?: string | null;
+                    /** @default true */
+                    notify?: boolean;
+                    origin?: {
+                        lat: number;
+                        lng: number;
+                    } | null;
+                    /** @enum {string} */
+                    status: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** @enum {string} */
+                        status: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
     command_knowledge_document_add: {
         parameters: {
             query?: never;
@@ -24157,6 +24277,31 @@ export interface operations {
                             heldUntil: string | null;
                             /** Format: uuid */
                             id: string;
+                            job: {
+                                customerNote: string | null;
+                                etaAt: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                otherVisits: {
+                                    /** Format: uuid */
+                                    appointmentId: string;
+                                    /** Format: date-time */
+                                    startsAt: string;
+                                    title: string;
+                                }[];
+                                /** @enum {string} */
+                                status: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
+                                statusChangedAt: string | null;
+                                title: string;
+                                visits: {
+                                    /** Format: uuid */
+                                    appointmentId: string;
+                                    /** Format: date-time */
+                                    startsAt: string;
+                                    status: string;
+                                    title: string;
+                                }[];
+                            } | null;
                             /** @enum {string} */
                             kind: "booking" | "session";
                             leadId: string | null;

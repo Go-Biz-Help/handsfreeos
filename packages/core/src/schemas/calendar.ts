@@ -3,6 +3,7 @@
  * time off, appointments, sessions, series, waitlists and the booking page's system commands. Browser-safe.
  */
 import { z } from 'zod';
+import { JobOut } from './job';
 import { CalendarConfig, LocationKind, WeeklyHours } from '../calendar/config';
 import { RecurrenceRule } from '../calendar/engine/recurrence';
 import { isLocalDate } from '../calendar/engine/zoned';
@@ -941,6 +942,8 @@ export const AppointmentGetOutput = z.object({
      * nothing has a price.
      */
     priceCents: z.int().nullable(),
+    /** M18: the job this visit is part of, with its other visits; null for a session. */
+    job: JobOut.nullable(),
     /** M18: services added to this visit after it was booked, each with its time and price as added. */
     extraServices: z.array(
       z.object({

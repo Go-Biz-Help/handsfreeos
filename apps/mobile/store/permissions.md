@@ -66,27 +66,34 @@ alone (background sync), not `["fetch", "audio"]`.
 
 ### What iOS is never asked for
 
-No microphone, no contacts, no location, no calendar, no reminders, no health, no Bluetooth, no tracking prompt. Each
-is absent because nothing in the app calls it — `expo-location` and `expo-contacts` are not dependencies, and adding
-the business number to Contacts hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`).
+No microphone, no contacts, no background location, no calendar, no reminders, no health, no Bluetooth, no tracking
+prompt. Each is absent because nothing in the app calls it — `expo-contacts` is not a dependency, and adding the business
+number to Contacts hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`).
+
+**Location while in use** (M18, `expo-location`): asked for the first time a tech taps **On my way** on a visit, never
+at launch and never in the background. The one reading goes with that tap (rounded to about 100 m) so the customer's
+text can say when they'll arrive; it is not kept on the job. `NSLocationWhenInUseUsageDescription` says so, and the
+privacy manifest lists coarse location for app functionality. If the tech says no, On my way still works without an
+arrival time.
 
 ## Android: the merged manifest, permission by permission
 
 ### Kept, and why
 
-| Permission                                                           | Asked for by                       | Why the app needs it                                                                             |
-| -------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `android.permission.INTERNET`                                        | `app.json`                         | Talking to the API, the sync stream and Supabase                                                 |
-| `android.permission.ACCESS_NETWORK_STATE`                            | `expo-updates`, `expo-network`     | Knowing whether there is signal, which every offline screen depends on                           |
-| `android.permission.CAMERA`                                          | `expo-image-picker` plugin         | Taking a photo for a customer's record or a reply                                                |
-| `android.permission.USE_BIOMETRIC`, `…USE_FINGERPRINT`               | `expo-local-authentication` plugin | Unlocking, and confirming anything that reaches a customer                                       |
-| `android.permission.POST_NOTIFICATIONS`                              | `expo-notifications`               | Showing notifications at all, on Android 13 and later                                            |
-| `android.permission.VIBRATE`                                         | `app.json` / `expo-notifications`  | A notification's buzz                                                                            |
-| `android.permission.WAKE_LOCK`                                       | `firebase-messaging`               | Waking to receive a push                                                                         |
-| `android.permission.RECEIVE_BOOT_COMPLETED`                          | `expo-notifications`               | Scheduled notifications survive a restart                                                        |
-| `android.permission.MODIFY_AUDIO_SETTINGS`                           | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone    |
-| `com.google.android.c2dm.permission.RECEIVE`                         | `firebase-messaging`               | Receiving a push from Firebase                                                                   |
-| `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps |
+| Permission                                                           | Asked for by                       | Why the app needs it                                                                              |
+| -------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `android.permission.INTERNET`                                        | `app.json`                         | Talking to the API, the sync stream and Supabase                                                  |
+| `android.permission.ACCESS_NETWORK_STATE`                            | `expo-updates`, `expo-network`     | Knowing whether there is signal, which every offline screen depends on                            |
+| `android.permission.ACCESS_COARSE_LOCATION`, `ACCESS_FINE_LOCATION`  | `expo-location`                    | One reading when a tech taps On my way, for the customer's arrival time (never in the background) |
+| `android.permission.CAMERA`                                          | `expo-image-picker` plugin         | Taking a photo for a customer's record or a reply                                                 |
+| `android.permission.USE_BIOMETRIC`, `…USE_FINGERPRINT`               | `expo-local-authentication` plugin | Unlocking, and confirming anything that reaches a customer                                        |
+| `android.permission.POST_NOTIFICATIONS`                              | `expo-notifications`               | Showing notifications at all, on Android 13 and later                                             |
+| `android.permission.VIBRATE`                                         | `app.json` / `expo-notifications`  | A notification's buzz                                                                             |
+| `android.permission.WAKE_LOCK`                                       | `firebase-messaging`               | Waking to receive a push                                                                          |
+| `android.permission.RECEIVE_BOOT_COMPLETED`                          | `expo-notifications`               | Scheduled notifications survive a restart                                                         |
+| `android.permission.MODIFY_AUDIO_SETTINGS`                           | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone     |
+| `com.google.android.c2dm.permission.RECEIVE`                         | `firebase-messaging`               | Receiving a push from Firebase                                                                    |
+| `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps  |
 
 ### Gone, and why
 

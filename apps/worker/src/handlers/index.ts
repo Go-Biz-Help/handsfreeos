@@ -20,6 +20,7 @@ import {
   onMovedNotice,
   onReassignedNotice,
 } from './appointment-messages';
+import { onJobStatusChanged } from '../booking/job-texts';
 import {
   onAppointmentChanged,
   onCalendarReauthRequired,
@@ -224,6 +225,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'attendee.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
     // A customer who confirmed by replying C hears a short thank-you (handlers/appointment-messages.ts).
     'attendee.confirmed': onConfirmedThanks,
+    // M18: a job's status or note changed: the customer hears about it (booking/job-texts.ts).
+    'job.status_changed': onJobStatusChanged,
     'session.published': onAppointmentChanged,
     'series.created': [onAppointmentChanged, onArmReminders],
     'series.cancelled': onAppointmentChanged,

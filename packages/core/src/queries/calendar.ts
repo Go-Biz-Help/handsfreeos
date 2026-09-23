@@ -4,6 +4,7 @@
  */
 import { and, asc, desc, eq, gt, inArray, lt, ne, sql as dsql, type SQL } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import type { JobStatus } from '../schemas/job';
 import {
   appointmentAttendees,
   appointmentServices,
@@ -498,6 +499,66 @@ export const appointmentList = defineQuery({
   },
 });
 
+/** M18: a visit's job, its visits, and the customer's other upcoming visits that could join it. */
+async function jobFor(tx: Tx, workspaceId: string, appointmentId: string) {
+  const [row] = await rows<{
+    id: string;
+    title: string;
+    status: JobStatus;
+    customer_note: string | null;
+    status_changed_at: Date | string | null;
+    eta_at: Date | string | null;
+    person_id: string | null;
+  }>(
+    tx,
+    sql`select j.id, j.title, j.status, j.customer_note, j.status_changed_at, j.eta_at, j.person_id
+        from app.appointments a join app.jobs j on j.id = a.job_id
+        where a.id = ${appointmentId} and a.workspace_id = ${workspaceId}`,
+  );
+  if (!row) return null;
+  const iso = (v: Date | string | null) => (v ? new Date(v).toISOString() : null);
+  const visits = await rows<{
+    id: string;
+    title: string;
+    starts_at: Date | string;
+    status: string;
+  }>(
+    tx,
+    sql`select id, title, starts_at, status::text as status from app.appointments
+        where job_id = ${row.id} order by starts_at, id limit 50`,
+  );
+  const others = row.person_id
+    ? await rows<{ id: string; title: string; starts_at: Date | string }>(
+        tx,
+        sql`select a.id, a.title, a.starts_at from app.appointments a
+            join app.appointment_attendees t on t.appointment_id = a.id
+            where a.workspace_id = ${workspaceId} and t.person_id = ${row.person_id}
+              and t.status = 'booked' and a.kind = 'booking' and a.status = 'scheduled'
+              and a.starts_at > now() and a.job_id is distinct from ${row.id}
+            order by a.starts_at limit 10`,
+      )
+    : [];
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    customerNote: row.customer_note,
+    statusChangedAt: iso(row.status_changed_at),
+    etaAt: iso(row.eta_at),
+    visits: visits.map((v) => ({
+      appointmentId: v.id,
+      title: v.title,
+      startsAt: new Date(v.starts_at).toISOString(),
+      status: v.status,
+    })),
+    otherVisits: others.map((o) => ({
+      appointmentId: o.id,
+      title: o.title,
+      startsAt: new Date(o.starts_at).toISOString(),
+    })),
+  };
+}
+
 export const appointmentGet = defineQuery({
   name: 'appointment.get',
   description:
@@ -571,6 +632,7 @@ export const appointmentGet = defineQuery({
         ...card,
         calendarRevision: row!.calendarRevision,
         priceCents: await visitPrice(ctx.tx, input.workspaceId, card.service?.id ?? null),
+        job: await jobFor(ctx.tx, input.workspaceId, card.id),
         extraServices: await ctx.tx
           .select({
             name: appointmentServices.name,

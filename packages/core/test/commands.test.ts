@@ -338,6 +338,8 @@ describe('registry', () => {
       'series.book_for_customer',
       'waitlist.join_for_customer',
       'appointment.add_for_customer',
+      'job.set_status',
+      'job.add_visit',
       'invoice.create_for_customer',
       'estimate.create_for_customer',
       'estimate.answer_for_customer',

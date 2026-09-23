@@ -8,6 +8,8 @@ import {
   executeCommand,
   invoiceCreate,
   invoiceSend,
+  appointmentCreate,
+  jobSetStatus,
   localDateOf,
   messageAttachMedia,
   offerCreate,
@@ -314,6 +316,13 @@ const RULES: TeammateRule[] = [
               { name: 'reply', arguments: { message: 'Thanks, the team will take a look.' } },
             ],
           },
+  },
+  {
+    when: /where is my tech/i,
+    step: (t) =>
+      !t.results['job_status']
+        ? { calls: [{ name: 'job_status', arguments: {} }] }
+        : { calls: [{ name: 'reply', arguments: { message: 'Your tech is on the way.' } }] },
   },
   {
     when: /next visit/i,
@@ -713,6 +722,39 @@ describe('adding to a visit', () => {
     expect((await aiMessages(then.conversationId)).at(-1)!.body_text).toBe(
       'Got it, I added that to your visit.',
     );
+  });
+});
+
+describe('jobs', () => {
+  it('tells the customer where their job stands', async () => {
+    const c = await newCustomer(w, 'Joy');
+    const visit = await run(w, appointmentCreate, {
+      workspaceId: w.workspaceId,
+      calendarId: lawn.id,
+      startsAt: new Date(at(3, '10:00')).toISOString(),
+      personId: c.id,
+      title: 'Lawn care',
+      acknowledgeWarnings: true,
+    });
+    await run(w, jobSetStatus, {
+      workspaceId: w.workspaceId,
+      appointmentId: visit.appointmentId,
+      status: 'waiting_on_parts',
+      customerNote: 'New blades arrive Thursday.',
+      notify: false,
+    });
+    const m = await textIn(w, c.phone, 'Where is my tech?');
+    await replyNow(w, m.conversationId);
+    await drain(w);
+    const [r] = await runsOf(m.conversationId);
+    const call = (await toolCallsOf(r!.id)).find((x) => x.tool === 'job_status');
+    expect(call).toMatchObject({ status: 'done' });
+    const content = (call!.result as { content: { jobs: Record<string, unknown>[] } }).content;
+    expect(content.jobs[0]).toMatchObject({
+      job: 'Lawn care',
+      status: 'Waiting on parts',
+      noteForThem: 'New blades arrive Thursday.',
+    });
   });
 });
 

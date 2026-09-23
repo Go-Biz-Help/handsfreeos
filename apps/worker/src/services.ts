@@ -19,6 +19,7 @@ import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
 import type { TelephonyProvider } from './telephony/provider';
+import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
 import type { Transcriber } from './telephony/transcriber';
 
@@ -47,6 +48,8 @@ export interface WorkerServices {
   readonly transcriber: Transcriber;
   /** Where an address is, for distance and drawn service areas (M18); `off` without a key. */
   readonly geocoder: Geocoder;
+  /** How long a drive takes, for On my way's arrival time (M18). */
+  readonly driving: DriveTimer;
   /**
    * Where a business's own domain is served from (M17). **Null when nobody has turned it on**, which every
    * handler checks: the feature is absent rather than present and failing.

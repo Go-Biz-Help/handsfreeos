@@ -150,3 +150,16 @@ export const PEOPLE_SQL = `
 
 /** The business: its time zone and settings. */
 export const WORKSPACE_SQL = 'SELECT name, timezone, settings FROM workspaces WHERE id = ?';
+
+/** M18: the open job a visit is part of (done and cancelled jobs leave the phone). */
+export const VISIT_JOB_SQL = `
+  SELECT j.id, j.title, j.status, j.customer_note, j.eta_at
+  FROM jobs j
+  JOIN appointments a ON a.job_id = j.id
+  WHERE a.workspace_id = ? AND a.id = ?`;
+
+/** Job changes waiting on this phone, newest last. */
+export const JOB_OUTBOX_SQL = `
+  SELECT * FROM outbox
+  WHERE workspace_id = ? AND name = 'job.set_status' AND state != 'sent'
+  ORDER BY seq`;
