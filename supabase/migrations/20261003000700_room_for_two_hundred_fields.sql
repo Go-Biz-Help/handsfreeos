@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0095 · Room for two hundred fields.
+-- 0096 · Room for two hundred fields.
 --
 --        A business keeps up to 200 custom fields per kind of record, up from
 --        50. Fifty was a guess about the businesses we would meet, and the
