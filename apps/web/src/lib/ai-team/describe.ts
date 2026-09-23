@@ -469,6 +469,7 @@ const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   close_deal: 'Closed the lead',
   update_customer: 'Filled in their details',
   add_note: 'Added a note',
+  note_photos: 'Noted what the photos show',
   create_task: 'Created a task',
   send_verification_code: 'Sent a chat code',
   check_verification_code: 'Checked a chat code',

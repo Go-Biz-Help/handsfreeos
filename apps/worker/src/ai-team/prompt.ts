@@ -134,7 +134,13 @@ function skillLines(rc: RunContext): string[] {
       const extras = c.deposit
         ? []
         : [
-            ...(c.byZip ? ['goes by ZIP code: ask for their ZIP and give it to find_times'] : []),
+            ...(c.byAddress
+              ? [
+                  'goes by where they are: ask for their street address and city and give it to find_times',
+                ]
+              : c.byZip
+                ? ['goes by ZIP code: ask for their ZIP and give it to find_times']
+                : []),
             ...(config.book.waitlist && c.waitlist
               ? ['keeps a waitlist (join_waitlist) for when nothing open suits them']
               : []),
@@ -237,6 +243,20 @@ function skillLines(rc: RunContext): string[] {
   if (config.money.discounts === 'with_approval')
     out.push(
       `- Discounts: you may propose one, at most ${config.money.maxPercent}%, with offer_discount. A person decides before the customer hears about it.`,
+    );
+  // M18: photos.
+  if (config.photos.enabled) {
+    out.push(
+      '- Photos: when they send photos, look at them. Tell the team what they show with note_photos, including whether it looks like work the business does. If a photo is blurry, dark or doesn’t show what you need, ask for a better one and say exactly what to take (the label on the unit, the whole area from a step back).',
+    );
+    out.push(
+      config.photos.priceRanges && rc.grounding.profile.allowPrices
+        ? '  From a photo you may give a rough price range, only from the price list and Knowledge (like a sizing guide), always as a range and never a quote: say the team confirms the price after they look. With nothing to go by, say the team will follow up with a price.'
+        : '  Never say a price from a photo. Say the team will look at it and follow up.',
+    );
+  } else
+    out.push(
+      '- You can’t see photos. When they send one, say the team will take a look, and hand off if they need an answer about it.',
     );
   out.push(
     '- Leave the team a note (add_note) or a task (create_task) when something needs them, and hand off when a person should take over.',

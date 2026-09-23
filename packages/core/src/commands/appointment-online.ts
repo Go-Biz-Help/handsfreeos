@@ -343,6 +343,7 @@ export const appointmentBookOnline = defineCommand({
       partySize: input.partySize,
       locationKind,
       postalCode: input.postalCode ?? null,
+      point: input.point ?? null,
       chosenUserId: input.chosenUserId ?? null,
       choice: { mode: 'customer' },
       attendee,

@@ -9,6 +9,7 @@
  * it), a bot check (Cloudflare Turnstile when configured), a honeypot field, US and Canadian numbers only,
  * the page's idempotency key, and the database's own caps (appointment.book_online, waitlist.join_online).
  */
+import { placeOf } from '../geo/geocoder';
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
@@ -31,6 +32,7 @@ import {
   loadCatalogService,
   loadSlotInput,
   loadTerritories,
+  needsAddress,
   LocationKind,
   normalizePhone,
   offerStillOpen,
@@ -502,6 +504,7 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
   }
   const names = await firstNames(tx, memberIds);
   let postalCodes: string[] | null = null;
+  let byAddress = false;
   if (config.territory.routing === 'zip') {
     const chosen = config.territory.territoryIds;
     // With no staff, every selected territory is served; otherwise only those someone on it covers.
@@ -514,6 +517,8 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
     postalCodes = [
       ...new Set(covered.flatMap((t) => t.postalCodes.map(zip5)).filter((z) => z.length === 5)),
     ].sort();
+    // M18: an area by distance or drawn on the map needs where they are, so the page asks for the address.
+    byAddress = deps.geocoder.name !== 'off' && covered.some(needsAddress);
   }
   return {
     services: serviceList,
@@ -534,7 +539,7 @@ async function bookingInfo(deps: HttpDeps, tx: Tx, calendar: LoadedCalendar, bot
       cancel: config.policies.cancel,
       reschedule: config.policies.reschedule,
     },
-    zipRouting: postalCodes ? { postalCodes } : null,
+    zipRouting: postalCodes ? { postalCodes, byAddress } : null,
     mode: config.schedule.mode,
     capacity: {
       seats: config.capacity.seats,
@@ -639,6 +644,8 @@ const SlotsQuery = RangeQuery.extend({
   durationMinutes: z.coerce.number().int().min(5).max(720).optional(),
   partySize: z.coerce.number().int().min(1).max(100).default(1),
   postalCode: z.string().trim().max(20).optional(),
+  /** M18: their street address, where the calendar's areas go by distance or a drawn shape. */
+  address: z.string().trim().max(300).optional(),
   chosenUserId: z.uuid().optional(),
   locationKind: LocationKind.optional(),
 });
@@ -697,6 +704,23 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
       calendarId: r.calendar_id,
       open: !!r.site_enabled && r.calendar_status === 'active',
     };
+  }
+
+  /**
+   * M18: where a customer's address is, when the calendar routes by service area and some of its areas go by
+   * distance or a drawn shape. Looked up once and kept; null otherwise, or when it can't be found.
+   */
+  async function placeFor(scope: TenantScope, config: CalendarConfig, address?: string | null) {
+    if (!address?.trim() || config.territory.routing !== 'zip' || deps.geocoder.name === 'off')
+      return null;
+    const chosen = config.territory.territoryIds;
+    return worker(scope, async (tx) => {
+      // A calendar with only ZIP areas never needs the lookup (and its cost).
+      const areas = await loadTerritories(tx, scope.workspaceId);
+      if (!areas.some((a) => needsAddress(a) && (!chosen.length || chosen.includes(a.id))))
+        return null;
+      return placeOf(tx, deps.geocoder, address);
+    });
   }
 
   async function openCalendar(site: string, calendar: string) {
@@ -1146,6 +1170,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         const { from, to } = range(q);
         const { scope, calendar } = await openCalendar(req.params.site, req.params.calendar);
         const { config } = calendar;
+        const place = await placeFor(scope, config, q.address);
         const out = await executeQuery(
           deps.httpDb,
           calendarAvailability,
@@ -1157,7 +1182,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             serviceId: q.serviceId ?? null,
             durationMinutes: q.durationMinutes,
             partySize: q.partySize,
-            postalCode: q.postalCode ?? null,
+            postalCode: q.postalCode ?? place?.postalCode ?? null,
+            point: place ? { lat: place.lat, lng: place.lng } : null,
             // Only a calendar that lets customers pick a person honours a pick.
             chosenUserId:
               config.team.assignment === 'customer_choice' ? (q.chosenUserId ?? null) : null,
@@ -1212,6 +1238,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           }),
         );
         if (plan && !plan.account) throw cannotTakePayment();
+        const place = await placeFor(scope, calendar.config, body.address);
         const { output } = await executeCommand(
           deps.httpDb,
           appointmentBookOnline,
@@ -1226,7 +1253,8 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             partySize: body.partySize,
             locationKind: body.locationKind,
             address: body.address ?? null,
-            postalCode: body.postalCode ?? null,
+            postalCode: body.postalCode ?? place?.postalCode ?? null,
+            point: place ? { lat: place.lat, lng: place.lng } : null,
             chosenUserId:
               calendar.config.team.assignment === 'customer_choice'
                 ? (body.chosenUserId ?? null)

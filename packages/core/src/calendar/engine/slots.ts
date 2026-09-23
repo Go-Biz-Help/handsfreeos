@@ -13,6 +13,7 @@
  * Each person's feasible start times are worked out once as intervals, then every candidate is a lookup,
  * which keeps 62 days × 50 people at a 5-minute step well inside the budget.
  */
+import { areaCovers } from '../areas';
 import { zip5 } from '../catalogs';
 import type { CalendarConfig } from '../config';
 import { bookableDurations, defaultLocationKind, resolveTerms, type Terms } from '../terms';
@@ -43,12 +44,13 @@ export function candidatePool(input: SlotInput, terms: Terms): string[] {
     .map((m) => m.userId)
     .filter((u) => terms.eligibleUserIds === null || terms.eligibleUserIds.includes(u));
   const zip = zip5(input.postalCode);
-  if (config.territory.routing === 'zip' && zip) {
+  // M18: routed by service area once there is a ZIP or a point; an area that can't tell doesn't match.
+  if (config.territory.routing === 'zip' && (zip || input.point)) {
     const chosen = config.territory.territoryIds;
     const allowed = new Set<string>();
     for (const t of input.territories ?? []) {
       if (chosen.length && !chosen.includes(t.id)) continue;
-      if (t.postalCodes.some((p) => zip5(p) === zip)) for (const u of t.userIds) allowed.add(u);
+      if (areaCovers(t, zip, input.point)) for (const u of t.userIds) allowed.add(u);
     }
     pool = pool.filter((u) => allowed.has(u));
   }
@@ -164,17 +166,18 @@ function requiredResourceStarts(input: SlotInput, terms: Terms, spans: Spans): I
 }
 
 /**
- * No staff: ZIP routing only asks whether the customer's ZIP is in one of the calendar's territories (any of
- * the workspace's when none are picked). Without a ZIP (a staff booking), routing isn't applied.
+ * No staff: routing by service area only asks whether the customer is in one of the calendar's areas (any of
+ * the workspace's when none are picked): by ZIP, or by where their address is (M18). Without either (a staff
+ * booking), routing isn't applied.
  */
 function zipServed(input: SlotInput): boolean {
   const zip = zip5(input.postalCode);
   const { routing, territoryIds } = input.config.territory;
-  if (routing !== 'zip' || !zip) return true;
+  if (routing !== 'zip' || (!zip && !input.point)) return true;
   return (input.territories ?? []).some(
     (t) =>
       (!territoryIds.length || territoryIds.includes(t.id)) &&
-      t.postalCodes.some((p) => zip5(p) === zip),
+      areaCovers(t, zip, input.point) === true,
   );
 }
 

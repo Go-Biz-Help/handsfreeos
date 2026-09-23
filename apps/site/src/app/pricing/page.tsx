@@ -39,14 +39,14 @@ export default async function PricingPage() {
       <Container className="py-16 sm:py-20">
         {monthly ? (
           <SectionHeading
-            sub="Every feature, one business, as many people as work there. Texts, calls and AI are billed for what you use, so a quiet month costs less than a busy one."
+            sub="Every feature, one business, as many people as work there. Most CRMs charge for every person who logs in; this one does not, because logging in is not the point. Texts, calls and AI are billed for what you use, so a quiet month costs less than a busy one."
             as="h1"
           >
-            One price a month. No setup fee.
+            One price for the CRM that does the work.
           </SectionHeading>
         ) : (
           <SectionHeading
-            sub="Before HandsFreeOS goes on sale month to month, a limited number of businesses get it for nothing or for one payment, for as long as it exists. The count below is live."
+            sub="Before HandsFreeOS goes on sale month to month, a limited number of businesses get the CRM that does the work for them — for nothing or for one payment, for as long as it exists. The count below is live."
             as="h1"
           >
             Founding seats are open.

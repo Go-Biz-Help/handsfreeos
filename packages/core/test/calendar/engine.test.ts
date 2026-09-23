@@ -144,8 +144,28 @@ function randomWorld(r: Rng, modes: readonly Mode[] = ASSIGNMENTS): SlotInput {
       })),
     })),
     territories: [
-      { id: TER[0]!, name: 'A', postalCodes: ['75201'], userIds: r.subset(USERS) },
-      { id: TER[1]!, name: 'B', postalCodes: ['75202', '75203'], userIds: r.subset(USERS) },
+      {
+        id: TER[0]!,
+        name: 'A',
+        kind: 'zip' as const,
+        centerAddress: null,
+        center: null,
+        radiusMiles: null,
+        polygon: null,
+        postalCodes: ['75201'],
+        userIds: r.subset(USERS),
+      },
+      {
+        id: TER[1]!,
+        name: 'B',
+        kind: 'zip' as const,
+        centerAddress: null,
+        center: null,
+        radiusMiles: null,
+        polygon: null,
+        postalCodes: ['75202', '75203'],
+        userIds: r.subset(USERS),
+      },
     ],
   };
 }
@@ -218,8 +238,28 @@ function randomNoStaffWorld(r: Rng): SlotInput {
       bookings: Array.from({ length: r.int(0, 8) }, () => bedBooking(r)),
     })),
     territories: [
-      { id: TER[0]!, name: 'A', postalCodes: ['75201'], userIds: [] },
-      { id: TER[1]!, name: 'B', postalCodes: ['75202', '75203'], userIds: [] },
+      {
+        id: TER[0]!,
+        name: 'A',
+        kind: 'zip' as const,
+        centerAddress: null,
+        center: null,
+        radiusMiles: null,
+        polygon: null,
+        postalCodes: ['75201'],
+        userIds: [],
+      },
+      {
+        id: TER[1]!,
+        name: 'B',
+        kind: 'zip' as const,
+        centerAddress: null,
+        center: null,
+        radiusMiles: null,
+        polygon: null,
+        postalCodes: ['75202', '75203'],
+        userIds: [],
+      },
     ],
   };
 }
@@ -722,6 +762,55 @@ describe('hours mode', () => {
     ).toBe(15);
   });
 
+  it('routes by where the customer is, for distance and drawn service areas (M18)', () => {
+    const patch = {
+      team: { members: [{ userId: A }, { userId: B }], assignment: 'round_robin' as const },
+      territory: { routing: 'zip' as const },
+    };
+    const none = { centerAddress: null, center: null, radiusMiles: null, polygon: null };
+    const base = {
+      staff: [nineToFive(A), nineToFive(B)],
+      territories: [
+        // A covers 10 miles around downtown Dallas; B a square drawn over Plano.
+        {
+          id: TER[0]!,
+          name: 'Downtown',
+          ...none,
+          kind: 'radius' as const,
+          postalCodes: [],
+          centerAddress: '1500 Marilla St, Dallas',
+          center: { lat: 32.7767, lng: -96.797 },
+          radiusMiles: 10,
+          userIds: [A],
+        },
+        {
+          id: TER[1]!,
+          name: 'Plano',
+          ...none,
+          kind: 'polygon' as const,
+          postalCodes: [],
+          polygon: [
+            [33.0, -96.8],
+            [33.1, -96.8],
+            [33.1, -96.65],
+            [33.0, -96.65],
+          ] as [number, number][],
+          userIds: [B],
+        },
+      ],
+    };
+    const who = (point: { lat: number; lng: number } | null, postalCode: string | null = null) =>
+      computeSlots(world(patch, { ...base, point, postalCode }))[0]?.userIds ?? [];
+    expect(who({ lat: 32.8, lng: -96.8 })).toEqual([A]);
+    expect(who({ lat: 33.05, lng: -96.7 })).toEqual([B]);
+    // Far from both: nobody.
+    expect(who({ lat: 30.27, lng: -97.74 })).toEqual([]);
+    // A ZIP alone can't place them in a distance or drawn area.
+    expect(who(null, '75201')).toEqual([]);
+    // No ZIP and no point (a staff booking): routing isn't applied.
+    expect(who(null)).toEqual([A, B]);
+  });
+
   it('routes by 5-digit ZIP through the selected territories', () => {
     const patch = {
       team: { members: [{ userId: A }, { userId: B }], assignment: 'round_robin' as const },
@@ -729,7 +818,19 @@ describe('hours mode', () => {
     };
     const base = {
       staff: [nineToFive(A), nineToFive(B)],
-      territories: [{ id: TER[0]!, name: 'North', postalCodes: ['75201'], userIds: [A] }],
+      territories: [
+        {
+          id: TER[0]!,
+          name: 'North',
+          kind: 'zip' as const,
+          centerAddress: null,
+          center: null,
+          radiusMiles: null,
+          polygon: null,
+          postalCodes: ['75201'],
+          userIds: [A],
+        },
+      ],
     };
     expect(computeSlots(world(patch, { ...base, postalCode: '75201-4400' }))[0]!.userIds).toEqual([
       A,
@@ -944,8 +1045,28 @@ describe('no staff: beds and hours alone', () => {
 
   it('with ZIP routing, asks only that the ZIP is in a selected territory', () => {
     const territories = [
-      { id: TER[0]!, name: 'North', postalCodes: ['75201'], userIds: [] },
-      { id: TER[1]!, name: 'South', postalCodes: ['75215'], userIds: [] },
+      {
+        id: TER[0]!,
+        name: 'North',
+        kind: 'zip' as const,
+        centerAddress: null,
+        center: null,
+        radiusMiles: null,
+        polygon: null,
+        postalCodes: ['75201'],
+        userIds: [],
+      },
+      {
+        id: TER[1]!,
+        name: 'South',
+        kind: 'zip' as const,
+        centerAddress: null,
+        center: null,
+        radiusMiles: null,
+        polygon: null,
+        postalCodes: ['75215'],
+        userIds: [],
+      },
     ];
     const north = beds({ territory: { routing: 'zip', territoryIds: [TER[0]!] } });
     const count = (postalCode: string | null, patch = north) =>

@@ -469,7 +469,32 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     timezone: scopeRow.timezone,
   });
 
-  const cursor = (job.input['cursor'] ?? null) as Record<string, unknown> | null;
+  /**
+   * Where to start: the checkpoint, not the batch.
+   *
+   * The checkpoint is saved in the same transaction as the page it describes, so it is the one place that
+   * cannot be behind. The batch's own copy is written afterwards and can be, and there can be more than one
+   * batch for a category: every press of "Bring it across" on a stopped move used to queue a whole new set,
+   * each starting from the top, each adding what it read to the same count. That is what "12 of 4
+   * calendars" was — the same four read three times — and why the customers never finished. So a batch that
+   * finds its category already complete stops, and every other one carries on from the one true mark.
+   */
+  const mark = await asWorker(
+    deps.db,
+    { workspaceId: null, organizationId: job.organization_id },
+    (tx) =>
+      rows<{ cursor: Record<string, unknown> | null; complete: boolean }>(
+        tx,
+        sql`select cursor, complete from app.migration_checkpoints
+            where scope_id = ${job.scope_id} and category = ${job.category}`,
+      ),
+  );
+  if (mark[0]?.complete) {
+    await finishJob(deps, job, { skipped: 'already read' });
+    return 'done';
+  }
+  const saved = mark[0]?.cursor;
+  const cursor = saved && Object.keys(saved).length > 0 ? saved : null;
   const page = await opened.adapter.list(opened.connection, scope, job.category, {
     cursor,
     limit: PAGE_SIZE,
@@ -493,6 +518,26 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     deps.db,
     { workspaceId: job.workspace_id, organizationId: job.organization_id },
     async (tx) => {
+      /**
+       * Nobody else has saved this page first. Two batches for one category can read the same mark at the
+       * same moment; the row lock makes them take turns, and the second finds the mark has moved on and
+       * leaves without writing or counting anything.
+       */
+      await tx.execute(sql`
+        insert into app.migration_checkpoints
+          (migration_id, organization_id, scope_id, category, cursor, counts, complete, adapter_version)
+        values (${importScope.migrationId}, ${importScope.organizationId}, ${importScope.scopeId},
+          ${job.category}, '{}'::jsonb, '{}'::jsonb, false, ${opened.adapter.adapterVersion})
+        on conflict (scope_id, category) do nothing`);
+      const [held] = await rows<{ same: boolean }>(
+        tx,
+        sql`select (not complete and cursor = ${JSON.stringify(cursor ?? {})}::jsonb) as same
+            from app.migration_checkpoints
+            where scope_id = ${importScope.scopeId} and category = ${job.category}
+            for update`,
+      );
+      if (!held?.same) return null;
+
       const context = await mappingContext(tx, importScope, opened.adapter);
       let totals = emptyCounts();
       for (const record of page.records) {
@@ -530,24 +575,51 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
             totals = addCounts(totals, { failed: 1 });
             continue;
           }
-          // Whatever the adapter could not map is already recorded beside the record; it is never dropped.
-          for (const w of envelope.warnings)
-            await finding(tx, importScope, {
-              code: w.code,
-              category: job.category,
-              capability: 'needs_review',
-              severity: 'info',
-              summary: w.message,
-              sourceCapability: w.field ?? null,
-              affected: 1,
-            });
           const importer = IMPORTERS[envelope.canonicalType];
           if (!importer) {
             totals = addCounts(totals, { skipped: 1 });
             continue;
           }
-          const result = await importer(tx, importScope, { ...envelope, data: checked.data });
-          totals = addCounts(totals, result.counts);
+          /**
+           * One record at a time, each behind its own savepoint. A record the database refuses — a customer
+           * with no name at all, a value too long for its column — used to take the whole transaction with
+           * it, so the page of a hundred failed, was tried again, failed the same way, and the category never
+           * finished. Now that one record is set aside with the database's reason on it, and the other
+           * ninety-nine come across.
+           */
+          try {
+            const result = await tx.transaction(async (one) => {
+              // Whatever the adapter could not map is recorded beside the record; it is never dropped.
+              for (const w of envelope.warnings)
+                await finding(one, importScope, {
+                  code: w.code,
+                  category: job.category,
+                  capability: 'needs_review',
+                  severity: 'info',
+                  summary: w.message,
+                  sourceCapability: w.field ?? null,
+                  affected: 1,
+                });
+              return importer(one, importScope, { ...envelope, data: checked.data });
+            });
+            totals = addCounts(totals, result.counts);
+          } catch (e) {
+            const err = e as Error & { cause?: { message?: string } };
+            await quarantine(tx, importScope, {
+              category: job.category,
+              sourceObjectType: envelope.source.objectType,
+              sourceObjectId: envelope.source.objectId,
+              kind: 'target',
+              code: 'import_refused',
+              // The database's own reason, not the statement: the statement carries the record's values.
+              message: (err.cause?.message ?? err.message.split('\n')[0] ?? 'refused').slice(
+                0,
+                500,
+              ),
+              retryable: false,
+            });
+            totals = addCounts(totals, { failed: 1 });
+          }
         }
       }
       await checkpoint(tx, importScope, job.category, {
@@ -561,6 +633,11 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
     },
   );
 
+  // Another batch saved this page first: it carries on from here, and this one has nothing left to do.
+  if (!counts) {
+    await finishJob(deps, job, { skipped: 'another batch read this page' });
+    return 'done';
+  }
   if (!page.done && page.cursor) {
     await requeueJob(deps, job, { ...job.input, cursor: page.cursor });
     return 'again';

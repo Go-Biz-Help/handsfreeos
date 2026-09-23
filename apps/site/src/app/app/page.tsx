@@ -41,12 +41,13 @@ export default function AppPage() {
           <div>
             <Eyebrow>iPhone and Android</Eyebrow>
             <h1 className="text-[2.25rem] leading-[1.08] font-bold sm:text-5xl">
-              The whole business, in the pocket of the person doing the work.
+              It stays in your pocket until something needs you.
             </h1>
             <p className="text-text-2 mt-6 text-lg">
-              Not a website in a wrapper. Everything can be read and changed with no signal at all —
-              in a basement, in a crawlspace, an hour out of town — and catches up the moment you
-              have bars again.
+              HandsFreeOS answers, books and chases on its own, and taps you on the shoulder when it
+              is your turn. Then the whole business is right there — and not as a website in a
+              wrapper. Everything can be read and changed with no signal at all, in a basement, in a
+              crawlspace, an hour out of town, and catches up the moment you have bars again.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button href={urls.signUp} size="lg">
@@ -92,8 +93,8 @@ export default function AppPage() {
               body: 'Calling a customer from the app dials through your own cell but shows your business number, so your personal number stays private and the call quality is your carrier, not the internet.',
             },
             {
-              title: 'Notifications you can act on',
-              body: 'A new lead comes through as a notification you can reply to, call back or hand to the AI without opening the app first.',
+              title: 'Most of it without opening the app',
+              body: 'A new lead comes through as a notification you can reply to, call back or hand to the AI without opening the app first. Plenty of days, that is as far in as you need to go.',
             },
             {
               title: 'Face ID and a code by email',
@@ -126,9 +127,10 @@ export default function AppPage() {
 
       <Section className="bg-card-2 border-border border-t">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold">Your crew will actually use this one.</h2>
+          <h2 className="text-3xl font-bold">Your crew will reach for it when it counts.</h2>
           <p className="text-text-2 mt-5 text-lg">
-            Because it is faster than texting you to ask, and it works where their signal does not.
+            Because it is faster than texting you to ask, it works where their signal does not, and
+            the rest of the time it stays out of their way.
           </p>
           <div className="mt-8 flex justify-center">
             <Button href={urls.signUp} size="lg">

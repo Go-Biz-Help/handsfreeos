@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'HandsFreeOS',
     url: urls.site,
-    title: 'Your business keeps answering while you’re on the job',
+    title: 'The CRM that doesn’t want you to use it',
     description:
-      'Calls, texts, email, calendar, quotes and invoices in one place — with an AI teammate that answers new leads in seconds.',
+      'It spots the lead, answers it, books the job, updates the record and brings you in when it matters. The less you use it, the better it’s working.',
     locale: 'en_US',
   },
   twitter: { card: 'summary_large_image' },

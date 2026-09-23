@@ -242,6 +242,12 @@ export const CalendarGetOutput = z.object({
 
 // ---- Availability ----
 
+/** M18: where a customer's address is, found by the worker, for distance and drawn service areas. */
+export const GeoPointInput = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
 export const CalendarAvailabilityInput = z.object({
   workspaceId: uuid,
   calendarId: uuid,
@@ -251,6 +257,7 @@ export const CalendarAvailabilityInput = z.object({
   durationMinutes: lengthMinutes.optional(),
   partySize,
   postalCode: z.string().trim().max(20).nullable().optional(),
+  point: GeoPointInput.nullable().optional(),
   chosenUserId: uuid.nullable().optional(),
   locationKind: LocationKind.nullable().optional(),
 });
@@ -381,10 +388,37 @@ const postalCodes = z
       .regex(/^\d{5}$/, 'Use 5-digit ZIP codes.'),
   )
   .max(5000);
+const lat = z.number().min(-90).max(90);
+const lng = z.number().min(-180).max(180);
+/**
+ * M18: what a service area covers besides a ZIP list: so many miles from an address (found on the map when it
+ * is saved), or a shape drawn on the map as its corners.
+ */
+export const AreaShape = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('zip') }),
+  z.object({
+    kind: z.literal('radius'),
+    address: z.string().trim().min(1).max(300),
+    lat,
+    lng,
+    miles: z.number().min(0.1).max(250),
+  }),
+  z.object({
+    kind: z.literal('polygon'),
+    corners: z
+      .array(z.tuple([lat, lng]))
+      .min(3, 'Draw at least three corners.')
+      .max(200),
+  }),
+]);
+export type AreaShape = z.infer<typeof AreaShape>;
+
 export const TerritoryCreateInput = z.object({
   workspaceId: uuid,
   name: displayName,
+  /** A ZIP area's codes; empty for the other kinds. */
   postalCodes: postalCodes.default(() => []),
+  shape: AreaShape.default({ kind: 'zip' }),
   userIds: z
     .array(uuid)
     .max(100)
@@ -396,6 +430,8 @@ export const TerritoryUpdateInput = z.object({
   territoryId: uuid,
   name: displayName.optional(),
   postalCodes: postalCodes.optional(),
+  /** A new shape; a ZIP area's codes are cleared when it becomes another kind. */
+  shape: AreaShape.optional(),
   userIds: z.array(uuid).max(100).optional(),
 });
 export const TerritoryUpdateOutput = z.object({ territoryId: uuid, updated: z.array(z.string()) });
@@ -452,7 +488,13 @@ export const ResourceListOutput = z.object({ items: z.array(ResourceOut) });
 export const TerritoryOut = z.object({
   id: uuid,
   name: z.string(),
+  kind: z.enum(['zip', 'radius', 'polygon']),
   postalCodes: z.array(z.string()),
+  centerAddress: z.string().nullable(),
+  center: z.object({ lat: z.number(), lng: z.number() }).nullable(),
+  radiusMiles: z.number().nullable(),
+  /** [lat, lng] corners. */
+  polygon: z.array(z.array(z.number()).length(2)).nullable(),
   userIds: z.array(uuid),
 });
 export const TerritoryListInput = z.object({ workspaceId: uuid });
@@ -966,6 +1008,8 @@ export const AppointmentBookOnlineInput = z.object({
   locationKind: LocationKind.nullable().optional(),
   address: z.string().trim().max(300).nullable().optional(),
   postalCode: z.string().trim().max(20).nullable().optional(),
+  /** Where the address is (the worker looks it up), for distance and drawn service areas. */
+  point: GeoPointInput.nullable().optional(),
   chosenUserId: uuid.nullable().optional(),
   customer: OnlineCustomer,
   /** The unticked-by-default "Text me about this booking" box. */

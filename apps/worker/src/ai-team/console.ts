@@ -12,6 +12,8 @@
  *   count toward training wheels.
  */
 import type { AiMessage, AiProvider, AiToolCall, AiUsage } from '@hfos/ai';
+import type { Geocoder } from '../geo/geocoder';
+import { ADDRESS_NOT_FOUND, serviceAreaAnswer, whereabouts } from './areas';
 import {
   addDays,
   APPROVALS_NEEDED_MAX,
@@ -36,7 +38,6 @@ import {
   TEAMMATE_TURN_ENDERS,
   uuidArray,
   workspaceMessaging,
-  zip5,
   type DraftAction,
   type ReplyCheck,
   type TeammateConfig,
@@ -170,6 +171,8 @@ export interface ConsoleDeps {
   readonly log: Logger;
   /** The test chat's tokens are real tokens: a business trying its teammate out is charged for it like anything else. */
   readonly wallet: WalletDeps;
+  /** Finds where a customer's address is (M18), for distance and drawn service areas. */
+  readonly geocoder: Geocoder;
 }
 
 /** A test checked and ready to stream: refusals come before the stream opens, as the API's JSON errors. */
@@ -312,6 +315,7 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
     text: m.text,
     subject: null,
     at: at(lastTeammate + 1 + j),
+    photos: [],
   }));
   const rc = await asWorker(deps.db, t.scope, (tx) =>
     loadRunContext(tx, {
@@ -428,8 +432,17 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const cal = h.rc.calendars.find((c) => c.id === calendarId);
     if (!cal)
       return refuse('That isn’t one of your calendars. Use a calendar id from the context.');
-    const postalCode = str(args['postalCode']);
-    if (cal.byZip && !postalCode)
+    const address = str(args['address']);
+    if (cal.byAddress && !address && h.deps.geocoder.name !== 'off')
+      return refuse(
+        `${cal.name} offers times by where the customer is. Ask for their street address and city, then look again with it.`,
+      );
+    const where = await asWorker(h.deps.db, h.t.scope, (tx) =>
+      whereabouts(tx, h.deps.geocoder, { postalCode: str(args['postalCode']), address }),
+    );
+    if (where.notFound) return refuse(ADDRESS_NOT_FOUND);
+    const postalCode = where.zip;
+    if (cal.byZip && !postalCode && !where.point)
       return refuse(
         `${cal.name} offers times by ZIP code. Ask for their ZIP code, then look again with it.`,
       );
@@ -460,6 +473,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         serviceId,
         ...(durationMinutes ? { durationMinutes } : {}),
         ...(postalCode ? { postalCode } : {}),
+        ...(where.point ? { point: where.point } : {}),
       },
       systemActor(h.t.scope),
       { correlationId: h.t.runId, channel: 'ai_employee' },
@@ -474,6 +488,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         serviceId: out.serviceId,
         durationMinutes: durationMinutes ?? null,
         postalCode: cal.byZip ? postalCode : null,
+        point: cal.byZip ? where.point : null,
         label: atLabel(at, tz),
       });
     }
@@ -573,6 +588,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       sessionId: slot.sessionId,
       notes: str(args['notes']),
       postalCode: slot.postalCode,
+      point: slot.point,
       summary: `Book ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     h.state.held.push(held);
@@ -649,41 +665,29 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   },
 
   async check_service_area(h, args) {
-    const zip = zip5(String(args['postalCode']));
-    if (!zip) return refuse('That isn’t a ZIP code. Ask them for their 5-digit ZIP.');
-    const areas = await asWorker(h.deps.db, h.t.scope, (tx) =>
-      loadTerritories(tx, h.t.scope.workspaceId),
-    );
-    const covering = areas.filter((a) => a.postalCodes.some((p) => zip5(p) === zip));
+    const given = { postalCode: str(args['postalCode']), address: str(args['address']) };
+    const { areas, where } = await asWorker(h.deps.db, h.t.scope, async (tx) => ({
+      areas: await loadTerritories(tx, h.t.scope.workspaceId),
+      where: await whereabouts(tx, h.deps.geocoder, given),
+    }));
+    if (!where.zip && !where.point && !where.notFound)
+      return refuse('That isn’t a ZIP code. Ask them for their 5-digit ZIP or address.');
+    const answer = serviceAreaAnswer(areas, h.rc.calendars, where, h.deps.geocoder.name !== 'off');
+    const served = answer['served'];
     h.send({
       type: 'tool',
       name: 'check_service_area',
-      title: `Checked the service area for ${zip}`,
+      title: `Checked the service area for ${given.address ?? where.zip ?? 'them'}`,
       detail: !areas.length
-        ? 'No ZIP codes listed yet.'
-        : covering.length
-          ? `Served: ${covering.map((a) => a.name).join(', ')}`
-          : 'Not in any of your areas.',
+        ? 'No service areas listed yet.'
+        : served === true
+          ? `Served: ${(answer['areas'] as string[]).join(', ')}`
+          : served === false
+            ? 'Not in any of your areas.'
+            : String(answer['note'] ?? ''),
       at: nowIso(),
     });
-    if (!areas.length)
-      return {
-        content: {
-          served: null,
-          note: 'The business hasn’t listed the ZIP codes it serves. Go by the service area in the business profile; if it doesn’t say, follow your “when unsure” rule.',
-        },
-      };
-    return {
-      content: {
-        served: covering.length > 0,
-        ...(covering.length ? { areas: covering.map((a) => quoteData(a.name)) } : {}),
-        ...(covering.length
-          ? {}
-          : {
-              note: 'The business doesn’t list this ZIP code. Tell them kindly, and don’t book a visit at their place. Hand off if they want someone to double-check.',
-            }),
-      },
-    };
+    return { content: answer };
   },
 
   async book_repeating(h, args) {
@@ -711,6 +715,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       times,
       notes: str(args['notes']),
       postalCode: slot.postalCode,
+      point: slot.point,
       summary: `Book ${times} visits from ${slot.label} on ${cal.name}`.slice(0, 300),
     });
     would(h, 'repeat', `booked ${times} visits every ${every} from ${slot.label} on ${cal.name}`);
@@ -964,6 +969,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     if (!h.rc.customer && !h.rc.lead) return refuse(NO_CUSTOMER);
     would(h, 'note', `added a note: “${String(args['body']).slice(0, 120)}”`);
     return { content: { added: true } };
+  },
+
+  /** The test chat has no photos: nothing to note. */
+  async note_photos() {
+    return refuse('There are no photos in this test chat to note. Use add_note instead.');
   },
 
   async create_task(h, args) {

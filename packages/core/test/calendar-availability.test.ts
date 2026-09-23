@@ -20,6 +20,8 @@ import {
   scheduleSet,
   sessionPublish,
   territoryCreate,
+  territoryList,
+  territoryUpdate,
   timeOffAdd,
 } from '../src/server';
 import {
@@ -225,6 +227,96 @@ describe('availability on real data', () => {
       partySize: 2,
     });
     expect((await slotsOn(cal.id, ...whole))[0]!.seatsLeft).toBe(3);
+  });
+
+  it('routes by where the customer is, for distance and drawn service areas (M18)', async () => {
+    const day = nextWeekday(3, 10);
+    const downtown = await run(
+      territoryCreate,
+      {
+        workspaceId: t.wsId,
+        name: 'Downtown 10 miles',
+        shape: {
+          kind: 'radius',
+          address: '1500 Marilla St, Dallas, TX',
+          lat: 32.7767,
+          lng: -96.797,
+          miles: 10,
+        },
+        userIds: [t.priya.id],
+      },
+      t.owner,
+    );
+    const plano = await run(
+      territoryCreate,
+      {
+        workspaceId: t.wsId,
+        name: 'Plano drawn',
+        shape: {
+          kind: 'polygon',
+          corners: [
+            [33.0, -96.8],
+            [33.1, -96.8],
+            [33.1, -96.65],
+            [33.0, -96.65],
+          ],
+        },
+        userIds: [t.marco.id],
+      },
+      t.owner,
+    );
+    // A distance area keeps no ZIP codes, whatever it is sent.
+    await run(
+      territoryUpdate,
+      { workspaceId: t.wsId, territoryId: downtown.territoryId, postalCodes: ['75201'] },
+      t.owner,
+    );
+    const listed = (await ask(territoryList, { workspaceId: t.wsId }, t.owner)).items;
+    expect(listed.find((x) => x.id === downtown.territoryId)).toMatchObject({
+      kind: 'radius',
+      postalCodes: [],
+      centerAddress: '1500 Marilla St, Dallas, TX',
+      center: { lat: 32.7767, lng: -96.797 },
+      radiusMiles: 10,
+      polygon: null,
+    });
+    expect(listed.find((x) => x.id === plano.territoryId)!.polygon).toHaveLength(4);
+    const cal = await makeCalendar(t, 'Areas dispatch', {
+      public: true,
+      team: {
+        members: [{ userId: t.priya.id }, { userId: t.marco.id }],
+        assignment: 'round_robin',
+      },
+      territory: { routing: 'zip', territoryIds: [downtown.territoryId, plano.territoryId] },
+      locations: { options: [{ kind: 'customer_address' }] },
+    });
+    const at10 = (point: { lat: number; lng: number }) =>
+      slotsOn(cal.id, isoAt(day, '10:00'), isoAt(day, '10:01'), { point });
+    expect((await at10({ lat: 32.8, lng: -96.8 }))[0]!.userIds).toEqual([t.priya.id]);
+    expect((await at10({ lat: 33.05, lng: -96.7 }))[0]!.userIds).toEqual([t.marco.id]);
+    expect(await at10({ lat: 30.27, lng: -97.74 })).toEqual([]);
+    const booked = await bookOnline(t, cal.id, isoAt(day, '10:00'), {
+      address: '2 Legacy Dr, Plano',
+      postalCode: '75024',
+      point: { lat: 33.05, lng: -96.7 },
+    });
+    expect(booked.userIds).toEqual([t.marco.id]);
+    // Turning the distance area into a ZIP list clears its point.
+    await run(
+      territoryUpdate,
+      {
+        workspaceId: t.wsId,
+        territoryId: downtown.territoryId,
+        shape: { kind: 'zip' },
+        postalCodes: ['75201'],
+      },
+      t.owner,
+    );
+    expect(
+      (await ask(territoryList, { workspaceId: t.wsId }, t.owner)).items.find(
+        (x) => x.id === downtown.territoryId,
+      ),
+    ).toMatchObject({ kind: 'zip', postalCodes: ['75201'], center: null, radiusMiles: null });
   });
 
   it('routes by ZIP to the people who cover it, with travel on both sides', async () => {

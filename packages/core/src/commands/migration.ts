@@ -20,6 +20,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, isNotNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
+  migrationCheckpoints,
   migrationConnections,
   migrationFindings,
   migrationInventory,
@@ -926,6 +927,9 @@ export const migrationStart = defineCommand({
       );
 
     let queued = 0;
+    // Something was already chosen and read, or is still being read: pressing again is carrying on.
+    let carryingOn = false;
+    let stillWorking = false;
     // Always in the same order, by name. Two runs of one migration should do the same thing, and when two
     // sub-accounts hold the same customer, which one is read first decides which record the other joins.
     let position = 0;
@@ -943,7 +947,51 @@ export const migrationStart = defineCommand({
       const resolved = resolveSelection({
         chosen: [...new Set(chosen.map((c) => c.category))].filter(isImportable),
       });
+      /**
+       * Pressing it again carries on; it never starts over. Until now every press on a stopped move queued a
+       * whole new set of batches beside the ones still waiting, each reading from the top and each adding
+       * what it read to the same count: four presses, "16 of 4 calendars", and the customers read four
+       * times at once. So a category already read is left alone, a category with a batch still on its way
+       * keeps that one batch (the extras are stopped), and only a category with nothing left working gets a
+       * new one — which carries on from its checkpoint, not from the top.
+       */
+      const finished = new Set(
+        (
+          await ctx.tx
+            .select({ category: migrationCheckpoints.category })
+            .from(migrationCheckpoints)
+            .where(
+              and(
+                eq(migrationCheckpoints.scopeId, scope.id),
+                eq(migrationCheckpoints.complete, true),
+              ),
+            )
+        ).map((c) => c.category),
+      );
+      const open = await ctx.tx
+        .select({ id: migrationJobs.id, category: migrationJobs.category })
+        .from(migrationJobs)
+        .where(
+          and(
+            eq(migrationJobs.scopeId, scope.id),
+            eq(migrationJobs.kind, 'fetch'),
+            inArray(migrationJobs.state, ['pending', 'retry', 'leased']),
+          ),
+        )
+        .orderBy(asc(migrationJobs.createdAt), asc(migrationJobs.id));
+      const working = new Set<string>();
+      const extras: string[] = [];
+      for (const j of open) {
+        if (working.has(j.category) || finished.has(j.category)) extras.push(j.id);
+        else working.add(j.category);
+      }
+      if (extras.length > 0)
+        await ctx.tx
+          .update(migrationJobs)
+          .set({ state: 'cancelled', finishedAt: new Date() })
+          .where(inArray(migrationJobs.id, extras));
       for (const cat of resolved.categories) {
+        if (finished.has(cat.id) || working.has(cat.id)) continue;
         await ctx.tx.insert(migrationJobs).values({
           migrationId: m.id,
           organizationId: m.organizationId,
@@ -958,14 +1006,27 @@ export const migrationStart = defineCommand({
         });
         queued += 1;
       }
+      if (working.size > 0 || finished.size > 0) carryingOn = true;
+      if (working.size > 0) stillWorking = true;
       await ctx.tx
         .update(migrationScopes)
         .set({ status: 'importing', startedAt: new Date() })
         .where(eq(migrationScopes.id, scope.id));
       position += 1;
     }
-    if (queued === 0)
+    if (queued === 0 && !carryingOn)
       throw HfosError.rule('migration_nothing_selected', 409, 'Choose something to bring first.');
+    // Everything chosen has been read already: what is missing is the checks, the same as carrying on from a
+    // pause with nothing left to fetch.
+    if (queued === 0 && !stillWorking)
+      await ctx.tx.insert(migrationJobs).values({
+        migrationId: m.id,
+        organizationId: m.organizationId,
+        kind: 'verify',
+        category: 'locations',
+        pass: 9,
+        input: {},
+      });
 
     await ctx.tx
       .update(migrations)

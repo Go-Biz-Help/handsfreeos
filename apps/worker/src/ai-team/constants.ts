@@ -94,3 +94,6 @@ export const MONEY_LIST_MAX = 10;
 /** One hand-off's text to one person: once, however often the hand-off's event is delivered. */
 export const handoffTextJobKey = (eventId: string, userId: string): string =>
   `handoff-text:${eventId}:${userId}`;
+
+/** M18: the most photos the teammate looks at in one reply (the newest). */
+export const PHOTOS_MAX = 3;

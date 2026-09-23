@@ -155,7 +155,7 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
           rows={5}
           maxLength={4000}
           className={FIELD}
-          placeholder="Missed calls, quotes nobody chased, three apps that do not talk to each other — whatever made you read this far."
+          placeholder="Missed calls, quotes nobody chased, a CRM you are always behind on updating — whatever made you read this far."
         />
         <span className="text-text-3 text-sm">
           This is the part we actually read. It is how we pick.

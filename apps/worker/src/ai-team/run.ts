@@ -90,6 +90,7 @@ import { handOffAsAi, handOffAsSystem } from './handoff';
 import { scheduleFollowUp, type OfferedSlot } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
 import { chatCodeSender } from './chat-code';
+import { photoBlocks, photoLines, pickPhotos } from './photos';
 import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
 import {
   firstMessageTurn,
@@ -612,6 +613,7 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
     training: run.teammate.status === 'training',
     moneyLinks: ctx.moneyLinks,
     chatCodes: chatCodeSender(ctx),
+    geocoder: ctx.geocoder,
     ...(verified ? { callPrefix: 'verified:' } : {}),
     log: ctx.log,
   });
@@ -690,9 +692,16 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
     return null;
   };
 
+  // M18: the newest few of their photos go in as pictures, when its settings let it look.
+  const pick = rc.config.photos.enabled && rc.batch.length ? pickPhotos(rc.batch) : null;
+  const images = pick ? await photoBlocks(ctx.store, pick.shown, ctx.log) : [];
+  state.photos = images.length;
+  const said = [turnOf(run, rc), ...(pick ? photoLines(pick, images.length) : [])].join('\n');
   const loop = await runToolLoop({
     ...base,
-    messages: [{ role: 'user', content: turnOf(run, rc) }],
+    messages: [
+      { role: 'user', content: images.length ? [{ type: 'text', text: said }, ...images] : said },
+    ],
     tools: tools.map(toolDefinition),
     maxRounds: rc.config.limits.toolRounds,
   });
@@ -788,7 +797,8 @@ export function checkReply(rc: RunContext, state: RunState, text: string): Reply
     firstMessage: rc.firstAiMessage,
     askedIfHuman: rc.batch.some((b) => asksIfHuman(b.text)),
     allowed: { ...rc.allowed, urls: [] },
-    allowPrices: profile.allowPrices,
+    // M18: a reply to a photo says a price only where the owner lets it give ranges from photos.
+    allowPrices: profile.allowPrices && (!state.photos || rc.config.photos.priceRanges),
     knowledge: [
       briefFromProfile(profile, business),
       ...rc.matches.map((m) => `${m.title}\n${m.body}`),

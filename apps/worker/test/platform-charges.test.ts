@@ -106,10 +106,19 @@ describe('the page a card is typed on', () => {
     // Ours, not a seller's: the same header that decides whose money a charge is.
     expect(calls[0]!.headers).not.toHaveProperty('stripe-account');
     const sent = new URLSearchParams(calls[0]!.body);
-    // Setting a card up for later, unattended — which is what a top-up is — and only a card.
+    // Every field, and nothing else. Stripe refuses one it does not know with a 400, and the stand-in accepts
+    // anything — which is how `setup_intent_data[usage]` reached production: this test asserted it was sent,
+    // and Stripe had never heard of it. Checkout's SetupIntent is `off_session` without being told.
+    expect([...sent.keys()].sort()).toEqual([
+      'cancel_url',
+      'customer',
+      'mode',
+      'payment_method_types[0]',
+      'success_url',
+    ]);
+    // Setting a card up for later, and only a card.
     expect(sent.get('mode')).toBe('setup');
     expect(sent.get('customer')).toBe('cus_hfos_1');
-    expect(sent.get('setup_intent_data[usage]')).toBe('off_session');
     expect(sent.get('payment_method_types[0]')).toBe('card');
     expect(sent.get('success_url')).toBe(
       'https://app.test/app/w/ws-1/settings/usage?card={CHECKOUT_SESSION_ID}',

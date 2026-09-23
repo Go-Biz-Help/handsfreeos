@@ -10,6 +10,8 @@ import { eq } from 'drizzle-orm';
 import {
   allQuestions,
   calendarMostCharged,
+  loadTerritories,
+  needsAddress,
   chatVerified,
   LeadQualification,
   parseStoredForm,
@@ -52,7 +54,36 @@ export interface BatchMessage {
   readonly subject: string | null;
   /** When they sent it, in epoch milliseconds. */
   readonly at: number;
+  /** The pictures it came with (M18), as stored; the run decides which it can show the model. */
+  readonly photos: readonly PhotoRef[];
 }
+
+/** A picture a customer sent, where it is kept. */
+export interface PhotoRef {
+  readonly bucket: string;
+  readonly objectPath: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+}
+
+const photosIn = (media: unknown): PhotoRef[] =>
+  (Array.isArray(media) ? media : []).flatMap((m: unknown) => {
+    const r = m as Partial<PhotoRef> | null;
+    return r &&
+      typeof r.bucket === 'string' &&
+      typeof r.objectPath === 'string' &&
+      typeof r.contentType === 'string' &&
+      r.contentType.startsWith('image/')
+      ? [
+          {
+            bucket: r.bucket,
+            objectPath: r.objectPath,
+            contentType: r.contentType,
+            sizeBytes: Number(r.sizeBytes) || 0,
+          },
+        ]
+      : [];
+  });
 
 type MessageRow = {
   id: string;
@@ -66,8 +97,9 @@ type MessageRow = {
 function textOf(r: Pick<MessageRow, 'channel' | 'body_text' | 'media'>): string {
   const body = r.channel === 'email' ? stripQuoted(r.body_text ?? '') : (r.body_text ?? '').trim();
   const photos = Array.isArray(r.media) ? r.media.length : 0;
-  const text =
-    body || (photos === 1 ? '(sent a photo)' : photos > 1 ? `(sent ${photos} photos)` : '');
+  const sent = photos === 1 ? 'a photo' : `${photos} photos`;
+  // M18: a photo with words says so too, so the model knows there is one to look at.
+  const text = !photos ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
   return text.slice(0, 2000);
 }
 
@@ -77,6 +109,7 @@ const batchOf = (r: MessageRow): BatchMessage => ({
   text: textOf(r),
   subject: r.subject,
   at: ms(r.occurred_at),
+  photos: photosIn(r.media),
 });
 
 /**
@@ -161,6 +194,8 @@ export interface RunCalendar {
   readonly bookingPath: string | null;
   /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */
   readonly byZip: boolean;
+  /** M18: some of its service areas go by distance or a drawn shape, so find_times needs their address. */
+  readonly byAddress: boolean;
   /** The service areas (territories) it serves when it goes by ZIP; empty means all of them. */
   readonly areaIds: readonly string[];
   /** It keeps a waitlist the teammate may add customers to (M18). */
@@ -580,6 +615,7 @@ async function calendarsOf(
                 where b.workspace_id = ${workspaceId} and b.enabled) as site`,
   );
   const site = row?.site ?? null;
+  const areas = await loadTerritories(tx, workspaceId);
   for (const id of ids) {
     const cal = await loadCalendar(tx, workspaceId, id).catch(() => null);
     if (!cal || cal.status === 'archived') continue;
@@ -604,6 +640,14 @@ async function calendarsOf(
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
       bookingPath: site ? `/book/${site}/${cal.slug}` : null,
       byZip: cal.config.territory.routing === 'zip',
+      byAddress:
+        cal.config.territory.routing === 'zip' &&
+        areas.some(
+          (a) =>
+            needsAddress(a) &&
+            (!cal.config.territory.territoryIds.length ||
+              cal.config.territory.territoryIds.includes(a.id)),
+        ),
       areaIds: cal.config.territory.territoryIds,
       waitlist: cal.config.waitlist.enabled,
       maxRepeats:
