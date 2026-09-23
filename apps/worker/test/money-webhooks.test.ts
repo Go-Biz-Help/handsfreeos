@@ -22,6 +22,7 @@ import {
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { disputeFactsOf } from '../src/money/webhook-events';
 import { FAKE_BANK, FAKE_CARDS } from '../src/payments/fake';
 import { systemActor } from '../src/services';
 import { TEST_PUBLIC_URL } from './helpers';
@@ -284,6 +285,42 @@ describe('what the routes do with an event they take', () => {
     expect(stored.at(-1)).toMatchObject({ status: 'done', signature_valid: true });
     // A disputed payment is still a payment that was made: nothing un-pays the invoice.
     expect(await invoiceRow(inv.id)).toMatchObject({ status: 'paid', balance_cents: 0 });
+  });
+
+  it('keeps a Square dispute under the names Square uses today, and knows which payment it is', async () => {
+    // Square's own shape: the dispute nested under its type, and the payment one level further down.
+    const dispute = {
+      id: 'sq_dispute_1',
+      state: 'WON',
+      reason: 'AMOUNT_DIFFERS',
+      amount_money: { amount: 8_801, currency: 'USD' },
+      disputed_payment: { payment_id: 'sq_payment_disputed' },
+    };
+    const ids: string[] = [];
+    for (const type of ['dispute.state.updated', 'dispute.evidence.created']) {
+      const id = randomUUID();
+      ids.push(id);
+      const body = squareBody(type, w.square.accountId, { dispute }, id);
+      const res = await hook('square', body, w.s.payments.fake.signSquare(squareUrl, body));
+      expect(res.statusCode, res.body).toBe(200);
+    }
+    await drain(w);
+    const stored = (await deliveryRows(w.workspaceId)).filter((d) => ids.includes(d.dedupe_key));
+    expect(stored).toHaveLength(2);
+    for (const row of stored)
+      expect(row).toMatchObject({
+        kind: 'payment.disputed',
+        status: 'done',
+        signature_valid: true,
+      });
+    const facts = disputeFactsOf({
+      id: ids[0]!,
+      type: 'dispute.state.updated',
+      accountRef: w.square.accountId,
+      createdAt: null,
+      data: { dispute },
+    });
+    expect(facts).toMatchObject({ providerPaymentId: 'sq_payment_disputed', amountCents: 8_801 });
   });
 
   it('records a plan’s cycle against the plan the provider named', async () => {

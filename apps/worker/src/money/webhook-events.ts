@@ -86,6 +86,10 @@ const SQUARE_KINDS: Readonly<Record<string, PaymentEventKind>> = {
   'refund.created': 'payment.refunded',
   'refund.updated': 'payment.refunded',
   'dispute.created': 'payment.disputed',
+  // Square's current names for a dispute moving on. A subscription made today can only pick these.
+  'dispute.state.updated': 'payment.disputed',
+  'dispute.evidence.created': 'payment.disputed',
+  // The names those had before. Square no longer offers them, but reading them costs nothing.
   'dispute.state.changed': 'payment.disputed',
   'dispute.evidence.added': 'payment.disputed',
   'invoice.payment_made': 'invoice.paid',
@@ -299,8 +303,11 @@ export interface DisputeEventFacts {
 export function disputeFactsOf(event: PaymentEvent): DisputeEventFacts {
   const data = unwrap(event.data, 'dispute');
   const money = isRecord(data['amount_money']) ? data['amount_money'] : null;
+  // Square keeps the payment one level down, in `disputed_payment`; Stripe names it on the dispute itself.
+  const disputed = isRecord(data['disputed_payment']) ? data['disputed_payment'] : {};
   return {
-    providerPaymentId: str(data['payment_intent']) ?? str(data['payment_id']),
+    providerPaymentId:
+      str(data['payment_intent']) ?? str(disputed['payment_id']) ?? str(data['payment_id']),
     amountCents: centsOf(money ? money['amount'] : data['amount']),
     reason: str(data['reason']),
     state: str(data['state']) ?? str(data['status']),

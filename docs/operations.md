@@ -7856,11 +7856,14 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
 4. Choose the API version Square offers as current, and select these events, which are the ones the worker acts on:
    - `payment.created`, `payment.updated` — Square has no "payment failed" event and no separate "succeeded" one, so where the money is has to be read off the payment itself
    - `refund.created`, `refund.updated`
-   - `dispute.created`, `dispute.state.changed`, `dispute.evidence.added`
+   - `dispute.created`, `dispute.state.updated`, `dispute.evidence.created`
    - `invoice.payment_made`
    - `subscription.created`, `subscription.updated`
-   - `merchant.updated`, `location.updated`
+   - `location.updated`
    - `oauth.authorization.revoked`
+
+   Older guides name `dispute.state.changed`, `dispute.evidence.added` and `merchant.updated`. Square no longer offers them: the first two are the old names of the dispute events above, and the Merchants API has no webhooks. The worker still reads the two old dispute names if they ever arrive.
+
 5. Save, then copy the **Signature Key** from the subscription's page.
 6. Save it in your password manager as "Square developer application", under webhook signature key.
 7. Do the same in **Sandbox** if you will test from your laptop, and keep that signature key separate.
