@@ -33,6 +33,7 @@ type Row = {
   owner_user_id: string | null;
   owner_name: string | null;
   owner_email: string | null;
+  team: { id: string; fullName: string | null }[] | null;
   company_id: string | null;
   company_name: string | null;
   company_archived: Date | null;
@@ -73,6 +74,7 @@ function summary(r: Row, tags: PersonSummary['tags']): PersonSummary {
     owner: r.owner_user_id
       ? { id: r.owner_user_id, fullName: r.owner_name || r.owner_email || 'Former member' }
       : null,
+    team: (r.team ?? []).map((m) => ({ id: m.id, fullName: m.fullName || 'Former member' })),
     tags,
     openLeads: Number(r.open_leads),
     lastActivityAt: r.last_activity_at ? new Date(r.last_activity_at).toISOString() : null,
@@ -82,9 +84,20 @@ function summary(r: Row, tags: PersonSummary['tags']): PersonSummary {
   };
 }
 
+/**
+ * The rest of the team on a customer (0101) as JSON, in the order they were added, with each person's name; somebody
+ * whose account is gone has none, and reads "Former member".
+ */
+export const TEAM = (alias: 'p' | 'c') => sql`(
+  select coalesce(json_agg(json_build_object('id', t.id,
+      'fullName', coalesce(nullif(tu.full_name, ''), tu.email::text)) order by t.n), '[]'::json)
+  from unnest(${sql.raw(alias)}.team_user_ids) with ordinality as t(id, n)
+  left join app.users tu on tu.id = t.id)`;
+
 const base = (workspaceId: string, sort: 'name' | 'recent') => sql`
   select p.id, p.first_name, p.last_name, p.email::text as email, p.phone_e164, p.phone_alt, p.address_line1, p.address_line2, p.city, p.state, p.postal_code, p.country,
     p.other_emails, p.other_phones, p.other_addresses, p.source, p.notes, p.owner_user_id, u.full_name as owner_name, u.email::text as owner_email,
+    ${TEAM('p')} as team,
     p.company_id, c.name as company_name, c.archived_at as company_archived,
     (select count(*) from app.leads l where l.person_id = p.id and l.status = 'open' and l.archived_at is null)::int as open_leads,
     (select max(a.occurred_at) from app.activities a where a.person_id = p.id) as last_activity_at,
@@ -114,6 +127,7 @@ export const personList = defineQuery({
           ${q ? sql`and p.search_text like ${q}` : sql``}
           ${input.companyId ? sql`and p.company_id = ${input.companyId}` : sql``}
           ${input.ownerUserId ? sql`and p.owner_user_id = ${input.ownerUserId}` : sql``}
+          ${input.assignedUserId ? sql`and (p.owner_user_id = ${input.assignedUserId} or p.team_user_ids @> array[${input.assignedUserId}::uuid])` : sql``}
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.tagId})` : sql``}
         ) x
         ${cursor ? (recent ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}

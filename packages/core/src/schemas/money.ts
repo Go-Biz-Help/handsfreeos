@@ -73,6 +73,13 @@ export const PAYMENT_CONNECTION_STATUSES = [
 ] as const;
 export type PaymentConnectionStatus = (typeof PAYMENT_CONNECTION_STATUSES)[number];
 
+/**
+ * Who may bill into an account (0102): everyone who bills, only the people it names, or only them — and they bill
+ * into nothing that is open to everyone.
+ */
+export const PAYMENT_ACCOUNT_USES = ['everyone', 'chosen', 'only_theirs'] as const;
+export type PaymentAccountUse = (typeof PAYMENT_ACCOUNT_USES)[number];
+
 /** Why a connection ended: a person, the provider, too many failures, or a reconnect of the same account. */
 export const DISCONNECTED_REASONS = [
   'person',
@@ -107,6 +114,7 @@ export const paymentStatus = z.enum(PAYMENT_STATUSES);
 export const refundStatus = z.enum(REFUND_STATUSES);
 export const subscriptionStatus = z.enum(SUBSCRIPTION_STATUSES);
 export const disconnectedReason = z.enum(DISCONNECTED_REASONS);
+export const paymentAccountUse = z.enum(PAYMENT_ACCOUNT_USES);
 
 // ---------- shared field shapes ----------
 
@@ -361,6 +369,18 @@ export const PaymentConnectionSetLabelInput = z.object({
   connectionId: uuid,
   label: z.string().trim().min(1, 'Name the account.').max(60).nullable(),
 });
+/** Who may bill into an account (0102). The people are required unless it is open to everyone. */
+export const PaymentConnectionSetAccessInput = z
+  .object({
+    ...inWorkspace,
+    connectionId: uuid,
+    usedBy: paymentAccountUse,
+    userIds: z.array(uuid).max(50).default([]),
+  })
+  .refine((v) => v.usedBy === 'everyone' || v.userIds.length > 0, {
+    path: ['userIds'],
+    error: 'Pick who uses this account.',
+  });
 export const PaymentConnectionDisconnectInput = z.object({
   ...inWorkspace,
   connectionId: uuid,
@@ -423,6 +443,11 @@ export const PaymentConnectionOut = z.object({
   disconnectedAt: isoDateTime.nullable(),
   /** Plans still billing through it: what a disconnect would leave unmanaged. */
   liveSubscriptions: z.int(),
+  /** Who may bill into it (0102), and the people it is kept to (empty when it is open to everyone). */
+  usedBy: paymentAccountUse,
+  userIds: z.array(uuid),
+  /** Whether the person asking may bill into it. */
+  usableByMe: z.boolean(),
 });
 export const PaymentConnectionStateOutput = z.object({
   connectionId: uuid,
@@ -780,6 +805,11 @@ export const InvoiceListInput = z.object({
   leadId: uuid.optional(),
   attendeeId: uuid.optional(),
   subscriptionId: uuid.optional(),
+  /**
+   * The ones paid into this connected account (0102) — the same account across a reconnect — or, null, the ones
+   * with no account chosen (imported, or from before any account was connected).
+   */
+  connectionId: uuid.nullable().optional(),
   /** Money still expected: sent, partly paid or overdue. */
   openOnly: z.boolean().default(false),
   search: z.string().trim().max(120).optional(),
@@ -846,6 +876,8 @@ export const PaymentListInput = z.object({
   /** Only what actually landed, for "what did we collect?". */
   succeededOnly: z.boolean().default(false),
   since: isoDateTime.optional(),
+  /** Taken into this connected account (the same account across a reconnect); null, taken in person. */
+  connectionId: uuid.nullable().optional(),
   limit: z.int().min(1).max(100).default(25),
   cursor: z.string().max(500).optional(),
 });
@@ -1029,6 +1061,8 @@ export const SubscriptionListInput = z.object({
   status: z.array(subscriptionStatus).max(SUBSCRIPTION_STATUSES.length).optional(),
   personId: uuid.optional(),
   planId: uuid.optional(),
+  /** Billing through this connected account (the same account across a reconnect); null, through none yet. */
+  connectionId: uuid.nullable().optional(),
   limit: z.int().min(1).max(100).default(25),
   cursor: z.string().max(500).optional(),
 });

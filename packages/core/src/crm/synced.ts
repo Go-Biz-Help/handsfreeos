@@ -76,6 +76,22 @@ const userRef = (id: Cell, names: SyncedNames) => {
   return userId ? { id: userId, fullName: names.user(userId) ?? 'Former member' } : null;
 };
 
+/** Everyone else on a customer (0101), from the phone's copy: a Postgres array arrives as JSON text. */
+const teamOf = (ids: Cell, names: SyncedNames): { id: string; fullName: string }[] => {
+  const s = text(ids);
+  if (!s) return [];
+  let list: unknown;
+  try {
+    list = JSON.parse(s);
+  } catch {
+    // An array PowerSync didn't turn into JSON reads '{a,b}'.
+    list = s.replace(/^\{|\}$/g, '').split(',');
+  }
+  return (Array.isArray(list) ? list : [])
+    .filter((id): id is string => typeof id === 'string' && id.trim() !== '')
+    .map((id) => ({ id: id.trim(), fullName: names.user(id.trim()) ?? 'Former member' }));
+};
+
 const personRef = (id: Cell, names: SyncedNames) => {
   const personId = text(id);
   if (!personId) return null;
@@ -112,6 +128,8 @@ export interface SyncedPersonRow {
   readonly source: Cell;
   readonly company_id: Cell;
   readonly owner_user_id: Cell;
+  /** A JSON array of ids (0101); a phone that hasn't caught up has none. */
+  readonly team_user_ids?: Cell;
   readonly archived_at: Cell;
   readonly possible_duplicate_of: Cell;
   readonly created_at: Cell;
@@ -158,6 +176,7 @@ export function personOfSynced(
     source: text(row.source),
     company: companyRef(row.company_id, names),
     owner: userRef(row.owner_user_id, names),
+    team: teamOf(row.team_user_ids, names),
     tags: [...names.tags(row.id)],
     openLeads: counts.openLeads ?? 0,
     lastActivityAt: counts.lastActivityAt ?? null,
@@ -189,6 +208,8 @@ export interface SyncedCompanyRow {
   readonly notes: Cell;
   readonly source: Cell;
   readonly owner_user_id: Cell;
+  /** A JSON array of ids (0101); a phone that hasn't caught up has none. */
+  readonly team_user_ids?: Cell;
   readonly archived_at: Cell;
   readonly created_at: Cell;
   readonly updated_at: Cell;
@@ -215,6 +236,7 @@ export interface SyncedCompany {
   readonly notes: string | null;
   readonly source: string | null;
   readonly owner: { readonly id: string; readonly fullName: string } | null;
+  readonly team: readonly { readonly id: string; readonly fullName: string }[];
   readonly tags: readonly TagRef[];
   readonly archivedAt: string | null;
   readonly createdAt: string;
@@ -243,6 +265,7 @@ export function companyOfSynced(row: SyncedCompanyRow, names: SyncedNames): Sync
     notes: text(row.notes),
     source: text(row.source),
     owner: userRef(row.owner_user_id, names),
+    team: teamOf(row.team_user_ids, names),
     tags: names.tags(row.id),
     archivedAt: time(row.archived_at),
     createdAt: timeOr(row.created_at, new Date(0).toISOString()),

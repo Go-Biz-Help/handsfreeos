@@ -405,6 +405,11 @@ export const companies = app.table('companies', {
   otherEmails: jsonb('other_emails').$type<object[]>().notNull().default([]),
   otherPhones: jsonb('other_phones').$type<object[]>().notNull().default([]),
   otherAddresses: jsonb('other_addresses').$type<object[]>().notNull().default([]),
+  /** Everyone on the company besides the owner (0101), in the order they were added. */
+  teamUserIds: uuid('team_user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });
 
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
@@ -449,6 +454,11 @@ export const people = app.table('people', {
   otherEmails: jsonb('other_emails').$type<object[]>().notNull().default([]),
   otherPhones: jsonb('other_phones').$type<object[]>().notNull().default([]),
   otherAddresses: jsonb('other_addresses').$type<object[]>().notNull().default([]),
+  /** Everyone on the customer besides the owner (0101), in the order they were added. */
+  teamUserIds: uuid('team_user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });
 
 export const tags = app.table('tags', {
@@ -2828,6 +2838,12 @@ export const paymentConnectionStatus = app.enum('payment_connection_status', [
   'error',
   'disconnected',
 ]);
+/** Who may bill into an account (0102): everyone who bills, the people it names, or only them and only there. */
+export const paymentAccountUse = app.enum('payment_account_use', [
+  'everyone',
+  'chosen',
+  'only_theirs',
+]);
 export const paymentMethod = app.enum('payment_method', ['card', 'ach', 'cash', 'check', 'other']);
 export const paymentStatus = app.enum('payment_status', [
   'requires_payment',
@@ -3138,6 +3154,12 @@ export const paymentConnections = app.table('payment_connections', {
   disconnectedAt: ts('disconnected_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** Who may bill into it (0102), and the people it is kept to (empty exactly when it is open to everyone). */
+  usedBy: paymentAccountUse('used_by').notNull().default('everyone'),
+  userIds: uuid('user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });
 
 /** Status only moves forward, so a late webhook can never un-pay an invoice (a guard trigger, 0047). */

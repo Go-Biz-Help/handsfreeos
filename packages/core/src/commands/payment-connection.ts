@@ -16,7 +16,8 @@
  *   (`acknowledgeSubscriptions`), marking each one `unmanaged`.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, asc, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { paymentConnections, subscriptions } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -30,6 +31,7 @@ import {
   PaymentConnectionFailInput,
   PaymentConnectionRefInput,
   PaymentConnectionRevokedInput,
+  PaymentConnectionSetAccessInput,
   PaymentConnectionSetLabelInput,
   PaymentConnectionStateOutput,
 } from '../schemas/money';
@@ -166,6 +168,74 @@ async function clearDefault(
     );
 }
 
+// ---------- who bills into which account (0102) ----------
+
+/** The connected accounts this person may bill into, the default first: private.payment_account_usable's answer. */
+export async function usableAccounts(
+  ctx: CommandContext,
+  userId: string,
+): Promise<{ id: string; isDefault: boolean }[]> {
+  const ws = ctx.scope.workspaceId!;
+  const list = await rows<{ id: string; is_default: boolean }>(
+    ctx.tx,
+    sql`select c.id, c.is_default from app.payment_connections c
+        where c.workspace_id = ${ws} and c.status = 'active'
+          and private.payment_account_usable(c.workspace_id, c.id, ${userId}::uuid)
+        order by c.is_default desc, c.created_at, c.id`,
+  );
+  return list.map((c) => ({ id: c.id, isDefault: c.is_default }));
+}
+
+/**
+ * The account a person's new invoice or plan is paid into when they name none: the default if they may use it,
+ * else the first they may. A business with nothing connected takes no money online, and that stays so; a business
+ * with accounts, none of them theirs, is told — an invoice with no account would be paid into the default when
+ * the customer pays, which is exactly what the business said this person may not do.
+ */
+export async function accountForPerson(
+  ctx: CommandContext,
+  userId: string,
+): Promise<string | null> {
+  const [first] = await usableAccounts(ctx, userId);
+  if (first) return first.id;
+  const [connected] = await ctx.tx
+    .select({ id: paymentConnections.id })
+    .from(paymentConnections)
+    .where(
+      and(
+        eq(paymentConnections.workspaceId, ctx.scope.workspaceId!),
+        eq(paymentConnections.status, 'active'),
+      ),
+    )
+    .limit(1);
+  if (connected)
+    throw HfosError.rule(
+      'no_payment_account',
+      409,
+      'None of this business’s payment accounts is yours to bill into. Ask an owner to add you to one in Settings → Payments.',
+    );
+  return null;
+}
+
+/** Refuses an account this person may not bill into, in words, before the database's own check would. */
+export async function assertAccountUsable(
+  ctx: CommandContext,
+  userId: string,
+  connectionId: string,
+): Promise<void> {
+  const [ok] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.payment_account_usable(${ctx.scope.workspaceId!}::uuid, ${connectionId}::uuid,
+          ${userId}::uuid) as ok`,
+  );
+  if (!ok?.ok)
+    throw HfosError.rule(
+      'payment_account_not_yours',
+      403,
+      'That payment account is kept for other people on the team. Pick one of yours.',
+    );
+}
+
 /** The state an unchanged command returns. */
 const stateOut = (c: LoadedPaymentConnection, changed: boolean) => ({
   connectionId: c.id,
@@ -248,6 +318,76 @@ export const paymentConnectionSetLabel = defineCommand({
       after: { account: label ?? c.displayName ?? c.provider },
     });
     return { ...stateOut(c, true), status: c.status };
+  },
+});
+
+export const paymentConnectionSetAccess = defineCommand({
+  name: 'payment_connection.set_access',
+  description:
+    'Choose who may bill into a connected account: everyone who bills, only the people chosen, or only them — and they bill into nothing that is open to everyone. For a team whose people are each paid into their own account.',
+  risk: 2,
+  input: PaymentConnectionSetAccessInput,
+  output: PaymentConnectionStateOutput,
+  permission: 'money.manage',
+  scope: inWorkspace,
+  emits: ['payment_connection.access_set'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const c = await loadPaymentConnection(ctx, input.connectionId);
+    const [now] = await ctx.tx
+      .select({ usedBy: paymentConnections.usedBy, userIds: paymentConnections.userIds })
+      .from(paymentConnections)
+      .where(eq(paymentConnections.id, c.id));
+    const userIds = input.usedBy === 'everyone' ? [] : [...new Set(input.userIds)];
+    if (now && now.usedBy === input.usedBy && now.userIds.join() === userIds.join())
+      return stateOut(c, false);
+    if (c.status !== 'active')
+      throw HfosError.rule(
+        'payment_connection_not_active',
+        409,
+        'Only a connected account can be given to people. Reconnect it first.',
+      );
+    const [ok] = await rows<{ ok: boolean }>(
+      ctx.tx,
+      sql`select coalesce(bool_and(private.workspace_has_user(${ctx.scope.workspaceId!}::uuid, u)), true) as ok
+          from unnest(array[${sql.join(
+            userIds.length ? userIds.map((id) => sql`${id}::uuid`) : [sql`null::uuid`],
+            sql`, `,
+          )}]) as u where u is not null`,
+    );
+    if (!ok?.ok)
+      throw HfosError.validation([{ path: 'userIds', message: 'Pick people on the team.' }]);
+    await ctx.tx
+      .update(paymentConnections)
+      .set({ usedBy: input.usedBy, userIds })
+      .where(eq(paymentConnections.id, c.id));
+    const names = await rows<{ name: string }>(
+      ctx.tx,
+      sql`select coalesce(nullif(u.full_name, ''), u.email::text) as name
+          from unnest(array[${sql.join(
+            userIds.length ? userIds.map((id) => sql`${id}::uuid`) : [sql`null::uuid`],
+            sql`, `,
+          )}]) with ordinality as t(id, n)
+          join app.users u on u.id = t.id order by t.n`,
+    );
+    const who = names.map((n) => n.name).join(', ');
+    await ctx.emit({
+      type: 'payment_connection.access_set',
+      entityType: 'payment_connection',
+      entityId: c.id,
+      payload: { provider: c.provider, usedBy: input.usedBy, userIds },
+      before: { account: connectionLabel(c), usedBy: now?.usedBy ?? 'everyone' },
+      after: {
+        account: connectionLabel(c),
+        usedBy:
+          input.usedBy === 'everyone'
+            ? 'everyone who bills'
+            : input.usedBy === 'chosen'
+              ? `only ${who}`
+              : `only ${who}, and only this account`,
+      },
+    });
+    return stateOut(c, true);
   },
 });
 
@@ -441,9 +581,43 @@ export const paymentConnectionActivate = defineCommand({
       )
       .limit(1);
     const isDefault = !other;
+    // The same account signed in again keeps who uses it (0102): a reconnect never opens somebody's own account to
+    // everyone. Only the people still in the business carry over; with nobody left, it is everyone's again.
+    const [earlier] = await ctx.tx
+      .select({ usedBy: paymentConnections.usedBy, userIds: paymentConnections.userIds })
+      .from(paymentConnections)
+      .where(
+        and(
+          eq(paymentConnections.workspaceId, ctx.scope.workspaceId!),
+          eq(paymentConnections.provider, c.provider),
+          eq(paymentConnections.environment, c.environment),
+          eq(paymentConnections.externalAccountId, input.externalAccountId),
+          ne(paymentConnections.id, c.id),
+        ),
+      )
+      .orderBy(desc(paymentConnections.createdAt))
+      .limit(1);
+    const kept = earlier?.userIds.length
+      ? (
+          await rows<{ id: string }>(
+            ctx.tx,
+            sql`select t.id from unnest(array[${sql.join(
+              earlier.userIds.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}]) with ordinality as t(id, n)
+                where private.workspace_has_user(${ctx.scope.workspaceId!}::uuid, t.id)
+                order by t.n`,
+          )
+        ).map((r) => r.id)
+      : [];
+    const access =
+      earlier && earlier.usedBy !== 'everyone' && kept.length
+        ? { usedBy: earlier.usedBy, userIds: kept }
+        : { usedBy: 'everyone' as const, userIds: [] };
     await ctx.tx
       .update(paymentConnections)
       .set({
+        ...access,
         status: 'active',
         externalAccountId: input.externalAccountId,
         locationId: input.locationId ?? null,
@@ -600,6 +774,7 @@ export const paymentConnectionCommands = [
   paymentConnectionConnect,
   paymentConnectionSetLabel,
   paymentConnectionSetDefault,
+  paymentConnectionSetAccess,
   paymentConnectionDisconnect,
   paymentConnectionActivate,
   paymentConnectionFail,

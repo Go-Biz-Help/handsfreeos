@@ -22,6 +22,7 @@ import {
   source,
   tagIds,
   TagRef,
+  TeamRef,
   UserRef,
 } from './crm';
 
@@ -130,6 +131,8 @@ export const PersonSummary = z.object({
   source: z.string().nullable(),
   company: CompanyRef.nullable(),
   owner: UserRef,
+  /** Everyone else the customer is assigned to (0101), in the order they were added. */
+  team: TeamRef,
   tags: z.array(TagRef),
   openLeads: z.number().int(),
   lastActivityAt: isoDateTime.nullable(),
@@ -145,6 +148,8 @@ export const PersonListInput = ListInput.extend({
   tagId: uuid.optional(),
   companyId: uuid.optional(),
   ownerUserId: uuid.optional(),
+  /** The customers assigned to this person: the ones they own and the ones they are on (0101). */
+  assignedUserId: uuid.optional(),
   includeArchived: z.boolean().default(false),
   sort: z.enum(['name', 'recent']).default('name'),
 });

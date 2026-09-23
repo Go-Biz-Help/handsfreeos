@@ -22,6 +22,7 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { money } from '../money/index';
+import { accountForPerson, assertAccountUsable } from './payment-connection';
 import {
   SubscriptionCancelInput,
   SubscriptionRecordCycleInput,
@@ -117,6 +118,13 @@ export async function startSubscription(
   const planName = input.planName ?? catalogue?.name;
   if (!planName)
     throw HfosError.validation([{ path: 'planName', message: 'Name the plan being sold.' }]);
+  // A person sells a plan into an account they may bill into (0102): the one named, or theirs to use. One the
+  // AI teammate offered waits for its card and takes the business's default then, as before.
+  let connectionId = input.connectionId ?? null;
+  if (ctx.actor.type === 'human') {
+    if (connectionId) await assertAccountUsable(ctx, ctx.actor.userId, connectionId);
+    else connectionId = await accountForPerson(ctx, ctx.actor.userId);
+  }
   const [row] = await ctx.tx
     .insert(subscriptions)
     .values({
@@ -131,7 +139,7 @@ export async function startSubscription(
       includes: input.includes ?? catalogue?.includes ?? [],
       personId: input.personId,
       leadId: input.leadId ?? null,
-      connectionId: input.connectionId ?? null,
+      connectionId,
       startedOn: input.startedOn ?? null,
       // A new plan has no card: neither provider will bill a customer they have no card for, so it starts
       // waiting on them and the customer's own link is what closes it.
@@ -412,6 +420,7 @@ export const subscriptionSetConnection = defineCommand({
           409,
           'That account isn’t connected right now. Reconnect it in Settings → Payments first.',
         );
+      await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
     }
     // A plan whose account went away is still billing at the provider: pointing it at the account it is billing
     // through hands it back to us, and the next cycle read corrects the rest.

@@ -154,8 +154,43 @@ export type TagRef = z.infer<typeof TagRef>;
 export const tagIds = z.array(uuid).max(20);
 
 export const PersonRef = z.object({ id: uuid, fullName: z.string(), archived: z.boolean() });
+
+/**
+ * Everyone on a customer besides the owner (0101), in the order they were added. With the owner they are who the
+ * customer is assigned to; somebody who has left the business reads "Former member".
+ */
+export const TeamRef = z.array(z.object({ id: uuid, fullName: z.string() }));
+export type TeamRef = z.infer<typeof TeamRef>;
+
+/** A person or a company: the records a team can be on. */
+export const customerType = z.enum(['person', 'company']);
+
+export const RecordAssignInput = z.object({
+  workspaceId: uuid,
+  recordType: customerType,
+  recordId: uuid,
+  userId: uuid,
+  /**
+   * Make them the customer's main person, their owner. Whoever was the owner stays on the customer. Left out, they
+   * join the team — or become the owner of a customer nobody owns.
+   */
+  main: z.boolean().default(false),
+});
+export const RecordUnassignInput = z.object({
+  workspaceId: uuid,
+  recordType: customerType,
+  recordId: uuid,
+  userId: uuid,
+});
 export const CompanyRef = z.object({ id: uuid, name: z.string(), archived: z.boolean() });
 export const UserRef = z.object({ id: uuid, fullName: z.string() }).nullable();
+
+export const RecordAssignOutput = z.object({
+  owner: UserRef,
+  team: TeamRef,
+  /** False when they were already where this puts them (or already off). */
+  changed: z.boolean(),
+});
 
 export const notes = optionalText(10000);
 export const source = optionalText(80);

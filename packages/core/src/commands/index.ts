@@ -155,6 +155,7 @@ import { personUpdate } from './person.update';
 import { pipelineArchive } from './pipeline.archive';
 import { pipelineCreate } from './pipeline.create';
 import { pipelineUpdate } from './pipeline.update';
+import { recordAssign, recordUnassign } from './record.assign';
 import { recordAddTag, recordRemoveTag, recordSetTags } from './record.set_tags';
 import { stageCreate } from './stage.create';
 import { stageDelete } from './stage.delete';
@@ -414,8 +415,10 @@ export {
   pipelineCreate,
   pipelineUpdate,
   recordAddTag,
+  recordAssign,
   recordRemoveTag,
   recordSetTags,
+  recordUnassign,
   stageCreate,
   stageDelete,
   stageReorder,
@@ -519,6 +522,8 @@ export const commands: readonly CommandDef[] = [
   recordSetTags,
   recordAddTag,
   recordRemoveTag,
+  recordAssign,
+  recordUnassign,
   leadCreate,
   leadUpdate,
   leadMoveStage,

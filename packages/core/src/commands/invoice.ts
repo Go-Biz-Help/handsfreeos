@@ -26,6 +26,7 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
+import { accountForPerson, assertAccountUsable } from './payment-connection';
 import {
   TERMS_WORDS,
   canPaymentMove,
@@ -133,6 +134,19 @@ async function defaultConnection(ctx: CommandContext): Promise<string | null> {
 }
 
 /**
+ * The account a new invoice is paid into (0102). A person bills only into an account they may use: the one they
+ * named, or else the default when it is theirs to use, or the first one that is. What the business raises on its
+ * own — a deposit, a plan's cycle, the AI teammate's bill once an owner has said yes — takes the one named, else
+ * the default, as it always has.
+ */
+async function accountOf(ctx: CommandContext, named: string | null | undefined) {
+  if (ctx.actor.type !== 'human') return named ?? (await defaultConnection(ctx));
+  if (!named) return accountForPerson(ctx, ctx.actor.userId);
+  await assertAccountUsable(ctx, ctx.actor.userId, named);
+  return named;
+}
+
+/**
  * The invoice as it stands after a payment or a refund landed, and the events that go with the change. The
  * roll-up has already recounted it by the time this reads it back.
  */
@@ -225,7 +239,7 @@ export async function createInvoice(
       subscriptionId: input.subscriptionId ?? null,
       purpose: input.purpose,
       origin: input.origin,
-      connectionId: input.connectionId ?? (await defaultConnection(ctx)),
+      connectionId: await accountOf(ctx, input.connectionId),
       dueOn: input.dueOn ?? null,
       terms: input.terms ?? TERMS_WORDS[settings.terms],
       ...totalsColumns(draft),
@@ -304,6 +318,8 @@ export const invoiceUpdate = defineCommand({
         409,
         'An invoice stays with the customer it was written for. Make a new one instead.',
       );
+    if (input.connectionId && input.connectionId !== before.connection_id)
+      await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
     const settings = await loadMoneySettings(ctx.tx, ctx.scope.workspaceId!);
     const draft = draftOf(input.lines, settings, { discount: input.discount });
     await ctx.tx

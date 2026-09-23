@@ -3,8 +3,9 @@
  * business's money summary, and the panel on a lead, a customer or a visit.
  *
  * **Every query applies the member rule in its own `where`, not just in RLS.** A member sees a document, its
- * lines, its payments and its refunds when they are staffed on the appointment it is linked to or they own the
- * lead it is linked to; a document tied to neither is owner business. The predicate is
+ * lines, its payments and its refunds when they are staffed on the appointment it is linked to, they own the
+ * lead it is linked to, or the customer it is for is assigned to them (0101); a document tied to none of those is
+ * owner business. The predicate is
  * `private.money_member_sees`, the same definer helper the RLS policies call, so a query layer can never widen
  * the rule and a missing clause can never leak. Owners and admins skip it entirely — they match the
  * money.manage policies and never pay for the lookup.
@@ -12,7 +13,7 @@
  * `money.summary` and the plan queries are owners and admins only: a total of the whole business's receivables
  * is exactly what the member rule withholds, so it is refused rather than half-answered.
  */
-import { and, asc, desc, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql as dsql, type SQL } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { paymentConnections, subscriptions } from '@hfos/db/schema';
 import { workspaceTimezone } from '../crm/records';
@@ -87,16 +88,35 @@ const isMember = (ctx: QueryContext): boolean =>
 
 /**
  * The member rule for an estimate, as this query's own `where`. Estimates have no booking, so a member's reach
- * on one is the lead they own.
+ * on one is the lead they own, or the customer they are assigned to (0101).
  */
 const estimateMemberClause = (ctx: QueryContext) =>
-  isMember(ctx) ? sql` and private.money_member_sees(e.workspace_id, e.lead_id, null)` : sql``;
+  isMember(ctx)
+    ? sql` and private.money_member_sees(e.workspace_id, e.lead_id, null, e.person_id)`
+    : sql``;
 
 /** The same rule for an invoice, which also reaches the visit they worked. */
 const invoiceMemberClause = (ctx: QueryContext) =>
   isMember(ctx)
-    ? sql` and private.money_member_sees(i.workspace_id, i.lead_id, i.attendee_id)`
+    ? sql` and private.money_member_sees(i.workspace_id, i.lead_id, i.attendee_id, i.person_id)`
     : sql``;
+
+/**
+ * "Paid into this account" (0102): the connection named, and every other connection of the same account at the
+ * provider — a reconnect is a new row, and an invoice sent before it still went to the same place. Null asks for
+ * the ones with no account at all.
+ */
+const accountClause = (column: SQL, connectionId: string | null | undefined) =>
+  connectionId === undefined
+    ? sql``
+    : connectionId === null
+      ? sql` and ${column} is null`
+      : sql` and ${column} in (
+          select k.id from app.payment_connections k
+          join app.payment_connections c on c.id = ${connectionId}::uuid and k.workspace_id = c.workspace_id
+          where k.id = c.id
+            or (c.external_account_id is not null and k.external_account_id = c.external_account_id
+              and k.provider = c.provider and k.environment = c.environment))`;
 
 const like = (search: string | undefined): string | null =>
   search?.trim() ? `%${search.trim().toLowerCase()}%` : null;
@@ -272,6 +292,10 @@ export const paymentConnectionList = defineQuery({
         disconnectedReason: paymentConnections.disconnectedReason,
         connectedAt: paymentConnections.connectedAt,
         disconnectedAt: paymentConnections.disconnectedAt,
+        usedBy: paymentConnections.usedBy,
+        userIds: paymentConnections.userIds,
+        // Whether the person asking may bill into it (0102). The system never asks as anybody.
+        usableByMe: dsql<boolean>`coalesce(private.payment_account_usable(${paymentConnections.workspaceId}, ${paymentConnections.id}, auth.uid()), false)`,
       })
       .from(paymentConnections)
       .where(and(...where))
@@ -297,6 +321,9 @@ export const paymentConnectionList = defineQuery({
         connectedAt: moneyIso(c.connectedAt),
         disconnectedAt: moneyIso(c.disconnectedAt),
         liveSubscriptions: counts.get(c.id) ?? 0,
+        usedBy: c.usedBy,
+        userIds: c.userIds,
+        usableByMe: c.usableByMe === true,
       })),
     };
   },
@@ -433,6 +460,7 @@ export const invoiceList = defineQuery({
             ${input.leadId ? sql`and i.lead_id = ${input.leadId}::uuid` : sql``}
             ${input.attendeeId ? sql`and i.attendee_id = ${input.attendeeId}::uuid` : sql``}
             ${input.subscriptionId ? sql`and i.subscription_id = ${input.subscriptionId}::uuid` : sql``}
+            ${accountClause(sql`i.connection_id`, input.connectionId)}
             ${search ? sql`and (lower(coalesce(i.number, '')) like ${search} or lower(coalesce(i.title, '')) like ${search} or lower(coalesce(pe.first_name, '') || ' ' || coalesce(pe.last_name, '')) like ${search})` : sql``}
             ${invoiceMemberClause(ctx)}
             ${cursorClause(input.cursor, 'i')}
@@ -523,6 +551,7 @@ export const paymentList = defineQuery({
             ${input.method?.length ? sql`and p.method::text = any(${textArray(input.method)})` : sql``}
             ${input.succeededOnly ? sql`and p.status = 'succeeded'` : sql``}
             ${input.since ? sql`and p.created_at >= ${input.since}::timestamptz` : sql``}
+            ${accountClause(sql`p.connection_id`, input.connectionId)}
             ${invoiceMemberClause(ctx)}
             ${cursorClause(input.cursor, 'p')}
           order by p.created_at desc, p.id desc
@@ -565,6 +594,7 @@ export const subscriptionList = defineQuery({
             ${input.status?.length ? sql`and s.status::text = any(${textArray(input.status)})` : sql``}
             ${input.personId ? sql`and s.person_id = ${input.personId}::uuid` : sql``}
             ${input.planId ? sql`and s.plan_id = ${input.planId}::uuid` : sql``}
+            ${accountClause(sql`s.connection_id`, input.connectionId)}
             ${cursorClause(input.cursor, 's')}
           order by s.created_at desc, s.id desc
           limit ${input.limit + 1}`,
