@@ -279,6 +279,7 @@ import {
   attentionUnsnooze,
 } from './attention';
 import { automationsSaveSettings } from './automations';
+import { referralCreateLead } from './referral';
 import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
 import { paymentConnectionCommands } from './payment-connection';
 import {
@@ -715,6 +716,7 @@ export const commands: readonly CommandDef[] = [
   attentionSaveSettings,
   attentionRecordAuto,
   automationsSaveSettings,
+  referralCreateLead,
   attendeeConfirm,
   attendeeConfirmOnline,
   productCreate,
@@ -770,6 +772,7 @@ export * from './intake';
 export * from './chat';
 export * from './attention';
 export * from './automations';
+export * from './referral';
 export * from './attendee-confirm';
 export * from './payment-connection';
 export * from './money-catalog';

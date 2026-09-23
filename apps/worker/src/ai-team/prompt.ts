@@ -317,6 +317,18 @@ export function historyBlock(rc: HistoryView): string[] {
 }
 
 /** The one message the model answers: the history, then the customer's new messages. */
+/** A referral they just mentioned: the reply thanks them for it (Automations' "Referral mentioned"). */
+function referralLines(rc: RunContext): string[] {
+  const r = rc.referral;
+  if (!r) return [];
+  return [
+    '<referral>',
+    `They mentioned ${quoteData(r.who)}${r.need ? ` might need help with ${quoteData(r.need)}` : ' might need the business'}.`,
+    '</referral>',
+    'Thank them warmly, in a few words, for thinking of the business. Never promise to contact that person yourself.',
+  ];
+}
+
 export function conversationTurn(rc: RunContext): string {
   const fresh = rc.batch.map((b) =>
     quoteData(b.channel === 'email' && b.subject ? `Subject: ${b.subject}\n${b.text}` : b.text),
@@ -327,6 +339,7 @@ export function conversationTurn(rc: RunContext): string {
     '<customer_message>',
     fresh.join('\n\n'),
     '</customer_message>',
+    ...referralLines(rc),
     TEAMMATE_ASK,
   ].join('\n');
 }

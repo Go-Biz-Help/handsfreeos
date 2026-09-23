@@ -21,6 +21,7 @@ import {
   CreditCard,
   FileText,
   Flame,
+  Heart,
   Hourglass,
   ListChecks,
   Mail,
@@ -70,6 +71,8 @@ const KIND_LOOK: Readonly<
   wallet_low: { icon: Wallet, tone: 'warning' },
   wallet_empty: { icon: Wallet, tone: 'danger' },
   wallet_card_declined: { icon: CreditCard, tone: 'danger' },
+  job_not_thanked: { icon: Heart, tone: 'accent' },
+  referral_mentioned: { icon: UserPlus, tone: 'accent' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {
@@ -217,6 +220,7 @@ export const HANDLE_ICONS: Readonly<Record<HandleIcon, LucideIcon>> = {
   'list-checks': ListChecks,
   receipt: Receipt,
   'file-text': FileText,
+  'user-plus': UserPlus,
 };
 
 const MODE: Readonly<Record<LetHandleMode, { icon: LucideIcon; bg: string; fg: string }>> = {

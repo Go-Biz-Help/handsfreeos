@@ -7623,6 +7623,16 @@ What the AI teammate writes follows its training: while it's training, each mess
 
 **Release note: follow-ups are on for everyone.** Until now a teammate followed up at most 5 times, a day apart, and only when a business had turned follow-ups on (they were off by default). Every AI teammate now follows up on the schedule above: the teammate settings move to version 2 when they're read, with follow-ups on. An owner who doesn't want them turns **Follow-ups after silence** off in **Settings** → **Automations** (or **Follow up** on the teammate), and that choice stays. Tell clients before this ships.
 
+### Appointments and after the job
+
+| Row                         | What it does                                                                                                                                                                                                                                                                                  | On to begin with                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Intake questions**        | Two minutes after a customer's first-ever booking is confirmed to them, a text (or an email when they can't be texted) with the link to the form the business chose, in its own words. Never to a returning customer or someone who already filled it in. A text waits out quiet hours        | Yes, but nothing goes until a form is picked |
+| **Thank-you after the job** | Two hours after a job is marked done, the AI teammate thanks each customer who was there (a draft while it trains). No review ask. Skipped when someone already wrote to them, or the calendar has its own "job done" workflow. With no AI teammate switched on, a card on Home asks a person | Yes                                          |
+| **Referral mentioned**      | A customer's text, email, chat or call transcript that mentions somebody who needs the business ("my neighbour Jan needs her AC looked at") opens a card with **Create lead**. The teammate's next reply thanks them. A word check comes first, so only likely messages cost an AI call       | Yes                                          |
+
+Each thank-you's outcome is a row of `app.thank_yous`, and each referral a row of `app.referrals`. Both need the migration `20261003000300_automations_after_the_job.sql`. See "Apply new migrations".
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.

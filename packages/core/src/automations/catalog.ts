@@ -84,7 +84,7 @@ export type AutomationBinding =
 export type CustomerFacing = 'ai' | 'owner_wording' | null;
 
 /** What a row needs before it can do anything. Shown as "needs setup" with a link, never as an error. */
-export const AUTOMATION_REQUIREMENTS = ['teammate_on'] as const;
+export const AUTOMATION_REQUIREMENTS = ['teammate_on', 'intake_form'] as const;
 export type AutomationRequirement = (typeof AUTOMATION_REQUIREMENTS)[number];
 
 /** The fine-tuning panels the page's Adjust sheet offers. */
@@ -99,6 +99,8 @@ export const ADJUST_PANELS = [
   'day_before',
   'unconfirmed',
   'waitlist',
+  'intake',
+  'thank_you',
   'invoices',
   'morning',
   'stale',
@@ -128,6 +130,11 @@ export interface AutomationDef {
   readonly locked?: boolean;
   /** Can't be turned on until an owner has read its wording in the Adjust sheet ("Looks good, turn on"). */
   readonly reviewFirst?: boolean;
+  /**
+   * An AI-written row that still does something without the AI teammate, in one sentence the row shows while
+   * there is none (so it doesn't read as "needs setup").
+   */
+  readonly withoutTeammate?: string;
 }
 
 /** Every automation, in the page's order. */
@@ -257,6 +264,18 @@ export const AUTOMATIONS = [
     adjust: 'unconfirmed',
   },
   {
+    id: 'intake_questions',
+    group: 'appointments',
+    label: 'Intake questions',
+    oneLiner: 'Sends a first-time customer your intake form right after they book.',
+    effect: 'texts',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'intake' },
+    customerFacing: 'owner_wording',
+    needs: ['intake_form'],
+    adjust: 'intake',
+  },
+  {
     id: 'waitlist_slot_opened',
     group: 'appointments',
     label: 'Waitlist slot opened',
@@ -271,6 +290,19 @@ export const AUTOMATIONS = [
 
   // ---- After the job ----
   {
+    id: 'job_thank_you',
+    group: 'after_job',
+    label: 'Thank-you after the job',
+    oneLiner: 'Texts the customer a short thank-you two hours after a job is marked done.',
+    effect: 'texts',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'thankYou' },
+    customerFacing: 'ai',
+    needs: [],
+    adjust: 'thank_you',
+    withoutTeammate: 'Without an AI teammate, a card on Home reminds you to thank them.',
+  },
+  {
     id: 'overdue_invoices',
     group: 'after_job',
     label: 'Overdue invoices',
@@ -281,6 +313,18 @@ export const AUTOMATIONS = [
     customerFacing: null,
     needs: [],
     adjust: 'invoices',
+  },
+  {
+    id: 'referral_mentioned',
+    group: 'after_job',
+    label: 'Referral mentioned',
+    oneLiner: 'Flags a customer who mentions someone who needs you, so you can reach out.',
+    effect: 'alerts',
+    defaultOn: true,
+    binding: { store: 'attention_kind', kinds: ['referral_mentioned'] },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
   },
 
   // ---- Daily briefings ----

@@ -1911,6 +1911,7 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'builder',
   'knowledge',
   'teammate',
+  'automations',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -4801,7 +4802,60 @@ export const workspacePlans = app.table('workspace_plans', {
   ...timestamps(),
 });
 
+/**
+ * Automations' "Thank-you after the job" (0094): which way each customer's thank-you went, one per attendee. A
+ * `card` row is what opens Home's "job not thanked" card.
+ */
+export const thankYous = app.table('thank_yous', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  attendeeId: uuid('attendee_id')
+    .notNull()
+    .references(() => appointmentAttendees.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  completedAt: ts('completed_at').notNull(),
+  /** sent, drafted, card or skipped. */
+  outcome: text('outcome').notNull(),
+  reason: text('reason'),
+  ...timestamps(),
+});
+
+/** Automations' "Referral mentioned" (0094): somebody a customer said needs the business, and what became of it. */
+export const referrals = app.table('referrals', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  referrerPersonId: uuid('referrer_person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  callId: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
+  referredName: text('referred_name'),
+  relation: text('relation'),
+  referredPhoneE164: text('referred_phone_e164'),
+  referredEmail: text('referred_email'),
+  need: text('need'),
+  quote: text('quote'),
+  /** mentioned, lead_created or dismissed. */
+  status: text('status').notNull().default('mentioned'),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
+  thankedAt: ts('thanked_at'),
+  ...timestamps(),
+});
+
 export const tables = {
+  thankYous,
+  referrals,
   foundingOffers,
   foundingGrants,
   foundingApplications,

@@ -7,7 +7,7 @@ import type { WalletDeps } from '../money/wallet';
 import type { TenantScope } from '../services';
 
 /** Where AI tokens outside the Assistant were spent (app.ai_usage.source). */
-export type AiUsageSource = 'workflow' | 'builder' | 'knowledge' | 'teammate';
+export type AiUsageSource = 'workflow' | 'builder' | 'knowledge' | 'teammate' | 'automations';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -53,6 +53,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   builder: 'AI while building',
   knowledge: 'AI reading your knowledge',
   teammate: 'An AI teammate reply',
+  automations: 'AI reading customer messages',
 };
 
 /**

@@ -12,9 +12,12 @@ import {
   checkNudgeTemplate,
   DEFAULT_FOLLOW_UP_LADDER_HOURS,
   DEFAULT_NUDGE_TEMPLATE,
+  DEFAULT_INTAKE_MESSAGE,
   DEFAULT_REENGAGE_TEMPLATE,
+  intakeMessageProblem,
   followUpLadderWords,
   NUDGE_SAMPLE,
+  renderIntakeMessage,
   renderNudge,
   shortBusinessName,
   smsSegments,
@@ -33,6 +36,7 @@ import { toast } from 'sonner';
 import { useNow } from '@/components/calendar/appt';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { fieldErrors } from '@/lib/api/field-errors';
@@ -79,6 +83,15 @@ export interface PanelEnv {
   /** The preview's {senderName}: the person reading. */
   readonly senderName: string;
   readonly teammateName: string | null;
+  /** The business's forms (not archived), for "Intake questions". */
+  readonly forms: readonly IntakeFormOption[];
+}
+
+/** A form "Intake questions" may send. Only a live one goes out. */
+export interface IntakeFormOption {
+  readonly id: string;
+  readonly name: string;
+  readonly status: 'draft' | 'live' | 'closed' | 'archived';
 }
 
 const heading = 'text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3';
@@ -581,6 +594,148 @@ function WaitlistPanel({ env }: { env: PanelEnv }) {
           Calendars
         </Link>
         .
+      </Note>
+    </Block>
+  );
+}
+
+function IntakePanel({ env }: { env: PanelEnv }) {
+  const intake = env.automations.intake;
+  const live = env.forms.filter((f) => f.status === 'live');
+  const chosen = env.forms.find((f) => f.id === intake.formId) ?? null;
+  const [draft, setDraft] = useState(intake.message);
+  const [error, setError] = useState<string | null>(null);
+  const problem = intakeMessageProblem(draft);
+  const dirty = draft.trim() !== intake.message;
+  const preview = renderIntakeMessage(draft, {
+    firstName: NUDGE_SAMPLE.firstName,
+    businessName: env.businessName,
+    link: 'https://…/f/your-form',
+  });
+  const formsHref = `/app/w/${env.workspaceId}/forms`;
+  return (
+    <>
+      <Block>
+        <Note>
+          Right after a customer books their first visit, they get your intake form by text, or by
+          email when they can’t be texted. It goes a couple of minutes after the booking
+          confirmation, only when the customer is told about the booking, and never to a returning
+          customer or someone who already filled it in.
+        </Note>
+      </Block>
+      <Block title="The form">
+        {live.length ? (
+          <Select
+            selectSize="sm"
+            aria-label="Intake form"
+            value={chosen?.id ?? ''}
+            data-testid="intake-form"
+            onChange={(e) => {
+              const formId = e.target.value || null;
+              const name = env.forms.find((f) => f.id === formId)?.name;
+              void env.saveAutomations(
+                (s) => ({ ...s, intake: { ...s.intake, formId } }),
+                name ? `First-time customers get “${name}”.` : 'No intake form is sent.',
+              );
+            }}
+          >
+            <option value="">Pick a form…</option>
+            {live.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </Select>
+        ) : (
+          <Note>
+            You don’t have a live form yet. The “Before your first visit” starter in{' '}
+            <Link href={formsHref} className={linkCls}>
+              Forms
+            </Link>{' '}
+            is a good place to begin.
+          </Note>
+        )}
+        {chosen && chosen.status !== 'live' ? (
+          <p className="text-[12.5px] text-warning-text" data-testid="intake-form-not-live">
+            “{chosen.name}” isn’t live, so nothing goes until it is.
+          </p>
+        ) : null}
+        <Note>
+          Change the questions in{' '}
+          <Link href={formsHref} className={linkCls}>
+            Forms
+          </Link>
+          .
+        </Note>
+      </Block>
+      <Block title="The message">
+        <Textarea
+          aria-label="Intake message"
+          value={draft}
+          rows={3}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+          }}
+          data-testid="intake-message"
+        />
+        <p className="text-[12.5px] text-text-3">
+          Use {'{firstName}'}, {'{businessName}'} and {'{link}'}. The link is the form’s.
+        </p>
+        {problem || error ? (
+          <p className="text-[12.5px] text-danger-text" data-testid="intake-message-error">
+            {problem ?? error}
+          </p>
+        ) : null}
+        <div className="rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[13px] leading-[1.45]">
+          <span className="text-text-3">What {NUDGE_SAMPLE.firstName} gets: </span>
+          <span data-testid="intake-preview">{preview}</span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            disabled={!dirty || !!problem}
+            onClick={() =>
+              void env.saveAutomations(
+                (s) => ({ ...s, intake: { ...s.intake, message: draft.trim() } }),
+                'Saved the intake message.',
+                (e) => {
+                  const f = fieldErrors(e);
+                  setError(Object.values(f)[0] ?? 'That didn’t save.');
+                },
+              )
+            }
+            data-testid="intake-message-save"
+          >
+            Save
+          </Button>
+          {draft.trim() !== DEFAULT_INTAKE_MESSAGE ? (
+            <Button size="sm" variant="ghost" onClick={() => setDraft(DEFAULT_INTAKE_MESSAGE)}>
+              Use the standard wording
+            </Button>
+          ) : null}
+        </div>
+      </Block>
+    </>
+  );
+}
+
+// ---- After the job ----
+
+function ThankYouPanel({ env }: { env: PanelEnv }) {
+  const ai = env.teammateName ?? 'Your AI teammate';
+  return (
+    <Block>
+      <Note>
+        Two hours after a job is marked done, {ai} texts the customer a short thank-you that
+        mentions the job. It asks for nothing: no review, no payment. While it’s training, the
+        thank-you waits in Approvals for you.
+      </Note>
+      <Note>
+        It skips anyone someone already wrote to since the job, anyone who can’t be reached, and
+        calendars with their own “job done” workflow. With no AI teammate switched on, or when
+        someone on the team has their conversation, a card on Home reminds you to thank them
+        instead.
       </Note>
     </Block>
   );
@@ -1225,6 +1380,8 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   day_before: DayBeforePanel,
   unconfirmed: UnconfirmedPanel,
   waitlist: WaitlistPanel,
+  intake: IntakePanel,
+  thank_you: ThankYouPanel,
   invoices: InvoicesPanel,
   morning: MorningPanel,
   stale: StalePanel,

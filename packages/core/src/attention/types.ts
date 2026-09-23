@@ -33,6 +33,10 @@ export const REASON_CODES = [
   'not_viewed',
   'stage',
   'not_a_fit',
+  /** A job marked done, counting up: "job done 3 h ago". */
+  'job_done',
+  /** Who a referral is and what they need: "neighbour · AC looked at". */
+  'referral',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

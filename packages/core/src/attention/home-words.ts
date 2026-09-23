@@ -29,6 +29,8 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   wallet_low: ['balance', 'balances'],
   wallet_empty: ['balance', 'balances'],
   wallet_card_declined: ['card', 'cards'],
+  job_not_thanked: ['customer', 'customers'],
+  referral_mentioned: ['referral', 'referrals'],
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
@@ -451,6 +453,10 @@ export function attentionTargetOf(
     case 'wallet_empty':
     case 'wallet_card_declined':
       return { href: `${base}/settings/usage`, label: 'Open your balance' };
+    // The customer who mentioned them: that's where the conversation is.
+    case 'job_not_thanked':
+    case 'referral_mentioned':
+      break;
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -477,7 +483,8 @@ export type HandleIcon =
   | 'check'
   | 'list-checks'
   | 'receipt'
-  | 'file-text';
+  | 'file-text'
+  | 'user-plus';
 
 /**
  * The main button's words and icon for an item: Call Maria, Reply, Set next action, Confirm by text, Approve, Open
@@ -545,6 +552,12 @@ export function handleButtonOf(
       return { label: 'Top up', icon: 'receipt' };
     case 'wallet_card_declined':
       return { label: 'Fix the card', icon: 'receipt' };
+    case 'job_not_thanked':
+      return email
+        ? { label: `Thank ${first}`, icon: 'mail' }
+        : { label: `Thank ${first}`, icon: 'message' };
+    case 'referral_mentioned':
+      return { label: 'Create lead', icon: 'user-plus' };
   }
 }
 
@@ -554,6 +567,8 @@ export function letHandleOffReason(
 ): string | null {
   if (item.kind === 'ai_approval') return 'Approvals always need a person';
   if (item.kind === 'overdue_task') return 'HandsFreeOS can’t do your tasks';
+  if (item.kind === 'job_not_thanked') return 'HandsFreeOS couldn’t send this one';
+  if (item.kind === 'referral_mentioned') return 'Reaching out to someone new is your call';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

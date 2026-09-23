@@ -4357,6 +4357,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/referral.create_lead": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn somebody a customer mentioned into a customer and a lead, with the customer who mentioned them as its source. Finds them first if their phone or email is already here.
+         * @description Risk level 1. Requires records.write. Emits referral.lead_created.
+         */
+        post: operations["command_referral_create_lead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/registration.submit": {
         parameters: {
             query?: never;
@@ -9989,10 +10009,17 @@ export interface operations {
                             hot_lead?: boolean;
                             /** @default true */
                             invoice_overdue?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            job_not_thanked?: true;
                             /** @default true */
                             missing_next_action?: boolean;
                             /** @default true */
                             overdue_task?: boolean;
+                            /** @default true */
+                            referral_mentioned?: boolean;
                             /** @default true */
                             stale_opportunity?: boolean;
                             /** @default true */
@@ -10091,10 +10118,17 @@ export interface operations {
                                 hot_lead: boolean;
                                 /** @default true */
                                 invoice_overdue: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                job_not_thanked: true;
                                 /** @default true */
                                 missing_next_action: boolean;
                                 /** @default true */
                                 overdue_task: boolean;
+                                /** @default true */
+                                referral_mentioned: boolean;
                                 /** @default true */
                                 stale_opportunity: boolean;
                                 /** @default true */
@@ -10242,6 +10276,13 @@ export interface operations {
                 "application/json": {
                     settings: {
                         /** @default {} */
+                        intake?: {
+                            /** @default null */
+                            formId?: string | null;
+                            /** @default Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link} */
+                            message?: string;
+                        };
+                        /** @default {} */
                         reengage?: {
                             /** @default 90 */
                             afterDays?: number;
@@ -10261,9 +10302,13 @@ export interface operations {
                             /** @default true */
                             dayOf?: boolean;
                             /** @default true */
+                            intake?: boolean;
+                            /** @default true */
                             morningBrief?: boolean;
                             /** @default false */
                             reengage?: boolean;
+                            /** @default true */
+                            thankYou?: boolean;
                             /** @default true */
                             waitlist?: boolean;
                         };
@@ -10283,6 +10328,12 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         settings: {
+                            intake: {
+                                /** @default null */
+                                formId: string | null;
+                                /** @default Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link} */
+                                message: string;
+                            };
                             reengage: {
                                 /** @default 90 */
                                 afterDays: number;
@@ -10301,9 +10352,13 @@ export interface operations {
                                 /** @default true */
                                 dayOf: boolean;
                                 /** @default true */
+                                intake: boolean;
+                                /** @default true */
                                 morningBrief: boolean;
                                 /** @default false */
                                 reengage: boolean;
+                                /** @default true */
+                                thankYou: boolean;
                                 /** @default true */
                                 waitlist: boolean;
                             };
@@ -18353,6 +18408,47 @@ export interface operations {
             };
         };
     };
+    command_referral_create_lead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email?: string | null;
+                    name?: string | null;
+                    phone?: string | null;
+                    /** Format: uuid */
+                    referralId: string;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        existingPerson: boolean;
+                        /** Format: uuid */
+                        leadId: string;
+                        /** Format: uuid */
+                        personId: string;
+                        /** Format: uuid */
+                        referralId: string;
+                    };
+                };
+            };
+        };
+    };
     command_registration_submit: {
         parameters: {
             query?: never;
@@ -23483,7 +23579,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -23789,7 +23885,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -23799,7 +23895,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -23842,7 +23938,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -23909,7 +24005,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -23919,7 +24015,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -23989,7 +24085,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -23999,7 +24095,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -24033,7 +24129,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -24093,7 +24189,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -24175,10 +24271,17 @@ export interface operations {
                                 hot_lead: boolean;
                                 /** @default true */
                                 invoice_overdue: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                job_not_thanked: true;
                                 /** @default true */
                                 missing_next_action: boolean;
                                 /** @default true */
                                 overdue_task: boolean;
+                                /** @default true */
+                                referral_mentioned: boolean;
                                 /** @default true */
                                 stale_opportunity: boolean;
                                 /** @default true */

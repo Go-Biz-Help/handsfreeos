@@ -35,7 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { Pipeline, Role } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
-import { AdjustPanelView, type FollowUpView, type PanelEnv } from './panels';
+import { AdjustPanelView, type FollowUpView, type IntakeFormOption, type PanelEnv } from './panels';
 import { useQueuedSave } from './use-queued-save';
 
 /** The AI teammate, as this page needs it. */
@@ -71,6 +71,7 @@ export function AutomationsSettings({
   replyMinutes,
   check,
   senderName,
+  forms,
 }: {
   workspaceId: string;
   role: Role;
@@ -84,6 +85,7 @@ export function AutomationsSettings({
   replyMinutes: number;
   check: NudgeCheckContext;
   senderName: string;
+  forms: readonly IntakeFormOption[];
 }) {
   const attention = useQueuedSave(initialAttention, async (settings) => {
     const out = unwrap(
@@ -192,6 +194,7 @@ export function AutomationsSettings({
     check,
     senderName,
     teammateName: teammate.value?.name ?? null,
+    forms,
   };
 
   return (
@@ -293,9 +296,25 @@ function AutomationRowView({
         {row.needsSetup && row.on ? (
           <span className="text-[12.5px] text-warning-text" data-testid={`needs-setup-${def.id}`}>
             {row.needsSetup.text}{' '}
-            <Link href={`/app/w/${workspaceId}/ai-team`} className="font-medium hover:underline">
-              Go to AI teammate
-            </Link>
+            {row.needsSetup.code === 'intake_form' ? (
+              <button
+                type="button"
+                onClick={onAdjust}
+                className="font-medium hover:underline"
+                data-testid={`needs-setup-open-${def.id}`}
+              >
+                Pick a form
+              </button>
+            ) : (
+              <Link href={`/app/w/${workspaceId}/ai-team`} className="font-medium hover:underline">
+                Go to AI teammate
+              </Link>
+            )}
+          </span>
+        ) : null}
+        {row.fallback && row.on ? (
+          <span className="text-[12.5px] text-text-2" data-testid={`fallback-${def.id}`}>
+            {row.fallback}
           </span>
         ) : null}
         <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-3">

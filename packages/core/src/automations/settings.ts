@@ -10,12 +10,13 @@
 import { z } from 'zod';
 import { nudgePlaceholderProblem } from '../attention/nudge';
 import { isoDateTime } from '../schemas/common';
+import { DEFAULT_INTAKE_MESSAGE, intakeMessageProblem } from './intake';
 import { readForgiving } from '../schemas/forgiving';
 
 const on = () => z.boolean().default(true);
 
 /**
- * The switches this document owns. The first four default to on, because each is something the business already
+ * The switches this document owns. Most default to on, because each is something the business already
  * had working before the Automations page existed: turning it into a switch must not turn it off. Re-engaging
  * dead leads is new and texts people who haven't heard from the business in months, so it starts off.
  */
@@ -30,6 +31,10 @@ const Switches = z.object({
   morningBrief: on(),
   /** One text, in the business's own words, to open leads nobody has been in touch with for months. */
   reengage: z.boolean().default(false),
+  /** The intake form's link, right after a customer's first booking (once a form is chosen). */
+  intake: on(),
+  /** A short thank-you two hours after a job is marked done (the AI teammate's, else a card on Home). */
+  thankYou: on(),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];
@@ -59,10 +64,26 @@ const Reengage = z.object({
   cooldownDays: z.int().min(30, 'At least 30 days.').max(730, 'At most two years.').default(180),
 });
 
+const Intake = z.object({
+  /** The form a first-time customer gets. Nothing goes until one is chosen ("Pick a form to start"). */
+  formId: z.uuid().nullable().default(null),
+  message: z
+    .string()
+    .trim()
+    .min(1, 'Write the message.')
+    .max(480, 'Keep it under 480 characters.')
+    .superRefine((message, ctx) => {
+      const problem = intakeMessageProblem(message);
+      if (problem) ctx.addIssue({ code: 'custom', message: problem });
+    })
+    .default(DEFAULT_INTAKE_MESSAGE),
+});
+
 export const AutomationSettings = z
   .object({
     switches: Switches.prefault({}),
     reengage: Reengage.prefault({}),
+    intake: Intake.prefault({}),
   })
   .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
     error: 'Read the message and choose “Looks good, turn on” first.',
@@ -104,4 +125,9 @@ export function automationOn(
   key: AutomationSwitch,
 ): boolean {
   return automationSettingsOf(settings).switches[key];
+}
+
+/** The form "Intake questions" sends, when it is on and one is chosen; else null. */
+export function intakeFormOf(settings: AutomationSettings): string | null {
+  return settings.switches.intake ? settings.intake.formId : null;
 }

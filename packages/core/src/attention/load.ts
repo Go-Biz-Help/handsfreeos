@@ -28,6 +28,13 @@ import { expiryPhrase } from '../money/words';
 import { openHoursOf } from '../schemas/workspace';
 import type { BusinessFacts, LeadFacts, LinkedLeadFacts } from './facts';
 import { foldCandidates } from './folding';
+import {
+  loadReferrals,
+  loadThankYous,
+  thankYouSwitchOn,
+  type ReferralInfo,
+  type ThankYouInfo,
+} from './load-after-job';
 import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } from './kinds';
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
@@ -47,7 +54,16 @@ export type AttentionState = AttentionItemRow['state'];
 /** What changed, and whose facts to look at again: a record, or a customer (their leads and conversations). */
 export interface AttentionSubjectRef {
   readonly type:
-    'lead' | 'person' | 'conversation' | 'attendee' | 'approval' | 'task' | 'estimate' | 'invoice';
+    | 'lead'
+    | 'person'
+    | 'conversation'
+    | 'attendee'
+    | 'approval'
+    | 'task'
+    | 'estimate'
+    | 'invoice'
+    | 'thank_you'
+    | 'referral';
   readonly id: string;
 }
 
@@ -117,6 +133,8 @@ const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set([
   'ai_approval',
   'estimate_waiting',
   'invoice_overdue',
+  'job_not_thanked',
+  'referral_mentioned',
 ]);
 
 const DAY = 86_400_000;
@@ -192,6 +210,8 @@ interface SubjectSets {
   readonly persons: Set<string>;
   readonly estimates: Set<string>;
   readonly invoices: Set<string>;
+  readonly thankYous: Set<string>;
+  readonly referrals: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -203,6 +223,8 @@ const emptySets = (): SubjectSets => ({
   persons: new Set(),
   estimates: new Set(),
   invoices: new Set(),
+  thankYous: new Set(),
+  referrals: new Set(),
 });
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
@@ -214,6 +236,8 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'person') s.persons.add(id);
   else if (type === 'estimate') s.estimates.add(id);
   else if (type === 'invoice') s.invoices.add(id);
+  else if (type === 'thank_you') s.thankYous.add(id);
+  else if (type === 'referral') s.referrals.add(id);
 }
 
 /**
@@ -231,6 +255,18 @@ async function expand(
 ): Promise<SubjectSets> {
   const s = emptySets();
   for (const x of subjects) addSubject(s, x.type, x.id);
+  // A thank-you or a referral brings in its customer, so writing to them settles both.
+  if (s.thankYous.size || s.referrals.size) {
+    const whose = await rows<{ person_id: string }>(
+      tx,
+      sql`select person_id from app.thank_yous
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.thankYous])})
+          union all
+          select referrer_person_id from app.referrals
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.referrals])})`,
+    );
+    for (const w of whose) s.persons.add(w.person_id);
+  }
   if (s.estimates.size || s.invoices.size) {
     const documents = await rows<{ lead_id: string | null; person_id: string | null }>(
       tx,
@@ -260,7 +296,15 @@ async function expand(
           where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
           union all
           select 'conversation', id from app.conversations
-          where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})`,
+          where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
+          union all
+          select 'thank_you', id from app.thank_yous
+          where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
+            and outcome = 'card'
+          union all
+          select 'referral', id from app.referrals
+          where workspace_id = ${workspaceId}
+            and referrer_person_id = any(${uuidArray([...s.persons])}) and status = 'mentioned'`,
     );
     for (const t of theirs) addSubject(s, t.type, t.id);
   }
@@ -1112,6 +1156,8 @@ interface Loaded {
   readonly tasks: Map<string, TaskInfo>;
   readonly estimates: Map<string, EstimateInfo>;
   readonly invoices: Map<string, InvoiceInfo>;
+  readonly thankYous: Map<string, ThankYouInfo>;
+  readonly referrals: Map<string, ReferralInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1299,6 +1345,20 @@ function resolutionOf(
       return 'topped_up';
     case 'wallet_card_declined':
       return 'card_fixed';
+    case 'job_not_thanked': {
+      const t = loaded.thankYous.get(row.subjectId);
+      if (!t) return 'subject_gone';
+      if (!thankYouSwitchOn(ctx.rawSettings)) return 'turned_off';
+      if (t.thankYou.contactedAt) return 'contacted';
+      return 'expired';
+    }
+    case 'referral_mentioned': {
+      const r = loaded.referrals.get(row.subjectId);
+      if (!r) return 'subject_gone';
+      if (r.referral.status === 'lead_created') return 'lead_created';
+      if (r.referral.status === 'dismissed') return 'dismissed';
+      return 'expired';
+    }
   }
 }
 
@@ -1427,6 +1487,8 @@ export async function reconcile(
     ...scope.tasks,
     ...scope.estimates,
     ...scope.invoices,
+    ...scope.thankYous,
+    ...scope.referrals,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1488,6 +1550,8 @@ export async function reconcile(
   const topLeads = await loadTopLeads(tx, workspaceId, [...needTop]);
   const estimates = await loadEstimates(tx, workspaceId, [...scope.estimates], all, ctx.timeZone);
   const invoices = await loadInvoices(tx, workspaceId, [...scope.invoices], all);
+  const thankYous = await loadThankYous(tx, workspaceId, [...scope.thankYous], all, now);
+  const referrals = await loadReferrals(tx, workspaceId, [...scope.referrals], all, now);
   // Only on a full sweep: a wallet has no subject row to be woken by, so it is looked at when everything is.
   const walletInfo = all ? await loadWallet(tx, workspaceId) : null;
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
@@ -1499,6 +1563,8 @@ export async function reconcile(
     tasks,
     estimates,
     invoices,
+    thankYous,
+    referrals,
   };
 
   // Detect.
@@ -1754,6 +1820,45 @@ export async function reconcile(
           conversationId: null,
         },
       );
+
+  // After the job: a customer nobody could thank, and somebody a customer said needs the business.
+  const thanking = thankYouSwitchOn(ctx.rawSettings);
+  for (const t of thankYous.values())
+    run(
+      'job_not_thanked',
+      {
+        business,
+        thankYou: t.thankYou,
+        switchOn: thanking,
+        lead: t.lead,
+        assigneeUserId: t.assigneeUserId,
+      },
+      t.thankYou.id,
+      { leadId: t.lead?.id ?? null, personId: t.personId },
+      {
+        subjectType: 'thank_you',
+        title: itemTitle(t.personName ?? 'Customer', t.title),
+        detail: detailOf(t.reason),
+        conversationId: t.conversationId,
+      },
+    );
+
+  for (const r of referrals.values())
+    run(
+      'referral_mentioned',
+      { business, referral: r.referral, assigneeUserId: r.assigneeUserId },
+      r.referral.id,
+      { leadId: null, personId: r.referrerPersonId },
+      {
+        subjectType: 'referral',
+        title: itemTitle(
+          r.referrerName ?? 'A customer',
+          r.referredName ? `Mentioned ${r.referredName}` : 'Mentioned somebody',
+        ),
+        detail: detailOf(r.quote),
+        conversationId: r.conversationId,
+      },
+    );
 
   // One card per lead.
   const cards = foldCandidates(candidates);

@@ -16,7 +16,12 @@ import {
   DEFAULT_REENGAGE_TEMPLATE,
   defaultAutomationSettings,
   parseAutomationSettings,
+  DEFAULT_INTAKE_MESSAGE,
+  intakeFormOf,
+  intakeMessageProblem,
+  mayMentionReferral,
   reengageOn,
+  renderIntakeMessage,
   sendModeOf,
   type AutomationContext,
   type AutomationDef,
@@ -52,7 +57,8 @@ describe('the automations catalog', () => {
 
   it('gives every switchable Action Center kind exactly one row', () => {
     // The two wallet kinds that mean the business has stopped working are always on, and not switches.
-    const alwaysOn: AttentionKind[] = ['wallet_empty', 'wallet_card_declined'];
+    // A customer nobody could thank is always looked for: "Thank-you after the job" is its switch.
+    const alwaysOn: AttentionKind[] = ['wallet_empty', 'wallet_card_declined', 'job_not_thanked'];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],
     );
@@ -70,7 +76,9 @@ describe('the automations catalog', () => {
 
   it('only lets the AI teammate write to customers through its own switches', () => {
     for (const a of AUTOMATIONS as readonly AutomationDef[]) {
-      if (a.customerFacing === 'ai') expect(a.needs, a.id).toContain('teammate_on');
+      // Unless, like the thank-you, it does something else without one (and says what).
+      if (a.customerFacing === 'ai' && !a.withoutTeammate)
+        expect(a.needs, a.id).toContain('teammate_on');
       if (a.customerFacing !== null) expect(a.effect, a.id).toBe('texts');
     }
   });
@@ -84,6 +92,8 @@ describe('automation settings', () => {
       waitlist: true,
       morningBrief: true,
       reengage: false,
+      intake: true,
+      thankYou: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,
@@ -206,20 +216,46 @@ describe('automation rows', () => {
   });
 
   it('counts what is working, and what is on but waiting to be set up', () => {
-    // Everything works but re-engaging, which starts off.
+    // Everything works but re-engaging, which starts off, and intake questions, which waits for a form.
     const rows = automationRows(ctx({ teammate: teammate('automatic') }));
     expect(automationCounts(rows)).toEqual({
-      working: rows.length - 1,
-      needsSetup: 0,
+      working: rows.length - 2,
+      needsSetup: 1,
       total: rows.length,
     });
-    // No teammate: its four rows read as a new one starts (all on), and none works yet.
+    // No teammate: its four rows read as a new one starts (all on), and none works yet. The thank-you still
+    // works: a card asks a person instead.
     const none = automationRows(ctx());
     expect(automationCounts(none)).toEqual({
-      working: none.length - 5,
-      needsSetup: 4,
+      working: none.length - 6,
+      needsSetup: 5,
       total: none.length,
     });
+    expect(automationRow(def('job_thank_you'), ctx()).fallback).toMatch(/card on Home/);
+    expect(
+      automationRow(def('job_thank_you'), ctx({ teammate: teammate('automatic') })).fallback,
+    ).toBeNull();
+  });
+
+  it('asks for a form before intake questions can go', () => {
+    expect(automationRow(def('intake_questions'), ctx()).needsSetup).toEqual({
+      code: 'intake_form',
+      text: 'Pick a form to start.',
+    });
+    const chosen = {
+      ...defaultAutomationSettings(),
+      intake: {
+        ...defaultAutomationSettings().intake,
+        formId: '00000000-0000-4000-8000-000000000001',
+      },
+    };
+    expect(automationRow(def('intake_questions'), ctx({ automations: chosen }))).toMatchObject({
+      on: true,
+      working: true,
+      needsSetup: null,
+    });
+    expect(intakeFormOf(chosen)).toBe('00000000-0000-4000-8000-000000000001');
+    expect(intakeFormOf({ ...chosen, switches: { ...chosen.switches, intake: false } })).toBeNull();
   });
 
   it('won’t turn re-engaging on until its message is read, and always lets it off', () => {
@@ -287,5 +323,59 @@ describe('who sends what', () => {
     expect(sendModeOf('ai', 'automatic')).toBe('send');
     expect(sendModeOf('ai', 'off')).toBe('blocked');
     expect(sendModeOf('ai', null)).toBe('blocked');
+  });
+});
+
+describe('the intake message', () => {
+  it('starts with wording that carries the link, and fills it in', () => {
+    expect(intakeMessageProblem(DEFAULT_INTAKE_MESSAGE)).toBeNull();
+    expect(
+      renderIntakeMessage(DEFAULT_INTAKE_MESSAGE, {
+        firstName: 'Maria',
+        businessName: 'Lone Star HVAC',
+        link: 'https://book.example.com/f/ls/intake',
+      }),
+    ).toBe(
+      'Hi Maria, thanks for booking with Lone Star HVAC! Before your visit, could you answer a few quick questions? https://book.example.com/f/ls/intake',
+    );
+    expect(
+      renderIntakeMessage('Hi {firstName}: {link}', {
+        firstName: null,
+        businessName: 'X',
+        link: 'L',
+      }),
+    ).toBe('Hi there: L');
+  });
+
+  it('refuses wording without the link, or with a slot it can’t fill', () => {
+    expect(intakeMessageProblem('Please fill in our form')).toMatch(/\{link\}/);
+    expect(intakeMessageProblem('Hi {name}, {link}')).toMatch(/can't be filled in/);
+    expect(intakeMessageProblem('Hi {{firstName}}, {link}')).toMatch(/can't be filled in/);
+    expect(() => parseAutomationSettings({ intake: { message: 'No link here' } })).toThrow();
+    expect(() => parseAutomationSettings({ intake: { formId: 'not-a-uuid' } })).toThrow();
+  });
+});
+
+describe('the referral word check', () => {
+  it('lets through words that might be about somebody who needs the business', () => {
+    for (const text of [
+      'My neighbor Jan needs her AC looked at, 713-555-0199',
+      'my sister is looking for someone to fix her furnace',
+      'I recommended you to my boss',
+      'Can I pass along your number to a friend?',
+      'I know someone who needs a new water heater',
+    ])
+      expect(mayMentionReferral(text), text).toBe(true);
+  });
+
+  it('leaves out the rest, cheaply', () => {
+    for (const text of [
+      'Thanks, see you Tuesday',
+      'My friend dropped me off',
+      'What time are you coming?',
+      '',
+      null,
+    ])
+      expect(mayMentionReferral(text), String(text)).toBe(false);
   });
 });

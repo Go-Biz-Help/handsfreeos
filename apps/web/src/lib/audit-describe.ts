@@ -692,6 +692,10 @@ function describeAction(e: AuditEntry): string {
       return attentionSettingsSentence(e);
     case 'automations.save_settings':
       return automationsSettingsSentence(e);
+    case 'referral.create_lead':
+      return s(e.after?.lead)
+        ? `made a lead from a referral: “${s(e.after?.lead)}” (${s(e.after?.source) || 'Referral'})`
+        : 'made a lead from a referral';
     case 'attention.record_auto':
       return recordAutoSentence(e);
     default:
@@ -812,6 +816,8 @@ const SWITCH_WORDS: Readonly<Record<string, string>> = {
   waitlist: 'waitlist offers',
   morningBrief: 'the morning brief',
   reengage: 're-engaging dead leads',
+  intake: 'intake questions',
+  thankYou: 'thank-yous after the job',
 };
 
 function automationsSettingsSentence(e: AuditEntry): string {

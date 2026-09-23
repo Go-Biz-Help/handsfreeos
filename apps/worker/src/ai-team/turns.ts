@@ -8,7 +8,7 @@ import { quoteData, type AiTeammateGoal } from '@hfos/core/server';
 import { clockLabel, dayLabel } from '../assistant/calendar-format';
 import type { RunContext } from './context';
 import { historyBlock } from './prompt';
-import type { NudgeSpec } from './run';
+import type { NudgeSpec, TaskSpec } from './run';
 
 /** How a first message's turn ends. */
 export const FIRST_MESSAGE_ASK =
@@ -16,6 +16,9 @@ export const FIRST_MESSAGE_ASK =
 /** How a nudge's turn ends. */
 export const NUDGE_ASK =
   'Write one short, friendly follow-up to your last message, or use no_reply when nothing needs following up. End your turn with reply or no_reply.';
+
+/** How a task's turn ends (a thank-you after a job). */
+export const TASK_ASK = 'Write that one message now. End your turn with reply or no_reply.';
 
 /** What a workflow step asked the teammate to aim for, and the business's note (rendered). */
 export interface Handover {
@@ -120,5 +123,20 @@ export function nudgeTurn(rc: RunContext, spec: NudgeSpec): string {
         ]
       : []),
     NUDGE_ASK,
+  ].join('\n');
+}
+
+/** A task from an automation: thanking the customer after a job was marked done. */
+export function taskTurn(rc: RunContext, task: TaskSpec): string {
+  const tz = rc.workspace.timeZone;
+  const when = `${dayLabel(task.doneAt, tz)}, ${clockLabel(task.doneAt, tz)}`;
+  return [
+    ...historyBlock(rc),
+    '<job_done>',
+    `${quoteData(task.visit)}, marked done ${when}.`,
+    '</job_done>',
+    'The business finished a job for them. Thank them for choosing the business, in one or two warm sentences that mention the job.',
+    'Ask for nothing: no review, no payment, no booking. No prices and no links. Use no_reply only if the conversation shows something went wrong with the job.',
+    TASK_ASK,
   ].join('\n');
 }

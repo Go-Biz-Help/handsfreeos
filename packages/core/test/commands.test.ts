@@ -362,6 +362,7 @@ describe('registry', () => {
       'attention.save_settings',
       'attention.record_auto',
       'automations.save_settings',
+      'referral.create_lead',
       'attendee.confirm',
       'attendee.confirm_online',
       'product.create',

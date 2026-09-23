@@ -49,6 +49,8 @@ export function chipText(chip: AttentionChip, now: Date | number): string {
         return ms < MIN ? 'follow-up due now' : `follow-up ${span(ms)} overdue`;
       case 'overdue':
         return ms < MIN ? 'due now' : `${span(ms)} overdue`;
+      case 'job_done':
+        return ms < MIN ? 'job done just now' : `job done ${span(ms)} ago`;
       default:
         return chip.label;
     }
@@ -113,6 +115,8 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'not_viewed',
   'stage',
   'not_a_fit',
+  'referral',
+  'job_done',
 ];
 
 /** Chips in CHIP_ORDER, one per code (the first of each wins). */

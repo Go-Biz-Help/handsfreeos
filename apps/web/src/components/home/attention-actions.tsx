@@ -24,6 +24,7 @@ import {
   Phone,
   Receipt,
   Send,
+  UserPlus,
   UserRound,
   type LucideIcon,
 } from 'lucide-react';
@@ -241,6 +242,33 @@ export function useItemActions(o: {
       });
     }
 
+    /** A referral's one press: the person and the lead, then the lead itself. */
+    async function createReferralLead(item: AttentionItem) {
+      hide([item.id]);
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/commands/referral.create_lead', {
+            body: { workspaceId, referralId: item.subject.id },
+          }),
+        );
+        toast.success(
+          out.existingPerson
+            ? 'They were already a customer: added a lead for them.'
+            : 'Added them as a customer, with a lead.',
+          {
+            action: {
+              label: 'Open the lead',
+              onClick: () => router.push(`${base}/leads/${out.leadId}`),
+            },
+          },
+        );
+      } catch (e) {
+        unhide([item.id]);
+        throw e;
+      }
+      settle();
+    }
+
     async function approve(item: AttentionItem) {
       hide([item.id]);
       try {
@@ -287,6 +315,11 @@ export function useItemActions(o: {
           case 'estimate_waiting':
           case 'invoice_overdue':
             return void withBusy(item.id, () => followUp(item));
+          // After the job: thanking them is a reply; a referral becomes a customer and a lead in one press.
+          case 'job_not_thanked':
+            return router.push(reachOf(item));
+          case 'referral_mentioned':
+            return void withBusy(item.id, () => createReferralLead(item));
         }
       },
       call(item) {
@@ -401,6 +434,7 @@ const HANDLE_ICONS: Readonly<Record<HandleIcon, LucideIcon>> = {
   'list-checks': ListChecks,
   receipt: Receipt,
   'file-text': FileText,
+  'user-plus': UserPlus,
 };
 
 /** The main button's words and icon for an item (core's words); `reach` says the channel it would really use. */

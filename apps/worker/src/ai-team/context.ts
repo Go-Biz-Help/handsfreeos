@@ -195,6 +195,32 @@ export interface HistoryLine {
   readonly call?: HistoryCall;
 }
 
+export interface RunReferral {
+  readonly id: string;
+  /** "Jan", "your neighbour", or "someone". */
+  readonly who: string;
+  readonly need: string | null;
+}
+
+/** The latest referral in this conversation nobody has thanked them for, from the last week. */
+async function referralOf(tx: Tx, conversationId: string): Promise<RunReferral | null> {
+  const [r] = await rows<{
+    id: string;
+    referred_name: string | null;
+    relation: string | null;
+    need: string | null;
+  }>(
+    tx,
+    sql`select id, referred_name, relation, need from app.referrals
+        where conversation_id = ${conversationId} and thanked_at is null
+          and created_at > now() - interval '7 days'
+        order by created_at desc limit 1`,
+  );
+  if (!r) return null;
+  const who = r.referred_name ?? (r.relation ? `their ${r.relation}` : 'someone');
+  return { id: r.id, who, need: r.need };
+}
+
 export interface RunContext {
   readonly now: number;
   readonly teammate: { readonly id: string; readonly name: string };
@@ -232,6 +258,11 @@ export interface RunContext {
   readonly batch: readonly BatchMessage[];
   readonly history: readonly HistoryLine[];
   readonly matches: readonly KnowledgeMatch[];
+  /**
+   * Somebody this customer said needs the business, found in this conversation and not thanked for yet
+   * (Automations' "Referral mentioned"): the reply thanks them.
+   */
+  readonly referral?: RunReferral | null;
   /** For the safety check: the business's own links, numbers and addresses, and this customer's. */
   readonly allowed: {
     readonly domains: readonly string[];
@@ -307,6 +338,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       )
     : [{ n: 0 }];
   const firstAiMessage = (sent?.n ?? 0) === 0;
+  const referral = conv && customer && !unverifiedChat ? await referralOf(tx, conv.id) : null;
   const visitor = unverifiedChat && conv ? await visitorOf(tx, conv.counterpart) : null;
   const counterpart =
     conv?.counterpart ?? (channel === 'sms' ? customer?.phone : customer?.email) ?? null;
@@ -345,6 +377,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     batch: input.batch,
     history,
     matches,
+    referral,
     allowed: await allowedFor(tx, ws, grounding.business.website, input.webUrl, contacts),
   };
 }

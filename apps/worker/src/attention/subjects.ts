@@ -110,6 +110,10 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'payment.updated',
   'payment.failed',
   'refund.recorded',
+  // After the job (Automations): a thank-you that couldn't go, and a referral found or turned into a lead.
+  'thank_you.recorded',
+  'referral.mentioned',
+  'referral.lead_created',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -127,6 +131,8 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'task',
   'estimate',
   'invoice',
+  'thank_you',
+  'referral',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -233,6 +239,13 @@ export async function subjectsOf(
     case 'payment':
     case 'refund':
       add('invoice', p['invoiceId']);
+      break;
+    case 'thank_you':
+      add('thank_you', id);
+      break;
+    case 'referral':
+      add('referral', id);
+      add('lead', p['leadId']);
       break;
     case 'attention_item':
       add(String(p['subjectType'] ?? ''), p['subjectId']);

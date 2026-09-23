@@ -141,6 +141,12 @@ export function useHomeActions(o: {
           case 'wallet_empty':
           case 'wallet_card_declined':
             return target(item);
+          // Thanking a customer is a reply to them; a referral opens the customer who mentioned them, where
+          // the web's one-tap "Create lead" is a press away.
+          case 'job_not_thanked':
+            return item.conversationId ? reply(item) : target(item);
+          case 'referral_mentioned':
+            return target(item);
         }
       },
       call,

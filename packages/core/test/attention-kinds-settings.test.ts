@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the thirteen kinds in order', () => {
+  it('lists the fifteen kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -44,6 +44,8 @@ describe('attention kinds', () => {
       'wallet_low',
       'wallet_empty',
       'wallet_card_declined',
+      'job_not_thanked',
+      'referral_mentioned',
     ]);
   });
 
@@ -168,7 +170,9 @@ describe('attention kinds', () => {
     // Only the kinds nobody can hand off are refused; every other kind has something to offer.
     expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual([
       'ai_approval',
+      'job_not_thanked',
       'overdue_task',
+      'referral_mentioned',
       'wallet_card_declined',
       'wallet_empty',
       'wallet_low',

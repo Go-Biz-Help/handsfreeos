@@ -105,6 +105,7 @@ import {
   handoverLines,
   nudgeTurn,
   retryLines,
+  taskTurn,
   type Handover,
   type Retry,
 } from './turns';
@@ -121,8 +122,20 @@ class ProviderBusy extends Error {
   }
 }
 
-/** What a run is for: answering what they wrote, a first message (answering anything waiting too), or a nudge. */
-export type RunKind = 'reply' | 'first' | 'nudge';
+/**
+ * What a run is for: answering what they wrote, a first message (answering anything waiting too), a nudge, or
+ * a task an automation gave it (a thank-you after a job): one message, written first, with no follow-ups after.
+ */
+export type RunKind = 'reply' | 'first' | 'nudge' | 'task';
+
+/** A task an automation gave the teammate: what to write, and about what. */
+export interface TaskSpec {
+  readonly purpose: 'thank_you';
+  /** The job it's about ("AC tune-up"). */
+  readonly visit: string;
+  /** When the job was marked done. */
+  readonly doneAt: number;
+}
 
 /** Whom a first message with no conversation goes to, and how (outreach.ts chose the channel by consent). */
 export interface FirstTarget {
@@ -165,6 +178,8 @@ export interface RunSpec {
   readonly nudge?: NudgeSpec | null;
   /** A person's "Try again": their reason and the draft they rejected. */
   readonly retry?: Retry | null;
+  /** A task run's task. */
+  readonly task?: TaskSpec | null;
 }
 
 interface StartedRun extends RunSpec {
@@ -518,6 +533,7 @@ function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
 
 /** The message the model answers: the conversation and their new messages, a first message, or a nudge. */
 function turnOf(run: StartedRun, rc: RunContext): string {
+  if (run.kind === 'task' && run.task) return taskTurn(rc, run.task);
   if (run.kind === 'nudge' && run.nudge) return nudgeTurn(rc, run.nudge);
   if (rc.batch.length) return conversationTurn(rc);
   return firstMessageTurn(rc, run.trigger === 'lead.created' ? 'new_lead' : 'workflow');
@@ -879,15 +895,18 @@ const handedOffSummary = (reason: ConversationHandoffReason, note: string) =>
   `Handed to a person (${REASON_WORDS[reason]}): ${note}`;
 function repliedSummary(run: StartedRun, rc: RunContext): string {
   if (run.kind === 'nudge') return `Followed up (${run.nudge?.n ?? 1} of ${run.nudge?.total ?? 1})`;
+  if (run.kind === 'task') return `Thanked ${whom(rc)} after the job`;
   return rc.batch.length ? `Replied to “${snippet(rc)}”` : `Wrote first to ${whom(rc)}`;
 }
 function draftedSummary(run: StartedRun, rc: RunContext, state: RunState): string {
   const what =
     run.kind === 'nudge'
       ? 'Drafted a follow-up'
-      : rc.batch.length
-        ? `Drafted a reply to “${snippet(rc)}”`
-        : `Drafted a first message to ${whom(rc)}`;
+      : run.kind === 'task'
+        ? `Drafted a thank-you to ${whom(rc)}`
+        : rc.batch.length
+          ? `Drafted a reply to “${snippet(rc)}”`
+          : `Drafted a first message to ${whom(rc)}`;
   return `${what}${state.held.length ? `, holding: ${state.held.map((a) => a.summary || a.kind).join('; ')}` : ''}`;
 }
 const noReplySummary = (state: RunState) =>
@@ -1265,6 +1284,7 @@ async function finish(
         );
       if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
       await markAnswered(tx, conversationId, through, false);
+      if (drafted && body !== null) await markReferralThanked(tx, rc);
       const outcome = drafted ? 'drafted' : 'no_reply';
       await closeRun(tx, run.id, {
         ...common,
@@ -1336,6 +1356,7 @@ async function finish(
     await markAnswered(tx, conversationId, through, body !== null && disclosesAi(body));
     if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
     const outcome = body !== null ? 'replied' : 'no_reply';
+    if (body !== null) await markReferralThanked(tx, rc);
     await closeRun(tx, run.id, {
       ...common,
       status: 'done',
@@ -1453,15 +1474,17 @@ async function finishFirst(
         outcome: 'replied',
         summary: repliedSummary(run, rc),
       });
-      await scheduleFollowUp(
-        tx,
-        run.scope,
-        conversationId,
-        rc.config,
-        body,
-        Date.now(),
-        shownTimes(state),
-      );
+      // A thank-you asks nothing, so there's nothing to follow up.
+      if (run.kind !== 'task')
+        await scheduleFollowUp(
+          tx,
+          run.scope,
+          conversationId,
+          rc.config,
+          body,
+          Date.now(),
+          shownTimes(state),
+        );
       return { outcome: 'replied', waitUntil: null };
     } catch (e) {
       if (!(e instanceof HfosError)) throw e;
@@ -1503,6 +1526,14 @@ async function finishFirst(
   });
   if (result.outcome !== 'other') await bookkeeping(ctx, run, rc, state, false);
   return result.waitUntil ? { rescheduleAt: result.waitUntil } : undefined;
+}
+
+/** The referral the reply thanked them for is thanked (whoever approves the draft, the words are in it). */
+async function markReferralThanked(tx: Tx, rc: RunContext): Promise<void> {
+  if (!rc.referral) return;
+  await tx.execute(
+    sql`update app.referrals set thanked_at = coalesce(thanked_at, now()) where id = ${rc.referral.id}`,
+  );
 }
 
 /**

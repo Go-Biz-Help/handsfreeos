@@ -48,6 +48,7 @@ export { default as Flame } from 'lucide-react-native/icons/flame';
 export { default as Gauge } from 'lucide-react-native/icons/gauge';
 export { default as Globe } from 'lucide-react-native/icons/globe';
 export { default as HandCoins } from 'lucide-react-native/icons/hand-coins';
+export { default as Heart } from 'lucide-react-native/icons/heart';
 export { default as Hourglass } from 'lucide-react-native/icons/hourglass';
 export { default as House } from 'lucide-react-native/icons/house';
 export { default as Image } from 'lucide-react-native/icons/image';

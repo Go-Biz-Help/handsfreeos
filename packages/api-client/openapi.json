@@ -23524,6 +23524,17 @@
                             "enum": [
                               true
                             ]
+                          },
+                          "job_not_thanked": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
+                          },
+                          "referral_mentioned": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -23768,6 +23779,17 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "job_not_thanked": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "referral_mentioned": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -23783,7 +23805,9 @@
                             "invoice_overdue",
                             "wallet_low",
                             "wallet_empty",
-                            "wallet_card_declined"
+                            "wallet_card_declined",
+                            "job_not_thanked",
+                            "referral_mentioned"
                           ],
                           "additionalProperties": false
                         },
@@ -24047,6 +24071,14 @@
                           "reengage": {
                             "default": false,
                             "type": "boolean"
+                          },
+                          "intake": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "thankYou": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -24090,6 +24122,31 @@
                             "type": "integer",
                             "minimum": 30,
                             "maximum": 730
+                          }
+                        }
+                      },
+                      "intake": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "formId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "message": {
+                            "default": "Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link}",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 480
                           }
                         }
                       }
@@ -24142,6 +24199,14 @@
                             "reengage": {
                               "default": false,
                               "type": "boolean"
+                            },
+                            "intake": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "thankYou": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -24149,7 +24214,9 @@
                             "dayOf",
                             "waitlist",
                             "morningBrief",
-                            "reengage"
+                            "reengage",
+                            "intake",
+                            "thankYou"
                           ],
                           "additionalProperties": false
                         },
@@ -24202,11 +24269,41 @@
                             "cooldownDays"
                           ],
                           "additionalProperties": false
+                        },
+                        "intake": {
+                          "type": "object",
+                          "properties": {
+                            "formId": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "message": {
+                              "default": "Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link}",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            }
+                          },
+                          "required": [
+                            "formId",
+                            "message"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "switches",
-                        "reengage"
+                        "reengage",
+                        "intake"
                       ],
                       "additionalProperties": false
                     },
@@ -24218,6 +24315,125 @@
                     "workspaceId",
                     "settings",
                     "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/referral.create_lead": {
+      "post": {
+        "operationId": "command_referral_create_lead",
+        "summary": "Turn somebody a customer mentioned into a customer and a lead, with the customer who mentioned them as its source. Finds them first if their phone or email is already here.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits referral.lead_created.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "referralId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "phone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "referralId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "leadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "existingPerson": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "referralId",
+                    "personId",
+                    "leadId",
+                    "existingPerson"
                   ],
                   "additionalProperties": false
                 }
@@ -52248,7 +52464,9 @@
                                               "invoice_overdue",
                                               "wallet_low",
                                               "wallet_empty",
-                                              "wallet_card_declined"
+                                              "wallet_card_declined",
+                                              "job_not_thanked",
+                                              "referral_mentioned"
                                             ]
                                           },
                                           "chips": {
@@ -65044,7 +65262,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 13,
+                    "maxItems": 15,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -65061,7 +65279,9 @@
                         "invoice_overdue",
                         "wallet_low",
                         "wallet_empty",
-                        "wallet_card_declined"
+                        "wallet_card_declined",
+                        "job_not_thanked",
+                        "referral_mentioned"
                       ]
                     }
                   },
@@ -65122,7 +65342,9 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned"
                             ]
                           },
                           "state": {
@@ -65278,7 +65500,9 @@
                                     "overdue",
                                     "not_viewed",
                                     "stage",
-                                    "not_a_fit"
+                                    "not_a_fit",
+                                    "job_done",
+                                    "referral"
                                   ]
                                 },
                                 "label": {
@@ -65642,7 +65866,9 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned"
                             ]
                           },
                           "state": {
@@ -65798,7 +66024,9 @@
                                     "overdue",
                                     "not_viewed",
                                     "stage",
-                                    "not_a_fit"
+                                    "not_a_fit",
+                                    "job_done",
+                                    "referral"
                                   ]
                                 },
                                 "label": {
@@ -66162,7 +66390,9 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned"
                             ]
                           },
                           "title": {
@@ -66443,7 +66673,9 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned"
                             ]
                           },
                           "state": {
@@ -66599,7 +66831,9 @@
                                     "overdue",
                                     "not_viewed",
                                     "stage",
-                                    "not_a_fit"
+                                    "not_a_fit",
+                                    "job_done",
+                                    "referral"
                                   ]
                                 },
                                 "label": {
@@ -67012,7 +67246,9 @@
                         "invoice_overdue",
                         "wallet_low",
                         "wallet_empty",
-                        "wallet_card_declined"
+                        "wallet_card_declined",
+                        "job_not_thanked",
+                        "referral_mentioned"
                       ]
                     },
                     "mode": {
@@ -67418,6 +67654,17 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "job_not_thanked": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "referral_mentioned": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -67433,7 +67680,9 @@
                             "invoice_overdue",
                             "wallet_low",
                             "wallet_empty",
-                            "wallet_card_declined"
+                            "wallet_card_declined",
+                            "job_not_thanked",
+                            "referral_mentioned"
                           ],
                           "additionalProperties": false
                         },
