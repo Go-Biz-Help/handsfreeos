@@ -26,6 +26,7 @@ import {
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
+import { onCampaignCreated, onCampaignPace, onCampaignSending } from '../automations/campaigns';
 import { onExpiringArm } from '../automations/expiring';
 import { onHandoffNudge } from '../automations/handoff';
 import { onConnectionBroke, onCorrection } from '../automations/health';
@@ -215,6 +216,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'ai_teammate.drafted': onExpiringArm,
     // Automations' "Repeated corrections": an edit or a rejection may be the third alike (automations/health.ts).
     'ai_teammate.draft_decided': onCorrection,
+    // Automations' "Outreach campaigns": the AI writes each text, then they go a few an hour once approved
+    // (automations/campaigns.ts).
+    'campaign.created': onCampaignCreated,
+    'campaign.approved': onCampaignSending,
+    'campaign.resumed': onCampaignSending,
+    'campaign.pace_changed': onCampaignPace,
     'call.completed': [onPipelineEvidence, onEngaged],
     // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
     'appointment.completed': [onAppointmentChanged, onCompletedThankYou, onPipelineEvidence],

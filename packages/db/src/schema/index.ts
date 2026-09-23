@@ -5047,6 +5047,47 @@ export const promises = app.table('promises', {
   ...timestamps(),
 });
 
+/** Automations 5: one text to a list of customers, written per person by the AI and approved by a person. */
+export const campaigns = app.table('campaigns', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  goal: text('goal').notNull(),
+  audience: jsonb('audience').$type<Json>().notNull().default({}),
+  perHour: integer('per_hour').notNull().default(20),
+  /** drafting, review, sending, paused, done or cancelled. */
+  status: text('status').notNull().default('drafting'),
+  createdBy: userRef('created_by'),
+  approvedBy: userRef('approved_by'),
+  approvedAt: ts('approved_at'),
+  startedAt: ts('started_at'),
+  finishedAt: ts('finished_at'),
+  nextSendAt: ts('next_send_at'),
+  ...timestamps(),
+});
+
+/** Automations 5: one customer in a campaign: their draft, why they were left out, and what became of it. */
+export const campaignRecipients = app.table('campaign_recipients', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  campaignId: uuid('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  /** drafting, ready, skipped, removed, approved, sent or failed. */
+  status: text('status').notNull().default('drafting'),
+  skipReason: text('skip_reason'),
+  draft: text('draft'),
+  edited: boolean('edited').notNull().default(false),
+  clientId: text('client_id').notNull(),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  sentAt: ts('sent_at'),
+  error: text('error'),
+  ...timestamps(),
+});
+
 /** Automations 4b: one line of guidance the worker made of repeated corrections to the AI teammate. */
 export const teammateLessons = app.table('teammate_lessons', {
   id: id(),
@@ -5117,6 +5158,8 @@ export const tables = {
   referrals,
   promises,
   teammateLessons,
+  campaigns,
+  campaignRecipients,
   foundingOffers,
   foundingGrants,
   foundingApplications,

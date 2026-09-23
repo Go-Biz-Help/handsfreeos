@@ -879,7 +879,27 @@ export function scriptedLesson(message: string): Record<string, unknown> {
   return { similar: true, line, why: `Every correction mentions “${shared}”` };
 }
 
+/**
+ * The stand-in's campaign text: "Hi <first>, <goal>. Just reply here." A goal that says "skip" makes it answer
+ * null (a person it won't write to), and a customer named "Nodraft" too.
+ */
+export function scriptedCampaign(message: string): Record<string, unknown> {
+  const goal = unquote(quotedBlock(message, 'campaign_goal') ?? '').trim();
+  const first = /^First name: (.+)$/m.exec(message)?.[1]?.trim();
+  const name = first && first !== 'unknown' ? unquote(first) : null;
+  if (!goal || /\bskip\b/i.test(goal) || name === 'Nodraft') return { text: null };
+  const visit = /^Last visit: (.+?) \(/m.exec(message)?.[1];
+  const since = visit ? ` Thanks again for having us for the ${unquote(visit).toLowerCase()}.` : '';
+  return {
+    text: `Hi ${name ?? 'there'}, ${goal.replace(/[.!]+$/, '')}.${since} Just reply here.`,
+  };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write this customer’s text for the campaign above, or null if it doesn’t fit them\.$/,
+    json: (message) => scriptedCampaign(message),
+  },
   {
     when: /Say whether these corrections have one thing in common, and if so write one line of guidance for the AI\.$/,
     json: (message) => scriptedLesson(message),
