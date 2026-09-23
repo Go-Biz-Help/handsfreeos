@@ -613,7 +613,7 @@ describe('what a GoHighLevel thread is made of', () => {
       if (url.pathname === '/products/')
         return {
           products: [
-            { _id: 'prd_1', name: 'SEO 500', hasPrices: false },
+            { _id: 'prd_1', name: 'SEO 500', hasPrices: false, availableInStore: false },
             { _id: 'prd_2', name: 'Free consult', hasPrices: false },
           ],
           total: [{ total: 2 }],
@@ -626,10 +626,213 @@ describe('what a GoHighLevel thread is made of', () => {
     const data = page.records.map(
       (r) => adapter.normalize(r, context)[0]!.data as { name: string; unitPriceCents: number },
     );
+    // Out of the online store, and still sold.
+    expect(
+      page.records.map(
+        (r) => (adapter.normalize(r, context)[0]!.data as { active: boolean }).active,
+      ),
+    ).toEqual([true, true]);
     expect(data.map((d) => [d.name, d.unitPriceCents])).toEqual([
       ['SEO 500', 50_000],
       ['Free consult', 0],
     ]);
+  });
+
+  it('names a plan and its billing from its recurring product, and says so when it bills weekly', () => {
+    const plan = (every: Record<string, unknown>) =>
+      adapter.normalize(
+        {
+          objectType: 'subscription',
+          objectId: 'sub_1',
+          payload: {
+            _id: 'sub_1',
+            status: 'active',
+            amount: 300,
+            contactId: 'con_1',
+            subscriptionStartDate: '2026-03-11T15:42:10.871Z',
+            recurringProduct: {
+              product: { name: 'CRM Quarterly Partnership' },
+              price: { recurring: every },
+            },
+          },
+        },
+        context,
+      )[0]!;
+    const quarterly = plan({ interval: 'month', intervalCount: 3 });
+    expect(quarterly.data).toMatchObject({
+      planName: 'CRM Quarterly Partnership',
+      priceCents: 30_000,
+      interval: 'month',
+      intervalCount: 3,
+      startedOn: '2026-03-11',
+    });
+    const weekly = plan({ interval: 'week', intervalCount: 2 });
+    expect(weekly.data).toMatchObject({ interval: 'month', intervalCount: 1 });
+    expect(weekly.warnings.map((w) => w.code)).toContain('mapping.plan_interval_narrowed');
+  });
+
+  it('keeps a note as it was typed, a missed call as no time at all, and a product as its words', () => {
+    const [note] = adapter.normalize(
+      {
+        objectType: 'note',
+        objectId: 'n1',
+        payload: {
+          id: 'n1',
+          body: '<p style="margin: 0px">HVAC Company</p>',
+          bodyText: 'HVAC Company',
+        },
+      },
+      context,
+    );
+    expect(note!.data).toMatchObject({ body: 'HVAC Company' });
+    const [call] = adapter.normalize(
+      {
+        objectType: 'call',
+        objectId: 'c1',
+        parentObjectId: 'cnv_1',
+        payload: {
+          id: 'c1',
+          messageType: 'TYPE_CALL',
+          meta: { call: { status: 'no-answer', duration: 0 } },
+        },
+      },
+      context,
+    );
+    expect(call!.data).toMatchObject({ durationSeconds: 0 });
+    const [product] = adapter.normalize(
+      {
+        objectType: 'product',
+        objectId: 'p1',
+        payload: { _id: 'p1', name: 'Hosting', description: '<p>Monthly <b>hosting</b>.</p>' },
+      },
+      context,
+    );
+    expect(product!.data).toMatchObject({ description: 'Monthly hosting.' });
+  });
+
+  it('dates a paid invoice by its payment, not by the last time the invoice was touched', async () => {
+    serve((url) =>
+      url.pathname === '/payments/transactions'
+        ? {
+            data: [
+              { entityId: 'inv_1', status: 'succeeded', createdAt: '2026-08-31T10:00:00.000Z' },
+              { entityId: 'inv_1', status: 'failed', createdAt: '2026-09-02T10:00:00.000Z' },
+            ],
+            totalCount: 2,
+          }
+        : {
+            invoices: [
+              {
+                _id: 'inv_1',
+                status: 'paid',
+                total: 299,
+                amountPaid: 299,
+                updatedAt: '2026-09-03T10:00:00.000Z',
+              },
+              {
+                _id: 'inv_2',
+                status: 'sent',
+                total: 50,
+                amountPaid: 0,
+                updatedAt: '2026-09-03T10:00:00.000Z',
+              },
+            ],
+            total: 2,
+          },
+    );
+    const page = await adapter.list(connection, scope, 'invoices', { cursor: null, limit: 100 });
+    const [paid, unpaid] = page.records.map(
+      (r) => adapter.normalize(r, context)[0]!.data as { paidAt: string },
+    );
+    expect(paid!.paidAt).toBe('2026-08-31T10:00:00.000Z');
+    expect(unpaid!.paidAt).toBe('2026-09-03T10:00:00.000Z');
+  });
+
+  it('carries on from the invoices into the money that never had one, as paid invoices', async () => {
+    serve((url) => {
+      if (url.pathname === '/payments/transactions')
+        return url.searchParams.get('entityId')
+          ? { data: [], totalCount: 0 }
+          : {
+              data: [
+                {
+                  _id: 'tx_order',
+                  entityType: 'order',
+                  entityId: 'ord_1',
+                  status: 'succeeded',
+                  amount: 300,
+                  currency: 'usd',
+                  subscriptionId: 'sub_stripe_1',
+                  contactId: 'con_1',
+                  contactEmail: 'dave@example.com',
+                  createdAt: '2026-09-20T20:01:55.783Z',
+                },
+                {
+                  _id: 'tx_manual',
+                  entityType: 'manual',
+                  status: 'succeeded',
+                  amount: 1000,
+                  contactId: 'con_1',
+                  entitySourceMeta: { description: 'LeadFlow Setup Fee -  Joint' },
+                  createdAt: '2026-03-01T10:00:00.000Z',
+                },
+                {
+                  _id: 'tx_inv',
+                  entityType: 'invoice',
+                  status: 'succeeded',
+                  amount: 50,
+                  createdAt: '2026-01-01',
+                },
+                {
+                  _id: 'tx_failed',
+                  entityType: 'order',
+                  status: 'failed',
+                  amount: 300,
+                  createdAt: '2026-01-01',
+                },
+                // A free sign-up: nothing moved.
+                {
+                  _id: 'tx_free',
+                  entityType: 'order',
+                  status: 'succeeded',
+                  amount: 0,
+                  createdAt: '2026-01-01',
+                },
+              ],
+              totalCount: 5,
+            };
+      if (url.pathname === '/payments/orders/ord_1')
+        return { items: [{ name: 'Marketing Automation - Monthly' }] };
+      return { invoices: [], total: 0 };
+    });
+    const first = await adapter.list(connection, scope, 'invoices', { cursor: null, limit: 100 });
+    expect(first.done).toBe(false);
+    const second = await adapter.list(connection, scope, 'invoices', {
+      cursor: first.cursor,
+      limit: 100,
+    });
+    expect(second.done).toBe(true);
+    expect(second.records.map((r) => [r.objectType, r.objectId])).toEqual([
+      ['payment', 'tx_order'],
+      ['payment', 'tx_manual'],
+    ]);
+    const [order, manual] = second.records.map((r) => adapter.normalize(r, context)[0]!);
+    expect(order!.canonicalType).toBe('invoice');
+    expect(order!.data).toMatchObject({
+      title: 'Marketing Automation - Monthly',
+      status: 'paid',
+      totalCents: 30_000,
+      paidCents: 30_000,
+      paidAt: '2026-09-20T20:01:55.783Z',
+      purpose: 'subscription',
+      planRef: 'sub_stripe_1',
+      customerEmail: 'dave@example.com',
+    });
+    expect(manual!.data).toMatchObject({
+      title: 'LeadFlow Setup Fee - Joint',
+      purpose: 'quick',
+      totalCents: 100_000,
+    });
   });
 
   it('counts invoices by asking the way the list insists on, with an offset', async () => {
