@@ -65,6 +65,9 @@ const WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 /** How many customers one page of the tasks-and-notes walk asks about. Two requests each. */
 const CUSTOMERS_PER_PAGE = 10;
 
+/** How many times one request is asked again after a 429 before the batch is left to its own backoff. */
+const RATE_LIMIT_TRIES = 6;
+
 /** HighLevel pins its v2 API by date. Changing this is a mapping change, so it goes up with the version. */
 const API_VERSION = '2021-07-28';
 const API_BASE = 'https://services.leadconnectorhq.com';
@@ -140,8 +143,10 @@ interface Endpoint {
    *   - `startAfterDate`: the conversation search, which has no id cursor at all and pages by the last
    *     conversation's `lastMessageDate`.
    *   - `page` and `offset`: what they say.
+   *   - `skip`: an offset under another name. The forms list refuses `offset` outright (`422 property offset
+   *     should not exist`), which cost us every form on the first real account.
    */
-  readonly paging: 'startAfter' | 'startAfterDate' | 'page' | 'offset' | 'none';
+  readonly paging: 'startAfter' | 'startAfterDate' | 'page' | 'offset' | 'skip' | 'none';
   readonly countQuality: CountQuality;
   /** Whether the endpoint can be asked "what changed since?". Most of v2 cannot. */
   readonly incremental: boolean;
@@ -239,11 +244,12 @@ const ENDPOINTS: Record<string, Endpoint> = {
     path: (s) => `/forms/?locationId=${encodeURIComponent(s)}`,
     listKey: 'forms',
     idKey: 'id',
-    paging: 'offset',
+    // `skip`, not `offset`, and the total at the top of the answer rather than under `meta`.
+    paging: 'skip',
     countQuality: 'complete',
     incremental: false,
     objectType: 'form',
-    totalKey: 'meta.total',
+    totalKey: 'total',
   },
   products: {
     path: (s) => `/products/?locationId=${encodeURIComponent(s)}`,
@@ -303,7 +309,8 @@ const ENDPOINTS: Record<string, Endpoint> = {
     path: (s) => `/forms/submissions?locationId=${encodeURIComponent(s)}`,
     listKey: 'submissions',
     idKey: 'id',
-    paging: 'offset',
+    // By page: this one refuses `offset` the way the forms list does.
+    paging: 'page',
     countQuality: 'complete',
     incremental: false,
     objectType: 'form_submission',
@@ -320,7 +327,8 @@ const ENDPOINTS: Record<string, Endpoint> = {
     totalKey: 'meta.total',
   },
   media: {
-    path: (s) => `/medias/files?altType=location&altId=${encodeURIComponent(s)}`,
+    // `type` is required: without it the answer is `422 type should not be empty`.
+    path: (s) => `/medias/files?altType=location&altId=${encodeURIComponent(s)}&type=file`,
     listKey: 'files',
     idKey: 'id',
     paging: 'offset',
@@ -403,6 +411,8 @@ class GhlError extends Error {
     message: string,
     readonly status: number,
     readonly code: string,
+    /** How long HighLevel asked us to wait, on a 429 that said. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'GhlError';
@@ -434,6 +444,17 @@ const dig = (body: Record<string, unknown>, key: string): unknown =>
     );
 
 /**
+ * The total an answer carries, as a number, or undefined. The products list and the email builder give it
+ * as `[{ "total": 26 }]` — an aggregation result passed straight through — and read as-is that is not a
+ * number, so the scan said "at least 1" for twenty-six products.
+ */
+const totalOf = (body: Record<string, unknown>, key: string): number | undefined => {
+  let v = dig(body, key);
+  if (Array.isArray(v)) v = (v[0] as Record<string, unknown> | undefined)?.['total'];
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+};
+
+/**
  * GoHighLevel's custom-field types, as far as they map. Anything not here is kept whole in extensions with a
  * finding, rather than flattened to text — a date silently turned into a string is the kind of loss nobody
  * notices until they need to sort by it.
@@ -456,7 +477,31 @@ const FIELD_TYPES: Record<string, string> = {
 };
 
 export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAdapter {
+  /**
+   * One GET, waiting out HighLevel's rate limit rather than failing on it.
+   *
+   * A private token gets about a hundred requests in ten seconds, and the walks that go customer by customer
+   * (tasks and notes: two requests each) reach that within seconds on an ordinary account. A 429 used to fail
+   * the whole batch and send it round the backoff, over and over; now the request waits as long as HighLevel
+   * asks — or a couple of seconds when it does not say — and asks again, a few times, before giving up.
+   */
   const call = async <T>(
+    token: string,
+    path: string,
+    init?: { readonly method?: 'GET'; readonly timeoutMs?: number },
+  ): Promise<T> => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await callOnce<T>(token, path, init);
+      } catch (e) {
+        const err = e as GhlError;
+        if (err.code !== 'rate_limited' || attempt >= RATE_LIMIT_TRIES) throw e;
+        await new Promise((r) => setTimeout(r, err.retryAfterMs ?? 2_000 * attempt));
+      }
+    }
+  };
+
+  const callOnce = async <T>(
     token: string,
     path: string,
     init?: { readonly method?: 'GET'; readonly timeoutMs?: number },
@@ -486,10 +531,15 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
                 : res.status === 404
                   ? 'not_found'
                   : 'http_error';
+        // Seconds, as HighLevel sends it; capped so one answer cannot park a batch past its lease.
+        const retryAfter = Number(res.headers.get('retry-after'));
         throw new GhlError(
           `GoHighLevel answered ${res.status}${body ? `: ${body.slice(0, 200)}` : ''}`,
           res.status,
           code,
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? Math.min(retryAfter * 1000, 30_000)
+            : undefined,
         );
       }
       return (await res.json()) as T;
@@ -590,6 +640,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       path += `&startAfterDate=${cursor.startAfterDate}`;
     if (endpoint.paging === 'page') path += `&page=${cursor.page ?? 1}`;
     if (endpoint.paging === 'offset') path += `&offset=${cursor.offset ?? 0}`;
+    if (endpoint.paging === 'skip') path += `&skip=${cursor.offset ?? 0}`;
 
     const body = await call<Record<string, unknown>>(token, path);
     const list = Array.isArray(body[endpoint.listKey])
@@ -631,7 +682,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
         500,
         'paging_stuck',
       );
-    const total = dig(body, endpoint.totalKey ?? 'total');
+    const total = totalOf(body, endpoint.totalKey ?? 'total');
     const seen = (cursor.seen ?? 0) + list.length;
     /**
      * The end of the list. An endpoint that takes no limit answered with everything at once. Otherwise the
@@ -651,6 +702,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
           nextCursor = { page: (cursor.page ?? 1) + 1 };
           break;
         case 'offset':
+        case 'skip':
           nextCursor = { offset: (cursor.offset ?? 0) + list.length };
           break;
         case 'startAfter':
@@ -719,6 +771,30 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       records.push({ ...form, payload: { ...form.payload, __sampleSubmissions: sample } });
     }
     return { ...forms, records };
+  };
+
+  /**
+   * Email templates, each with its words.
+   *
+   * HighLevel's builder list hands over a name and a `previewUrl` — a rendered copy of the email sitting in
+   * its storage — and nothing of what the email says. Every one of the thirteen on the first real account
+   * came across as "its words did not come with it". So each is read once more from that copy and turned
+   * into plain wording, which is what a template is here. Folders are listed alongside the templates over
+   * there and are not templates; they are left out rather than reported as templates with no words.
+   */
+  const templatePage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const listed = await page(token, ENDPOINTS['templates']!, scopeId, options);
+    const records: SourceRecord[] = [];
+    for (const t of listed.records) {
+      if (asString(t.payload['templateType']) === 'folder') continue;
+      const text = await previewText(asString(t.payload['previewUrl']));
+      records.push(text ? { ...t, payload: { ...t.payload, __previewText: text } } : t);
+    }
+    return { ...listed, records };
   };
 
   /**
@@ -948,7 +1024,12 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     for (const raw of list) {
       const id = asString(raw['id']) ?? asString(raw['_id']);
       if (!id) continue;
-      const isCall = CALL_TYPES.has((asString(raw['messageType']) ?? '').toUpperCase());
+      const kind = (asString(raw['messageType']) ?? '').toUpperCase();
+      // "Invoice sent", "payment received", "appointment booked": HighLevel's activity log, kept in the same
+      // thread as the texts. Nobody said them, and the invoice, payment and appointment each come across as
+      // themselves, so they would only be the same event twice, dressed up as a message.
+      if (kind.startsWith('TYPE_ACTIVITY')) continue;
+      const isCall = CALL_TYPES.has(kind);
       if (want === 'calls' ? !isCall : isCall) continue;
       const at = asDate(raw['dateAdded'] ?? raw['dateUpdated']);
       if (options.until && at && at > options.until) continue;
@@ -999,7 +1080,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       endpoint.limit === false ? base : `${base}${base.includes('?') ? '&' : '?'}limit=1`;
     try {
       const body = await call<Record<string, unknown>>(token, path, { timeoutMs: 15_000 });
-      const total = dig(body, endpoint.totalKey ?? 'total');
+      const total = totalOf(body, endpoint.totalKey ?? 'total');
       const list = Array.isArray(body[endpoint.listKey])
         ? (body[endpoint.listKey] as unknown[])
         : [];
@@ -1502,6 +1583,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       // A form's questions are only visible in its answers, so each one is read with a sample of them.
       if (category === 'forms')
         return formPage(tokenOf(connection, scope), scope.externalScopeId, options);
+      // An email template's words are only in its rendered copy, so each is read from there.
+      if (category === 'templates')
+        return templatePage(tokenOf(connection, scope), scope.externalScopeId, options);
       const endpoint = ENDPOINTS[category];
       if (!endpoint) return { records: [], cursor: null, done: true };
       return page(tokenOf(connection, scope), endpoint, scope.externalScopeId, options);
@@ -1756,6 +1840,7 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
     firstName: asString(p['firstName']),
     lastName: asString(p['lastName']),
     fullName: asString(p['contactName']),
+    companyName: asString(p['companyName'])?.slice(0, 200) ?? null,
     email,
     phone,
     endpoints,
@@ -2331,7 +2416,114 @@ function noteEnvelope(record: SourceRecord, context: MappingContext): CanonicalE
  * the honest reading; a template with none of them has a name and nothing else, and is refused below rather
  * than landing in the picker as an empty card.
  */
-const TEMPLATE_BODY_KEYS = ['html', 'body', 'content', 'textOnly', 'text', 'message'] as const;
+const TEMPLATE_BODY_KEYS = [
+  '__previewText',
+  'html',
+  'body',
+  'content',
+  'textOnly',
+  'text',
+  'message',
+] as const;
+
+/**
+ * Where a template's rendered copy may be read from. The URL comes out of GoHighLevel's answer, and the
+ * worker follows it, so it is held to HighLevel's own storage rather than to anywhere an answer names.
+ */
+const PREVIEW_HOSTS = [
+  'firebasestorage.googleapis.com',
+  'storage.googleapis.com',
+  '.leadconnectorhq.com',
+  '.msgsndr.com',
+];
+
+/** The words of a rendered email, as plain text: what a template is here. Null when it cannot be read. */
+async function previewText(url: string | null): Promise<string | null> {
+  if (!url) return null;
+  let at: URL;
+  try {
+    at = new URL(url);
+  } catch {
+    return null;
+  }
+  const host = at.hostname.toLowerCase();
+  if (
+    at.protocol !== 'https:' ||
+    !PREVIEW_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) : host === h))
+  )
+    return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(at, { signal: controller.signal, redirect: 'error' });
+    if (!res.ok) return null;
+    const html = (await res.text()).slice(0, 2_000_000);
+    const text = htmlToText(html);
+    return text ? text.slice(0, 20_000) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const ENTITIES: Readonly<Record<string, string>> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  rsquo: '’',
+  lsquo: '‘',
+  rdquo: '”',
+  ldquo: '“',
+  ndash: '–',
+  mdash: '—',
+  hellip: '…',
+  copy: '©',
+  reg: '®',
+  trade: '™',
+};
+
+/**
+ * HTML to the words a person reads in it. Blocks and line breaks become line breaks, links keep where they
+ * go, and everything else — styles, head, Outlook's conditional comments — goes. `{{placeholders}}` pass
+ * through untouched, because they are the same language here.
+ */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(head|style|script|title)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(
+      /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+      (_m, href: string, inner: string) => {
+        const label = inner.replace(/<[^>]+>/g, '').trim();
+        return !label || label === href || href.startsWith('mailto:')
+          ? label || href
+          : `${label} (${href})`;
+      },
+    )
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|h[1-6]|li|tr|table|section|blockquote)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+      if (e[0] === '#') {
+        const code =
+          e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+        return Number.isFinite(code) && code > 0 && code < 0x110000
+          ? String.fromCodePoint(code)
+          : m;
+      }
+      return ENTITIES[e.toLowerCase()] ?? m;
+    })
+    .split('\n')
+    .map((line) => line.replace(/[ \t\u00a0]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function templateEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
   const p = record.payload;
@@ -3145,7 +3337,8 @@ function customFieldEnvelope(record: SourceRecord, context: MappingContext): Can
       type: type ?? 'text',
       options,
       required: p['isRequired'] === true,
-      position: Number(p['position'] ?? 0) || 0,
+      // HighLevel's positions can be negative or fractional; here they are a whole number from zero.
+      position: Math.min(10_000, Math.max(0, Math.round(Number(p['position'] ?? 0) || 0))),
       appliesTo: asString(p['model']) === 'opportunity' ? 'lead' : 'contact',
     },
     leftovers(p, [

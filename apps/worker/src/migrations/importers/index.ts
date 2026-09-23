@@ -341,6 +341,9 @@ const fieldKey = (raw: string, fallback: string): string => {
   );
 };
 
+/** The most fields one kind of record carries here: `private.custom_field_room`, in the database. */
+const CUSTOM_FIELD_ROOM = 50;
+
 export const importCustomField: Importer = async (tx, scope, envelope) => {
   const d = envelope.data as {
     name?: string;
@@ -448,6 +451,37 @@ export const importCustomField: Importer = async (tx, scope, envelope) => {
       affected: 1,
       detail: { field: label },
     });
+  /**
+   * Room for it. A record here carries at most 50 fields, and the wall is a deferred check — it fires at
+   * commit, so one field too many used to throw away the whole page of fields with it, and the page failed
+   * the same way every time it was tried. A GoHighLevel account with 163 of them is ordinary. So the ones past
+   * the wall are said out loud and left out, and their values still come across: a value whose field is not
+   * here goes into the customer's notes under the name it had over there.
+   */
+  const [room] = await rows<{ n: number }>(
+    tx,
+    sql`select count(*)::int as n from app.custom_fields
+        where workspace_id = ${scope.workspaceId} and entity = ${entity}::app.custom_field_entity
+          and archived_at is null`,
+  );
+  if ((room?.n ?? 0) >= CUSTOM_FIELD_ROOM) {
+    await finding(tx, scope, {
+      code: 'custom_fields.no_room',
+      category: 'custom_fields',
+      capability: 'needs_review',
+      severity: 'review',
+      summary: `Some fields did not fit: a record here holds ${CUSTOM_FIELD_ROOM}.`,
+      whatImports:
+        'Every value on them, written into the notes under the name the field had over there.',
+      whatChanges:
+        'The field itself is not made here. Archive fields you do not use and they can come across as fields.',
+      sourceCapability: 'custom_fields',
+      affected: 1,
+      detail: { field: label },
+    });
+    return { counts: { skipped: 1 } };
+  }
+
   const { createdAt, updatedAt } = sourceTimes(envelope);
   const id = randomUUID();
   // A key is unique per business and thing, and two fields over there can reduce to the same key here, so a
@@ -613,6 +647,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     firstName?: string | null;
     lastName?: string | null;
     fullName?: string | null;
+    companyName?: string | null;
     email?: string | null;
     phone?: string | null;
     address?: {
@@ -634,16 +669,34 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     envelope.source.objectId,
   );
 
-  // A name, from whatever the old system gave. One space, never a guess at middle names.
+  // A name, from whatever the old system gave. One space, never a guess at middle names. A "name" with no
+  // letters in it is GoHighLevel filling the gap with the phone number, and is kept whole rather than split
+  // into "(805)" and "319-3388". Clamped to the 80 characters a name holds here, or the insert fails.
   let firstName = str(d.firstName) ?? '';
   let lastName = str(d.lastName) ?? '';
-  if (!firstName && !lastName && str(d.fullName)) {
-    const parts = str(d.fullName)!.split(/\s+/);
-    firstName = parts[0] ?? '';
-    lastName = parts.slice(1).join(' ');
+  const full = str(d.fullName);
+  if (!firstName && !lastName && full) {
+    if (/\p{L}/u.test(full)) {
+      const parts = full.split(/\s+/);
+      firstName = parts[0] ?? '';
+      lastName = parts.slice(1).join(' ');
+    } else firstName = full;
   }
+  firstName = firstName.slice(0, 80);
+  lastName = lastName.slice(0, 80);
   const email = str(d.email)?.toLowerCase() ?? null;
   const phoneE164 = normalizePhone(str(d.phone), scope.defaultCountry as never);
+  /**
+   * What to call somebody the old system never named. A record here has to have a name, and GoHighLevel
+   * happily keeps customers with none — a form that captured nothing but an answer, say. One of those used to
+   * fail the whole page of a hundred it sat on, every time, so the customers never finished and nothing that
+   * hangs off them ever started. So: their company, their email, their number, or plainly "Unnamed customer".
+   * Only for a new record; matching and merging still see the name the old system really had, which is none.
+   */
+  const shownFirst =
+    firstName || lastName
+      ? firstName
+      : (str(d.companyName) ?? email ?? str(d.phone) ?? 'Unnamed customer').slice(0, 80);
   const smsConsent: SmsConsent = d.consent?.find((c) => c.channel === 'sms')?.state ?? 'unknown';
   const { createdAt, updatedAt } = sourceTimes(envelope);
 
@@ -875,7 +928,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     insert into app.people (id, workspace_id, first_name, last_name, email, phone, phone_e164,
       address_line1, city, state, postal_code, country, source, notes, custom, sms_consent,
       created_at, updated_at)
-    values (${id}::uuid, ${scope.workspaceId}, ${firstName}, ${lastName},
+    values (${id}::uuid, ${scope.workspaceId}, ${shownFirst}, ${lastName},
       ${email}::extensions.citext, ${str(d.phone)}, ${phoneE164},
       ${str(d.address?.line1)}, ${str(d.address?.city)}, ${str(d.address?.state)},
       ${str(d.address?.postalCode)}, coalesce(${str(d.address?.country)}, 'US'),

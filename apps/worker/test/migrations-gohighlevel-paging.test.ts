@@ -11,7 +11,7 @@
  */
 import type { SourceConnection, SourceScope } from '@hfos/core/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createGoHighLevelAdapter } from '../src/migrations/adapters/gohighlevel';
+import { createGoHighLevelAdapter, htmlToText } from '../src/migrations/adapters/gohighlevel';
 
 const adapter = createGoHighLevelAdapter({ clientId: '', clientSecret: '', configured: false });
 
@@ -44,7 +44,9 @@ function serve(answer: (url: URL) => unknown): URL[] {
     vi.fn(async (input: string | URL) => {
       const url = new URL(String(input));
       calls.push(url);
-      return new Response(JSON.stringify(answer(url)), {
+      const body = answer(url);
+      // A string is a page, not JSON: a template's rendered copy.
+      return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
@@ -160,5 +162,132 @@ describe('reading GoHighLevel page by page', () => {
     expect(new Set(ids).size).toBe(150);
     expect(pages).toBe(2);
     expect(calls[1]!.searchParams.get('startAfterDate')).toBe(String(lastMessageAt(99)));
+  });
+
+  it('pages forms by `skip`, which is the only word that list takes for it', async () => {
+    const total = 130;
+    const calls = serve((url) => {
+      if (url.pathname === '/forms/submissions') return { submissions: [], meta: { total: 0 } };
+      // What the real one answers to `offset`.
+      if (url.searchParams.has('offset'))
+        return { statusCode: 422, message: ['property offset should not exist'] };
+      const skip = Number(url.searchParams.get('skip') ?? 0);
+      const limit = Number(url.searchParams.get('limit') ?? 20);
+      const forms = Array.from({ length: Math.max(0, Math.min(limit, total - skip)) }, (_, k) => ({
+        id: `form_${skip + k}`,
+        name: `Form ${skip + k}`,
+      }));
+      return { forms, total };
+    });
+    const { ids } = await readAll('forms');
+    expect(ids).toHaveLength(130);
+    expect(new Set(ids).size).toBe(130);
+    expect(calls.some((c) => c.searchParams.has('offset'))).toBe(false);
+  });
+
+  it('reads a total given as `[{ total }]`, the way products and the email builder give it', async () => {
+    serve((url) =>
+      url.pathname === '/products/'
+        ? { products: [{ _id: 'prod_1', name: 'SEO 500' }], total: [{ total: 26 }] }
+        : {},
+    );
+    const seen: { category: string; count: number; countQuality: string }[] = [];
+    for await (const r of adapter.scan(connection, scope)) seen.push(r);
+    const products = seen.find((r) => r.category === 'products');
+    expect(products?.count).toBe(26);
+    expect(products?.countQuality).toBe('complete');
+  });
+
+  it('waits out a 429 and asks again rather than failing the batch', async () => {
+    let refused = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        if (refused < 2) {
+          refused += 1;
+          return new Response('{}', { status: 429, headers: { 'retry-after': '0.01' } });
+        }
+        return new Response(JSON.stringify({ tags: [{ id: 'tag_1', name: 'vip' }] }), {
+          status: 200,
+        });
+      }),
+    );
+    const page = await adapter.list(connection, scope, 'tags', { cursor: null, limit: 100 });
+    expect(page.records.map((r) => r.objectId)).toEqual(['tag_1']);
+    expect(refused).toBe(2);
+  });
+
+  it('brings an email template with the words from its rendered copy, and leaves folders out', async () => {
+    const preview =
+      'https://firebasestorage.googleapis.com/v0/b/highlevel-backend.appspot.com/o/t.html?alt=media';
+    serve((url) =>
+      url.hostname === 'firebasestorage.googleapis.com'
+        ? '<html><head><style>p{}</style></head><body><p>Hi {{contact.first_name}},</p>' +
+          '<p>Thanks &amp; see you soon.</p></body></html>'
+        : {
+            builders: [
+              { id: 'tpl_1', name: 'Welcome', templateType: 'builder', previewUrl: preview },
+              { id: 'tpl_2', name: 'Saved things', templateType: 'folder' },
+            ],
+            total: [{ total: 2 }],
+          },
+    );
+    const page = await adapter.list(connection, scope, 'templates', { cursor: null, limit: 100 });
+    expect(page.records.map((r) => r.objectId)).toEqual(['tpl_1']);
+    const [envelope] = adapter.normalize(page.records[0]!, {
+      locationId: 'loc_1',
+      installationId: 'conn_1',
+      adapterVersion: '1',
+      timezone: 'America/Chicago',
+      defaultCountry: 'US',
+      customFields: new Map(),
+    });
+    expect((envelope!.data as { body: string }).body).toBe(
+      'Hi {{contact.first_name}},\nThanks & see you soon.',
+    );
+  });
+
+  it("never follows a template link to somewhere that is not HighLevel's storage", async () => {
+    const calls = serve(() => ({
+      builders: [
+        { id: 'tpl_1', name: 'Odd', templateType: 'builder', previewUrl: 'https://example.com/x' },
+      ],
+    }));
+    await adapter.list(connection, scope, 'templates', { cursor: null, limit: 100 });
+    expect(calls.some((c) => c.hostname === 'example.com')).toBe(false);
+  });
+
+  it("leaves HighLevel's activity log out of the messages", async () => {
+    serve((url) =>
+      url.pathname === '/conversations/search'
+        ? { conversations: [{ id: 'cnv_1', lastMessageDate: 1 }], total: 1 }
+        : {
+            messages: {
+              messages: [
+                { id: 'm1', messageType: 'TYPE_SMS', body: 'On our way', dateAdded: '2026-01-01' },
+                { id: 'm2', messageType: 'TYPE_ACTIVITY_INVOICE', dateAdded: '2026-01-01' },
+                { id: 'm3', messageType: 'TYPE_CALL', dateAdded: '2026-01-01' },
+              ],
+              nextPage: false,
+            },
+          },
+    );
+    const messages = await adapter.list(connection, scope, 'messages', {
+      cursor: null,
+      limit: 100,
+    });
+    expect(messages.records.map((r) => r.objectId)).toEqual(['m1']);
+    const calls = await adapter.list(connection, scope, 'calls', { cursor: null, limit: 100 });
+    expect(calls.records.map((r) => r.objectId)).toEqual(['m3']);
+  });
+});
+
+describe('an email, as the words in it', () => {
+  it('keeps where a link goes and drops what nobody reads', () => {
+    expect(
+      htmlToText(
+        '<!--[if mso]>x<![endif]--><div>Book <a href="https://x.test/b">here</a><br>Thanks&nbsp;&#8212; Chris</div>',
+      ),
+    ).toBe('Book here (https://x.test/b)\nThanks — Chris');
   });
 });

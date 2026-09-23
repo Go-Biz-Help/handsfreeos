@@ -115,6 +115,8 @@ export const CanonicalContact = z.object({
   lastName: z.string().max(120).nullish(),
   /** Used only when the source has no first/last split. Never guessed at beyond one space. */
   fullName: z.string().max(240).nullish(),
+  /** The business they work for, as the old system spelled it. A name to call them by when nothing else is. */
+  companyName: z.string().max(200).nullish(),
   email: z.string().max(320).nullish(),
   phone: z.string().max(40).nullish(),
   endpoints: z.array(CanonicalEndpoint).max(50).default([]),
