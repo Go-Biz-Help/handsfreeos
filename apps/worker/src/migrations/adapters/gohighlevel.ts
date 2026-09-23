@@ -896,6 +896,42 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   };
 
   /**
+   * A page of invoices, each paid one with the day its money arrived. The invoice itself only says when it was
+   * last touched, and on the first real account that put a quarter of the payments days after they were
+   * made; the payment's own record says when. An invoice whose payment cannot be read keeps the old guess.
+   */
+  const invoicePage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const listed = await page(token, ENDPOINTS['invoices']!, scopeId, options);
+    const records = await inPool(listed.records, EMAIL_CONCURRENCY, async (r) => {
+      if (cents(r.payload['amountPaid']) <= 0) return r;
+      try {
+        const answer = await call<Record<string, unknown>>(
+          token,
+          `/payments/transactions?altId=${encodeURIComponent(scopeId)}&altType=location` +
+            `&entityId=${encodeURIComponent(r.objectId)}&limit=100`,
+        );
+        const paidOn = (
+          Array.isArray(answer['data']) ? (answer['data'] as Record<string, unknown>[]) : []
+        )
+          .filter((t) => t['status'] === 'succeeded' && asString(t['entityId']) === r.objectId)
+          .map((t) => asDate(t['createdAt']))
+          .filter((d): d is Date => !!d)
+          .sort((a, b) => b.getTime() - a.getTime())[0];
+        return paidOn ? { ...r, payload: { ...r.payload, __paidAt: paidOn.toISOString() } } : r;
+      } catch (e) {
+        // A sign-in without the payments scope still brings the invoice, dated the way it was.
+        if (e instanceof GhlError && [400, 401, 403, 404, 422].includes(e.status)) return r;
+        throw e;
+      }
+    });
+    return { ...listed, records };
+  };
+
+  /**
    * A page of tasks and notes, walked customer by customer.
    *
    * GoHighLevel keeps both on the customer and nowhere else: there is no list of a sub-account's tasks, which
@@ -1787,6 +1823,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       // An email template's words are only in its rendered copy, so each is read from there.
       if (category === 'templates')
         return templatePage(tokenOf(connection, scope), scope.externalScopeId, options);
+      // When an invoice's money arrived is only on its payment.
+      if (category === 'invoices')
+        return invoicePage(tokenOf(connection, scope), scope.externalScopeId, options);
       // A product's prices are only on the product, so each is asked for them.
       if (category === 'products')
         return productPage(tokenOf(connection, scope), scope.externalScopeId, options);
@@ -2248,7 +2287,8 @@ function productEnvelope(record: SourceRecord, context: MappingContext): Canonic
     'products',
     {
       name: (asString(p['name']) ?? 'Product').slice(0, 200),
-      description: asString(p['description'])?.slice(0, 2000) ?? null,
+      // Written in HighLevel's editor, so it is HTML; here it is the words on a bill.
+      description: plainText(p['description'])?.slice(0, 2000) ?? null,
       unitPriceCents: first ? cents(first['amount']) : 0,
       unitLabel: 'each',
       taxable: true,
@@ -2311,7 +2351,7 @@ function invoiceEnvelope(record: SourceRecord, context: MappingContext): Canonic
       totalCents: total,
       paidCents: Math.min(paid, total),
       paidAt:
-        asDate(p['paidAt'] ?? p['updatedAt'])?.toISOString() ??
+        asDate(p['__paidAt'] ?? p['paidAt'] ?? p['updatedAt'])?.toISOString() ??
         record.sourceUpdatedAt?.toISOString() ??
         null,
       issuedAt:
@@ -2530,6 +2570,33 @@ function subscriptionEnvelope(record: SourceRecord, context: MappingContext): Ca
     asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ??
     asString(p['contactId']);
   const day = (v: unknown) => asDate(v)?.toISOString().slice(0, 10) ?? null;
+  /**
+   * What the plan is and how often it bills live on its recurring product, not beside the amount: read from
+   * the top, every plan on the first real account came across as "Plan", monthly — a quarterly one included.
+   */
+  const recurring = (p['recurringProduct'] ?? {}) as Record<string, Record<string, unknown>>;
+  const every = (recurring['price']?.['recurring'] ?? {}) as Record<string, unknown>;
+  const rawInterval = (
+    asString(every['interval']) ??
+    asString(p['interval']) ??
+    'month'
+  ).toLowerCase();
+  const count = Math.max(
+    1,
+    Math.min(36, Number(every['intervalCount'] ?? p['intervalCount'] ?? 1) || 1),
+  );
+  // Plans here run by the month, the quarter or the year. A shorter one keeps its price and says so.
+  const unit = PLAN_INTERVAL[rawInterval] ?? 'month';
+  const planWarnings =
+    unit === 'day' || unit === 'week'
+      ? [
+          {
+            code: 'mapping.plan_interval_narrowed',
+            field: 'interval',
+            message: `This plan billed every ${count > 1 ? `${count} ` : ''}${unit}${count > 1 ? 's' : ''} over there; plans here run by the month, so it shows monthly.`,
+          },
+        ]
+      : [];
   return envelopeOf(
     record,
     context,
@@ -2538,12 +2605,17 @@ function subscriptionEnvelope(record: SourceRecord, context: MappingContext): Ca
     {
       customerEmail: asString(p['contactEmail'])?.slice(0, 320) ?? null,
       customerPhone: asString(p['contactPhone'])?.slice(0, 40) ?? null,
-      planName: (asString(p['name'] ?? p['productName']) ?? 'Plan').slice(0, 160),
+      planName: (
+        asString(recurring['product']?.['name']) ??
+        asString(p['name'] ?? p['productName']) ??
+        asString(p['entitySourceName']) ??
+        'Plan'
+      ).slice(0, 160),
       priceCents: cents(p['amount'] ?? p['price']),
-      interval: PLAN_INTERVAL[(asString(p['interval']) ?? 'month').toLowerCase()] ?? 'month',
-      intervalCount: Math.max(1, Math.min(36, Number(p['intervalCount'] ?? 1) || 1)),
+      interval: unit === 'year' ? 'year' : 'month',
+      intervalCount: unit === 'day' || unit === 'week' ? 1 : count,
       status,
-      startedOn: day(p['startDate'] ?? p['createdAt']),
+      startedOn: day(p['subscriptionStartDate'] ?? p['startDate'] ?? p['createdAt']),
       currentPeriodStart: day(p['currentPeriodStart']),
       currentPeriodEnd: day(p['currentPeriodEnd']),
       nextBillingOn: day(p['nextChargeDate'] ?? p['nextBillingDate']),
@@ -2575,8 +2647,10 @@ function subscriptionEnvelope(record: SourceRecord, context: MappingContext): Ca
       'contactId',
       'altId',
       'locationId',
+      'recurringProduct',
+      'subscriptionStartDate',
     ]),
-    [],
+    planWarnings,
     contactId
       ? [
           {
@@ -2666,13 +2740,17 @@ function noteEnvelope(record: SourceRecord, context: MappingContext): CanonicalE
     'note',
     'tasks',
     {
-      body: (asString(p['body']) ?? '').slice(0, 10_000) || '(empty note)',
+      // `bodyText` is what was typed; `body` can be the editor's HTML, which read as tags in the timeline.
+      body:
+        (asString(p['bodyText']) ?? htmlToText(asString(p['body']) ?? '')).slice(0, 10_000) ||
+        '(empty note)',
       occurredAt: (record.sourceCreatedAt ?? new Date()).toISOString(),
     },
     leftovers(p, [
       'id',
       '_id',
       'body',
+      'bodyText',
       'userId',
       'contactId',
       'dateAdded',
@@ -2779,6 +2857,13 @@ const ENTITIES: Readonly<Record<string, string>> = {
  * go, and everything else — styles, head, Outlook's conditional comments — goes. `{{placeholders}}` pass
  * through untouched, because they are the same language here.
  */
+/** Words that may have come as an editor's HTML, as the words. Plain text passes through untouched. */
+const plainText = (v: unknown): string | null => {
+  const said = asString(v);
+  if (!said) return null;
+  return /<[a-z][^>]*>/i.test(said) ? htmlToText(said) || null : said;
+};
+
 export function htmlToText(html: string): string {
   return html
     .replace(/<!--[\s\S]*?-->/g, '')
@@ -3605,7 +3690,9 @@ function callEnvelope(record: SourceRecord, context: MappingContext): CanonicalE
   const isVoicemail =
     (asString(p['messageType']) ?? '').toUpperCase().includes('VOICEMAIL') ||
     rawStatus === 'voicemail';
-  const duration = Number(callData['duration'] ?? p['duration'] ?? 0) || null;
+  // Zero is a length: a missed call lasted no time. Only a call that never said stays without one.
+  const said = Number(callData['duration'] ?? p['duration']);
+  const duration = Number.isFinite(said) && said >= 0 ? Math.round(said) : null;
   const startedAt = (record.sourceCreatedAt ?? new Date()).toISOString();
   return envelopeOf(
     record,

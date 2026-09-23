@@ -632,6 +632,116 @@ describe('what a GoHighLevel thread is made of', () => {
     ]);
   });
 
+  it('names a plan and its billing from its recurring product, and says so when it bills weekly', () => {
+    const plan = (every: Record<string, unknown>) =>
+      adapter.normalize(
+        {
+          objectType: 'subscription',
+          objectId: 'sub_1',
+          payload: {
+            _id: 'sub_1',
+            status: 'active',
+            amount: 300,
+            contactId: 'con_1',
+            subscriptionStartDate: '2026-03-11T15:42:10.871Z',
+            recurringProduct: {
+              product: { name: 'CRM Quarterly Partnership' },
+              price: { recurring: every },
+            },
+          },
+        },
+        context,
+      )[0]!;
+    const quarterly = plan({ interval: 'month', intervalCount: 3 });
+    expect(quarterly.data).toMatchObject({
+      planName: 'CRM Quarterly Partnership',
+      priceCents: 30_000,
+      interval: 'month',
+      intervalCount: 3,
+      startedOn: '2026-03-11',
+    });
+    const weekly = plan({ interval: 'week', intervalCount: 2 });
+    expect(weekly.data).toMatchObject({ interval: 'month', intervalCount: 1 });
+    expect(weekly.warnings.map((w) => w.code)).toContain('mapping.plan_interval_narrowed');
+  });
+
+  it('keeps a note as it was typed, a missed call as no time at all, and a product as its words', () => {
+    const [note] = adapter.normalize(
+      {
+        objectType: 'note',
+        objectId: 'n1',
+        payload: {
+          id: 'n1',
+          body: '<p style="margin: 0px">HVAC Company</p>',
+          bodyText: 'HVAC Company',
+        },
+      },
+      context,
+    );
+    expect(note!.data).toMatchObject({ body: 'HVAC Company' });
+    const [call] = adapter.normalize(
+      {
+        objectType: 'call',
+        objectId: 'c1',
+        parentObjectId: 'cnv_1',
+        payload: {
+          id: 'c1',
+          messageType: 'TYPE_CALL',
+          meta: { call: { status: 'no-answer', duration: 0 } },
+        },
+      },
+      context,
+    );
+    expect(call!.data).toMatchObject({ durationSeconds: 0 });
+    const [product] = adapter.normalize(
+      {
+        objectType: 'product',
+        objectId: 'p1',
+        payload: { _id: 'p1', name: 'Hosting', description: '<p>Monthly <b>hosting</b>.</p>' },
+      },
+      context,
+    );
+    expect(product!.data).toMatchObject({ description: 'Monthly hosting.' });
+  });
+
+  it('dates a paid invoice by its payment, not by the last time the invoice was touched', async () => {
+    serve((url) =>
+      url.pathname === '/payments/transactions'
+        ? {
+            data: [
+              { entityId: 'inv_1', status: 'succeeded', createdAt: '2026-08-31T10:00:00.000Z' },
+              { entityId: 'inv_1', status: 'failed', createdAt: '2026-09-02T10:00:00.000Z' },
+            ],
+            totalCount: 2,
+          }
+        : {
+            invoices: [
+              {
+                _id: 'inv_1',
+                status: 'paid',
+                total: 299,
+                amountPaid: 299,
+                updatedAt: '2026-09-03T10:00:00.000Z',
+              },
+              {
+                _id: 'inv_2',
+                status: 'sent',
+                total: 50,
+                amountPaid: 0,
+                updatedAt: '2026-09-03T10:00:00.000Z',
+              },
+            ],
+            total: 2,
+          },
+    );
+    const page = await adapter.list(connection, scope, 'invoices', { cursor: null, limit: 100 });
+    const [paid, unpaid] = page.records.map(
+      (r) => adapter.normalize(r, context)[0]!.data as { paidAt: string },
+    );
+    expect(paid!.paidAt).toBe('2026-08-31T10:00:00.000Z');
+    expect(unpaid!.paidAt).toBe('2026-09-03T10:00:00.000Z');
+  });
+
   it('counts invoices by asking the way the list insists on, with an offset', async () => {
     const calls = serve((url) => {
       if (url.pathname === '/invoices/' && !url.searchParams.has('offset'))

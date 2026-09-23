@@ -504,11 +504,23 @@ export const importCustomField: Importer = async (tx, scope, envelope) => {
   const id = randomUUID();
   // A key is unique per business and thing, and two fields over there can reduce to the same key here, so a
   // clash falls back to a key nobody can collide with rather than failing the import.
+  // A label holds 60 characters, and a field over there is often the whole question a form asked — seven on
+  // the first real account ran longer. The label is cut at a word, and the question stays whole in the help.
+  const short =
+    label.length <= 60
+      ? label
+      : `${
+          label
+            .slice(0, 59)
+            .replace(/\s+\S*$/, '')
+            .trim() || label.slice(0, 59)
+        }…`;
+  const help = label.length > 60 ? label.slice(0, 200) : '';
   await tx.execute(sql`
-    insert into app.custom_fields (id, workspace_id, entity, key, label, type, options, position,
+    insert into app.custom_fields (id, workspace_id, entity, key, label, help, type, options, position,
       created_at, updated_at)
     values (${id}::uuid, ${scope.workspaceId}, ${entity}::app.custom_field_entity,
-      ${key}, ${label.slice(0, 60)}, ${finalType}::app.custom_field_type,
+      ${key}, ${short}, ${help}, ${finalType}::app.custom_field_type,
       ${JSON.stringify(options)}::jsonb, ${Math.max(0, Math.min(1000, Number(d.position ?? 0) || 0))},
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))
@@ -971,6 +983,16 @@ export const importContact: Importer = async (tx, scope, envelope) => {
           changedFields: changed,
         });
       }
+      // First known on the earliest day any of the contacts that are them was, when this person is the
+      // import's own: the four that became one on the first real account were dated by the newest. Somebody
+      // who was here already keeps the date the business has for them.
+      if (createdAt)
+        await tx.execute(sql`
+          update app.people set created_at = least(created_at, ${createdAt.toISOString()}::timestamptz)
+          where id = ${here.id}::uuid
+            and exists (select 1 from app.migration_change_journal j
+                        where j.migration_id = ${scope.migrationId} and j.action = 'create'
+                          and j.target_type = 'person' and j.target_id = ${here.id}::uuid)`);
       // What the old system said and we did not take, kept so somebody can see the difference and choose.
       if (Object.keys(merged.kept).length > 0)
         await finding(tx, scope, {
