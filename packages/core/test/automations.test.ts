@@ -70,6 +70,8 @@ describe('the automations catalog', () => {
       'wallet_card_declined',
       'job_not_thanked',
       'maintenance_due',
+      // "Did the job happen?" is its switch.
+      'job_unconfirmed',
     ];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],
@@ -108,6 +110,11 @@ describe('automation settings', () => {
       intake: true,
       thankYou: true,
       maintenance: true,
+      pipelineMoves: true,
+      engagedLeads: true,
+      jobCheck: true,
+      handoffFollowUp: true,
+      approvalExpiry: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,
@@ -237,12 +244,12 @@ describe('automation rows', () => {
       needsSetup: 1,
       total: rows.length,
     });
-    // No teammate: its four rows read as a new one starts (all on), and none works yet. The thank-you still
-    // works: a card asks a person instead.
+    // No teammate: its four rows read as a new one starts (all on), and none works yet, nor the three health
+    // rows about its work. The thank-you still works: a card asks a person instead.
     const none = automationRows(ctx());
     expect(automationCounts(none)).toEqual({
-      working: none.length - 6,
-      needsSetup: 5,
+      working: none.length - 9,
+      needsSetup: 8,
       total: none.length,
     });
     expect(automationRow(def('job_thank_you'), ctx()).fallback).toMatch(/card on Home/);

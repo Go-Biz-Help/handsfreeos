@@ -27,6 +27,24 @@ export const ATTENTION_KINDS = [
   'job_not_thanked',
   'referral_mentioned',
   'maintenance_due',
+  // Pipeline and jobs (Automations, stage 3b).
+  'pipeline_mismatch',
+  'quiet_after_price',
+  'job_unconfirmed',
+  'job_never_completed',
+  'job_no_address',
+  // Service, hand-offs and revenue (Automations, stage 4a).
+  'client_quiet',
+  'promise_due',
+  'revenue_moved',
+  // Health and quality (Automations, stage 4b): the business's own set-up, not a customer.
+  'channel_quiet',
+  'connection_error',
+  'connection_silent',
+  'ai_unreviewed',
+  'ai_corrections',
+  'website_changed',
+  'faq_suggestions',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -50,6 +68,21 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Referral',
   maintenance_due: 'Maintenance due',
+  pipeline_mismatch: 'Wrong stage',
+  quiet_after_price: 'Quiet after a price',
+  job_unconfirmed: 'Did it happen?',
+  job_never_completed: 'Never marked done',
+  job_no_address: 'No address',
+  client_quiet: 'Gone quiet',
+  promise_due: 'Promise due',
+  revenue_moved: 'Money in changed',
+  channel_quiet: 'Channel quiet',
+  connection_error: 'Connection broken',
+  connection_silent: 'Connection silent',
+  ai_unreviewed: 'AI not reviewed',
+  ai_corrections: 'AI keeps being corrected',
+  website_changed: 'Website changed',
+  faq_suggestions: 'Question to answer',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -71,6 +104,21 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   job_not_thanked: 'Customers to thank',
   referral_mentioned: 'Referrals',
   maintenance_due: 'Maintenance due',
+  pipeline_mismatch: 'Deals in the wrong stage',
+  quiet_after_price: 'Quiet after a price',
+  job_unconfirmed: 'Jobs to check',
+  job_never_completed: 'Jobs never marked done',
+  job_no_address: 'Jobs with no address',
+  client_quiet: 'Regulars gone quiet',
+  promise_due: 'Promises due',
+  revenue_moved: 'Money in changed',
+  channel_quiet: 'Channels gone quiet',
+  connection_error: 'Connections broken',
+  connection_silent: 'Connections silent',
+  ai_unreviewed: 'AI not reviewed',
+  ai_corrections: 'Things to teach the AI',
+  website_changed: 'Website changes',
+  faq_suggestions: 'Questions to answer',
 };
 
 /**
@@ -97,13 +145,56 @@ export const ATTENTION_SUBJECT_OF = {
   referral_mentioned: 'referral',
   // A row of app.maintenance_reminders: one customer, one service, one due day.
   maintenance_due: 'maintenance',
+  // A deal whose stage is behind what happened. Its own card beside the lead's (not folded into it), so the
+  // one-press move stays in reach.
+  pipeline_mismatch: 'lead',
+  quiet_after_price: 'lead',
+  // One visit each.
+  job_unconfirmed: 'appointment',
+  job_never_completed: 'appointment',
+  job_no_address: 'appointment',
+  // A regular customer: the person themselves.
+  client_quiet: 'person',
+  // A row of app.promises: something someone on the team said they'd do, by when.
+  promise_due: 'promise',
+  // One per business, like the wallet's: the subject is the workspace's own id.
+  revenue_moved: 'revenue',
+  // One of the business's channels. Stored as the channel's own type (HEALTH_SUBJECT_TYPES), so the card knows
+  // which page checks it; the id is derived from the business and the channel.
+  channel_quiet: 'channel',
+  // A row of payment_connections, calendar_connections, mailbox_connections, review_connections or
+  // phone_numbers, stored as that table's type (HEALTH_SUBJECT_TYPES).
+  connection_error: 'connection',
+  connection_silent: 'connection',
+  // An AI teammate.
+  ai_unreviewed: 'teammate',
+  // A row of app.teammate_lessons: one line of guidance made of repeated corrections.
+  ai_corrections: 'lesson',
+  // A website scan that found changes.
+  website_changed: 'scan',
+  // A row of app.knowledge_suggestions: a question the AI couldn't answer, asked again and again.
+  faq_suggestions: 'suggestion',
 } as const satisfies Record<AttentionKind, string>;
-export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
+/** What a quiet channel's or a connection's card is stored as: the page that fixes it. */
+export const HEALTH_SUBJECT_TYPES = [
+  'channel_text',
+  'channel_call',
+  'channel_email',
+  'channel_chat',
+  'payment_connection',
+  'calendar_connection',
+  'mailbox',
+  'review_connection',
+  'phone_number',
+] as const;
+export type HealthSubjectType = (typeof HEALTH_SUBJECT_TYPES)[number];
+export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind] | HealthSubjectType;
 
 /** The kinds about a lead. One card per lead: only the first of these that holds opens. */
 export const LEAD_PRECEDENCE = [
   'hot_lead',
   'unanswered_lead',
+  'quiet_after_price',
   'stale_opportunity',
   'missing_next_action',
 ] as const satisfies readonly AttentionKind[];
@@ -266,6 +357,123 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Moving the deal is lead.move_stage: records.write, which the item already needs.
+  pipeline_mismatch: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // The follow-up texts are already going; this is a person picking up the phone.
+  quiet_after_price: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Marking a visit done (or not) is appointment.set_status; adding an address is appointment.update.
+  job_unconfirmed: {
+    handle: [ITEM, 'appointments.write'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  job_never_completed: {
+    handle: [ITEM, 'appointments.write'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  job_no_address: {
+    handle: [ITEM, 'appointments.write'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Checking in is a call or a text: a person's, since they're a regular.
+  client_quiet: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Keeping the promise is on whoever made it.
+  promise_due: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // The business's own money: owners and admins. Nobody to assign it to.
+  revenue_moved: {
+    handle: [ITEM, MONEY],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  /**
+   * Health and quality. The business's own set-up: opening the page that fixes it is all the button does, and the
+   * page asks for its own permission. Nobody to assign most of them to, and nothing HandsFreeOS can fix itself.
+   */
+  channel_quiet: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  connection_error: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    // Never dismissed: payments, bookings or messages are failing until it's reconnected.
+    dismiss: null,
+  },
+  connection_silent: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  ai_unreviewed: {
+    handle: [ITEM],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Adding the line changes what the AI knows: knowledge.manage, like any knowledge edit.
+  ai_corrections: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  website_changed: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  faq_suggestions: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -310,6 +518,21 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Create lead',
   maintenance_due: 'Call',
+  pipeline_mismatch: 'Move',
+  quiet_after_price: 'Call',
+  job_unconfirmed: 'Mark done',
+  job_never_completed: 'Mark done',
+  job_no_address: 'Add address',
+  client_quiet: 'Check in',
+  promise_due: 'Follow through',
+  revenue_moved: 'Open money',
+  channel_quiet: 'Check it',
+  connection_error: 'Reconnect',
+  connection_silent: 'Check it',
+  ai_unreviewed: 'Review',
+  ai_corrections: 'Add to what the AI knows',
+  website_changed: 'Review updates',
+  faq_suggestions: 'Answer',
 };
 
 // ---- What runs on its own ----
@@ -379,6 +602,21 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   job_not_thanked: 'HandsFreeOS couldn’t send this thank-you, so it’s one for you.',
   referral_mentioned: 'Reaching out to somebody new is your call.',
   maintenance_due: 'HandsFreeOS already texted them twice, so this one needs a person.',
+  pipeline_mismatch: 'HandsFreeOS couldn’t move this deal itself, so it’s one for you.',
+  quiet_after_price: 'The follow-up texts are already going, so this one needs a person.',
+  job_unconfirmed: 'Only someone who was there knows whether it happened.',
+  job_never_completed: 'Only someone who was there knows whether it happened.',
+  job_no_address: 'Only you or the customer know where the job is.',
+  client_quiet: 'A regular hears from a person, not an automatic text.',
+  promise_due: 'The promise was yours, so keeping it is too.',
+  revenue_moved: 'This is for you to look at, not something to send.',
+  channel_quiet: 'Only you can check what’s wrong with it.',
+  connection_error: 'Reconnecting needs you to sign in again.',
+  connection_silent: 'Only you can check what’s wrong with it.',
+  ai_unreviewed: 'Reviewing the AI’s work is for a person.',
+  ai_corrections: 'What the AI learns is yours to decide.',
+  website_changed: 'What the AI learns is yours to decide.',
+  faq_suggestions: 'Only you know the answer.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

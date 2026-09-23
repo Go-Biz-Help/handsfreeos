@@ -26,6 +26,12 @@ import {
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
+import { onExpiringArm } from '../automations/expiring';
+import { onHandoffNudge } from '../automations/handoff';
+import { onConnectionBroke, onCorrection } from '../automations/health';
+import { onArmJobCheck, onStillGoing } from '../automations/job-check';
+import { onCallPromise, onMessagePromise } from '../automations/promises';
+import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
 import { onReviewReplied, onReviewSyncWanted } from './reviews';
 import {
   onEmailDomainAdded,
@@ -101,7 +107,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,
     'branded_domain.removed': onBrandedDomainRemoved,
-    'message.queued': onMessageQueued,
+    // Automations' pipeline rows (automations/pipeline.ts): someone got back to a customer, so their deal may move
+    // on; and someone really talking with the business may need a deal of their own.
+    // …and "Promises not kept" reads what a person on the team wrote for one (automations/promises.ts).
+    'message.queued': [onMessageQueued, onPipelineEvidence, onEngaged, onMessagePromise],
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,
     'message.schedule_cancelled': onScheduleCancelled,
@@ -124,17 +133,25 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'email.unmatched_claimed': onUnmatchedClaimed,
     'mailbox.connected': onMailboxSyncWanted,
     'mailbox.resync_requested': onMailboxSyncWanted,
-    'mailbox.reauth_required': onMailboxReauthRequired,
+    'mailbox.reauth_required': [onMailboxReauthRequired, onConnectionBroke],
+    'mailbox.failed': onConnectionBroke,
     'calendar_connection.connected': onCalendarRefreshWanted,
     // What customers said in public: a person asks, and the queue does it.
     'review_connection.connected': onReviewSyncWanted,
     'review_connection.sync_requested': onReviewSyncWanted,
     'review.replied': onReviewReplied,
     'calendar_connection.sync_requested': onCalendarRefreshWanted,
-    'calendar_connection.reauth_required': onCalendarReauthRequired,
+    'calendar_connection.reauth_required': [onCalendarReauthRequired, onConnectionBroke],
+    'calendar_connection.failed': onConnectionBroke,
     // A connected payment account: its token refresh starts, and disconnecting tells the provider too.
     'payment_connection.connected': onPaymentConnectionConnected,
     'payment_connection.disconnected': onPaymentConnectionDisconnected,
+    // Automations' "Connection broke" (automations/health.ts): whoever can fix it hears at once.
+    'payment_connection.reauth_required': onConnectionBroke,
+    'payment_connection.failed': onConnectionBroke,
+    'payment_connection.revoked': onConnectionBroke,
+    'review_connection.needs_attention': onConnectionBroke,
+    'phone_number.purchase_failed': onConnectionBroke,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
     // Somebody pressed Pay on a founding seat (0093): Stripe's page is made by a job, which retries on its own.
@@ -150,7 +167,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // it — an estimate's nudge and expiry, an invoice's reminder ladder and its overdue mark. A payment
     // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a
     // settled invoice brings the team its "you've been paid".
-    'estimate.sent': onEstimateSent,
+    'estimate.sent': [onEstimateSent, onPipelineEvidence],
+    'estimate.accepted': onPipelineEvidence,
     'invoice.sent': onInvoiceSent,
     'invoice.updated': onInvoiceChanged,
     'payment.recorded': [onPaymentRecorded, onInvoiceChanged],
@@ -177,19 +195,31 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onBookedTeamEmail,
       // Automations' "Intake questions": the form, two minutes after the confirmation (automations/intake.ts).
       onBookedIntake,
+      onPipelineEvidence,
+      // Automations' "Did the job happen?": a push to whoever is on it, once it's over (automations/job-check.ts).
+      onArmJobCheck,
     ],
     'appointment.updated': onAppointmentChanged,
-    'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice],
+    'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice, onArmJobCheck],
+    'appointment.still_going': onStillGoing,
     'appointment.reassigned': [onAppointmentChanged, onReassignedNotice],
     'appointment.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
-    'message.received': onMessageReferral,
-    'call.transcribed': onCallReferral,
+    'message.received': [onMessageReferral, onEngaged],
+    'call.transcribed': [onCallReferral, onCallPromise],
+    // Automations' "Hand-off nobody picked up" (automations/handoff.ts) and "Approvals about to expire"
+    // (automations/expiring.ts): the rounds after a hand-off, and the warning before a decision runs out.
+    'conversation.handed_off': onHandoffNudge,
+    'workflow.approval_requested': onExpiringArm,
+    'ai_teammate.drafted': onExpiringArm,
+    // Automations' "Repeated corrections": an edit or a rejection may be the third alike (automations/health.ts).
+    'ai_teammate.draft_decided': onCorrection,
+    'call.completed': [onPipelineEvidence, onEngaged],
     // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
-    'appointment.completed': [onAppointmentChanged, onCompletedThankYou],
+    'appointment.completed': [onAppointmentChanged, onCompletedThankYou, onPipelineEvidence],
     'appointment.no_show': onAppointmentChanged,
-    'attendee.added': [onAppointmentChanged, onArmReminders, onAddedConfirm],
+    'attendee.added': [onAppointmentChanged, onArmReminders, onAddedConfirm, onPipelineEvidence],
     'attendee.removed': [onAppointmentChanged, onCancelledNotice],
     'attendee.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice],
     'attendee.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],

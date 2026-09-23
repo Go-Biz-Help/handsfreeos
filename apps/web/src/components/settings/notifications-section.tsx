@@ -93,6 +93,20 @@ const ROWS: readonly Row[] = [
     email: null,
   },
   {
+    title: 'A job you were on is over',
+    description:
+      'Half an hour after a visit you were on ends, if nobody has said how it went: mark it done, or say it didn’t happen, from the notification.',
+    push: 'jobs',
+    email: null,
+  },
+  {
+    title: 'A connection stops working',
+    description:
+      'When something you connected stops working: payments, a calendar, your email, reviews or a phone number. Owners and admins, and whoever the calendar or inbox belongs to.',
+    push: 'connections',
+    email: null,
+  },
+  {
     title: 'Morning summary',
     description:
       'One email at 7 AM with today’s jobs, who to call, and what needs your attention, urgent first.',

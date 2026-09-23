@@ -370,6 +370,23 @@
         "required": ["workspaceId", "appointmentId", "status"]
       }
     },
+    "appointment.still_going": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "appointmentId"]
+      }
+    },
     "appointment.update": {
       "offline": "anytime",
       "input": {
@@ -2791,6 +2808,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 300
+          },
+          "because": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "required": ["workspaceId", "leadId", "stageId"]

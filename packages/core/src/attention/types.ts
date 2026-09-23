@@ -39,6 +39,32 @@ export const REASON_CODES = [
   'referral',
   /** A regular service that's due and not booked: "AC tune-up due Oct 5". */
   'maintenance',
+  /** A price the customer heard and hasn't answered: "$450 by text". */
+  'price',
+  /** A visit whose time has passed with nobody saying how it went: "AC tune-up · Tue 2:00 PM". */
+  'job_passed',
+  /** A visit at the customer's place with nowhere to go. */
+  'no_address',
+  /** A regular who hasn't been back: "Usually every 3 months · 7 months since". */
+  'quiet',
+  /** What someone on the team said they'd do: "You said: send the quote · Tue". */
+  'promise',
+  /** Last week's money in against the usual week: "$6,200 last week · usually $9,000 (−31%)". */
+  'revenue',
+  /** A channel's usual pace: "Texts usually every 2 h". */
+  'quiet_channel',
+  /** Nothing for a while, counting up: "nothing for 1 day" (a quiet channel, a silent connection). */
+  'silent',
+  /** What broke on a connection: "Sign-in expired", "Access removed". */
+  'broken',
+  /** The AI's work nobody looked at: "14 drafts · none reviewed in 7 days". */
+  'unreviewed',
+  /** What the AI keeps being corrected on, as one line of guidance. */
+  'corrected',
+  /** What changed on the website: "3 pages changed · 4 updates". */
+  'site_changed',
+  /** A question customers keep asking: "“Do you work Sundays?” · asked 4 times". */
+  'asked',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

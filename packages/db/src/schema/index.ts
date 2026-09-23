@@ -2406,6 +2406,8 @@ export const knowledgeScans = app.table('knowledge_scans', {
   suggestionCount: integer('suggestion_count').notNull().default(0),
   errors: jsonb('errors').$type<Json[]>().notNull().default([]),
   startedBy: userRef('started_by'),
+  /** Automations 4b: the worker's weekly re-read, not a person's Scan. */
+  automatic: boolean('automatic').notNull().default(false),
   startedAt: ts('started_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),
@@ -5021,6 +5023,50 @@ export const referrals = app.table('referrals', {
   ...timestamps(),
 });
 
+/** Automations 4a: what someone on the team told a customer they'd do, by when (read from their own words). */
+export const promises = app.table('promises', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  callId: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
+  promisedBy: userRef('promised_by'),
+  what: text('what').notNull(),
+  /** call, send, visit or other. */
+  kind: text('kind').notNull().default('other'),
+  dueAt: ts('due_at').notNull(),
+  /** open or dismissed. */
+  status: text('status').notNull().default('open'),
+  dismissedBy: userRef('dismissed_by'),
+  dismissedAt: ts('dismissed_at'),
+  ...timestamps(),
+});
+
+/** Automations 4b: one line of guidance the worker made of repeated corrections to the AI teammate. */
+export const teammateLessons = app.table('teammate_lessons', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  teammateId: uuid('teammate_id')
+    .notNull()
+    .references(() => aiTeammates.id, { onDelete: 'cascade' }),
+  line: text('line').notNull(),
+  why: text('why'),
+  draftIds: uuid('draft_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  /** open, applied or dismissed. */
+  status: text('status').notNull().default('open'),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
+  ...timestamps(),
+});
+
 /** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
 export const serviceSchedules = app.table('service_schedules', {
   id: id(),
@@ -5069,6 +5115,8 @@ export const tables = {
   maintenanceReminders,
   thankYous,
   referrals,
+  promises,
+  teammateLessons,
   foundingOffers,
   foundingGrants,
   foundingApplications,

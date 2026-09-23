@@ -925,6 +925,21 @@ describe('parity with core', () => {
       'job_not_thanked',
       'referral_mentioned',
       'maintenance_due',
+      'pipeline_mismatch',
+      'quiet_after_price',
+      'job_unconfirmed',
+      'job_never_completed',
+      'job_no_address',
+      'client_quiet',
+      'promise_due',
+      'revenue_moved',
+      'channel_quiet',
+      'connection_error',
+      'connection_silent',
+      'ai_unreviewed',
+      'ai_corrections',
+      'website_changed',
+      'faq_suggestions',
     ]);
     await worker(A)((tx) =>
       tx.execute(

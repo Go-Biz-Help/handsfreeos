@@ -42,3 +42,63 @@ export type { UnconfirmedAppointmentFacts } from './detectors/unconfirmed-appoin
 export { THANK_YOU_CARD_DAYS, type JobNotThankedFacts } from './detectors/job-not-thanked';
 export { REFERRAL_CARD_DAYS, type ReferralMentionedFacts } from './detectors/referral-mentioned';
 export { MAINTENANCE_CARD_DAYS, type MaintenanceDueFacts } from './detectors/maintenance-due';
+export {
+  PIPELINE_MISMATCH_AFTER_MS,
+  type PipelineMismatchFacts,
+} from './detectors/pipeline-mismatch';
+export {
+  QUIET_AFTER_PRICE_DAYS,
+  QUIET_AFTER_PRICE_UNTIL_DAYS,
+  type QuietAfterPriceFacts,
+} from './detectors/quiet-after-price';
+export {
+  JOB_CHECK_MORNING,
+  JOB_NEVER_COMPLETED_DAYS,
+  morningAfter,
+  type JobFacts,
+  type JobUnconfirmedFacts,
+} from './detectors/job-unconfirmed';
+export { JOB_NEVER_COMPLETED_UNTIL_DAYS } from './detectors/job-never-completed';
+export { JOB_NO_ADDRESS_DAYS, type JobNoAddressFacts } from './detectors/job-no-address';
+export {
+  CLIENT_QUIET_CARD_DAYS,
+  CLIENT_QUIET_MIN_DAYS,
+  CLIENT_QUIET_MIN_VISITS,
+  quietFrom,
+  spanWords,
+  type ClientQuietFacts,
+} from './detectors/client-quiet';
+export { PROMISE_CARD_DAYS, PROMISE_GRACE_MS, type PromiseDueFacts } from './detectors/promise-due';
+export {
+  REVENUE_MOVED_MIN_CENTS,
+  REVENUE_MOVED_MIN_WEEKS,
+  REVENUE_MOVED_SHARE,
+  revenueChange,
+  type RevenueMovedFacts,
+} from './detectors/revenue-moved';
+export { APPROVAL_EXPIRY_WARN_MS } from './detectors/ai-approval';
+export {
+  CHANNEL_QUIET_GAPS,
+  CHANNEL_QUIET_MIN_COUNT,
+  CHANNEL_WORDS,
+  gapWords,
+  type ChannelKind,
+  type ChannelQuietFacts,
+} from './detectors/channel-quiet';
+export {
+  CONNECTION_PROBLEM_WORDS,
+  CONNECTION_SILENT_GAPS,
+  CONNECTION_SILENT_MIN_MS,
+  silentAt,
+  type ConnectionFacts,
+  type ConnectionProblem,
+  type ConnectionSystem,
+} from './detectors/connection';
+export {
+  AI_UNREVIEWED_DAYS,
+  AI_UNREVIEWED_MIN_WORK,
+  type AiUnreviewedFacts,
+} from './detectors/ai-unreviewed';
+export { type AiCorrectionsFacts } from './detectors/ai-corrections';
+export { type WebsiteChangedFacts } from './detectors/website-changed';
+export { FAQ_SUGGESTION_MIN_ASKS, type FaqSuggestionsFacts } from './detectors/faq-suggestions';

@@ -126,7 +126,7 @@ async function usersNamed(
 }
 
 /** Who hears about a hand-off nobody is assigned: the teammate's list (its owners and admins unless it names people). */
-async function handoffList(
+export async function handoffList(
   tx: Tx,
   workspaceId: string,
   config: TeammateConfig | null,

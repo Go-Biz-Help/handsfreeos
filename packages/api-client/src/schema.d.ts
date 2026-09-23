@@ -377,6 +377,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/appointment.still_going": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say a visit is running over, so the "How did it go?" push asks again in an hour.
+         * @description Risk level 0. Requires appointments.write. Emits appointment.still_going. Can wait on a phone with no signal.
+         */
+        post: operations["command_appointment_still_going"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/appointment.update": {
         parameters: {
             query?: never;
@@ -2911,6 +2931,26 @@ export interface paths {
          * @description Risk level 2. Requires records.archive. Emits lead.archived. Can wait on a phone with no signal.
          */
         post: operations["command_lead_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/lead.catch_up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a deal to the stage that matches what happened to it (a quote sent, a visit booked, a quote accepted or a job done). Forward only.
+         * @description Risk level 1. Requires records.write. Emits .
+         */
+        post: operations["command_lead_catch_up"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5551,6 +5591,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits task.updated. Can wait on a phone with no signal.
          */
         post: operations["command_task_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/teammate_lesson.apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add the line of guidance made of repeated corrections to the AI teammate to the business’s policies, which the AI reads on every reply.
+         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated.
+         */
+        post: operations["command_teammate_lesson_apply"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9791,6 +9851,38 @@ export interface operations {
             };
         };
     };
+    command_appointment_still_going: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                    };
+                };
+            };
+        };
+    };
     command_appointment_update: {
         parameters: {
             query?: never;
@@ -10222,18 +10314,44 @@ export interface operations {
                             /** @default true */
                             ai_approval?: boolean;
                             /** @default true */
+                            ai_corrections?: boolean;
+                            /** @default true */
+                            ai_unreviewed?: boolean;
+                            /** @default true */
+                            channel_quiet?: boolean;
+                            /** @default true */
+                            client_quiet?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            connection_error?: true;
+                            /** @default true */
+                            connection_silent?: boolean;
+                            /** @default true */
                             customer_waiting?: boolean;
                             /** @default true */
                             estimate_waiting?: boolean;
                             /** @default true */
+                            faq_suggestions?: boolean;
+                            /** @default true */
                             hot_lead?: boolean;
                             /** @default true */
                             invoice_overdue?: boolean;
+                            /** @default true */
+                            job_never_completed?: boolean;
+                            /** @default true */
+                            job_no_address?: boolean;
                             /**
                              * @default true
                              * @enum {boolean}
                              */
                             job_not_thanked?: true;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            job_unconfirmed?: true;
                             /**
                              * @default true
                              * @enum {boolean}
@@ -10244,7 +10362,15 @@ export interface operations {
                             /** @default true */
                             overdue_task?: boolean;
                             /** @default true */
+                            pipeline_mismatch?: boolean;
+                            /** @default true */
+                            promise_due?: boolean;
+                            /** @default true */
+                            quiet_after_price?: boolean;
+                            /** @default true */
                             referral_mentioned?: boolean;
+                            /** @default true */
+                            revenue_moved?: boolean;
                             /** @default true */
                             stale_opportunity?: boolean;
                             /** @default true */
@@ -10263,6 +10389,8 @@ export interface operations {
                             wallet_empty?: true;
                             /** @default true */
                             wallet_low?: boolean;
+                            /** @default true */
+                            website_changed?: boolean;
                         };
                         /** @default {} */
                         money?: {
@@ -10336,18 +10464,44 @@ export interface operations {
                                 /** @default true */
                                 ai_approval: boolean;
                                 /** @default true */
+                                ai_corrections: boolean;
+                                /** @default true */
+                                ai_unreviewed: boolean;
+                                /** @default true */
+                                channel_quiet: boolean;
+                                /** @default true */
+                                client_quiet: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                connection_error: true;
+                                /** @default true */
+                                connection_silent: boolean;
+                                /** @default true */
                                 customer_waiting: boolean;
                                 /** @default true */
                                 estimate_waiting: boolean;
                                 /** @default true */
+                                faq_suggestions: boolean;
+                                /** @default true */
                                 hot_lead: boolean;
                                 /** @default true */
                                 invoice_overdue: boolean;
+                                /** @default true */
+                                job_never_completed: boolean;
+                                /** @default true */
+                                job_no_address: boolean;
                                 /**
                                  * @default true
                                  * @enum {boolean}
                                  */
                                 job_not_thanked: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                job_unconfirmed: true;
                                 /**
                                  * @default true
                                  * @enum {boolean}
@@ -10358,7 +10512,15 @@ export interface operations {
                                 /** @default true */
                                 overdue_task: boolean;
                                 /** @default true */
+                                pipeline_mismatch: boolean;
+                                /** @default true */
+                                promise_due: boolean;
+                                /** @default true */
+                                quiet_after_price: boolean;
+                                /** @default true */
                                 referral_mentioned: boolean;
+                                /** @default true */
+                                revenue_moved: boolean;
                                 /** @default true */
                                 stale_opportunity: boolean;
                                 /** @default true */
@@ -10377,6 +10539,8 @@ export interface operations {
                                 wallet_empty: true;
                                 /** @default true */
                                 wallet_low: boolean;
+                                /** @default true */
+                                website_changed: boolean;
                             };
                             money: {
                                 /** @default 5 */
@@ -10531,6 +10695,13 @@ export interface operations {
                             template?: string;
                         };
                         /** @default {} */
+                        pipeline?: {
+                            /** @default {} */
+                            roles?: {
+                                [key: string]: "contacted" | "quoted" | "booked" | "none";
+                            };
+                        };
+                        /** @default {} */
                         reengage?: {
                             /** @default 90 */
                             afterDays?: number;
@@ -10546,17 +10717,27 @@ export interface operations {
                         /** @default {} */
                         switches?: {
                             /** @default true */
+                            approvalExpiry?: boolean;
+                            /** @default true */
                             dayBefore?: boolean;
                             /** @default true */
                             dayOf?: boolean;
                             /** @default true */
+                            engagedLeads?: boolean;
+                            /** @default true */
                             eveningBrief?: boolean;
                             /** @default true */
+                            handoffFollowUp?: boolean;
+                            /** @default true */
                             intake?: boolean;
+                            /** @default true */
+                            jobCheck?: boolean;
                             /** @default true */
                             maintenance?: boolean;
                             /** @default true */
                             morningBrief?: boolean;
+                            /** @default true */
+                            pipelineMoves?: boolean;
                             /** @default false */
                             reengage?: boolean;
                             /** @default true */
@@ -10602,6 +10783,12 @@ export interface operations {
                                 /** @default Hi {firstName}, it's {businessName}. Your {service} is due soon. Book a time that suits you here: {link} */
                                 template: string;
                             };
+                            pipeline: {
+                                /** @default {} */
+                                roles: {
+                                    [key: string]: "contacted" | "quoted" | "booked" | "none";
+                                };
+                            };
                             reengage: {
                                 /** @default 90 */
                                 afterDays: number;
@@ -10616,17 +10803,27 @@ export interface operations {
                             };
                             switches: {
                                 /** @default true */
+                                approvalExpiry: boolean;
+                                /** @default true */
                                 dayBefore: boolean;
                                 /** @default true */
                                 dayOf: boolean;
                                 /** @default true */
+                                engagedLeads: boolean;
+                                /** @default true */
                                 eveningBrief: boolean;
                                 /** @default true */
+                                handoffFollowUp: boolean;
+                                /** @default true */
                                 intake: boolean;
+                                /** @default true */
+                                jobCheck: boolean;
                                 /** @default true */
                                 maintenance: boolean;
                                 /** @default true */
                                 morningBrief: boolean;
+                                /** @default true */
+                                pipelineMoves: boolean;
                                 /** @default false */
                                 reengage: boolean;
                                 /** @default true */
@@ -15650,6 +15847,41 @@ export interface operations {
             };
         };
     };
+    command_lead_catch_up: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    leadId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        /** Format: uuid */
+                        stageId: string;
+                        stageName: string;
+                    };
+                };
+            };
+        };
+    };
     command_lead_create: {
         parameters: {
             query?: never;
@@ -15710,6 +15942,7 @@ export interface operations {
             content: {
                 "application/json": {
                     afterLeadId?: string | null;
+                    because?: string;
                     /** Format: uuid */
                     leadId: string;
                     lostReason?: string;
@@ -20965,6 +21198,40 @@ export interface operations {
             };
         };
     };
+    command_teammate_lesson_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    lessonId: string;
+                    line?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        lessonId: string;
+                        line: string;
+                    };
+                };
+            };
+        };
+    };
     command_template_archive: {
         parameters: {
             query?: never;
@@ -24305,7 +24572,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -24611,7 +24878,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -24621,7 +24888,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -24664,7 +24931,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -24731,7 +24998,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -24741,7 +25008,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -24811,7 +25078,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -24821,7 +25088,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -24855,7 +25122,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -24915,7 +25182,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -24990,18 +25257,44 @@ export interface operations {
                                 /** @default true */
                                 ai_approval: boolean;
                                 /** @default true */
+                                ai_corrections: boolean;
+                                /** @default true */
+                                ai_unreviewed: boolean;
+                                /** @default true */
+                                channel_quiet: boolean;
+                                /** @default true */
+                                client_quiet: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                connection_error: true;
+                                /** @default true */
+                                connection_silent: boolean;
+                                /** @default true */
                                 customer_waiting: boolean;
                                 /** @default true */
                                 estimate_waiting: boolean;
                                 /** @default true */
+                                faq_suggestions: boolean;
+                                /** @default true */
                                 hot_lead: boolean;
                                 /** @default true */
                                 invoice_overdue: boolean;
+                                /** @default true */
+                                job_never_completed: boolean;
+                                /** @default true */
+                                job_no_address: boolean;
                                 /**
                                  * @default true
                                  * @enum {boolean}
                                  */
                                 job_not_thanked: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                job_unconfirmed: true;
                                 /**
                                  * @default true
                                  * @enum {boolean}
@@ -25012,7 +25305,15 @@ export interface operations {
                                 /** @default true */
                                 overdue_task: boolean;
                                 /** @default true */
+                                pipeline_mismatch: boolean;
+                                /** @default true */
+                                promise_due: boolean;
+                                /** @default true */
+                                quiet_after_price: boolean;
+                                /** @default true */
                                 referral_mentioned: boolean;
+                                /** @default true */
+                                revenue_moved: boolean;
                                 /** @default true */
                                 stale_opportunity: boolean;
                                 /** @default true */
@@ -25031,6 +25332,8 @@ export interface operations {
                                 wallet_empty: true;
                                 /** @default true */
                                 wallet_low: boolean;
+                                /** @default true */
+                                website_changed: boolean;
                             };
                             money: {
                                 /** @default 5 */

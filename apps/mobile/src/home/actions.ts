@@ -149,8 +149,47 @@ export function useHomeActions(o: {
             return target(item);
           // Two texts went already: a call when this phone can, else a reply.
           case 'maintenance_due':
+          case 'quiet_after_price':
+          case 'client_quiet':
+          case 'promise_due':
             if (item.personId) return call(item);
             return item.conversationId ? reply(item) : target(item);
+          // A deal on the wrong stage opens it, where the move is a press away.
+          case 'pipeline_mismatch':
+            return target(item);
+          // A visit whose time passed: marked done from here, when signal allows.
+          case 'job_unconfirmed':
+          case 'job_never_completed':
+            return void (async () => {
+              try {
+                await change('appointment.set_status', {
+                  workspaceId,
+                  appointmentId: item.subject.id,
+                  status: 'completed',
+                });
+                toast.show(said('Marked done.'));
+              } catch (error) {
+                failed(error);
+              }
+            })();
+          // The address goes on the customer, where every visit at their place reads it.
+          // The week's money opens Money.
+          case 'revenue_moved':
+            return target(item);
+          // Health and quality: the page that checks or fixes it (a lesson's one-tap Add is on the web's card,
+          // and on the page it opens).
+          case 'channel_quiet':
+          case 'connection_error':
+          case 'connection_silent':
+          case 'ai_unreviewed':
+          case 'ai_corrections':
+          case 'website_changed':
+          case 'faq_suggestions':
+            return target(item);
+          case 'job_no_address':
+            return item.personId
+              ? openWebPath(`/app/w/${workspaceId}/customers/people/${item.personId}`)
+              : target(item);
         }
       },
       call,

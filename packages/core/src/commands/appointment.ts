@@ -73,6 +73,8 @@ import {
   AppointmentRescheduleOutput,
   AppointmentSetStatusInput,
   AppointmentSetStatusOutput,
+  AppointmentStillGoingInput,
+  AppointmentStillGoingOutput,
   AppointmentUpdateInput,
   AppointmentUpdateOutput,
   SeriesCancelInput,
@@ -573,6 +575,43 @@ export const appointmentSetStatus = defineCommand({
       eventId,
     );
     return { appointmentId: appt.id, status: input.status };
+  },
+});
+
+/**
+ * "Still there" on the job-check push (Automations' "Did the job happen?"): the visit is running over. Nothing
+ * about it changes; the worker asks again in an hour.
+ */
+export const appointmentStillGoing = defineCommand({
+  name: 'appointment.still_going',
+  description: 'Say a visit is running over, so the "How did it go?" push asks again in an hour.',
+  risk: 0,
+  input: AppointmentStillGoingInput,
+  output: AppointmentStillGoingOutput,
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['appointment.still_going'],
+  offline: 'anytime',
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
+    if (appt.status !== 'scheduled')
+      throw HfosError.rule(
+        'appointment_not_scheduled',
+        409,
+        appt.status === 'cancelled'
+          ? 'This appointment was cancelled.'
+          : 'Someone already said how this one went.',
+      );
+    await ctx.emit({
+      type: 'appointment.still_going',
+      entityType: 'appointment',
+      entityId: appt.id,
+      payload: { calendarId: appt.calendarId },
+      after: { title: appt.title },
+      broadcast: false,
+    });
+    return { appointmentId: appt.id };
   },
 });
 

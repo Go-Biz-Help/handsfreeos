@@ -17,6 +17,7 @@ import {
   maintenanceTemplateProblem,
 } from './maintenance';
 import { readForgiving } from '../schemas/forgiving';
+import { STAGE_ROLES } from './pipeline-roles';
 
 const on = () => z.boolean().default(true);
 
@@ -44,6 +45,16 @@ const Switches = z.object({
   thankYou: on(),
   /** A text when a customer's recurring service comes round again (once a service or plan says how often). */
   maintenance: on(),
+  /** Moving a deal to the stage that matches what happened (a quote out, a visit booked, a yes). */
+  pipelineMoves: on(),
+  /** A lead for someone the business is really talking with who has no open deal. */
+  engagedLeads: on(),
+  /** A push to whoever was on a job, once its time is over: did it happen? */
+  jobCheck: on(),
+  /** A hand-off nobody picked up: another push at 1 hour, the owner told at 4. */
+  handoffFollowUp: on(),
+  /** An approval or AI draft turns urgent two hours before it expires, with a push. */
+  approvalExpiry: on(),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];
@@ -121,6 +132,14 @@ const Briefings = z.object({
     .default('18:00'),
 });
 
+const Pipeline = z.object({
+  /**
+   * Each open stage's role where the business chose one (`none`: never move a deal there). A stage left out
+   * keeps the role its name suggests.
+   */
+  roles: z.record(z.uuid(), z.enum([...STAGE_ROLES, 'none'])).default({}),
+});
+
 export const AutomationSettings = z
   .object({
     switches: Switches.prefault({}),
@@ -128,6 +147,7 @@ export const AutomationSettings = z
     intake: Intake.prefault({}),
     maintenance: Maintenance.prefault({}),
     briefings: Briefings.prefault({}),
+    pipeline: Pipeline.prefault({}),
   })
   .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
     error: 'Read the message and choose “Looks good, turn on” first.',

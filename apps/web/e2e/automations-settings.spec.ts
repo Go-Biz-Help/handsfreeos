@@ -26,6 +26,7 @@ type Automations = {
   intake?: { formId: string | null; message: string };
   maintenance?: { leadDays: number };
   briefings?: { eveningAt: string };
+  pipeline?: { roles: Record<string, string> };
   reengage?: { reviewedAt: string | null; maxPerDay: number; template: string };
 };
 
@@ -110,10 +111,10 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
     'Set up your AI teammate to start.',
   );
   await expect(page.getByTestId('automation-switch-new_lead_greeting')).toBeDisabled();
-  // The header counts only what's actually working: the AI teammate's four rows wait on it, intake
-  // questions on a form, and maintenance reminders on a service that repeats.
+  // The header counts only what's actually working: the AI teammate's four rows and the three health rows
+  // about its work wait on it, intake questions on a form, and maintenance reminders on a service that repeats.
   await expect(page.getByTestId('automations-count')).toContainText(
-    '6 need something set up first.',
+    '9 need something set up first.',
   );
 
   // An Action Center kind off and on again, saved each time.
@@ -454,6 +455,22 @@ test('Automations: intake questions’ form and message, the thank-you without a
   await expect
     .poll(async () => (await settingsOf(owner)).automations?.briefings?.eveningAt)
     .toBe('20:00');
+  await close(page);
+
+  // Moving deals along: each open stage shows what its name suggests, and a different pick is kept.
+  const { pipelines } = await api<{
+    pipelines: { stages: { id: string; name: string }[] }[];
+  }>(owner.token, 'queries', 'pipeline.list', { workspaceId: owner.workspaceId });
+  const stages = pipelines[0]!.stages;
+  const contacted = stages.find((st) => st.name === 'Contacted')!;
+  const quoted = stages.find((st) => st.name === 'Estimate sent')!;
+  await adjust(page, 'pipeline_moves');
+  await expect(page.getByTestId(`stage-role-${quoted.id}`)).toHaveValue('quoted');
+  await expect(page.getByTestId(`stage-role-${contacted.id}`)).toHaveValue('contacted');
+  await page.getByTestId(`stage-role-${contacted.id}`).selectOption('none');
+  await expect
+    .poll(async () => (await settingsOf(owner)).automations?.pipeline?.roles?.[contacted.id])
+    .toBe('none');
   await close(page);
 
   // Referrals are an Action Center kind: the row turns it off.

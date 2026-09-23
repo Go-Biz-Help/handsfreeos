@@ -3,18 +3,32 @@
  * kinds.ts and their detector file).
  */
 import * as aiApproval from './detectors/ai-approval';
+import * as aiCorrections from './detectors/ai-corrections';
+import * as aiUnreviewed from './detectors/ai-unreviewed';
+import * as channelQuiet from './detectors/channel-quiet';
+import { connectionError, connectionSilent } from './detectors/connection';
+import * as faqSuggestions from './detectors/faq-suggestions';
+import * as clientQuiet from './detectors/client-quiet';
 import * as customerWaiting from './detectors/customer-waiting';
 import * as estimateWaiting from './detectors/estimate-waiting';
 import * as hotLead from './detectors/hot-lead';
 import * as invoiceOverdue from './detectors/invoice-overdue';
 import * as maintenanceDue from './detectors/maintenance-due';
+import * as jobNeverCompleted from './detectors/job-never-completed';
+import * as jobNoAddress from './detectors/job-no-address';
 import * as jobNotThanked from './detectors/job-not-thanked';
+import * as jobUnconfirmed from './detectors/job-unconfirmed';
 import * as missingNextAction from './detectors/missing-next-action';
 import * as overdueTask from './detectors/overdue-task';
+import * as pipelineMismatch from './detectors/pipeline-mismatch';
+import * as promiseDue from './detectors/promise-due';
+import * as quietAfterPrice from './detectors/quiet-after-price';
 import * as referralMentioned from './detectors/referral-mentioned';
+import * as revenueMoved from './detectors/revenue-moved';
 import * as staleOpportunity from './detectors/stale-opportunity';
 import * as unansweredLead from './detectors/unanswered-lead';
 import * as unconfirmedAppointment from './detectors/unconfirmed-appointment';
+import * as websiteChanged from './detectors/website-changed';
 import { walletCardDeclined, walletEmpty, walletLow } from './detectors/wallet';
 import type { AttentionKind } from './kinds';
 import type { AttentionSettings } from './settings';
@@ -43,6 +57,22 @@ export const DETECTORS = {
   job_not_thanked: jobNotThanked,
   referral_mentioned: referralMentioned,
   maintenance_due: maintenanceDue,
+  pipeline_mismatch: pipelineMismatch,
+  quiet_after_price: quietAfterPrice,
+  job_unconfirmed: jobUnconfirmed,
+  job_never_completed: jobNeverCompleted,
+  job_no_address: jobNoAddress,
+  client_quiet: clientQuiet,
+  promise_due: promiseDue,
+  revenue_moved: revenueMoved,
+  channel_quiet: channelQuiet,
+  // A broken connection and a silent one share their facts; only one holds at a time.
+  connection_error: connectionError,
+  connection_silent: connectionSilent,
+  ai_unreviewed: aiUnreviewed,
+  ai_corrections: aiCorrections,
+  website_changed: websiteChanged,
+  faq_suggestions: faqSuggestions,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

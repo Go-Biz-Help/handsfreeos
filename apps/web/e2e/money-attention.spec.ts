@@ -179,12 +179,31 @@ test('Money on Home: an overdue invoice and a waiting estimate, and what each ca
   await expect
     .poll(async () => (await attentionList(o)).items.some((i) => i.leadId === tomLead))
     .toBe(false);
+  // The quote going out moves his deal along too; until it has, a sweep days later would call it stuck.
+  await expect
+    .poll(
+      async () =>
+        (
+          await api<{ lead: { stageName: string } }>(o.token, 'queries', 'lead.get', {
+            workspaceId: o.workspaceId,
+            leadId: tomLead,
+          })
+        ).lead.stageName,
+    )
+    .toBe('Estimate sent');
 
   // An estimate waits five days before it asks anyone, so the sweep runs as of next week to open Tom's card.
   await sweep(o.workspaceId, new Date(Date.now() + 6 * DAY).toISOString());
   await expect
     .poll(async () => (await attentionList(o)).items.filter((i) => i.kind === 'estimate_waiting'))
     .toHaveLength(1);
+  // The four cards, by kind and title, so a card that shouldn't be there says which it is.
+  expect((await attentionList(o)).items.map((i) => `${i.kind} · ${i.title}`).sort()).toEqual([
+    `estimate_waiting · Tom Reyes · Rooftop unit replacement · ${tomEstimate.number}`,
+    `invoice_overdue · Linda Okafor · Ductwork repair · ${lindaInvoice.number}`,
+    `invoice_overdue · Maria Lopez · Deposit · New AC install · ${mariaInvoice.number}`,
+    'missing_next_action · Maria Lopez · New AC install',
+  ]);
 
   await page.goto(`/app/w/${o.workspaceId}`);
   // "$ affected": Maria's job once at its own value, plus Linda's invoice, which is its own money. Counting

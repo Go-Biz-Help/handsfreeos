@@ -47,6 +47,29 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   referral_mentioned: { grows: 'since', start: 1.5, stepMs: 2 * DAY },
   // Overdue already, and two texts went: steady, not urgent.
   maintenance_due: { grows: 'since', start: 1, stepMs: 5 * DAY },
+  // Housekeeping: a deal on the wrong stage skews the board, not a customer.
+  pipeline_mismatch: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  // A price with no answer goes cold in days.
+  quiet_after_price: { grows: 'since', start: 1, stepMs: 3 * DAY },
+  // A job nobody marked holds up its invoice and its thank-you: it climbs by the day.
+  job_unconfirmed: { grows: 'since', start: 1, stepMs: DAY },
+  job_never_completed: { grows: 'since', start: 1.5, stepMs: 3 * DAY },
+  // Someone has to know where to go before they set off.
+  job_no_address: { grows: 'until_due', windowMs: 48 * HOUR },
+  // A regular drifting off: steady over weeks.
+  client_quiet: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  // A promise already late: it climbs by the day.
+  promise_due: { grows: 'since', start: 1.5, stepMs: DAY },
+  // Worth a look this week, never urgent.
+  revenue_moved: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  // The business's own set-up. A quiet channel may be losing leads today; the AI ones keep for days.
+  channel_quiet: { grows: 'since', start: 1.5, stepMs: DAY },
+  connection_error: { grows: 'since', start: 2, stepMs: DAY },
+  connection_silent: { grows: 'since', start: 1.5, stepMs: DAY },
+  ai_unreviewed: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  ai_corrections: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  website_changed: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  faq_suggestions: { grows: 'since', start: 1, stepMs: 3 * DAY },
 };
 
 /**

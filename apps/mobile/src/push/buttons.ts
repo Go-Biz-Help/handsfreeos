@@ -94,6 +94,24 @@ function commandOf(
           input: { workspaceId, draftId: refs.draftId, decision: 'approve' },
         };
       return 'This notification has nothing to approve.';
+    // "How did it go?" after a visit.
+    case 'done':
+    case 'no_show':
+      if (!refs.appointmentId) return 'This notification isn’t about a visit.';
+      return {
+        name: 'appointment.set_status',
+        input: {
+          workspaceId,
+          appointmentId: refs.appointmentId,
+          status: button === 'done' ? 'completed' : 'no_show',
+        },
+      };
+    case 'still_there':
+      if (!refs.appointmentId) return 'This notification isn’t about a visit.';
+      return {
+        name: 'appointment.still_going',
+        input: { workspaceId, appointmentId: refs.appointmentId },
+      };
     default:
       return 'That button doesn’t run anything.';
   }

@@ -72,6 +72,9 @@ export const DONE_RESOLUTIONS = [
   // invoice that was withdrawn are not wins, so they stay out.
   'answered',
   'paid',
+  // Automations' pipeline and jobs: a deal put on the right stage, a visit given its address.
+  'moved',
+  'address_added',
 ] as const;
 const DONE: ReadonlySet<string> = new Set(DONE_RESOLUTIONS);
 
@@ -107,9 +110,14 @@ export function mayDecideApproval(
     : hasWorkspacePermission(role, 'inbox.use');
 }
 
-/** Whether the viewer sees this item at all: approval items only for the people who can decide them. */
+/**
+ * Whether the viewer sees this item at all: approval items only for the people who can decide them, and the
+ * business's week of money only for the people who manage its money.
+ */
 export const visibleTo = (v: AttentionViewer, item: Pick<AttentionRow, 'kind' | 'subjectId'>) =>
-  item.kind !== 'ai_approval' || v.decidable.has(item.subjectId);
+  item.kind === 'ai_approval'
+    ? v.decidable.has(item.subjectId)
+    : item.kind !== 'revenue_moved' || hasWorkspacePermission(v.role, 'money.manage');
 
 /** Whether the viewer may take an action on an item (its permissions, and deciding an approval). */
 export function mayAct(
@@ -181,7 +189,9 @@ export function itemOut(
     personId: row.personId,
     leadId: row.leadId,
     conversationId: row.conversationId,
-    appointmentId: hints.appointmentId,
+    // A job card is about the visit itself.
+    appointmentId:
+      hints.appointmentId ?? (row.subjectType === 'appointment' ? row.subjectId : null),
     startsAt: hints.startsAt,
     reach: hints.reach,
     callable: hints.callable,

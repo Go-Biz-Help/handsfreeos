@@ -32,12 +32,41 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   job_not_thanked: ['customer', 'customers'],
   referral_mentioned: ['referral', 'referrals'],
   maintenance_due: ['customer', 'customers'],
+  pipeline_mismatch: ['deal', 'deals'],
+  quiet_after_price: ['lead', 'leads'],
+  job_unconfirmed: ['job', 'jobs'],
+  job_never_completed: ['job', 'jobs'],
+  job_no_address: ['job', 'jobs'],
+  client_quiet: ['customer', 'customers'],
+  promise_due: ['promise', 'promises'],
+  revenue_moved: ['week', 'weeks'],
+  channel_quiet: ['channel', 'channels'],
+  connection_error: ['connection', 'connections'],
+  connection_silent: ['connection', 'connections'],
+  ai_unreviewed: ['teammate', 'teammates'],
+  ai_corrections: ['lesson', 'lessons'],
+  website_changed: ['scan', 'scans'],
+  faq_suggestions: ['question', 'questions'],
+};
+
+/** The settings page that checks a channel or fixes a connection, by the card's stored subject type. */
+const HEALTH_TARGETS: Readonly<Record<string, AttentionTarget>> = {
+  channel_text: { href: '/settings/texting', label: 'Open texting settings' },
+  channel_call: { href: '/settings/texting', label: 'Open phone settings' },
+  channel_email: { href: '/settings/email', label: 'Open email settings' },
+  channel_chat: { href: '/settings/website-chat', label: 'Open website chat' },
+  payment_connection: { href: '/settings/payments', label: 'Open payments' },
+  calendar_connection: { href: '/settings/my-calendar', label: 'Open your calendar' },
+  mailbox: { href: '/settings/email', label: 'Open email settings' },
+  review_connection: { href: '/reviews', label: 'Open reviews' },
+  phone_number: { href: '/settings/texting', label: 'Open phone settings' },
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
 export const LEAD_ITEM_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>([
   'hot_lead',
   'unanswered_lead',
+  'quiet_after_price',
   'stale_opportunity',
   'missing_next_action',
 ]);
@@ -419,6 +448,8 @@ export function attentionTargetOf(
     case 'unanswered_lead':
     case 'stale_opportunity':
     case 'missing_next_action':
+    case 'quiet_after_price':
+    case 'pipeline_mismatch':
       if (item.leadId) return { href: `${base}/leads/${item.leadId}`, label: 'Open the lead' };
       break;
     case 'customer_waiting':
@@ -426,6 +457,9 @@ export function attentionTargetOf(
         return { href: `${base}/inbox/${item.conversationId}`, label: 'Open the conversation' };
       break;
     case 'unconfirmed_appointment':
+    case 'job_unconfirmed':
+    case 'job_never_completed':
+    case 'job_no_address':
       if (item.appointmentId)
         return {
           href: `${base}/calendar?appt=${encodeURIComponent(item.appointmentId)}`,
@@ -458,7 +492,28 @@ export function attentionTargetOf(
     case 'job_not_thanked':
     case 'referral_mentioned':
     case 'maintenance_due':
+    case 'client_quiet':
+    case 'promise_due':
       break;
+    // What came in, and what's still owed.
+    case 'revenue_moved':
+      return { href: `${base}/money`, label: 'Open money' };
+    // The business's own set-up: the page that checks or fixes it.
+    case 'channel_quiet':
+    case 'connection_error':
+    case 'connection_silent': {
+      const t = HEALTH_TARGETS[item.subject.type];
+      if (t) return { href: `${base}${t.href}`, label: t.label };
+      return { href: `${base}/settings`, label: 'Open settings' };
+    }
+    case 'ai_unreviewed':
+      return { href: `${base}/ai-team`, label: 'Open the AI teammate' };
+    case 'ai_corrections':
+      return { href: `${base}/knowledge/profile`, label: 'Open what the AI knows' };
+    case 'website_changed':
+      return { href: `${base}/knowledge/suggestions?reason=scan`, label: 'Open the updates' };
+    case 'faq_suggestions':
+      return { href: `${base}/knowledge/suggestions?reason=gap`, label: 'Open the questions' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -564,6 +619,37 @@ export function handleButtonOf(
       if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
       if (email) return { label: `Email ${first}`, icon: 'mail' };
       return { label: `Text ${first}`, icon: 'message' };
+    case 'pipeline_mismatch':
+      return { label: 'Move deal', icon: 'check' };
+    case 'quiet_after_price':
+      if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
+      if (email) return { label: `Email ${first}`, icon: 'mail' };
+      return { label: `Text ${first}`, icon: 'message' };
+    case 'job_unconfirmed':
+    case 'job_never_completed':
+      return { label: 'Mark done', icon: 'check' };
+    case 'job_no_address':
+      return { label: 'Add address', icon: 'calendar-plus' };
+    case 'client_quiet':
+    case 'promise_due':
+      if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
+      if (email) return { label: `Email ${first}`, icon: 'mail' };
+      return { label: `Text ${first}`, icon: 'message' };
+    case 'revenue_moved':
+      return { label: 'Open money', icon: 'receipt' };
+    case 'channel_quiet':
+    case 'connection_silent':
+      return { label: 'Check it', icon: 'list-checks' };
+    case 'connection_error':
+      return { label: 'Reconnect', icon: 'list-checks' };
+    case 'ai_unreviewed':
+      return { label: 'Review', icon: 'check' };
+    case 'ai_corrections':
+      return { label: 'Add to what the AI knows', icon: 'check' };
+    case 'website_changed':
+      return { label: 'Review updates', icon: 'file-text' };
+    case 'faq_suggestions':
+      return { label: 'Answer', icon: 'message' };
   }
 }
 
@@ -576,6 +662,24 @@ export function letHandleOffReason(
   if (item.kind === 'job_not_thanked') return 'HandsFreeOS couldn’t send this one';
   if (item.kind === 'referral_mentioned') return 'Reaching out to someone new is your call';
   if (item.kind === 'maintenance_due') return 'It already texted them twice';
+  if (item.kind === 'pipeline_mismatch') return 'HandsFreeOS couldn’t move it itself';
+  if (item.kind === 'quiet_after_price') return 'The follow-up texts are already going';
+  if (item.kind === 'job_unconfirmed' || item.kind === 'job_never_completed')
+    return 'Only someone who was there knows';
+  if (item.kind === 'job_no_address') return 'Only you or the customer know where';
+  if (item.kind === 'client_quiet') return 'A regular hears from a person';
+  if (item.kind === 'promise_due') return 'The promise was yours';
+  if (item.kind === 'revenue_moved') return 'This one is for you to look at';
+  if (item.kind === 'channel_quiet' || item.kind === 'connection_silent')
+    return 'Only you can check what’s wrong';
+  if (item.kind === 'connection_error') return 'Reconnecting needs you to sign in';
+  if (item.kind === 'ai_unreviewed') return 'Reviewing the AI is for a person';
+  if (
+    item.kind === 'ai_corrections' ||
+    item.kind === 'website_changed' ||
+    item.kind === 'faq_suggestions'
+  )
+    return 'What the AI learns is yours to decide';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

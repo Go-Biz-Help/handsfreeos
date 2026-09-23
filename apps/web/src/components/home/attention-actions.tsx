@@ -269,6 +269,71 @@ export function useItemActions(o: {
       settle();
     }
 
+    /** A deal behind what happened: onto the stage that says so. */
+    async function catchUp(item: AttentionItem) {
+      hide([item.id]);
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/commands/lead.catch_up', {
+            body: { workspaceId, leadId: item.subject.id },
+          }),
+        );
+        toast.success(`Moved to ${out.stageName}.`);
+      } catch (e) {
+        unhide([item.id]);
+        throw e;
+      }
+      settle();
+    }
+
+    /** The line made of repeated corrections goes into what the AI knows. */
+    async function addLesson(item: AttentionItem) {
+      hide([item.id]);
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/teammate_lesson.apply', {
+            body: { workspaceId, lessonId: item.subject.id },
+          }),
+        );
+        toast.success('Added to what the AI knows.', {
+          action: {
+            label: 'See it',
+            onClick: () => router.push(`${base}/knowledge/profile`),
+          },
+        });
+      } catch (e) {
+        unhide([item.id]);
+        throw e;
+      }
+      settle();
+    }
+
+    /** A visit whose time passed: it happened. The toast offers the other answer. */
+    async function markDone(item: AttentionItem) {
+      const setStatus = (status: 'completed' | 'no_show') =>
+        apiBrowser().POST('/v1/commands/appointment.set_status', {
+          body: { workspaceId, appointmentId: item.subject.id, status },
+        });
+      hide([item.id]);
+      try {
+        unwrap(await setStatus('completed'));
+      } catch (e) {
+        unhide([item.id]);
+        throw e;
+      }
+      toast.success('Marked done.', {
+        action: {
+          label: 'It didn’t happen',
+          onClick: () =>
+            void setStatus('no_show').then((r) => {
+              unwrap(r);
+              toast('Marked as didn’t happen.');
+            }),
+        },
+      });
+      settle();
+    }
+
     async function approve(item: AttentionItem) {
       hide([item.id]);
       try {
@@ -322,8 +387,33 @@ export function useItemActions(o: {
             return void withBusy(item.id, () => createReferralLead(item));
           // Two texts went already: a call when this browser can, else the conversation.
           case 'maintenance_due':
+          case 'quiet_after_price':
+          case 'client_quiet':
+          case 'promise_due':
             if (callsAvailable && item.personId) return void withBusy(item.id, () => call(item));
             return router.push(reachOf(item));
+          case 'revenue_moved':
+            return router.push(targetOf(item, workspaceId).href);
+          // Health and quality: the page that checks or fixes it; a lesson is added in one press.
+          case 'channel_quiet':
+          case 'connection_error':
+          case 'connection_silent':
+          case 'ai_unreviewed':
+          case 'website_changed':
+          case 'faq_suggestions':
+            return router.push(targetOf(item, workspaceId).href);
+          case 'ai_corrections':
+            return void withBusy(item.id, () => addLesson(item));
+          // Pipeline and jobs: the deal moves in one press; a visit is marked done in one; an address is
+          // added on the customer (where every visit at their place reads it).
+          case 'pipeline_mismatch':
+            return void withBusy(item.id, () => catchUp(item));
+          case 'job_unconfirmed':
+          case 'job_never_completed':
+            return void withBusy(item.id, () => markDone(item));
+          case 'job_no_address':
+            if (item.personId) return router.push(`${base}/customers/people/${item.personId}`);
+            return router.push(targetOf(item, workspaceId).href);
         }
       },
       call(item) {

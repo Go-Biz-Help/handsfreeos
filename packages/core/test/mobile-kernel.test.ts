@@ -312,6 +312,7 @@ describe('offline classes', () => {
     'appointment.cancel': FRESH,
     'appointment.update': 'anytime',
     'appointment.set_status': 'anytime',
+    'appointment.still_going': 'anytime',
     'attendee.confirm': 'anytime',
     // A job's status texts the customer (On my way and the rest), so it waits for a fresh phone.
     'job.set_status': FRESH,

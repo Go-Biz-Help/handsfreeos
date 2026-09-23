@@ -84,28 +84,28 @@ reacts to an event · **T** AI teammate change.
 | Pipeline and records | Stale opportunities           | E (`stale_opportunity`), with the follow-up in the business's words          | 1     |
 |                      | Leads with no next step       | E (`missing_next_action`)                                                    | 1     |
 |                      | Quotes with no decision       | E (`estimate_waiting`)                                                       | 1     |
-|                      | Open / move deals             | R: `pipeline_stages.automation_role`, forward only                           | 3b    |
+|                      | Open / move deals             | R: stage roles in `settings.automations.pipeline`, forward only              | 3b    |
 |                      | Pipeline reality check        | K `pipeline_mismatch`                                                        | 3b    |
-|                      | Engaged leads not in pipeline | K `engaged_no_lead`                                                          | 3b    |
+|                      | Engaged leads not in pipeline | R: a deal made for them (Chris: make it, no card)                            | 3b    |
 |                      | Went quiet after a price      | K `quiet_after_price`                                                        | 3b    |
 |                      | Confirm yesterday's jobs      | K `job_unconfirmed` + the job-check push                                     | 3b    |
 |                      | Booked, never completed       | K `job_never_completed`                                                      | 3b    |
 |                      | Jobs missing an address       | K `job_no_address`                                                           | 3b    |
 |                      | Job window passed             | J: push the staff member when the job's time has passed                      | 3b    |
 | Service and handoffs | Overdue tasks                 | E (`overdue_task`)                                                           | 1     |
-|                      | Aging handoff                 | G in `ai-team/escalation.ts`                                                 | 4a    |
+|                      | Aging handoff                 | J: pushes at 1 h and 4 h (`automations/handoff.ts`), owner told at 4 h       | 4a    |
 |                      | Client going quiet            | K `client_quiet`                                                             | 4a    |
-|                      | Requests never answered       | K `request_unanswered`                                                       | 4a    |
-|                      | Decisions expiring            | `ai_approval` gains an "expiring" reason                                     | 4a    |
+|                      | Requests never answered       | K `promise_due` (promises not kept), over `app.promises`                     | 4a    |
+|                      | Decisions expiring            | `ai_approval` urgent 2 h before, plus a push (`automations/expiring.ts`)     | 4a    |
 | Marketing            | Drafts awaiting review        | E (`ai_approval`), always on; campaigns join it in stage 5                   | 1     |
 | Ads and money        | Balance running low           | E (`wallet_low`)                                                             | 1     |
 |                      | Revenue moved                 | K `revenue_moved`, from payments                                             | 4a    |
 | Health and quality   | Channel went quiet            | K `channel_quiet`                                                            | 4b    |
-|                      | Connected system silent       | K `connection_silent`, over an `app.connection_health` view                  | 4b    |
-|                      | Connection error              | K `connection_error`                                                         | 4b    |
+|                      | Connected system silent       | K `connection_silent`, from each connection's last sync                      | 4b    |
+|                      | Connection error              | K `connection_error` (always on) + push switch `connections`                 | 4b    |
 |                      | Nobody reviewing the AI       | K `ai_unreviewed`                                                            | 4b    |
-|                      | Repeated corrections          | K `ai_corrections`                                                           | 4b    |
-|                      | Website changed               | K `website_changed`                                                          | 4b    |
+|                      | Repeated corrections          | K `ai_corrections`, over `app.teammate_lessons`                              | 4b    |
+|                      | Website changed               | K `website_changed` + a weekly automatic re-read                             | 4b    |
 |                      | FAQ suggestions               | K `faq_suggestions`                                                          | 4b    |
 
 ## Build order
@@ -133,7 +133,33 @@ reacts to an event · **T** AI teammate change.
    - **Booked, never completed**: a card 3 days after the job's time.
    - **No address**: for services done at the customer's address, a card 2 days before; it clears when the
      address is added.
-4. **a. Service, handoffs and revenue.** **b. Health.**
+4. **a. Service, handoffs and revenue** (Chris, 2026-09-23):
+   - **Aging hand-off**: after the 15-minute alert, a second push to whoever it was handed to at 1 hour; at 4
+     hours the owner is told too and the card turns urgent.
+   - **Client going quiet**: a card to check in. A regular is 3+ past paid visits; quiet is twice their usual gap
+     between visits, at least 60 days. Skipped when "Maintenance due" already covers them.
+   - **Promises not kept**: the AI reads what the team wrote (texts and emails) and call transcripts for a promise
+     with a time ("I'll send the quote Tuesday"), a word check first; a card when nothing happened by then.
+   - **Decisions expiring**: an approval or draft turns urgent 2 hours before it expires, with a push to whoever
+     can approve it.
+   - **Revenue moved**: a Monday card only when last week's money in was 30% or more above or below the usual
+     week, with the main reason.
+
+   **b. Health and quality** (Chris, 2026-09-23):
+   - **Channel went quiet**: a card when a channel (texts, calls, email, web chat) got nothing for 3 times its usual
+     quiet stretch, and at least 1 business day.
+   - **Connections** (Stripe, Square, Google Calendar, phone number, email inbox): an error (sign-in expired, access
+     removed) is urgent at once with a push to owners and admins; silence (no data for 3 times its usual gap) is a
+     normal card.
+   - **Nobody reviewing the AI**: a card when drafts waited over 7 days with none approved or rejected, or in
+     automatic mode nobody opened its conversations in 7 days.
+   - **Repeated corrections**: after 3 similar corrections in 14 days, a card with one suggested line for the AI's
+     instructions; one tap adds it.
+   - **Website changed**: re-read the site weekly; when prices, hours or services changed, a card shows what
+     changed, with "Update what the AI knows".
+   - **FAQ suggestions**: a card as soon as the same question the AI couldn't answer comes up 3 times; type an
+     answer and it's saved to the AI's knowledge.
+
 5. **Outreach campaigns.**
 
 Each stage adds its rows to the catalog as it ships, so the page never shows a switch that does nothing.
