@@ -7,6 +7,7 @@ import {
   formatPhone,
   latestByKind,
   conversationNumber,
+  currentRcsSender,
   defaultNumber,
   numbersOf,
   messagePreview,
@@ -14,6 +15,7 @@ import {
   phoneNumberActivate,
   phoneNumberFail,
   phoneNumberMarkReleased,
+  rcsSending,
   registrationUpdateStatus,
   scheduleJob,
   WALLET_REFUSALS,
@@ -40,6 +42,7 @@ import {
   type WorkerServices,
 } from '../services';
 import { ensureAccount, loadAccount, webhookUrls } from '../telephony/accounts';
+import { contentTemplateFor } from '../telephony/rcs-content';
 import { errorMessage } from '../outbox';
 import {
   isPermanentProviderError,
@@ -454,35 +457,87 @@ export const onMessageQueued: EventHandler = async (ctx) => {
     await fail('wallet_empty', WALLET_REFUSALS.text);
     return;
   }
+  /*
+   * RCS first (0101), when the business's sender is approved, switched on and in its messaging service's pool.
+   * Nobody chooses: Twilio checks whether the customer's phone can show RCS and, when it can't, sends the same
+   * message as an SMS or MMS from this thread's own number. Which way it went comes back on the status
+   * callbacks. Without an RCS sender every text goes exactly as it always did.
+   */
+  const rcsFirst =
+    !!account.messagingServiceSid && rcsSending(await currentRcsSender(ctx.tx, scope.workspaceId));
+  const rich = m.rich;
+  // A picture on an RCS message can wait a while for its phone to come back before Twilio falls back to MMS, so
+  // its link lives longer than an ordinary picture message's.
+  const ttl = rcsFirst ? RCS_MEDIA_SECONDS : 3600;
   const mediaUrls = await Promise.all(
-    m.media.map((x) => ctx.store.signedUrl(x.bucket, x.objectPath, 3600)),
+    m.media.map((x) => ctx.store.signedUrl(x.bucket, x.objectPath, ttl)),
   );
+  // A rich text over RCS is its content template; without RCS it is its plain face, sent as an SMS or MMS.
+  let contentSid: string | null = null;
+  if (rcsFirst && rich) {
+    const cardUrls = await Promise.all(
+      rich.cards.map((c) => ctx.store.signedUrl(c.media.bucket, c.media.objectPath, ttl)),
+    );
+    try {
+      ({ sid: contentSid } = await ctx.telephony.createContent(
+        account,
+        contentTemplateFor({
+          messageId: m.id,
+          body: m.bodyText ?? '',
+          rich,
+          photoUrl: mediaUrls[0] ?? null,
+          cardUrls,
+        }),
+      ));
+    } catch (e) {
+      if (!isPermanentProviderError(e)) throw e;
+      await fail(e.code, e.message);
+      return;
+    }
+  }
+  // A carousel's pictures ride on its cards; a phone without RCS gets its words.
+  const pictures = rich?.kind === 'carousel' ? [] : mediaUrls;
+  let sent: { sid: string; status: string };
   try {
-    const sent = await ctx.telephony.sendMessage(account, {
+    sent = await ctx.telephony.sendMessage(account, {
       from: number.e164,
       messagingServiceSid: account.messagingServiceSid,
       to: conv.counterpart,
-      body: m.bodyText ?? '',
-      mediaUrls,
+      body: rich ? rich.smsText : (m.bodyText ?? ''),
+      mediaUrls: pictures,
       statusCallbackUrl: webhookUrls(ctx.publicUrl).smsStatusUrl,
+      rcsFirst,
+      contentSid,
     });
-    await executeCommand(
-      ctx.db,
-      messageUpdateStatus,
-      {
-        workspaceId: scope.workspaceId,
-        messageId: m.id,
-        providerMessageId: sent.sid,
-        status: TEXT_STATUS[sent.status] ?? 'sending',
-      },
-      systemActor(scope),
-      metaOf(ctx),
-    );
   } catch (e) {
+    // The template belongs to this attempt and nothing went out with it: a retry makes its own.
+    if (contentSid)
+      await ctx.telephony
+        .deleteContent(account, contentSid)
+        .catch((err: unknown) => ctx.log.warn({ err }, 'could not delete an unsent rcs template'));
     if (!isPermanentProviderError(e)) throw e;
     await fail(e.code, e.message);
+    return;
   }
+  await executeCommand(
+    ctx.db,
+    messageUpdateStatus,
+    {
+      workspaceId: scope.workspaceId,
+      messageId: m.id,
+      providerMessageId: sent.sid,
+      status: TEXT_STATUS[sent.status] ?? 'sending',
+      // Without RCS the way is known now; RCS first learns it from the callbacks.
+      ...(rcsFirst ? {} : { transport: pictures.length > 0 ? 'mms' : 'sms' }),
+      ...(contentSid ? { contentSid } : {}),
+    },
+    systemActor(scope),
+    metaOf(ctx),
+  );
 };
+
+/** How long an RCS message's pictures stay fetchable: long enough for a slow phone and the fallback after it. */
+const RCS_MEDIA_SECONDS = 6 * 3600;
 
 /** A conversation found its customer: earlier texts join their timeline. */
 export const onConversationLinked: EventHandler = async (ctx) => {

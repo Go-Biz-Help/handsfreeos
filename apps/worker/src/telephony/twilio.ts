@@ -2,12 +2,14 @@
  * Twilio over plain HTTPS (no SDK): the master account creates one subaccount per workspace, and each
  * workspace's numbers, messages and registrations live in its subaccount.
  */
-import { HELP_KEYWORDS, START_KEYWORDS, STOP_KEYWORDS } from '@hfos/core';
+import { HELP_KEYWORDS, rcsSenderIdOf, START_KEYWORDS, STOP_KEYWORDS } from '@hfos/core';
 import {
   ProviderError,
   type AvailableNumber,
   type Capabilities,
   type ProviderAccount,
+  type RcsSenderInfo,
+  type RcsSenderState,
   type RegistrationRequest,
   type DailyUsage,
   type PortOutcome,
@@ -25,6 +27,9 @@ const PORTING = 'https://numbers.twilio.com/v1/Porting';
 const HOSTED = 'https://numbers.twilio.com/v2/HostedNumber/Orders';
 /** The Conversational Intelligence service whole calls are transcribed in: one per subaccount, found by this name. */
 const TRANSCRIPT_SERVICE = 'hfos-call-transcripts';
+/** RCS senders (0101), and the content templates a rich text goes out as. */
+const SENDERS = 'https://messaging.twilio.com/v2/Channels/Senders';
+const CONTENT = 'https://content.twilio.com/v1/Content';
 
 interface Creds {
   readonly sid: string;
@@ -77,7 +82,63 @@ async function call<T>(
   return json as T;
 }
 
+/** The same as `call`, for the APIs that take JSON rather than a form: the Content API. */
+async function callJson<T>(creds: Creds, url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Basic ${Buffer.from(`${creds.sid}:${creds.token}`).toString('base64')}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw providerError(res.status, json as { code?: number; message?: string });
+  return json as T;
+}
+
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
+
+/**
+ * Twilio's word for an RCS sender, onto the four this system acts on (0101). Anything unrecognised is still in
+ * review, deliberately: an unknown status means Twilio is still doing something, and guessing `failed` would tell
+ * a business its sender broke when it had not. The word itself is kept too, so Settings can say which step.
+ */
+const RCS_SENDER_STATE: Readonly<Record<string, RcsSenderState>> = {
+  ONLINE: 'online',
+  'ONLINE:UPDATING': 'online',
+  OFFLINE: 'offline',
+  CREATING: 'in_review',
+  DRAFT: 'in_review',
+  STUBBED: 'in_review',
+  PENDING_VERIFICATION: 'in_review',
+  VERIFYING: 'in_review',
+  TWILIO_REVIEW: 'in_review',
+};
+
+interface SenderJson {
+  readonly sid: string;
+  readonly status?: string | null;
+  readonly sender_id?: string | null;
+  readonly profile?: { readonly name?: string | null } | null;
+  readonly offline_reasons?: readonly { readonly message?: string | null }[] | null;
+}
+
+const senderOf = (j: SenderJson): RcsSenderInfo => {
+  const providerStatus = (j.status ?? '').toUpperCase();
+  const reason = (j.offline_reasons ?? [])
+    .map((r) => r.message ?? '')
+    .filter(Boolean)
+    .join(' ');
+  return {
+    sid: j.sid,
+    senderId: rcsSenderIdOf(j.sender_id ?? ''),
+    displayName: j.profile?.name || null,
+    providerStatus,
+    state: RCS_SENDER_STATE[providerStatus] ?? 'in_review',
+    reason: reason || null,
+  };
+};
 
 /**
  * Twilio's port and hosted-order statuses, onto the six this system has (M17).
@@ -854,6 +915,8 @@ export function createTwilioTelephony(master: {
     },
 
     async sendMessage(account, m) {
+      // RCS first (0101): the service tries RCS and falls back to an SMS or MMS from the thread's own number.
+      const rcsFirst = !!m.rcsFirst && !!m.messagingServiceSid;
       const res = await call<{ sid: string; status: string }>(
         credsOf(account),
         'POST',
@@ -863,12 +926,67 @@ export function createTwilioTelephony(master: {
           ...(m.messagingServiceSid
             ? { MessagingServiceSid: m.messagingServiceSid }
             : { From: m.from }),
-          Body: m.body,
-          ...(m.mediaUrls.length > 0 ? { MediaUrl: m.mediaUrls } : {}),
+          ...(rcsFirst ? { FallbackFrom: m.from } : {}),
+          // A rich text is its template: the card over RCS, its own text or media fallback otherwise.
+          ...(m.contentSid
+            ? { ContentSid: m.contentSid }
+            : {
+                Body: m.body,
+                ...(m.mediaUrls.length > 0 ? { MediaUrl: m.mediaUrls } : {}),
+              }),
           StatusCallback: m.statusCallbackUrl,
         },
       );
       return { sid: res.sid, status: res.status };
+    },
+
+    async listRcsSenders(account) {
+      const out: RcsSenderInfo[] = [];
+      let url: string | null = `${SENDERS}?Channel=rcs&PageSize=100`;
+      // A business has one or two; five pages is a ceiling on a loop, not a limit anybody meets.
+      for (let page = 0; url && page < 5; page++) {
+        const res: { senders?: SenderJson[]; meta?: { next_page_url?: string | null } } =
+          await call(credsOf(account), 'GET', url);
+        for (const j of res.senders ?? []) if (j.sid) out.push(senderOf(j));
+        url = res.meta?.next_page_url ?? null;
+      }
+      return out;
+    },
+
+    async fetchRcsSender(account, sid) {
+      const j = await getIfThere<SenderJson>(credsOf(account), `${SENDERS}/${sid}`);
+      return j ? senderOf(j) : null;
+    },
+
+    async addRcsSenderToService(account, serviceSid, senderSid) {
+      const creds = credsOf(account);
+      const url = `${MESSAGING}/Services/${serviceSid}/ChannelSenders`;
+      // Asked first rather than caught after: Twilio documents no error code for "already in the pool".
+      const list = await call<{ senders?: { sid: string }[] }>(creds, 'GET', url, {
+        PageSize: '100',
+      });
+      if ((list.senders ?? []).some((x) => x.sid === senderSid)) return;
+      await call(creds, 'POST', url, { Sid: senderSid });
+    },
+
+    async removeRcsSenderFromService(account, serviceSid, senderSid) {
+      await deleteIfThere(
+        credsOf(account),
+        `${MESSAGING}/Services/${serviceSid}/ChannelSenders/${senderSid}`,
+      );
+    },
+
+    async createContent(account, template) {
+      const res = await callJson<{ sid: string }>(credsOf(account), CONTENT, {
+        friendly_name: template.friendlyName,
+        language: 'en',
+        types: template.types,
+      });
+      return { sid: res.sid };
+    },
+
+    async deleteContent(account, contentSid) {
+      await deleteIfThere(credsOf(account), `${CONTENT}/${contentSid}`);
     },
 
     async fetchMedia(account, url) {

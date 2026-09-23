@@ -693,7 +693,12 @@ async function resumeWait(ec: ExecCtx, row: StepRow): Promise<Outcome> {
         kind: 'done',
         output: { ...out, timedOut: false, event: woke['event'] ?? null, at: woke['at'] ?? null },
         context: {
-          wait: { timed_out: false, event: woke['event'] ?? null, at: woke['at'] ?? null },
+          wait: {
+            timed_out: false,
+            event: woke['event'] ?? null,
+            at: woke['at'] ?? null,
+            button: woke['button'] ?? null,
+          },
           _woke: null,
           _late: late,
         },
@@ -705,7 +710,7 @@ async function resumeWait(ec: ExecCtx, row: StepRow): Promise<Outcome> {
         kind: 'done',
         output: { ...out, timedOut: true },
         context: {
-          wait: { timed_out: true, event: null, at: null },
+          wait: { timed_out: true, event: null, at: null, button: null },
           _woke: null,
           ...lateContext(lateAfterWait(ec.context, stored, ec.now)),
         },

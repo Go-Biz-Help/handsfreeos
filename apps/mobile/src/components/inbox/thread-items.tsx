@@ -1,4 +1,5 @@
 import {
+  arrived,
   callCardWords,
   clockTime,
   deliveryStateOf,
@@ -126,12 +127,12 @@ function Bubble({
   );
 }
 
-/** Where a reply the business sent is: Sending…, Sent, Delivered (or Seen in a chat), Not delivered. */
+/** Where a reply the business sent is: Sending…, Sent, Delivered (or Seen in a chat), Read, Not delivered. */
 function Delivery({ status, chat }: { status: string; chat: boolean }) {
   const state = deliveryStateOf(status);
   const words = deliveryWords(state, chat);
   if (!words) return null;
-  if (state === 'delivered')
+  if (arrived(state))
     return (
       <View className="flex-row items-center gap-[3px]">
         <Text className="text-xs text-text-3">·</Text>

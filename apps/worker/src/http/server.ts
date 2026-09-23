@@ -18,6 +18,7 @@ import { registerKnowledgeRoutes } from '../knowledge/routes';
 import { registerMoneyLinkRoutes } from '../money/link-routes';
 import { registerWalletCardRoutes } from '../money/wallet-card-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
+import { loadAccount } from '../telephony/accounts';
 import { ProviderError } from '../telephony/provider';
 import { registerWorkflowRoutes } from '../workflows/index';
 import { registerBuilderRoutes } from '../workflows/builder-routes';
@@ -132,6 +133,8 @@ const AvailableNumbersInput = z
     path: ['city'],
   });
 
+const RcsSendersInput = z.strictObject({ workspaceId: z.uuid() });
+
 /**
  * What the registration wizard asks for before it lets a business submit: the three things a carrier's
  * reviewer goes and looks at. Core decides what each page means; this only fetches them.
@@ -219,9 +222,11 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   });
   twilioWebhook(app, deps, '/webhooks/twilio/messaging/status', {
     kind: 'messaging.status',
+    // An RCS-first text can be `sent` twice under one sid — over RCS, then as the SMS it fell back to — and the
+    // second says which way it really went (0101), so the two are kept apart rather than one dropped as a replay.
     dedupeKey: (p) =>
       p['MessageSid'] && p['MessageStatus']
-        ? `${p['MessageSid']}:${p['MessageStatus']}:${p['ErrorCode'] ?? ''}`
+        ? `${p['MessageSid']}:${p['MessageStatus']}:${p['ErrorCode'] ?? ''}${/^rcs:/i.test(p['From'] ?? '') ? ':rcs' : ''}`
         : null,
     reply: 'empty',
   });
@@ -268,6 +273,32 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       limit: 10,
     });
     return { numbers: numbers.map((n) => ({ ...n, display: formatPhone(n.e164) })) };
+  });
+
+  /**
+   * The RCS senders in the business's own Twilio account (0101), for Settings to offer before anything is
+   * connected. Twilio makes senders only in its console, so this is how a business sees the one it made — and,
+   * when there is none, which account to make it in.
+   */
+  app.post('/v1/telephony/rcs-senders', async (req) => {
+    const actor = await authenticate(deps, req);
+    const input = parseBody(RcsSendersInput, req.body);
+    await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
+    const account = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+      loadAccount(tx, input.workspaceId, deps.sealer),
+    );
+    if (!account) return { accountSid: null, senders: [] };
+    const senders = await deps.telephony.listRcsSenders(account);
+    return {
+      accountSid: account.sid,
+      senders: senders.map((x) => ({
+        sid: x.sid,
+        senderId: x.senderId,
+        displayName: x.displayName,
+        state: x.state,
+        providerStatus: x.providerStatus,
+      })),
+    };
   });
 
   app.post('/v1/telephony/registration-preflight', async (req) => {

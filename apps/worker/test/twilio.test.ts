@@ -17,6 +17,8 @@ interface Seen {
   path: string;
   auth: string;
   body: URLSearchParams;
+  /** The body as sent: the Content API takes JSON, not a form. */
+  raw: string;
 }
 type Route = [RegExp, (seen: Seen) => { status?: number; json?: unknown }];
 
@@ -36,6 +38,7 @@ function mockTwilio(routes: Route[]): Seen[] {
           'base64',
         ).toString(),
         body: new URLSearchParams(init.body ? String(init.body) : ''),
+        raw: init.body ? String(init.body) : '',
       };
       seen.push(s);
       const route = routes.find(([pattern]) =>
@@ -1084,5 +1087,159 @@ describe('calls through a cell and their words', () => {
     const err = await t.transcribeRecording(account, 'RErecordingtest').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ProviderError);
     expect(err).toMatchObject({ httpStatus: 403, permanent: false });
+  });
+});
+
+describe('RCS (0101)', () => {
+  const texting = {
+    from: '+18335551234',
+    messagingServiceSid: 'MGservicetest',
+    to: '+17135550142',
+    body: 'Marco is on the way.',
+    mediaUrls: [] as string[],
+    statusCallbackUrl: urls.smsStatusUrl,
+  };
+
+  it('sends RCS first through the service, with the thread’s number as the fallback', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\/Messages\.json$/,
+        () => ({ status: 201, json: { sid: 'SMrcstest', status: 'accepted' } }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    await t.sendMessage(account, { ...texting, rcsFirst: true });
+    expect(Object.fromEntries(seen[0]!.body)).toEqual({
+      To: '+17135550142',
+      MessagingServiceSid: 'MGservicetest',
+      FallbackFrom: '+18335551234',
+      Body: 'Marco is on the way.',
+      StatusCallback: urls.smsStatusUrl,
+    });
+    // A rich text is its template: no body or media beside it.
+    await t.sendMessage(account, { ...texting, rcsFirst: true, contentSid: 'HXcontenttest' });
+    expect(Object.fromEntries(seen[1]!.body)).toEqual({
+      To: '+17135550142',
+      MessagingServiceSid: 'MGservicetest',
+      FallbackFrom: '+18335551234',
+      ContentSid: 'HXcontenttest',
+      StatusCallback: urls.smsStatusUrl,
+    });
+    // Without RCS nothing changes: no fallback sender is named.
+    await t.sendMessage(account, texting);
+    expect(seen[2]!.body.has('FallbackFrom')).toBe(false);
+  });
+
+  it('reads the senders in the business’s account, and where each stands', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET messaging\.twilio\.com\/v2\/Channels\/Senders$/,
+        () => ({
+          json: {
+            senders: [
+              {
+                sid: 'XEonlinetest',
+                status: 'ONLINE',
+                sender_id: 'rcs:lonestar_hvac_agent',
+                profile: { name: 'Lone Star HVAC' },
+              },
+              {
+                sid: 'XEreviewtest',
+                status: 'TWILIO_REVIEW',
+                sender_id: 'rcs:lonestar_promo_agent',
+                profile: { name: null },
+              },
+              {
+                sid: 'XEofflinetest',
+                status: 'OFFLINE',
+                sender_id: 'rcs:old_agent',
+                offline_reasons: [{ message: 'Suspended by the carrier.' }],
+              },
+            ],
+            meta: { next_page_url: null },
+          },
+        }),
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).listRcsSenders(account);
+    expect(new URL(seen[0]!.url).searchParams.get('Channel')).toBe('rcs');
+    expect(seen[0]!.auth).toBe('ACsubtest:sub-token');
+    expect(found).toEqual([
+      {
+        sid: 'XEonlinetest',
+        senderId: 'lonestar_hvac_agent',
+        displayName: 'Lone Star HVAC',
+        providerStatus: 'ONLINE',
+        state: 'online',
+        reason: null,
+      },
+      {
+        sid: 'XEreviewtest',
+        senderId: 'lonestar_promo_agent',
+        displayName: null,
+        providerStatus: 'TWILIO_REVIEW',
+        state: 'in_review',
+        reason: null,
+      },
+      {
+        sid: 'XEofflinetest',
+        senderId: 'old_agent',
+        displayName: null,
+        providerStatus: 'OFFLINE',
+        state: 'offline',
+        reason: 'Suspended by the carrier.',
+      },
+    ]);
+  });
+
+  it('puts a sender in the service’s pool once, and takes it out again', async () => {
+    let pool: { sid: string }[] = [];
+    const seen = mockTwilio([
+      [
+        /^GET messaging\.twilio\.com\/v1\/Services\/MGservicetest\/ChannelSenders$/,
+        () => ({ json: { senders: pool, meta: {} } }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/Services\/MGservicetest\/ChannelSenders$/,
+        (x) => {
+          pool = [{ sid: x.body.get('Sid')! }];
+          return { status: 201, json: { sid: x.body.get('Sid') } };
+        },
+      ],
+      [
+        /^DELETE messaging\.twilio\.com\/v1\/Services\/MGservicetest\/ChannelSenders\/XEsendertest$/,
+        () => ({ status: 204 }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    await t.addRcsSenderToService(account, 'MGservicetest', 'XEsendertest');
+    await t.addRcsSenderToService(account, 'MGservicetest', 'XEsendertest');
+    expect(seen.filter((x) => x.method === 'POST')).toHaveLength(1);
+    await t.removeRcsSenderFromService(account, 'MGservicetest', 'XEsendertest');
+    expect(seen.at(-1)).toMatchObject({ method: 'DELETE' });
+  });
+
+  it('makes a rich text’s template as JSON, and deletes it when it is done', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST content\.twilio\.com\/v1\/Content$/,
+        () => ({ status: 201, json: { sid: 'HXnewtest' } }),
+      ],
+      [/^DELETE content\.twilio\.com\/v1\/Content\/HXnewtest$/, () => ({ status: 204 })],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    const types = {
+      'twilio/card': {
+        body: 'Tomorrow at 2?',
+        actions: [{ type: 'QUICK_REPLY', title: 'Yes', id: 'x.r1' }],
+      },
+      'twilio/text': { body: 'Tomorrow at 2?\n\nReply 1 for Yes.' },
+    };
+    expect(await t.createContent(account, { friendlyName: 'hfos_test', types })).toEqual({
+      sid: 'HXnewtest',
+    });
+    expect(JSON.parse(seen[0]!.raw)).toEqual({ friendly_name: 'hfos_test', language: 'en', types });
+    await t.deleteContent(account, 'HXnewtest');
+    expect(seen.at(-1)).toMatchObject({ method: 'DELETE', path: '/v1/Content/HXnewtest' });
   });
 });

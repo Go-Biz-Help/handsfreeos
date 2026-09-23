@@ -299,9 +299,11 @@ export class RunData {
         if (!c) return undefined;
         if (key === 'awaiting_reply') return c.awaiting_reply_since !== null;
         return (c as unknown as Record<string, unknown>)[key] ?? undefined;
+      // `wait.button` too: the button the reply that ended the last wait came from (0101).
       case 'trigger':
       case 'ai':
-        return this.ctx(head, key);
+      case 'wait':
+        return this.ctx(head, key) ?? undefined;
       default:
         return undefined;
     }

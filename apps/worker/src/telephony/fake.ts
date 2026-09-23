@@ -3,9 +3,11 @@ import type { Logger } from 'pino';
 import {
   ProviderError,
   type Capabilities,
+  type ContentTemplate,
   type OutboundMessage,
   type PlaceCallRequest,
   type ProviderAccount,
+  type RcsSenderInfo,
   type RegistrationKind,
   type NumberPortKind,
   type PortRequest,
@@ -13,6 +15,7 @@ import {
   type TelephonyProvider,
   type TranscriptionState,
 } from './provider';
+import { fallbackOf } from './rcs-content';
 import { twilioSignature } from './signature';
 
 /** Not secrets: the fake signs its callbacks with this token, and tests sign fixtures with it too. */
@@ -42,7 +45,37 @@ export interface FakeSent extends OutboundMessage {
   readonly accountSid: string;
   /** When the fake "carrier" took it, so usageDaily can bucket it by day. */
   readonly at: number;
+  /**
+   * How the "carrier" delivered it (0101): over RCS, or the SMS or MMS a phone without RCS gets instead. For a
+   * rich text that fell back, `delivered` is what that phone was actually sent — the template's own fallback.
+   */
+  readonly via: 'rcs' | 'sms' | 'mms';
+  readonly delivered: { readonly body: string; readonly mediaUrls: readonly string[] };
 }
+
+/** One of the fake's RCS senders (0101). */
+export interface FakeRcsSender extends RcsSenderInfo {
+  readonly accountSid: string;
+}
+
+/**
+ * The fake's stand-in RCS senders, in every account (0101). Twilio makes senders only in its console, so locally
+ * there is nothing to make: these are already "there" for Settings to find and connect.
+ *
+ * - `hfos_demo_agent` is approved and online;
+ * - `hfos_review_agent` is with the carriers until `approvalMs` after it is first looked at, then online;
+ * - `hfos_offline_agent` is offline.
+ *
+ * Any other id is not in the account, which is how a business that typed the wrong one hears so.
+ */
+export const FAKE_RCS_SENDERS = {
+  online: 'hfos_demo_agent',
+  review: 'hfos_review_agent',
+  offline: 'hfos_offline_agent',
+} as const;
+
+/** A customer's phone that can't show RCS, in the fake: any number ending in 7. It gets the SMS or MMS instead. */
+export const fakeCanShowRcs = (e164: string): boolean => !e164.endsWith('7');
 
 export interface FakeCall extends PlaceCallRequest {
   readonly sid: string;
@@ -75,6 +108,13 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly transcribed: string[];
   /** Subaccounts closed, by sid; their numbers are released with them. */
   readonly closedAccounts: string[];
+  /** RCS senders the "carrier" has, by sid (0101). The stand-ins appear the first time an account is looked at. */
+  readonly rcsSenders: Map<string, FakeRcsSender>;
+  /** Which RCS sender sits in which messaging service's pool (0101): what makes a text go RCS first. */
+  readonly rcsPools: Map<string, string>;
+  /** Content templates made for rich texts, by sid, and the ones deleted once their message was done (0101). */
+  readonly contents: Map<string, ContentTemplate & { readonly accountSid: string }>;
+  readonly deletedContents: string[];
 }
 
 /** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
@@ -112,7 +152,10 @@ export interface FakeOptions {
 
 /**
  * An in-memory Twilio. Texts get "sent" then "delivered" callbacks (a body containing [fail] gets a
- * failure instead), registrations are approved after `approvalMs` (a legal name containing "reject" is
+ * failure instead). With an online RCS sender in the messaging service's pool (0101) a text goes over RCS —
+ * callbacks from `rcs:<sender>`, and a "read" after the "delivered" — unless the customer's number ends in 7,
+ * which plays a phone without RCS and gets the SMS or MMS from the thread's number instead. Registrations
+ * are approved after `approvalMs` (a legal name containing "reject" is
  * turned down, and so is a local number's campaign with an example text containing it), a number ending
  * in 0000 is "no longer available", and one ending in 0503 finds the carrier down on every try.
  *
@@ -147,6 +190,35 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     string,
     { at: number; e164: string; kind: NumberPortKind; numberSid?: string }
   >();
+  const rcsSenders = new Map<string, FakeRcsSender>();
+  /** When each stand-in was first looked at, so the one in review can be approved `approvalMs` later. */
+  const rcsSeenAt = new Map<string, number>();
+  const rcsPools = new Map<string, string>();
+  const contents = new Map<string, ContentTemplate & { accountSid: string }>();
+  const deletedContents: string[] = [];
+
+  /** The stand-in senders of an account, as they stand now: the one in review comes online with time. */
+  const standIns = (accountSid: string): FakeRcsSender[] =>
+    Object.entries(FAKE_RCS_SENDERS).map(([kind, senderId]) => {
+      const key = `${accountSid}|${senderId}`;
+      const existing = [...rcsSenders.values()].find(
+        (x) => x.accountSid === accountSid && x.senderId === senderId,
+      );
+      const seen = rcsSeenAt.get(key) ?? Date.now();
+      rcsSeenAt.set(key, seen);
+      const reviewing = kind === 'review' && Date.now() - seen < opts.approvalMs;
+      const sender: FakeRcsSender = {
+        accountSid,
+        sid: existing?.sid ?? fakeSid('XE'),
+        senderId,
+        displayName: kind === 'online' ? 'Stand-in RCS sender' : `Stand-in RCS sender (${kind})`,
+        providerStatus: kind === 'offline' ? 'OFFLINE' : reviewing ? 'TWILIO_REVIEW' : 'ONLINE',
+        state: kind === 'offline' ? 'offline' : reviewing ? 'in_review' : 'online',
+        reason: kind === 'offline' ? 'The carriers took this sender down.' : null,
+      };
+      rcsSenders.set(sender.sid, sender);
+      return sender;
+    });
   const turnedDown = (request: RegistrationRequest) => {
     const samples = (request.submission['messageSamples'] ?? []) as unknown[];
     return (
@@ -308,6 +380,10 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     deleted,
     transcribed,
     closedAccounts,
+    rcsSenders,
+    rcsPools,
+    contents,
+    deletedContents,
     async createSubaccount() {
       return { sid: fakeSid('AC'), authToken: FAKE_AUTH_TOKEN };
     },
@@ -373,8 +449,40 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async sendMessage(account, message) {
       const sid = fakeSid('SM');
-      sent.push({ ...message, sid, accountSid: account.sid, at: Date.now() });
-      const base = { AccountSid: account.sid, MessageSid: sid, From: message.from, To: message.to };
+      const template = message.contentSid ? contents.get(message.contentSid) : undefined;
+      if (message.contentSid && !template)
+        throw new ProviderError('The content template does not exist.', '21655', true, 400);
+      /*
+       * RCS first, as Twilio does it (0101): an online sender in the service's pool is tried for every text sent
+       * through the service, and a phone that can't show RCS gets the SMS or MMS instead — from `from`, which is
+       * the `FallbackFrom` the worker names.
+       */
+      const pooled = message.messagingServiceSid
+        ? rcsSenders.get(rcsPools.get(message.messagingServiceSid) ?? '')
+        : undefined;
+      const overRcs = !!pooled && pooled.state === 'online' && fakeCanShowRcs(message.to);
+      const plain = template
+        ? fallbackOf(template)
+        : { body: message.body, mediaUrls: message.mediaUrls };
+      const via = overRcs ? 'rcs' : plain.mediaUrls.length > 0 ? 'mms' : 'sms';
+      sent.push({
+        ...message,
+        sid,
+        accountSid: account.sid,
+        at: Date.now(),
+        via,
+        delivered: overRcs ? { body: message.body, mediaUrls: message.mediaUrls } : plain,
+      });
+      const base = {
+        AccountSid: account.sid,
+        MessageSid: sid,
+        From: overRcs ? `rcs:${pooled.senderId}` : message.from,
+        To: message.to,
+        ...(message.messagingServiceSid
+          ? { MessagingServiceSid: message.messagingServiceSid }
+          : {}),
+        ...(overRcs ? { ChannelPrefix: 'rcs' } : {}),
+      };
       if (message.body.includes('[fail]'))
         callback(
           message.statusCallbackUrl,
@@ -395,8 +503,45 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
           { ...base, MessageStatus: 'delivered' },
           700,
         );
+        // RCS tells the business when the customer opened it; an SMS never does.
+        if (overRcs)
+          callback(
+            message.statusCallbackUrl,
+            account.authToken,
+            { ...base, MessageStatus: 'read', EventType: 'READ' },
+            1500,
+          );
       }
       return { sid, status: 'queued' };
+    },
+    async listRcsSenders(account) {
+      standIns(account.sid);
+      return [...rcsSenders.values()].filter((x) => x.accountSid === account.sid);
+    },
+    async fetchRcsSender(account, sid) {
+      standIns(account.sid);
+      const found = rcsSenders.get(sid);
+      return found && found.accountSid === account.sid ? found : null;
+    },
+    async addRcsSenderToService(account, serviceSid, senderSid) {
+      const found = rcsSenders.get(senderSid);
+      if (!found || found.accountSid !== account.sid)
+        throw new ProviderError('The requested resource was not found', '20404', true, 404);
+      rcsPools.set(serviceSid, senderSid);
+    },
+    async removeRcsSenderFromService(_account, serviceSid, senderSid) {
+      if (rcsPools.get(serviceSid) === senderSid) rcsPools.delete(serviceSid);
+    },
+    async createContent(account, template) {
+      if (!template.types['twilio/text'])
+        throw new ProviderError('A template needs a text fallback.', '20001', true, 400);
+      const sid = fakeSid('HX');
+      contents.set(sid, { ...template, accountSid: account.sid });
+      return { sid };
+    },
+    async deleteContent(_account, contentSid) {
+      contents.delete(contentSid);
+      deletedContents.push(contentSid);
     },
     async fetchMedia(_account, url) {
       if (url.startsWith('data:')) {

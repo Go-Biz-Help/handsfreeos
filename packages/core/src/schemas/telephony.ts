@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import { isoDateTime, uuid } from './common';
+import { RcsSenderOut } from './rcs-sender';
 
 /** A number already in E.164 (provider webhooks, numbers picked from search results). */
 export const e164Phone = z
@@ -329,4 +330,6 @@ export const PhoneSetupStatusOutput = z.object({
   timezone: z.string(),
   quiet: QuietState,
   canManage: z.boolean(),
+  /** The business's RCS sender (0101), or null when it has none connected. */
+  rcsSender: RcsSenderOut.nullable(),
 });

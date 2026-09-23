@@ -622,12 +622,28 @@ export const messageStatus = app.enum('message_status', [
   'sending',
   'sent',
   'delivered',
+  /** RCS says when the customer opened it (0100). Only ever follows `delivered`. */
+  'read',
   'undelivered',
   'failed',
   'received',
   'bounced',
   'complained',
 ]);
+/** How a text actually went, or came in (0100): SMS, a picture message, or RCS. */
+export const textTransport = app.enum('text_transport', ['sms', 'mms', 'rcs']);
+export type TextTransport = (typeof textTransport.enumValues)[number];
+/** A business's RCS sender, from asking to connect it to letting it go (0100). */
+export const rcsSenderStatus = app.enum('rcs_sender_status', [
+  'connecting',
+  'in_review',
+  'active',
+  'offline',
+  'failed',
+  'disconnecting',
+  'disconnected',
+]);
+export type RcsSenderStatus = (typeof rcsSenderStatus.enumValues)[number];
 export const callStatus = app.enum('call_status', [
   'initiated',
   'ringing',
@@ -721,6 +737,62 @@ export interface MediaRef {
   readonly name: string;
   /** A customer file (app.files) sent as an outbound attachment. */
   readonly fileId?: string;
+}
+
+/**
+ * One button on a rich text (0101). `reply` sends its title back as the customer's answer; `link` opens a web
+ * page; `call` rings a number. `id` is what Twilio hands back when it is tapped (`ButtonPayload`), made from the
+ * message's own id so a tap always finds the message it came from.
+ */
+export interface RichButtonRef {
+  readonly type: 'reply' | 'link' | 'call';
+  readonly title: string;
+  readonly id: string;
+  readonly url?: string;
+  readonly phone?: string;
+}
+
+/** One card of a carousel (0101): its picture, its words and one or two buttons. */
+export interface RichCardRef {
+  readonly title: string | null;
+  readonly body: string;
+  readonly media: MediaRef;
+  readonly buttons: readonly RichButtonRef[];
+}
+
+/**
+ * What a rich text carried (0101), stored on `messages.rich`. The message's own words are its body; this is what
+ * rides with them:
+ *
+ * - `buttons`: suggested replies and action buttons under the words (and the photo, when it has one);
+ * - `card`: the words under a title, with the photo on top and up to four buttons;
+ * - `carousel`: two to ten cards side by side, each with its own picture, words and buttons.
+ *
+ * `smsText` is what a phone without RCS got instead: the same words with the choices listed, which is also what
+ * counts its segments.
+ */
+export interface RichText {
+  readonly kind: 'buttons' | 'card' | 'carousel';
+  readonly title: string | null;
+  readonly buttons: readonly RichButtonRef[];
+  readonly cards: readonly RichCardRef[];
+  readonly smsText: string;
+}
+
+/**
+ * Which button a customer's reply came from (0101): a tap on RCS, or — on a phone that got the list as a text —
+ * the number they texted back. The reply's own words stay the button's title, so everything that reads a
+ * message's text reads it as what they chose.
+ */
+export interface ButtonReply {
+  readonly type: 'reply' | 'link' | 'call';
+  readonly title: string;
+  /** The button's id, when it was one of ours. */
+  readonly id: string | null;
+  /** The message whose button it was, when that could be told. */
+  readonly messageId: string | null;
+  /** A tap on RCS, or their choice texted back — its number or its name — to the list a plain text showed. */
+  readonly via: 'tap' | 'text';
 }
 
 export const telephonyAccounts = app.table('telephony_accounts', {
@@ -845,6 +917,38 @@ export const numberPorts = app.table('number_ports', {
   submittedAt: ts('submitted_at'),
   carrierSubmittedAt: ts('carrier_submitted_at'),
   completedAt: ts('completed_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * A business's RCS sender (0101). Made and approved at Twilio, in the business's own subaccount; connected here,
+ * which puts it on the business's messaging service so every text goes RCS first. A person connects it, pauses
+ * it and lets it go; everything Twilio says is the worker's to write (`private.guard_rcs_sender_update`).
+ */
+export const rcsSenders = app.table('rcs_senders', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  accountId: uuid('account_id').references(() => telephonyAccounts.id, { onDelete: 'set null' }),
+  /** The sender's id at Twilio without `rcs:` in front: `lonestar_hvac_agent`. */
+  senderId: text('sender_id').notNull(),
+  status: rcsSenderStatus('status').notNull().default('connecting'),
+  /** Off keeps the sender and sends every text as SMS or MMS until it is back on. */
+  enabled: boolean('enabled').notNull().default(true),
+  /** Where a customer's first RCS message starts its thread; null is the default number. */
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  providerSid: text('provider_sid'),
+  providerStatus: text('provider_status'),
+  displayName: text('display_name'),
+  inService: boolean('in_service').notNull().default(false),
+  lastError: text('last_error'),
+  checkedAt: ts('checked_at'),
+  nextPollAt: ts('next_poll_at'),
+  pollCount: integer('poll_count').notNull().default(0),
+  connectedAt: ts('connected_at'),
+  disconnectedAt: ts('disconnected_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });
@@ -977,6 +1081,12 @@ export const messages = app.table('messages', {
    * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
    */
   memberViewerIds: memberViewerIds(),
+  // RCS (0101): how it went, when it was read, what it carried and which button a reply came from.
+  transport: textTransport('transport'),
+  readAt: ts('read_at'),
+  rich: jsonb('rich').$type<RichText>(),
+  buttonReply: jsonb('button_reply').$type<ButtonReply>(),
+  contentSid: text('content_sid'),
 });
 
 export const calls = app.table('calls', {
@@ -5273,6 +5383,7 @@ export const tables = {
   phoneNumbers,
   telephonyRegistrations,
   numberPorts,
+  rcsSenders,
   conversations,
   messages,
   calls,

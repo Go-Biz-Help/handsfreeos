@@ -531,6 +531,11 @@ describe('registry', () => {
       'branded_domain.verify',
       'branded_domain.remove',
       'branded_domain.record',
+      'rcs_sender.connect',
+      'rcs_sender.update',
+      'rcs_sender.refresh',
+      'rcs_sender.disconnect',
+      'rcs_sender.record_state',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'migration.list',

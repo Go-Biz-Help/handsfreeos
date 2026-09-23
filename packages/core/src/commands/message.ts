@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
 import { rows, sql } from '@hfos/db/client';
 import {
@@ -12,7 +12,9 @@ import {
   optOuts,
   people,
   phoneNumbers,
+  type ButtonReply,
   type MediaRef,
+  type RichText,
 } from '@hfos/db/schema';
 import { optOutPhrase } from '../ai-team/guardrails';
 import { chatIdentityUnverified, notHandledByAi, outsideItsConversation } from '../ai-team/reach';
@@ -58,16 +60,26 @@ import {
   type QuietHoursState,
 } from '../messaging/quiet-hours';
 import { assertWalletHasRoom } from '../money/wallet-gate';
+import {
+  buildRichText,
+  buttonForTap,
+  buttonReplyOf,
+  choiceForText,
+  RCS_LIMITS,
+  replyChoices,
+} from '../messaging/rcs';
 import { confirmWord, messagePreview, smsKeyword, smsSegments, yesWord } from '../messaging/sms';
 import {
   findOrCreateConversation,
   isOptedOut,
   conversationNumber,
   defaultNumber,
+  latestConversation,
   loadConversation,
   loadRegistrations,
   matchPersonByPhone,
   preferredLane,
+  rcsLine,
   readiness,
   scheduleJob,
   workspaceMessaging,
@@ -93,6 +105,7 @@ import {
   PersonSetSmsConsentInput,
   PersonSetSmsConsentOutput,
 } from '../schemas/message';
+import type { RichInput } from '../schemas/rcs';
 import { announceConfirmed } from './attendee-confirm';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -105,6 +118,20 @@ const MMS_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif']);
 const MMS_MAX_BYTES = 5 * 1024 * 1024;
 /** Twilio: the recipient replied STOP to this sender. */
 const UNSUBSCRIBED_ERROR = '21610';
+
+/** private.message_status_rank (0101), for the one decision made here rather than in the database. */
+const STATUS_RANK: Readonly<Record<string, number>> = {
+  queued: 0,
+  sending: 1,
+  sent: 2,
+  delivered: 3,
+  read: 4,
+  undelivered: 5,
+  failed: 5,
+  bounced: 6,
+  complained: 7,
+};
+const statusRank = (status: string): number => STATUS_RANK[status] ?? 0;
 
 type Conversation = typeof conversations.$inferSelect;
 
@@ -395,6 +422,96 @@ async function attachmentMedia(
       fileId: f.id,
     };
   });
+}
+
+/**
+ * A carousel's pictures (0101), one per card, in card order. The same checks as a photo on a text — uploaded,
+ * finished, a type every phone shows — but counted one at a time: a carousel goes over RCS, not as one picture
+ * message, and a phone without RCS gets its words, not ten photos.
+ */
+async function cardPictures(ctx: CommandContext, fileIds: readonly string[]): Promise<MediaRef[]> {
+  const unique = [...new Set(fileIds)];
+  const list = await ctx.tx
+    .select()
+    .from(files)
+    .where(
+      and(
+        eq(files.workspaceId, ctx.scope.workspaceId!),
+        inArray(files.id, unique),
+        isNull(files.deletedAt),
+      ),
+    );
+  if (list.length !== unique.length || list.some((f) => f.status !== 'ready'))
+    throw HfosError.validation([
+      { path: 'rich.cards', message: 'Add a picture to every card, and wait for it to upload.' },
+    ]);
+  if (list.some((f) => !MMS_TYPES.has(f.mimeType ?? '')))
+    throw HfosError.rule('attachment_type', 400, 'Cards can carry JPG, PNG or GIF pictures.');
+  if (list.some((f) => (f.sizeBytes ?? 0) > MMS_MAX_BYTES))
+    throw HfosError.rule('attachment_too_large', 400, 'Each card’s picture must be 5 MB or less.');
+  const byId = new Map(list.map((f) => [f.id, f]));
+  return fileIds.map((id) => {
+    const f = byId.get(id)!;
+    return {
+      bucket: f.bucket,
+      objectPath: f.objectPath,
+      contentType: f.mimeType ?? 'application/octet-stream',
+      sizeBytes: f.sizeBytes ?? 0,
+      name: f.name,
+      fileId: f.id,
+    };
+  });
+}
+
+/**
+ * What a text carries besides its words (0101), as the message stores it: every button with its id, and the
+ * words a phone without RCS gets instead. A message with buttons or a card keeps its one photo in the message's
+ * own `media`, like any picture message; a carousel's pictures ride on its cards.
+ */
+async function richFor(
+  ctx: CommandContext,
+  messageId: string,
+  body: string,
+  input: RichInput,
+  media: readonly MediaRef[],
+): Promise<RichText> {
+  let rich: RichText;
+  if (input.kind === 'carousel') {
+    if (media.length)
+      throw HfosError.validation([
+        { path: 'attachmentFileIds', message: 'A carousel carries its pictures on its cards.' },
+      ]);
+    const pictures = await cardPictures(
+      ctx,
+      input.cards.map((c) => c.mediaFileId),
+    );
+    rich = buildRichText(messageId, body, {
+      kind: 'carousel',
+      cards: input.cards.map((c, i) => ({ ...c, media: pictures[i]! })),
+    });
+  } else {
+    if (media.length > 1)
+      throw HfosError.validation([
+        { path: 'attachmentFileIds', message: 'A message with buttons carries one photo.' },
+      ]);
+    if (media.length === 1 && input.buttons.length > RCS_LIMITS.cardButtons)
+      throw HfosError.validation([
+        {
+          path: 'rich.buttons',
+          message: `With a photo, a message holds ${RCS_LIMITS.cardButtons} buttons at most.`,
+        },
+      ]);
+    rich = buildRichText(messageId, body, input);
+  }
+  if (rich.smsText.length > RCS_LIMITS.smsText)
+    throw HfosError.validation([
+      {
+        path: 'body',
+        message:
+          'With the choices written out for phones without RCS, this is over 1,600 characters. Shorten the words or take a button off.',
+      },
+    ]);
+  return rich;
 }
 
 /** Records an opt-out or opt-in for a customer number (and on the person, when there is one). */
@@ -776,6 +893,10 @@ export const messageSend = defineCommand({
               },
             ]
           : []),
+        // Its replies are words a person can read and approve as they stand; buttons are the team's to add.
+        ...(input.rich
+          ? [{ path: 'rich', message: 'The AI teammate doesn’t send buttons or cards.' }]
+          : []),
       ];
       if (refused.length) throw HfosError.validation(refused);
     }
@@ -814,8 +935,10 @@ export const messageSend = defineCommand({
     });
     const media = await attachmentMedia(ctx, input.attachmentFileIds);
     const messageId = randomUUID();
+    const rich = input.rich ? await richFor(ctx, messageId, input.body, input.rich, media) : null;
     const now = new Date();
-    const segments = smsSegments(input.body).segments;
+    // A rich text is counted by its plain face: that is what a phone without RCS is sent, segment by segment.
+    const segments = smsSegments(rich ? rich.smsText : input.body).segments;
     const preview = messagePreview(input.body, media.length);
     const to = formatPhone(conv.counterpart);
     if (created)
@@ -839,6 +962,7 @@ export const messageSend = defineCommand({
           personId: conv.personId,
           channel: 'sms',
           mediaCount: media.length,
+          ...(rich ? { rich: rich.kind } : {}),
           sendAt,
         },
         after: { to, preview: preview.slice(0, 80), segments, mediaCount: media.length, sendAt },
@@ -854,6 +978,7 @@ export const messageSend = defineCommand({
         toAddresses: [conv.counterpart],
         bodyText: input.body,
         media,
+        rich,
         segments,
         ...senderColumns(ctx),
         clientId: input.clientId ?? null,
@@ -885,9 +1010,16 @@ export const messageSend = defineCommand({
         personId: conv.personId,
         channel: 'sms',
         mediaCount: media.length,
+        ...(rich ? { rich: rich.kind } : {}),
         ...(quietHours ? { quietHours } : {}),
       },
-      after: { to, preview: preview.slice(0, 80), segments, mediaCount: media.length },
+      after: {
+        to,
+        preview: preview.slice(0, 80),
+        segments,
+        mediaCount: media.length,
+        ...(rich ? { rich: rich.kind } : {}),
+      },
     });
     const activityId = await logChannelActivity(ctx, {
       kind: 'sms',
@@ -902,6 +1034,7 @@ export const messageSend = defineCommand({
         conversationId: conv.id,
         status: 'queued',
         mediaCount: media.length,
+        ...(rich ? { rich: rich.kind } : {}),
       },
     });
     await ctx.tx.insert(messages).values({
@@ -915,6 +1048,7 @@ export const messageSend = defineCommand({
       toAddresses: [conv.counterpart],
       bodyText: input.body,
       media,
+      rich,
       segments,
       ...senderColumns(ctx),
       clientId: input.clientId ?? null,
@@ -1189,10 +1323,73 @@ async function askedSeats(ctx: CommandContext, phone: string, at: Date) {
   );
 }
 
+/** How long a list the business texted stays answerable by number: a week, the life of an ordinary ask. */
+const CHOICE_WINDOW_MS = 7 * 86_400_000;
+
+/**
+ * Which button a customer's reply came from (0101), when it came from one.
+ *
+ * - **A tap on RCS** carries the id we gave the button (`ButtonPayload`), and the id names its message, so an
+ *   old message's button is found as surely as the newest one's. A button that could not carry an id comes
+ *   back with its name instead, and is matched on that.
+ * - **A choice texted back** to the list a phone without RCS got — "2", or the button's own name — answers the
+ *   latest rich text in the thread, for a week. A number only counts when that text did not go over RCS: an RCS
+ *   phone showed buttons, not numbers, so a "2" from one is just a 2.
+ *
+ * The reply's words stay what the customer sent (the button's name, for a tap), so everything that reads a
+ * message's text reads it as what they chose.
+ */
+async function buttonReplyFor(
+  ctx: CommandContext,
+  conversationId: string,
+  input: z.infer<typeof MessageReceiveInput>,
+  mediaCount: number,
+  at: Date,
+): Promise<ButtonReply | null> {
+  if (!input.button && (mediaCount > 0 || !input.body.trim())) return null;
+  const recent = await ctx.tx
+    .select({
+      id: messages.id,
+      rich: messages.rich,
+      transport: messages.transport,
+      occurredAt: messages.occurredAt,
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.conversationId, conversationId),
+        eq(messages.direction, 'outbound'),
+        isNotNull(messages.rich),
+      ),
+    )
+    .orderBy(desc(messages.occurredAt))
+    .limit(20);
+  if (input.button) {
+    const payload = input.button.payload;
+    const tag = payload && /^[0-9a-f]{8}\./.test(payload) ? payload.slice(0, 8) : null;
+    const theirs = tag ? recent.filter((m) => m.id.replace(/-/g, '').startsWith(tag)) : [];
+    for (const m of [...theirs, ...recent]) {
+      const b = m.rich && buttonForTap(m.rich, payload, input.button.text ?? input.body);
+      if (b) return buttonReplyOf(b, m.id, 'tap');
+    }
+    // A button we did not make (a template sent from somewhere else): still a tap, named by what it said.
+    const title = (input.button.text || input.body || payload || '').trim().slice(0, 120);
+    if (!title) return null;
+    const kind = (input.button.type ?? '').toUpperCase();
+    const type = /URL|LINK/.test(kind) ? 'link' : /PHONE|CALL/.test(kind) ? 'call' : 'reply';
+    return { type, title, id: payload?.slice(0, 200) || null, messageId: null, via: 'tap' };
+  }
+  const latest = recent[0];
+  if (!latest?.rich || at.getTime() - latest.occurredAt.getTime() > CHOICE_WINDOW_MS) return null;
+  if (latest.transport === 'rcs' && /^\s*#?\s*\d/.test(input.body)) return null;
+  const choice = replyChoices(latest.rich).length ? choiceForText(latest.rich, input.body) : null;
+  return choice ? buttonReplyOf(choice.button, latest.id, 'text') : null;
+}
+
 export const messageReceive = defineCommand({
   name: 'message.receive',
   description:
-    'Worker: a customer texted the business number. Files it in the conversation, handles STOP and START, confirms their appointments when they reply C (or YES while asked), and starts the reply reminder.',
+    'Worker: a customer texted the business number, or wrote to its RCS sender. Files it in the conversation, notes which button it came from, handles STOP and START, confirms their appointments when they reply C (or YES while asked), and starts the reply reminder.',
   risk: 1,
   input: MessageReceiveInput,
   output: MessageReceiveOutput,
@@ -1200,6 +1397,8 @@ export const messageReceive = defineCommand({
   scope: inWorkspace,
   emits: [
     'message.received',
+    // A customer tapped a link or call button on an RCS message (0101): noted, never a reply to answer.
+    'message.action_tapped',
     'conversation.linked',
     // A number nobody knows becomes a customer and a lead here (M14), unless the business turned that off.
     'person.created',
@@ -1226,11 +1425,15 @@ export const messageReceive = defineCommand({
         confirmedAttendeeIds: [],
       };
 
-    const [ours] = await ctx.tx
-      .select({ id: phoneNumbers.id })
-      .from(phoneNumbers)
-      .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.e164, input.to)))
-      .limit(1);
+    // An RCS message comes to the business's sender rather than to one of its numbers (0101).
+    const viaRcs = input.via === 'rcs';
+    const [ours] = viaRcs
+      ? []
+      : await ctx.tx
+          .select({ id: phoneNumbers.id })
+          .from(phoneNumbers)
+          .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.e164, input.to)))
+          .limit(1);
     const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
     const mediaCount = Math.max(input.media.length, input.mediaCount);
     const smsWord = mediaCount === 0 ? smsKeyword(input.body) : null;
@@ -1252,13 +1455,28 @@ export const messageReceive = defineCommand({
       );
       matched = intake?.personId ?? null;
     }
+    /*
+     * **An RCS message joins the thread the customer already has.** Their phone shows the business's RCS
+     * messages as one thread whichever of its numbers the words came from, so a reply belongs with whatever
+     * they last talked about — which is `findOrCreateConversation`'s own rule when no line is named. Only a
+     * customer nobody has texted starts a thread, on the line the business chose for its sender.
+     */
+    const line = viaRcs
+      ? (await latestConversation(ctx.tx, workspaceId, 'sms', input.from))
+        ? null
+        : await rcsLine(ctx.tx, workspaceId)
+      : (ours?.id ?? null);
     const { conversation: conv, created } = await findOrCreateConversation(ctx, {
       channel: 'sms',
       counterpart: input.from,
       personId: matched,
-      phoneNumberId: ours?.id ?? null,
+      phoneNumberId: line,
     });
     const autoLink = !created && !conv.personId && !!matched;
+    const buttonReply = await buttonReplyFor(ctx, conv.id, input, mediaCount, at);
+    // A link or a number tapped on an RCS card is something the customer did, not something they said: it is
+    // noted in the thread and never waits for a reply, reopens the conversation or wakes anybody up.
+    const actionTap = !!buttonReply && buttonReply.type !== 'reply';
     const personId = conv.personId ?? matched;
     const wasOut = await customerOptedOut(ctx, { ...conv, personId });
     const consentChange =
@@ -1270,8 +1488,15 @@ export const messageReceive = defineCommand({
     const m = await workspaceMessaging(ctx.tx, workspaceId);
     // Confirming by reply (M8): C, CONFIRM or CONFIRMED confirms the sender's bookings HandsFreeOS asked about,
     // and so does YES while one is waiting (YES is still START: it opts them in as before). CANCEL is STOP.
-    const cWord = mediaCount === 0 && confirmWord(input.body);
-    const yes = smsWord === 'start' && yesWord(input.body);
+    // A button called Confirm confirms however it was chosen: tapped (its words are the body) or texted back
+    // by number to the list a phone without RCS got (0101).
+    const cWord =
+      mediaCount === 0 &&
+      (confirmWord(input.body) ||
+        (buttonReply?.type === 'reply' && confirmWord(buttonReply.title)));
+    // A YES that is a button on some other message ("Want us to add a filter? Yes / No") answers that message,
+    // not the ask to confirm a visit. A button called Confirm still confirms: it says so.
+    const yes = smsWord === 'start' && yesWord(input.body) && !buttonReply;
     const asked =
       (cWord || yes) && attentionSettingsOf(m.rawSettings).replyToConfirm
         ? await askedSeats(ctx, input.from, at)
@@ -1282,12 +1507,15 @@ export const messageReceive = defineCommand({
     const keyword = cWord && confirming ? ('confirm' as const) : smsWord;
     // A STOP and a confirmation aren't questions for the team; everything else waits for a reply. A confirmation
     // doesn't reopen the conversation either: it's recorded on the booking.
-    const needsReply = smsWord !== 'stop' && !confirming;
+    const needsReply = smsWord !== 'stop' && !confirming && !actionTap;
+    // Neither a confirmation nor a tapped link reopens the conversation: both are recorded where they belong.
+    const quietly = confirming || actionTap;
     const preview = messagePreview(input.body, mediaCount);
     const messageId = randomUUID();
+    const transport = viaRcs ? 'rcs' : mediaCount > 0 ? 'mms' : 'sms';
 
     const eventId = await ctx.emit({
-      type: 'message.received',
+      type: actionTap ? 'message.action_tapped' : 'message.received',
       entityType: 'message',
       entityId: messageId,
       payload: {
@@ -1296,10 +1524,27 @@ export const messageReceive = defineCommand({
         channel: 'sms',
         mediaCount,
         keyword,
-        reopened: !confirming && conv.status !== 'open',
+        reopened: !quietly && conv.status !== 'open',
+        transport,
+        ...(buttonReply
+          ? {
+              button: {
+                title: buttonReply.title,
+                type: buttonReply.type,
+                id: buttonReply.id,
+                messageId: buttonReply.messageId,
+                via: buttonReply.via,
+              },
+            }
+          : {}),
         ...(confirming ? { confirmedAttendeeIds: toConfirm.map((a) => a.id) } : {}),
       },
-      after: { from: formatPhone(input.from), preview: preview.slice(0, 80) },
+      after: {
+        from: formatPhone(input.from),
+        preview: preview.slice(0, 80),
+        ...(viaRcs ? { via: 'RCS' } : {}),
+        ...(buttonReply ? { button: buttonReply.title } : {}),
+      },
     });
     const activityId = await logChannelActivity(ctx, {
       kind: 'sms',
@@ -1313,7 +1558,9 @@ export const messageReceive = defineCommand({
         messageId,
         conversationId: conv.id,
         mediaCount,
+        transport,
         ...(keyword ? { keyword } : {}),
+        ...(buttonReply ? { button: buttonReply.title } : {}),
       },
     });
     await ctx.tx.insert(messages).values({
@@ -1333,6 +1580,8 @@ export const messageReceive = defineCommand({
       segments: input.body ? smsSegments(input.body).segments : 0,
       occurredAt: at,
       activityId,
+      transport,
+      buttonReply,
     });
     await ctx.tx
       .update(conversations)
@@ -1341,7 +1590,7 @@ export const messageReceive = defineCommand({
         lastInboundAt: at,
         lastPreview: preview || null,
         lastDirection: 'inbound',
-        ...(confirming
+        ...(quietly
           ? {}
           : {
               unreadCount: sql`${conversations.unreadCount} + 1`,
@@ -1432,7 +1681,7 @@ export const messageReceive = defineCommand({
 export const messageUpdateStatus = defineCommand({
   name: 'message.update_status',
   description:
-    'Worker: the carrier or mail service reported where a message is (sent, delivered, failed, bounced or marked as spam).',
+    'Worker: the carrier or mail service reported where a message is (sent, delivered, read, failed, bounced or marked as spam), and which way a text actually went.',
   risk: 1,
   input: MessageUpdateStatusInput,
   output: MessageUpdateStatusOutput,
@@ -1441,6 +1690,8 @@ export const messageUpdateStatus = defineCommand({
   emits: [
     'message.sent',
     'message.delivered',
+    // RCS: the customer opened it (0101).
+    'message.read',
     'message.failed',
     'message.bounced',
     'message.complained',
@@ -1484,8 +1735,25 @@ export const messageUpdateStatus = defineCommand({
       patch.providerMessageId = input.providerMessageId;
       if (!m.dedupeKey) patch.dedupeKey = input.providerMessageId;
     }
-    if ((input.status === 'sent' || input.status === 'delivered') && !m.sentAt) patch.sentAt = now;
-    if (input.status === 'delivered' && !m.deliveredAt) patch.deliveredAt = now;
+    if (input.contentSid && m.channel === 'sms' && !m.contentSid)
+      patch.contentSid = input.contentSid;
+    const reached = input.status === 'delivered' || input.status === 'read';
+    if ((input.status === 'sent' || reached) && !m.sentAt) patch.sentAt = now;
+    if (reached && !m.deliveredAt) patch.deliveredAt = now;
+    if (input.status === 'read' && !m.readAt) patch.readAt = now;
+    /*
+     * Which way it went (0101). An RCS-first text learns it from its callbacks: `rcs:` in their `From` when it
+     * went over RCS, the thread's number when Twilio fell back to SMS or MMS. Callbacks arrive out of order, so a
+     * callback only says which way it went when it is at least as far along as what we know — a late RCS `sent`
+     * must not relabel a text that was delivered as an SMS.
+     */
+    if (
+      m.channel === 'sms' &&
+      input.transport &&
+      input.transport !== m.transport &&
+      (!m.transport || statusRank(input.status) >= statusRank(m.status))
+    )
+      patch.transport = input.transport;
     const [after] = await ctx.tx
       .update(messages)
       .set(patch)
@@ -1498,15 +1766,17 @@ export const messageUpdateStatus = defineCommand({
       const type =
         status === 'delivered'
           ? 'message.delivered'
-          : status === 'bounced'
-            ? 'message.bounced'
-            : status === 'complained'
-              ? 'message.complained'
-              : failed
-                ? 'message.failed'
-                : status === 'sent'
-                  ? 'message.sent'
-                  : null;
+          : status === 'read'
+            ? 'message.read'
+            : status === 'bounced'
+              ? 'message.bounced'
+              : status === 'complained'
+                ? 'message.complained'
+                : failed
+                  ? 'message.failed'
+                  : status === 'sent'
+                    ? 'message.sent'
+                    : null;
       if (type)
         await ctx.emit({
           type,
@@ -1526,7 +1796,11 @@ export const messageUpdateStatus = defineCommand({
         });
       if (
         m.activityId &&
-        (failed || status === 'delivered' || status === 'bounced' || status === 'complained')
+        (failed ||
+          status === 'delivered' ||
+          status === 'read' ||
+          status === 'bounced' ||
+          status === 'complained')
       )
         await ctx.tx
           .update(activities)

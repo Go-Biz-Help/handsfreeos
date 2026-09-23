@@ -6,9 +6,11 @@ import { defineQuery } from '../kernel/define';
 import { quietHoursState } from '../messaging/quiet-hours';
 import {
   currentNumber,
+  currentRcsSender,
   numbersOf,
   latestByKind,
   loadRegistrations,
+  rcsSending,
   readiness,
   workspaceMessaging,
 } from '../messaging/store';
@@ -20,7 +22,7 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
 export const phoneSetupStatus = defineQuery({
   name: 'phone.setup_status',
   description:
-    'Where texting and calls stand: the business number, the carrier registration, the next step, and the texting rules.',
+    'Where texting and calls stand: the business number, the carrier registration, the next step, the texting rules and the RCS sender.',
   input: PhoneSetupStatusInput,
   output: PhoneSetupStatusOutput,
   permission: 'inbox.use',
@@ -49,6 +51,7 @@ export const phoneSetupStatus = defineQuery({
       .where(eq(telephonyAccounts.workspaceId, input.workspaceId));
     const m = await workspaceMessaging(ctx.tx, input.workspaceId);
     const r = readiness(number, regs);
+    const rcs = await currentRcsSender(ctx.tx, input.workspaceId);
     const out = (n: NonNullable<typeof number>) => ({
       id: n.id,
       e164: n.e164,
@@ -89,6 +92,21 @@ export const phoneSetupStatus = defineQuery({
       timezone: m.timezone,
       quiet: quietHoursState(m.settings.quietHours, m.timezone),
       canManage: hasWorkspacePermission(ctx.scope.workspaceRole, 'channels.manage'),
+      rcsSender: rcs
+        ? {
+            id: rcs.id,
+            senderId: rcs.senderId,
+            status: rcs.status,
+            enabled: rcs.enabled,
+            phoneNumberId: rcs.phoneNumberId,
+            displayName: rcs.displayName,
+            providerStatus: rcs.providerStatus,
+            lastError: rcs.lastError,
+            checkedAt: iso(rcs.checkedAt),
+            connectedAt: iso(rcs.connectedAt),
+            sending: rcsSending(rcs),
+          }
+        : null,
     };
   },
 });

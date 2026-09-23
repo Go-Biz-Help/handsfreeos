@@ -3,6 +3,7 @@
  * workspace ids are `Ref`s so recipes and agency templates can carry placeholders. Browser-safe.
  */
 import { z } from 'zod';
+import { carrierWordTitle, RCS_LIMITS } from '../messaging/rcs';
 import { Duration } from './conditions';
 import { Ref, StepId } from './ids';
 
@@ -25,9 +26,35 @@ const bookingCalendarId = Ref.nullable()
   .default(null)
   .describe('The calendar whose booking page {{links.booking}} opens; null uses the main one');
 
+/**
+ * Reply buttons under a workflow's text (0101): a customer taps one where their phone shows RCS, and texts back
+ * its number where it doesn't. Either way the reply names the button, and a later check reads it as
+ * `wait.button` ("Button they chose in their reply").
+ */
+const ReplyButtons = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(1, 'Name the button.')
+      .max(RCS_LIMITS.buttonTitle, `Keep a button’s name to ${RCS_LIMITS.buttonTitle} characters.`)
+      .refine((t) => !carrierWordTitle(t), {
+        error: 'Carriers read that word as STOP, START or HELP. Pick other words.',
+      }),
+  )
+  .max(RCS_LIMITS.cardButtons, `A text holds ${RCS_LIMITS.cardButtons} reply buttons here.`)
+  .refine((list) => new Set(list.map((t) => t.toLowerCase())).size === list.length, {
+    error: 'Give each button a different name.',
+  })
+  .default([])
+  .describe(
+    'Reply buttons the customer can tap (or answer by number); up to four, 20 characters each',
+  );
+
 export const SendTextConfig = z.object({
   body: template(1600, 'Write the text.'),
   bookingCalendarId,
+  replyButtons: ReplyButtons,
 });
 export const SendEmailConfig = z.object({
   subject: template(200, 'Write a subject.'),
