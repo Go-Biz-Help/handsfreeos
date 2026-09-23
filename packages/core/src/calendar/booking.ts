@@ -21,6 +21,7 @@ import {
   appointmentAttendees,
   appointmentResources,
   appointments,
+  jobs,
   appointmentStaff,
   calendarAssignmentState,
   type AppointmentSource,
@@ -798,9 +799,23 @@ async function commit(
     a.resourceId.localeCompare(b.resourceId),
   );
   const saved = await ctx.tx.transaction(async (sp) => {
+    // M18: every booked visit starts a job of its own (a session's seats don't: many customers share it).
+    const [job] =
+      (req.kind ?? 'booking') === 'booking'
+        ? await sp
+            .insert(jobs)
+            .values({
+              workspaceId,
+              personId: req.attendee?.personId ?? null,
+              title: title.slice(0, 200),
+              createdBy,
+            })
+            .returning({ id: jobs.id })
+        : [];
     const [appt] = await sp
       .insert(appointments)
       .values({
+        jobId: job?.id ?? null,
         workspaceId,
         calendarId: calendar.id,
         calendarRevision: calendar.revision,

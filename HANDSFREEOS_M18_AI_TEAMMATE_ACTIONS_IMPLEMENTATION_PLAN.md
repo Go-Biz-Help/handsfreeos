@@ -202,13 +202,51 @@ Build order for step 1 (all done, 2026-09-22):
   (a "sizing guide" article). With ranges off, a reply to a photo says no price at all.
 - Website chat has no uploads yet, so this covers texts and emails.
 
-### Step 4 — Jobs and "On my way"
+### Step 4 — Jobs and "On my way" (done, 2026-09-23)
 
-- `app.jobs`: a job is one or more visits, with a status (scheduled, on the way, in progress,
-  waiting on parts, done) and a note the customer may see.
-- `job_status` tells the customer where their job stands.
-- The phone app's **On my way** button texts the customer with a rough arrival time (from the
-  device's location to the visit's address) and sets the job to on the way.
+Decisions (Chris, 2026-09-23):
+
+- Every booked visit is a job.
+- The arrival time comes from Google's driving time.
+- The customer gets a text on every status change.
+
+- **The jobs table** (0098): `app.jobs` holds the customer, title, status and the note the customer may see. The statuses are:
+  - scheduled
+  - on the way
+  - in progress (shown as "Started")
+  - waiting on parts
+  - done
+  - cancelled
+- **Visits and jobs:**
+  - `appointments.job_id` links each visit to its job.
+  - `commit()` in `calendar/booking.ts` starts a job with every booked visit. A session's seats don't get one.
+  - Visits booked before this each got a job in the migration.
+  - A job whose visits are all cancelled is cancelled (a trigger).
+- **`job.set_status`** (the visit's job):
+  - Anyone with `appointments.write` can use it.
+  - It is marked fresh, so a change that waited too long on a phone asks before it goes.
+  - On my way can carry where the tech is. The event keeps that rounded to about 100 m, and the job never keeps it.
+- **`job.add_visit`** gathers another of the customer's visits into a job, making it a project. A job left with no visits is removed.
+- **Texts** (worker, `booking/job-texts.ts` on `job.status_changed`):
+  - A text goes out for every status change and for a changed note.
+  - Only to a number that agreed and never said STOP.
+  - Never in quiet hours, since a status text sent the next morning is stale.
+  - Once per change.
+- **Arrival time** (`geo/driving.ts`):
+  - It comes from Google's Routes API with traffic, using the same `GOOGLE_MAPS_SERVER_KEY`. The key needs the Routes API turned on too.
+  - Without a key, or when Google fails, it's a rough guess from the straight-line distance.
+  - It is kept on the job as `eta_at`.
+- **The AI teammate:** `job_status` tells the customer where their jobs stand, with the arrival time and the team's note. It is hidden from an unverified website chat.
+- **Web:** the visit sheet has a Job section with:
+  - the status
+  - the note for the customer
+  - the job's visits
+  - the customer's other upcoming visits to add
+- **Phone:**
+  - Open jobs sync (PowerSync).
+  - The visit screen has On my way, Started, Waiting on parts and Job done.
+  - On my way asks for location (while in use only, `expo-location`) the first time it's tapped. It still works without it.
+  - This needs a new store build, because `expo-location` is a native module.
 
 ### Step 5 — Live phone answering
 

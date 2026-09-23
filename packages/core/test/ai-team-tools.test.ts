@@ -44,6 +44,7 @@ describe('the registry', () => {
       ['find_times', 'book', 'auto'],
       ['check_service_area', 'book', 'auto'],
       ['my_appointments', 'book', 'auto'],
+      ['job_status', 'core', 'auto'],
       ['book', 'book', 'draft'],
       ['reschedule', 'book', 'draft'],
       ['book_repeating', 'book', 'draft'],
@@ -178,6 +179,7 @@ describe('teammateTools', () => {
     expect(names(responder)).toEqual([
       'search_knowledge',
       'read_call_transcript',
+      'job_status',
       'update_customer',
       'add_note',
       'create_task',
@@ -192,6 +194,7 @@ describe('teammateTools', () => {
       'find_times',
       'check_service_area',
       'my_appointments',
+      'job_status',
       'book',
       'reschedule',
       'join_waitlist',

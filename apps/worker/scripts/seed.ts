@@ -42,6 +42,7 @@ import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
 import { createFakeTelephony } from '../src/telephony/fake';
 import { createFakeHost } from '../src/hosting';
+import { roughDriveTimer } from '../src/geo/driving';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import { createFakeTranscriber } from '../src/telephony/fake-transcriber';
 import { createWorkflowAi } from '../src/workflows/ai-runner';
@@ -198,6 +199,7 @@ async function main(): Promise<void> {
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
     transcriber: createFakeTranscriber({ log }),
     geocoder: createFakeGeocoder(),
+    driving: roughDriveTimer,
     // The seed never touches a real host; a branded domain in it is the fake's (M17).
     siteHost: createFakeHost(),
     sealer: createSealer(key),

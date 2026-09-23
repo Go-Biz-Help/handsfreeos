@@ -2560,6 +2560,67 @@
         "required": ["workspaceId", "invoiceId", "personId", "baseRevision"]
       }
     },
+    "job.set_status": {
+      "offline": {
+        "freshMinutes": 30
+      },
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "appointmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["scheduled", "on_the_way", "in_progress", "waiting_on_parts", "done"]
+          },
+          "customerNote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "lng": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  }
+                },
+                "required": ["lat", "lng"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notify": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "appointmentId", "status"]
+      }
+    },
     "lead.archive": {
       "offline": "anytime",
       "input": {
@@ -4605,6 +4666,7 @@
         "notes": "text",
         "client_id": "text",
         "field_times": "jsonb",
+        "job_id": "uuid",
         "created_by": "uuid",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
@@ -4973,6 +5035,20 @@
         "voided_by": "uuid",
         "void_reason": "text",
         "created_by": "uuid",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
+    "business_v1.jobs": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "person_id": "uuid",
+        "title": "text",
+        "status": "text",
+        "customer_note": "text",
+        "status_changed_at": "timestamp with time zone",
+        "eta_at": "timestamp with time zone",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }

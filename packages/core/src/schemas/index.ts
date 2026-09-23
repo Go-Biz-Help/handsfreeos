@@ -44,3 +44,4 @@ export * from './port';
 export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
+export * from './job';

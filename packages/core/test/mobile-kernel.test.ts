@@ -313,6 +313,8 @@ describe('offline classes', () => {
     'appointment.update': 'anytime',
     'appointment.set_status': 'anytime',
     'attendee.confirm': 'anytime',
+    // A job's status texts the customer (On my way and the rest), so it waits for a fresh phone.
+    'job.set_status': FRESH,
     // Putting a conversation away and bringing it back: nothing reaches a customer either way, and doing it
     // twice is doing it once. The phone's screen and sync rules come with the M16 mobile work; the class is
     // declared here because the kernel's answer does not depend on a screen existing yet.

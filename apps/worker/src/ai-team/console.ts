@@ -64,6 +64,8 @@ import {
   TIMES_SHOWN,
 } from './constants';
 import {
+  jobsOf,
+  jobStatusContent,
   loadRunContext,
   pastAppointments,
   upcomingAppointments,
@@ -566,6 +568,22 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         })),
       },
     };
+  },
+
+  async job_status(h) {
+    if (!h.rc.customer || h.rc.unverifiedChat) return refuse(NO_CUSTOMER);
+    const customerId = h.rc.customer.id;
+    const list = await asWorker(h.deps.db, h.t.scope, (tx) =>
+      jobsOf(tx, h.t.scope.workspaceId, customerId),
+    );
+    h.send({
+      type: 'tool',
+      name: 'job_status',
+      title: 'Looked up their jobs',
+      detail: list.length ? list.map((j) => `${j.title}: ${j.status}`).join(', ') : 'No open jobs.',
+      at: nowIso(),
+    });
+    return { content: jobStatusContent(list, h.rc.workspace.timeZone) };
   },
 
   async book(h, args) {

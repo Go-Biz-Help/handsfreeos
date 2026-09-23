@@ -52,6 +52,7 @@ import { CancelDialog } from './cancel-dialog';
 import { calendarConfig } from './config-cache';
 import { MoveDialog } from './move-dialog';
 import { ReassignDialog } from './reassign-dialog';
+import { JobBlock } from './job-block';
 import { invoiceThisVisit, useVisitMoney, VisitMoneyBlock } from './visit-money';
 
 const Section = ({
@@ -858,6 +859,19 @@ export function AppointmentSheet({
                       </span>
                     </div>
                   ))}
+                </Section>
+              ) : null}
+
+              {appt.job ? (
+                <Section label="Job">
+                  <JobBlock
+                    key={`${appt.job.id}:${appt.job.customerNote ?? ''}`}
+                    workspaceId={workspaceId}
+                    appointmentId={appt.id}
+                    job={appt.job}
+                    timeZone={timeZone}
+                    onChanged={changed}
+                  />
                 </Section>
               ) : null}
 

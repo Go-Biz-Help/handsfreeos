@@ -45,6 +45,7 @@ const PUBLISHED = [
   'forms',
   'invoice_lines',
   'invoices',
+  'jobs',
   'leads',
   'messages',
   'opt_outs',

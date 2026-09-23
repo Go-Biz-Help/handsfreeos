@@ -244,6 +244,11 @@ function skillLines(rc: RunContext): string[] {
     out.push(
       `- Discounts: you may propose one, at most ${config.money.maxPercent}%, with offer_discount. A person decides before the customer hears about it.`,
     );
+  // M18: jobs.
+  if (!rc.unverifiedChat)
+    out.push(
+      '- Jobs: when they ask where their tech is or how their job is going, look it up with job_status and say only what it returns. Never guess an arrival time.',
+    );
   // M18: photos.
   if (config.photos.enabled) {
     out.push(
