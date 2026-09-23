@@ -2577,6 +2577,8 @@ export const importInvoice: Importer = async (tx, scope, envelope) => {
       unitPriceCents: number;
       taxable: boolean;
     }[];
+    purpose?: 'standard' | 'quick' | 'subscription';
+    planRef?: string | null;
   };
   const already = await existingMapping(
     tx,
@@ -2636,26 +2638,39 @@ export const importInvoice: Importer = async (tx, scope, envelope) => {
   const sentAt = number ? (issuedAt ?? new Date().toISOString()) : null;
   const total = Math.max(0, Math.round(Number(d.totalCents ?? 0)));
   const paid = Math.min(Math.max(0, Math.round(Number(d.paidCents ?? 0))), total);
+  const purpose = d.purpose ?? 'standard';
+  const planRef = str(d.planRef)?.slice(0, 200) ?? null;
+  // A plan's charge sits on its plan when the plan is here already; a plan that comes later finds its charges
+  // by this reference (importSubscription).
+  const [plan] = planRef
+    ? await rows<{ id: string }>(
+        tx,
+        sql`select id::text as id from app.subscriptions
+            where workspace_id = ${scope.workspaceId} and external_subscription_id = ${planRef} limit 1`,
+      )
+    : [];
   const id = randomUUID();
   await tx.execute(sql`
     insert into app.invoices (id, workspace_id, number, status, person_id, title, notes, purpose, origin,
       subtotal_cents, discount_cents, taxable_base_cents, tax_cents, total_cents, currency, due_on, terms,
-      sent_at, paid_at, reminder_state, voided_at, created_at, updated_at)
+      sent_at, paid_at, reminder_state, voided_at, created_at, updated_at, subscription_id)
     values (${id}::uuid, ${scope.workspaceId}, ${number},
       -- Paid and partly-paid are the roll-up's to decide from the payment below; this is where it starts.
       ${status === 'draft' ? 'draft' : status === 'void' ? 'void' : 'sent'}::app.invoice_status,
       ${person.targetId}::uuid, ${str(d.title)}, ${str(d.notes)},
-      'standard'::app.invoice_purpose, 'staff'::app.money_origin,
+      ${purpose}::app.invoice_purpose,
+      ${purpose === 'subscription' ? 'subscription' : 'staff'}::app.money_origin,
       ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
       ${Math.max(0, Math.round(Number(d.discountCents ?? 0)))},
       ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
       ${Math.max(0, Math.round(Number(d.taxCents ?? 0)))}, ${total}, 'USD',
       ${str(d.dueOn)}::date, ${str(d.terms)}, ${sentAt}::timestamptz,
       ${status === 'paid' && paid >= total && total > 0 ? (d.paidAt ?? updatedAt?.toISOString() ?? null) : null}::timestamptz,
-      ${JSON.stringify({ imported: 'quiet', from: scope.sourceSystem })}::jsonb,
+      ${JSON.stringify({ imported: 'quiet', from: scope.sourceSystem, ...(planRef ? { plan: planRef } : {}) })}::jsonb,
       ${status === 'void' ? (updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
-      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()),
+      ${plan?.id ?? null}::uuid)`);
 
   for (const [i, line] of (d.lines ?? []).slice(0, 200).entries()) {
     const unit = Math.max(0, Math.round(Number(line.unitPriceCents ?? 0)));
@@ -2941,6 +2956,12 @@ export const importSubscription: Importer = async (tx, scope, envelope) => {
       ${cancelled ? (d.cancelledAt ?? updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  // Its charges, when they came across first: each is a paid invoice that says which plan it was.
+  if (str(d.externalId))
+    await tx.execute(sql`
+      update app.invoices set subscription_id = ${id}::uuid
+      where workspace_id = ${scope.workspaceId} and subscription_id is null
+        and reminder_state ->> 'plan' = ${str(d.externalId)}`);
   if (!cancelled)
     await finding(tx, scope, {
       code: 'subscriptions.billed_elsewhere',

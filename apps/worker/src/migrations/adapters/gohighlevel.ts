@@ -905,6 +905,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     scopeId: string,
     options: ListOptions,
   ): Promise<SourcePage> => {
+    const cursor = (options.cursor ?? null) as { payments?: number } | null;
+    if (cursor && typeof cursor.payments === 'number')
+      return paymentPage(token, scopeId, cursor.payments, options);
     const listed = await page(token, ENDPOINTS['invoices']!, scopeId, options);
     const records = await inPool(listed.records, EMAIL_CONCURRENCY, async (r) => {
       if (cents(r.payload['amountPaid']) <= 0) return r;
@@ -928,7 +931,75 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
         throw e;
       }
     });
+    // The invoices done, the same walk carries on through the money that never had one.
+    if (listed.done) return { ...listed, records, cursor: { payments: 0 }, done: false };
     return { ...listed, records };
+  };
+
+  /**
+   * Money that came in without an invoice: an order form, a store checkout, a payment link, a plan's charge,
+   * or one somebody recorded by hand. The first real account had 206 of them beside its 146 invoices, and
+   * none came across. Here every payment belongs to an invoice — a deposit at booking or a quick payment makes
+   * one behind the scenes — so each comes across the same way: a paid invoice for what was bought, dated the
+   * day it was paid. What was bought is on the order, read once per order.
+   */
+  const paymentPage = async (
+    token: string,
+    scopeId: string,
+    offset: number,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const limit = Math.min(options.limit ?? 100, 100);
+    const answer = await call<Record<string, unknown>>(
+      token,
+      `/payments/transactions?altId=${encodeURIComponent(scopeId)}&altType=location` +
+        `&limit=${limit}&offset=${offset}`,
+    );
+    const list = Array.isArray(answer['data']) ? (answer['data'] as Record<string, unknown>[]) : [];
+    const total = Number(answer['totalCount'] ?? 0) || 0;
+    // An invoice's own payment came with the invoice. Only money that really arrived is money here.
+    const standing = list.filter(
+      (t) => asString(t['entityType']) !== 'invoice' && asString(t['status']) === 'succeeded',
+    );
+    const orders = new Map<string, Promise<string[]>>();
+    const itemsOf = (orderId: string): Promise<string[]> => {
+      let got = orders.get(orderId);
+      if (!got) {
+        got = call<Record<string, unknown>>(
+          token,
+          `/payments/orders/${encodeURIComponent(orderId)}?altId=${encodeURIComponent(scopeId)}&altType=location`,
+        )
+          .then((order) =>
+            (Array.isArray(order['items']) ? (order['items'] as Record<string, unknown>[]) : [])
+              .map((it) => asString(it['name']))
+              .filter((n): n is string => !!n),
+          )
+          .catch(() => []);
+        orders.set(orderId, got);
+      }
+      return got;
+    };
+    const records: SourceRecord[] = await inPool(standing, EMAIL_CONCURRENCY, async (t) => {
+      const id = asString(t['_id']) ?? asString(t['id']) ?? '';
+      const orderId = asString(t['entityType']) === 'order' ? asString(t['entityId']) : null;
+      const items = orderId ? await itemsOf(orderId) : [];
+      const at = asDate(t['createdAt']);
+      return {
+        objectType: 'payment',
+        objectId: id,
+        sourceCreatedAt: at,
+        sourceUpdatedAt: asDate(t['updatedAt']) ?? at,
+        payload: { ...t, __items: items },
+      };
+    });
+    const next = offset + list.length;
+    const done = list.length === 0 || next >= total;
+    return {
+      records: records.filter((r) => r.objectId),
+      cursor: done ? null : { payments: next },
+      highWaterAt: null,
+      done,
+    };
   };
 
   /**
@@ -1885,6 +1956,8 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
           return [productEnvelope(record, context)];
         case 'invoice':
           return [invoiceEnvelope(record, context)];
+        case 'payment':
+          return [paymentEnvelope(record, context)];
         case 'estimate':
           return [estimateEnvelope(record, context)];
         case 'subscription':
@@ -2405,6 +2478,86 @@ function invoiceEnvelope(record: SourceRecord, context: MappingContext): Canonic
             objectId: contactId,
             role: 'contact',
             required: true,
+          },
+        ]
+      : [],
+  );
+}
+
+/** A payment with no invoice over there, as the paid invoice that holds it here. */
+function paymentEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
+  const p = record.payload;
+  const amount = cents(p['amount']);
+  const items = Array.isArray(p['__items']) ? (p['__items'] as string[]) : [];
+  const meta = (p['entitySourceMeta'] ?? {}) as Record<string, unknown>;
+  const kind = asString(p['entityType']);
+  // What it was for: the order's items, what somebody wrote on a payment taken by hand, or where it came from.
+  const described = kind === 'manual' ? plainText(meta['description']) : null;
+  const what = (
+    items.join(', ') ||
+    described?.split('\n')[0] ||
+    asString(p['entitySourceName']) ||
+    'Payment'
+  )
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+  const plan = asString(p['subscriptionId']);
+  const paidAt = (asDate(p['createdAt']) ?? record.sourceCreatedAt ?? new Date()).toISOString();
+  return envelopeOf(
+    record,
+    context,
+    'invoice',
+    'invoices',
+    {
+      customerEmail: asString(p['contactEmail'])?.slice(0, 320) ?? null,
+      customerPhone: null,
+      number: null,
+      title: what,
+      notes: described && described !== what ? described.slice(0, 5000) : null,
+      status: 'paid',
+      currency: (asString(p['currency']) ?? 'USD').toUpperCase().slice(0, 3),
+      subtotalCents: amount,
+      discountCents: 0,
+      taxCents: 0,
+      totalCents: amount,
+      paidCents: amount,
+      paidAt,
+      issuedAt: paidAt,
+      dueOn: null,
+      terms: null,
+      purpose: plan ? 'subscription' : 'quick',
+      planRef: plan,
+      lines: [
+        {
+          name: what,
+          description: null,
+          quantity: 1,
+          unitLabel: 'each',
+          unitPriceCents: amount,
+          taxable: false,
+        },
+      ],
+    },
+    leftovers(p, [
+      '_id',
+      'id',
+      'amount',
+      'currency',
+      'status',
+      'createdAt',
+      'updatedAt',
+      '__items',
+    ]),
+    [],
+    asString(p['contactId'])
+      ? [
+          {
+            category: 'contacts',
+            objectType: 'contact',
+            objectId: asString(p['contactId'])!,
+            role: 'contact',
+            required: false,
           },
         ]
       : [],

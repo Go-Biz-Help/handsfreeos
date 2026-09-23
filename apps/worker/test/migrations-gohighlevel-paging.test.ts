@@ -742,6 +742,85 @@ describe('what a GoHighLevel thread is made of', () => {
     expect(unpaid!.paidAt).toBe('2026-09-03T10:00:00.000Z');
   });
 
+  it('carries on from the invoices into the money that never had one, as paid invoices', async () => {
+    serve((url) => {
+      if (url.pathname === '/payments/transactions')
+        return url.searchParams.get('entityId')
+          ? { data: [], totalCount: 0 }
+          : {
+              data: [
+                {
+                  _id: 'tx_order',
+                  entityType: 'order',
+                  entityId: 'ord_1',
+                  status: 'succeeded',
+                  amount: 300,
+                  currency: 'usd',
+                  subscriptionId: 'sub_stripe_1',
+                  contactId: 'con_1',
+                  contactEmail: 'dave@example.com',
+                  createdAt: '2026-09-20T20:01:55.783Z',
+                },
+                {
+                  _id: 'tx_manual',
+                  entityType: 'manual',
+                  status: 'succeeded',
+                  amount: 1000,
+                  contactId: 'con_1',
+                  entitySourceMeta: { description: 'LeadFlow Setup Fee -  Joint' },
+                  createdAt: '2026-03-01T10:00:00.000Z',
+                },
+                {
+                  _id: 'tx_inv',
+                  entityType: 'invoice',
+                  status: 'succeeded',
+                  amount: 50,
+                  createdAt: '2026-01-01',
+                },
+                {
+                  _id: 'tx_failed',
+                  entityType: 'order',
+                  status: 'failed',
+                  amount: 300,
+                  createdAt: '2026-01-01',
+                },
+              ],
+              totalCount: 4,
+            };
+      if (url.pathname === '/payments/orders/ord_1')
+        return { items: [{ name: 'Marketing Automation - Monthly' }] };
+      return { invoices: [], total: 0 };
+    });
+    const first = await adapter.list(connection, scope, 'invoices', { cursor: null, limit: 100 });
+    expect(first.done).toBe(false);
+    const second = await adapter.list(connection, scope, 'invoices', {
+      cursor: first.cursor,
+      limit: 100,
+    });
+    expect(second.done).toBe(true);
+    expect(second.records.map((r) => [r.objectType, r.objectId])).toEqual([
+      ['payment', 'tx_order'],
+      ['payment', 'tx_manual'],
+    ]);
+    const [order, manual] = second.records.map((r) => adapter.normalize(r, context)[0]!);
+    expect(order!.canonicalType).toBe('invoice');
+    expect(order!.data).toMatchObject({
+      title: 'Marketing Automation - Monthly',
+      status: 'paid',
+      totalCents: 30_000,
+      paidCents: 30_000,
+      paidAt: '2026-09-20T20:01:55.783Z',
+      purpose: 'subscription',
+      planRef: 'sub_stripe_1',
+      customerEmail: 'dave@example.com',
+    });
+    expect(manual!.data).toMatchObject({
+      title: 'LeadFlow Setup Fee - Joint',
+      purpose: 'quick',
+      totalCents: 100_000,
+    });
+  });
+
   it('counts invoices by asking the way the list insists on, with an offset', async () => {
     const calls = serve((url) => {
       if (url.pathname === '/invoices/' && !url.searchParams.has('offset'))
