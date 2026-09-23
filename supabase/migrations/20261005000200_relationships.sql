@@ -152,11 +152,8 @@ create trigger custom_records_check_type before insert on app.custom_records
 alter table app.custom_fields add column record_type_id uuid references app.custom_record_types (id);
 alter table app.custom_fields add constraint custom_fields_record_type_check
   check ((entity = 'custom_record') = (record_type_id is not null));
--- A key is unique per kind of record now, not per entity: a pet's "color" and a car's "color" are two fields.
--- Nulls not distinct, so a customer's fields (no kind) still clash on a key exactly as before.
-alter table app.custom_fields drop constraint custom_fields_workspace_id_entity_key_key;
-alter table app.custom_fields add constraint custom_fields_key_unique
-  unique nulls not distinct (workspace_id, entity, record_type_id, key);
+-- A key stays unique per entity (0076's constraint), across every kind: the worker already running upserts
+-- fields on (workspace_id, entity, key), and a car's "Color" after a pet's is simply color_2 (custom_field.create).
 create index custom_fields_record_type_idx on app.custom_fields (record_type_id, position)
   where record_type_id is not null;
 drop trigger custom_fields_immutable on app.custom_fields;

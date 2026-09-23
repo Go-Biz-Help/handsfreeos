@@ -512,7 +512,7 @@ export const importCustomField: Importer = async (tx, scope, envelope) => {
       ${JSON.stringify(options)}::jsonb, ${Math.max(0, Math.min(1000, Number(d.position ?? 0) || 0))},
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))
-    on conflict (workspace_id, entity, record_type_id, key) do nothing`);
+    on conflict (workspace_id, entity, key) do nothing`);
   const [landed] = await rows<{ id: string }>(
     tx,
     sql`select id::text as id from app.custom_fields

@@ -179,6 +179,20 @@ describe('kinds of records', () => {
       'forbidden',
     );
   });
+
+  it('a second kind’s field of the same name takes the next key, first among its own kind', async () => {
+    const horses = await run(
+      customRecordTypeCreate,
+      { workspaceId: t.wsId, singular: 'Horse', fields: [{ label: 'Breed' }] },
+      t.owner,
+    );
+    const { fields } = await ask(
+      customFieldList,
+      { workspaceId: t.wsId, recordTypeId: horses.customRecordTypeId },
+      t.member,
+    );
+    expect(fields.map((f) => [f.label, f.key, f.position])).toEqual([['Breed', 'breed_2', 0]]);
+  });
 });
 
 describe('pairs, both ways', () => {

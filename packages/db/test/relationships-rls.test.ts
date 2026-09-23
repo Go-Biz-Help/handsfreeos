@@ -210,12 +210,26 @@ describe('who shapes, who fills in, who sees', () => {
             values (${wsA}, 'custom_record', ${pets}, 'breed', 'Breed', ${owner.id}) returning id`,
       ),
     );
-    // The same key on another kind is another field.
+    // A key stays unique across every kind (0076's constraint, which the running importer upserts on): another
+    // kind's field takes another key.
+    expect(
+      (
+        await failure(() =>
+          as(owner)((tx) =>
+            rows(
+              tx,
+              sql`insert into app.custom_fields (workspace_id, entity, record_type_id, key, label, created_by)
+                  values (${wsA}, 'custom_record', ${cars}, 'breed', 'Breed', ${owner.id})`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('23505');
     await as(owner)((tx) =>
       rows(
         tx,
         sql`insert into app.custom_fields (workspace_id, entity, record_type_id, key, label, created_by)
-            values (${wsA}, 'custom_record', ${cars}, 'breed', 'Breed', ${owner.id})`,
+            values (${wsA}, 'custom_record', ${cars}, 'breed_2', 'Breed', ${owner.id})`,
       ),
     );
     // A kind's field says which kind; a customer's field names none.

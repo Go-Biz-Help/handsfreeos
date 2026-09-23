@@ -6,7 +6,7 @@
  * none of them. These commands are the door for everyone else, and the same door serves every kind of record: a
  * customer's gate code, a company's account number, a lead's budget, a pet's breed.
  */
-import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
+import { and, eq, sql as dsql } from 'drizzle-orm';
 import { companies, customFields, customRecords, leads, people } from '@hfos/db/schema';
 import {
   checkCustomValue,
@@ -112,24 +112,22 @@ export const customFieldCreate = defineCommand({
       ? await requireRecordType(ctx.tx, ws, recordTypeId, { live: true })
       : null;
     await assertLabelFree(ctx, { entity: input.entity, recordTypeId }, input.label);
-    // Keys are never reused while a field lives, archived ones included (0076's unique key).
+    // Keys are never reused while a field lives, archived ones included, and are unique across every kind of
+    // record (0076's unique key): a car's "Color" after a pet's is color_2. Its place is among its own kind's.
     const existing = await ctx.tx
-      .select({ key: customFields.key, position: customFields.position })
+      .select({
+        key: customFields.key,
+        position: customFields.position,
+        recordTypeId: customFields.recordTypeId,
+      })
       .from(customFields)
-      .where(
-        and(
-          eq(customFields.workspaceId, ws),
-          eq(customFields.entity, input.entity),
-          recordTypeId
-            ? eq(customFields.recordTypeId, recordTypeId)
-            : isNull(customFields.recordTypeId),
-        ),
-      );
+      .where(and(eq(customFields.workspaceId, ws), eq(customFields.entity, input.entity)));
     const key = keyFromLabel(
       input.label,
       existing.map((f) => f.key),
     );
-    const position = Math.min(1000, Math.max(-1, ...existing.map((f) => f.position)) + 1);
+    const siblings = existing.filter((f) => f.recordTypeId === recordTypeId);
+    const position = Math.min(1000, Math.max(-1, ...siblings.map((f) => f.position)) + 1);
     const [row] = await ctx.tx
       .insert(customFields)
       .values({
