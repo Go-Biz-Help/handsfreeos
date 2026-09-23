@@ -12,6 +12,7 @@ import {
   invoiceList,
   invoiceRecordCashPayment,
   invoiceSend,
+  membershipRemove,
   paymentRefund,
   permissionReset,
   permissionSetMember,
@@ -314,3 +315,29 @@ async function expectPg(fn: () => Promise<unknown>): Promise<string> {
   }
   throw new Error('expected the database to refuse');
 }
+
+describe('the team', () => {
+  it('lets whoever the business trusts remove a teammate at their own level, and nobody else', async () => {
+    // An admin the business keeps from removing people can't, whatever the role says.
+    await setRole('admin', 'members.remove', false);
+    await expectHfos(
+      () => run(membershipRemove, { workspaceId: t.wsId, userId: t.member.id }, t.marco),
+      'cannot_remove_role',
+    );
+    await setRole('admin', 'members.remove', null);
+    // A member can't, until the owner lets them — and then never above their own level.
+    await expectHfos(
+      () => run(membershipRemove, { workspaceId: t.wsId, userId: t.member.id }, t.priya),
+      'cannot_remove_role',
+    );
+    await setPerson(t.priya, 'members.remove', true);
+    await expectHfos(
+      () => run(membershipRemove, { workspaceId: t.wsId, userId: t.marco.id }, t.priya),
+      'cannot_remove_role',
+    );
+    await run(membershipRemove, { workspaceId: t.wsId, userId: t.member.id }, t.priya);
+    const team = await ask(workspaceMembers, { workspaceId: t.wsId }, t.owner);
+    expect(team.members.map((m) => m.userId)).not.toContain(t.member.id);
+    expect(await inSync()).toBe(0);
+  });
+});
