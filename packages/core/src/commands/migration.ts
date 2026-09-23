@@ -118,6 +118,7 @@ function requireAccess(ctx: CommandContext): MigrationAccess {
   const access = migrationAccess({
     orgRole: ctx.scope.orgRole,
     workspaceRole: ctx.scope.workspaceRole,
+    workspacePermissions: ctx.scope.workspacePermissions ?? null,
     workspaceId: ctx.scope.workspaceId,
   });
   if (!access) throw HfosError.notFound(MIGRATION_NOT_YOURS);

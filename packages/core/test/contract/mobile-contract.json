@@ -6452,7 +6452,8 @@
         "id": "text",
         "user_id": "uuid",
         "workspace_id": "uuid",
-        "role": "app.member_role"
+        "role": "app.member_role",
+        "permissions": "text[]"
       }
     }
   }

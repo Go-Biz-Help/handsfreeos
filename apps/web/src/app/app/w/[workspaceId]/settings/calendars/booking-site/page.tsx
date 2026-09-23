@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -18,7 +19,7 @@ export default async function BookingSiteSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (got.workspace.role !== 'owner' && got.workspace.role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [site, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/booking_site.get', { body: { workspaceId } }).then(unwrapPage),
     brandedOriginFor(api, workspaceId),
@@ -26,7 +27,7 @@ export default async function BookingSiteSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <CalendarsSubnav workspaceId={workspaceId} />
       <BookingSiteForm
         workspaceId={workspaceId}

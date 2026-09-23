@@ -15,6 +15,8 @@ import {
   MENU_GROUP_LABEL_MAX,
   MENU_KEYS,
   SUGGESTED_MENU,
+  effectivePermissions,
+  menuFor,
   menuKeys,
   menuOf,
   nextGroupId,
@@ -263,5 +265,31 @@ describe('editing a menu', () => {
     expect(
       (normalizeMenu(named).entries.find((e) => e.kind === 'group') as { label: string }).label,
     ).toBe('Back');
+  });
+});
+
+describe('the menu in one business (0103)', () => {
+  it('leaves out what the business keeps a person from, groups included, and keeps it in their saved menu', () => {
+    const member = effectivePermissions('member');
+    // Members don't read the audit log, so it isn't offered; the saved menu still has it.
+    expect(menuKeys(menuFor(SUGGESTED_MENU, member))).not.toContain('audit');
+    expect(menuKeys(SUGGESTED_MENU)).toContain('audit');
+    // A business that keeps them from money and the inbox takes those places away too.
+    const kept = effectivePermissions('member', { 'money.read': false, 'inbox.use': false });
+    const theirs = menuKeys(menuFor(SUGGESTED_MENU, kept));
+    expect(theirs).not.toContain('money');
+    expect(theirs).not.toContain('inbox');
+    expect(theirs).toContain('customers');
+    // A group with nothing left in it goes.
+    const onlyAudit: Menu = {
+      entries: [link('home'), { kind: 'group', id: 'g', label: 'Back office', keys: ['audit'] }],
+      hidden: [],
+    };
+    expect(menuFor(onlyAudit, member).entries).toEqual([link('home')]);
+    // Without their permissions (an older copy), the menu as saved.
+    expect(menuFor(SUGGESTED_MENU, null)).toBe(SUGGESTED_MENU);
+    expect(menuKeys(menuFor(SUGGESTED_MENU, effectivePermissions('owner')))).toEqual(
+      menuKeys(SUGGESTED_MENU),
+    );
   });
 });

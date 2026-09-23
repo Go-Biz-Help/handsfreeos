@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { TasksPage } from '@/components/tasks/tasks-page';
 import { assigneeOptions } from '@/lib/api/people';
@@ -30,7 +31,6 @@ export default async function WorkspaceTasksPage({
     ),
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
   ]);
-  const role = got.workspace.role;
   return (
     <TasksPage
       workspaceId={workspaceId}
@@ -40,7 +40,7 @@ export default async function WorkspaceTasksPage({
       timezone={open.timezone}
       members={assigneeOptions(members)}
       myUserId={userId}
-      canModerate={role === 'owner' || role === 'admin'}
+      canModerate={can(got.workspace.permissions, 'records.archive')}
     />
   );
 }

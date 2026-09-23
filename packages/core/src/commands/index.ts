@@ -144,6 +144,7 @@ import { leadMoveStage } from './lead.move_stage';
 import { leadSetNextAction } from './lead.set_next_action';
 import { leadUpdate } from './lead.update';
 import { membershipChangeRole } from './membership.change_role';
+import { permissionReset, permissionSetMember, permissionSetRole } from './permission';
 import { membershipInvite } from './membership.invite';
 import { membershipRemove } from './membership.remove';
 import { organizationAddOwner } from './organization.add_owner';
@@ -407,6 +408,9 @@ export {
   membershipRemove,
   organizationAddOwner,
   organizationCreate,
+  permissionReset,
+  permissionSetMember,
+  permissionSetRole,
   personArchive,
   personCreate,
   personRestore,
@@ -496,6 +500,9 @@ export const commands: readonly CommandDef[] = [
   invitationAccept,
   membershipChangeRole,
   membershipRemove,
+  permissionSetRole,
+  permissionSetMember,
+  permissionReset,
   organizationAddOwner,
   userUpdateProfile,
   accountDelete,

@@ -10,7 +10,6 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
-import { hasWorkspacePermission } from '../permissions';
 import {
   FileBeginUploadInput,
   FileBeginUploadOutput,
@@ -19,6 +18,7 @@ import {
   FileDeleteInput,
   FileDeleteOutput,
 } from '../schemas/file';
+import { scopeCan } from '../kernel/execute';
 
 async function requireRecord(
   ctx: CommandContext,
@@ -58,8 +58,7 @@ const businessOwn = (recordType: string): recordType is BusinessOwnType =>
 
 function requireBusinessOwnManager(ctx: CommandContext, recordType: BusinessOwnType): void {
   const rule = BUSINESS_OWN[recordType];
-  if (!hasWorkspacePermission(ctx.scope.workspaceRole, rule.permission))
-    throw HfosError.forbidden(rule.refusal);
+  if (!scopeCan(ctx.scope, rule.permission)) throw HfosError.forbidden(rule.refusal);
 }
 
 export const fileBeginUpload = defineCommand({

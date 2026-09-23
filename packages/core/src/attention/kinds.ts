@@ -5,7 +5,7 @@
  * `attention_items.kind` is check-constrained to ATTENTION_KINDS, and a DB parity test keeps the two identical.
  * Milestone 9's money kinds are added here (and one line each in the registry).
  */
-import { hasWorkspacePermission, type Permission, type WorkspaceRole } from '../permissions';
+import { holds, type Grants, type Permission } from '../permissions';
 
 export const ATTENTION_KINDS = [
   'hot_lead',
@@ -484,14 +484,14 @@ export function attentionPermissions(
   return ATTENTION_PERMISSIONS[kind][action];
 }
 
-/** Whether a role may take an action on a kind (the list's allowed actions per item). */
+/** Whether someone may take an action on a kind (the list's allowed actions per item). */
 export function mayTakeAttentionAction(
-  role: WorkspaceRole | null,
+  who: Grants,
   kind: AttentionKind,
   action: AttentionAction,
 ): boolean {
   const needed = ATTENTION_PERMISSIONS[kind][action];
-  return needed !== null && needed.every((p) => hasWorkspacePermission(role, p));
+  return needed !== null && needed.every((p) => holds(who, p));
 }
 
 /**

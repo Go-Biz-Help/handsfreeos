@@ -12,6 +12,8 @@ export interface Business {
   readonly organizationName: string;
   readonly role: Role;
   readonly timezone: string;
+  /** What they may do there (0103), as `account.me` said; a phone's older copy may not have it. */
+  readonly permissions?: readonly string[];
 }
 
 export interface KeepChoices {

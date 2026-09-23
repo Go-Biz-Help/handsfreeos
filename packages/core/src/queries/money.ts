@@ -7,11 +7,12 @@
  * lead it is linked to, or the customer it is for is assigned to them (0101); a document tied to none of those is
  * owner business. The predicate is
  * `private.money_member_sees`, the same definer helper the RLS policies call, so a query layer can never widen
- * the rule and a missing clause can never leak. Owners and admins skip it entirely — they match the
- * money.manage policies and never pay for the lookup.
+ * the rule and a missing clause can never leak. Whoever manages money (money.manage: owners and admins unless the
+ * business says otherwise, 0103) skips it entirely — they match the money.manage policies and never pay for the
+ * lookup. Someone who bills without managing money (money.bill) is held to the same rule, plans included.
  *
- * `money.summary` and the plan queries are owners and admins only: a total of the whole business's receivables
- * is exactly what the member rule withholds, so it is refused rather than half-answered.
+ * `money.summary` is for whoever manages money only: a total of the whole business's receivables is exactly what
+ * the member rule withholds, so it is refused rather than half-answered.
  */
 import { and, asc, desc, eq, inArray, ne, sql as dsql, type SQL } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -22,7 +23,6 @@ import { defineQuery } from '../kernel/define';
 import { decodeCursor, encodeCursor } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
 import { moneySettingsOf, numberPreview } from '../money/index';
-import { hasWorkspacePermission } from '../permissions';
 import {
   EstimateGetInput,
   EstimateGetOutput,
@@ -76,15 +76,15 @@ import {
   type PaymentRow,
   type SubscriptionRow,
 } from '../commands/money-shared';
+import { scopeCan } from '../kernel/execute';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
   workspaceId: i.workspaceId,
 });
 
-/** Owners and admins manage money; anyone else with money.read is held to the jobs they are on. */
-const isMember = (ctx: QueryContext): boolean =>
-  !hasWorkspacePermission(ctx.scope.workspaceRole, 'money.manage');
+/** Whoever manages money sees it all; anyone else with money.read is held to the jobs they are on (0103). */
+const isMember = (ctx: QueryContext): boolean => !scopeCan(ctx.scope, 'money.manage');
 
 /**
  * The member rule for an estimate, as this query's own `where`. Estimates have no booking, so a member's reach
@@ -93,6 +93,12 @@ const isMember = (ctx: QueryContext): boolean =>
 const estimateMemberClause = (ctx: QueryContext) =>
   isMember(ctx)
     ? sql` and private.money_member_sees(e.workspace_id, e.lead_id, null, e.person_id)`
+    : sql``;
+
+/** A plan, for someone who bills without managing money (0103): the customers they bill. */
+const subscriptionMemberClause = (ctx: QueryContext) =>
+  isMember(ctx)
+    ? sql` and private.money_member_sees(s.workspace_id, s.lead_id, null, s.person_id)`
     : sql``;
 
 /** The same rule for an invoice, which also reaches the visit they worked. */
@@ -267,7 +273,7 @@ export const paymentConnectionList = defineQuery({
     'The payment accounts a business has connected, which one is the default, what each can do and how many plans still bill through it. Never a token: those columns are not granted to people at all.',
   input: PaymentConnectionListInput,
   output: PaymentConnectionListOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   async handler(ctx, input) {
     const where = [eq(paymentConnections.workspaceId, ctx.scope.workspaceId!)];
@@ -351,7 +357,7 @@ async function liveSubscriptionCounts(tx: Tx, workspaceId: string): Promise<Map<
 export const estimateList = defineQuery({
   name: 'estimate.list',
   description:
-    'Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones on the leads they own; owners and admins see them all.',
+    'Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones for the customers and leads they are on; whoever manages money sees them all.',
   input: EstimateListInput,
   output: EstimateListOutput,
   permission: 'money.read',
@@ -581,16 +587,17 @@ export const paymentList = defineQuery({
 export const subscriptionList = defineQuery({
   name: 'subscription.list',
   description:
-    'The maintenance plans customers are on: what each bills, when it next bills and where it stands. A plan is money a business is owed every month, so it is owners and admins only.',
+    'The maintenance plans customers are on: what each bills, when it next bills and where it stands. Whoever manages money sees every plan; someone who only bills sees the plans of the customers they bill.',
   input: SubscriptionListInput,
   output: SubscriptionListOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   async handler(ctx, input) {
     const list = await rows<SubscriptionRow>(
       ctx.tx,
       sql`${subscriptionSelect}
           where s.workspace_id = ${ctx.scope.workspaceId!}
+            ${subscriptionMemberClause(ctx)}
             ${input.status?.length ? sql`and s.status::text = any(${textArray(input.status)})` : sql``}
             ${input.personId ? sql`and s.person_id = ${input.personId}::uuid` : sql``}
             ${input.planId ? sql`and s.plan_id = ${input.planId}::uuid` : sql``}
@@ -609,13 +616,14 @@ export const subscriptionGet = defineQuery({
   description: 'One plan a customer is on, and the invoices its cycles have raised.',
   input: SubscriptionGetInput,
   output: SubscriptionGetOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   async handler(ctx, input) {
     const [row] = await rows<SubscriptionRow>(
       ctx.tx,
       sql`${subscriptionSelect}
-          where s.workspace_id = ${ctx.scope.workspaceId!} and s.id = ${input.subscriptionId}::uuid`,
+          where s.workspace_id = ${ctx.scope.workspaceId!} and s.id = ${input.subscriptionId}::uuid
+            ${subscriptionMemberClause(ctx)}`,
     );
     if (!row) throw notThere('plan');
     const raised = await rows<
@@ -652,7 +660,7 @@ export const subscriptionGet = defineQuery({
 export const moneySummary = defineQuery({
   name: 'money.summary',
   description:
-    'What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Owners and admins only: the whole business’s receivables are exactly what the member rule withholds.',
+    'What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Only for whoever manages money: the whole business’s receivables are exactly what the member rule withholds.',
   input: MoneySummaryInput,
   output: MoneySummaryOutput,
   permission: 'money.manage',
@@ -810,7 +818,7 @@ export const moneySettingsGet = defineQuery({
     'The money settings, every default filled in: the sales tax and what it is called, numbering with a live preview of the next number, terms and notes, how long an estimate stays good, the deposit and the reminders.',
   input: MoneySettingsGetInput,
   output: MoneySettingsGetOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   async handler(ctx) {
     const ws = ctx.scope.workspaceId!;

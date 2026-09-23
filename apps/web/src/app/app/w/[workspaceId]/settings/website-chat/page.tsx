@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SettingsNav } from '@/components/settings/settings-nav';
@@ -21,7 +21,7 @@ export default async function WebsiteChatSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (!hasWorkspacePermission(got.workspace.role, 'channels.manage')) notFound();
+  if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   const [widgets, team, brandedOrigin] = await Promise.all([
     api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } }),
     api.POST('/v1/queries/ai_teammate.get', { body: { workspaceId } }),
@@ -35,7 +35,7 @@ export default async function WebsiteChatSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <WebsiteChatPage
         workspaceId={workspaceId}
         widget={widget}

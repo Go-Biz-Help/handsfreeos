@@ -28,7 +28,7 @@ export function InvoicesList({
   workspaceId,
   initial,
   filters,
-  canManage,
+  canBill,
   timeZone,
   now,
   accountNames,
@@ -36,7 +36,8 @@ export function InvoicesList({
   workspaceId: string;
   initial: InvoiceListOut;
   filters: MoneyFilters;
-  canManage: boolean;
+  /** Whether they may write one, for the empty list's button. */
+  canBill: boolean;
   timeZone: string;
   now: number;
   /** Each account's name, for a business with more than one to tell apart (0102). */
@@ -63,7 +64,7 @@ export function InvoicesList({
         <EmptyState
           title={empty.title}
           actions={
-            filtered || !canManage ? undefined : (
+            filtered || !canBill ? undefined : (
               <ButtonLink href={`/app/w/${workspaceId}/money/invoices/new`} size="sm">
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
                 New invoice

@@ -65,6 +65,7 @@ import { timelineList } from './timeline.list';
 import { workspaceGet } from './workspace.get';
 import { workspaceInvitations } from './workspace.invitations';
 import { workspaceMembers } from './workspace.members';
+import { permissionSettings } from './permission';
 import { migrationQueries } from './migration';
 import { walletQueries } from './wallet';
 import { offerList } from './offer';
@@ -148,6 +149,7 @@ export {
   workspaceGet,
   workspaceInvitations,
   workspaceMembers,
+  permissionSettings,
   calendarList,
   calendarGet,
   calendarAvailability,
@@ -174,6 +176,7 @@ export const queries: readonly QueryDef[] = [
   userPhoneGet,
   workspaceGet,
   workspaceMembers,
+  permissionSettings,
   workspaceInvitations,
   invitationPreview,
   auditList,

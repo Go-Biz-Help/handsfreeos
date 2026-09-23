@@ -10,8 +10,8 @@ export const metadata: Metadata = { title: 'Plan' };
 /**
  * One maintenance plan: what it bills, when it bills next, the cycles it has run and the card paying for it.
  *
- * Plans are `money.manage`, so a member never gets here — a plan is money the business is owed every month,
- * which is exactly what the member rule withholds.
+ * Plans are for whoever bills (`money.bill`, 0103): someone who manages money sees every plan, and anyone else who
+ * bills sees the plans of the customers they're on. Everyone else never gets here.
  */
 export default async function PlanDetailPage({
   params,
@@ -20,7 +20,7 @@ export default async function PlanDetailPage({
 }) {
   const { workspaceId, subscriptionId } = await params;
   const shell = await loadMoneyShell(workspaceId);
-  if (!shell.canManage) notFound();
+  if (!shell.canBill) notFound();
 
   const got = await shell.api
     .POST('/v1/queries/subscription.get', { body: { workspaceId, subscriptionId } })
@@ -58,7 +58,7 @@ export default async function PlanDetailPage({
       cycles={got.invoices}
       connections={connections?.connections ?? []}
       cardPayment={card}
-      canManage={shell.canManage}
+      canBill={shell.canBill}
       timeZone={shell.timeZone}
     />
   );

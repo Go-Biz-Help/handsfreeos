@@ -46,23 +46,24 @@ import {
   allocateDocumentNumber,
   assertDraft,
   assertRevision,
-  presentOnly,
   businessToday,
   depositColumns,
   depositOf,
   depositTermsOf,
   documentHash,
   draftOf,
+  type EstimateRow,
   expiresAtOf,
   isoAt,
-  moneyIso,
   linesFor,
   linesIn,
   loadMoneySettings,
+  moneyIso,
+  presentOnly,
+  requireBillable,
   requireEstimate,
   totalsColumns,
   writeLines,
-  type EstimateRow,
 } from './money-shared';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -141,6 +142,7 @@ export async function createEstimate(
 ) {
   const ws = ctx.scope.workspaceId!;
   await requirePerson(ctx.tx, ws, input.personId);
+  await requireBillable(ctx, input);
   const settings = await loadMoneySettings(ctx.tx, ws);
   const draft = draftOf(input.lines, settings, {
     discount: input.discount,
@@ -184,7 +186,7 @@ export const estimateCreate = defineCommand({
   risk: 1,
   input: EstimateCreateInput,
   output: EstimateStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['estimate.created'],
   async handler(ctx, input) {
@@ -199,7 +201,7 @@ export const estimateUpdate = defineCommand({
   risk: 1,
   input: EstimateUpdateInput,
   output: EstimateStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['estimate.updated'],
   async handler(ctx, input) {
@@ -228,6 +230,9 @@ export const estimateUpdate = defineCommand({
         409,
         'An estimate stays with the customer it was written for. Make a new one instead.',
       );
+    // Moved to another lead: still one they may bill (0103).
+    if ((input.leadId ?? null) !== before.lead_id)
+      await requireBillable(ctx, { personId: before.person_id, leadId: input.leadId ?? null });
     const settings = await loadMoneySettings(ctx.tx, ws);
     const draft = draftOf(input.lines, settings, {
       discount: input.discount,
@@ -316,7 +321,7 @@ export const estimateSend = defineCommand({
   risk: 2,
   input: EstimateSendInput,
   output: EstimateStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['estimate.sent'],
   offline: { freshMinutes: FRESH_MINUTES },
@@ -333,7 +338,7 @@ export const estimateVoid = defineCommand({
   risk: 2,
   input: EstimateVoidInput,
   output: EstimateStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['estimate.voided'],
   async handler(ctx, input) {
@@ -423,7 +428,7 @@ export const estimateMarkAccepted = defineCommand({
   risk: 2,
   input: EstimateMarkAcceptedInput,
   output: EstimateAcceptedOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['estimate.accepted'],
   async handler(ctx, input) {
@@ -438,7 +443,7 @@ export const estimateConvert = defineCommand({
   risk: 2,
   input: EstimateConvertInput,
   output: EstimateConvertOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['estimate.converted'],
   async handler(ctx, input) {

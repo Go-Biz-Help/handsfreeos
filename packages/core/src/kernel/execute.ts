@@ -50,11 +50,13 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         role: WorkspaceRole | null;
         org: string | null;
         view_as: string | null;
+        permissions: string[] | null;
       }>(
         tx,
         sql`select private.effective_workspace_role(${ref.workspaceId})::text as role,
                    private.workspace_organization(${ref.workspaceId}) as org,
-                   (select session_id from private.my_view_as(${ref.workspaceId})) as view_as`,
+                   (select session_id from private.my_view_as(${ref.workspaceId})) as view_as,
+                   private.my_permissions(${ref.workspaceId}) as permissions`,
       );
       // A workspace the user cannot see does not exist for them (no 403 existence leak).
       if (!row?.org || (!row.role && !row.view_as))
@@ -63,6 +65,7 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         workspaceId: ref.workspaceId,
         organizationId: row.org,
         workspaceRole: row.role,
+        workspacePermissions: row.role ? (row.permissions ?? []) : [],
         orgRole: null,
         // A support person looking at a business they have no standing in (M13). Their reads are the ones
         // the rules already allow a reader; every command is refused outright below.
@@ -138,12 +141,21 @@ function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope 
   }
 }
 
+/**
+ * Whether the person in this scope may do something in the business: what the business has set for them (0103)
+ * when the scope was resolved with it, else their role's defaults. Handlers ask this rather than the role.
+ */
+export function scopeCan(scope: ResolvedScope, permission: Permission): boolean {
+  if (scope.workspacePermissions) return scope.workspacePermissions.includes(permission);
+  return hasWorkspacePermission(scope.workspaceRole, permission);
+}
+
 function assertPermission(scope: ResolvedScope, permission: Permission): void {
   const ok = isStaffPermission(permission)
     ? hasStaffPermission(scope.staffRole ?? null, permission)
     : isOrgPermission(permission)
       ? hasOrgPermission(scope.orgRole, permission)
-      : hasWorkspacePermission(scope.workspaceRole, permission);
+      : scopeCan(scope, permission);
   if (!ok) throw HfosError.forbidden();
 }
 

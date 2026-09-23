@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -28,8 +29,7 @@ export default async function ImportsSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'records.import')) notFound();
   const { imports } = unwrapPage(
     await api.POST('/v1/queries/import.list', { body: { workspaceId } }),
   );
@@ -44,7 +44,7 @@ export default async function ImportsSettingsPage({
           </ButtonLink>
         }
       />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <Card className="overflow-hidden" data-testid="imports-list">
         {imports.length === 0 ? (
           <EmptyState title="No imports yet">

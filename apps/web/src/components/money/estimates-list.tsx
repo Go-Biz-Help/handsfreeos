@@ -21,7 +21,7 @@ export function EstimatesList({
   workspaceId,
   initial,
   filters,
-  canManage,
+  canBill,
   timeZone,
   now,
   goodForDays,
@@ -29,7 +29,8 @@ export function EstimatesList({
   workspaceId: string;
   initial: EstimateListOut;
   filters: MoneyFilters;
-  canManage: boolean;
+  /** Whether they may write one, for the empty list's button. */
+  canBill: boolean;
   timeZone: string;
   now: number;
   goodForDays: number;
@@ -51,7 +52,7 @@ export function EstimatesList({
         <EmptyState
           title={estimatesEmpty(!!(filters.q || filters.status)).title}
           actions={
-            filters.q || filters.status || !canManage ? undefined : (
+            filters.q || filters.status || !canBill ? undefined : (
               <ButtonLink href={`/app/w/${workspaceId}/money/estimates/new`} size="sm">
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
                 New estimate

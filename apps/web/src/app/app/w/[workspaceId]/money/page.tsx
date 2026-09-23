@@ -33,7 +33,7 @@ export default async function MoneyPage({
     shell.api
       .POST('/v1/queries/invoice.list', { body: invoiceListBody(workspaceId, filters) })
       .then((r) => unwrapPage(r)),
-    loadAccounts(shell.api, workspaceId, shell.canManage),
+    loadAccounts(shell.api, workspaceId, shell.canBill),
   ]);
 
   return (
@@ -41,7 +41,7 @@ export default async function MoneyPage({
       <PageHeader
         title="Money"
         description="What you have quoted, what you are owed and what has come in."
-        actions={shell.canManage ? <MoneyActions workspaceId={workspaceId} /> : undefined}
+        actions={shell.canBill ? <MoneyActions workspaceId={workspaceId} /> : undefined}
       />
       {shell.summary ? (
         <HeadlineStrip summary={shell.summary} days={COLLECTED_DAYS} timeZone={shell.timeZone} />
@@ -59,7 +59,7 @@ export default async function MoneyPage({
         workspaceId={workspaceId}
         initial={invoices}
         filters={filters}
-        canManage={shell.canManage}
+        canBill={shell.canBill}
         timeZone={shell.timeZone}
         now={shell.now}
         accountNames={accountNames(accounts)}

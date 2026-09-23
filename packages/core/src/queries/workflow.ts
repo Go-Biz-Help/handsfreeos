@@ -19,7 +19,6 @@ import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
-import { hasWorkspacePermission } from '../permissions';
 import {
   WorkflowApprovalListInput,
   WorkflowApprovalListOutput,
@@ -59,6 +58,7 @@ import {
 } from '../workflows/load';
 import type { WorkflowOp } from '../workflows/ops';
 import { placeholdersIn } from '../workflows/recipes';
+import { scopeCan } from '../kernel/execute';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -601,7 +601,7 @@ const approvalSelect = sql`select a.id, a.workflow_id, w.name as workflow_name, 
 
 async function approvalsOut(ctx: QueryContext, list: readonly ApprovalRow[]) {
   const me = requireHuman(ctx).userId;
-  const manages = hasWorkspacePermission(ctx.scope.workspaceRole, 'workflows.manage');
+  const manages = scopeCan(ctx.scope, 'workflows.manage');
   const names = await userNames(ctx.tx, [
     ...list.flatMap((a) => a.approvers),
     ...list.map((a) => a.decided_by).filter((u): u is string => !!u),

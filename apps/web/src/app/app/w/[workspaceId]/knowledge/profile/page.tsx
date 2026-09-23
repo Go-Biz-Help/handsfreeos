@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { ProfileForm } from '@/components/knowledge/profile-form';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -21,7 +21,7 @@ export default async function KnowledgeProfilePage({
   return (
     <ProfileForm
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       profile={unwrapPage(profile)}
     />
   );

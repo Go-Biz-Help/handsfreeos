@@ -18,6 +18,7 @@
  * file knows only the keys, so the layout can be read and checked anywhere.
  */
 import { z } from 'zod';
+import type { WorkspacePermission } from '../permissions';
 
 /** Every place the menu can hold, in the order a new account sees them. */
 export const MENU_KEYS = [
@@ -118,6 +119,37 @@ export const SUGGESTED_MENU: Menu = {
   ],
   hidden: [],
 };
+
+/**
+ * The places that are nothing without a permission a business may take away (0103): Money without seeing bills,
+ * the inbox without using it, the audit log without reading it.
+ */
+export const MENU_NEEDS: Readonly<Partial<Record<MenuKey, WorkspacePermission>>> = {
+  inbox: 'inbox.use',
+  money: 'money.read',
+  audit: 'audit.read',
+};
+
+/**
+ * The menu as this person sees it in one business: the places they may not open are left out, and a group left
+ * with nothing in it goes too. Their saved menu keeps every place, so one comes back where it was the moment the
+ * business lets them in. Without their permissions (an older copy), the menu as saved.
+ */
+export function menuFor(menu: Menu, permissions: readonly string[] | null | undefined): Menu {
+  if (!permissions) return menu;
+  const open = (key: MenuKey) => {
+    const needs = MENU_NEEDS[key];
+    return !needs || permissions.includes(needs);
+  };
+  return {
+    entries: menu.entries.flatMap((e): MenuEntry[] => {
+      if (e.kind === 'link') return open(e.key) ? [e] : [];
+      const keys = e.keys.filter(open);
+      return keys.length ? [{ ...e, keys }] : [];
+    }),
+    hidden: menu.hidden,
+  };
+}
 
 /** The places an entry holds, in order. */
 export function entryKeys(entry: MenuEntry): readonly MenuKey[] {

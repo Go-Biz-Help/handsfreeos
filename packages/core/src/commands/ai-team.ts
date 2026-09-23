@@ -48,7 +48,6 @@ import { changeMoment } from '../kernel/moment';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { AiEmployeeActor, CommandContext } from '../kernel/types';
 import { workspaceAddresses } from '../messaging/email';
-import { hasWorkspacePermission } from '../permissions';
 import {
   AiTeammateCreateInput,
   AiTeammateCreateOutput,
@@ -68,6 +67,7 @@ import {
 } from '../schemas/ai-team';
 import { runHeldAction, type HeldActionKind } from './appointment-ai';
 import { messageSend } from './message';
+import { scopeCan } from '../kernel/execute';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -406,7 +406,7 @@ export const aiTeammateDecideDraft = defineCommand({
       .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)));
     if (!d) throw HfosError.notFound('Draft not found.');
     // Reply drafts are the inbox's; what the teammate asks approval for (a discount) is a manager's.
-    if (d.kind === 'approval' && !hasWorkspacePermission(ctx.scope.workspaceRole, 'ai_team.manage'))
+    if (d.kind === 'approval' && !scopeCan(ctx.scope, 'ai_team.manage'))
       throw HfosError.forbidden(
         'Only owners and admins decide what the AI teammate asks approval for.',
         'not_an_approver',

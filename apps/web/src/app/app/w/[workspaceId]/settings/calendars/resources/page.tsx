@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ResourcesPage } from '@/components/calendars/resources-page';
@@ -16,14 +17,14 @@ export default async function ResourcesSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (got.workspace.role !== 'owner' && got.workspace.role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const resources = unwrapPage(
     await api.POST('/v1/queries/resource.list', { body: { workspaceId } }),
   );
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <CalendarsSubnav workspaceId={workspaceId} />
       <ResourcesPage workspaceId={workspaceId} resources={resources.items} />
     </>

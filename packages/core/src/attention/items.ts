@@ -5,7 +5,7 @@
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { uuidArray } from '../calendar/load';
-import type { WorkspaceRole } from '../permissions';
+import type { Grants } from '../permissions';
 import type { AttentionItemRow } from './load';
 import { mayDecideApproval, type AttentionViewer } from './view';
 
@@ -29,7 +29,7 @@ export {
 export async function decidableApprovals(
   tx: Tx,
   workspaceId: string,
-  role: WorkspaceRole | null,
+  who: Grants,
   userId: string,
   ids: readonly string[],
 ): Promise<Set<string>> {
@@ -49,7 +49,7 @@ export async function decidableApprovals(
         where workspace_id = ${workspaceId} and id = any(${uuidArray(ids)})`,
   );
   for (const a of list) {
-    if (mayDecideApproval(role, userId, a)) out.add(a.id);
+    if (mayDecideApproval(who, userId, a)) out.add(a.id);
   }
   return out;
 }
@@ -58,10 +58,15 @@ export async function decidableApprovals(
 export async function viewerFor(
   tx: Tx,
   workspaceId: string,
-  role: WorkspaceRole | null,
+  who: Grants,
   userId: string,
   items: readonly Pick<AttentionItemRow, 'kind' | 'subjectId'>[],
 ): Promise<AttentionViewer> {
   const ids = items.filter((i) => i.kind === 'ai_approval').map((i) => i.subjectId);
-  return { userId, role, decidable: await decidableApprovals(tx, workspaceId, role, userId, ids) };
+  return {
+    userId,
+    role: who.role,
+    permissions: who.permissions ?? null,
+    decidable: await decidableApprovals(tx, workspaceId, who, userId, ids),
+  };
 }

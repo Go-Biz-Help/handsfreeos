@@ -984,6 +984,7 @@ export const syncedTables = {
       user_id: column.text,
       workspace_id: column.text,
       role: column.text,
+      permissions: column.text,
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
@@ -2500,6 +2501,8 @@ export interface WorkspaceAccessRow {
   readonly workspace_id: string | null;
   /** app.member_role */
   readonly role: string | null;
+  /** text[]: a JSON array here */
+  readonly permissions: string | null;
 }
 
 /** A row of `workspace_memberships` (business_v1). */

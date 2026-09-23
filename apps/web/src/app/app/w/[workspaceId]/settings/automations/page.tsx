@@ -1,4 +1,4 @@
-import { attentionSettingsOf, automationSettingsOf, type NudgeCheckContext } from '@hfos/core';
+import { attentionSettingsOf, automationSettingsOf, can, type NudgeCheckContext } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AutomationsSettings } from '@/components/settings/automations/automations-page';
@@ -34,7 +34,7 @@ export default async function AutomationsSettingsPage({
     fetchMe(api),
   ]);
   const role = got.workspace.role;
-  if (role !== 'owner' && role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'workspace.update')) notFound();
   const body = { body: { workspaceId } };
   // The number, addresses and chat sites are only for the wording's check (the business's own may be given).
   const [pipelines, worked, phone, email, widgets, team, forms, services, plans] =
@@ -92,7 +92,7 @@ export default async function AutomationsSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <AutomationsSettings
         workspaceId={workspaceId}
         role={role}

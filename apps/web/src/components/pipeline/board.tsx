@@ -27,7 +27,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { boardStages, moveToast, PIPELINE_WORDS, pipelineSummary, RECORD_WORDS } from '@hfos/core';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { LeadBoard, LeadCard, Pipeline, Role, Stage, Tag } from '@/lib/api/types';
+import type { LeadBoard, LeadCard, Pipeline, Stage, Tag } from '@/lib/api/types';
 import { formatMoney } from '@/lib/format';
 import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,7 @@ export function PipelineBoard({
   pipelines,
   members,
   tags,
-  role,
+  permissions,
   myUserId,
   initialView,
 }: {
@@ -61,7 +61,8 @@ export function PipelineBoard({
   pipelines: Pipeline[];
   members: { id: string; fullName: string }[];
   tags: Tag[];
-  role: Role;
+  /** What the business lets them do (0103), for the lead sheet. */
+  permissions: readonly string[];
   myUserId: string;
   initialView: View | null;
 }) {
@@ -337,7 +338,7 @@ export function PipelineBoard({
               leadId={selected}
               members={members}
               myUserId={myUserId}
-              role={role}
+              permissions={permissions}
               tags={tags}
               compact
               onChanged={() => void refetch()}

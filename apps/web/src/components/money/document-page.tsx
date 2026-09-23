@@ -138,14 +138,15 @@ function Header({
 export function EstimateDocument({
   workspaceId,
   data,
-  canManage,
+  canBill,
   connections,
   timeZone,
   now,
 }: {
   workspaceId: string;
   data: EstimateGetOut;
-  canManage: boolean;
+  /** Turn it into an invoice, record their yes, copy its link or void it (0103). */
+  canBill: boolean;
   connections: readonly PaymentConnectionRow[];
   timeZone: string;
   now: number;
@@ -157,7 +158,7 @@ export function EstimateDocument({
   const [accepting, setAccepting] = useState(false);
   const [voiding, setVoiding] = useState(false);
   const open = est.status === 'sent';
-  const answerable = canManage && (est.status === 'sent' || est.status === 'accepted');
+  const answerable = canBill && (est.status === 'sent' || est.status === 'accepted');
 
   const events: Event[] = [
     {
@@ -244,7 +245,7 @@ export function EstimateDocument({
                 Turn into an invoice
               </Button>
             ) : null}
-            {canManage && open ? (
+            {canBill && open ? (
               <Button
                 variant="secondary"
                 onClick={() => setAccepting(true)}
@@ -256,7 +257,7 @@ export function EstimateDocument({
               </Button>
             ) : null}
             {/* The page they were sent stays theirs to open once answered, so the link is offered until it's voided. */}
-            {canManage && est.sentAt && !est.voidedAt ? (
+            {canBill && est.sentAt && !est.voidedAt ? (
               <CopyLinkButton
                 workspaceId={workspaceId}
                 kind="estimate"
@@ -265,7 +266,7 @@ export function EstimateDocument({
                 className="max-md:h-11 max-md:flex-1"
               />
             ) : null}
-            {canManage && !est.voidedAt ? (
+            {canBill && !est.voidedAt ? (
               <Button
                 variant="ghost"
                 className="max-md:h-11"
@@ -370,12 +371,16 @@ const invoiceSub = (inv: InvoiceDetail, now: number, timeZone: string): string =
 export function InvoiceDocument({
   workspaceId,
   data,
+  canBill,
   canManage,
   timeZone,
   now,
 }: {
   workspaceId: string;
   data: InvoiceGetOut;
+  /** Record a payment by hand, copy its link or void it (0103). */
+  canBill: boolean;
+  /** Give money back: only for whoever manages money. */
   canManage: boolean;
   timeZone: string;
   now: number;
@@ -477,7 +482,7 @@ export function InvoiceDocument({
         sub={invoiceSub(inv, now, timeZone)}
         actions={
           <>
-            {canManage && owes ? (
+            {canBill && owes ? (
               <Button
                 onClick={() => setPaying(true)}
                 data-testid="invoice-record-payment"
@@ -488,7 +493,7 @@ export function InvoiceDocument({
               </Button>
             ) : null}
             {/* Paid or not, the page they were sent is theirs: the receipt lives there too. */}
-            {canManage && inv.sentAt && !inv.voidedAt ? (
+            {canBill && inv.sentAt && !inv.voidedAt ? (
               <CopyLinkButton
                 workspaceId={workspaceId}
                 kind="invoice"
@@ -497,7 +502,7 @@ export function InvoiceDocument({
                 className="max-md:h-11 max-md:flex-1"
               />
             ) : null}
-            {canManage && voidable ? (
+            {canBill && voidable ? (
               <Button
                 variant="ghost"
                 className="max-md:h-11"

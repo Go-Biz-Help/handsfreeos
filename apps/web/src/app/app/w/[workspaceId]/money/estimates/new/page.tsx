@@ -18,7 +18,7 @@ export default async function NewEstimatePage({
 }) {
   const { workspaceId } = await params;
   const shell = await loadMoneyShell(workspaceId);
-  if (!shell.canManage) notFound();
+  if (!shell.canBill) notFound();
   const [{ products, connections }, seed] = await Promise.all([
     loadEditorCatalogs(shell.api, workspaceId),
     seedFrom(shell.api, workspaceId, await searchParams),

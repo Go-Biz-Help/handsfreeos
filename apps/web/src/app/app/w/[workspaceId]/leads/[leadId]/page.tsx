@@ -94,7 +94,7 @@ export default async function LeadPage({
           }}
           members={assigneeOptions(members)}
           myUserId={userId}
-          role={got.workspace.role}
+          permissions={got.workspace.permissions}
           tags={tags.tags}
           timeZone={got.workspace.timezone}
           upcoming={upcoming}

@@ -41,7 +41,7 @@ export default async function CompanyPage({
     <RecordPage
       workspaceId={workspaceId}
       myUserId={userId}
-      role={got.workspace.role}
+      permissions={got.workspace.permissions}
       company={company.company}
       companyPeople={company.people}
       timeline={timeline}

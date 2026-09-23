@@ -23,6 +23,7 @@ import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { money } from '../money/index';
 import { accountForPerson, assertAccountUsable } from './payment-connection';
+import { requireBillable } from './money-shared';
 import {
   SubscriptionCancelInput,
   SubscriptionRecordCycleInput,
@@ -110,6 +111,7 @@ export async function startSubscription(
 ) {
   const ws = ctx.scope.workspaceId!;
   await requirePerson(ctx.tx, ws, input.personId);
+  await requireBillable(ctx, input);
   const [catalogue] = input.planId
     ? await ctx.tx.select().from(plans).where(eq(plans.id, input.planId))
     : [];
@@ -176,7 +178,7 @@ export const subscriptionStart = defineCommand({
   risk: 3,
   input: SubscriptionStartInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.started'],
   async handler(ctx, input) {
@@ -191,7 +193,7 @@ export const subscriptionPause = defineCommand({
   risk: 2,
   input: SubscriptionRefInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.paused'],
   async handler(ctx, input) {
@@ -228,7 +230,7 @@ export const subscriptionResume = defineCommand({
   risk: 2,
   input: SubscriptionRefInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.resumed'],
   async handler(ctx, input) {
@@ -317,7 +319,7 @@ export const subscriptionRequestCard = defineCommand({
   risk: 2,
   input: SubscriptionRequestCardInput,
   output: SubscriptionCardOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.card_requested'],
   offline: { freshMinutes: FRESH_MINUTES },
@@ -390,7 +392,7 @@ export const subscriptionSetConnection = defineCommand({
   risk: 2,
   input: SubscriptionSetConnectionInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.connection_changed'],
   async handler(ctx, input) {
@@ -455,7 +457,7 @@ export const subscriptionCancel = defineCommand({
   risk: 3,
   input: SubscriptionCancelInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.cancelled'],
   async handler(ctx, input) {

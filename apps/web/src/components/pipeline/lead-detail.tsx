@@ -1,5 +1,5 @@
 'use client';
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import {
   AlertTriangle,
   Archive,
@@ -49,7 +49,6 @@ import type {
   FileItem,
   LeadCard,
   LeadGet,
-  Role,
   Tag,
   Task,
   TimelineList,
@@ -84,7 +83,7 @@ export function LeadDetail({
   initial,
   members,
   myUserId,
-  role,
+  permissions,
   tags,
   compact,
   onChanged,
@@ -97,7 +96,8 @@ export function LeadDetail({
   initial?: LeadDetailData;
   members: { id: string; fullName: string }[];
   myUserId: string;
-  role: Role;
+  /** What the business lets them do (0103), as workspace.get gives it. */
+  permissions: readonly string[];
   tags: Tag[];
   compact?: boolean;
   /** Called after any change the board should reflect (moves, next action, archive). */
@@ -124,8 +124,9 @@ export function LeadDetail({
   const [openAppt, setOpenAppt] = useState<string | null>(null);
   const version = useLiveVersion(['lead', 'activity', 'task']);
   useLiveRefresh(initial ? ['lead', 'activity', 'task', 'appointment'] : []);
-  const canModerate = role === 'owner' || role === 'admin';
-  const canBill = hasWorkspacePermission(role, 'money.manage');
+  // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
+  const canModerate = can(permissions, 'records.archive');
+  const canBill = can(permissions, 'money.bill');
   /** What has been quoted or billed on this job. A member who doesn't own this lead finds nothing here. */
   const leadMoney = useRecordMoney(workspaceId, 'lead', compact ? null : leadId);
 
@@ -545,7 +546,7 @@ export function LeadDetail({
               workspaceId={workspaceId}
               person={{ id: lead.person.id, fullName: lead.person.fullName }}
               timeZone={timeZone ?? 'America/Chicago'}
-              canManageWorkflows={canModerate}
+              canManageWorkflows={can(permissions, 'workflows.manage')}
             />
           ) : null}
           <span className="flex-1" />
@@ -612,7 +613,7 @@ export function LeadDetail({
           leadId={leadId}
           personId={lead.person?.id ?? null}
           found={leadMoney}
-          canManage={canBill}
+          canBill={canBill}
           timeZone={timeZone ?? 'UTC'}
         />
       ) : null}
@@ -656,7 +657,11 @@ export function LeadDetail({
             {lead.archivedAt ? null : (
               <UploadZone workspaceId={workspaceId} recordType="lead" recordId={leadId} compact />
             )}
-            <FileGrid workspaceId={workspaceId} files={data.files} canDelete={canModerate} />
+            <FileGrid
+              workspaceId={workspaceId}
+              files={data.files}
+              canDelete={can(permissions, 'files.delete')}
+            />
           </div>
         </section>
       )}
@@ -705,7 +710,7 @@ export function LeadDetail({
           appointmentId={openAppt}
           timeZone={timeZone}
           people={members.map((m) => ({ userId: m.id, fullName: m.fullName }))}
-          myRole={role}
+          myPermissions={permissions}
           onClose={() => setOpenAppt(null)}
           onChanged={reload}
         />

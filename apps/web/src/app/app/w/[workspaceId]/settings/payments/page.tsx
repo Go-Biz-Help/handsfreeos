@@ -1,4 +1,4 @@
-import { readMoneySettings } from '@hfos/core';
+import { can, readMoneySettings } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PaymentsSettings } from '@/components/settings/payments-page';
@@ -26,8 +26,7 @@ export default async function PaymentsSettingsPage({
   const { payments } = await searchParams;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const role = got.workspace.role;
-  if (role !== 'owner' && role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'money.manage')) notFound();
   const body = { body: { workspaceId } };
   // Whether anything has ever gone out to a customer: the "no address on your documents" warning waits for it,
   // so a business still setting itself up is never told off for a field it hasn't reached yet. One row of each
@@ -52,7 +51,7 @@ export default async function PaymentsSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <PaymentsSettings
         workspaceId={workspaceId}
         initial={readMoneySettings(settings.settings)}
@@ -68,15 +67,22 @@ export default async function PaymentsSettingsPage({
 }
 
 /**
- * The business's people for who may use each account (0102), and whether each bills: owners and admins do, and the
- * agency's owners and admins reach every business as one.
+ * The business's people for who may use each account (0102), and whether each bills: whoever the business lets
+ * (`money.bill`, 0103) — owners and admins unless it says otherwise, and the agency's owners and admins, who reach
+ * every business as one.
  */
 function teamOf(m: Members): TeamMember[] {
   const bills = new Map<string, { fullName: string; bills: boolean }>();
   for (const x of m.members)
-    bills.set(x.userId, { fullName: x.fullName || x.email, bills: x.role !== 'member' });
+    bills.set(x.userId, {
+      fullName: x.fullName || x.email,
+      bills: can(x.permissions, 'money.bill'),
+    });
   for (const x of m.organizationAdmins)
-    bills.set(x.userId, { fullName: x.fullName || x.email, bills: true });
+    bills.set(x.userId, {
+      fullName: x.fullName || x.email,
+      bills: can(x.permissions, 'money.bill'),
+    });
   return [...bills]
     .map(([id, v]) => ({ id, ...v }))
     .sort((a, b) => a.fullName.localeCompare(b.fullName));

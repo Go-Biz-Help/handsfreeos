@@ -1,5 +1,6 @@
 'use client';
-import { Clock, LogOut, MoreHorizontal, Trash2 } from 'lucide-react';
+import { can, type CustomizableRole } from '@hfos/core';
+import { Clock, LogOut, MoreHorizontal, ShieldCheck, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -17,24 +18,47 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { Member, Role } from '@/lib/api/types';
+import type { Member, PermissionSettingsOut, Role } from '@/lib/api/types';
+import { PersonPermissionsDialog } from './person-permissions-dialog';
 import { ROLE_OPTIONS, roleRank } from './roles';
 
 export function MembersTable({
   workspaceId,
   members,
   myRole,
+  myPermissions,
   myUserId,
+  permissionSettings = null,
+  openPermissionsFor = null,
 }: {
   workspaceId: string;
   members: Member[];
   myRole: Role;
+  /** What the business lets the person looking do (0103). */
+  myPermissions: readonly string[];
   myUserId: string;
+  /** Every role's and person's own permission settings, for an owner who sets them; null for anyone else. */
+  permissionSettings?: PermissionSettingsOut | null;
+  /** Open this person's permissions straight away (Settings → Permissions links here). */
+  openPermissionsFor?: string | null;
 }) {
   const router = useRouter();
   const [confirm, setConfirm] = useState<Member | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const canManage = myRole === 'owner' || myRole === 'admin';
+  const [settingFor, setSettingFor] = useState<Member | null>(
+    () =>
+      (permissionSettings &&
+        members.find((m) => m.userId === openPermissionsFor && m.role !== 'owner')) ||
+      null,
+  );
+  const canChangeRole = can(myPermissions, 'members.change_role');
+  const canRemove = can(myPermissions, 'members.remove');
+  // Someone else's hours are for whoever sets up calendars, as My calendar's own page says.
+  const canEditHours = can(myPermissions, 'calendars.manage');
+  const ownSettings = (userId: string) =>
+    permissionSettings?.people.find((p) => p.userId === userId)?.settings ?? {};
+  const roleSettings = (role: CustomizableRole) =>
+    permissionSettings?.roles.find((r) => r.role === role)?.settings ?? {};
 
   async function changeRole(m: Member, role: Role) {
     setBusy(m.userId);
@@ -99,7 +123,12 @@ export function MembersTable({
           <tbody>
             {members.map((m) => {
               const isSelf = m.userId === myUserId;
-              const editable = canManage && !isSelf && roleRank(m.role) <= roleRank(myRole);
+              const outranks = !isSelf && roleRank(m.role) <= roleRank(myRole);
+              const editable = canChangeRole && outranks;
+              const removable = canRemove && outranks;
+              // Owners always do everything, so there is nothing to set for them.
+              const settable = !!permissionSettings && m.role !== 'owner';
+              const hasOwn = Object.keys(ownSettings(m.userId)).length > 0;
               return (
                 <tr key={m.userId} data-testid={`member-row-${m.email}`}>
                   <td className="border-b border-border px-4 py-3 last:border-b-0">
@@ -109,6 +138,14 @@ export function MembersTable({
                         <span className="flex items-center gap-2 font-medium">
                           {m.fullName || m.email}
                           {isSelf ? <Badge variant="gray">You</Badge> : null}
+                          {settable && hasOwn ? (
+                            <Badge
+                              variant="accent"
+                              data-testid={`member-own-permissions-${m.email}`}
+                            >
+                              Own permissions
+                            </Badge>
+                          ) : null}
                         </span>
                         <span className="text-[13px] text-text-3">{m.email}</span>
                       </span>
@@ -125,7 +162,7 @@ export function MembersTable({
                           ? 'You cannot change your own role'
                           : editable
                             ? 'Change role'
-                            : 'Only owners can change this role'
+                            : 'You can’t change this role'
                       }
                       aria-label={`Role for ${m.fullName || m.email}`}
                       onChange={(e) => void changeRole(m, e.target.value as Role)}
@@ -149,7 +186,7 @@ export function MembersTable({
                     })}
                   </td>
                   <td className="border-b border-border px-4 py-3">
-                    {isSelf || editable || canManage ? (
+                    {isSelf || removable || canEditHours || settable ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -161,7 +198,7 @@ export function MembersTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                          {isSelf || canManage ? (
+                          {isSelf || canEditHours ? (
                             <DropdownMenuItem asChild>
                               <Link
                                 href={`/app/w/${workspaceId}/settings/my-calendar${isSelf ? '' : `?user=${m.userId}`}`}
@@ -172,12 +209,21 @@ export function MembersTable({
                               </Link>
                             </DropdownMenuItem>
                           ) : null}
+                          {settable ? (
+                            <DropdownMenuItem
+                              onSelect={() => setSettingFor(m)}
+                              data-testid={`member-permissions-${m.email}`}
+                            >
+                              <ShieldCheck className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                              Permissions
+                            </DropdownMenuItem>
+                          ) : null}
                           {isSelf ? (
                             <DropdownMenuItem onSelect={() => setConfirm(m)}>
                               <LogOut className="h-[18px] w-[18px]" strokeWidth={1.5} />
                               Leave workspace
                             </DropdownMenuItem>
-                          ) : editable ? (
+                          ) : removable ? (
                             <DropdownMenuItem danger onSelect={() => setConfirm(m)}>
                               <Trash2 className="h-[18px] w-[18px]" strokeWidth={1.5} />
                               Remove from workspace
@@ -193,6 +239,18 @@ export function MembersTable({
           </tbody>
         </table>
       </Card>
+      {settingFor && settingFor.role !== 'owner' ? (
+        <PersonPermissionsDialog
+          key={settingFor.userId}
+          workspaceId={workspaceId}
+          person={{ userId: settingFor.userId, name: settingFor.fullName || settingFor.email }}
+          role={settingFor.role}
+          roleSettings={roleSettings(settingFor.role)}
+          initial={ownSettings(settingFor.userId)}
+          open
+          onOpenChange={(v) => !v && setSettingFor(null)}
+        />
+      ) : null}
       <Dialog
         open={!!confirm}
         onOpenChange={(v) => {

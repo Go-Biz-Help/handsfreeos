@@ -21,7 +21,7 @@ export default async function InboxLayout({
     <InboxShell
       workspaceId={workspaceId}
       myUserId={userId}
-      role={got.workspace.role}
+      permissions={got.workspace.permissions}
       members={assigneeOptions(members)}
       timezone={got.workspace.timezone}
       narrowed={got.workspace.inboxPerPerson}

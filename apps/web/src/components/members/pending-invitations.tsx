@@ -12,9 +12,14 @@ import { relativeTime } from '@/lib/utils';
 export function PendingInvitations({
   workspaceId,
   invitations,
+  canResend = true,
+  canRevoke = true,
 }: {
   workspaceId: string;
   invitations: PendingInvitation[];
+  /** Sending a fresh link is inviting (members.invite); cancelling is its own permission (0103). */
+  canResend?: boolean;
+  canRevoke?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -91,23 +96,27 @@ export function PendingInvitations({
                   </td>
                   <td className="border-b border-border px-4 py-3">
                     <div className="flex justify-end gap-1.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy === inv.id}
-                        onClick={() => void act(inv, 'resend')}
-                      >
-                        Resend
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-danger-text"
-                        disabled={busy === inv.id}
-                        onClick={() => void act(inv, 'revoke')}
-                      >
-                        Revoke
-                      </Button>
+                      {canResend ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={busy === inv.id}
+                          onClick={() => void act(inv, 'resend')}
+                        >
+                          Resend
+                        </Button>
+                      ) : null}
+                      {canRevoke ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-danger-text"
+                          disabled={busy === inv.id}
+                          onClick={() => void act(inv, 'revoke')}
+                        >
+                          Revoke
+                        </Button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

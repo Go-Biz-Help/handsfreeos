@@ -1,6 +1,7 @@
 'use client';
 import {
   assigneeShort,
+  can,
   closedBanner,
   CONVERSATION_ACTIONS,
   CONVERSATION_DONE,
@@ -164,7 +165,7 @@ export function ConversationView({
   const {
     workspaceId,
     myUserId,
-    role,
+    permissions,
     members,
     timezone,
     reloadList,
@@ -180,9 +181,10 @@ export function ConversationView({
   const name = rowName({ person, counterpartDisplay: c.counterpartDisplay });
   const listHref = `/app/w/${workspaceId}/inbox${listQuery}`;
   const customerHref = person ? `/app/w/${workspaceId}/customers/people/${person.id}` : null;
-  const canManage = role === 'owner' || role === 'admin';
-  // Archiving matches every other record in HandsFreeOS: owners and admins, not everyone with the inbox.
-  const canArchive = canManage;
+  // What the business lets them do (0103). Archiving matches every other record in HandsFreeOS
+  // (records.archive), not everyone with the inbox; setting up a number is channels.manage.
+  const canArchive = can(permissions, 'records.archive');
+  const canSetUp = can(permissions, 'channels.manage');
   const phone = useMediaQuery('(max-width: 767px)') === true;
   // With the Assistant docked beside the inbox, the customer pane folds away (Customer details opens it).
   const assistantDocked = useAssistant().docked;
@@ -436,7 +438,7 @@ export function ConversationView({
       members={members}
       pipelines={pipelines}
       tags={tags}
-      canMoney={canManage}
+      canMoney={can(permissions, 'money.bill')}
       onAddPerson={() => setAddPerson(true)}
       onLinkPerson={() => setLinkPerson(true)}
       onEditPerson={() => void editPerson()}
@@ -896,7 +898,7 @@ export function ConversationView({
             <ChannelIcon icon={Phone} size={44} />
             <h3 className="text-[15px] font-semibold">{NO_NUMBER_WORDS.title}</h3>
             <p className="max-w-[360px] text-[13px] text-text-2">{NO_NUMBER_WORDS.body}</p>
-            {canManage ? (
+            {canSetUp ? (
               <ButtonLink
                 href={`/app/w/${workspaceId}/settings/texting`}
                 variant="primary"

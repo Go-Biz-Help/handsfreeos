@@ -23,6 +23,7 @@ import { estimateLines, invoiceLines } from '@hfos/db/schema';
 import { uuidArray } from '../calendar/load';
 import { addDays, localDateOf, startOfLocalDay } from '../calendar/engine/zoned';
 import { HfosError } from '../errors';
+import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import {
   allocateDiscount,
@@ -947,3 +948,29 @@ export const businessToday = (timeZone: string, now: number = Date.now()): strin
 /** `startOfLocalDay` re-exported under the name the commands read better with. */
 export const localDayStart = startOfLocalDay;
 export { addDays };
+
+// ---------- who a person may bill (0103) ----------
+
+/**
+ * Someone who bills without managing money bills the customers they can already see money for: the ones they're on,
+ * the leads they work, the visits they're staffed on (0050's rule, with 0101's customer arm). Said in words here,
+ * before the database's own policy refuses the same write. Owners, admins and anyone else who manages money, and
+ * the system, bill anyone.
+ */
+export async function requireBillable(
+  ctx: CommandContext,
+  doc: { personId: string; leadId?: string | null; attendeeId?: string | null },
+): Promise<void> {
+  if (ctx.actor.type !== 'human' || scopeCan(ctx.scope, 'money.manage')) return;
+  const [ok] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.money_member_sees(${ctx.scope.workspaceId!}::uuid, ${doc.leadId ?? null}::uuid,
+          ${doc.attendeeId ?? null}::uuid, ${doc.personId}::uuid) as ok`,
+  );
+  if (!ok?.ok)
+    throw HfosError.rule(
+      'money_not_your_customer',
+      403,
+      'You can bill the customers you’re on. Ask an owner or admin to add you to this customer.',
+    );
+}

@@ -160,7 +160,7 @@ export function PlanPage({
   cycles,
   connections,
   cardPayment,
-  canManage,
+  canBill,
   timeZone,
 }: {
   workspaceId: string;
@@ -169,7 +169,8 @@ export function PlanPage({
   connections: readonly PaymentConnectionRow[];
   /** The newest card payment a cycle took, for the card that is paying for it. */
   cardPayment: PaymentListRow | null;
-  canManage: boolean;
+  /** Ask for a card, pause, start again, cancel or move it: whoever bills (0103). */
+  canBill: boolean;
   timeZone: string;
 }) {
   useLiveRefresh(['subscription', 'invoice', 'payment', 'refund']);
@@ -285,7 +286,7 @@ export function PlanPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 max-md:w-full">
-          {canManage && (billing || sub.status === 'paused') && sub.hasCard ? (
+          {canBill && (billing || sub.status === 'paused') && sub.hasCard ? (
             <>
               <Button
                 variant="secondary"
@@ -307,7 +308,7 @@ export function PlanPage({
               />
             </>
           ) : null}
-          {canManage && billing ? (
+          {canBill && billing ? (
             <Button
               variant="secondary"
               className="max-md:h-11 max-md:flex-1"
@@ -319,7 +320,7 @@ export function PlanPage({
               Pause
             </Button>
           ) : null}
-          {canManage && sub.status === 'paused' ? (
+          {canBill && sub.status === 'paused' ? (
             <Button
               className="max-md:h-11 max-md:flex-1"
               loading={busy === 'resume'}
@@ -330,7 +331,7 @@ export function PlanPage({
               Start it again
             </Button>
           ) : null}
-          {canManage && sub.status !== 'cancelled' ? (
+          {canBill && sub.status !== 'cancelled' ? (
             <Button
               variant="ghost"
               className="max-md:h-11"
@@ -369,7 +370,7 @@ export function PlanPage({
               'nobody — they have no email or mobile on file'}
             .
           </p>
-          {canManage ? (
+          {canBill ? (
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -520,7 +521,7 @@ export function PlanPage({
             working when it expires.{' '}
             {providerTruths(sub.provider ?? account?.provider ?? null)[0] ?? ''}
           </Note>
-          {canManage && canMove ? (
+          {canBill && canMove ? (
             <Button
               variant="secondary"
               size="sm"
@@ -532,7 +533,7 @@ export function PlanPage({
               Change the account
             </Button>
           ) : null}
-          {canManage && !canMove && sub.status !== 'cancelled' ? (
+          {canBill && !canMove && sub.status !== 'cancelled' ? (
             <p className="mt-3 text-xs leading-[1.45] text-text-3" data-testid="plan-move-note">
               A plan lives inside one account at the provider, so this one cannot be moved. Cancel
               it and start a new one on the other account.

@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { CustomersList } from '@/components/crm/customers-list';
 import { PageHeader } from '@/components/shell/page-header';
@@ -47,7 +48,6 @@ export default async function CustomersPage({
       ? unwrapPage(await api.POST('/v1/queries/company.list', { body: common }))
       : Promise.resolve(null),
   ]);
-  const role = got.workspace.role;
   return (
     <>
       <PageHeader title="Customers" description={`Everyone ${got.workspace.name} works with.`} />
@@ -60,7 +60,7 @@ export default async function CustomersPage({
         people={people}
         companies={companies}
         counts={{ people: summary.people, companies: summary.companies }}
-        canImport={role === 'owner' || role === 'admin'}
+        canImport={can(got.workspace.permissions, 'records.import')}
       />
     </>
   );

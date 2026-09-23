@@ -10,7 +10,7 @@ import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow } from '@/lib/api/types';
 
-/** Somebody in the business, and whether their role lets them bill today (owners and admins). */
+/** Somebody in the business, and whether they may bill today (`money.bill`, as the business has set it up). */
 export interface TeamMember {
   readonly id: string;
   readonly fullName: string;
@@ -35,7 +35,7 @@ export function usedByWords(
 
 /**
  * Who may bill into one account (0102): everyone who bills, only the people chosen, or only them — and for them,
- * nothing that is open to everyone. The people offered are the ones who bill today: owners and admins.
+ * nothing that is open to everyone. The people offered are the ones who bill today (0103).
  */
 export function PaymentAccessDialog({
   workspaceId,
@@ -154,8 +154,8 @@ export function PaymentAccessDialog({
               ))}
             </div>
             <p className="mt-2 text-[12.5px] text-text-3">
-              Owners and admins send invoices and start plans. To let someone bill, make them an
-              admin under Members.
+              Only people who may send invoices are listed. An owner turns that on for a role in
+              Settings → Permissions, or for one person under Members.
             </p>
             {error ? (
               <p role="alert" className="mt-2 text-[12.5px] text-danger-text">

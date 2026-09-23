@@ -19,7 +19,6 @@ import { userNames } from '../calendar/load';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import { workspaceMessaging } from '../messaging/store';
-import { hasWorkspacePermission } from '../permissions';
 import {
   AiTeammateActivityInput,
   AiTeammateActivityOutput,
@@ -33,6 +32,7 @@ import {
   type TeammateDraftOut,
   type TOOL_CALL_STATUSES,
 } from '../schemas/ai-team';
+import { scopeCan } from '../kernel/execute';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -78,7 +78,7 @@ export const aiTeammateGet = defineQuery({
       teammateId: row?.id ?? null,
     });
     const catalogs = catalogsOut(loaded);
-    const canManage = hasWorkspacePermission(ctx.scope.workspaceRole, 'ai_team.manage');
+    const canManage = scopeCan(ctx.scope, 'ai_team.manage');
     if (!row || !config)
       return { teammate: null, issues: [], progress: null, revisions: [], catalogs, canManage };
     const revs = await ctx.tx
@@ -218,7 +218,7 @@ export const aiTeammateDraftList = defineQuery({
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
-    const manages = hasWorkspacePermission(ctx.scope.workspaceRole, 'ai_team.manage');
+    const manages = scopeCan(ctx.scope, 'ai_team.manage');
     return { items: result.items.map((r) => draftOut(r, manages)), nextCursor: result.nextCursor };
   },
 });

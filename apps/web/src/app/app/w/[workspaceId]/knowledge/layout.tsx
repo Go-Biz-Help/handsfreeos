@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { KnowledgeHeaderActions } from '@/components/knowledge/header-actions';
 import { KnowledgeSubnav } from '@/components/knowledge/subnav';
@@ -26,7 +26,7 @@ export default async function KnowledgeLayout({
   ]);
   const { workspace } = unwrapPage(ws);
   const pending = unwrapPage(waiting);
-  const canManage = hasWorkspacePermission(workspace.role, 'knowledge.manage');
+  const canManage = can(workspace.permissions, 'knowledge.manage');
   return (
     <div className="mx-auto w-full max-w-[1240px]">
       <PageHeader

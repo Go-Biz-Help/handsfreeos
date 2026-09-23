@@ -1,5 +1,4 @@
 import {
-  canManageMoney,
   dayLabel,
   invoiceStanding,
   money,
@@ -43,7 +42,8 @@ import { useInvoice, useMoneyNow, useMoneyRole, useMoneyZone } from '@/money/use
 export default function Invoice() {
   const { invoiceId } = useLocalSearchParams<{ invoiceId: string }>();
   const { business } = useBusiness();
-  const { role } = useMoneyRole();
+  // Recording a payment, sending it and copying its link are billing (money.bill, 0103).
+  const { bill: manage } = useMoneyRole();
   const timeZone = useMoneyZone();
   const now = useMoneyNow();
   const { invoice, lines, payments, refunds, loading } = useInvoice(invoiceId);
@@ -64,7 +64,6 @@ export default function Invoice() {
       </Screen>
     );
 
-  const manage = canManageMoney(role);
   const owes = invoice.balanceCents > 0 && invoice.status !== 'void' && invoice.status !== 'draft';
   const standing = invoiceStanding(
     {

@@ -4,7 +4,6 @@ import { chatWidgetName, readableTextOn } from '../chat/origins';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
-import { hasWorkspacePermission } from '../permissions';
 import {
   chatAskForOf,
   ChatWidgetGetOutput,
@@ -13,6 +12,7 @@ import {
   ChatWidgetRefInput,
   type ChatWidgetOut,
 } from '../schemas/chat';
+import { scopeCan } from '../kernel/execute';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -80,7 +80,7 @@ export const chatWidgetList = defineQuery({
   async handler(ctx, input) {
     return {
       items: await widgets(ctx, input.workspaceId),
-      canManage: hasWorkspacePermission(ctx.scope.workspaceRole, 'channels.manage'),
+      canManage: scopeCan(ctx.scope, 'channels.manage'),
     };
   },
 });
@@ -100,7 +100,7 @@ export const chatWidgetGet = defineQuery({
     if (!widget) throw HfosError.notFound('Chat widget not found.');
     return {
       widget,
-      canManage: hasWorkspacePermission(ctx.scope.workspaceRole, 'channels.manage'),
+      canManage: scopeCan(ctx.scope, 'channels.manage'),
     };
   },
 });

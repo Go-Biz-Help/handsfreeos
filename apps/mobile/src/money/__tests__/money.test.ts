@@ -1,4 +1,10 @@
-import { invoiceState, moneyTabsFor, seesWholeBusiness } from '@hfos/core';
+import {
+  canBill,
+  effectivePermissions,
+  invoiceState,
+  moneyTabsFor,
+  seesWholeBusiness,
+} from '@hfos/core';
 
 import type { OutboxRow } from '@/changes/outbox';
 
@@ -162,10 +168,21 @@ describe('cash or a check recorded on this phone', () => {
 });
 
 describe('who sees what', () => {
+  const owner = effectivePermissions('owner');
+  const member = effectivePermissions('member');
+
   it('gives an owner the whole business and a member their own jobs', () => {
-    expect(seesWholeBusiness('owner')).toBe(true);
-    expect(moneyTabsFor('owner')).toHaveLength(4);
-    expect(seesWholeBusiness('member')).toBe(false);
-    expect(moneyTabsFor('member')).toEqual(['invoices', 'estimates']);
+    expect(seesWholeBusiness(owner)).toBe(true);
+    expect(moneyTabsFor(owner)).toHaveLength(4);
+    expect(seesWholeBusiness(member)).toBe(false);
+    expect(moneyTabsFor(member)).toEqual(['invoices', 'estimates']);
+  });
+
+  it('lets a member the business lets bill send from their own jobs, still without the totals (0103)', () => {
+    const billing = effectivePermissions('member', { 'money.bill': true });
+    expect(canBill(member)).toBe(false);
+    expect(canBill(billing)).toBe(true);
+    expect(seesWholeBusiness(billing)).toBe(false);
+    expect(moneyTabsFor(billing)).toEqual(['invoices', 'estimates']);
   });
 });

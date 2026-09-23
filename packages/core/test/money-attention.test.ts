@@ -430,10 +430,10 @@ describe('money in the Action Center', () => {
       expect(letHandleRefusal(kind)).toBeNull();
       // A member can still pass it on, put it off or let it go.
       for (const action of ['assign', 'snooze', 'dismiss'] as const)
-        expect(mayTakeAttentionAction('member', kind, action)).toBe(true);
+        expect(mayTakeAttentionAction({ role: 'member' }, kind, action)).toBe(true);
       // Writing to a customer about money is money.manage, for both the card's button and the draft.
-      expect(mayTakeAttentionAction('member', kind, 'handle')).toBe(false);
-      expect(mayTakeAttentionAction('member', kind, 'let_handle')).toBe(false);
+      expect(mayTakeAttentionAction({ role: 'member' }, kind, 'handle')).toBe(false);
+      expect(mayTakeAttentionAction({ role: 'member' }, kind, 'let_handle')).toBe(false);
     }
   });
 

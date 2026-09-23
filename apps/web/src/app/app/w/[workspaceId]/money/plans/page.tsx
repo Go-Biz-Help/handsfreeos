@@ -21,7 +21,8 @@ const STATUSES = PLAN_STATUS_CHOICES.map((s) => s.value);
 
 /**
  * The maintenance plans a business sells and who is on them. Each row opens the plan's own page, where it is
- * paused, resumed, cancelled or pointed at another account.
+ * paused, resumed, cancelled or pointed at another account. Someone who bills (0103) sees and starts plans for
+ * the customers they're on; changing the plans themselves stays with whoever manages money.
  */
 export default async function PlansPage({
   params,
@@ -42,7 +43,7 @@ export default async function PlansPage({
         })
         .then((r) => unwrapPage(r)),
     ),
-    loadAccounts(shell.api, workspaceId, shell.canManage),
+    loadAccounts(shell.api, workspaceId, shell.canBill),
     // For each plan's visits: the service it covers (Maintenance due).
     shell.api
       .POST('/v1/queries/service.list', { body: { workspaceId } })
@@ -55,13 +56,13 @@ export default async function PlansPage({
       <PageHeader
         title="Money"
         description="What you have quoted, what you are owed and what has come in."
-        actions={shell.canManage ? <MoneyActions workspaceId={workspaceId} /> : undefined}
+        actions={shell.canBill ? <MoneyActions workspaceId={workspaceId} /> : undefined}
       />
       {shell.summary ? (
         <HeadlineStrip summary={shell.summary} days={COLLECTED_DAYS} timeZone={shell.timeZone} />
       ) : null}
       <MoneySubnav workspaceId={workspaceId} tab="plans">
-        {shell.canManage ? (
+        {shell.canBill ? (
           <>
             <MoneyFilterBar
               filters={filters}

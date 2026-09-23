@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SettingsNav } from '@/components/settings/settings-nav';
@@ -23,8 +24,7 @@ export default async function UsageSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const role = got.workspace.role;
-  if (role !== 'owner' && role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'money.manage')) notFound();
   const body = { body: { workspaceId } };
   const [wallet, prices, statement] = await Promise.all([
     api.POST('/v1/queries/wallet.get', body).then(unwrapPage),
@@ -34,7 +34,7 @@ export default async function UsageSettingsPage({
   return (
     <>
       <PageHeader title="Settings" />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <UsagePage workspaceId={workspaceId} wallet={wallet} prices={prices} statement={statement} />
     </>
   );

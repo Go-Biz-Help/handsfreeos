@@ -1,8 +1,8 @@
 'use client';
 import {
   addDays,
+  can,
   formatDuration,
-  hasWorkspacePermission,
   localInstant,
   moneyLabel,
   type CalendarConfig,
@@ -30,7 +30,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { AppointmentDetail, Role } from '@/lib/api/types';
+import type { AppointmentDetail } from '@/lib/api/types';
 import { useCalls } from '@/lib/calls/call-provider';
 import { byLead, reminderKeyOf, reminderLabel, reminderWhy } from '@/lib/calendar/reminders';
 import {
@@ -210,7 +210,7 @@ export function AppointmentSheet({
   timeZone,
   people,
   myUserId,
-  myRole,
+  myPermissions,
   onClose,
   onChanged,
 }: {
@@ -220,8 +220,8 @@ export function AppointmentSheet({
   people: readonly { userId: string; fullName: string }[];
   /** Who is reading: their own confirmation mark says "Confirmed by you". */
   myUserId?: string;
-  /** What they may do with money: billing a visit is an owner's and an admin's. */
-  myRole?: Role;
+  /** What the business lets them do (0103): billing a visit is for whoever may bill. */
+  myPermissions?: readonly string[];
   onClose: () => void;
   onChanged?: () => void;
 }) {
@@ -345,15 +345,11 @@ export function AppointmentSheet({
    */
   const hold = appt ? holdOf(appt, now) : null;
   /**
-   * Billing is an owner's and an admin's, one customer at a time, once the time is really theirs and nobody
-   * has billed it yet — a second press would raise a second invoice for one visit.
+   * Billing is for whoever the business lets bill (0103), one customer at a time, once the time is really
+   * theirs and nobody has billed it yet — a second press would raise a second invoice for one visit.
    */
   const billable =
-    hasWorkspacePermission(myRole ?? null, 'money.manage') &&
-    !!seat &&
-    !hold &&
-    !!money &&
-    !money.jobInvoice;
+    can(myPermissions, 'money.bill') && !!seat && !hold && !!money && !money.jobInvoice;
   const invoiceVisitButton = (wide?: boolean) =>
     billable ? (
       <Button

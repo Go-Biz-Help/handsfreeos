@@ -1,4 +1,4 @@
-import { hasWorkspacePermission, RECIPE_KEYS, type RecipeKey } from '@hfos/core';
+import { can, RECIPE_KEYS, type RecipeKey } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { NewWorkflow } from '@/components/workflows/new-workflow';
@@ -21,7 +21,7 @@ export default async function NewWorkflowPage({
   const query = await searchParams;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (!hasWorkspacePermission(got.workspace.role, 'workflows.manage')) notFound();
+  if (!can(got.workspace.permissions, 'workflows.manage')) notFound();
   const [catalogs, list] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/workflow.list', { body: { workspaceId } })),

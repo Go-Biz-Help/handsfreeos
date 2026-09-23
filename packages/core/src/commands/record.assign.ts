@@ -13,11 +13,11 @@ import { companies, people } from '@hfos/db/schema';
 import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
-import { hasWorkspacePermission } from '../permissions';
 import { stampSql } from '../kernel/field-merge';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
 import { RecordAssignInput, RecordAssignOutput, RecordUnassignInput } from '../schemas/crm';
+import { scopeCan } from '../kernel/execute';
 
 type Kind = 'person' | 'company';
 
@@ -144,7 +144,7 @@ async function save(
  */
 export function requireAssigner(ctx: CommandContext): void {
   if (ctx.actor.type !== 'human') return;
-  if (!hasWorkspacePermission(ctx.scope.workspaceRole ?? null, 'records.assign'))
+  if (!scopeCan(ctx.scope, 'records.assign'))
     throw HfosError.rule(
       'customer_team_managers_only',
       403,
@@ -168,7 +168,7 @@ async function requireTeammate(ctx: CommandContext, userId: string): Promise<voi
 export const recordAssign = defineCommand({
   name: 'record.assign',
   description:
-    'Assign a customer or a company to someone on the team (owners and admins). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.',
+    'Assign a customer or a company to someone on the team (whoever the business lets choose who is on a customer: owners and admins unless it says otherwise). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.',
   risk: 1,
   input: RecordAssignInput,
   output: RecordAssignOutput,

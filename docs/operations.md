@@ -29,6 +29,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
+- [Who can do what: roles and permissions](#who-can-do-what-roles-and-permissions)
 - [Money: Stripe and Square](#money-stripe-and-square)
 - [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
 - [A business's own web address](#a-businesss-own-web-address)
@@ -7701,6 +7702,46 @@ The promises found are kept in `app.promises`; dismissing the card is enough to 
 
 The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons`, and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql`. See "Apply new migrations".
 
+## Who can do what: roles and permissions
+
+Everyone in a business has a role: **Owner**, **Admin** or **Member**. Each role comes with a set of things it can
+do, and an owner can change that set for their business (migration 0103). Nothing here needs setting up: the
+defaults are what the roles always did.
+
+- **For a role:** **Settings** → **Permissions** lists every permission in six groups (Customers, Inbox and calls,
+  Calendar, Money, Automations and AI, Business and team), with a column for **Admins** and one for **Members**.
+  Each is left at **Default**, or turned **On** or **Off**. A choice saves as soon as it is picked, and **Reset
+  admins** or **Reset members** puts a whole column back.
+- **For one person:** **Members** → the three dots next to them → **Permissions**. The same list, where each is left
+  as **Same as their role**, or turned **On** or **Off** just for them. What is set for a person wins over what is
+  set for their role. They get an **Own permissions** badge, and the Permissions page lists them at the bottom.
+- **Owners always do everything,** and only owners see the Permissions page. There is nothing to set for an owner:
+  to limit someone, make them an admin or a member first.
+- **Some permissions need others.** Sending invoices needs seeing bills; managing all money needs both. Turning one
+  on while what it needs is off does nothing, and the page says so under the picker ("Off until “See bills for
+  their work” is on").
+- **What never changes:** opening the business and seeing its customers and team are part of every role; deleting
+  the business and setting permissions stay with owners.
+
+**Letting members bill.** Turn **Send estimates and invoices, start plans** on for Members, or for one person. They
+can then write, send and void estimates and invoices, take a cash or check payment, and start and run plans — for
+the customers they're on (as the main person or on the team), the leads assigned to them and the visits they work,
+and only into the payment accounts they may use. Refunds, products, money settings, payment accounts and the whole
+business's totals stay with **Manage all money**. On the phone they send and take payments for their own jobs; plans
+are on the web.
+
+**How it holds.** The database works out what each person may do from their role, the business's settings and
+their own, and keeps the answer in one place (`app.workspace_access.permissions`). Every check reads it: the API,
+the row security on every table, the worker, and what the phone app syncs — money reaches a phone's whole-business
+copy only for someone who manages it (`manages_money`). A change takes effect at once, for everyone it touches.
+
+**When something goes wrong**
+
+- **Someone says a button disappeared:** look for an **Own permissions** badge next to them in **Members**, and at
+  their role's column in **Settings** → **Permissions**. Every change is in the audit log ("turned “Send estimates
+  and invoices, start plans” off for Marco").
+- **"You can bill the customers you’re on"**: see **When something goes wrong** under Money, next.
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.
@@ -7917,7 +7958,7 @@ Two more things worth saying to a client in the same breath:
 
 1. They connect their own account in **Settings** → **Payments**, signed in as an owner or admin. If they have more than one, mark the one money should land in as **Default**.
    - If people on the team are each paid into their own account (one person's automations work into one Stripe account, another's SEO work into a second), open **Who can use it** on each account and pick the people. **Only the people you pick** keeps an account to them; **Only the people you pick, and only this account for them** also stops them billing into the accounts open to everyone. Their invoices and plans then land in their own account without anyone choosing it, and **Money** can be split by the account things were paid into.
-   - Only owners and admins send invoices and start plans today, so only they are offered. Someone who should bill into their own account needs the Admin role under **Members**.
+   - Only people who may send invoices are offered: owners and admins, and anyone an owner lets bill — for a role in **Settings** → **Permissions**, or for one person under **Members** (see [Who can do what](#who-can-do-what-roles-and-permissions)).
 2. Fill in **Settings** → **Payments**: the business address that goes at the top of a document, the sales tax rate and what it is called, the estimate and invoice number prefixes and the number to start from, the payment terms, and the deposit they usually ask for.
 3. Check the reminder ladder with them: three days before the due date, on the day, then three, seven and fourteen days after, each at 9 AM where the business is. Ask whether that is more or less than they would send by hand.
 4. Add what they sell in **Settings** → **Products**, with the right tax setting on each. Anything collected for someone else — a permit, a licence fee — should be marked as not taxable.
@@ -7933,6 +7974,7 @@ Two more things worth saying to a client in the same breath:
 - **"Some permissions were left unticked":** the seller unticked a permission on the provider's own screen. They press Connect again and accept all of them.
 - **A payment succeeded at the provider but the invoice here still says unpaid:** a webhook did not arrive or did not verify. Check the provider's own webhook page for failed deliveries, and check the signing secret. Nothing is lost — both providers retry for days, and the payment lands the moment a delivery verifies.
 - **A business says they were charged twice:** they weren't. A payment carries the customer's own press as its idempotency key, and a payment's status only ever moves forward, so a retried or doubled submit takes the money once. Show them **Money** → **Payments**, which lists every payment the business has taken, with what it was paid on, where it stands and which invoice it belongs to; the provider's own dashboard will show one charge against it.
+- **"You can bill the customers you’re on. Ask an owner or admin to add you to this customer."**: the person may send invoices but isn't on that customer. Put them on it (the **Assigned** card on the customer), or have someone who manages money send it.
 - **"That payment account is kept for other people on the team"** or **"None of this business's payment accounts is yours to bill into"**: the account was given to particular people under **Who can use it** in **Settings** → **Payments**, and the person billing isn't one of them. An owner adds them there, or opens the account to everyone again. Invoices the business sends by itself — automatic invoices, booking deposits, a plan's own cycles — are not held to this.
 - **An account says Reconnect:** its token lapsed (Square) or the provider refused it. Nothing is taken until the business presses Reconnect and signs in again. Refunds on payments taken through the old sign-in still work once the same account is reconnected, because the credentials are found by the provider's account id rather than by the connection row.
 

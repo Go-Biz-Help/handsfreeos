@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { firstName } from '@/components/calendar/appt';
@@ -53,7 +53,6 @@ import type {
   LeadCard,
   PersonDetail,
   Pipeline,
-  Role,
   Tag,
   Task,
   TimelineList,
@@ -100,7 +99,8 @@ const TABS: readonly Tab[] = [
 export interface RecordPageProps {
   workspaceId: string;
   myUserId: string;
-  role: Role;
+  /** What the business lets them do (0103), as workspace.get gives it. */
+  permissions: readonly string[];
   person?: PersonDetail;
   company?: CompanyDetail;
   companyPeople?: CompanyGet['people'];
@@ -120,13 +120,14 @@ export interface RecordPageProps {
 
 /** The Customer 360 for a person or a company. */
 export function RecordPage(props: RecordPageProps) {
-  const { workspaceId, myUserId, role, person, company, tags, members, pipelines } = props;
+  const { workspaceId, myUserId, permissions, person, company, tags, members, pipelines } = props;
   const router = useRouter();
   const kind = person ? 'person' : 'company';
   const recordId = (person?.id ?? company?.id)!;
   const name = person ? person.fullName : company!.name;
   const archived = !!(person?.archivedAt ?? company?.archivedAt);
-  const canModerate = role === 'owner' || role === 'admin';
+  // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
+  const canModerate = can(permissions, 'records.archive');
   const address = addressLine(person ? person.address : company!.address);
   const phoneE164 = person ? person.phoneE164 : company!.phoneE164;
   const phone = person ? person.phone : company!.phone;
@@ -158,9 +159,10 @@ export function RecordPage(props: RecordPageProps) {
   /**
    * This customer's money, for the header's "Owes $X" and the Money tab. `money.for_record` already holds a
    * member to the jobs they are on, so a member who is on none of this customer's simply finds nothing here.
+   * Whoever the business lets bill (0103) may write them an estimate or an invoice.
    */
   const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
-  const canBill = hasWorkspacePermission(props.role, 'money.manage');
+  const canBill = can(permissions, 'money.bill');
   // `?tab=money` so the inbox's "See their money" lands on the tab it names.
   const wanted = useSearchParams().get('tab');
   const [tab, setTab] = useState<Tab>(TABS.includes(wanted as Tab) ? (wanted as Tab) : 'timeline');
@@ -508,7 +510,7 @@ export function RecordPage(props: RecordPageProps) {
                 workspaceId={workspaceId}
                 person={{ id: person.id, fullName: person.fullName }}
                 timeZone={props.timeZone ?? 'America/Chicago'}
-                canManageWorkflows={canModerate}
+                canManageWorkflows={can(permissions, 'workflows.manage')}
               />
             ) : null}
           </div>
@@ -562,7 +564,7 @@ export function RecordPage(props: RecordPageProps) {
                 personId={person.id}
                 personName={firstName(person.fullName)}
                 found={recordMoney}
-                canManage={canBill}
+                canBill={canBill}
                 timeZone={props.timeZone ?? 'UTC'}
               />
             </TabsContent>
@@ -697,7 +699,11 @@ export function RecordPage(props: RecordPageProps) {
               {archived ? null : (
                 <UploadZone workspaceId={workspaceId} recordType={kind} recordId={recordId} />
               )}
-              <FileGrid workspaceId={workspaceId} files={props.files} canDelete={canModerate} />
+              <FileGrid
+                workspaceId={workspaceId}
+                files={props.files}
+                canDelete={can(permissions, 'files.delete')}
+              />
             </div>
           </TabsContent>
           <TabsContent value="details">
@@ -783,7 +789,7 @@ export function RecordPage(props: RecordPageProps) {
             owner={record.owner}
             team={record.team}
             members={members}
-            canEdit={!archived && hasWorkspacePermission(role, 'records.assign')}
+            canEdit={!archived && can(permissions, 'records.assign')}
           />
           {person && props.timeZone ? (
             <UpcomingAppointments
@@ -797,7 +803,7 @@ export function RecordPage(props: RecordPageProps) {
             <MaintenanceCard
               workspaceId={workspaceId}
               personId={person.id}
-              canEdit={!archived && hasWorkspacePermission(role, 'records.write')}
+              canEdit={!archived && can(permissions, 'records.write')}
             />
           ) : null}
           {person ? (
@@ -984,7 +990,7 @@ export function RecordPage(props: RecordPageProps) {
           timeZone={props.timeZone}
           people={people}
           myUserId={myUserId}
-          myRole={props.role}
+          myPermissions={permissions}
           onClose={() => setOpenAppt(null)}
           onChanged={() => router.refresh()}
         />

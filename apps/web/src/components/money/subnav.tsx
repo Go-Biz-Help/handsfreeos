@@ -95,7 +95,7 @@ export function MoneyCrumbs({
   );
 }
 
-/** The two buttons in the Money page header. Only owners and admins may raise a document. */
+/** The two buttons in the Money page header, for whoever may write a document (`money.bill`, 0103). */
 export function MoneyActions({ workspaceId }: { workspaceId: string }) {
   const base = moneyBase(workspaceId);
   return (

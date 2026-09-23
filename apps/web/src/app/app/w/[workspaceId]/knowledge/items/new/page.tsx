@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { ItemEditor } from '@/components/knowledge/item-editor';
@@ -24,7 +24,7 @@ export default async function NewKnowledgeItemPage({
   const { workspace } = unwrapPage(
     await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }),
   );
-  if (!hasWorkspacePermission(workspace.role, 'knowledge.manage'))
+  if (!can(workspace.permissions, 'knowledge.manage'))
     redirect(`/app/w/${workspaceId}/knowledge/items`);
   return <ItemEditor workspaceId={workspaceId} canManage item={null} newKind={kind} />;
 }

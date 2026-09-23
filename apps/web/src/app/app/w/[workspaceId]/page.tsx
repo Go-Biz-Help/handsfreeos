@@ -1,4 +1,4 @@
-import { addDays, localInstant } from '@hfos/core';
+import { addDays, can, localInstant } from '@hfos/core';
 import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { ActionCenter } from '@/components/home/action-center';
@@ -48,7 +48,7 @@ export default async function WorkspaceHomePage({
   ]);
   const ws = got.workspace;
   const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
-  const canManage = ws.role === 'owner' || ws.role === 'admin';
+  const canInvite = can(ws.permissions, 'members.invite');
   // The setup checklist is for a brand-new business only: no customers, and nothing needing attention. Someone
   // texting a number nobody has added to Customers still belongs on the Action Center.
   const brandNew =
@@ -75,10 +75,13 @@ export default async function WorkspaceHomePage({
               <SetupChecklist
                 workspaceId={ws.id}
                 invited={got.counts.members > 1 || got.counts.pendingInvitations > 0}
-                canInvite={canManage}
+                canInvite={canInvite}
               />
             </Card>
-            <ActionCenterIntro workspaceId={ws.id} canImport={canManage} />
+            <ActionCenterIntro
+              workspaceId={ws.id}
+              canImport={can(ws.permissions, 'records.import')}
+            />
           </div>
           <div className="flex flex-col gap-5">
             <Card className="p-5">
@@ -116,7 +119,7 @@ export default async function WorkspaceHomePage({
               >
                 Manage members
               </Link>
-              {canManage ? (
+              {canInvite ? (
                 <>
                   <span className="mx-2 text-text-3">·</span>
                   <Link

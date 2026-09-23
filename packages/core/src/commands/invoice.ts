@@ -58,16 +58,17 @@ import {
   assertDraft,
   assertRevision,
   businessToday,
-  presentOnly,
   draftOf,
+  type InvoiceRow,
   isoAt,
-  moneyIso,
   linesFor,
   loadMoneySettings,
+  moneyIso,
+  presentOnly,
+  requireBillable,
   requireInvoice,
   totalsColumns,
   writeLines,
-  type InvoiceRow,
 } from './money-shared';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -222,6 +223,7 @@ export async function createInvoice(
 ) {
   const ws = ctx.scope.workspaceId!;
   await requirePerson(ctx.tx, ws, input.personId);
+  await requireBillable(ctx, input);
   const settings = await loadMoneySettings(ctx.tx, ws);
   const draft = draftOf(input.lines, settings, { discount: input.discount });
   const [row] = await ctx.tx
@@ -270,7 +272,7 @@ export const invoiceCreate = defineCommand({
   risk: 1,
   input: InvoiceCreateInput,
   output: InvoiceStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['invoice.created'],
   // The booking deposit and a plan's cycle raise an invoice of their own. A workflow is deliberately not on
@@ -289,7 +291,7 @@ export const invoiceUpdate = defineCommand({
   risk: 1,
   input: InvoiceUpdateInput,
   output: InvoiceStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['invoice.updated'],
   async handler(ctx, input) {
@@ -320,6 +322,13 @@ export const invoiceUpdate = defineCommand({
       );
     if (input.connectionId && input.connectionId !== before.connection_id)
       await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
+    // Moved to another lead: still one they may bill (0103).
+    if ((input.leadId ?? null) !== before.lead_id)
+      await requireBillable(ctx, {
+        personId: before.person_id,
+        leadId: input.leadId ?? null,
+        attendeeId: before.attendee_id,
+      });
     const settings = await loadMoneySettings(ctx.tx, ctx.scope.workspaceId!);
     const draft = draftOf(input.lines, settings, { discount: input.discount });
     await ctx.tx
@@ -403,7 +412,7 @@ export const invoiceSend = defineCommand({
   risk: 2,
   input: InvoiceSendInput,
   output: InvoiceStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['invoice.sent'],
   actors: ['human', 'system'],
@@ -420,7 +429,7 @@ export const invoiceVoid = defineCommand({
   risk: 2,
   input: InvoiceVoidInput,
   output: InvoiceStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['invoice.voided'],
   async handler(ctx, input) {
@@ -499,7 +508,7 @@ export const invoiceRecordCashPayment = defineCommand({
   risk: 2,
   input: InvoiceRecordCashPaymentInput,
   output: PaymentStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['payment.recorded', 'invoice.paid'],
   offline: 'anytime',

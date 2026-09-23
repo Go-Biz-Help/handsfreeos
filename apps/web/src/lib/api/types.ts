@@ -21,6 +21,11 @@ export type AuditList = Ok<'/v1/queries/audit.list'>;
 export type AuditEntry = AuditList['entries'][number];
 export type InvitationPreview = Ok<'/v1/queries/invitation.preview'>;
 export type Role = 'owner' | 'admin' | 'member';
+// 0103: what a business lets its people do, for the Admin and Member roles and for one person.
+export type PermissionSettingsOut = Ok<'/v1/queries/permission.settings'>;
+export type RolePermissionSettings = PermissionSettingsOut['roles'][number];
+export type PersonPermissionSettings = PermissionSettingsOut['people'][number];
+export type SettablePermission = Body<'/v1/commands/permission.set_role'>['permission'];
 
 // Milestone 2: CRM
 export type PersonList = Ok<'/v1/queries/person.list'>;
