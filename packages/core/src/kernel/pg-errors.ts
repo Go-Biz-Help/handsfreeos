@@ -191,6 +191,25 @@ const RULES: Record<string, { status: number; message: string }> = {
     message: 'That is as many fields as a record can carry (200). Archive one first.',
   },
   unknown_custom_field: { status: 400, message: 'That field isn’t on this record.' },
+  // Ideas, the roadmap and What's new (0102): the board's guards and limits.
+  too_many_ideas: { status: 429, message: 'That is ten ideas today. Share the next one tomorrow.' },
+  too_many_idea_comments: {
+    status: 429,
+    message: 'That is a lot of comments in an hour. Give it a little while.',
+  },
+  idea_roadmap_is_ours: {
+    status: 403,
+    message: 'Only the HandsFreeOS team moves an idea along the roadmap.',
+  },
+  idea_protected: { status: 403, message: 'Only the HandsFreeOS team changes that about an idea.' },
+  idea_comment_protected: { status: 403, message: 'A comment can be taken down, not changed.' },
+  idea_merge_itself: { status: 400, message: 'An idea cannot be merged into itself.' },
+  idea_not_found: { status: 404, message: 'No idea with that id.' },
+  idea_already_merged: { status: 409, message: 'That idea was already merged.' },
+  idea_merge_target_gone: {
+    status: 409,
+    message: 'Merge it into an idea that is still on the board.',
+  },
   not_authenticated: { status: 401, message: 'Sign in to continue.' },
   profile_missing: {
     status: 500,

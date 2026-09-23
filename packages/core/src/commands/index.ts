@@ -5,6 +5,7 @@ import { templateCommands } from './template';
 import { formResponseCommands } from './form-response';
 import { supportStaffCommands } from './support-staff';
 import { supportTicketCommands } from './support';
+import { ideaCommands } from './ideas';
 import { activityDelete, activityLog, activityUpdate } from './activity';
 import { assistantThreadArchive, assistantThreadRename } from './assistant';
 import {
@@ -790,6 +791,8 @@ export const commands: readonly CommandDef[] = [
   ...customFieldCommands,
   ...customRecordCommands,
   ...relationshipCommands,
+  // Ideas, the roadmap and What's new (0102).
+  ...ideaCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -845,3 +848,4 @@ export * from './job';
 export * from './custom-field';
 export * from './custom-record';
 export * from './relationship';
+export * from './ideas';

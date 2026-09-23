@@ -80,6 +80,7 @@ import { onBookedIntake } from '../automations/intake';
 import { onCallReferral, onMessageReferral } from '../automations/referrals';
 import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
+import { ideaHandlers } from './ideas';
 import type { HandlerMap } from './types';
 import { onSeatFreed } from './waitlist';
 
@@ -255,4 +256,6 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
 export const handlers: HandlerMap = {
   ...withPush(withAttention(ownTeammateAndWorkflows)),
   ...supportHandlers,
+  // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
+  ...ideaHandlers,
 };

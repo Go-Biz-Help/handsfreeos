@@ -34,6 +34,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [A business's own web address](#a-businesss-own-web-address)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
+- [Ideas, the roadmap and What's new](#ideas-the-roadmap-and-whats-new)
 - [Push notifications: Expo](#push-notifications-expo)
 - [The phone app: builds and the stores](#the-phone-app-builds-and-the-stores)
 - [Local development](#local-development)
@@ -8489,6 +8490,8 @@ only for the address it was sent to, and only after they have a HandsFreeOS sign
 | See every business in the directory       | Yes   | Yes  | Yes   |
 | Assign tickets, keep the saved replies    |       | Yes  | Yes   |
 | The health page                           |       | Yes  | Yes   |
+| Answer ideas, merge them, take them down  | Yes   | Yes  | Yes   |
+| Move ideas along the roadmap, What's new  |       | Yes  | Yes   |
 | Invite, suspend and remove support people |       |      | Yes   |
 
 Nobody changes their own role, and the last admin cannot be removed or demoted — the database refuses both,
@@ -8545,6 +8548,74 @@ button never appears.
 3. Mail to an address that is not in `SUPPORT_ADDRESSES` is accepted and dropped on purpose. Add the address
    there if it should open a ticket.
 4. An out-of-office reply is dropped on purpose too, and says so in the worker's log.
+
+## Ideas, the roadmap and What's new
+
+The board where the people who use HandsFreeOS tell you what would make it better, vote on what matters to
+them, and follow an idea from "under review" to "done" — the same thing GoHighLevel keeps at
+ideas.gohighlevel.com, built into the app. It needs nothing set up: no new service, no new setting, and the
+emails go out the way the team's other emails do (`SMTP_URL` and `MAIL_FROM` on the worker). The tables are
+migration `20261006000100_ideas_and_whats_new.sql`, in the `platform` schema beside the support desk.
+
+### What the businesses see
+
+- **Ideas** is a place in every business's side menu, for every role, just above Settings (and under **More**
+  in the suggested menu). It has three tabs: **Ideas** (the board), **Roadmap** (planned, being built, and
+  shipped in the last ninety days) and **What's new**. A dot beside Ideas says What's new has something the
+  person has not read yet.
+- **Sharing an idea** asks for a title, a few words more and which part of HandsFreeOS it is about. While they
+  type the title, the ideas already on the board that sound like it come up with a vote button, because a
+  vote on the idea that exists counts for more than a second copy of it. Sharing an idea votes for it.
+- **Voting, commenting and following.** One vote per person, taken back any time while the idea is open.
+  Sharing, voting and commenting all follow an idea; **Email me updates** on its page turns that off.
+- **What other businesses see of them** is a short name ("Dale R.") beside an idea or a comment they wrote,
+  and nothing else: never their email, never their business, never what they voted for.
+- **Limits.** Ten ideas a day and thirty comments an hour per person, so a script cannot fill the board. The
+  database holds the line; the team is never counted.
+- **On the phone** it is **Ideas** under **More**, with the same three tabs, sharing, voting, comments and
+  **Email me updates**, and **New** beside it while What's new has something unread. None of it is kept on the
+  phone, so with no signal each screen says it needs one; nothing waits in the queue of changes.
+
+### The team's side
+
+It is **Ideas** in `/admin` (see the role table above: every support role answers, leads and admins move).
+
+- **The list** opens on **Under review**: the ideas nobody here has answered yet. Each row says how many
+  different businesses voted for it, which is a better signal than the vote count alone, and who shared it
+  from which business.
+- **An idea's page** has everything a business sees, plus who shared it (name, address, business) and every
+  voter with their business. From there:
+  - **Where it stands** moves it: Under review, Planned, In progress, Done, Not planned. Write a note — it is
+    shown on the idea and goes into the email — and leave **Email the people following it** ticked. With the
+    status unchanged, a note alone posts an update ("still planned, now for spring").
+  - **Answer as the team** posts a comment with the HandsFreeOS badge, and emails whoever shared the idea:
+    ask your questions here.
+  - **Is it a duplicate?** lists the ideas that sound like it; **Merge into** folds it into one of them. Its
+    votes and followers move over (anybody who had turned the emails off stays off), it leaves the board, and
+    its followers are told where it went.
+  - **Take it off the board** is for spam and for things that are not ideas at all. Its author still sees it,
+    with a line saying the team took it down.
+- **What's new** is where you write what shipped. An entry is a draft only the team sees until you press
+  **Publish**. Link it to the ideas it delivers: publishing marks them **Done** and emails everybody following
+  them, with the entry's title in the email. **Unpublish** takes it back to a draft (ideas it marked Done stay
+  Done); only a draft can be deleted.
+- **Areas** (admins and leads) are the parts of HandsFreeOS an idea can be about. Add one when a part of the
+  product ships; archive one to stop new ideas going into it (the ideas already there keep it).
+
+### The emails
+
+- **An idea moves** (a new status, a note, shipped in What's new, or merged into another): one email to
+  everybody following it who still works in a business here, except whoever made the change. The subject says
+  what happened ("“Send invoices by text” is planned") and the button opens the idea.
+- **The team answers** in the comments: one email to whoever shared the idea, if they still follow it.
+- **Nobody is told twice.** Each email is written down as it goes, so a retry after a failure carries on
+  where it stopped.
+- The link in an email is `app.handsfreeos.com/app/ideas/<id>`, which opens the idea in the business the
+  person was last in (or on the admin side, for somebody who works here and in no business). On a phone with
+  the app, the same link opens the idea in the app, in the business it had open last.
+
+Locally, `pnpm db:seed` puts seven ideas from four businesses on the board, three What's new entries and a
+draft. Sign in as `chris@gobizhelp.test` and open `/admin/ideas`; the emails land in Mailpit.
 
 ## Push notifications: Expo
 
