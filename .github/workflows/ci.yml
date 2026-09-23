@@ -57,16 +57,16 @@ jobs:
           version: 2.117.0
 
       # Signed out, the stack's image downloads from ghcr.io share one limit with everything else on the runner's
-      # network address, and on 2026-09-23 that limit refused them for most of an hour. Signed in with this job's
-      # token they count against the token instead. The images are public, so `packages: read` is all it needs.
+      # network address, and on 2026-09-23 that limit refused them for over an hour. Signed in with this job's token,
+      # twice as many layers got through as signed out. The images are public, so `packages: read` is all it needs.
       - name: Sign Docker in to ghcr.io
         run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again after 1, 2 and then 4
-      # minutes instead of failing the job before a single test has run. On a bad day that is 7 minutes of waiting,
-      # which the 75-minute limit above has room for.
+      # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again a minute later, up to
+      # ten times, instead of failing the job before a single test has run. On a bad day that is 9 minutes of
+      # waiting, which the 75-minute limit above has room for.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
         run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
