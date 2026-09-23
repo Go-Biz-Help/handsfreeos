@@ -682,8 +682,9 @@ export function createStripePayments(opts: {
             mode: 'setup',
             customer: input.customerRef,
             payment_method_types: ['card'],
-            // Saved for charging later, unattended: what a top-up is.
-            setup_intent_data: { usage: 'off_session' },
+            // Nothing says "for charging later, unattended" — which is what a top-up is — because Checkout's own
+            // SetupIntent is `off_session` already, and Stripe refuses `setup_intent_data[usage]` outright
+            // (`parameter_unknown`). It accepts `description`, `metadata` and `on_behalf_of` there, and nothing else.
             success_url: url('{CHECKOUT_SESSION_ID}'),
             cancel_url: url('cancelled'),
           },
