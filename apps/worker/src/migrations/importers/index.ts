@@ -2878,7 +2878,25 @@ async function moneyCustomer(
             where workspace_id = ${scope.workspaceId} and archived_at is null
               and phone_e164 = ${phone} limit 2`,
   );
-  return found.length === 1 ? { targetType: 'person', targetId: found[0]!.id } : null;
+  if (found.length === 1) return { targetType: 'person', targetId: found[0]!.id };
+  if (found.length > 1 || !email) return null;
+  /**
+   * An address that was theirs but not their main one. A customer merged in the old system keeps the other
+   * contact's email among its extra addresses, and the plan and its charges keep naming it: on the first real
+   * account a plan and five payments were for "hello@phicco.net", which lived on the survivor that way. The
+   * import writes those addresses into the customer's notes, and exactly one customer holding it is who it is.
+   */
+  const line = `• Another email address: ${email}`;
+  const other = (
+    await rows<{ id: string; notes: string }>(
+      tx,
+      sql`select id::text as id, notes from app.people
+          where workspace_id = ${scope.workspaceId} and archived_at is null
+            and strpos(lower(notes), ${line.toLowerCase()}) > 0
+          limit 5`,
+    )
+  ).filter((p) => p.notes.split('\n').some((l) => l.trim().toLowerCase() === line.toLowerCase()));
+  return other.length === 1 ? { targetType: 'person', targetId: other[0]!.id } : null;
 }
 
 /**

@@ -957,9 +957,13 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     );
     const list = Array.isArray(answer['data']) ? (answer['data'] as Record<string, unknown>[]) : [];
     const total = Number(answer['totalCount'] ?? 0) || 0;
-    // An invoice's own payment came with the invoice. Only money that really arrived is money here.
+    // An invoice's own payment came with the invoice. Only money that really arrived is money here: a $0
+    // checkout (a free sign-up in the store — 87 of them on the first real account) moved nothing.
     const standing = list.filter(
-      (t) => asString(t['entityType']) !== 'invoice' && asString(t['status']) === 'succeeded',
+      (t) =>
+        asString(t['entityType']) !== 'invoice' &&
+        asString(t['status']) === 'succeeded' &&
+        cents(t['amount']) > 0,
     );
     const orders = new Map<string, Promise<string[]>>();
     const itemsOf = (orderId: string): Promise<string[]> => {
@@ -2365,7 +2369,10 @@ function productEnvelope(record: SourceRecord, context: MappingContext): Canonic
       unitPriceCents: first ? cents(first['amount']) : 0,
       unitLabel: 'each',
       taxable: true,
-      active: p['availableInStore'] !== false,
+      // Whether it shows in the online store is not whether it is still sold: 15 of the first real account's 26
+      // products were kept out of the store and billed every month, and came across archived.
+      active:
+        p['deleted'] !== true && (asString(p['status']) ?? 'active').toLowerCase() !== 'archived',
     },
     leftovers(p, ['id', '_id', 'name', 'description', 'prices', 'availableInStore', 'locationId']),
     warnings,
@@ -2414,7 +2421,8 @@ function invoiceEnvelope(record: SourceRecord, context: MappingContext): Canonic
           40,
         ) ?? null,
       number: asString(p['invoiceNumber'])?.slice(0, 40) ?? null,
-      title: asString(p['title'] ?? p['name'])?.slice(0, 200) ?? null,
+      // `name` is what the bill is for; `title` is the word printed at the top of it, "INVOICE" nearly always.
+      title: (asString(p['name']) ?? asString(p['title']))?.slice(0, 200) ?? null,
       notes: asString(p['termsNotes'])?.slice(0, 5000) ?? null,
       status,
       currency: (asString(p['currency']) ?? 'USD').toUpperCase().slice(0, 3),
@@ -2512,7 +2520,9 @@ function paymentEnvelope(record: SourceRecord, context: MappingContext): Canonic
     {
       customerEmail: asString(p['contactEmail'])?.slice(0, 320) ?? null,
       customerPhone: null,
-      number: null,
+      // A number of its own, so the receipt reads as the paid bill it is rather than as a draft: the day it was
+      // paid and the end of the old system's id, which no invoice number over there looks like.
+      number: `P-${paidAt.slice(0, 10).replace(/-/g, '')}-${(asString(p['_id']) ?? '').slice(-6)}`,
       title: what,
       notes: described && described !== what ? described.slice(0, 5000) : null,
       status: 'paid',

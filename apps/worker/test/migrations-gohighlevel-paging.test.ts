@@ -613,7 +613,7 @@ describe('what a GoHighLevel thread is made of', () => {
       if (url.pathname === '/products/')
         return {
           products: [
-            { _id: 'prd_1', name: 'SEO 500', hasPrices: false },
+            { _id: 'prd_1', name: 'SEO 500', hasPrices: false, availableInStore: false },
             { _id: 'prd_2', name: 'Free consult', hasPrices: false },
           ],
           total: [{ total: 2 }],
@@ -626,6 +626,12 @@ describe('what a GoHighLevel thread is made of', () => {
     const data = page.records.map(
       (r) => adapter.normalize(r, context)[0]!.data as { name: string; unitPriceCents: number },
     );
+    // Out of the online store, and still sold.
+    expect(
+      page.records.map(
+        (r) => (adapter.normalize(r, context)[0]!.data as { active: boolean }).active,
+      ),
+    ).toEqual([true, true]);
     expect(data.map((d) => [d.name, d.unitPriceCents])).toEqual([
       ['SEO 500', 50_000],
       ['Free consult', 0],
@@ -784,8 +790,16 @@ describe('what a GoHighLevel thread is made of', () => {
                   amount: 300,
                   createdAt: '2026-01-01',
                 },
+                // A free sign-up: nothing moved.
+                {
+                  _id: 'tx_free',
+                  entityType: 'order',
+                  status: 'succeeded',
+                  amount: 0,
+                  createdAt: '2026-01-01',
+                },
               ],
-              totalCount: 4,
+              totalCount: 5,
             };
       if (url.pathname === '/payments/orders/ord_1')
         return { items: [{ name: 'Marketing Automation - Monthly' }] };
