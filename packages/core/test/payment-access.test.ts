@@ -16,6 +16,7 @@ import {
   paymentConnectionList,
   paymentConnectionSetAccess,
   personCreate,
+  subscriptionSetConnection,
   subscriptionStart,
 } from '../src/server';
 import { admin, ask, expectHfos, run, runSystem, setupTeam, type Team } from './calendar-helpers';
@@ -228,6 +229,29 @@ describe('who bills into which account', () => {
     );
     expect(await list(null)).toEqual([null]);
     expect(none).toBeTruthy();
+  });
+
+  it('leaves a plan on the account it already uses, whoever saves it', async () => {
+    const { subscriptionId } = await run(
+      subscriptionStart,
+      {
+        workspaceId: t.wsId,
+        personId,
+        planName: 'Care plan',
+        priceCents: 9_900,
+        connectionId: seo,
+      },
+      t.owner,
+    );
+    const move = (connectionId: string) =>
+      run(
+        subscriptionSetConnection,
+        { workspaceId: t.wsId, subscriptionId, connectionId },
+        t.marco,
+      );
+    // Not Marco's account, but nothing changes: the plan stays where it is.
+    await expect(move(seo)).resolves.toMatchObject({ subscriptionId });
+    await expectHfos(() => move(main), 'payment_account_not_yours');
   });
 
   it('never keeps an account to nobody, or to somebody outside the business', async () => {

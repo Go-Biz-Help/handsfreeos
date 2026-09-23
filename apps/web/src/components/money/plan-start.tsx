@@ -59,7 +59,8 @@ export function StartPlanDialog({
 }) {
   const router = useRouter();
   const live = plans.filter((p) => !p.archivedAt);
-  const usable = connections.filter((c) => c.status === 'active');
+  // Connected, and one this person may bill into (0102).
+  const usable = connections.filter((c) => c.status === 'active' && c.usableByMe);
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<PickedPerson | null>(person ?? null);
   const [planId, setPlanId] = useState(live[0]?.id ?? '');
@@ -161,7 +162,13 @@ export function StartPlanDialog({
                 data-testid="plan-connection"
                 onChange={(e) => setConnectionId(e.target.value)}
               >
-                {usable.length === 0 ? <option value="">No connected account</option> : null}
+                {usable.length === 0 ? (
+                  <option value="">
+                    {connections.some((c) => c.status === 'active')
+                      ? 'None of the accounts is yours to bill into'
+                      : 'No connected account'}
+                  </option>
+                ) : null}
                 {usable.map((c) => (
                   <option key={c.id} value={c.id}>
                     {connectionLabel(c)}

@@ -31,6 +31,7 @@ export function InvoicesList({
   canManage,
   timeZone,
   now,
+  accountNames,
 }: {
   workspaceId: string;
   initial: InvoiceListOut;
@@ -38,6 +39,8 @@ export function InvoicesList({
   canManage: boolean;
   timeZone: string;
   now: number;
+  /** Each account's name, for a business with more than one to tell apart (0102). */
+  accountNames?: Readonly<Record<string, string>> | null;
 }) {
   const router = useRouter();
   useLiveRefresh(['invoice', 'payment', 'refund']);
@@ -49,15 +52,18 @@ export function InvoicesList({
   const more = useMore<InvoiceSummary>(key, initial.nextCursor);
   const items = [...initial.invoices, ...more.items];
   const href = (inv: InvoiceSummary) => `/app/w/${workspaceId}/money/invoices/${inv.id}`;
+  const paidInto = (inv: InvoiceSummary) =>
+    inv.connectionId ? (accountNames?.[inv.connectionId] ?? '—') : 'No account';
 
   if (items.length === 0) {
-    const empty = invoicesEmpty(!!(filters.q || filters.status));
+    const filtered = !!(filters.q || filters.status || filters.account);
+    const empty = invoicesEmpty(filtered);
     return (
       <Card>
         <EmptyState
           title={empty.title}
           actions={
-            filters.q || filters.status || !canManage ? undefined : (
+            filtered || !canManage ? undefined : (
               <ButtonLink href={`/app/w/${workspaceId}/money/invoices/new`} size="sm">
                 <Plus className="h-4 w-4" strokeWidth={1.75} />
                 New invoice
@@ -82,6 +88,7 @@ export function InvoicesList({
               <Th>What</Th>
               <Th>Status</Th>
               <Th>Due</Th>
+              {accountNames ? <Th>Paid into</Th> : null}
               <Th align="right">Total</Th>
               <Th align="right">Balance</Th>
             </tr>
@@ -117,6 +124,9 @@ export function InvoicesList({
                 <Td className={cn('text-text-2', inv.state === 'overdue' && 'text-text')}>
                   {dueLabel(inv, now, timeZone)}
                 </Td>
+                {accountNames ? (
+                  <Td className="max-w-[200px] truncate text-text-2">{paidInto(inv)}</Td>
+                ) : null}
                 <Td align="right">{money(inv.totals.totalCents)}</Td>
                 <Td
                   align="right"
@@ -150,6 +160,11 @@ export function InvoicesList({
                 <CustomerCell person={inv.person} className="text-[15px]" />
                 {inv.title ? (
                   <span className="truncate text-[13px] text-text-2">{inv.title}</span>
+                ) : null}
+                {accountNames ? (
+                  <span className="truncate text-[13px] text-text-3">
+                    {inv.connectionId ? `Paid into ${paidInto(inv)}` : 'No account'}
+                  </span>
                 ) : null}
                 <span className="flex items-baseline justify-between gap-3">
                   <span className="text-[13px] text-text-3">{dueLabel(inv, now, timeZone)}</span>

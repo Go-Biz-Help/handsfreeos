@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import { PaymentsSettings } from '@/components/settings/payments-page';
 import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
+import type { TeamMember } from '@/components/settings/payment-access-dialog';
 import { apiServer, unwrapPage } from '@/lib/api/server';
+import type { Members } from '@/lib/api/types';
 
 export const metadata: Metadata = { title: 'Payments' };
 
@@ -30,9 +32,10 @@ export default async function PaymentsSettingsPage({
   // Whether anything has ever gone out to a customer: the "no address on your documents" warning waits for it,
   // so a business still setting itself up is never told off for a field it hasn't reached yet. One row of each
   // is enough to know.
-  const [settings, accounts, sentEstimates, sentInvoices] = await Promise.all([
+  const [settings, accounts, members, sentEstimates, sentInvoices] = await Promise.all([
     api.POST('/v1/queries/money.settings', body).then(unwrapPage),
     api.POST('/v1/queries/payment_connection.list', body).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', body).then(unwrapPage),
     api
       .POST('/v1/queries/estimate.list', {
         body: { workspaceId, limit: 1, status: ['sent', 'accepted', 'declined', 'expired'] },
@@ -56,9 +59,25 @@ export default async function PaymentsSettingsPage({
         nextEstimateNumber={settings.nextEstimateNumber}
         nextInvoiceNumber={settings.nextInvoiceNumber}
         connections={accounts.connections}
+        team={teamOf(members)}
         hasSentDocuments={sentEstimates + sentInvoices > 0}
         result={typeof payments === 'string' ? payments : null}
       />
     </>
   );
+}
+
+/**
+ * The business's people for who may use each account (0102), and whether each bills: owners and admins do, and the
+ * agency's owners and admins reach every business as one.
+ */
+function teamOf(m: Members): TeamMember[] {
+  const bills = new Map<string, { fullName: string; bills: boolean }>();
+  for (const x of m.members)
+    bills.set(x.userId, { fullName: x.fullName || x.email, bills: x.role !== 'member' });
+  for (const x of m.organizationAdmins)
+    bills.set(x.userId, { fullName: x.fullName || x.email, bills: true });
+  return [...bills]
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }

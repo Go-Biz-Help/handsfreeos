@@ -183,7 +183,10 @@ export function PlanPage({
   const billing = sub.status === 'active' || sub.status === 'past_due';
   /** A plan cannot bill anybody until the customer has put a card on their own page. */
   const waitingOnCard = sub.status === 'draft' && !sub.hasCard;
-  const usable = connections.filter((c) => c.status === 'active');
+  // Connected, and theirs to bill into (0102) — or the account the plan already uses.
+  const usable = connections.filter(
+    (c) => c.status === 'active' && (c.usableByMe || c.id === sub.connectionId),
+  );
   const canMove = sub.status === 'draft' || sub.status === 'unmanaged';
 
   async function run(key: string, fn: () => Promise<void>) {

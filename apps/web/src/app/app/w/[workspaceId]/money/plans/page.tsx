@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { MoneyFilterBar } from '@/components/money/filters';
 import { HeadlineStrip } from '@/components/money/headline-strip';
 import {
+  accountChoices,
+  accountNames,
   PLAN_STATUS_CHOICES,
   readFilters,
   subscriptionListBody,
@@ -11,7 +13,7 @@ import { PlansList } from '@/components/money/plans-list';
 import { MoneyActions, MoneySubnav } from '@/components/money/subnav';
 import { PageHeader } from '@/components/shell/page-header';
 import { unwrapPage } from '@/lib/api/server';
-import { allowed, COLLECTED_DAYS, loadMoneyShell } from '../load';
+import { allowed, COLLECTED_DAYS, loadAccounts, loadMoneyShell } from '../load';
 
 export const metadata: Metadata = { title: 'Plans' };
 
@@ -29,7 +31,7 @@ export default async function PlansPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { workspaceId } = await params;
-  const filters = readFilters(await searchParams, { status: STATUSES });
+  const filters = readFilters(await searchParams, { status: STATUSES, account: true });
   const shell = await loadMoneyShell(workspaceId);
   const [plans, subscriptions, connections, services] = await Promise.all([
     shell.api.POST('/v1/queries/plan.list', { body: { workspaceId } }).then((r) => unwrapPage(r)),
@@ -40,11 +42,7 @@ export default async function PlansPage({
         })
         .then((r) => unwrapPage(r)),
     ),
-    allowed(
-      shell.api
-        .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
-        .then((r) => unwrapPage(r)),
-    ),
+    loadAccounts(shell.api, workspaceId, shell.canManage),
     // For each plan's visits: the service it covers (Maintenance due).
     shell.api
       .POST('/v1/queries/service.list', { body: { workspaceId } })
@@ -68,12 +66,13 @@ export default async function PlansPage({
             <MoneyFilterBar
               filters={filters}
               statuses={PLAN_STATUS_CHOICES}
+              accounts={accountChoices(connections, filters.account)}
               count={subscriptions?.subscriptions.length ?? 0}
             />
             <StartPlanDialog
               workspaceId={workspaceId}
               plans={plans.plans}
-              connections={connections?.connections ?? []}
+              connections={connections}
             />
           </>
         ) : null}
@@ -86,6 +85,8 @@ export default async function PlansPage({
         timeZone={shell.timeZone}
         services={services.map((s) => ({ id: s.id, name: s.name }))}
         canManage={shell.canManage}
+        accountNames={accountNames(connections)}
+        filtered={!!(filters.status || filters.account)}
       />
     </>
   );

@@ -80,6 +80,26 @@ export async function loadMoneyShell(workspaceId: string): Promise<MoneyShell> {
   };
 }
 
+/**
+ * Every account the business has had, disconnected ones too — what they took stays on the books — for splitting
+ * the lists by account (0102). Empty for someone who may not manage money.
+ */
+export async function loadAccounts(
+  api: ApiClient,
+  workspaceId: string,
+  canManage: boolean,
+): Promise<PaymentConnectionRow[]> {
+  if (!canManage) return [];
+  const got = await allowed(
+    api
+      .POST('/v1/queries/payment_connection.list', {
+        body: { workspaceId, includeDisconnected: true },
+      })
+      .then((r) => unwrapPage(r)),
+  );
+  return got?.connections ?? [];
+}
+
 /** The catalogue and the accounts the editor picks from. Both are empty for someone who may not manage money. */
 export async function loadEditorCatalogs(
   api: ApiClient,

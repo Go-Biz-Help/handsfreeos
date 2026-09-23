@@ -3897,6 +3897,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/payment_connection.set_access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose who may bill into a connected account: everyone who bills, only the people chosen, or only them — and they bill into nothing that is open to everyone. For a team whose people are each paid into their own account.
+         * @description Risk level 2. Requires money.manage. Emits payment_connection.access_set.
+         */
+        post: operations["command_payment_connection_set_access"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/payment_connection.set_default": {
         parameters: {
             query?: never;
@@ -4497,6 +4517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/record.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a customer or a company to someone on the team. They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows its threads and money to a member.
+         * @description Risk level 1. Requires records.write. Emits person.updated, company.updated.
+         */
+        post: operations["command_record_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.remove_tag": {
         parameters: {
             query?: never;
@@ -4531,6 +4571,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits record.tags_changed.
          */
         post: operations["command_record_set_tags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record.unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a customer or a company. Taking the owner off makes the next person on its team the owner.
+         * @description Risk level 1. Requires records.write. Emits person.updated, company.updated.
+         */
+        post: operations["command_record_unassign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12088,6 +12148,23 @@ export interface operations {
                     importRow?: number;
                     name: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     phone?: string | null;
                     source?: string | null;
@@ -12175,6 +12252,15 @@ export interface operations {
                         email?: string | null;
                         name?: string | null;
                         notes?: string | null;
+                        otherAddresses?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherEmails?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherPhones?: {
+                            [key: string]: unknown;
+                        }[] | null;
                         ownerUserId?: string | null;
                         phone?: string | null;
                         source?: string | null;
@@ -12185,6 +12271,23 @@ export interface operations {
                     email?: string | null;
                     name?: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     phone?: string | null;
                     source?: string | null;
@@ -12504,6 +12607,7 @@ export interface operations {
                     channel?: "sms" | "email";
                     /** Format: uuid */
                     personId: string;
+                    to?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -17856,6 +17960,46 @@ export interface operations {
             };
         };
     };
+    command_payment_connection_set_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** @enum {string} */
+                    usedBy: "everyone" | "chosen" | "only_theirs";
+                    /** @default [] */
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
     command_payment_connection_set_default: {
         parameters: {
             query?: never;
@@ -18039,6 +18183,23 @@ export interface operations {
                     /** @default  */
                     lastName?: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     phone?: string | null;
                     phoneAlt?: string | null;
@@ -18164,6 +18325,15 @@ export interface operations {
                         firstName?: string | null;
                         lastName?: string | null;
                         notes?: string | null;
+                        otherAddresses?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherEmails?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherPhones?: {
+                            [key: string]: unknown;
+                        }[] | null;
                         ownerUserId?: string | null;
                         phone?: string | null;
                         phoneAlt?: string | null;
@@ -18174,6 +18344,23 @@ export interface operations {
                     firstName?: string;
                     lastName?: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     /** Format: uuid */
                     personId: string;
@@ -19095,6 +19282,53 @@ export interface operations {
             };
         };
     };
+    command_record_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    main?: boolean;
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_record_remove_tag: {
         parameters: {
             query?: never;
@@ -19176,6 +19410,51 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_record_unassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
                         }[];
                     };
                 };
@@ -26348,6 +26627,24 @@ export interface operations {
                             name: string;
                             notes: string | null;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -26362,6 +26659,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -26390,6 +26692,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    assignedUserId?: string;
                     cursor?: string;
                     /** @default false */
                     includeArchived?: boolean;
@@ -26428,6 +26732,24 @@ export interface operations {
                             id: string;
                             name: string;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -26442,6 +26764,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -28479,6 +28806,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     attendeeId?: string;
+                    connectionId?: string | null;
                     cursor?: string;
                     /** Format: uuid */
                     leadId?: string;
@@ -30336,6 +30664,10 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
                             tokenExpiresAt: string | null;
+                            usableByMe: boolean;
+                            /** @enum {string} */
+                            usedBy: "everyone" | "chosen" | "only_theirs";
+                            userIds: string[];
                         }[];
                     };
                 };
@@ -30352,6 +30684,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    connectionId?: string | null;
                     cursor?: string;
                     /** Format: uuid */
                     invoiceId?: string;
@@ -30472,6 +30805,24 @@ export interface operations {
                             lastName: string;
                             notes: string | null;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -30486,6 +30837,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -30505,6 +30861,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    assignedUserId?: string;
                     /** Format: uuid */
                     companyId?: string;
                     cursor?: string;
@@ -30561,6 +30919,24 @@ export interface operations {
                             lastActivityAt: string | null;
                             lastName: string;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -30575,6 +30951,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -31695,6 +32076,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    connectionId?: string | null;
                     cursor?: string;
                     /** @default 25 */
                     limit?: number;

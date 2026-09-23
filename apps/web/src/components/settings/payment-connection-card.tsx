@@ -24,6 +24,7 @@ import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow } from '@/lib/api/types';
 import { publicEnv } from '@/lib/env';
 import { cn } from '@/lib/utils';
+import { PaymentAccessDialog, usedByWords, type TeamMember } from './payment-access-dialog';
 
 export type ConnectableProvider = 'stripe' | 'square';
 
@@ -123,9 +124,12 @@ function standingOf(c: PaymentConnectionRow): Standing {
 export function PaymentConnectionCard({
   workspaceId,
   connection,
+  team,
 }: {
   workspaceId: string;
   connection: PaymentConnectionRow;
+  /** The business's people, for who may use the account (0102). */
+  team: readonly TeamMember[];
 }) {
   const router = useRouter();
   const c = connection;
@@ -134,6 +138,7 @@ export function PaymentConnectionCard({
   const standing = standingOf(c);
   const [busy, setBusy] = useState<string | null>(null);
   const [plans, setPlans] = useState<{ id: string; planName: string }[] | null>(null);
+  const [choosing, setChoosing] = useState(false);
 
   async function run(key: string, fn: () => Promise<void>) {
     setBusy(key);
@@ -289,6 +294,22 @@ export function PaymentConnectionCard({
             it.
           </span>
         ) : null}
+        <span className="text-xs text-text-2" data-testid={`pay-used-by-${c.id}`}>
+          Used by: {usedByWords(c, team)}
+          {c.status === 'active' ? (
+            <>
+              {' · '}
+              <button
+                type="button"
+                onClick={() => setChoosing(true)}
+                className="font-medium text-accent-text hover:underline"
+                data-testid={`pay-access-${c.id}`}
+              >
+                Change
+              </button>
+            </>
+          ) : null}
+        </span>
       </span>
       <span className="ml-auto flex flex-none items-center gap-1.5">
         {c.status === 'active' && !c.isDefault ? (
@@ -324,6 +345,9 @@ export function PaymentConnectionCard({
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onSelect={rename}>Rename</DropdownMenuItem>
+            {c.status === 'active' ? (
+              <DropdownMenuItem onSelect={() => setChoosing(true)}>Who can use it</DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem danger onSelect={askDisconnect}>
               <Unplug className="h-4 w-4" strokeWidth={1.5} />
               Disconnect
@@ -373,6 +397,14 @@ export function PaymentConnectionCard({
           </div>
         </DialogContent>
       </Dialog>
+      <PaymentAccessDialog
+        workspaceId={workspaceId}
+        connection={c}
+        name={name}
+        team={team}
+        open={choosing}
+        onOpenChange={setChoosing}
+      />
     </div>
   );
 }

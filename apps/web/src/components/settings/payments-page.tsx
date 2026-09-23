@@ -53,6 +53,7 @@ import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import type { TeamMember } from './payment-access-dialog';
 import { connectPaymentAccount, PaymentConnectionCard } from './payment-connection-card';
 import { SetRow } from './set-row';
 
@@ -204,6 +205,7 @@ export function PaymentsSettings({
   nextEstimateNumber,
   nextInvoiceNumber,
   connections,
+  team,
   hasSentDocuments,
   result,
 }: {
@@ -213,6 +215,8 @@ export function PaymentsSettings({
   nextEstimateNumber: string;
   nextInvoiceNumber: string;
   connections: readonly PaymentConnectionRow[];
+  /** The business's people and whether each bills, for who may use each account (0102). */
+  team: readonly TeamMember[];
   /** Whether an estimate or an invoice has ever gone out: the missing-address warning waits for it. */
   hasSentDocuments: boolean;
   /** `?payments=` from the provider's redirect. */
@@ -417,7 +421,12 @@ export function PaymentsSettings({
             {live.length ? (
               <div className="mt-3 flex flex-col gap-2">
                 {live.map((c) => (
-                  <PaymentConnectionCard key={c.id} workspaceId={workspaceId} connection={c} />
+                  <PaymentConnectionCard
+                    key={c.id}
+                    workspaceId={workspaceId}
+                    connection={c}
+                    team={team}
+                  />
                 ))}
               </div>
             ) : (
@@ -450,7 +459,8 @@ export function PaymentsSettings({
               </Button>
             </div>
             <p className="mt-2 text-[12.5px] text-text-3">
-              You can connect several, including two of the same kind.
+              You can connect several, including two of the same kind, and keep each one to the
+              people who use it.
             </p>
             <Note>
               Disconnecting asks about the plans billing through that account first. Refunds keep

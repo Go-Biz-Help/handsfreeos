@@ -30,7 +30,8 @@ const stickyHead = 'sticky top-0 z-10 bg-card-2 px-3 py-2.5 shadow-[inset_0_-1px
 export interface CustomerFilters {
   q: string;
   tagId: string;
-  ownerUserId: string;
+  /** Who they are assigned to: their owner, or anyone on their team. */
+  assignedUserId: string;
   archived: boolean;
 }
 
@@ -69,7 +70,7 @@ export function CustomersList({
     if (merged.tab === 'companies') params.set('tab', 'companies');
     if (merged.q.trim()) params.set('q', merged.q.trim());
     if (merged.tagId) params.set('tag', merged.tagId);
-    if (merged.ownerUserId) params.set('owner', merged.ownerUserId);
+    if (merged.assignedUserId) params.set('assigned', merged.assignedUserId);
     if (merged.archived) params.set('archived', '1');
     const qs = params.toString();
     startTransition(() => router.replace(`${pathname}${qs ? `?${qs}` : ''}`));
@@ -149,22 +150,21 @@ export function CustomersList({
             </option>
           ))}
         </Select>
-        {tab === 'people' ? (
-          <Select
-            selectSize="sm"
-            className="w-[160px]"
-            aria-label="Owner"
-            value={filters.ownerUserId}
-            onChange={(e) => navigate({ ownerUserId: e.target.value })}
-          >
-            <option value="">Any owner</option>
-            {owners.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.fullName}
-              </option>
-            ))}
-          </Select>
-        ) : null}
+        <Select
+          selectSize="sm"
+          className="w-[170px]"
+          aria-label="Assigned to"
+          value={filters.assignedUserId}
+          onChange={(e) => navigate({ assignedUserId: e.target.value })}
+          data-testid="customers-assigned"
+        >
+          <option value="">Assigned to anyone</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.fullName}
+            </option>
+          ))}
+        </Select>
         <Button
           variant={filters.archived ? 'secondary' : 'ghost'}
           size="sm"
@@ -240,7 +240,7 @@ function emptyState(
   canImport: boolean,
   workspaceId: string,
 ) {
-  const filtered = filters.q || filters.tagId || filters.ownerUserId;
+  const filtered = filters.q || filters.tagId || filters.assignedUserId;
   return (
     <EmptyState
       title={
@@ -293,7 +293,7 @@ function PeopleTable({
             workspaceId,
             q: filters.q || undefined,
             tagId: filters.tagId || undefined,
-            ownerUserId: filters.ownerUserId || undefined,
+            assignedUserId: filters.assignedUserId || undefined,
             includeArchived: filters.archived,
             cursor: more.cursor,
             limit: 50,
@@ -432,6 +432,7 @@ function CompaniesTable({
             workspaceId,
             q: filters.q || undefined,
             tagId: filters.tagId || undefined,
+            assignedUserId: filters.assignedUserId || undefined,
             includeArchived: filters.archived,
             cursor: more.cursor,
             limit: 50,

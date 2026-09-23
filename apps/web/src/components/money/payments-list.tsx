@@ -26,7 +26,14 @@ const PROVIDER_WORDS: Readonly<Record<string, string>> = {
   authorize_net: 'Authorize.net',
 };
 
-function MethodCell({ payment }: { payment: PaymentListRow }) {
+function MethodCell({
+  payment,
+  names,
+}: {
+  payment: PaymentListRow;
+  /** Each account's name, when there's more than one to tell apart (0102). */
+  names?: Readonly<Record<string, string>> | null;
+}) {
   const method = payment.method as PaymentMethod;
   const Icon =
     method === 'card'
@@ -36,7 +43,9 @@ function MethodCell({ payment }: { payment: PaymentListRow }) {
         : method === 'check'
           ? Receipt
           : HandCoins;
-  const where = payment.provider ? (PROVIDER_WORDS[payment.provider] ?? payment.provider) : null;
+  const where =
+    (payment.connectionId ? names?.[payment.connectionId] : undefined) ??
+    (payment.provider ? (PROVIDER_WORDS[payment.provider] ?? payment.provider) : null);
   return (
     <span className="flex items-center gap-1.5 text-text-2">
       <Icon className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
@@ -53,6 +62,7 @@ export function PaymentsList({
   timeZone,
   collectedCents,
   days,
+  accountNames,
 }: {
   workspaceId: string;
   initial: PaymentListOut;
@@ -60,6 +70,8 @@ export function PaymentsList({
   timeZone: string;
   collectedCents: number;
   days: number;
+  /** Each account's name, for a business with more than one (0102). */
+  accountNames?: Readonly<Record<string, string>> | null;
 }) {
   useLiveRefresh(['payment', 'invoice', 'refund']);
   const key = JSON.stringify({
@@ -75,8 +87,12 @@ export function PaymentsList({
   if (items.length === 0)
     return (
       <Card>
-        <EmptyState title={paymentsEmpty(!!(filters.status || filters.method)).title}>
-          {filters.status || filters.method ? paymentsEmpty(true).body : paymentsEmpty(false).body}
+        <EmptyState
+          title={paymentsEmpty(!!(filters.status || filters.method || filters.account)).title}
+        >
+          {filters.status || filters.method || filters.account
+            ? paymentsEmpty(true).body
+            : paymentsEmpty(false).body}
         </EmptyState>
       </Card>
     );
@@ -107,7 +123,7 @@ export function PaymentsList({
                   )}
                 </Td>
                 <Td>
-                  <MethodCell payment={p} />
+                  <MethodCell payment={p} names={accountNames} />
                 </Td>
                 <Td>
                   <Link
@@ -132,7 +148,9 @@ export function PaymentsList({
             ))}
             <tr>
               <Td className="font-semibold" />
-              <Td className="font-semibold">Collected in {days} days</Td>
+              <Td className="font-semibold">
+                Collected in {days} days{filters.account ? ', every account' : ''}
+              </Td>
               <Td />
               <Td />
               <Td />
@@ -156,7 +174,7 @@ export function PaymentsList({
               </span>
               {p.person ? <CustomerCell person={p.person} className="text-[15px]" /> : null}
               <span className="flex items-baseline justify-between gap-3">
-                <MethodCell payment={p} />
+                <MethodCell payment={p} names={accountNames} />
                 <span className="whitespace-nowrap text-[15px] font-semibold tabular-nums">
                   {money(p.amountCents)}
                 </span>

@@ -420,7 +420,9 @@ export const subscriptionSetConnection = defineCommand({
           409,
           'That account isn’t connected right now. Reconnect it in Settings → Payments first.',
         );
-      await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
+      // Pointing a plan back at the account it already uses is not a new choice, whoever makes it.
+      if (input.connectionId !== before.connection_id)
+        await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
     }
     // A plan whose account went away is still billing at the provider: pointing it at the account it is billing
     // through hands it back to us, and the next cycle read corrects the rest.

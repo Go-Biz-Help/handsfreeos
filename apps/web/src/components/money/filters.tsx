@@ -13,12 +13,15 @@ export function MoneyFilterBar({
   filters,
   statuses,
   methods,
+  accounts,
   searchLabel,
   count,
 }: {
   filters: MoneyFilters;
   statuses?: readonly FilterChoice[];
   methods?: readonly FilterChoice[];
+  /** The payment accounts to split by (0102). Left out for a business with only one. */
+  accounts?: readonly FilterChoice[];
   /** Left out, the list's query has no search of its own and the box is hidden. */
   searchLabel?: string;
   count: number;
@@ -34,6 +37,7 @@ export function MoneyFilterBar({
     if (merged.q.trim()) params.set('q', merged.q.trim());
     if (merged.status) params.set('status', merged.status);
     if (merged.method) params.set('method', merged.method);
+    if (merged.account) params.set('account', merged.account);
     const qs = params.toString();
     startTransition(() => router.replace(`${pathname}${qs ? `?${qs}` : ''}`));
   }
@@ -93,6 +97,22 @@ export function MoneyFilterBar({
           {methods.map((m) => (
             <option key={m.value} value={m.value}>
               {m.label}
+            </option>
+          ))}
+        </Select>
+      ) : null}
+      {accounts ? (
+        <Select
+          selectSize="sm"
+          className="w-auto max-w-[240px]"
+          aria-label="Filter by the account it was paid into"
+          value={filters.account}
+          onChange={(e) => navigate({ account: e.target.value })}
+          data-testid="money-account-filter"
+        >
+          {accounts.map((a) => (
+            <option key={a.value} value={a.value}>
+              {a.label}
             </option>
           ))}
         </Select>

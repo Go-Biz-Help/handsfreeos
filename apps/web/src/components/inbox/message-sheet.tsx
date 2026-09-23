@@ -1,5 +1,5 @@
 'use client';
-import { CONVERSATION_DONE, firstName } from '@hfos/core';
+import { CONVERSATION_DONE, firstName, formatPhone, normalizePhone } from '@hfos/core';
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -25,6 +25,7 @@ export function MessageSheet({
   workspaceId,
   person,
   channel = 'sms',
+  to,
   open,
   onOpenChange,
   onEditPerson,
@@ -41,6 +42,8 @@ export function MessageSheet({
     email?: string | null;
   };
   channel?: Channel;
+  /** Another of their numbers or emails to use instead of the main one (0100); left out, the main one. */
+  to?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Opens the customer's edit dialog (offered when their email address bounced). */
@@ -61,7 +64,7 @@ export function MessageSheet({
       try {
         const opened = unwrap(
           await apiBrowser().POST('/v1/commands/conversation.open', {
-            body: { workspaceId, personId: person.id, channel },
+            body: { workspaceId, personId: person.id, channel, ...(to ? { to } : {}) },
           }),
         );
         const ref = { workspaceId, conversationId: opened.conversationId };
@@ -82,15 +85,15 @@ export function MessageSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, workspaceId, person.id, channel]);
+  }, [open, workspaceId, person.id, channel, to]);
 
   const loaded = state && 'data' in state ? state : null;
   const heading = `${channel === 'email' ? 'Email' : 'Text'} ${person.fullName}`;
   const defaultFrom = loaded?.email?.addresses.find((a) => a.id === loaded.email?.fromAddressId);
   const sub =
     channel === 'email'
-      ? `${person.email ?? ''}${defaultFrom ? ` · from ${defaultFrom.address}` : ''}`
-      : `${person.phone ?? ''}${loaded?.data.fromNumber ? ` · from ${loaded.data.fromNumber}` : ''}`;
+      ? `${to ?? person.email ?? ''}${defaultFrom ? ` · from ${defaultFrom.address}` : ''}`
+      : `${to ? formatPhone(normalizePhone(to) ?? to) : (person.phone ?? '')}${loaded?.data.fromNumber ? ` · from ${loaded.data.fromNumber}` : ''}`;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent title={heading} hideHeader className="overflow-hidden p-0 sm:p-0">

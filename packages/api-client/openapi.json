@@ -1779,6 +1779,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -1998,6 +2132,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -2149,6 +2417,60 @@
                             ]
                           }
                         }
+                      },
+                      "otherEmails": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherPhones": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherAddresses": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "notes": {
                         "anyOf": [
@@ -2508,6 +2830,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -2741,6 +3197,140 @@
                       }
                     }
                   },
+                  "otherEmails": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "email": {
+                          "type": "string",
+                          "maxLength": 254
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "email"
+                      ]
+                    }
+                  },
+                  "otherPhones": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "phone": {
+                          "type": "string",
+                          "maxLength": 40
+                        },
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "phone"
+                      ]
+                    }
+                  },
+                  "otherAddresses": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line1": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "line2": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "city": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "state": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "postalCode": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 20
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "country": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 2
+                        }
+                      }
+                    }
+                  },
                   "notes": {
                     "anyOf": [
                       {
@@ -2915,6 +3505,60 @@
                             ]
                           }
                         }
+                      },
+                      "otherEmails": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherPhones": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "otherAddresses": {
+                        "anyOf": [
+                          {
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       },
                       "notes": {
                         "anyOf": [
@@ -3643,6 +4287,248 @@
                     "tags",
                     "changed",
                     "notApplied"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/record.assign": {
+      "post": {
+        "operationId": "command_record_assign",
+        "summary": "Assign a customer or a company to someone on the team. They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows its threads and money to a member.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits person.updated, company.updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recordType": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "company"
+                    ]
+                  },
+                  "recordId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "main": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "recordType",
+                  "recordId",
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "team": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fullName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "team",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/record.unassign": {
+      "post": {
+        "operationId": "command_record_unassign",
+        "summary": "Take someone off a customer or a company. Taking the owner off makes the next person on its team the owner.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits person.updated, company.updated.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "recordType": {
+                    "type": "string",
+                    "enum": [
+                      "person",
+                      "company"
+                    ]
+                  },
+                  "recordId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "recordType",
+                  "recordId",
+                  "userId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "owner": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "team": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "fullName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "owner",
+                    "team",
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -6658,6 +7544,11 @@
                       "sms",
                       "email"
                     ]
+                  },
+                  "to": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 254
                   }
                 },
                 "required": [
@@ -27191,6 +28082,103 @@
         }
       }
     },
+    "/v1/commands/payment_connection.set_access": {
+      "post": {
+        "operationId": "command_payment_connection_set_access",
+        "summary": "Choose who may bill into a connected account: everyone who bills, only the people chosen, or only them — and they bill into nothing that is open to everyone. For a team whose people are each paid into their own account.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires money.manage. Emits payment_connection.access_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "usedBy": {
+                    "type": "string",
+                    "enum": [
+                      "everyone",
+                      "chosen",
+                      "only_theirs"
+                    ]
+                  },
+                  "userIds": {
+                    "default": [],
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "connectionId",
+                  "usedBy"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connectionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "active",
+                        "reauth_required",
+                        "error",
+                        "disconnected"
+                      ]
+                    },
+                    "isDefault": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "connectionId",
+                    "status",
+                    "isDefault",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/payment_connection.disconnect": {
       "post": {
         "operationId": "command_payment_connection_disconnect",
@@ -44840,6 +45828,11 @@
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
+                  "assignedUserId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
                   "includeArchived": {
                     "default": false,
                     "type": "boolean"
@@ -44944,6 +45937,111 @@
                             ],
                             "additionalProperties": false
                           },
+                          "otherEmails": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "email": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "email",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherPhones": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "phone": {
+                                  "type": "string"
+                                },
+                                "phoneE164": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "phone",
+                                "phoneE164",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherAddresses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "line1": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "line2": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "city": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "state": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "postalCode": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "country": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "line1",
+                                "line2",
+                                "city",
+                                "state",
+                                "postalCode",
+                                "country",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "source": {
                             "type": [
                               "string",
@@ -44974,6 +46072,27 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "team": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
                           },
                           "tags": {
                             "type": "array",
@@ -45041,8 +46160,12 @@
                           "phoneE164",
                           "website",
                           "address",
+                          "otherEmails",
+                          "otherPhones",
+                          "otherAddresses",
                           "source",
                           "owner",
+                          "team",
                           "tags",
                           "peopleCount",
                           "openLeads",
@@ -45196,6 +46319,111 @@
                           ],
                           "additionalProperties": false
                         },
+                        "otherEmails": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "email",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherPhones": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "phone": {
+                                "type": "string"
+                              },
+                              "phoneE164": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "phone",
+                              "phoneE164",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherAddresses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "line1": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "line2": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "state": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "postalCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "line1",
+                              "line2",
+                              "city",
+                              "state",
+                              "postalCode",
+                              "country",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "source": {
                           "type": [
                             "string",
@@ -45226,6 +46454,27 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "team": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          }
                         },
                         "tags": {
                           "type": "array",
@@ -45299,8 +46548,12 @@
                         "phoneE164",
                         "website",
                         "address",
+                        "otherEmails",
+                        "otherPhones",
+                        "otherAddresses",
                         "source",
                         "owner",
+                        "team",
                         "tags",
                         "peopleCount",
                         "openLeads",
@@ -45408,6 +46661,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "ownerUserId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "assignedUserId": {
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -45530,6 +46788,111 @@
                             ],
                             "additionalProperties": false
                           },
+                          "otherEmails": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "email": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "email",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherPhones": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "phone": {
+                                  "type": "string"
+                                },
+                                "phoneE164": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "phone",
+                                "phoneE164",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "otherAddresses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "line1": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "line2": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "city": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "state": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "postalCode": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "country": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "line1",
+                                "line2",
+                                "city",
+                                "state",
+                                "postalCode",
+                                "country",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
                           "source": {
                             "type": [
                               "string",
@@ -45589,6 +46952,27 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "team": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
                           },
                           "tags": {
                             "type": "array",
@@ -45665,9 +47049,13 @@
                           "phoneE164",
                           "phoneAlt",
                           "address",
+                          "otherEmails",
+                          "otherPhones",
+                          "otherAddresses",
                           "source",
                           "company",
                           "owner",
+                          "team",
                           "tags",
                           "openLeads",
                           "lastActivityAt",
@@ -45827,6 +47215,111 @@
                           ],
                           "additionalProperties": false
                         },
+                        "otherEmails": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "email": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "email",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherPhones": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "phone": {
+                                "type": "string"
+                              },
+                              "phoneE164": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "phone",
+                              "phoneE164",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "otherAddresses": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "line1": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "line2": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "city": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "state": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "postalCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "country": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "line1",
+                              "line2",
+                              "city",
+                              "state",
+                              "postalCode",
+                              "country",
+                              "label"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "source": {
                           "type": [
                             "string",
@@ -45886,6 +47379,27 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "team": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "fullName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "fullName"
+                            ],
+                            "additionalProperties": false
+                          }
                         },
                         "tags": {
                           "type": "array",
@@ -45968,9 +47482,13 @@
                         "phoneE164",
                         "phoneAlt",
                         "address",
+                        "otherEmails",
+                        "otherPhones",
+                        "otherAddresses",
                         "source",
                         "company",
                         "owner",
+                        "team",
                         "tags",
                         "openLeads",
                         "lastActivityAt",
@@ -71560,6 +73078,25 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "usedBy": {
+                            "type": "string",
+                            "enum": [
+                              "everyone",
+                              "chosen",
+                              "only_theirs"
+                            ]
+                          },
+                          "userIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "usableByMe": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -71579,7 +73116,10 @@
                           "disconnectedReason",
                           "connectedAt",
                           "disconnectedAt",
-                          "liveSubscriptions"
+                          "liveSubscriptions",
+                          "usedBy",
+                          "userIds",
+                          "usableByMe"
                         ],
                         "additionalProperties": false
                       }
@@ -72627,6 +74167,18 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "openOnly": {
                     "default": false,
@@ -73861,6 +75413,18 @@
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                   },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "limit": {
                     "default": 25,
                     "type": "integer",
@@ -74167,6 +75731,18 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "connectionId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "limit": {
                     "default": 25,
