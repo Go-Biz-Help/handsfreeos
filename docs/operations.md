@@ -7703,7 +7703,7 @@ Each person can turn off their own copy of either in **Settings** → **Account*
 | **Booked, never marked done**      | A card when a visit's time passed three days ago and nobody marked it. It lets go after 30 days                                                                                                                                                                                                                                                       | Yes              |
 | **Job missing an address**         | A card two days before a visit at the customer's place when neither the visit nor the customer has an address                                                                                                                                                                                                                                         | Yes              |
 
-Which stage means what is guessed from each stage's name ("Estimate sent" means a quote went out; "Scheduled" a visit was booked) and fixed per stage in **Adjust**, stored in `workspaces.settings.automations.pipeline.roles`. The push has its own switch, **A job you were on is over** (`jobs`), under Notifications. Needs `20261004000800_pipeline_and_jobs.sql`. See "Apply new migrations".
+Which stage means what is guessed from each stage's name ("Estimate sent" means a quote went out; "Scheduled" a visit was booked) and fixed per stage in **Adjust**, stored in `workspaces.settings.automations.pipeline.roles`. The push has its own switch, **A job you were on is over** (`jobs`), under Notifications. Needs `20261004001000_pipeline_and_jobs.sql`. See "Apply new migrations".
 
 ### Service, hand-offs and revenue
 
@@ -7715,7 +7715,7 @@ Which stage means what is guessed from each stage's name ("Estimate sent" means 
 | **Approvals about to expire**   | Two hours before a workflow approval or an AI teammate draft runs out, another push to whoever can decide, and its card turns urgent. Only for ones that last more than 3 hours                                                                                                       | Yes              |
 | **Money in changed**            | A Monday card (from 6 AM) when last week's money in was 30% or more above or below the usual week, with the main reason (jobs done, one big payment, or invoices still unpaid). Needs 4 weeks of history and a usual week of at least $500. Only people who manage money see it       | Yes              |
 
-The promises found are kept in `app.promises`; dismissing the card is enough to drop one. Needs `20261004000900_service_and_revenue.sql`. See "Apply new migrations".
+The promises found are kept in `app.promises`; dismissing the card is enough to drop one. Needs `20261004001100_service_and_revenue.sql`. See "Apply new migrations".
 
 ### Health and quality
 
@@ -7729,7 +7729,7 @@ The promises found are kept in `app.promises`; dismissing the card is enough to 
 | **Website changed**               | Every Monday at 4 AM the website is read again (only once someone scanned it before). A card when it proposes updates, until they're accepted or turned down                                                          | Yes              |
 | **Questions the AI can't answer** | A card as soon as a question the AI couldn't answer has come up 3 times. **Answer** opens it in Knowledge → Suggestions, where the answer is typed once and saved                                                     | Yes              |
 
-The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons`, and the weekly re-read marks its scans `automatic`. Needs `20261004001000_health_and_quality.sql`. See "Apply new migrations".
+The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons`, and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql`. See "Apply new migrations".
 
 ## Money: Stripe and Square
 
