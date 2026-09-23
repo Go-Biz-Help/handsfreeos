@@ -261,7 +261,7 @@ export const CallLogItem = z.object({
   occurredAt: isoDateTime,
   durationSeconds: z.number().int().nullable(),
   isVoicemail: z.boolean(),
-  answeredVia: z.enum(['browser', 'forwarding', 'bridge']).nullable(),
+  answeredVia: z.enum(['browser', 'forwarding', 'bridge', 'ai']).nullable(),
   answeredBy: UserRef,
   /** The stored recording (telephony bucket), for the player. Null when none reached us. */
   recordingPath: z.string().nullable(),

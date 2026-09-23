@@ -35,6 +35,7 @@ import { ensurePlatformOwners } from './support/owners';
 import { createTelephony } from './telephony/index';
 import { createSiteHost } from './hosting';
 import { createDriveTimer } from './geo/driving';
+import { createSpeech, createVoiceAi } from './voice-agent/index';
 import { createGeocoder } from './geo/geocoder';
 import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
@@ -71,6 +72,8 @@ const services: EngineServices = {
   transcriber: createTranscriber(env, log, telephony),
   geocoder: createGeocoder(env, log),
   driving: createDriveTimer(env, log),
+  speech: createSpeech(env, log),
+  voiceAi: createVoiceAi(env),
   siteHost: createSiteHost(env),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),

@@ -212,7 +212,7 @@ export const ThreadItem = z.object({
   /** The voicemail's length (the call's own length includes the greeting). */
   recordingSeconds: z.number().int().nullable(),
   /** 'bridge': a call through the teammate's own cell (answeredBy is who pressed 1 to place it). */
-  answeredVia: z.enum(['browser', 'forwarding', 'bridge']).nullable(),
+  answeredVia: z.enum(['browser', 'forwarding', 'bridge', 'ai']).nullable(),
   /** A text waiting for quiet hours to end: when it goes (it can still be cancelled). */
   scheduledFor: isoDateTime.nullable(),
   transcript: z.string().nullable(),

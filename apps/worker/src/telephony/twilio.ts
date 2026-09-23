@@ -978,6 +978,22 @@ export function createTwilioTelephony(master: {
       }
     },
 
+    async redirectCall(account, callSid, twiml) {
+      try {
+        await call(
+          credsOf(account),
+          'POST',
+          `${API}/Accounts/${account.sid}/Calls/${callSid}.json`,
+          {
+            Twiml: twiml,
+          },
+        );
+      } catch (e) {
+        // Already over: gone (404), or "Call is not in-progress" (21220).
+        if (!(e instanceof ProviderError && (e.httpStatus === 404 || e.code === '21220'))) throw e;
+      }
+    },
+
     async transcribeRecording(account, recordingSid) {
       const creds = credsOf(account);
       const res = await call<{ sid: string }>(creds, 'POST', `${INTELLIGENCE}/Transcripts`, {

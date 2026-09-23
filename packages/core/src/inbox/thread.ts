@@ -32,7 +32,7 @@ export interface ThreadItemFacts {
   readonly transcript?: string | null;
   /** Where the words got to: null before anything was asked, then pending, completed or failed. */
   readonly transcriptStatus?: 'pending' | 'completed' | 'failed' | null;
-  readonly answeredVia: 'browser' | 'forwarding' | 'bridge' | null;
+  readonly answeredVia: 'browser' | 'forwarding' | 'bridge' | 'ai' | null;
   readonly answeredBy: UserRef | null;
   readonly scheduledFor: string | null;
   readonly teammate: { readonly id: string; readonly name: string } | null;
@@ -264,9 +264,11 @@ export function callCardWords(item: ThreadItemFacts): CallCardWords {
   const answeredLine =
     item.answeredVia === 'forwarding'
       ? 'answered on a forwarding phone'
-      : item.answeredBy
-        ? `${item.answeredBy.fullName} answered`
-        : null;
+      : item.answeredVia === 'ai'
+        ? 'your AI teammate answered'
+        : item.answeredBy
+          ? `${item.answeredBy.fullName} answered`
+          : null;
   const detail = live
     ? item.status === 'in_progress'
       ? 'in progress'

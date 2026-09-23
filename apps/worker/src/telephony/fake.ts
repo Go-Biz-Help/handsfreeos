@@ -56,6 +56,8 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly calls: FakeCall[];
   /** The calls HandsFreeOS hung up (endCall), by sid. */
   readonly ended: string[];
+  /** Live calls given new instructions (redirectCall), in order. */
+  readonly redirected: { readonly callSid: string; readonly twiml: string }[];
   /** Registration steps in the order they were submitted. */
   readonly registrations: RegistrationRequest[];
   /** Ports asked for, in order, and the papers put on them. */
@@ -128,6 +130,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const sent: FakeSent[] = [];
   const calls: FakeCall[] = [];
   const ended: string[] = [];
+  const redirected: { callSid: string; twiml: string }[] = [];
   const registrations: RegistrationRequest[] = [];
   const deleted: string[] = [];
   const transcribed: string[] = [];
@@ -295,6 +298,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     sent,
     calls,
     ended,
+    redirected,
     registrations,
     ports,
     portDocuments,
@@ -440,6 +444,9 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async endCall(_account, callSid) {
       if (!ended.includes(callSid)) ended.push(callSid);
+    },
+    async redirectCall(_account, callSid, twiml) {
+      redirected.push({ callSid, twiml });
     },
     async transcribeRecording(_account, recordingSid) {
       transcribed.push(recordingSid);

@@ -1,3 +1,4 @@
+import type { SessionTimings } from '../voice-agent/session';
 import { bearerToken, HfosError, type HumanActor, type TokenVerifier } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -24,6 +25,8 @@ export interface HttpDeps extends WorkerServices {
   readonly booking?: BookingHttpOptions;
   /** The website chat's IP-hashing key, bot check and limits (default: a per-process key, no bot check). */
   readonly chat?: ChatHttpOptions;
+  /** How long a live call waits on quiet and on Twilio (M18 step 5; tests shorten them). */
+  readonly voiceTimings?: Partial<SessionTimings>;
   /** The public form pages: their per-address limits. */
   readonly forms?: FormsHttpOptions;
   /** Leads posted in from a website form or a connected app: their limits and the bot check. */

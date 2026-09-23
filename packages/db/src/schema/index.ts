@@ -639,7 +639,12 @@ export const callStatus = app.enum('call_status', [
   'canceled',
 ]);
 /** bridge (Milestone 10): placed through the person's own cell, which HandsFreeOS rang first. */
-export const callAnsweredVia = app.enum('call_answered_via', ['browser', 'forwarding', 'bridge']);
+export const callAnsweredVia = app.enum('call_answered_via', [
+  'browser',
+  'forwarding',
+  'bridge',
+  'ai',
+]);
 export const optOutSource = app.enum('opt_out_source', ['keyword', 'manual', 'carrier_error']);
 export const deliveryStatus = app.enum('delivery_status', ['pending', 'done', 'failed', 'ignored']);
 export const jobStatus = app.enum('job_status', ['pending', 'done', 'failed', 'cancelled']);
@@ -2525,6 +2530,8 @@ export const aiTeammateRuns = app.table('ai_teammate_runs', {
   cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
   toolSteps: integer('tool_steps').notNull().default(0),
   error: text('error'),
+  /** The phone call it answered live (M18 step 5). */
+  callId: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
   startedAt: ts('started_at').notNull().defaultNow(),
   endedAt: ts('ended_at'),
   ...timestamps(),

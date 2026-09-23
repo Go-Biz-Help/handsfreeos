@@ -25815,7 +25815,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
-                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge" | "ai") | null;
                             conversationId: string | null;
                             counterpart: string;
                             /** @enum {string} */
@@ -26370,7 +26370,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
-                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge" | "ai") | null;
                             approvedBy: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -29119,7 +29119,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
-                            answeredVia: ("browser" | "forwarding" | "bridge") | null;
+                            answeredVia: ("browser" | "forwarding" | "bridge" | "ai") | null;
                             approvedBy: {
                                 fullName: string;
                                 /** Format: uuid */

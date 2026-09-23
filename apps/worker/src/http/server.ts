@@ -44,6 +44,7 @@ import { registerMigrationRoutes } from './migrations';
 import { registerOAuthRoutes } from './oauth';
 import { registerTestRoutes } from './test-routes';
 import { registerVoiceRoutes } from './voice';
+import { registerVoiceAgentRoute } from './voice-agent';
 
 export type { HttpDeps } from './common';
 
@@ -225,6 +226,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     reply: 'empty',
   });
   registerVoiceRoutes(app, deps);
+  // The AI teammate answering calls live (M18 step 5): Twilio streams the call to it over a websocket.
+  await registerVoiceAgentRoute(app, deps);
   registerEmailRoutes(app, deps);
   registerOAuthRoutes(app, deps);
   // Signing in to the CRM a business is leaving (M11).

@@ -57,6 +57,7 @@ const FIELD_MODULE: Readonly<Record<string, ModuleKey>> = {
   limits: 'limits',
   money: 'limits',
   handOff: 'handOff',
+  phone: 'channels',
 };
 
 export function moduleOfField(field: string): ModuleKey | null {
@@ -151,7 +152,10 @@ export function moduleSummary(
     case 'identity':
       return `${config.identity.name} · says it’s AI ${config.identity.disclosure === 'first_message' ? 'first' : 'when asked'}`;
     case 'channels': {
-      const on = channelsOn(config).map((k) => CHANNEL_NAMES[k].toLowerCase());
+      const on = [
+        ...channelsOn(config).map((k) => CHANNEL_NAMES[k].toLowerCase()),
+        ...(config.phone.enabled ? ['calls'] : []),
+      ];
       return on.length ? capital(joinWords(on)) : 'No channels';
     }
     case 'respond': {
@@ -207,10 +211,20 @@ export function describeTeammate(config: TeammateConfig, catalogs: TeammateCatal
       : config.hours.mode === 'after_hours'
         ? ' while you’re closed'
         : ` ${formatHours(config.hours.custom)}`;
-  if (!nouns.length) out.push('No channel is on, so it can’t answer anyone yet.');
-  else if (config.answer.enabled)
+  if (!nouns.length && !config.phone.enabled)
+    out.push('No channel is on, so it can’t answer anyone yet.');
+  else if (nouns.length && config.answer.enabled)
     out.push(`Answers ${joinWords(nouns)} from your Knowledge${when}.`);
-  else out.push(`Works on ${joinWords(nouns)}${when}.`);
+  else if (nouns.length) out.push(`Works on ${joinWords(nouns)}${when}.`);
+  // M18 step 5: calls go by their own setting, not its hours.
+  if (config.phone.enabled)
+    out.push(
+      config.phone.answer === 'always'
+        ? 'Picks up every call to your business number.'
+        : config.phone.answer === 'after_hours'
+          ? 'Picks up calls while you’re closed.'
+          : 'Picks up calls nobody on the team answers.',
+    );
 
   const r = config.respond;
   if (r.enabled && r.newLeads.enabled)
@@ -454,6 +468,7 @@ const TOOL_NAMES: Readonly<Record<TeammateToolName, string>> = {
   check_service_area: 'Checked the service area',
   my_appointments: 'Looked up their visits',
   job_status: 'Looked up their jobs',
+  end_call: 'Said goodbye and hung up',
   read_call_transcript: 'Read a call',
   book: 'Booked a visit',
   reschedule: 'Moved a visit',

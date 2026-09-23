@@ -22,6 +22,7 @@ import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
 import type { Transcriber } from './telephony/transcriber';
+import type { SpeechServices } from './voice-agent/speech';
 
 /** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
 export interface SupportServices {
@@ -50,6 +51,13 @@ export interface WorkerServices {
   readonly geocoder: Geocoder;
   /** How long a drive takes, for On my way's arrival time (M18). */
   readonly driving: DriveTimer;
+  /**
+   * Hearing and speaking when the AI teammate answers a call live (M18 step 5). **Null when it's off**
+   * (production with no Deepgram key): every call rings the team and goes to voicemail, as before.
+   */
+  readonly speech: SpeechServices | null;
+  /** The model that thinks on a call, when it isn't the usual one (VOICE_MODEL); null uses `ai.provider`. */
+  readonly voiceAi: AiProvider | null;
   /**
    * Where a business's own domain is served from (M17). **Null when nobody has turned it on**, which every
    * handler checks: the feature is absent rather than present and failing.

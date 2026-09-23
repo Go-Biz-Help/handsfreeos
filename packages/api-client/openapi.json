@@ -49712,7 +49712,8 @@
                                 "enum": [
                                   "browser",
                                   "forwarding",
-                                  "bridge"
+                                  "bridge",
+                                  "ai"
                                 ]
                               },
                               {
@@ -51763,7 +51764,8 @@
                                 "enum": [
                                   "browser",
                                   "forwarding",
-                                  "bridge"
+                                  "bridge",
+                                  "ai"
                                 ]
                               },
                               {
@@ -52244,7 +52246,8 @@
                               "enum": [
                                 "browser",
                                 "forwarding",
-                                "bridge"
+                                "bridge",
+                                "ai"
                               ]
                             },
                             {

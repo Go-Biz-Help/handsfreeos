@@ -452,7 +452,8 @@ export function callItemOf(r: CallThreadRow): ThreadItemShape {
     isVoicemail: bool(r.is_voicemail),
     hasRecording: (r.recording_seconds ?? 0) > 0,
     recordingSeconds: r.recording_seconds,
-    answeredVia: via === 'browser' || via === 'forwarding' || via === 'bridge' ? via : null,
+    answeredVia:
+      via === 'browser' || via === 'forwarding' || via === 'bridge' || via === 'ai' ? via : null,
     transcript: r.transcript,
     transcriptStatus:
       r.transcript_status === 'pending' ||

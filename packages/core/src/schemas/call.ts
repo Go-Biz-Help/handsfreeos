@@ -14,7 +14,7 @@ export const callStatus = z.enum([
 ]);
 export type CallStatus = z.infer<typeof callStatus>;
 /** A teammate's browser, a forwarding phone, or the person's own cell (a call through it: call.connect_me). */
-export const callAnsweredVia = z.enum(['browser', 'forwarding', 'bridge']);
+export const callAnsweredVia = z.enum(['browser', 'forwarding', 'bridge', 'ai']);
 
 const callRef = {
   callId: uuid.optional(),

@@ -568,6 +568,14 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'draft',
   }),
   define({
+    name: 'end_call',
+    description:
+      'On a phone call only: say goodbye and hang up, when they’ve said goodbye or there’s nothing left to help with. The message is the last thing you say.',
+    input: z.strictObject({ message: text(600), language: language.optional() }),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
     name: 'no_reply',
     description:
       'End your turn without replying, when nothing needs an answer: a thank-you, an automatic message, or a conversation that’s finished.',
@@ -588,6 +596,7 @@ export const teammateToolByName: ReadonlyMap<string, TeammateTool> = new Map(
 export const TEAMMATE_TURN_ENDERS: ReadonlySet<TeammateToolName> = new Set([
   'hand_off',
   'reply',
+  'end_call',
   'no_reply',
 ]);
 
@@ -626,9 +635,25 @@ export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
   'check_verification_code',
 ]);
 
+/** Only on a live phone call (M18 step 5). */
+export const PHONE_ONLY: ReadonlySet<TeammateToolName> = new Set(['end_call']);
+
+/**
+ * Never on a live phone call: a caller always gets an answer, there are no photos on a call, and the caller's
+ * number is the proof a chat code stands in for.
+ */
+export const PHONE_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
+  'no_reply',
+  'note_photos',
+  'send_verification_code',
+  'check_verification_code',
+]);
+
 export interface TeammateToolOptions {
   /** The conversation is a website chat whose visitor isn't verified as the matched customer. */
   readonly unverifiedChat?: boolean;
+  /** It's answering a live phone call (M18 step 5). */
+  readonly phone?: boolean;
 }
 
 /** The tools a teammate's settings turn on, in registry order. */
@@ -659,6 +684,8 @@ export function teammateTools(
     if (t.name === 'join_waitlist' && !config.book.waitlist) return false;
     if (t.name === 'book_repeating' && !config.book.repeats) return false;
     if (t.name === 'check_service_area' && !config.book.serviceArea) return false;
+    if (PHONE_ONLY.has(t.name)) return !!opts.phone;
+    if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;
     if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
     return !(opts.unverifiedChat && UNVERIFIED_CHAT_HIDDEN.has(t.name));
   }) as TeammateTool[];

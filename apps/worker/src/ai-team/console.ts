@@ -1035,6 +1035,14 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { status: 'received' }, stop: true };
   },
 
+  // Phone only, and the console never plays a call: said like a reply, for completeness.
+  async end_call(h, args) {
+    const message = String(args['message']);
+    h.state.end = { kind: 'end_call', message };
+    h.send({ type: 'delta', text: message });
+    return { content: { status: 'received' }, stop: true };
+  },
+
   async no_reply(h, args) {
     h.state.end = { kind: 'no_reply', reason: String(args['reason']) };
     return { content: { status: 'received' }, stop: true };
