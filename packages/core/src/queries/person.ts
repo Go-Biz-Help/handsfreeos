@@ -85,7 +85,7 @@ function summary(r: Row, tags: PersonSummary['tags']): PersonSummary {
 }
 
 /**
- * The rest of the team on a customer (0101) as JSON, in the order they were added, with each person's name; somebody
+ * The rest of the team on a customer (0103) as JSON, in the order they were added, with each person's name; somebody
  * whose account is gone has none, and reads "Former member".
  */
 export const TEAM = (alias: 'p' | 'c') => sql`(
@@ -162,6 +162,17 @@ export const personGet = defineQuery({
     );
     if (!row) throw HfosError.notFound('Person not found.');
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'person', [row.id]);
-    return { person: { ...summary(row, tags.get(row.id) ?? []), notes: row.notes } };
+    // The fields this business invented, only here: a list of fifty customers needn't carry them.
+    const [values] = await rows<{ custom: Record<string, unknown> }>(
+      ctx.tx,
+      sql`select custom from app.people where id = ${row.id}`,
+    );
+    return {
+      person: {
+        ...summary(row, tags.get(row.id) ?? []),
+        notes: row.notes,
+        custom: values?.custom ?? {},
+      },
+    };
   },
 });

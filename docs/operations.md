@@ -3204,7 +3204,6 @@ The trial ends after 14 days, or sooner if the team reaches the trial's usage li
 3. Under **Import Git Repository**, click **Import** next to `gobizhelp/handsfreeos`.
 
    If `gobizhelp/handsfreeos` is not listed:
-
    1. Look below the list for a link to install or adjust the Vercel GitHub App, and click it. If there is none, open `https://github.com/settings/installations` while signed in to GitHub as `gobizhelp`.
    2. Click **Configure** next to **Vercel**.
    3. Under **Repository access**, choose **Only select repositories**.
@@ -5102,7 +5101,6 @@ How a sign-in travels, so the steps below make sense: **Connect Outlook** or **C
 
 - Vercel's Production environment has `NEXT_PUBLIC_WORKER_URL` set to `https://hooks.handsfreeos.com` (see "Environment variables" in "The web app on Vercel"). Without it, the Connect buttons send the browser to `http://127.0.0.1:4100`, and the sign-in fails.
 - The worker's `SMTP_URL` works. The "Reconnect your mailbox" emails go out through it, from `alerts@handsfreeos.com` (`MAIL_FROM` in `apps/worker/fly.toml`). Before Postmark approves the account, this mail only reaches addresses on `handsfreeos.com`. If you have no mailbox there, do this check after approval. To check it, invite yourself:
-
   1. In HandsFreeOS, open **Members**.
   2. Click **Invite teammate**.
   3. Enter an address you can read.
@@ -5119,7 +5117,6 @@ How a sign-in travels, so the steps below make sense: **Connect Outlook** or **C
   You should see `200` on the first line (for example `HTTP/2 200`). Repeat for `https://handsfreeos.com` and `https://handsfreeos.com/terms`.
 
 - You are an owner or admin of a HandsFreeOS workspace. Only owners and admins can open **Settings** → **Email** and connect a mailbox. To check that the Connect buttons reach the worker:
-
   1. Open **Settings** → **Email**.
   2. Click **Connect Outlook**.
 
@@ -5900,7 +5897,6 @@ Anthropic recommends a service account for a key that a server uses, rather than
 
 3. Go to **Settings** → **API keys** and click **Create key**.
 4. Fill in the form:
-
    - Name: `handsfreeos-worker production`.
    - **Linked account**: the `handsfreeos-worker` service account.
    - Workspace: `HandsFreeOS` only.
@@ -7702,10 +7698,23 @@ The promises found are kept in `app.promises`; dismissing the card is enough to 
 
 The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons`, and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql`. See "Apply new migrations".
 
+### Outreach campaigns
+
+**Campaigns** in the side menu (and linked from Settings → Automations, under Marketing): one text to a list of customers. Owners and admins make and approve them; everyone can see them.
+
+1. **Pick who**: anyone with one of the chosen tags, or an open deal in one of the chosen pipeline stages (500 people at most). Texts only, and only to people who agreed to texts.
+2. **Say what it's for** in a line ("Fall tune-up special, $89 through October"). The AI writes each person's text from that, the business's own knowledge, and the person's last visit and last few messages. No links, prices or offers the goal and the knowledge don't give.
+3. **Read and approve**: every text shows on one screen, each one editable; **Remove** takes someone out. **Approve all and send** starts it.
+4. **Sending**: 20 texts an hour to begin with (1 to 200, changeable while it sends), only in open hours and never in quiet hours. **Pause**, **Resume** and **Stop** are on the same screen. The first text to a number carries the STOP wording.
+
+Left out, with the reason shown: no mobile number, no agreement to texts (or said STOP), texted by the business in the last 14 days, waiting on a reply or with an open card on Home, or booked in the next 30 days. The same checks run again just before each text goes. If texting stops working for the business, the campaign pauses itself. Replies land in the inbox like any other text, where the AI teammate answers if it's on. Whoever made the campaign gets a push when the texts are ready to read.
+
+Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `campaigns.draft` and `campaigns.send`. Needs `20261004001300_campaigns.sql`. See "Apply new migrations".
+
 ## Who can do what: roles and permissions
 
 Everyone in a business has a role: **Owner**, **Admin** or **Member**. Each role comes with a set of things it can
-do, and an owner can change that set for their business (migration 0103). Nothing here needs setting up: the
+do, and an owner can change that set for their business (migration 0105). Nothing here needs setting up: the
 defaults are what the roles always did.
 
 - **For a role:** **Settings** → **Permissions** lists every permission in six groups (Customers, Inbox and calls,
@@ -9022,7 +9031,6 @@ Do these once, in order.
    ```
 
    The first run downloads the Docker images and can take several minutes. If the two private files below do not exist yet, it also creates them and prints one line for each. If they already exist, it leaves them alone and prints nothing about them. Git ignores both.
-
    - `.env` at the repository root, copied from `.env.example`. It prints `Created .env from .env.example (Google OAuth values stay empty until you fill them in).` Only the Supabase CLI reads this file, for the optional Google sign-in described later in this section.
    - `supabase/signing_keys.json`, the key the local stack signs sign-in tokens with. It prints `Generating a local ES256 signing key: supabase/signing_keys.json (gitignored).` Never share or commit this file.
 

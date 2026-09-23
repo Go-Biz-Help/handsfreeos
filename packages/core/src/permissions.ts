@@ -145,7 +145,7 @@ export type Permission = (typeof ROLE_PERMISSIONS)[RoleKey][number];
 /** Everything anyone can do inside a business: the owner has all of it. */
 export type WorkspacePermission = (typeof ROLE_PERMISSIONS)['owner'][number];
 
-// ---------- permissions a business sets (0103) ----------
+// ---------- permissions a business sets (0105) ----------
 
 /** One permission an owner can turn on or off, in plain words, with what it stands on. */
 export interface PermissionInfo {
@@ -434,7 +434,7 @@ export function effectivePermissions(
 }
 
 /**
- * Who is asking, as far as permissions go: their role, and what the business lets them do when that is known (0103)
+ * Who is asking, as far as permissions go: their role, and what the business lets them do when that is known (0105)
  * — the API gives it, the phone's access row holds it. Code that only has a role still works, with the defaults.
  */
 export interface Grants {

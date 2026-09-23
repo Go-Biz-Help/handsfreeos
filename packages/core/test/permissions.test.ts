@@ -1,5 +1,5 @@
 /**
- * What each role and each person may do, set by the business's owners (0103), and members who bill. The settings
+ * What each role and each person may do, set by the business's owners (0105), and members who bill. The settings
  * decide the database's answer (every RLS policy), the command kernel's, the screens' and the phone's, and they
  * all come from one stored copy kept in step with the rules.
  */

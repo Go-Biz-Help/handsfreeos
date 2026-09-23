@@ -24,7 +24,7 @@ export type MigrationDoor = 'organization' | 'workspace';
 export interface MigrationReader {
   readonly orgRole: OrgRole | null;
   readonly workspaceRole: WorkspaceRole | null;
-  /** What the business lets them do (0103), when the scope knows it. */
+  /** What the business lets them do (0105), when the scope knows it. */
   readonly workspacePermissions?: readonly string[] | null;
   readonly workspaceId: string | null;
 }

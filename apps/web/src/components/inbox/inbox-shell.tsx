@@ -39,7 +39,7 @@ import { NewMessageDialog } from './new-message-dialog';
 interface InboxContextValue {
   readonly workspaceId: string;
   readonly myUserId: string;
-  /** What the business lets them do (0103), as workspace.get gives it. */
+  /** What the business lets them do (0105), as workspace.get gives it. */
   readonly permissions: readonly string[];
   readonly members: { id: string; fullName: string }[];
   readonly timezone: string;
@@ -92,7 +92,7 @@ export function InboxShell({
   const boxParam = params.get('box') ?? '';
   const statusParam = params.get('status') ?? '';
   // Where a person lands with nothing in the address bar. Someone who sees only their own threads in a business
-  // that has narrowed its inbox (everyone who doesn't set up the channels, 0103) lands on them, because that is
+  // that has narrowed its inbox (everyone who doesn't set up the channels, 0105) lands on them, because that is
   // what they came for; everybody else lands where they always have. Nothing is hidden either way — pressing
   // Everyone still shows them what they may see.
   const home: InboxBoxKey = narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';

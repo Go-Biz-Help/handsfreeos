@@ -128,7 +128,7 @@ export function PaymentConnectionCard({
 }: {
   workspaceId: string;
   connection: PaymentConnectionRow;
-  /** The business's people, for who may use the account (0102). */
+  /** The business's people, for who may use the account (0104). */
   team: readonly TeamMember[];
 }) {
   const router = useRouter();

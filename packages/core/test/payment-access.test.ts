@@ -1,5 +1,5 @@
 /**
- * Who bills into which account (0102): an account open to everyone who bills, one kept to the people it names,
+ * Who bills into which account (0104): an account open to everyone who bills, one kept to the people it names,
  * and one kept to them that also keeps them to it. Checked where a person picks an account for an invoice or a
  * plan — by the commands in words, and by the database whatever path a write takes.
  */

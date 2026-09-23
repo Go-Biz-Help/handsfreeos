@@ -109,7 +109,6 @@ export const RECORD_WORDS = {
   none: '—',
   notLinked: 'Not linked to a company.',
   nobodyLinked: 'Nobody linked yet.',
-  laterMilestone: 'Properties and equipment arrive with jobs in a later milestone.',
   openLead: 'Open lead',
   leads: 'Leads',
   noOpenLeads: 'No open leads.',
@@ -132,7 +131,7 @@ export const RECORD_WORDS = {
     address: 'Address',
     company: 'Company',
     owner: 'Owner',
-    /** The owner and everyone else on the customer (0101). */
+    /** The owner and everyone else on the customer (0103). */
     assignedTo: 'Assigned to',
     source: 'Source',
     created: 'Created',

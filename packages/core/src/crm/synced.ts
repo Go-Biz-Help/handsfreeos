@@ -76,7 +76,7 @@ const userRef = (id: Cell, names: SyncedNames) => {
   return userId ? { id: userId, fullName: names.user(userId) ?? 'Former member' } : null;
 };
 
-/** Everyone else on a customer (0101), from the phone's copy: a Postgres array arrives as JSON text. */
+/** Everyone else on a customer (0103), from the phone's copy: a Postgres array arrives as JSON text. */
 const teamOf = (ids: Cell, names: SyncedNames): { id: string; fullName: string }[] => {
   const s = text(ids);
   if (!s) return [];
@@ -120,7 +120,7 @@ export interface SyncedPersonRow {
   readonly state: Cell;
   readonly postal_code: Cell;
   readonly country: Cell;
-  /** JSON text (0100); a phone that hasn't caught up has none. */
+  /** JSON text (0102); a phone that hasn't caught up has none. */
   readonly other_emails?: Cell;
   readonly other_phones?: Cell;
   readonly other_addresses?: Cell;
@@ -128,7 +128,7 @@ export interface SyncedPersonRow {
   readonly source: Cell;
   readonly company_id: Cell;
   readonly owner_user_id: Cell;
-  /** A JSON array of ids (0101); a phone that hasn't caught up has none. */
+  /** A JSON array of ids (0103); a phone that hasn't caught up has none. */
   readonly team_user_ids?: Cell;
   readonly archived_at: Cell;
   readonly possible_duplicate_of: Cell;
@@ -201,14 +201,14 @@ export interface SyncedCompanyRow {
   readonly state: Cell;
   readonly postal_code: Cell;
   readonly country: Cell;
-  /** JSON text (0100); a phone that hasn't caught up has none. */
+  /** JSON text (0102); a phone that hasn't caught up has none. */
   readonly other_emails?: Cell;
   readonly other_phones?: Cell;
   readonly other_addresses?: Cell;
   readonly notes: Cell;
   readonly source: Cell;
   readonly owner_user_id: Cell;
-  /** A JSON array of ids (0101); a phone that hasn't caught up has none. */
+  /** A JSON array of ids (0103); a phone that hasn't caught up has none. */
   readonly team_user_ids?: Cell;
   readonly archived_at: Cell;
   readonly created_at: Cell;
@@ -390,6 +390,8 @@ export function taskOfSynced(
     person: personRef(row.person_id, names),
     company: companyRef(row.company_id, names),
     lead: leadId ? { id: leadId, title: names.lead(leadId)?.title ?? '' } : null,
+    // Kinds of records a business makes up (0101) don't reach the phone yet: a task about one reads as the rest.
+    customRecord: null,
     doneAt,
     doneBy: userRef(row.done_by, names),
     createdBy: userRef(row.created_by, names),
@@ -459,6 +461,8 @@ export function timelineEntryOfSynced(row: SyncedActivityRow, names: SyncedNames
     personId: text(row.person_id),
     companyId: text(row.company_id),
     leadId: text(row.lead_id),
+    // Not synced yet (0101): the phone shows an entry on the customer, company or lead it's also on.
+    customRecordId: null,
     meta: json(row.meta),
   };
 }

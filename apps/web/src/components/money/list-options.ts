@@ -18,7 +18,7 @@ export interface MoneyFilters {
   readonly q: string;
   readonly status: string;
   readonly method: string;
-  /** The payment account it went through (0102): a connection's id, 'none' for no account, '' for any. */
+  /** The payment account it went through (0104): a connection's id, 'none' for no account, '' for any. */
   readonly account: string;
 }
 
@@ -64,7 +64,7 @@ const sameAccount = (c: PaymentConnectionRow): string =>
   c.externalAccountId ? `${c.provider}:${c.environment}:${c.externalAccountId}` : c.id;
 
 /**
- * The accounts a list can be split by (0102), the connected ones first. Only offered to a business with more
+ * The accounts a list can be split by (0104), the connected ones first. Only offered to a business with more
  * than one — one account has nothing to split — or while a split is already asked for, so it can be taken off.
  */
 export function accountChoices(

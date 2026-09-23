@@ -60,7 +60,7 @@ async function withWhom(
 }
 
 /**
- * The number or email `to` names, when the customer has it on file — main or other (0100) — as a thread's
+ * The number or email `to` names, when the customer has it on file — main or other (0102) — as a thread's
  * counterpart; anything else is refused rather than texted.
  */
 function onFile(
@@ -524,7 +524,7 @@ export const conversationLinkPerson = defineCommand({
         .where(eq(people.id, person.id));
       phoneAdded = true;
     } else if (c.channel === 'sms' || c.channel === 'email') {
-      // They already have a main one: this number or address joins their others (0100), so the next text from
+      // They already have a main one: this number or address joins their others (0102), so the next text from
       // it finds them on its own.
       const column = c.channel === 'sms' ? 'other_phones' : 'other_emails';
       const theirs =

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { companies, files, leads, people } from '@hfos/db/schema';
+import { companies, customRecords, files, leads, people } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { insertWithId, madeBefore } from '../crm/client-ids';
 import { safeFileName } from '../crm/records';
@@ -22,10 +22,17 @@ import { scopeCan } from '../kernel/execute';
 
 async function requireRecord(
   ctx: CommandContext,
-  recordType: 'person' | 'company' | 'lead',
+  recordType: 'person' | 'company' | 'lead' | 'custom_record',
   recordId: string,
 ) {
-  const table = recordType === 'person' ? people : recordType === 'company' ? companies : leads;
+  const table =
+    recordType === 'person'
+      ? people
+      : recordType === 'company'
+        ? companies
+        : recordType === 'custom_record'
+          ? customRecords
+          : leads;
   const [row] = await ctx.tx
     .select({ id: table.id })
     .from(table)
@@ -159,6 +166,7 @@ export const fileConfirm = defineCommand({
       personId: current.recordType === 'person' ? current.recordId : null,
       companyId: current.recordType === 'company' ? current.recordId : null,
       leadId: current.recordType === 'lead' ? current.recordId : null,
+      customRecordId: current.recordType === 'custom_record' ? current.recordId : null,
       body: current.name,
       meta: { fileId: current.id, mimeType, sizeBytes },
       eventId,

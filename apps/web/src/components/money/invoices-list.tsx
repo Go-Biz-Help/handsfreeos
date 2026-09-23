@@ -40,7 +40,7 @@ export function InvoicesList({
   canBill: boolean;
   timeZone: string;
   now: number;
-  /** Each account's name, for a business with more than one to tell apart (0102). */
+  /** Each account's name, for a business with more than one to tell apart (0104). */
   accountNames?: Readonly<Record<string, string>> | null;
 }) {
   const router = useRouter();

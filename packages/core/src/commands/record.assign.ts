@@ -1,11 +1,11 @@
 /**
- * Who a customer is assigned to (0101): their owner, the main person on them, and a team beside the owner — one
+ * Who a customer is assigned to (0103): their owner, the main person on them, and a team beside the owner — one
  * teammate installing a client's automations while another runs their SEO. Being on a customer shows it to a
  * member in the inbox and in money, the same as owning it, so owners and admins decide who is on one
  * (records.assign); everyone sees who is.
  *
  * One person at a time, like tags (record.add_tag), so two people assigning the same customer at the same moment
- * both land. The owner is never also on the team: the database takes them out (0101).
+ * both land. The owner is never also on the team: the database takes them out (0103).
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
@@ -139,7 +139,7 @@ async function save(
 }
 
 /**
- * Owners and admins change who is on a customer; the database refuses anybody else too (0101). People only: the
+ * Owners and admins change who is on a customer; the database refuses anybody else too (0103). People only: the
  * system — imports, the booking page, a workflow — is not asked, the same as the database's guard.
  */
 export function requireAssigner(ctx: CommandContext): void {
@@ -152,7 +152,7 @@ export function requireAssigner(ctx: CommandContext): void {
     );
 }
 
-/** The most people a customer can have besides its main one: the database's own limit (0101). */
+/** The most people a customer can have besides its main one: the database's own limit (0103). */
 const MAX_TEAM = 20;
 
 /** Somebody who can open this business, the only people a customer can be assigned to. */

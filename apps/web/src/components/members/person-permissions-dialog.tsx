@@ -24,7 +24,7 @@ import {
 type Settings = Record<string, boolean>;
 
 /**
- * What one person may do here (0103), permission by permission: as their role says, or on or off just for them.
+ * What one person may do here (0105), permission by permission: as their role says, or on or off just for them.
  * Their own answer wins over their role's. Each choice saves as it is made. Never for an owner: owners always do
  * everything.
  */

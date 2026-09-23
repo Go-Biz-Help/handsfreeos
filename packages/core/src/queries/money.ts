@@ -4,11 +4,11 @@
  *
  * **Every query applies the member rule in its own `where`, not just in RLS.** A member sees a document, its
  * lines, its payments and its refunds when they are staffed on the appointment it is linked to, they own the
- * lead it is linked to, or the customer it is for is assigned to them (0101); a document tied to none of those is
+ * lead it is linked to, or the customer it is for is assigned to them (0103); a document tied to none of those is
  * owner business. The predicate is
  * `private.money_member_sees`, the same definer helper the RLS policies call, so a query layer can never widen
  * the rule and a missing clause can never leak. Whoever manages money (money.manage: owners and admins unless the
- * business says otherwise, 0103) skips it entirely — they match the money.manage policies and never pay for the
+ * business says otherwise, 0105) skips it entirely — they match the money.manage policies and never pay for the
  * lookup. Someone who bills without managing money (money.bill) is held to the same rule, plans included.
  *
  * `money.summary` is for whoever manages money only: a total of the whole business's receivables is exactly what
@@ -83,19 +83,19 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 
-/** Whoever manages money sees it all; anyone else with money.read is held to the jobs they are on (0103). */
+/** Whoever manages money sees it all; anyone else with money.read is held to the jobs they are on (0105). */
 const isMember = (ctx: QueryContext): boolean => !scopeCan(ctx.scope, 'money.manage');
 
 /**
  * The member rule for an estimate, as this query's own `where`. Estimates have no booking, so a member's reach
- * on one is the lead they own, or the customer they are assigned to (0101).
+ * on one is the lead they own, or the customer they are assigned to (0103).
  */
 const estimateMemberClause = (ctx: QueryContext) =>
   isMember(ctx)
     ? sql` and private.money_member_sees(e.workspace_id, e.lead_id, null, e.person_id)`
     : sql``;
 
-/** A plan, for someone who bills without managing money (0103): the customers they bill. */
+/** A plan, for someone who bills without managing money (0105): the customers they bill. */
 const subscriptionMemberClause = (ctx: QueryContext) =>
   isMember(ctx)
     ? sql` and private.money_member_sees(s.workspace_id, s.lead_id, null, s.person_id)`
@@ -108,7 +108,7 @@ const invoiceMemberClause = (ctx: QueryContext) =>
     : sql``;
 
 /**
- * "Paid into this account" (0102): the connection named, and every other connection of the same account at the
+ * "Paid into this account" (0104): the connection named, and every other connection of the same account at the
  * provider — a reconnect is a new row, and an invoice sent before it still went to the same place. Null asks for
  * the ones with no account at all.
  */
@@ -300,7 +300,7 @@ export const paymentConnectionList = defineQuery({
         disconnectedAt: paymentConnections.disconnectedAt,
         usedBy: paymentConnections.usedBy,
         userIds: paymentConnections.userIds,
-        // Whether the person asking may bill into it (0102). The system never asks as anybody.
+        // Whether the person asking may bill into it (0104). The system never asks as anybody.
         usableByMe: dsql<boolean>`coalesce(private.payment_account_usable(${paymentConnections.workspaceId}, ${paymentConnections.id}, auth.uid()), false)`,
       })
       .from(paymentConnections)

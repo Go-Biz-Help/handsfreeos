@@ -98,6 +98,9 @@ import {
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
 import { brandedDomainCommands } from './branded-domain';
+import { customFieldCommands } from './custom-field';
+import { customRecordCommands } from './custom-record';
+import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
 import {
@@ -300,6 +303,7 @@ import { teammateLessonApply } from './teammate-lesson';
 import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
 import { paymentConnectionCommands } from './payment-connection';
+import { campaignCommands } from './campaign';
 import {
   moneySaveSettings,
   planArchive,
@@ -763,6 +767,7 @@ export const commands: readonly CommandDef[] = [
   automationsSaveSettings,
   referralCreateLead,
   teammateLessonApply,
+  ...campaignCommands,
   maintenanceSetSchedule,
   leadCatchUp,
   attendeeConfirm,
@@ -793,6 +798,10 @@ export const commands: readonly CommandDef[] = [
   ...portCommands,
   ...inboxVisibilityCommands,
   ...brandedDomainCommands,
+  // Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
+  ...customFieldCommands,
+  ...customRecordCommands,
+  ...relationshipCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -825,6 +834,7 @@ export * from './attention';
 export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
+export * from './campaign';
 export * from './maintenance';
 export * from './attendee-confirm';
 export * from './payment-connection';
@@ -844,3 +854,6 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './job';
+export * from './custom-field';
+export * from './custom-record';
+export * from './relationship';

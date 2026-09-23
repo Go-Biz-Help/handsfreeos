@@ -148,7 +148,7 @@ export default function PersonScreen() {
           },
         }
       : null,
-    // Their other numbers (0100), each a tap from a call like the main one.
+    // Their other numbers (0102), each a tap from a call like the main one.
     ...otherPhoneLines(person),
     person.email ? { key: 'email-line', text: person.email } : null,
     data.address ? { key: 'address', text: data.address } : null,

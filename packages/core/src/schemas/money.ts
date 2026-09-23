@@ -74,7 +74,7 @@ export const PAYMENT_CONNECTION_STATUSES = [
 export type PaymentConnectionStatus = (typeof PAYMENT_CONNECTION_STATUSES)[number];
 
 /**
- * Who may bill into an account (0102): everyone who bills, only the people it names, or only them — and they bill
+ * Who may bill into an account (0104): everyone who bills, only the people it names, or only them — and they bill
  * into nothing that is open to everyone.
  */
 export const PAYMENT_ACCOUNT_USES = ['everyone', 'chosen', 'only_theirs'] as const;
@@ -369,7 +369,7 @@ export const PaymentConnectionSetLabelInput = z.object({
   connectionId: uuid,
   label: z.string().trim().min(1, 'Name the account.').max(60).nullable(),
 });
-/** Who may bill into an account (0102). The people are required unless it is open to everyone. */
+/** Who may bill into an account (0104). The people are required unless it is open to everyone. */
 export const PaymentConnectionSetAccessInput = z
   .object({
     ...inWorkspace,
@@ -443,7 +443,7 @@ export const PaymentConnectionOut = z.object({
   disconnectedAt: isoDateTime.nullable(),
   /** Plans still billing through it: what a disconnect would leave unmanaged. */
   liveSubscriptions: z.int(),
-  /** Who may bill into it (0102), and the people it is kept to (empty when it is open to everyone). */
+  /** Who may bill into it (0104), and the people it is kept to (empty when it is open to everyone). */
   usedBy: paymentAccountUse,
   userIds: z.array(uuid),
   /** Whether the person asking may bill into it. */
@@ -806,7 +806,7 @@ export const InvoiceListInput = z.object({
   attendeeId: uuid.optional(),
   subscriptionId: uuid.optional(),
   /**
-   * The ones paid into this connected account (0102) — the same account across a reconnect — or, null, the ones
+   * The ones paid into this connected account (0104) — the same account across a reconnect — or, null, the ones
    * with no account chosen (imported, or from before any account was connected).
    */
   connectionId: uuid.nullable().optional(),

@@ -506,6 +506,8 @@ export interface BookingRequest {
   readonly notes?: string | null;
   readonly location?: AppointmentLocation;
   readonly leadId?: string | null;
+  /** The pet, vehicle or property the visit is for (0101). */
+  readonly customRecordId?: string | null;
   readonly clientId?: string | null;
   readonly source: AppointmentSource;
   readonly seriesId?: string | null;
@@ -834,6 +836,7 @@ async function commit(
         // Nobody works it: the calendar's owner answers for it.
         ownerUserId: req.ownerUserId ?? (userIds.length ? null : calendar.ownerUserId),
         leadId: req.leadId ?? null,
+        customRecordId: req.customRecordId ?? null,
         source: req.source,
         notes: req.notes ?? null,
         clientId: req.clientId ?? null,

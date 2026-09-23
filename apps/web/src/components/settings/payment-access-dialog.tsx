@@ -34,8 +34,8 @@ export function usedByWords(
 }
 
 /**
- * Who may bill into one account (0102): everyone who bills, only the people chosen, or only them — and for them,
- * nothing that is open to everyone. The people offered are the ones who bill today (0103).
+ * Who may bill into one account (0104): everyone who bills, only the people chosen, or only them — and for them,
+ * nothing that is open to everyone. The people offered are the ones who bill today (0105).
  */
 export function PaymentAccessDialog({
   workspaceId,

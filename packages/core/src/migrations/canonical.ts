@@ -405,6 +405,13 @@ export const CanonicalInvoice = z.object({
   dueOn: z.string().max(10).nullish(),
   terms: z.string().max(2000).nullish(),
   lines: z.array(CanonicalMoneyLine).max(200).default([]),
+  /**
+   * What it is for. `quick` and `subscription` are money that came in without an invoice over there — an order
+   * form, a payment link, a plan's charge — held here, as it would have been, by a paid invoice.
+   */
+  purpose: z.enum(['standard', 'quick', 'subscription']).default('standard'),
+  /** The processor's id of the plan a charge belongs to, so it can be tied to the plan when both are here. */
+  planRef: z.string().max(200).nullish(),
 });
 export type CanonicalInvoice = z.infer<typeof CanonicalInvoice>;
 

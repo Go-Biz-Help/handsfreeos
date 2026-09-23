@@ -129,7 +129,7 @@ async function knownCustomers(
       .where(
         and(eq(people.workspaceId, scope.workspaceId), inArray(dsql`lower(${people.email})`, list)),
       );
-    // A customer's other emails count too (0100): one probe of the list's index per address.
+    // A customer's other emails count too (0102): one probe of the list's index per address.
     const byOther = await tx
       .select({ others: people.otherEmails })
       .from(people)

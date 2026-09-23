@@ -61,7 +61,7 @@ export function PipelineBoard({
   pipelines: Pipeline[];
   members: { id: string; fullName: string }[];
   tags: Tag[];
-  /** What the business lets them do (0103), for the lead sheet. */
+  /** What the business lets them do (0105), for the lead sheet. */
   permissions: readonly string[];
   myUserId: string;
   initialView: View | null;

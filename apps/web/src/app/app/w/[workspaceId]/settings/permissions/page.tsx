@@ -8,7 +8,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Permissions' };
 
-/** What the Admin and Member roles may do in this business (0103). Only an owner sets it. */
+/** What the Admin and Member roles may do in this business (0105). Only an owner sets it. */
 export default async function PermissionsPage({
   params,
 }: {

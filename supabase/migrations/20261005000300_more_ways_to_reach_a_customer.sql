@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0100 · More than one way to reach a customer. A person and a company kept
+-- 0102 · More than one way to reach a customer. A person and a company kept
 --        one email, one number and one address (and a spare number,
 --        `phone_alt`, that only imports ever filled in). Real customers have
 --        a work address and a home one, a cell and an office line, a rental
@@ -54,17 +54,17 @@ alter table app.companies
   add column other_addresses jsonb not null default '[]'::jsonb;
 
 comment on column app.people.other_emails is
-  'The customer''s emails besides the main one (0100): [{"email", "label"}], lowercased, never repeating each other or the main one.';
+  'The customer''s emails besides the main one (0102): [{"email", "label"}], lowercased, never repeating each other or the main one.';
 comment on column app.people.other_phones is
-  'The customer''s numbers besides the main one (0100): [{"phone" (E.164), "label"}], never repeating each other or the main one.';
+  'The customer''s numbers besides the main one (0102): [{"phone" (E.164), "label"}], never repeating each other or the main one.';
 comment on column app.people.other_addresses is
-  'The customer''s addresses besides the main one (0100): [{"label", "line1", "line2", "city", "state", "postalCode", "country"}].';
+  'The customer''s addresses besides the main one (0102): [{"label", "line1", "line2", "city", "state", "postalCode", "country"}].';
 comment on column app.companies.other_emails is
-  'The company''s emails besides the main one (0100): [{"email", "label"}], lowercased, never repeating each other or the main one.';
+  'The company''s emails besides the main one (0102): [{"email", "label"}], lowercased, never repeating each other or the main one.';
 comment on column app.companies.other_phones is
-  'The company''s numbers besides the main one (0100): [{"phone" (E.164), "label"}], never repeating each other or the main one.';
+  'The company''s numbers besides the main one (0102): [{"phone" (E.164), "label"}], never repeating each other or the main one.';
 comment on column app.companies.other_addresses is
-  'The company''s addresses besides the main one (0100): [{"label", "line1", "line2", "city", "state", "postalCode", "country"}].';
+  'The company''s addresses besides the main one (0102): [{"label", "line1", "line2", "city", "state", "postalCode", "country"}].';
 
 -- ---------- what a list may hold ----------
 -- CASE first, because AND does not promise to test the array before jsonb_array_elements would raise on an object.

@@ -115,7 +115,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
     return () => watch.disconnect();
   }, [bar]);
 
-  // The accounts this person may bill into, and the one the invoice was opened with (0102).
+  // The accounts this person may bill into, and the one the invoice was opened with (0104).
   const payable = useMemo(
     () => accountsFor(connections, initial.connectionId),
     [connections, initial.connectionId],

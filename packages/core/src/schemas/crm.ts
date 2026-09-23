@@ -4,6 +4,12 @@ import { uuid } from './common';
 
 export const recordType = z.enum(['person', 'company', 'lead']);
 export type RecordType = z.infer<typeof recordType>;
+/**
+ * What a timeline entry, a file or a note can hang off: a customer, a company, a lead, or a record of a kind the
+ * business made up (a pet, a vehicle; 0101). Tags stay with `recordType`: a record's kind already says what it is.
+ */
+export const attachableRecordType = z.enum(['person', 'company', 'lead', 'custom_record']);
+export type AttachableRecordType = z.infer<typeof attachableRecordType>;
 
 /** Common list input: page size and an opaque keyset cursor (see kernel/pagination). */
 export const ListInput = z.object({
@@ -69,7 +75,7 @@ export const AddressOut = z.object({
 export type AddressOut = z.infer<typeof AddressOut>;
 
 /**
- * The other emails, numbers and addresses a person or company keeps beside the main ones (0100). An update sends
+ * The other emails, numbers and addresses a person or company keeps beside the main ones (0102). An update sends
  * the whole list it wants; the command tidies it the way the database would (crm/contact-points).
  */
 const contactLabel = z.string().trim().max(40).nullable().optional();
@@ -156,7 +162,7 @@ export const tagIds = z.array(uuid).max(20);
 export const PersonRef = z.object({ id: uuid, fullName: z.string(), archived: z.boolean() });
 
 /**
- * Everyone on a customer besides the owner (0101), in the order they were added. With the owner they are who the
+ * Everyone on a customer besides the owner (0103), in the order they were added. With the owner they are who the
  * customer is assigned to; somebody who has left the business reads "Former member".
  */
 export const TeamRef = z.array(z.object({ id: uuid, fullName: z.string() }));

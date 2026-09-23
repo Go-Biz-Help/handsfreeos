@@ -155,7 +155,7 @@ export const WorkspaceSummary = z.object({
   industry: z.string(),
   role: workspaceRole,
   /**
-   * What you may do here (0103): your role's permissions with the business's settings for the role and for you
+   * What you may do here (0105): your role's permissions with the business's settings for the role and for you
    * applied. Screens ask this, not the role, so they show what the server will allow.
    */
   permissions: z.array(z.string()),

@@ -1,5 +1,5 @@
 /**
- * The permissions settings page (0103): what each customizable role may do in this business with the business's own
+ * The permissions settings page (0105): what each customizable role may do in this business with the business's own
  * settings for it, and each person's — their role, their own settings, and what they may do in the end.
  */
 import { eq } from 'drizzle-orm';

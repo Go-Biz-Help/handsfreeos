@@ -8,7 +8,7 @@ import {
 import { Select } from '@/components/ui/input';
 
 /**
- * The pieces the Permissions settings page and one person's permissions share (0103): a business's answer for
+ * The pieces the Permissions settings page and one person's permissions share (0105): a business's answer for
  * one permission is "go with the level above", on, or off.
  */
 export type Choice = 'inherit' | 'on' | 'off';

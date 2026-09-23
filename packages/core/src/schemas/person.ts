@@ -35,7 +35,7 @@ const personFields = {
   phoneAlt: phoneInput,
   companyId: uuid.nullable().optional(),
   address: AddressInput.optional(),
-  /** The emails, numbers and addresses besides the main ones (0100), each with an optional label. */
+  /** The emails, numbers and addresses besides the main ones (0102), each with an optional label. */
   otherEmails: otherEmailsInput,
   otherPhones: otherPhonesInput,
   otherAddresses: otherAddressesInput,
@@ -131,7 +131,7 @@ export const PersonSummary = z.object({
   source: z.string().nullable(),
   company: CompanyRef.nullable(),
   owner: UserRef,
-  /** Everyone else the customer is assigned to (0101), in the order they were added. */
+  /** Everyone else the customer is assigned to (0103), in the order they were added. */
   team: TeamRef,
   tags: z.array(TagRef),
   openLeads: z.number().int(),
@@ -148,7 +148,7 @@ export const PersonListInput = ListInput.extend({
   tagId: uuid.optional(),
   companyId: uuid.optional(),
   ownerUserId: uuid.optional(),
-  /** The customers assigned to this person: the ones they own and the ones they are on (0101). */
+  /** The customers assigned to this person: the ones they own and the ones they are on (0103). */
   assignedUserId: uuid.optional(),
   includeArchived: z.boolean().default(false),
   sort: z.enum(['name', 'recent']).default('name'),
@@ -160,5 +160,9 @@ export const PersonListOutput = z.object({
 
 export const PersonGetInput = z.object({ workspaceId: uuid, personId: uuid });
 export const PersonGetOutput = z.object({
-  person: PersonSummary.extend({ notes: z.string().nullable() }),
+  person: PersonSummary.extend({
+    notes: z.string().nullable(),
+    /** The fields this business invented, by field id (M15, 0076). */
+    custom: z.record(z.string(), z.unknown()),
+  }),
 });

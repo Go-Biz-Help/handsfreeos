@@ -949,11 +949,11 @@ export const businessToday = (timeZone: string, now: number = Date.now()): strin
 export const localDayStart = startOfLocalDay;
 export { addDays };
 
-// ---------- who a person may bill (0103) ----------
+// ---------- who a person may bill (0105) ----------
 
 /**
  * Someone who bills without managing money bills the customers they can already see money for: the ones they're on,
- * the leads they work, the visits they're staffed on (0050's rule, with 0101's customer arm). Said in words here,
+ * the leads they work, the visits they're staffed on (0050's rule, with 0103's customer arm). Said in words here,
  * before the database's own policy refuses the same write. Owners, admins and anyone else who manages money, and
  * the system, bill anyone.
  */

@@ -261,7 +261,7 @@ describe('the gates', () => {
       expect(await count('me_v1', 'invoices', user)).toBe(0);
   });
 
-  it('send money by what the business lets each person do, not by their role (0103)', async () => {
+  it('send money by what the business lets each person do, not by their role (0105)', async () => {
     await rows(
       admin$,
       sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)

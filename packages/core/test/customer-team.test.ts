@@ -1,5 +1,5 @@
 /**
- * More than one person on a customer (0101): an owner and a team beside them, assigned one person at a time, and
+ * More than one person on a customer (0103): an owner and a team beside them, assigned one person at a time, and
  * what being on a customer shows a member — the customer's money here, their threads in a narrowed inbox.
  */
 import { rows, sql } from '@hfos/db/client';

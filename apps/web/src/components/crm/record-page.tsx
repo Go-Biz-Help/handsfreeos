@@ -49,10 +49,13 @@ import type {
   Appointment,
   CompanyDetail,
   CompanyGet,
+  CustomField,
   FileItem,
   LeadCard,
   PersonDetail,
   Pipeline,
+  Relationship,
+  RelationshipType,
   Tag,
   Task,
   TimelineList,
@@ -75,8 +78,10 @@ import {
   AddToWorkflowButton,
   ContactWorkflowsCard,
 } from '@/components/workflows/contact-workflows';
+import { RelationshipsCard } from '@/components/relationships/relationships-card';
 import { ArchiveDialog } from './archive-dialog';
 import { AssignedCard } from './assigned-card';
+import { CustomFieldsSection } from './custom-fields';
 import { MaintenanceCard } from './maintenance-card';
 import { NextActionChip, StageBadge } from './chips';
 import { CompanyDialog } from './company-dialog';
@@ -99,7 +104,7 @@ const TABS: readonly Tab[] = [
 export interface RecordPageProps {
   workspaceId: string;
   myUserId: string;
-  /** What the business lets them do (0103), as workspace.get gives it. */
+  /** What the business lets them do (0105), as workspace.get gives it. */
   permissions: readonly string[];
   person?: PersonDetail;
   company?: CompanyDetail;
@@ -116,6 +121,11 @@ export interface RecordPageProps {
   /** A person's appointments: coming up (the next 62 days) and recent (the last 62 days, newest first). */
   upcoming?: Appointment[];
   recent?: Appointment[];
+  /** Everything this customer or company is related to (0101), and the relationship types there are. */
+  relationships: Relationship[];
+  relationshipTypes: RelationshipType[];
+  /** The fields this business invented for customers or companies. */
+  fields: CustomField[];
 }
 
 /** The Customer 360 for a person or a company. */
@@ -134,7 +144,7 @@ export function RecordPage(props: RecordPageProps) {
   const email = person ? person.email : company!.email;
   const currentTags = (person ?? company)!.tags;
   const record = (person ?? company)!;
-  // Every number and email on file (0100): the main one first, then the others with their labels.
+  // Every number and email on file (0102): the main one first, then the others with their labels.
   const numbers = [
     ...(phoneE164 ? [{ phone: phoneE164, label: 'Main' }] : []),
     ...record.otherPhones.map((p) => ({
@@ -159,7 +169,7 @@ export function RecordPage(props: RecordPageProps) {
   /**
    * This customer's money, for the header's "Owes $X" and the Money tab. `money.for_record` already holds a
    * member to the jobs they are on, so a member who is on none of this customer's simply finds nothing here.
-   * Whoever the business lets bill (0103) may write them an estimate or an invoice.
+   * Whoever the business lets bill (0105) may write them an estimate or an invoice.
    */
   const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
   const canBill = can(permissions, 'money.bill');
@@ -198,6 +208,8 @@ export function RecordPage(props: RecordPageProps) {
     'conversation',
     'call',
     'appointment',
+    'relationship',
+    'custom_record',
   ]);
 
   /** One tag on or off at a time, so a teammate tagging this customer at the same moment isn't undone. */
@@ -777,6 +789,19 @@ export function RecordPage(props: RecordPageProps) {
                   {(person ?? company)!.notes ?? RECORD_WORDS.none}
                 </dd>
               </dl>
+              <CustomFieldsSection
+                workspaceId={workspaceId}
+                recordType={kind}
+                recordId={recordId}
+                fields={props.fields}
+                values={(person ?? company)!.custom}
+                canEdit={!archived && can(permissions, 'records.write')}
+                manageHref={
+                  can(permissions, 'fields.manage')
+                    ? `/app/w/${workspaceId}/settings/fields?for=${kind}`
+                    : null
+                }
+              />
             </Card>
           </TabsContent>
         </Tabs>
@@ -910,60 +935,17 @@ export function RecordPage(props: RecordPageProps) {
             )}
           </Card>
 
-          <Card className="p-4 md:p-5">
-            <div className="mb-2.5 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold">
-                {person ? 'Relationships' : `People · ${props.companyPeople?.length ?? 0}`}
-              </h3>
-              {company && !archived ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAddPerson(true)}
-                  data-testid="company-add-person"
-                >
-                  <Plus className="h-4 w-4" strokeWidth={1.75} />
-                  Add person
-                </Button>
-              ) : null}
-            </div>
-            {person ? (
-              person.company ? (
-                <Link
-                  href={`/app/w/${workspaceId}/customers/companies/${person.company.id}`}
-                  className="flex items-center gap-2.5 text-[13px] hover:underline"
-                >
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-[6px] bg-card-3 text-text">
-                    <Building2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </span>
-                  {person.company.name}
-                </Link>
-              ) : (
-                <div className="text-[13px] text-text-2">{RECORD_WORDS.notLinked}</div>
-              )
-            ) : (props.companyPeople?.length ?? 0) === 0 ? (
-              <div className="text-[13px] text-text-2">{RECORD_WORDS.nobodyLinked}</div>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {props.companyPeople!.map((p) => (
-                  <li key={p.id}>
-                    <Link
-                      href={`/app/w/${workspaceId}/customers/people/${p.id}`}
-                      className="flex items-center gap-2.5 text-[13px] hover:underline"
-                    >
-                      <Avatar name={p.fullName} seed={p.id} size="sm" />
-                      <span className="truncate">
-                        {p.fullName}
-                        {p.archived ? ' (archived)' : ''}
-                      </span>
-                      <span className="truncate text-text-3">{p.phone ?? p.email ?? ''}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2.5 text-xs text-text-3">{RECORD_WORDS.laterMilestone}</div>
-          </Card>
+          <RelationshipsCard
+            workspaceId={workspaceId}
+            record={{ kind, id: recordId, name }}
+            relationships={props.relationships}
+            types={props.relationshipTypes}
+            archived={archived}
+            canManage={can(permissions, 'fields.manage')}
+            company={person?.company ?? null}
+            companyPeople={company ? (props.companyPeople ?? []) : undefined}
+            onAddPerson={company ? () => setAddPerson(true) : undefined}
+          />
         </div>
       </div>
 

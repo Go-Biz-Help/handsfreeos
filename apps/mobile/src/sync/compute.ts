@@ -47,7 +47,7 @@ const agg = (values: readonly (string | null)[]): string | null => {
 };
 
 /**
- * `private.other_contacts_text` (0100): the other emails, then the other numbers, then each other address's city
+ * `private.other_contacts_text` (0102): the other emails, then the other numbers, then each other address's city
  * and first line — the same spaces the database leaves, so a search finds the same customers on the phone.
  */
 function otherContactsText(row: OtherContacts): string {

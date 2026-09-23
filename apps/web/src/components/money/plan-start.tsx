@@ -59,7 +59,7 @@ export function StartPlanDialog({
 }) {
   const router = useRouter();
   const live = plans.filter((p) => !p.archivedAt);
-  // Connected, and one this person may bill into (0102).
+  // Connected, and one this person may bill into (0104).
   const usable = connections.filter((c) => c.status === 'active' && c.usableByMe);
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<PickedPerson | null>(person ?? null);

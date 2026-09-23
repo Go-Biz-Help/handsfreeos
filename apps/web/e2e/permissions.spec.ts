@@ -12,7 +12,7 @@ import {
 } from './helpers';
 
 /**
- * What a business lets its people do (0103). An owner turns sending invoices on for members in Settings →
+ * What a business lets its people do (0105). An owner turns sending invoices on for members in Settings →
  * Permissions; a member then bills the customer they're on — and only a customer they're on — and takes the cash for
  * it, while refunds stay with whoever manages money; and the owner takes billing back from that one person under
  * Members, leaving the role's setting for everyone else.

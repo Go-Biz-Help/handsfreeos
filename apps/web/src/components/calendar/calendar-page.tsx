@@ -107,7 +107,7 @@ const FilterLabel = ({ children }: { children: ReactNode }) => (
 export function CalendarPage(props: {
   workspaceId: string;
   myUserId: string;
-  /** What the business lets them do (0103), as workspace.get gives it. */
+  /** What the business lets them do (0105), as workspace.get gives it. */
   permissions: readonly string[];
   timeZone: string;
   today: string;

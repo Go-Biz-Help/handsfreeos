@@ -51,7 +51,7 @@ export default async function WorkspaceLayout({
     ).session;
     if (!looking || looking.workspaceId !== workspaceId) notFound();
     const w = workspace!.workspace;
-    // They see every place the business has, as before (0103): the API decides what each look-up may read, and
+    // They see every place the business has, as before (0105): the API decides what each look-up may read, and
     // refuses every change, so nothing here widens what they can do.
     current = { ...w, role: 'member', permissions: effectivePermissions('owner') };
     viewingAs = { businessName: looking.businessName || w.name, expiresAt: looking.expiresAt };

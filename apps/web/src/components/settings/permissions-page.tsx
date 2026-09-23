@@ -35,7 +35,7 @@ type Settings = Record<string, boolean>;
 const PLURAL: Record<CustomizableRole, string> = { admin: 'Admins', member: 'Members' };
 
 /**
- * Settings → Permissions (0103): what the Admin and Member roles may do in this business, one permission at a time.
+ * Settings → Permissions (0105): what the Admin and Member roles may do in this business, one permission at a time.
  * Owners always do everything. Each choice saves as it is made; one person's own settings live under Members and
  * win over their role's, and the people who have some are listed at the end.
  */

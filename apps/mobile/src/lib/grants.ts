@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
 
-/** The person's own access row for the business open now (me_v1): their role, and what they may do (0103). */
+/** The person's own access row for the business open now (me_v1): their role, and what they may do (0105). */
 export const MY_ACCESS_SQL = `
   SELECT role, permissions FROM workspace_access WHERE workspace_id = ? AND user_id = ? LIMIT 1`;
 
@@ -20,7 +20,7 @@ export function permissionsOf(json: string | null | undefined): string[] | null 
 }
 
 /**
- * What this person may do in the business open now (0103). The synced `workspace_access` row is the truth — it is
+ * What this person may do in the business open now (0105). The synced `workspace_access` row is the truth — it is
  * what the sync rules themselves read — then what `account.me` said when the phone last asked, and failing both
  * (an older copy) their role's defaults, which is what `holds` falls back to.
  */

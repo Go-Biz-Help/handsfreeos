@@ -22,6 +22,9 @@ export * from './crm/task-words';
 export * from './crm/file-words';
 export * from './crm/synced';
 export * from './crm/contact-points';
+// Fields a business invents, and the kinds of records and relationships it makes up (0101).
+export * from './crm/custom-fields';
+export * from './relationships/index';
 export * from './hosting/branded-paths';
 export * from './messaging/consent';
 export * from './messaging/a2p';

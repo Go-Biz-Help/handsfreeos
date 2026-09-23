@@ -31,7 +31,7 @@ function MethodCell({
   names,
 }: {
   payment: PaymentListRow;
-  /** Each account's name, when there's more than one to tell apart (0102). */
+  /** Each account's name, when there's more than one to tell apart (0104). */
   names?: Readonly<Record<string, string>> | null;
 }) {
   const method = payment.method as PaymentMethod;
@@ -70,7 +70,7 @@ export function PaymentsList({
   timeZone: string;
   collectedCents: number;
   days: number;
-  /** Each account's name, for a business with more than one (0102). */
+  /** Each account's name, for a business with more than one (0104). */
   accountNames?: Readonly<Record<string, string>> | null;
 }) {
   useLiveRefresh(['payment', 'invoice', 'refund']);

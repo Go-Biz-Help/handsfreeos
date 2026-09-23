@@ -2,7 +2,7 @@
  * What every Money page needs before it can draw anything: who is looking, the business's own settings, and
  * the three headline figures.
  *
- * What someone may do here is what the business lets them (0103). Seeing bills (`money.read`) shows the documents
+ * What someone may do here is what the business lets them (0105). Seeing bills (`money.read`) shows the documents
  * for the jobs they are on; billing (`money.bill`) lets them write, send and void those, record a payment by hand
  * and start plans, into the accounts they may use; managing money (`money.manage`) is every bill, the summary,
  * refunds and the settings. Rather than hide the section, a query they may not run comes back null and each page
@@ -25,7 +25,7 @@ export interface MoneyShell {
   readonly workspaceName: string;
   readonly timeZone: string;
   readonly role: 'owner' | 'admin' | 'member';
-  /** What the business lets them do (0103). */
+  /** What the business lets them do (0105). */
   readonly permissions: readonly string[];
   /** Every bill in the business, the summary, refunds and settings. */
   readonly canManage: boolean;
@@ -95,7 +95,7 @@ export async function loadMoneyShell(workspaceId: string): Promise<MoneyShell> {
 
 /**
  * Every account the business has had, disconnected ones too — what they took stays on the books — for splitting
- * the lists by account (0102). Someone who bills sees the accounts they may use; empty for anyone else.
+ * the lists by account (0104). Someone who bills sees the accounts they may use; empty for anyone else.
  */
 export async function loadAccounts(
   api: ApiClient,

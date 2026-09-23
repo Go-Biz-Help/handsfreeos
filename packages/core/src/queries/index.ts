@@ -1,7 +1,9 @@
 import type { QueryDef } from '../kernel/types';
 import { formQueries } from './form';
+import { campaignQueries } from './campaign';
 import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
+import { relationshipQueries } from './relationship';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
@@ -269,8 +271,10 @@ export const queries: readonly QueryDef[] = [
   moneySettingsGet,
   ...walletQueries,
   ...formQueries,
+  ...campaignQueries,
   ...templateQueries,
   ...reviewQueries,
+  ...relationshipQueries,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -318,6 +322,7 @@ export {
 };
 
 export * from './form';
+export * from './campaign';
 export * from './maintenance';
 export * from './template';
 export * from './review';
@@ -329,3 +334,4 @@ export * from './port';
 export * from './branded-domain';
 export * from './founding';
 export * from './offer';
+export * from './relationship';

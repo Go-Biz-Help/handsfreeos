@@ -33,7 +33,7 @@ export function PlansList({
   /** For each plan's visits (Maintenance due). */
   services?: readonly ServiceChoice[];
   canManage?: boolean;
-  /** Each account's name, for a business with more than one to tell apart (0102). */
+  /** Each account's name, for a business with more than one to tell apart (0104). */
   accountNames?: Readonly<Record<string, string>> | null;
   /** Whether "who is on a plan" is narrowed by a filter, so an empty list says so. */
   filtered?: boolean;

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Sub-navigation shared by the settings pages. Everyone has their account and their calendar; each of the
- * business's own pages shows for whoever may change what is on it, as the business has set that up (0103).
+ * business's own pages shows for whoever may change what is on it, as the business has set that up (0105).
  */
 export function SettingsNav({
   workspaceId,
@@ -25,6 +25,10 @@ export function SettingsNav({
     // Who may do what: only an owner sets it.
     { href: `${base}/permissions`, label: 'Permissions', needs: 'permissions.manage' },
     { href: `${base}/pipelines`, label: 'Pipelines', needs: 'pipelines.manage' },
+    // What a business keeps about its customers: its own fields, and its own kinds of records (pets,
+    // vehicles, properties) with how they relate.
+    { href: `${base}/fields`, label: 'Fields', needs: 'fields.manage' },
+    { href: `${base}/relationships`, label: 'Relationships', needs: 'fields.manage' },
     { href: `${base}/calendars`, label: 'Calendars', needs: 'calendars.manage' },
     { href: `${base}/imports`, label: 'Imports', needs: 'records.import' },
     // Its own page, not a tab inside Imports: that page lists spreadsheets, and this moves a whole

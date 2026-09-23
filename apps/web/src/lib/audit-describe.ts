@@ -124,7 +124,7 @@ function describeAction(e: AuditEntry): string {
       return e.actor.userId === e.entityId
         ? 'left the workspace'
         : `removed ${who(e)} from the workspace`;
-    // 0103: what a business lets its people do
+    // 0105: what a business lets its people do
     case 'permission.set_role':
     case 'permission.set_member': {
       const [label, said] = permissionChange(e);
@@ -184,6 +184,47 @@ function describeAction(e: AuditEntry): string {
       return `added the tag ${list(tagsBetween(e.after?.tags, e.before?.tags)) || 'a tag'}`;
     case 'record.remove_tag':
       return `removed the tag ${list(tagsBetween(e.before?.tags, e.after?.tags)) || 'a tag'}`;
+    // A business's own fields, its own kinds of records, and how records relate (0101).
+    case 'custom_field.create':
+      return `added the field ${s(e.after?.label)}`;
+    case 'custom_field.update':
+      return `updated the field ${name(e)}`;
+    case 'custom_field.archive':
+      return `retired the field ${s(e.before?.label) || name(e)}`;
+    case 'record.set_fields':
+      return `filled in ${customKeys(e)} on ${name(e)}`;
+    case 'custom_record_type.create':
+      return `added ${name(e)} as a kind of record`;
+    case 'custom_record_type.update':
+      return `updated the kind of record ${name(e)}`;
+    case 'custom_record_type.archive':
+      return `archived ${name(e)}`;
+    case 'custom_record_type.restore':
+      return `restored ${name(e)}`;
+    case 'custom_record.create':
+      return s(e.after?.kind)
+        ? `added the ${s(e.after?.kind).toLowerCase()} ${name(e)}`
+        : `added ${name(e)}`;
+    case 'custom_record.update':
+      return `updated ${name(e)} (${fields(e)})`;
+    case 'custom_record.archive':
+      return `archived ${name(e)}`;
+    case 'custom_record.restore':
+      return `restored ${name(e)}`;
+    case 'relationship_type.create':
+      return `set up the relationship ${name(e)}`;
+    case 'relationship_type.update':
+      return `updated the relationship ${name(e)}`;
+    case 'relationship_type.archive':
+      return `archived the relationship ${name(e)}`;
+    case 'relationship_type.restore':
+      return `restored the relationship ${name(e)}`;
+    case 'relationship.create':
+      return `connected ${s(e.after?.a)} (${s(e.after?.aLabel)}) and ${s(e.after?.b)} (${s(e.after?.bLabel)})`;
+    case 'relationship.update':
+      return 'changed the note on a relationship';
+    case 'relationship.delete':
+      return `removed the relationship between ${s(e.before?.a)} and ${s(e.before?.b)}`;
     case 'lead.create':
       return `created the lead ${title(e)} in ${s(e.after?.stage)}`;
     case 'lead.update': {
@@ -771,10 +812,33 @@ function describeAction(e: AuditEntry): string {
         : 'added a line to what the AI knows';
     case 'attention.record_auto':
       return recordAutoSentence(e);
+    case 'campaign.create':
+      return `started the campaign ${campaignOf(e)} for ${countOf(e.after?.recipients)} ${countOf(e.after?.recipients) === 1 ? 'person' : 'people'}`;
+    case 'campaign.update_draft':
+      return `changed a text in a campaign`;
+    case 'campaign.remove_recipient':
+      return `took someone out of a campaign`;
+    case 'campaign.approve':
+      return `approved the campaign ${campaignOf(e)}: ${countOf(e.after?.approved)} texts, ${countOf(e.after?.perHour)} an hour`;
+    case 'campaign.pause':
+      return `paused the campaign ${campaignOf(e)}`;
+    case 'campaign.resume':
+      return `resumed the campaign ${campaignOf(e)}`;
+    case 'campaign.cancel':
+      return `stopped the campaign ${campaignOf(e)}`;
+    case 'campaign.set_pace':
+      return `set the campaign ${campaignOf(e)} to ${countOf(e.after?.perHour)} texts an hour`;
     default:
       return detectionSentence(e) ?? e.action;
   }
 }
+
+/** “Fall tune-up”: a campaign's name, as its entries carry it. */
+const campaignOf = (e: AuditEntry) => {
+  const t = s(e.after?.name) || e.entityName;
+  return t ? `“${t}”` : '';
+};
+const countOf = (v: unknown): number => (typeof v === 'number' ? v : 0);
 
 // ---- Milestone 8: the Action Center helpers ----
 
@@ -1426,6 +1490,12 @@ const fields = (e: AuditEntry) =>
     .filter((k) => k !== 'name')
     .join(', ') || 'details';
 const list = (v: unknown) => (Array.isArray(v) ? v.map(String).join(', ') : '');
+/** The fields a record.set_fields row changed, by their keys ("custom.gate_code" → "gate code"). */
+const customKeys = (e: AuditEntry) =>
+  Object.keys(e.after ?? {})
+    .filter((k) => k.startsWith('custom.'))
+    .map((k) => k.slice('custom.'.length).replace(/_/g, ' '))
+    .join(', ') || 'fields';
 /** The tag names in one list and not the other (what a single add or remove changed). */
 const tagsBetween = (these: unknown, those: unknown): string[] => {
   const other = new Set(Array.isArray(those) ? those.map(String) : []);
@@ -1555,7 +1625,10 @@ export function auditCategory(action: string): AuditCategory {
     action.startsWith('person.') ||
     action.startsWith('company.') ||
     action.startsWith('tag.') ||
-    action.startsWith('record.')
+    action.startsWith('record.') ||
+    action.startsWith('custom_field.') ||
+    action.startsWith('custom_record') ||
+    action.startsWith('relationship')
   )
     return 'customers';
   if (action.startsWith('lead.') || action.startsWith('pipeline.') || action.startsWith('stage.'))

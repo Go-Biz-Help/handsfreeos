@@ -19,7 +19,8 @@ export default async function CustomersPage({
 }) {
   const { workspaceId } = await params;
   const sp = await searchParams;
-  const tab = one(sp.tab) === 'companies' ? 'companies' : 'people';
+  // A kind of record the business keeps (0101) has a tab of its own: ?kind=<its id>.
+  const kindId = /^[0-9a-f-]{36}$/.test(one(sp.kind)) ? one(sp.kind) : '';
   const filters = {
     q: one(sp.q).trim().slice(0, 120),
     tagId: /^[0-9a-f-]{36}$/.test(one(sp.tag)) ? one(sp.tag) : '',
@@ -28,6 +29,11 @@ export default async function CustomersPage({
     archived: one(sp.archived) === '1',
   };
   const { api } = await apiServer();
+  const { types: kinds } = unwrapPage(
+    await api.POST('/v1/queries/custom_record_type.list', { body: { workspaceId } }),
+  );
+  const kind = kinds.find((k) => k.id === kindId) ?? null;
+  const tab = kind ? 'records' : one(sp.tab) === 'companies' ? 'companies' : 'people';
   const common = {
     workspaceId,
     q: filters.q || undefined,
@@ -36,7 +42,7 @@ export default async function CustomersPage({
     includeArchived: filters.archived,
     limit: 50,
   };
-  const [got, tags, members, summary, people, companies] = await Promise.all([
+  const [got, tags, members, summary, people, companies, records, kindFields] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
@@ -47,6 +53,26 @@ export default async function CustomersPage({
     tab === 'companies'
       ? unwrapPage(await api.POST('/v1/queries/company.list', { body: common }))
       : Promise.resolve(null),
+    kind
+      ? unwrapPage(
+          await api.POST('/v1/queries/custom_record.list', {
+            body: {
+              workspaceId,
+              typeId: kind.id,
+              q: filters.q || undefined,
+              includeArchived: filters.archived,
+              limit: 50,
+            },
+          }),
+        )
+      : Promise.resolve(null),
+    kind
+      ? unwrapPage(
+          await api.POST('/v1/queries/custom_field.list', {
+            body: { workspaceId, recordTypeId: kind.id },
+          }),
+        ).fields
+      : [],
   ]);
   return (
     <>
@@ -61,6 +87,10 @@ export default async function CustomersPage({
         companies={companies}
         counts={{ people: summary.people, companies: summary.companies }}
         canImport={can(got.workspace.permissions, 'records.import')}
+        kinds={kinds}
+        kind={kind}
+        records={records}
+        kindFields={kindFields}
       />
     </>
   );

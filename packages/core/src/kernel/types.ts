@@ -142,7 +142,7 @@ export interface ResolvedScope {
   readonly workspaceId: string | null;
   readonly workspaceRole: WorkspaceRole | null;
   /**
-   * What this person may do in the business (0103): their role's permissions with the business's settings for the
+   * What this person may do in the business (0105): their role's permissions with the business's settings for the
    * role and for them applied, as app.workspace_access stores them. Null outside a business, and for the system.
    */
   readonly workspacePermissions?: readonly string[] | null;

@@ -184,7 +184,7 @@ export function useMoneyNow(everyMs = 60_000): number {
 }
 
 /**
- * What this person may see and do with money (0103): the whole business's (`money.manage`), and whether they write
+ * What this person may see and do with money (0105): the whole business's (`money.manage`), and whether they write
  * and send bills and take a payment by hand (`money.bill`). From the synced access row (useGrants), and failing
  * that their role's defaults.
  */

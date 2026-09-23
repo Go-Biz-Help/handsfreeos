@@ -57,7 +57,7 @@ export default function Settings() {
   const choices = useKeepChoices(userId);
   const worksOffline = useWorksOffline(userId);
   const { cell } = useMyCell();
-  // The business's balance is for whoever manages its money here (0103).
+  // The business's balance is for whoever manages its money here (0105).
   const { whole } = useMoneyRole();
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));

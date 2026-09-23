@@ -156,7 +156,7 @@ export function overlay(
 export interface HomeInput {
   readonly userId: string;
   readonly role: WorkspaceRole | null;
-  /** What the business lets them do (0103), when the copy holds it; else their role's defaults. */
+  /** What the business lets them do (0105), when the copy holds it; else their role's defaults. */
   readonly permissions?: readonly string[] | null;
   readonly timeZone: string;
   readonly now: number;

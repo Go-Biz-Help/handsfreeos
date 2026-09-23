@@ -175,7 +175,7 @@ function base(settings: MoneySettings): DocumentDraft {
 }
 
 /**
- * The accounts someone may pick to be paid into (0102): the ones they may bill into, and the one a document
+ * The accounts someone may pick to be paid into (0104): the ones they may bill into, and the one a document
  * already uses even if it isn't theirs, so an invoice someone else raised still reads right.
  */
 export function accountsFor(

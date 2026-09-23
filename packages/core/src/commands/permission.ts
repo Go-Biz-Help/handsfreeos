@@ -1,5 +1,5 @@
 /**
- * What an owner sets about what people may do in their business (0103): one permission on or off for the Admin
+ * What an owner sets about what people may do in their business (0105): one permission on or off for the Admin
  * or Member role, or for one person, or every setting for a role or a person back to what the level above says.
  *
  * The database works out what everyone may do from these (private.user_permissions) and keeps the answer where

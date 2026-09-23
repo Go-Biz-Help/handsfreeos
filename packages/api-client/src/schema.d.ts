@@ -87,7 +87,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Log a note, call or visit on a person, company or lead.
+         * Log a note, call or visit on a person, company or lead, or on a record like a pet, vehicle or property.
          * @description Risk level 1. Requires records.write. Emits activity.logged. Can wait on a phone with no signal.
          */
         post: operations["command_activity_log"];
@@ -407,7 +407,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change an appointment’s title, notes, location or lead: only what was edited, each with what the editor saw, and the newest change to each wins.
+         * Change an appointment’s title, notes, location, lead or record (the pet, vehicle or property it’s for): only what was edited, each with what the editor saw, and the newest change to each wins.
          * @description Risk level 1. Requires appointments.write. Emits appointment.updated. Can wait on a phone with no signal.
          */
         post: operations["command_appointment_update"];
@@ -977,6 +977,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/campaign.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve every draft in an outreach campaign and start sending, a few an hour in open hours.
+         * @description Risk level 3. Requires workflows.manage. Emits campaign.approved.
+         */
+        post: operations["command_campaign_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an outreach campaign for good. Texts already sent stay sent; nobody else gets one.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.cancelled.
+         */
+        post: operations["command_campaign_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal. Nothing is sent until someone approves the drafts.
+         * @description Risk level 2. Requires workflows.manage. Emits campaign.created.
+         */
+        post: operations["command_campaign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an outreach campaign sending for now; what’s left waits until it’s resumed.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.paused.
+         */
+        post: operations["command_campaign_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.remove_recipient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one person out of an outreach campaign before it’s approved.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.recipient_removed.
+         */
+        post: operations["command_campaign_remove_recipient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a paused outreach campaign sending again, at its pace.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.resumed.
+         */
+        post: operations["command_campaign_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.set_pace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change how many texts an hour an outreach campaign sends.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.pace_changed.
+         */
+        post: operations["command_campaign_set_pace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.update_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the text one person in an outreach campaign will get, before it’s approved.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.draft_edited.
+         */
+        post: operations["command_campaign_update_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/chat_widget.create": {
         parameters: {
             query?: never;
@@ -1451,6 +1611,226 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits conversation.taken_over. Can wait on a phone with no signal.
          */
         post: operations["command_conversation_take_over"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_field.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retire a field. Its answers come off every record that has one (0076), so this is for a field nobody fills in any more.
+         * @description Risk level 3. Requires fields.manage. Emits custom_field.archived.
+         */
+        post: operations["command_custom_field_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_field.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a field for customers, companies, leads or one kind of record (a pet’s breed, a car’s plate). Its key is made from its name.
+         * @description Risk level 1. Requires fields.manage. Emits custom_field.created.
+         */
+        post: operations["command_custom_field_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_field.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a field, change its choices, its help line or where it sits, or whether it shows when empty. Its type stays.
+         * @description Risk level 1. Requires fields.manage. Emits custom_field.updated.
+         */
+        post: operations["command_custom_field_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record_type.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a kind of record: its tab, its records and its relationships are hidden, and nothing is deleted. Restoring brings them all back.
+         * @description Risk level 2. Requires fields.manage. Emits custom_record_type.archived.
+         */
+        post: operations["command_custom_record_type_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record_type.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a kind of record the business keeps (pets, vehicles, properties), with its first fields and the relationship that ties it to customers.
+         * @description Risk level 1. Requires fields.manage. Emits custom_record_type.created.
+         */
+        post: operations["command_custom_record_type_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record_type.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived kind of record back, with the relationships archived along with it.
+         * @description Risk level 1. Requires fields.manage. Emits custom_record_type.restored.
+         */
+        post: operations["command_custom_record_type_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record_type.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename a kind of record, change its picture, what its name is called, or where it sits.
+         * @description Risk level 1. Requires fields.manage. Emits custom_record_type.updated.
+         */
+        post: operations["command_custom_record_type_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a record: hidden from lists and searches, its history, tasks, files and relationships kept.
+         * @description Risk level 3. Requires records.archive. Emits custom_record.archived.
+         */
+        post: operations["command_custom_record_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a record of one of the business’s own kinds (a pet, a vehicle, a property), with its fields, and relate it to a customer as it is made.
+         * @description Risk level 1. Requires records.write. Emits custom_record.created.
+         */
+        post: operations["command_custom_record_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an archived record.
+         * @description Risk level 1. Requires records.archive. Emits custom_record.restored.
+         */
+        post: operations["command_custom_record_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/custom_record.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a record’s name or notes: only what was edited, each with what the editor saw, and the newest change to each wins.
+         * @description Risk level 1. Requires records.write. Emits custom_record.updated.
+         */
+        post: operations["command_custom_record_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4617,6 +4997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/record.set_fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fill in or clear the fields a business invented on a customer, company, lead or record: only the ones edited, each checked against its field, and the newest change to each wins.
+         * @description Risk level 1. Requires records.write. Emits person.updated, company.updated, lead.updated, custom_record.updated.
+         */
+        post: operations["command_record_set_fields"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.set_tags": {
         parameters: {
             query?: never;
@@ -4691,6 +5091,146 @@ export interface paths {
          * @description Risk level 3. Requires channels.manage. Emits registration.submitted.
          */
         post: operations["command_registration_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship_type.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a relationship type: its pairs are hidden from every record, and nothing is deleted. Restoring brings them back.
+         * @description Risk level 2. Requires fields.manage. Emits relationship_type.archived.
+         */
+        post: operations["command_relationship_type_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship_type.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up how two kinds of record relate (a customer and a pet, a parent and a student, spouses), what each end is called, and how many each may have. Many to many unless said.
+         * @description Risk level 1. Requires fields.manage. Emits relationship_type.created.
+         */
+        post: operations["command_relationship_type_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship_type.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived relationship type back, with its pairs.
+         * @description Risk level 1. Requires fields.manage. Emits relationship_type.restored.
+         */
+        post: operations["command_relationship_type_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship_type.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rename either end of a relationship type, change how many each end may have, or where it sits. Saying “one” is refused while a record already has more.
+         * @description Risk level 1. Requires fields.manage. Emits relationship_type.updated.
+         */
+        post: operations["command_relationship_type_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Relate two records the way a relationship type says: a customer and their pet, a parent and a student, two spouses. Refused where an end may have only one and already does.
+         * @description Risk level 1. Requires records.write. Emits relationship.created.
+         */
+        post: operations["command_relationship_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a pair apart. Neither record is touched, and both timelines say who did it.
+         * @description Risk level 2. Requires records.write. Emits relationship.deleted.
+         */
+        post: operations["command_relationship_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/relationship.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the note on a pair ("Primary driver", "Lease ends in August").
+         * @description Risk level 1. Requires records.write. Emits relationship.updated.
+         */
+        post: operations["command_relationship_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5647,7 +6187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add a task, optionally tied to a person, company or lead and assigned to someone.
+         * Add a task, optionally tied to a person, company or lead, or to a record like a pet, vehicle or property, and assigned to someone.
          * @description Risk level 1. Requires records.write. Emits task.created. Can wait on a phone with no signal.
          */
         post: operations["command_task_create"];
@@ -6787,7 +7327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Appointments overlapping a range (at most 62 days), by people, resources, calendars, status or customer. Cancelled ones only when asked.
+         * Appointments overlapping a range (at most 62 days), by people, resources, calendars, status, customer or record (a pet, a vehicle, a property). Cancelled ones only when asked.
          * @description Requires workspace.read.
          */
         post: operations["query_appointment_list"];
@@ -7097,6 +7637,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/campaign.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One outreach campaign: everyone it picked, each person’s text, and what became of it.
+         * @description Requires records.read.
+         */
+        post: operations["query_campaign_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/campaign.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s outreach campaigns, newest first, with how far each has got.
+         * @description Requires records.read.
+         */
+        post: operations["query_campaign_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/campaign.preview_audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who a new outreach campaign would text, and how many are left out and why, before it’s made.
+         * @description Requires records.read.
+         */
+        post: operations["query_campaign_preview_audience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/chat_widget.get": {
         parameters: {
             query?: never;
@@ -7271,6 +7871,86 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_crm_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/custom_field.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The fields a business invented, for customers, companies, leads or one kind of record, in the order it put them.
+         * @description Requires records.read.
+         */
+        post: operations["query_custom_field_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/custom_record_type.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The kinds of records a business keeps (pets, vehicles, properties), with how many of each.
+         * @description Requires records.read.
+         */
+        post: operations["query_custom_record_type_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/custom_record.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One record of the business’s own kinds, with its kind, notes and fields.
+         * @description Requires records.read.
+         */
+        post: operations["query_custom_record_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/custom_record.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Records of the business’s own kinds (pets, vehicles, properties): search by name or anything in their fields, with who each is related to.
+         * @description Requires records.read.
+         */
+        post: operations["query_custom_record_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8597,6 +9277,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/relationship_type.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How records relate in this business: each relationship type’s two ends, what each is called, and how many each may have.
+         * @description Requires records.read.
+         */
+        post: operations["query_relationship_type_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/relationship.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Everything one person, company or record is related to, from either end: a customer’s pets and a pet’s owners come from the same pairs.
+         * @description Requires records.read.
+         */
+        post: operations["query_relationship_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/resource.list": {
         parameters: {
             query?: never;
@@ -8907,7 +9627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Everything that happened on a person, company or lead, newest first.
+         * Everything that happened on a person, company or lead, or on a record like a pet, vehicle or property, newest first.
          * @description Requires records.read.
          */
         post: operations["query_timeline_list"];
@@ -9364,6 +10084,7 @@ export interface operations {
                 "application/json": {
                     body: string;
                     companyId?: string | null;
+                    customRecordId?: string | null;
                     /** Format: uuid */
                     id?: string;
                     /** @enum {string} */
@@ -9767,6 +10488,7 @@ export interface operations {
                     /** Format: uuid */
                     calendarId: string;
                     clientId?: string;
+                    customRecordId?: string | null;
                     durationMinutes?: number;
                     leadId?: string | null;
                     location?: {
@@ -10036,6 +10758,7 @@ export interface operations {
                     /** Format: uuid */
                     appointmentId: string;
                     base?: {
+                        customRecordId?: string | null;
                         leadId?: string | null;
                         location?: {
                             [key: string]: unknown;
@@ -10043,6 +10766,7 @@ export interface operations {
                         notes?: string | null;
                         title?: string | null;
                     };
+                    customRecordId?: string | null;
                     leadId?: string | null;
                     location?: {
                         /** @default null */
@@ -11886,6 +12610,288 @@ export interface operations {
             };
         };
     };
+    command_campaign_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    audience: {
+                        /** @default [] */
+                        stageIds?: string[];
+                        /** @default [] */
+                        tagIds?: string[];
+                    };
+                    goal: string;
+                    name: string;
+                    /** @default 20 */
+                    perHour?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        recipients: number;
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_remove_recipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recipientId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        recipientId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_set_pace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    perHour: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_update_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    draft: string;
+                    /** Format: uuid */
+                    recipientId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        recipientId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
+                    };
+                };
+            };
+        };
+    };
     command_chat_widget_create: {
         parameters: {
             query?: never;
@@ -12846,6 +13852,443 @@ export interface operations {
             };
         };
     };
+    command_custom_field_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customFieldId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customFieldId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_field_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    alwaysShow?: boolean;
+                    /** @enum {string} */
+                    entity: "person" | "company" | "lead" | "custom_record";
+                    help?: string;
+                    label: string;
+                    options?: {
+                        label: string;
+                        value?: string;
+                    }[];
+                    recordTypeId?: string | null;
+                    /**
+                     * @default text
+                     * @enum {string}
+                     */
+                    type?: "text" | "long_text" | "number" | "money" | "date" | "choice" | "multi_choice" | "boolean" | "phone" | "email" | "url";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customFieldId: string;
+                        key: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_field_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    alwaysShow?: boolean;
+                    /** Format: uuid */
+                    customFieldId: string;
+                    help?: string;
+                    label?: string;
+                    options?: {
+                        label: string;
+                        value?: string;
+                    }[];
+                    position?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customFieldId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_type_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordTypeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archivedRelationshipTypes: number;
+                        /** Format: uuid */
+                        customRecordTypeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_type_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fields?: {
+                        label: string;
+                        options?: string[];
+                        /**
+                         * @default text
+                         * @enum {string}
+                         */
+                        type?: "text" | "long_text" | "number" | "money" | "date" | "choice" | "multi_choice" | "boolean" | "phone" | "email" | "url";
+                    }[];
+                    /**
+                     * @default box
+                     * @enum {string}
+                     */
+                    icon?: "box" | "paw" | "car" | "truck" | "bike" | "boat" | "home" | "building" | "key" | "student" | "wrench" | "plug" | "tree" | "heart" | "briefcase" | "file";
+                    link?: {
+                        /**
+                         * @default many_to_many
+                         * @enum {string}
+                         */
+                        cardinality?: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+                        /** @enum {string} */
+                        end: "person" | "company";
+                        label: string;
+                        recordLabel?: string;
+                    };
+                    nameLabel?: string;
+                    plural?: string;
+                    singular: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        customFieldIds: string[];
+                        /** Format: uuid */
+                        customRecordTypeId: string;
+                        key: string;
+                        relationshipTypeId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_type_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordTypeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customRecordTypeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_type_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordTypeId: string;
+                    /** @enum {string} */
+                    icon?: "box" | "paw" | "car" | "truck" | "bike" | "boat" | "home" | "building" | "key" | "student" | "wrench" | "plug" | "tree" | "heart" | "briefcase" | "file";
+                    nameLabel?: string;
+                    plural?: string;
+                    position?: number;
+                    singular?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customRecordTypeId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customRecordId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    notes?: string | null;
+                    relateTo?: {
+                        note?: string | null;
+                        /** Format: uuid */
+                        recordId: string;
+                        /** Format: uuid */
+                        relationshipTypeId: string;
+                        /** @enum {string} */
+                        side: "a" | "b";
+                    };
+                    /** Format: uuid */
+                    typeId: string;
+                    values?: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customRecordId: string;
+                        relationshipId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customRecordId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_custom_record_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base?: {
+                        name?: string | null;
+                        notes?: string | null;
+                    };
+                    /** Format: uuid */
+                    customRecordId: string;
+                    name?: string;
+                    notes?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        customRecordId: string;
+                        /** @default [] */
+                        notApplied: string[];
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
     command_email_address_create: {
         parameters: {
             query?: never;
@@ -13493,7 +14936,7 @@ export interface operations {
                     /** Format: uuid */
                     recordId: string;
                     /** @enum {string} */
-                    recordType: "person" | "company" | "lead";
+                    recordType: "person" | "company" | "lead" | "custom_record";
                     sizeBytes: number;
                     /** Format: uuid */
                     workspaceId: string;
@@ -19556,6 +20999,49 @@ export interface operations {
             };
         };
     };
+    command_record_set_fields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    base?: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "lead" | "custom_record";
+                    values: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @default [] */
+                        notApplied: string[];
+                        /** Format: uuid */
+                        recordId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
     command_record_set_tags: {
         parameters: {
             query?: never;
@@ -19747,6 +21233,259 @@ export interface operations {
                 content: {
                     "application/json": {
                         registrationIds: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_type_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    relationshipTypeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipTypeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_type_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    a: {
+                        /** @enum {string} */
+                        end: "person" | "company" | "custom_record";
+                        label: string;
+                        recordTypeId?: string | null;
+                    };
+                    b: {
+                        /** @enum {string} */
+                        end: "person" | "company" | "custom_record";
+                        label: string;
+                        recordTypeId?: string | null;
+                    };
+                    /**
+                     * @default many_to_many
+                     * @enum {string}
+                     */
+                    cardinality?: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+                    /** @default false */
+                    mutual?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipTypeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_type_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    relationshipTypeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipTypeId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_type_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    aLabel?: string;
+                    bLabel?: string;
+                    /** @enum {string} */
+                    cardinality?: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+                    position?: number;
+                    /** Format: uuid */
+                    relationshipTypeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipTypeId: string;
+                        updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    aId: string;
+                    /** Format: uuid */
+                    bId: string;
+                    note?: string | null;
+                    /** Format: uuid */
+                    relationshipTypeId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    relationshipId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_relationship_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string | null;
+                    /** Format: uuid */
+                    relationshipId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        relationshipId: string;
                     };
                 };
             };
@@ -21515,6 +23254,7 @@ export interface operations {
                     allDay?: boolean;
                     assigneeUserId?: string | null;
                     companyId?: string | null;
+                    customRecordId?: string | null;
                     dueAt?: string | null;
                     /** Format: uuid */
                     id?: string;
@@ -21624,6 +23364,7 @@ export interface operations {
                         allDay?: boolean;
                         assigneeUserId?: string | null;
                         companyId?: string | null;
+                        customRecordId?: string | null;
                         dueAt?: string | null;
                         leadId?: string | null;
                         notes?: string | null;
@@ -21631,6 +23372,7 @@ export interface operations {
                         title?: string | null;
                     };
                     companyId?: string | null;
+                    customRecordId?: string | null;
                     dueAt?: string | null;
                     leadId?: string | null;
                     notes?: string | null;
@@ -24730,6 +26472,12 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            customRecord: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                name: string;
+                            } | null;
                             /** Format: date-time */
                             endsAt: string;
                             extraServices: {
@@ -24845,6 +26593,8 @@ export interface operations {
             content: {
                 "application/json": {
                     calendarIds?: string[];
+                    /** Format: uuid */
+                    customRecordId?: string;
                     /** Format: date-time */
                     from: string;
                     /** Format: uuid */
@@ -24898,6 +26648,12 @@ export interface operations {
                             capacity: number;
                             /** Format: date-time */
                             createdAt: string;
+                            customRecord: {
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                name: string;
+                            } | null;
                             /** Format: date-time */
                             endsAt: string;
                             heldUntil: string | null;
@@ -26607,6 +28363,168 @@ export interface operations {
             };
         };
     };
+    query_campaign_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        campaign: {
+                            approvedAt: string | null;
+                            audience: {
+                                stageIds: string[];
+                                tagIds: string[];
+                            };
+                            counts: {
+                                approved: number;
+                                drafting: number;
+                                failed: number;
+                                ready: number;
+                                removed: number;
+                                sent: number;
+                                skipped: number;
+                                total: number;
+                            };
+                            /** Format: date-time */
+                            createdAt: string;
+                            finishedAt: string | null;
+                            goal: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            perHour: number;
+                            /** @enum {string} */
+                            status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                        };
+                        nextSendAt: string | null;
+                        recipients: {
+                            draft: string | null;
+                            edited: boolean;
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            phone: string | null;
+                            sentAt: string | null;
+                            skipReason: string | null;
+                            /** @enum {string} */
+                            status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_campaign_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            approvedAt: string | null;
+                            counts: {
+                                approved: number;
+                                drafting: number;
+                                failed: number;
+                                ready: number;
+                                removed: number;
+                                sent: number;
+                                skipped: number;
+                                total: number;
+                            };
+                            /** Format: date-time */
+                            createdAt: string;
+                            finishedAt: string | null;
+                            goal: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            perHour: number;
+                            /** @enum {string} */
+                            status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_campaign_preview_audience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    audience: {
+                        /** @default [] */
+                        stageIds?: string[];
+                        /** @default [] */
+                        tagIds?: string[];
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        recipients: number;
+                        skipped: {
+                            [key: string]: number;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_chat_widget_get: {
         parameters: {
             query?: never;
@@ -26806,6 +28724,9 @@ export interface operations {
                             archivedAt: string | null;
                             /** Format: date-time */
                             createdAt: string;
+                            custom: {
+                                [key: string]: unknown;
+                            };
                             email: string | null;
                             /** Format: uuid */
                             id: string;
@@ -27371,6 +29292,223 @@ export interface operations {
             };
         };
     };
+    query_custom_field_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    entity?: "person" | "company" | "lead" | "custom_record";
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    recordTypeId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fields: {
+                            alwaysShow: boolean;
+                            archivedAt: string | null;
+                            /** @enum {string} */
+                            entity: "person" | "company" | "lead" | "custom_record";
+                            help: string;
+                            /** Format: uuid */
+                            id: string;
+                            key: string;
+                            label: string;
+                            options: {
+                                label: string;
+                                value: string;
+                            }[];
+                            position: number;
+                            recordTypeId: string | null;
+                            /** @enum {string} */
+                            type: "text" | "long_text" | "number" | "money" | "date" | "choice" | "multi_choice" | "boolean" | "phone" | "email" | "url";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_custom_record_type_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        types: {
+                            archived: boolean;
+                            archivedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            fieldCount: number;
+                            icon: string;
+                            /** Format: uuid */
+                            id: string;
+                            key: string;
+                            nameLabel: string;
+                            plural: string;
+                            position: number;
+                            recordCount: number;
+                            singular: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_custom_record_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customRecordId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        record: {
+                            archivedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            custom: {
+                                [key: string]: unknown;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            notes: string | null;
+                            type: {
+                                archived: boolean;
+                                icon: string;
+                                /** Format: uuid */
+                                id: string;
+                                key: string;
+                                nameLabel: string;
+                                plural: string;
+                                singular: string;
+                            };
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    query_custom_record_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** @default 50 */
+                    limit?: number;
+                    q?: string;
+                    /** Format: uuid */
+                    typeId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            archivedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detail: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            related: {
+                                archived: boolean;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "person" | "company" | "custom_record";
+                                label: string;
+                                name: string;
+                            }[];
+                            /** Format: uuid */
+                            typeId: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_email_suppression_list: {
         parameters: {
             query?: never;
@@ -27830,7 +29968,7 @@ export interface operations {
                     /** Format: uuid */
                     recordId: string;
                     /** @enum {string} */
-                    recordType: "person" | "company" | "lead";
+                    recordType: "person" | "company" | "lead" | "custom_record";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -27857,7 +29995,7 @@ export interface operations {
                             /** Format: uuid */
                             recordId: string;
                             /** @enum {string} */
-                            recordType: "person" | "company" | "lead";
+                            recordType: "person" | "company" | "lead" | "custom_record";
                             sizeBytes: number | null;
                             uploadedBy: {
                                 fullName: string;
@@ -31029,6 +33167,9 @@ export interface operations {
                             } | null;
                             /** Format: date-time */
                             createdAt: string;
+                            custom: {
+                                [key: string]: unknown;
+                            };
                             email: string | null;
                             firstName: string;
                             fullName: string;
@@ -31946,6 +34087,148 @@ export interface operations {
             };
         };
     };
+    query_relationship_type_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        types: {
+                            a: {
+                                /** @enum {string} */
+                                end: "person" | "company" | "custom_record";
+                                label: string;
+                                recordType: {
+                                    archived: boolean;
+                                    icon: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    key: string;
+                                    nameLabel: string;
+                                    plural: string;
+                                    singular: string;
+                                } | null;
+                            };
+                            archivedAt: string | null;
+                            b: {
+                                /** @enum {string} */
+                                end: "person" | "company" | "custom_record";
+                                label: string;
+                                recordType: {
+                                    archived: boolean;
+                                    icon: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    key: string;
+                                    nameLabel: string;
+                                    plural: string;
+                                    singular: string;
+                                } | null;
+                            };
+                            /** @enum {string} */
+                            cardinality: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+                            /** Format: uuid */
+                            id: string;
+                            mutual: boolean;
+                            pairCount: number;
+                            position: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_relationship_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company" | "custom_record";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** @enum {string} */
+                            cardinality: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            label: string;
+                            mutual: boolean;
+                            note: string | null;
+                            other: {
+                                archived: boolean;
+                                detail: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** @enum {string} */
+                                kind: "person" | "company" | "custom_record";
+                                name: string;
+                                recordType: {
+                                    archived: boolean;
+                                    icon: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    key: string;
+                                    nameLabel: string;
+                                    plural: string;
+                                    singular: string;
+                                } | null;
+                            };
+                            ownLabel: string;
+                            /** @enum {string} */
+                            side: "a" | "b";
+                            /** Format: uuid */
+                            typeId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_resource_list: {
         parameters: {
             query?: never;
@@ -32746,6 +35029,8 @@ export interface operations {
                     companyId?: string;
                     cursor?: string;
                     /** Format: uuid */
+                    customRecordId?: string;
+                    /** Format: uuid */
                     leadId?: string;
                     /** @default 50 */
                     limit?: number;
@@ -32793,6 +35078,16 @@ export interface operations {
                                 fullName: string;
                                 /** Format: uuid */
                                 id: string;
+                            } | null;
+                            customRecord: {
+                                archived: boolean;
+                                icon: string;
+                                /** Format: uuid */
+                                id: string;
+                                kind: string;
+                                name: string;
+                                /** Format: uuid */
+                                typeId: string;
                             } | null;
                             doneAt: string | null;
                             doneBy: {
@@ -32938,7 +35233,7 @@ export interface operations {
                     /** Format: uuid */
                     recordId: string;
                     /** @enum {string} */
-                    recordType: "person" | "company" | "lead";
+                    recordType: "person" | "company" | "lead" | "custom_record";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -32961,6 +35256,7 @@ export interface operations {
                             actorType: string;
                             body: string | null;
                             companyId: string | null;
+                            customRecordId: string | null;
                             /** @enum {string} */
                             entry: "activity" | "task" | "file";
                             /** Format: uuid */

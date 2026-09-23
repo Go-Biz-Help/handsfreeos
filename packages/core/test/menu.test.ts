@@ -268,7 +268,7 @@ describe('editing a menu', () => {
   });
 });
 
-describe('the menu in one business (0103)', () => {
+describe('the menu in one business (0105)', () => {
   it('leaves out what the business keeps a person from, groups included, and keeps it in their saved menu', () => {
     const member = effectivePermissions('member');
     // Members don't read the audit log, so it isn't offered; the saved menu still has it.

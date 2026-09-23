@@ -297,7 +297,7 @@ export async function isOptedOut(tx: Tx, workspaceId: string, e164: string): Pro
 }
 
 /**
- * The customer with this number: their main one, or one of their others (0100). When several have it, the one whose
+ * The customer with this number: their main one, or one of their others (0102). When several have it, the one whose
  * main number it is, then the most recently touched.
  */
 export async function matchPersonByPhone(

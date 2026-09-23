@@ -45,7 +45,7 @@ export function LogActivitySheet({
   onOpenChange: (open: boolean) => void;
   kind: LoggableKind;
   recordName: string;
-  record: { personId?: string; companyId?: string; leadId?: string };
+  record: { personId?: string; companyId?: string; leadId?: string; customRecordId?: string };
   /** Open leads the entry can be attached to (person and company pages). */
   leads?: { id: string; title: string }[];
   onSaved?: () => void;
@@ -89,6 +89,7 @@ export function LogActivitySheet({
             personId: record.personId ?? null,
             companyId: record.companyId ?? null,
             leadId: leadId || null,
+            customRecordId: record.customRecordId ?? null,
           },
         }),
       );

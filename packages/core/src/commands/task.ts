@@ -17,6 +17,7 @@ import {
 import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
+import { requireCustomRecord } from '../relationships/store';
 import {
   TaskCompleteInput,
   TaskCompleteOutput,
@@ -32,7 +33,12 @@ import {
 
 async function checkRelated(
   ctx: CommandContext,
-  input: { personId?: string | null; companyId?: string | null; leadId?: string | null },
+  input: {
+    personId?: string | null;
+    companyId?: string | null;
+    leadId?: string | null;
+    customRecordId?: string | null;
+  },
 ) {
   const workspaceId = ctx.scope.workspaceId!;
   if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
@@ -44,6 +50,7 @@ async function checkRelated(
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
     if (!lead) throw HfosError.notFound('Lead not found.');
   }
+  if (input.customRecordId) await requireCustomRecord(ctx.tx, workspaceId, input.customRecordId);
 }
 
 /** A task in this workspace (locked, for a change that compares against it); a deleted one isn't there. */
@@ -92,13 +99,19 @@ async function overtaken(
       changedAt: at,
     },
     { type: 'task', id: task.id },
-    { personId: task.personId, companyId: task.companyId, leadId: task.leadId },
+    {
+      personId: task.personId,
+      companyId: task.companyId,
+      leadId: task.leadId,
+      customRecordId: task.customRecordId,
+    },
   );
 }
 
 export const taskCreate = defineCommand({
   name: 'task.create',
-  description: 'Add a task, optionally tied to a person, company or lead and assigned to someone.',
+  description:
+    'Add a task, optionally tied to a person, company or lead, or to a record like a pet, vehicle or property, and assigned to someone.',
   risk: 1,
   input: TaskCreateInput,
   output: TaskCreateOutput,
@@ -126,6 +139,7 @@ export const taskCreate = defineCommand({
           personId: input.personId ?? null,
           companyId: input.companyId ?? null,
           leadId: input.leadId ?? null,
+          customRecordId: input.customRecordId ?? null,
           createdBy: userIdOf(ctx.actor),
         })
         .returning({ id: tasks.id, title: tasks.title, dueAt: tasks.dueAt }),
@@ -183,6 +197,7 @@ export const taskUpdate = defineCommand({
         field('personId', input.personId, 'id', 'person'),
         field('companyId', input.companyId, 'id', 'company'),
         field('leadId', input.leadId, 'id', 'lead'),
+        field('customRecordId', input.customRecordId, 'id', 'record'),
       ],
       mergeColumns(tasks),
       ctx.meta,
@@ -193,7 +208,12 @@ export const taskUpdate = defineCommand({
       ctx,
       merged.notApplied,
       { type: 'task', id: current.id },
-      { personId: current.personId, companyId: current.companyId, leadId: current.leadId },
+      {
+        personId: current.personId,
+        companyId: current.companyId,
+        leadId: current.leadId,
+        customRecordId: current.customRecordId,
+      },
     );
     const updated = [...merged.applied];
     if (updated.length === 0) return { taskId: current.id, updated: [], notApplied };
@@ -258,12 +278,13 @@ export const taskComplete = defineCommand({
       before: { title: current.title, done: false },
       after: { title: current.title, done: true },
     });
-    if (current.personId || current.companyId || current.leadId) {
+    if (current.personId || current.companyId || current.leadId || current.customRecordId) {
       await logSystemActivity(ctx, {
         subtype: 'task_done',
         personId: current.personId,
         companyId: current.companyId,
         leadId: current.leadId,
+        customRecordId: current.customRecordId,
         body: current.title,
         meta: { taskId: current.id },
         eventId,

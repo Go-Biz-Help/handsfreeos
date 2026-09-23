@@ -23,7 +23,7 @@ import { dueWording } from './words';
 export type MoneyRole = 'owner' | 'admin' | 'member';
 
 /**
- * What a person may do here, as the API (workspace.get) or the phone's own access row gives it (0103): their role's
+ * What a person may do here, as the API (workspace.get) or the phone's own access row gives it (0105): their role's
  * permissions with the business's settings for the role and for them applied.
  */
 export type MoneyPermissions = readonly string[];

@@ -1,5 +1,5 @@
 /**
- * More than one way to reach a customer (0100): other emails, numbers and addresses beside the main ones, tidied the
+ * More than one way to reach a customer (0102): other emails, numbers and addresses beside the main ones, tidied the
  * same way in TypeScript and in the database, merged newest-wins like every other detail, and found by every lookup
  * that finds a customer by a number or an email.
  */

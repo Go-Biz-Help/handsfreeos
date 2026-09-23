@@ -31,7 +31,7 @@ const companyFields = {
   phone: phoneInput,
   website: z.string().trim().max(200).nullable().optional(),
   address: AddressInput.optional(),
-  /** The emails, numbers and addresses besides the main ones (0100); on an update, the whole list. */
+  /** The emails, numbers and addresses besides the main ones (0102); on an update, the whole list. */
   otherEmails: otherEmailsInput,
   otherPhones: otherPhonesInput,
   otherAddresses: otherAddressesInput,
@@ -109,7 +109,7 @@ export const CompanySummary = z.object({
   otherAddresses: z.array(OtherAddressOut),
   source: z.string().nullable(),
   owner: UserRef,
-  /** Everyone else the company is assigned to (0101), in the order they were added. */
+  /** Everyone else the company is assigned to (0103), in the order they were added. */
   team: TeamRef,
   tags: z.array(TagRef),
   peopleCount: z.number().int(),
@@ -124,7 +124,7 @@ export const CompanyListInput = ListInput.extend({
   workspaceId: uuid,
   q: z.string().trim().max(120).optional(),
   tagId: uuid.optional(),
-  /** The companies assigned to this person: the ones they own and the ones they are on (0101). */
+  /** The companies assigned to this person: the ones they own and the ones they are on (0103). */
   assignedUserId: uuid.optional(),
   includeArchived: z.boolean().default(false),
 });
@@ -135,7 +135,11 @@ export const CompanyListOutput = z.object({
 
 export const CompanyGetInput = z.object({ workspaceId: uuid, companyId: uuid });
 export const CompanyGetOutput = z.object({
-  company: CompanySummary.extend({ notes: z.string().nullable() }),
+  company: CompanySummary.extend({
+    notes: z.string().nullable(),
+    /** The fields this business invented, by field id (M15, 0076). */
+    custom: z.record(z.string(), z.unknown()),
+  }),
   people: z.array(
     z.object({
       id: uuid,

@@ -29,6 +29,7 @@ export const MENU_KEYS = [
   'calendar',
   'money',
   'workflows',
+  'campaigns',
   'forms',
   'reviews',
   'knowledge',
@@ -113,7 +114,16 @@ export const SUGGESTED_MENU: Menu = {
       kind: 'group',
       id: 'more',
       label: MENU_GROUP_DEFAULT_LABEL,
-      keys: ['workflows', 'forms', 'reviews', 'knowledge', 'ai-team', 'members', 'audit'],
+      keys: [
+        'workflows',
+        'campaigns',
+        'forms',
+        'reviews',
+        'knowledge',
+        'ai-team',
+        'members',
+        'audit',
+      ],
     },
     { kind: 'link', key: 'settings' },
   ],
@@ -121,7 +131,7 @@ export const SUGGESTED_MENU: Menu = {
 };
 
 /**
- * The places that are nothing without a permission a business may take away (0103): Money without seeing bills,
+ * The places that are nothing without a permission a business may take away (0105): Money without seeing bills,
  * the inbox without using it, the audit log without reading it.
  */
 export const MENU_NEEDS: Readonly<Partial<Record<MenuKey, WorkspacePermission>>> = {

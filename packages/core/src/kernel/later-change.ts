@@ -79,9 +79,10 @@ export async function logLaterChange(
     readonly personId?: string | null;
     readonly companyId?: string | null;
     readonly leadId?: string | null;
+    readonly customRecordId?: string | null;
   },
 ): Promise<void> {
-  if (!on.personId && !on.companyId && !on.leadId) return;
+  if (!on.personId && !on.companyId && !on.leadId && !on.customRecordId) return;
   const changedAt = change.changedAt ? new Date(change.changedAt).toISOString() : null;
   const meta = {
     entityType: entity.type,
@@ -98,6 +99,7 @@ export async function logLaterChange(
     personId: on.personId ?? null,
     companyId: on.companyId ?? null,
     leadId: on.leadId ?? null,
+    customRecordId: on.customRecordId ?? null,
     body: `${words.charAt(0).toUpperCase()}${words.slice(1)}.`,
     meta,
   });

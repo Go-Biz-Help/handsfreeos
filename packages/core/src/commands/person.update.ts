@@ -101,7 +101,7 @@ export const personUpdate = defineCommand({
       (input.phoneAlt
         ? [...otherPhonesOf(current.otherPhones), { phone: input.phoneAlt, label: 'Other' }]
         : undefined);
-    // Each list merges entry by entry with the row (0100), so two people adding a number at once both keep theirs.
+    // Each list merges entry by entry with the row (0102), so two people adding a number at once both keep theirs.
     const emails = listEdit(
       input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
       seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
@@ -262,7 +262,7 @@ export const personUpdate = defineCommand({
     ];
     const merged = mergeFields(current, fields, mergeColumns(people), ctx.meta);
     const { patch } = merged;
-    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0101).
+    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0103).
     if ('ownerUserId' in patch && patch.ownerUserId !== current.ownerUserId) requireAssigner(ctx);
     const nextFirst = (patch.firstName as string | undefined) ?? current.firstName;
     const nextLast = (patch.lastName as string | undefined) ?? current.lastName;

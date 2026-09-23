@@ -21,7 +21,7 @@ interface Person {
 }
 
 /**
- * Who a customer is assigned to (0101): the owner, marked Main, and everyone else on them — one person installing
+ * Who a customer is assigned to (0103): the owner, marked Main, and everyone else on them — one person installing
  * a client's automations while another runs their SEO. Being on a customer shows a member its bills and threads,
  * so owners and admins add and take people off (records.assign); everyone else sees who is on it. One at a time,
  * so two people doing it at once both land.

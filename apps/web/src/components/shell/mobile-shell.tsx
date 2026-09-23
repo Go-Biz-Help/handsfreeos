@@ -28,7 +28,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
   const [search, setSearch] = useState(false);
   const items = navItems(current.id);
   // A place taken out of the menu is out of the bottom bar too; it still titles its own page, and search and
-  // links still reach it. So is one the business keeps this person from (0103).
+  // links still reach it. So is one the business keeps this person from (0105).
   const shown = new Set(menuKeys(menuFor(useMenu().menu, current.permissions)));
   const bar = items.filter((i) => i.primary && shown.has(i.key));
   const active = items.find((i) => isActive(i, pathname));

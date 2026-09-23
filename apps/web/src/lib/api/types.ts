@@ -21,7 +21,7 @@ export type AuditList = Ok<'/v1/queries/audit.list'>;
 export type AuditEntry = AuditList['entries'][number];
 export type InvitationPreview = Ok<'/v1/queries/invitation.preview'>;
 export type Role = 'owner' | 'admin' | 'member';
-// 0103: what a business lets its people do, for the Admin and Member roles and for one person.
+// 0105: what a business lets its people do, for the Admin and Member roles and for one person.
 export type PermissionSettingsOut = Ok<'/v1/queries/permission.settings'>;
 export type RolePermissionSettings = PermissionSettingsOut['roles'][number];
 export type PersonPermissionSettings = PermissionSettingsOut['people'][number];
@@ -56,7 +56,25 @@ export type ImportGet = Ok<'/v1/queries/import.get'>;
 export type ImportList = Ok<'/v1/queries/import.list'>;
 export type FindMatches = Ok<'/v1/queries/crm.find_matches'>;
 export type Match = FindMatches['matches'][number];
-export type RecordType = 'person' | 'company' | 'lead';
+/** What a timeline, a file or a note hangs off: a customer, a company, a lead, or a pet, vehicle or property (0101). */
+export type RecordType = 'person' | 'company' | 'lead' | 'custom_record';
+
+// Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
+export type CustomFieldList = Ok<'/v1/queries/custom_field.list'>;
+export type CustomField = CustomFieldList['fields'][number];
+export type CustomRecordTypeList = Ok<'/v1/queries/custom_record_type.list'>;
+export type CustomRecordType = CustomRecordTypeList['types'][number];
+export type RelationshipTypeList = Ok<'/v1/queries/relationship_type.list'>;
+export type RelationshipType = RelationshipTypeList['types'][number];
+export type RelationshipEnd = RelationshipType['a'];
+export type CustomRecordList = Ok<'/v1/queries/custom_record.list'>;
+export type CustomRecordSummary = CustomRecordList['items'][number];
+export type CustomRecordGet = Ok<'/v1/queries/custom_record.get'>;
+export type CustomRecordDetail = CustomRecordGet['record'];
+export type RelationshipList = Ok<'/v1/queries/relationship.list'>;
+export type Relationship = RelationshipList['items'][number];
+/** A record that can be related: a person, a company, or a record of one of the business's own kinds. */
+export type RelatableKind = Relationship['other']['kind'];
 
 // Milestone 3: texting and the inbox
 export type InboxList = Ok<'/v1/queries/inbox.list'>;
@@ -277,3 +295,10 @@ export type Template = TemplateList['templates'][number];
 export type ReviewListOut = Ok<'/v1/queries/review.list'>;
 export type ReviewRow = ReviewListOut['reviews'][number];
 export type ReviewConnectionRow = ReviewListOut['connections'][number];
+
+// Automations 5: outreach campaigns
+export type CampaignList = Ok<'/v1/queries/campaign.list'>;
+export type CampaignSummary = CampaignList['items'][number];
+export type CampaignGet = Ok<'/v1/queries/campaign.get'>;
+export type CampaignRecipient = CampaignGet['recipients'][number];
+export type CampaignPreview = Ok<'/v1/queries/campaign.preview_audience'>;

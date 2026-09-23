@@ -19,13 +19,13 @@
 #     a compatibility shim here, it is a bypass: an old app build would go on syncing every thread in the
 #     business after that business asked us to stop. The full recopy is the price of the narrowing actually
 #     narrowing. Nothing was taken out of what a phone receives, so an old build reads what it always did.
-#     0103 is the same kind of narrowing: a business now says who manages its money, so `managed` reads the
+#     0105 is the same kind of narrowing: a business now says who manages its money, so `managed` reads the
 #     trigger-kept `manages_money` flag instead of the role, in place. An admin the business took money away from
 #     stops receiving it on every build; me_v1's access row gains `permissions`, which an old build ignores.
 #
 # Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +
 # agency_v1 1 per agency they belong to. business_v1 has three arms: `access` matches everyone who can open
-# the business, `managed` everyone who manages its money (0103: owners and admins unless it says otherwise), and
+# the business, `managed` everyone who manages its money (0105: owners and admins unless it says otherwise), and
 # `inbox` everyone who still sees the whole inbox (0083). So two arms for a member, three for an owner or admin. Parameter results are that count less the
 # me_v1 one, which needs no lookup. An agency owner keeping 12 businesses offline: 38 buckets, 37 results.
 # `sees_whole_inbox` defaults true, so the `inbox` arm costs its bucket whether or not any business has
@@ -64,7 +64,7 @@ streams:
 
   # One business kept offline: the app subscribes with {workspace_id} for each (the last one opened by default).
   # `access` is the person's own workspace_access row for that business, so a business they can't open gives
-  # nothing, and each subscription looks up one row. `managed` is the same row when they manage its money (0103).
+  # nothing, and each subscription looks up one row. `managed` is the same row when they manage its money (0105).
   business_v1:
     with:
       access: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id')

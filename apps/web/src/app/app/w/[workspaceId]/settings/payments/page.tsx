@@ -67,8 +67,8 @@ export default async function PaymentsSettingsPage({
 }
 
 /**
- * The business's people for who may use each account (0102), and whether each bills: whoever the business lets
- * (`money.bill`, 0103) — owners and admins unless it says otherwise, and the agency's owners and admins, who reach
+ * The business's people for who may use each account (0104), and whether each bills: whoever the business lets
+ * (`money.bill`, 0105) — owners and admins unless it says otherwise, and the agency's owners and admins, who reach
  * every business as one.
  */
 function teamOf(m: Members): TeamMember[] {

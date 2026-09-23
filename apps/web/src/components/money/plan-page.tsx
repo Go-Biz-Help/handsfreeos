@@ -169,7 +169,7 @@ export function PlanPage({
   connections: readonly PaymentConnectionRow[];
   /** The newest card payment a cycle took, for the card that is paying for it. */
   cardPayment: PaymentListRow | null;
-  /** Ask for a card, pause, start again, cancel or move it: whoever bills (0103). */
+  /** Ask for a card, pause, start again, cancel or move it: whoever bills (0105). */
   canBill: boolean;
   timeZone: string;
 }) {
@@ -184,7 +184,7 @@ export function PlanPage({
   const billing = sub.status === 'active' || sub.status === 'past_due';
   /** A plan cannot bill anybody until the customer has put a card on their own page. */
   const waitingOnCard = sub.status === 'draft' && !sub.hasCard;
-  // Connected, and theirs to bill into (0102) — or the account the plan already uses.
+  // Connected, and theirs to bill into (0104) — or the account the plan already uses.
   const usable = connections.filter(
     (c) => c.status === 'active' && (c.usableByMe || c.id === sub.connectionId),
   );

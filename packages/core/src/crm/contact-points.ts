@@ -1,5 +1,5 @@
 /**
- * A customer's other emails, numbers and addresses (0100): the ones besides the main email, phone and address.
+ * A customer's other emails, numbers and addresses (0102): the ones besides the main email, phone and address.
  * They live as JSON on the person or company, beside the columns for the main ones, and every text, email,
  * reminder and receipt still goes to the main ones. These are what else is on file: a customer who writes in
  * from their other address, or calls from their office line, is still recognised as themselves, and the team can
@@ -145,7 +145,7 @@ export const emailKey = (e: OtherEmail): string => e.email.toLowerCase();
 export const phoneKey = (p: OtherPhone): string => p.phone;
 
 /**
- * An edited list rebased on the list as it is now (0100), entry by entry: what the editor took off comes off, what
+ * An edited list rebased on the list as it is now (0102), entry by entry: what the editor took off comes off, what
  * they changed takes their change, what they added is added — and what somebody else added or changed since the
  * editor opened it stays, so two people adding a number at the same moment both keep theirs. When nothing changed
  * since (`base` reads the same as `now`), the edit is the list as they left it, order and all.
