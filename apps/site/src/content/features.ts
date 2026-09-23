@@ -34,9 +34,9 @@ export const featureSections: readonly FeatureSection[] = [
   {
     id: 'customers',
     nav: 'Customers',
-    title: 'Every customer on one page, with everything that ever happened',
+    title: 'A customer record that fills itself in',
     intro:
-      'Not a contact list. Every text, call, email, appointment, quote, invoice, photo and note about a person, in the order it happened.',
+      'Not a contact list you keep up to date. Every text, call, email, appointment, quote and invoice lands on the customer’s page by itself, in the order it happened, with your notes and photos beside it.',
     points: [
       'Leads move through a pipeline whose stages you decide, dragged from one to the next.',
       'Tasks with due dates, assigned to whoever is doing them.',
@@ -126,9 +126,9 @@ export const featureSections: readonly FeatureSection[] = [
   {
     id: 'action-center',
     nav: 'What needs you',
-    title: 'One ranked list instead of a dashboard of graphs',
+    title: 'Not a dashboard to check. A short list of what needs you.',
     intro:
-      'Home is not a wall of charts. It is what needs a person today, in order, with the money affected at the top.',
+      'Home is not a wall of charts to keep an eye on. It is only what needs a person today, in order, with the money affected at the top — the safe ones it has already handled.',
     points: [
       'The hot lead waiting eleven minutes, the quote about to go stale, the invoice ten days late.',
       'The safe ones — confirmations, gentle nudges — HandsFreeOS just handles, and tells you it did.',
