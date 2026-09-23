@@ -169,5 +169,8 @@ reacts to an event · **T** AI teammate change.
    - **Left out automatically**: anyone texted in the last 14 days, anyone mid-conversation or with an open card on
      Home, and anyone booked in the next 30 days.
    - **Replies**: go to the inbox like any text; the AI teammate answers by its usual rules when it's on.
+   - **Built as**: `app.campaigns` and `app.campaign_recipients`; the `campaign.*` commands and queries; the worker's
+     `campaigns.draft` (ten a run) and `campaigns.send` (one a run, then the next at the pace); a **Campaigns** page
+     in the side menu, linked from the Marketing group on Settings → Automations.
 
 Each stage adds its rows to the catalog as it ships, so the page never shows a switch that does nothing.

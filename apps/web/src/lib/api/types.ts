@@ -272,3 +272,10 @@ export type Template = TemplateList['templates'][number];
 export type ReviewListOut = Ok<'/v1/queries/review.list'>;
 export type ReviewRow = ReviewListOut['reviews'][number];
 export type ReviewConnectionRow = ReviewListOut['connections'][number];
+
+// Automations 5: outreach campaigns
+export type CampaignList = Ok<'/v1/queries/campaign.list'>;
+export type CampaignSummary = CampaignList['items'][number];
+export type CampaignGet = Ok<'/v1/queries/campaign.get'>;
+export type CampaignRecipient = CampaignGet['recipients'][number];
+export type CampaignPreview = Ok<'/v1/queries/campaign.preview_audience'>;
