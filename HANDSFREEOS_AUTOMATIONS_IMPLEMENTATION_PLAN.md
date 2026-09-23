@@ -145,7 +145,20 @@ reacts to an event · **T** AI teammate change.
    - **Revenue moved**: a Monday card only when last week's money in was 30% or more above or below the usual
      week, with the main reason.
 
-   **b. Health.**
+   **b. Health and quality** (Chris, 2026-09-23):
+   - **Channel went quiet**: a card when a channel (texts, calls, email, web chat) got nothing for 3 times its usual
+     quiet stretch, and at least 1 business day.
+   - **Connections** (Stripe, Square, Google Calendar, phone number, email inbox): an error (sign-in expired, access
+     removed) is urgent at once with a push to owners and admins; silence (no data for 3 times its usual gap) is a
+     normal card.
+   - **Nobody reviewing the AI**: a card when drafts waited over 7 days with none approved or rejected, or in
+     automatic mode nobody opened its conversations in 7 days.
+   - **Repeated corrections**: after 3 similar corrections in 14 days, a card with one suggested line for the AI's
+     instructions; one tap adds it.
+   - **Website changed**: re-read the site weekly; when prices, hours or services changed, a card shows what
+     changed, with "Update what the AI knows".
+   - **FAQ suggestions**: a card as soon as the same question the AI couldn't answer comes up 3 times; type an
+     answer and it's saved to the AI's knowledge.
 
 5. **Outreach campaigns.**
 
