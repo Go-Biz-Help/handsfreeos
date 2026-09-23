@@ -68,7 +68,9 @@ jobs:
       # ten times, instead of failing the job before a single test has run. On a bad day that is 9 minutes of
       # waiting, which the 75-minute limit above has room for.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
-        run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+        # supabase/setup-cli points the CLI at ghcr.io alone. Without it, the CLI tries each image at
+        # public.ecr.aws, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't stop the stack.
+        run: env -u SUPABASE_INTERNAL_IMAGE_REGISTRY node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
       - name: Write local env files
         run: pnpm env:local
