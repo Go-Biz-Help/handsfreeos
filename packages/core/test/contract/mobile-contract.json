@@ -73,6 +73,17 @@
                 "type": "null"
               }
             ]
+          },
+          "customRecordId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId", "kind", "body"]
@@ -296,6 +307,17 @@
               }
             ]
           },
+          "customRecordId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "acknowledgeWarnings": {
             "default": false,
             "type": "boolean"
@@ -481,6 +503,17 @@
               }
             ]
           },
+          "customRecordId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "base": {
             "type": "object",
             "properties": {
@@ -521,6 +554,17 @@
                 ]
               },
               "leadId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "customRecordId": {
                 "anyOf": [
                   {
                     "type": "string",
@@ -1986,7 +2030,7 @@
           },
           "recordType": {
             "type": "string",
-            "enum": ["person", "company", "lead"]
+            "enum": ["person", "company", "lead", "custom_record"]
           },
           "recordId": {
             "type": "string",
@@ -4042,6 +4086,17 @@
                 "type": "null"
               }
             ]
+          },
+          "customRecordId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId", "title"]
@@ -4168,6 +4223,17 @@
               }
             ]
           },
+          "customRecordId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "base": {
             "type": "object",
             "properties": {
@@ -4241,6 +4307,17 @@
                 ]
               },
               "leadId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "customRecordId": {
                 "anyOf": [
                   {
                     "type": "string",

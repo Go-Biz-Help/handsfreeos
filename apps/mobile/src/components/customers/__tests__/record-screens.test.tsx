@@ -145,6 +145,7 @@ describe('the timeline', () => {
     personId: 'p1',
     companyId: null,
     leadId: null,
+    customRecordId: null,
     meta: {},
   };
 
@@ -289,6 +290,7 @@ describe('tasks and files', () => {
     person: { id: 'p1', fullName: 'Mike Johnson', archived: false },
     company: null,
     lead: { id: 'l1', title: 'Roof replacement' },
+    customRecord: null,
     doneAt: null,
     doneBy: null,
     createdBy: { id: 'u1', fullName: 'Dale Ramsey' },

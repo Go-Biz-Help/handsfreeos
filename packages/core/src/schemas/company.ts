@@ -113,7 +113,11 @@ export const CompanyListOutput = z.object({
 
 export const CompanyGetInput = z.object({ workspaceId: uuid, companyId: uuid });
 export const CompanyGetOutput = z.object({
-  company: CompanySummary.extend({ notes: z.string().nullable() }),
+  company: CompanySummary.extend({
+    notes: z.string().nullable(),
+    /** The fields this business invented, by field id (M15, 0076). */
+    custom: z.record(z.string(), z.unknown()),
+  }),
   people: z.array(
     z.object({
       id: uuid,

@@ -198,16 +198,18 @@ export async function logNotApplied(
   ctx: CommandContext,
   notApplied: readonly NotApplied[],
   entity: {
-    readonly type: 'person' | 'company' | 'lead' | 'task' | 'appointment';
+    readonly type: 'person' | 'company' | 'lead' | 'task' | 'appointment' | 'custom_record';
     readonly id: string;
   },
   on: {
     readonly personId?: string | null;
     readonly companyId?: string | null;
     readonly leadId?: string | null;
+    readonly customRecordId?: string | null;
   },
 ): Promise<void> {
-  if (!notApplied.length || (!on.personId && !on.companyId && !on.leadId)) return;
+  if (!notApplied.length || (!on.personId && !on.companyId && !on.leadId && !on.customRecordId))
+    return;
   for (const n of notApplied) {
     const by = await whoChanged(ctx.tx, entity, n.column, n.staysSince);
     const wanted = shown(n.kind, n.wanted);
@@ -223,6 +225,7 @@ export async function logNotApplied(
       personId: on.personId ?? null,
       companyId: on.companyId ?? null,
       leadId: on.leadId ?? null,
+      customRecordId: on.customRecordId ?? null,
       body,
       meta: {
         entityType: entity.type,

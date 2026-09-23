@@ -531,6 +531,25 @@ describe('registry', () => {
       'branded_domain.verify',
       'branded_domain.remove',
       'branded_domain.record',
+      'custom_field.create',
+      'custom_field.update',
+      'custom_field.archive',
+      'record.set_fields',
+      'custom_record_type.create',
+      'custom_record_type.update',
+      'custom_record_type.archive',
+      'custom_record_type.restore',
+      'custom_record.create',
+      'custom_record.update',
+      'custom_record.archive',
+      'custom_record.restore',
+      'relationship_type.create',
+      'relationship_type.update',
+      'relationship_type.archive',
+      'relationship_type.restore',
+      'relationship.create',
+      'relationship.update',
+      'relationship.delete',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'migration.list',
@@ -665,6 +684,12 @@ describe('registry', () => {
       'form.results',
       'template.list',
       'review.list',
+      'custom_field.list',
+      'custom_record_type.list',
+      'relationship_type.list',
+      'custom_record.list',
+      'custom_record.get',
+      'relationship.list',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

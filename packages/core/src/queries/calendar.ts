@@ -16,6 +16,8 @@ import {
   calendarConnections,
   calendarRevisions,
   calendars,
+  customRecords,
+  customRecordTypes,
   people,
   resources,
   schedules,
@@ -343,10 +345,14 @@ async function appointmentCards(
       calendarName: calendars.name,
       calendarColor: calendars.color,
       serviceName: services.name,
+      recordName: customRecords.name,
+      recordKind: customRecordTypes.singular,
     })
     .from(appointments)
     .innerJoin(calendars, eq(calendars.id, appointments.calendarId))
     .leftJoin(services, eq(services.id, appointments.serviceId))
+    .leftJoin(customRecords, eq(customRecords.id, appointments.customRecordId))
+    .leftJoin(customRecordTypes, eq(customRecordTypes.id, customRecords.typeId))
     .where(and(eq(appointments.workspaceId, workspaceId), ...conditions))
     .orderBy(asc(appointments.startsAt), asc(appointments.id))
     .limit(limit);
@@ -402,7 +408,7 @@ async function appointmentCards(
     workspaceId,
     attendees.map((p) => p.id),
   );
-  return list.map(({ a, calendarName, calendarColor, serviceName }) => ({
+  return list.map(({ a, calendarName, calendarColor, serviceName, recordName, recordKind }) => ({
     id: a.id,
     calendar: { id: a.calendarId, name: calendarName, color: calendarColor },
     service: a.serviceId && serviceName ? { id: a.serviceId, name: serviceName } : null,
@@ -420,6 +426,10 @@ async function appointmentCards(
     occurrence: a.occurrence,
     source: a.source,
     leadId: a.leadId,
+    customRecord:
+      a.customRecordId && recordName !== null
+        ? { id: a.customRecordId, name: recordName, kind: recordKind ?? '' }
+        : null,
     notes: a.notes,
     staff: staff
       .filter((s) => s.appointmentId === a.id)
@@ -459,7 +469,7 @@ async function appointmentCards(
 export const appointmentList = defineQuery({
   name: 'appointment.list',
   description:
-    'Appointments overlapping a range (at most 62 days), by people, resources, calendars, status or customer. Cancelled ones only when asked.',
+    'Appointments overlapping a range (at most 62 days), by people, resources, calendars, status, customer or record (a pet, a vehicle, a property). Cancelled ones only when asked.',
   input: AppointmentListInput,
   output: AppointmentListOutput,
   permission: 'workspace.read',
@@ -492,6 +502,8 @@ export const appointmentList = defineQuery({
         dsql`exists (select 1 from app.appointment_attendees p where p.appointment_id = ${appointments.id}
                and p.person_id = ${input.personId})`,
       );
+    if (input.customRecordId)
+      conditions.push(eq(appointments.customRecordId, input.customRecordId));
     return {
       timezone: await workspaceZone(ctx.tx, input.workspaceId),
       items: await appointmentCards(ctx.tx, input.workspaceId, conditions),

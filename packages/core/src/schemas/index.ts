@@ -46,3 +46,5 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './job';
+export * from './custom-field';
+export * from './relationship';
