@@ -65,8 +65,38 @@ const WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 /** How many customers one page of the tasks-and-notes walk asks about. Two requests each. */
 const CUSTOMERS_PER_PAGE = 10;
 
+/** How many of those customers are asked about at once. */
+const TASK_WALK_CONCURRENCY = 4;
+
+/** Every item through `fn`, at most `size` at a time, in the order given. */
+async function inPool<T, R>(
+  items: readonly T[],
+  size: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const lanes = Array.from({ length: Math.min(size, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!);
+    }
+  });
+  await Promise.all(lanes);
+  return out;
+}
+
+/**
+ * How many of one page's records are asked about at once when the list leaves something off: an email's
+ * words, a product's prices.
+ */
+const EMAIL_CONCURRENCY = 4;
+
 /** How many times one request is asked again after a 429 before the batch is left to its own backoff. */
 const RATE_LIMIT_TRIES = 6;
+
+/** How many times a request that timed out or dropped is asked, in all, before the page fails. */
+const NETWORK_TRIES = 3;
 
 /** HighLevel pins its v2 API by date. Changing this is a mapping change, so it goes up with the version. */
 const API_VERSION = '2021-07-28';
@@ -121,7 +151,17 @@ export const GHL_SCOPES: Record<string, readonly string[]> = {
  * The message types GoHighLevel uses for a call or a voicemail. Everything else in a conversation is a
  * message, and these become calls here, where a call has a duration, a recording and a transcript.
  */
-const CALL_TYPES = new Set(['TYPE_CALL', 'CALL', 'TYPE_VOICEMAIL', 'VOICEMAIL', 'TYPE_PHONE_CALL']);
+const CALL_TYPES = new Set([
+  'TYPE_CALL',
+  'CALL',
+  'TYPE_VOICEMAIL',
+  'VOICEMAIL',
+  'TYPE_PHONE_CALL',
+  // A call placed through a connected dialer (its recording rides as the first attachment), and one answered
+  // by a phone menu. Both are calls; filed as messages, they were texts with no words in a chat thread.
+  'TYPE_CUSTOM_CALL',
+  'TYPE_IVR_CALL',
+]);
 
 /** Everything asked for at the sign-in: the union above, in a stable order. */
 export const GHL_ALL_SCOPES: readonly string[] = [
@@ -163,6 +203,12 @@ interface Endpoint {
    * count is the length of what came back, which is a floor rather than a total, and is labelled as such.
    */
   readonly totalKey?: string;
+  /**
+   * Which rows are records, when the list holds other things too. The email builder lists its folders among
+   * the templates, so the scan said thirteen and twelve came across. With this, the scan reads the first
+   * page whole and counts only what will really be brought.
+   */
+  readonly counts?: (row: Record<string, unknown>) => boolean;
 }
 
 const ENDPOINTS: Record<string, Endpoint> = {
@@ -196,6 +242,8 @@ const ENDPOINTS: Record<string, Endpoint> = {
     countQuality: 'complete',
     incremental: false,
     objectType: 'tag',
+    // Ignores `limit` and answers with every tag, so the whole list is the count — not "at least one".
+    limit: false,
   },
   contacts: {
     path: (s) => `/contacts/?locationId=${encodeURIComponent(s)}`,
@@ -270,6 +318,7 @@ const ENDPOINTS: Record<string, Endpoint> = {
     incremental: false,
     objectType: 'template',
     totalKey: 'total',
+    counts: (row) => row['templateType'] !== 'folder',
   },
   funnels: {
     path: (s) => `/funnels/funnel/list?locationId=${encodeURIComponent(s)}`,
@@ -495,6 +544,24 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
         return await callOnce<T>(token, path, init);
       } catch (e) {
         const err = e as GhlError;
+        /**
+         * A request that timed out or lost its connection is asked again too, a couple of times. Every call
+         * here is a read, so asking twice changes nothing over there — and one slow answer from HighLevel
+         * (the first real import had one, forty minutes in, on a calendar) is not a reason to fail a page.
+         */
+        /**
+         * HighLevel's own timeouts count too. It answers a request it gave up on with a 401 that says
+         * "Command timed out" — not a sign-in problem at all, and read as one it failed a batch of the
+         * first real import's notes — and a busy moment with a 502, 503 or 504.
+         */
+        const dropped =
+          !(e instanceof GhlError) ||
+          (err.status === 401 && /timed out/i.test(err.message)) ||
+          [502, 503, 504].includes(err.status);
+        if (dropped && attempt < NETWORK_TRIES) {
+          await new Promise((r) => setTimeout(r, 2_000 * attempt));
+          continue;
+        }
         if (err.code !== 'rate_limited' || attempt >= RATE_LIMIT_TRIES) throw e;
         await new Promise((r) => setTimeout(r, err.retryAfterMs ?? 2_000 * attempt));
       }
@@ -798,6 +865,37 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   };
 
   /**
+   * A page of products, each with its prices. The list carries none — it says `hasPrices: false` even of a
+   * product that has one, and every product on the first real account came across at $0 — so each product is
+   * asked for its own, the way HighLevel's own product screen asks.
+   */
+  const productPage = async (
+    token: string,
+    scopeId: string,
+    options: ListOptions,
+  ): Promise<SourcePage> => {
+    const listed = await page(token, ENDPOINTS['products']!, scopeId, options);
+    const records = await inPool(listed.records, EMAIL_CONCURRENCY, async (r) => {
+      if (Array.isArray(r.payload['prices']) && r.payload['prices'].length > 0) return r;
+      try {
+        const answer = await call<Record<string, unknown>>(
+          token,
+          `/products/${encodeURIComponent(r.objectId)}/price?locationId=${encodeURIComponent(scopeId)}`,
+        );
+        const prices = (
+          Array.isArray(answer['prices']) ? (answer['prices'] as Record<string, unknown>[]) : []
+        ).filter((price) => price['deleted'] !== true);
+        return prices.length > 0 ? { ...r, payload: { ...r.payload, prices } } : r;
+      } catch (e) {
+        // A product whose prices HighLevel will not show still comes across, as it was listed.
+        if (e instanceof GhlError && [400, 403, 404, 422].includes(e.status)) return r;
+        throw e;
+      }
+    });
+    return { ...listed, records };
+  };
+
+  /**
    * A page of tasks and notes, walked customer by customer.
    *
    * GoHighLevel keeps both on the customer and nowhere else: there is no list of a sub-account's tasks, which
@@ -834,9 +932,14 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     if (queue.length === 0) return { records: [], cursor: null, highWaterAt: null, done: true };
 
     const take = queue.slice(0, CUSTOMERS_PER_PAGE);
-    const records: SourceRecord[] = [];
-    let highWaterAt: Date | null = null;
-    for (const contactId of take) {
+    /**
+     * Both lists for each customer, a few customers at once. One at a time, at half a second a request, the
+     * walk over 856 customers took a quarter of an hour on its own and held every other category up behind
+     * it. Four at a time stays well inside HighLevel's hundred-in-ten-seconds, and a 429 is waited out anyway.
+     */
+    const lists = await inPool(take, TASK_WALK_CONCURRENCY, async (contactId) => {
+      const got: { contactId: string; want: 'tasks' | 'notes'; list: Record<string, unknown>[] }[] =
+        [];
       for (const want of ['tasks', 'notes'] as const) {
         let body: Record<string, unknown>;
         try {
@@ -851,23 +954,32 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
             continue;
           throw e;
         }
-        const list = Array.isArray(body[want]) ? (body[want] as Record<string, unknown>[]) : [];
-        for (const raw of list) {
-          const id = asString(raw['id']) ?? asString(raw['_id']);
-          if (!id) continue;
-          const at = asDate(raw['dateUpdated'] ?? raw['dateAdded'] ?? raw['createdAt']);
-          if (options.until && at && at > options.until) continue;
-          if (options.changedSince && at && at <= options.changedSince) continue;
-          if (at && (!highWaterAt || at > highWaterAt)) highWaterAt = at;
-          records.push({
-            objectType: want === 'tasks' ? 'task' : 'note',
-            objectId: id,
-            parentObjectId: contactId,
-            sourceCreatedAt: asDate(raw['dateAdded'] ?? raw['createdAt']) ?? at,
-            sourceUpdatedAt: at,
-            payload: { ...raw, contactId },
-          });
-        }
+        got.push({
+          contactId,
+          want,
+          list: Array.isArray(body[want]) ? (body[want] as Record<string, unknown>[]) : [],
+        });
+      }
+      return got;
+    });
+    const records: SourceRecord[] = [];
+    let highWaterAt: Date | null = null;
+    for (const { contactId, want, list } of lists.flat()) {
+      for (const raw of list) {
+        const id = asString(raw['id']) ?? asString(raw['_id']);
+        if (!id) continue;
+        const at = asDate(raw['dateUpdated'] ?? raw['dateAdded'] ?? raw['createdAt']);
+        if (options.until && at && at > options.until) continue;
+        if (options.changedSince && at && at <= options.changedSince) continue;
+        if (at && (!highWaterAt || at > highWaterAt)) highWaterAt = at;
+        records.push({
+          objectType: want === 'tasks' ? 'task' : 'note',
+          objectId: id,
+          parentObjectId: contactId,
+          sourceCreatedAt: asDate(raw['dateAdded'] ?? raw['createdAt']) ?? at,
+          sourceUpdatedAt: at,
+          payload: { ...raw, contactId },
+        });
       }
     }
     const rest = queue.slice(take.length);
@@ -962,6 +1074,68 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
   };
 
   /**
+   * An email as HighLevel's thread list shows it, made whole.
+   *
+   * The list leaves the words off about one email in five — the first real account had 1,590 of them, a
+   * subject and nothing else — and one entry can stand for a whole exchange: the ids of every email in it,
+   * the customer's reply among them. Each email is asked for by its own id and comes across as itself, with
+   * its own words, sender, recipients and time. The first keeps the entry's id, so what was mapped to the
+   * entry stays mapped; the others are their own. An email HighLevel will not show is kept as the list had it.
+   */
+  const emailsOf = async (token: string, record: SourceRecord): Promise<SourceRecord[]> => {
+    const p = record.payload;
+    const kind = (asString(p['messageType']) ?? asString(p['type']) ?? '').toUpperCase();
+    if (CHANNELS[kind]?.channel !== 'email') return [record];
+    const email = ((p['meta'] ?? {}) as Record<string, Record<string, unknown>>)['email'] ?? {};
+    const ids = (Array.isArray(email['messageIds']) ? (email['messageIds'] as unknown[]) : [])
+      .map(asString)
+      .filter((v): v is string => !!v);
+    if (ids.length === 0 || (ids.length === 1 && asString(p['body']))) return [record];
+    const out: SourceRecord[] = [];
+    for (const [i, emailId] of ids.entries()) {
+      let one: Record<string, unknown> | null = null;
+      try {
+        const answer = await call<Record<string, unknown>>(
+          token,
+          `/conversations/messages/email/${encodeURIComponent(emailId)}`,
+        );
+        one = (answer['emailMessage'] ?? null) as Record<string, unknown> | null;
+      } catch (e) {
+        if (!(e instanceof GhlError) || ![400, 403, 404, 422].includes(e.status)) throw e;
+      }
+      if (!one) {
+        if (i === 0) out.push(record);
+        continue;
+      }
+      const at = asDate(one['dateAdded']) ?? record.sourceCreatedAt ?? null;
+      const words = asString(one['body']);
+      const html = words && /<[a-z!][\s\S]*>/i.test(words) ? words : null;
+      out.push({
+        ...record,
+        objectId: i === 0 ? record.objectId : emailId,
+        sourceCreatedAt: at,
+        sourceUpdatedAt: asDate(one['dateUpdated']) ?? at,
+        payload: {
+          ...p,
+          ...(i === 0 ? {} : { id: emailId, status: null }),
+          emailMessageId: emailId,
+          emailThreadId: record.objectId,
+          direction: asString(one['direction']) ?? directionOf(p),
+          subject: asString(one['subject']) ?? asString(email['subject']),
+          body: html ? null : words,
+          html,
+          from: one['from'] ?? p['from'] ?? null,
+          to: one['to'] ?? p['to'] ?? null,
+          cc: one['cc'] ?? null,
+          attachments: one['attachments'] ?? (i === 0 ? (p['attachments'] ?? []) : []),
+          dateAdded: at?.toISOString() ?? p['dateAdded'],
+        },
+      });
+    }
+    return out;
+  };
+
+  /**
    * A page of messages, walked through the conversations they belong to.
    *
    * GoHighLevel has no way to ask a sub-account for its messages: they exist only inside a conversation. So
@@ -1027,8 +1201,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       const kind = (asString(raw['messageType']) ?? '').toUpperCase();
       // "Invoice sent", "payment received", "appointment booked": HighLevel's activity log, kept in the same
       // thread as the texts. Nobody said them, and the invoice, payment and appointment each come across as
-      // themselves, so they would only be the same event twice, dressed up as a message.
-      if (kind.startsWith('TYPE_ACTIVITY')) continue;
+      // themselves, so they would only be the same event twice, dressed up as a message. The chat widget's
+      // own notices ("Your chat has ended") are the same kind of line.
+      if (kind.startsWith('TYPE_ACTIVITY') || kind.endsWith('_INFO_MESSAGE')) continue;
       const isCall = CALL_TYPES.has(kind);
       if (want === 'calls' ? !isCall : isCall) continue;
       const at = asDate(raw['dateAdded'] ?? raw['dateUpdated']);
@@ -1044,6 +1219,10 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
         payload: { ...raw, conversationId },
       });
     }
+    const whole =
+      want === 'messages'
+        ? (await inPool(records, EMAIL_CONCURRENCY, (r) => emailsOf(token, r))).flat()
+        : records;
 
     // Where to carry on: further into this conversation, or on to the next one.
     if (more && lastId) msg = lastId;
@@ -1053,7 +1232,7 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     }
     const done = queue.length === 0 && convDone && !msg;
     return {
-      records,
+      records: whole,
       cursor: done ? null : { queue, conv, convDone, msg },
       highWaterAt,
       done,
@@ -1076,14 +1255,36 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
     const base = endpoint.path(scopeId);
     // One record is enough to count when the answer carries a total; an endpoint that refuses `limit` is
     // asked plainly instead, and what comes back is the whole list.
-    const path =
-      endpoint.limit === false ? base : `${base}${base.includes('?') ? '&' : '?'}limit=1`;
+    let path =
+      endpoint.limit === false
+        ? base
+        : `${base}${base.includes('?') ? '&' : '?'}limit=${endpoint.counts ? 100 : 1}`;
+    // Where the list starts, spelled the way a real read spells it: the invoice and estimate lists refuse a
+    // question without `offset` (`422 offset should not be empty`), which is how both came to be counted as
+    // "unknown" on the first real account.
+    if (endpoint.limit !== false) {
+      if (endpoint.paging === 'offset') path += '&offset=0';
+      if (endpoint.paging === 'skip') path += '&skip=0';
+      if (endpoint.paging === 'page') path += '&page=1';
+    }
     try {
       const body = await call<Record<string, unknown>>(token, path, { timeoutMs: 15_000 });
       const total = totalOf(body, endpoint.totalKey ?? 'total');
       const list = Array.isArray(body[endpoint.listKey])
         ? (body[endpoint.listKey] as unknown[])
         : [];
+      // Only the rows that are records, when the list mixes in other things: all of them are here when the
+      // first page held the whole list, and the total less what was left out of it otherwise.
+      if (endpoint.counts) {
+        const rows = list as Record<string, unknown>[];
+        const kept = rows.filter(endpoint.counts).length;
+        const whole = typeof total !== 'number' || total <= rows.length;
+        return {
+          capability: 'ready',
+          count: whole ? kept : total - (rows.length - kept),
+          quality: whole ? 'complete' : 'estimated',
+        };
+      }
       // A total the source gave us is a real count. Otherwise: everything it gave us is a real count when it
       // gave us everything, and a floor when we asked for one record.
       return typeof total === 'number'
@@ -1586,6 +1787,9 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
       // An email template's words are only in its rendered copy, so each is read from there.
       if (category === 'templates')
         return templatePage(tokenOf(connection, scope), scope.externalScopeId, options);
+      // A product's prices are only on the product, so each is asked for them.
+      if (category === 'products')
+        return productPage(tokenOf(connection, scope), scope.externalScopeId, options);
       const endpoint = ENDPOINTS[category];
       if (!endpoint) return { records: [], cursor: null, done: true };
       return page(tokenOf(connection, scope), endpoint, scope.externalScopeId, options);
@@ -1775,6 +1979,7 @@ const CONTACT_USED = [
   'dndSettings',
   'assignedTo',
   'companyName',
+  'website',
   'businessId',
   'dateAdded',
   'dateUpdated',
@@ -1794,18 +1999,30 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
   const phone = asString(p['phone']);
   if (email) endpoints.push({ kind: 'email', value: email, primary: true });
   if (phone) endpoints.push({ kind: 'phone', value: phone, primary: true });
-  for (const extra of Array.isArray(p['additionalEmails']) ? p['additionalEmails'] : [])
-    if (asString(extra)) endpoints.push({ kind: 'email', value: String(extra), primary: false });
-  for (const extra of Array.isArray(p['additionalPhones']) ? p['additionalPhones'] : [])
-    if (asString(extra)) endpoints.push({ kind: 'phone', value: String(extra), primary: false });
+  // The extra ones come as `{ email }` (and `{ phone }`), not as strings: read as strings, all of them went.
+  const extraOf = (v: unknown, key: string): string | null =>
+    asString(v) ?? asString((v as Record<string, unknown> | null)?.[key]);
+  for (const extra of Array.isArray(p['additionalEmails']) ? p['additionalEmails'] : []) {
+    const value = extraOf(extra, 'email');
+    if (value) endpoints.push({ kind: 'email', value, primary: false });
+  }
+  for (const extra of Array.isArray(p['additionalPhones']) ? p['additionalPhones'] : []) {
+    const value = extraOf(extra, 'phone');
+    if (value) endpoints.push({ kind: 'phone', value, primary: false });
+  }
 
   // What the customer agreed to, channel by channel. GoHighLevel's `dnd` is the whole-person switch and
   // `dndSettings` is per channel; the stricter of the two wins, which is what "do not disturb" has to mean.
   const dnd = p['dnd'] === true;
   const dndSettings = (p['dndSettings'] ?? {}) as Record<string, { status?: string }>;
   const consentFor = (key: string, channel: string) => {
-    const status = dndSettings[key]?.status;
-    const off = dnd || status === 'active';
+    /**
+     * Anything but `inactive` means do not send. `permanent` is the one a customer's own STOP sets, and it
+     * was the one read as nothing: nine people on the first real account who had texted STOP came across
+     * free to be texted again. A state not known here is read the careful way too.
+     */
+    const status = (asString(dndSettings[key]?.status) ?? '').toLowerCase();
+    const off = dnd || (status !== '' && status !== 'inactive');
     return { channel, state: off ? ('opted_out' as const) : ('unknown' as const) };
   };
   const consent = [
@@ -1863,6 +2080,7 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
     fullName:
       [firstName, lastName].filter(Boolean).join(' ') || nameCase(asString(p['contactName'])),
     companyName: asString(p['companyName'])?.slice(0, 200) ?? null,
+    website: asString(p['website'])?.slice(0, 400) ?? null,
     email,
     phone,
     endpoints,
@@ -2072,6 +2290,16 @@ function invoiceEnvelope(record: SourceRecord, context: MappingContext): Canonic
     'invoice',
     'invoices',
     {
+      customerEmail:
+        asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['email'])?.slice(
+          0,
+          320,
+        ) ?? null,
+      customerPhone:
+        asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['phoneNo'])?.slice(
+          0,
+          40,
+        ) ?? null,
       number: asString(p['invoiceNumber'])?.slice(0, 40) ?? null,
       title: asString(p['title'] ?? p['name'])?.slice(0, 200) ?? null,
       notes: asString(p['termsNotes'])?.slice(0, 5000) ?? null,
@@ -2172,6 +2400,16 @@ function estimateEnvelope(record: SourceRecord, context: MappingContext): Canoni
     'estimate',
     'estimates',
     {
+      customerEmail:
+        asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['email'])?.slice(
+          0,
+          320,
+        ) ?? null,
+      customerPhone:
+        asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['phoneNo'])?.slice(
+          0,
+          40,
+        ) ?? null,
       number: asString(p['estimateNumber'] ?? p['number'])?.slice(0, 40) ?? null,
       title: asString(p['title'] ?? p['name'])?.slice(0, 200) ?? null,
       notes: asString(p['termsNotes'])?.slice(0, 5000) ?? null,
@@ -2263,17 +2501,31 @@ const PLAN_INTERVAL: Readonly<Record<string, 'day' | 'week' | 'month' | 'year'>>
   year: 'year',
 };
 
+/**
+ * A plan that has stopped, whatever the processor calls it. `incomplete_expired` is Stripe's word for a plan
+ * whose first payment never went through and which then lapsed — it never charged anybody, and read as
+ * anything but over it came across as a live plan, "billed elsewhere", on the first real account five times.
+ */
+const PLAN_ENDED = new Set([
+  'cancelled',
+  'canceled',
+  'incomplete_expired',
+  'expired',
+  'ended',
+  'completed',
+  'terminated',
+]);
+
 function subscriptionEnvelope(record: SourceRecord, context: MappingContext): CanonicalEnvelope {
   const p = record.payload;
   const rawStatus = (asString(p['status']) ?? '').toLowerCase();
-  const status =
-    rawStatus === 'cancelled' || rawStatus === 'canceled'
-      ? 'cancelled'
-      : rawStatus === 'paused'
-        ? 'paused'
-        : rawStatus === 'past_due' || rawStatus === 'unpaid'
-          ? 'past_due'
-          : 'active';
+  const status = PLAN_ENDED.has(rawStatus)
+    ? 'cancelled'
+    : rawStatus === 'paused'
+      ? 'paused'
+      : rawStatus === 'past_due' || rawStatus === 'unpaid'
+        ? 'past_due'
+        : 'active';
   const contactId =
     asString((p['contactDetails'] as Record<string, unknown> | undefined)?.['id']) ??
     asString(p['contactId']);
@@ -2284,6 +2536,8 @@ function subscriptionEnvelope(record: SourceRecord, context: MappingContext): Ca
     'subscription',
     'subscriptions',
     {
+      customerEmail: asString(p['contactEmail'])?.slice(0, 320) ?? null,
+      customerPhone: asString(p['contactPhone'])?.slice(0, 40) ?? null,
       planName: (asString(p['name'] ?? p['productName']) ?? 'Plan').slice(0, 160),
       priceCents: cents(p['amount'] ?? p['price']),
       interval: PLAN_INTERVAL[(asString(p['interval']) ?? 'month').toLowerCase()] ?? 'month',
@@ -2294,7 +2548,9 @@ function subscriptionEnvelope(record: SourceRecord, context: MappingContext): Ca
       currentPeriodEnd: day(p['currentPeriodEnd']),
       nextBillingOn: day(p['nextChargeDate'] ?? p['nextBillingDate']),
       cancelledAt:
-        status === 'cancelled' ? (asDate(p['cancelledAt'])?.toISOString() ?? null) : null,
+        status === 'cancelled'
+          ? (asDate(p['cancelledAt'] ?? p['canceledAt'] ?? p['endedAt'])?.toISOString() ?? null)
+          : null,
       externalId: asString(p['subscriptionId'] ?? p['_id'] ?? p['id']),
     },
     leftovers(p, [
@@ -2474,20 +2730,30 @@ async function previewText(url: string | null): Promise<string | null> {
     !PREVIEW_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) : host === h))
   )
     return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15_000);
-  try {
-    const res = await fetch(at, { signal: controller.signal, redirect: 'error' });
-    if (!res.ok) return null;
-    const html = (await res.text()).slice(0, 2_000_000);
-    const text = htmlToText(html);
-    return text ? text.slice(0, 20_000) : null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+  // A few tries: one blip on the way to the rendered copy used to leave the template without its words for good.
+  for (let attempt = 1; attempt <= PREVIEW_TRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch(at, { signal: controller.signal, redirect: 'error' });
+      if (res.ok) {
+        const html = (await res.text()).slice(0, 2_000_000);
+        const text = htmlToText(html);
+        return text ? text.slice(0, 20_000) : null;
+      }
+      // Not there, or not ours to read: asking again will not change that.
+      if (res.status < 500 && res.status !== 429) return null;
+    } catch {
+      // Timed out or dropped: asked again below.
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < PREVIEW_TRIES) await new Promise((r) => setTimeout(r, 1_000 * attempt));
   }
+  return null;
 }
+
+const PREVIEW_TRIES = 3;
 
 const ENTITIES: Readonly<Record<string, string>> = {
   amp: '&',
@@ -2915,10 +3181,16 @@ function appointmentEnvelope(record: SourceRecord, context: MappingContext): Can
  * deal's own status says whether it was won — while HandsFreeOS says it with the stage, so that a board
  * column means something. Guessing from the name is the honest version of that gap, and the importer says so
  * and adds the missing stages rather than leaving a pipeline nobody can ever win in.
+ *
+ * Only names that cannot mean anything else. "Booked" was one, and on the first real account it named six
+ * stages across five pipelines — "Booked Call", "Ai Booked Sales Call" — every one of them a step on the way
+ * to a sale, not the sale: the won deals were filed back in the booked-call column, and a deal still open
+ * there would have come across won. A stage read as open costs nothing, because the deal's own status still
+ * decides where it lands.
  */
 const STAGE_KIND = (name: string): 'open' | 'won' | 'lost' => {
   const n = name.toLowerCase();
-  if (/\b(won|sold|signed|closed[\s-]*won|booked)\b/.test(n)) return 'won';
+  if (/\b(won|sold|signed|closed[\s-]*won)\b/.test(n)) return 'won';
   if (/\b(lost|dead|closed[\s-]*lost|cancell?ed|abandoned|unqualified|no[\s-]*sale)\b/.test(n))
     return 'lost';
   return 'open';
@@ -3070,7 +3342,15 @@ function leadEnvelope(record: SourceRecord, context: MappingContext): CanonicalE
  * wonder where their Instagram history went.
  */
 const CHANNELS: Readonly<Record<string, { channel: 'sms' | 'email' | 'chat'; name?: string }>> = {
+  // A conversation's own type. HighLevel keeps one thread per customer and calls nearly all of them
+  // TYPE_PHONE, whatever is inside; unrecognised, every one of them came across as a website chat and not one
+  // text or email could be filed in it. A phone thread is a text thread, and each message still goes to the
+  // thread for its own channel.
+  TYPE_PHONE: { channel: 'sms' },
   TYPE_SMS: { channel: 'sms' },
+  TYPE_SMS_REACTION: { channel: 'sms' },
+  TYPE_CUSTOM_SMS: { channel: 'sms' },
+  TYPE_CUSTOM_EMAIL: { channel: 'email' },
   SMS: { channel: 'sms' },
   TYPE_EMAIL: { channel: 'email' },
   EMAIL: { channel: 'email' },
@@ -3106,10 +3386,13 @@ function conversationEnvelope(record: SourceRecord, context: MappingContext): Ca
         },
       ]
     : [];
-  // Who the thread is with. Email threads carry the address, texts the number, chats a name or an id.
+  // Who the thread is with. Email threads carry the address, texts the number, chats a name or an id — so
+  // the preferred one comes first for the thread's own channel. Both travel separately too, for the
+  // importer to fall back on and to file each message in the thread for its own channel.
+  const phone = asString(p['phone']);
+  const email = asString(p['email']);
   const counterpart =
-    asString(p['email']) ??
-    asString(p['phone']) ??
+    (channel === 'sms' ? (phone ?? email) : channel === 'email' ? (email ?? phone) : null) ??
     asString(p['contactName']) ??
     asString(p['fullName']) ??
     asString(p['contactId']) ??
@@ -3124,6 +3407,8 @@ function conversationEnvelope(record: SourceRecord, context: MappingContext): Ca
       channel,
       channelName: name,
       counterpart,
+      phone: phone?.slice(0, 40) ?? null,
+      email: email?.slice(0, 320) ?? null,
       subject: asString(p['lastMessageBody'])?.slice(0, 400) ?? null,
       // A thread nobody is waiting on arrives closed: history should not look like a queue of work.
       status: p['unreadCount'] && Number(p['unreadCount']) > 0 ? 'open' : 'closed',
@@ -3164,8 +3449,31 @@ function conversationEnvelope(record: SourceRecord, context: MappingContext): Ca
 }
 
 /** Inbound or outbound, as GoHighLevel says it. */
+/**
+ * Which way a message went. An email often says so only under `meta.email` — 708 of them on the first real
+ * account, customers' replies nearly all — and read from the top alone every one of them was "sent".
+ */
 const directionOf = (p: Record<string, unknown>): 'inbound' | 'outbound' =>
-  (asString(p['direction']) ?? '').toLowerCase() === 'inbound' ? 'inbound' : 'outbound';
+  (
+    asString(p['direction']) ??
+    asString(
+      ((p['meta'] ?? {}) as Record<string, Record<string, unknown>>)['email']?.['direction'],
+    ) ??
+    ''
+  ).toLowerCase() === 'inbound'
+    ? 'inbound'
+    : 'outbound';
+
+/** "Chris Evans <chris@example.com>", or an address or number on its own, as the address alone. */
+const addressOf = (v: unknown): string | null => {
+  const said = asString(v);
+  if (!said) return null;
+  return (/<([^<>\s]+)>/.exec(said)?.[1] ?? said).trim() || null;
+};
+
+/** One address, or a list of them (an email's recipients come as a list), as addresses. */
+const addressesOf = (v: unknown): string[] =>
+  (Array.isArray(v) ? (v as unknown[]) : [v]).map(addressOf).filter((a): a is string => !!a);
 
 const MESSAGE_STATUS: Readonly<
   Record<string, 'sent' | 'delivered' | 'undelivered' | 'failed' | 'received' | 'bounced'>
@@ -3210,13 +3518,19 @@ function messageEnvelope(record: SourceRecord, context: MappingContext): Canonic
     'messages',
     {
       channel,
+      channelName: name,
       direction,
       status,
-      subject: asString(p['subject']),
+      // An email's subject lives under `meta.email`, not beside the body.
+      subject:
+        asString(p['subject']) ??
+        asString(
+          ((p['meta'] ?? {}) as Record<string, Record<string, unknown>>)['email']?.['subject'],
+        ),
       body: asString(p['body']) ?? asString(p['message']),
       bodyHtml: asString(p['html']),
-      fromAddress: asString(p['from']),
-      toAddresses: [asString(p['to'])].filter((v): v is string => !!v),
+      fromAddress: addressOf(p['from']),
+      toAddresses: addressesOf(p['to']),
       // A message with no time of its own would land today, which is the one thing history must never do.
       occurredAt: (record.sourceCreatedAt ?? new Date()).toISOString(),
       media: attachments

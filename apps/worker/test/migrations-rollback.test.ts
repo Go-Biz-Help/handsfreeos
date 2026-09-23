@@ -134,6 +134,7 @@ const KINDS: readonly { type: string; table: string; live: 'row' | 'archived_at'
   { type: 'task', table: 'tasks', live: 'row' },
   { type: 'activity', table: 'activities', live: 'row' },
   { type: 'form_response', table: 'form_responses', live: 'row' },
+  { type: 'email_suppression', table: 'email_suppressions', live: 'row' },
   { type: 'conversation', table: 'conversations', live: 'archived_at' },
   { type: 'lead', table: 'leads', live: 'archived_at' },
   { type: 'pipeline', table: 'pipelines', live: 'archived_at' },
@@ -285,6 +286,8 @@ describe('taking a move back', () => {
       'activity',
       'product',
       'custom_field',
+      // Priya asked the old system not to contact her: her address is on the list email stops at.
+      'email_suppression',
     ])
       expect(arrived).toContain(kind);
   });
