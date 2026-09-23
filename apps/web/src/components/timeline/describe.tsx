@@ -30,7 +30,7 @@ export {
  */
 export function describeTimeline(
   e: TimelineEntry,
-  recordType: 'person' | 'company' | 'lead',
+  recordType: 'person' | 'company' | 'lead' | 'custom_record',
   viewerId?: string,
   timeZone?: string,
 ): string {

@@ -48,10 +48,13 @@ import type {
   Appointment,
   CompanyDetail,
   CompanyGet,
+  CustomField,
   FileItem,
   LeadCard,
   PersonDetail,
   Pipeline,
+  Relationship,
+  RelationshipType,
   Role,
   Tag,
   Task,
@@ -68,7 +71,9 @@ import {
   AddToWorkflowButton,
   ContactWorkflowsCard,
 } from '@/components/workflows/contact-workflows';
+import { RelationshipsCard } from '@/components/relationships/relationships-card';
 import { ArchiveDialog } from './archive-dialog';
+import { CustomFieldsSection } from './custom-fields';
 import { MaintenanceCard } from './maintenance-card';
 import { NextActionChip, StageBadge } from './chips';
 import { CompanyDialog } from './company-dialog';
@@ -107,6 +112,11 @@ export interface RecordPageProps {
   /** A person's appointments: coming up (the next 62 days) and recent (the last 62 days, newest first). */
   upcoming?: Appointment[];
   recent?: Appointment[];
+  /** Everything this customer or company is related to (0101), and the relationship types there are. */
+  relationships: Relationship[];
+  relationshipTypes: RelationshipType[];
+  /** The fields this business invented for customers or companies. */
+  fields: CustomField[];
 }
 
 /** The Customer 360 for a person or a company. */
@@ -166,6 +176,8 @@ export function RecordPage(props: RecordPageProps) {
     'conversation',
     'call',
     'appointment',
+    'relationship',
+    'custom_record',
   ]);
 
   /** One tag on or off at a time, so a teammate tagging this customer at the same moment isn't undone. */
@@ -679,6 +691,19 @@ export function RecordPage(props: RecordPageProps) {
                   {(person ?? company)!.notes ?? RECORD_WORDS.none}
                 </dd>
               </dl>
+              <CustomFieldsSection
+                workspaceId={workspaceId}
+                recordType={kind}
+                recordId={recordId}
+                fields={props.fields}
+                values={(person ?? company)!.custom}
+                canEdit={!archived && hasWorkspacePermission(role, 'records.write')}
+                manageHref={
+                  hasWorkspacePermission(role, 'fields.manage')
+                    ? `/app/w/${workspaceId}/settings/fields?for=${kind}`
+                    : null
+                }
+              />
             </Card>
           </TabsContent>
         </Tabs>
@@ -803,60 +828,17 @@ export function RecordPage(props: RecordPageProps) {
             )}
           </Card>
 
-          <Card className="p-4 md:p-5">
-            <div className="mb-2.5 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold">
-                {person ? 'Relationships' : `People · ${props.companyPeople?.length ?? 0}`}
-              </h3>
-              {company && !archived ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setAddPerson(true)}
-                  data-testid="company-add-person"
-                >
-                  <Plus className="h-4 w-4" strokeWidth={1.75} />
-                  Add person
-                </Button>
-              ) : null}
-            </div>
-            {person ? (
-              person.company ? (
-                <Link
-                  href={`/app/w/${workspaceId}/customers/companies/${person.company.id}`}
-                  className="flex items-center gap-2.5 text-[13px] hover:underline"
-                >
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-[6px] bg-card-3 text-text">
-                    <Building2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </span>
-                  {person.company.name}
-                </Link>
-              ) : (
-                <div className="text-[13px] text-text-2">{RECORD_WORDS.notLinked}</div>
-              )
-            ) : (props.companyPeople?.length ?? 0) === 0 ? (
-              <div className="text-[13px] text-text-2">{RECORD_WORDS.nobodyLinked}</div>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {props.companyPeople!.map((p) => (
-                  <li key={p.id}>
-                    <Link
-                      href={`/app/w/${workspaceId}/customers/people/${p.id}`}
-                      className="flex items-center gap-2.5 text-[13px] hover:underline"
-                    >
-                      <Avatar name={p.fullName} seed={p.id} size="sm" />
-                      <span className="truncate">
-                        {p.fullName}
-                        {p.archived ? ' (archived)' : ''}
-                      </span>
-                      <span className="truncate text-text-3">{p.phone ?? p.email ?? ''}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2.5 text-xs text-text-3">{RECORD_WORDS.laterMilestone}</div>
-          </Card>
+          <RelationshipsCard
+            workspaceId={workspaceId}
+            record={{ kind, id: recordId, name }}
+            relationships={props.relationships}
+            types={props.relationshipTypes}
+            archived={archived}
+            canManage={hasWorkspacePermission(role, 'fields.manage')}
+            company={person?.company ?? null}
+            companyPeople={company ? (props.companyPeople ?? []) : undefined}
+            onAddPerson={company ? () => setAddPerson(true) : undefined}
+          />
         </div>
       </div>
 

@@ -18,6 +18,8 @@ export interface TaskRelation {
   personId?: string | null;
   companyId?: string | null;
   leadId?: string | null;
+  /** A pet, vehicle or property (0101). */
+  customRecordId?: string | null;
 }
 
 /** Create or edit a task. Due dates are all-day unless a time is added. */
@@ -113,6 +115,7 @@ export function TaskDialog({
               ...fields,
               personId: relation?.personId ?? null,
               companyId: relation?.companyId ?? null,
+              customRecordId: relation?.customRecordId ?? null,
             },
           }),
         );
