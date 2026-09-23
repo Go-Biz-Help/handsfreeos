@@ -103,6 +103,7 @@ describe('automation settings', () => {
       dayOf: true,
       waitlist: true,
       morningBrief: true,
+      eveningBrief: true,
       reengage: false,
       intake: true,
       thankYou: true,
@@ -466,5 +467,16 @@ describe('maintenance due', () => {
       secondAfterDays: 7,
       maxPerDay: 20,
     });
+  });
+});
+
+describe('the end-of-day email', () => {
+  it('goes at 6 PM unless the business picks another time between noon and 10 PM', () => {
+    expect(defaultAutomationSettings().briefings).toEqual({ eveningAt: '18:00' });
+    expect(parseAutomationSettings({ briefings: { eveningAt: '20:30' } }).briefings.eveningAt).toBe(
+      '20:30',
+    );
+    for (const eveningAt of ['07:00', '23:00', '6 PM', '25:00'])
+      expect(() => parseAutomationSettings({ briefings: { eveningAt } }), eveningAt).toThrow();
   });
 });

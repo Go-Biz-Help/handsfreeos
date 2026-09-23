@@ -1008,9 +1008,10 @@ function MorningPanel({ env }: { env: PanelEnv }) {
   return (
     <Block>
       <Note>
-        At 7 AM where the business is, everyone on the team gets one email about what needs them,
-        urgent first, and only when there’s something. A member sees their own items and the ones
-        nobody has taken; owners and admins see everything.
+        At 7 AM where the business is, everyone on the team gets one email: today’s jobs (with the
+        ones not confirmed yet), who to call (follow-ups due, hot leads, quotes waiting on a yes,
+        visits not confirmed), then whatever else needs them, urgent first. A member sees their own
+        jobs and items and the ones nobody has taken; owners and admins see everything.
       </Note>
       <Note>
         Anyone can turn off their own copy in{' '}
@@ -1020,6 +1021,62 @@ function MorningPanel({ env }: { env: PanelEnv }) {
         . This switch turns it off for the whole team.
       </Note>
     </Block>
+  );
+}
+
+/** "6:00 PM" choices for the evening email, noon to 10 PM on the half hour. */
+const EVENING_TIMES = Array.from({ length: 21 }, (_, i) => {
+  const minutes = 12 * 60 + i * 30;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const label = `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  return { value, label };
+});
+
+function EveningPanel({ env }: { env: PanelEnv }) {
+  const at = env.automations.briefings.eveningAt;
+  return (
+    <>
+      <Block>
+        <Note>
+          Owners and admins get one email at the end of the day: the day in numbers (new leads and
+          how many were reached, jobs booked, done and missed, money in, what the AI teammate did),
+          today’s jobs nobody marked done, and what’s still open on Home.
+        </Note>
+        <Note>
+          Anyone can turn off their own copy in{' '}
+          <Link href={`/app/w/${env.workspaceId}/settings`} className={linkCls}>
+            Account
+          </Link>
+          . This switch turns it off for everyone.
+        </Note>
+      </Block>
+      <Block title="When">
+        <SetRow first center title="Sends at" description="Where the business is.">
+          <Select
+            selectSize="sm"
+            aria-label="When the evening email goes"
+            value={at}
+            onChange={(e) => {
+              const next = e.target.value;
+              const label = EVENING_TIMES.find((t) => t.value === next)?.label ?? next;
+              void env.saveAutomations(
+                (s) => ({ ...s, briefings: { ...s.briefings, eveningAt: next } }),
+                `The end-of-day email goes at ${label}.`,
+              );
+            }}
+            data-testid="evening-at"
+          >
+            {EVENING_TIMES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      </Block>
+    </>
   );
 }
 
@@ -1532,6 +1589,7 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   thank_you: ThankYouPanel,
   invoices: InvoicesPanel,
   morning: MorningPanel,
+  evening: EveningPanel,
   stale: StalePanel,
   estimates: EstimatesPanel,
   balance: BalancePanel,

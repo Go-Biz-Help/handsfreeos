@@ -146,7 +146,7 @@ describe('Settings → Notifications', () => {
     expect(screen.getByTestId('push-urgent')).not.toBeChecked();
   });
 
-  it('saves all six email switches when an email switch changes', async () => {
+  it('saves all seven email switches when an email switch changes', async () => {
     jest.mocked(change).mockResolvedValue({ id: 'c', queued: false, output: {} } as never);
     await show();
     await fireEvent.press(screen.getByTestId('email-attentionDigest'));
@@ -159,6 +159,7 @@ describe('Settings → Notifications', () => {
           bookingEmail: true,
           paymentEmail: true,
           agencyDigest: true,
+          eveningSummary: true,
         },
       },
     });

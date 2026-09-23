@@ -24107,6 +24107,10 @@
                             "default": true,
                             "type": "boolean"
                           },
+                          "eveningBrief": {
+                            "default": true,
+                            "type": "boolean"
+                          },
                           "reengage": {
                             "default": false,
                             "type": "boolean"
@@ -24228,6 +24232,17 @@
                             "maxLength": 480
                           }
                         }
+                      },
+                      "briefings": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "eveningAt": {
+                            "default": "18:00",
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                          }
+                        }
                       }
                     }
                   }
@@ -24275,6 +24290,10 @@
                               "default": true,
                               "type": "boolean"
                             },
+                            "eveningBrief": {
+                              "default": true,
+                              "type": "boolean"
+                            },
                             "reengage": {
                               "default": false,
                               "type": "boolean"
@@ -24297,6 +24316,7 @@
                             "dayOf",
                             "waitlist",
                             "morningBrief",
+                            "eveningBrief",
                             "reengage",
                             "intake",
                             "thankYou",
@@ -24425,13 +24445,28 @@
                             "planTemplate"
                           ],
                           "additionalProperties": false
+                        },
+                        "briefings": {
+                          "type": "object",
+                          "properties": {
+                            "eveningAt": {
+                              "default": "18:00",
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "eveningAt"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "switches",
                         "reengage",
                         "intake",
-                        "maintenance"
+                        "maintenance",
+                        "briefings"
                       ],
                       "additionalProperties": false
                     },

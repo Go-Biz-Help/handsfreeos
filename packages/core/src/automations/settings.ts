@@ -34,6 +34,8 @@ const Switches = z.object({
   waitlist: on(),
   /** The 7 AM email. Each person can still turn off their own copy in Notifications. */
   morningBrief: on(),
+  /** The end-of-day email to owners and admins: what's still open, and the day in numbers. */
+  eveningBrief: on(),
   /** One text, in the business's own words, to open leads nobody has been in touch with for months. */
   reengage: z.boolean().default(false),
   /** The intake form's link, right after a customer's first booking (once a form is chosen). */
@@ -110,12 +112,22 @@ const Maintenance = z.object({
   planTemplate: maintenanceWording(DEFAULT_MAINTENANCE_PLAN_TEMPLATE, true),
 });
 
+const Briefings = z.object({
+  /** When the evening email goes, where the business is (24-hour HH:MM). */
+  eveningAt: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Pick a time.')
+    .refine((t) => t >= '12:00' && t <= '22:00', 'Pick a time between noon and 10 PM.')
+    .default('18:00'),
+});
+
 export const AutomationSettings = z
   .object({
     switches: Switches.prefault({}),
     reengage: Reengage.prefault({}),
     intake: Intake.prefault({}),
     maintenance: Maintenance.prefault({}),
+    briefings: Briefings.prefault({}),
   })
   .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
     error: 'Read the message and choose “Looks good, turn on” first.',

@@ -7634,6 +7634,15 @@ What the AI teammate writes follows its training: while it's training, each mess
 
 Each thank-you's outcome is a row of `app.thank_yous`, and each referral a row of `app.referrals`. Both need the migration `20261003000300_automations_after_the_job.sql`. Maintenance reminders are rows of `app.maintenance_reminders`, a customer's own schedule a row of `app.service_schedules`; they need `20261003000600_maintenance_due.sql`. See "Apply new migrations".
 
+### Daily briefings
+
+| Row                  | What it does                                                                                                                                                                                                                                                                                    | On to begin with |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Morning brief**    | At 7 AM where the business is, one email each: today's jobs (the unconfirmed ones flagged), who to call today (follow-ups due, hot leads, quotes waiting on a yes, visits not confirmed for today or tomorrow), then whatever else needs them, urgent first                                     | Yes              |
+| **End-of-day email** | At 6 PM (each business can pick noon to 10 PM), to owners and admins: the day in numbers (new leads and how many were reached, jobs booked, done and no-shows, money in, invoices and estimates sent, what the AI teammate did), today's jobs nobody marked done, and what's still open on Home | Yes              |
+
+Each person can turn off their own copy of either in **Settings** → **Account** → Notifications (`attentionDigest`, `eveningSummary`).
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.

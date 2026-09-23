@@ -43,6 +43,7 @@ export default async function SettingsPage({
       notifications?: {
         unansweredEmail?: boolean;
         attentionDigest?: boolean;
+        eveningSummary?: boolean;
         aiHandoff?: boolean;
         bookingEmail?: boolean;
         paymentEmail?: boolean;
@@ -99,6 +100,7 @@ export default async function SettingsPage({
               email: {
                 unansweredEmail: notifications?.unansweredEmail !== false,
                 attentionDigest: notifications?.attentionDigest !== false,
+                eveningSummary: notifications?.eveningSummary !== false,
                 aiHandoff: notifications?.aiHandoff !== false,
                 bookingEmail: notifications?.bookingEmail !== false,
                 paymentEmail: notifications?.paymentEmail !== false,

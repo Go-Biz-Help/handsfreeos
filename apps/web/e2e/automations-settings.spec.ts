@@ -25,6 +25,7 @@ type Automations = {
   switches: Record<string, boolean>;
   intake?: { formId: string | null; message: string };
   maintenance?: { leadDays: number };
+  briefings?: { eveningAt: string };
   reengage?: { reviewedAt: string | null; maxPerDay: number; template: string };
 };
 
@@ -446,6 +447,14 @@ test('Automations: intake questions’ form and message, the thank-you without a
   });
   await page.reload();
   await expect(page.getByTestId('needs-setup-maintenance_due')).toHaveCount(0);
+
+  // The end-of-day email goes at the business's own time.
+  await adjust(page, 'evening_brief');
+  await page.getByTestId('evening-at').selectOption('20:00');
+  await expect
+    .poll(async () => (await settingsOf(owner)).automations?.briefings?.eveningAt)
+    .toBe('20:00');
+  await close(page);
 
   // Referrals are an Action Center kind: the row turns it off.
   await expect(page.getByTestId('automation-referral_mentioned')).toContainText('Just alerts you');

@@ -10326,6 +10326,11 @@ export interface operations {
                 "application/json": {
                     settings: {
                         /** @default {} */
+                        briefings?: {
+                            /** @default 18:00 */
+                            eveningAt?: string;
+                        };
+                        /** @default {} */
                         intake?: {
                             /** @default null */
                             formId?: string | null;
@@ -10365,6 +10370,8 @@ export interface operations {
                             /** @default true */
                             dayOf?: boolean;
                             /** @default true */
+                            eveningBrief?: boolean;
+                            /** @default true */
                             intake?: boolean;
                             /** @default true */
                             maintenance?: boolean;
@@ -10393,6 +10400,10 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         settings: {
+                            briefings: {
+                                /** @default 18:00 */
+                                eveningAt: string;
+                            };
                             intake: {
                                 /** @default null */
                                 formId: string | null;
@@ -10428,6 +10439,8 @@ export interface operations {
                                 dayBefore: boolean;
                                 /** @default true */
                                 dayOf: boolean;
+                                /** @default true */
+                                eveningBrief: boolean;
                                 /** @default true */
                                 intake: boolean;
                                 /** @default true */

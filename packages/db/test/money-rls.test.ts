@@ -899,7 +899,7 @@ describe('a connected account keeps its secrets', () => {
 });
 
 describe('parity with core', () => {
-  it('the attention kinds gained exactly estimate_waiting and invoice_overdue', async () => {
+  it('the attention kinds match core’s list, in the order the migrations added them', async () => {
     const [check] = await rows<{ def: string }>(
       dbs.admin.db,
       sql`select pg_get_constraintdef(oid) as def from pg_constraint
@@ -922,6 +922,9 @@ describe('parity with core', () => {
       'wallet_low',
       'wallet_empty',
       'wallet_card_declined',
+      'job_not_thanked',
+      'referral_mentioned',
+      'maintenance_due',
     ]);
     await worker(A)((tx) =>
       tx.execute(
