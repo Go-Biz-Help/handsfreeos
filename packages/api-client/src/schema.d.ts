@@ -4527,8 +4527,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Assign a customer or a company to someone on the team. They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows its threads and money to a member.
-         * @description Risk level 1. Requires records.write. Emits person.updated, company.updated.
+         * Assign a customer or a company to someone on the team (owners and admins). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.
+         * @description Risk level 1. Requires records.assign. Emits person.updated, company.updated.
          */
         post: operations["command_record_assign"];
         delete?: never;
@@ -4587,8 +4587,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take someone off a customer or a company. Taking the owner off makes the next person on its team the owner.
-         * @description Risk level 1. Requires records.write. Emits person.updated, company.updated.
+         * Take someone off a customer or a company (owners and admins). Taking the owner off makes the next person on its team the owner.
+         * @description Risk level 1. Requires records.assign. Emits person.updated, company.updated.
          */
         post: operations["command_record_unassign"];
         delete?: never;

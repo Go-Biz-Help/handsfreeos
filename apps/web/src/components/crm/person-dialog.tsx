@@ -37,6 +37,9 @@ interface Form {
   email: string;
   companyId: string;
   line1: string;
+  /** Not shown: carried so a swap with another address moves them too (0100). */
+  line2: string;
+  country: string;
   city: string;
   state: string;
   postalCode: string;
@@ -56,6 +59,8 @@ const empty = (companyId = '', phone = '', email = '', name = ''): Form => ({
   email,
   companyId,
   line1: '',
+  line2: '',
+  country: '',
   city: '',
   state: '',
   postalCode: '',
@@ -82,9 +87,11 @@ const saveable = (f: Form) => ({
 });
 const addressOf = (f: Form) => ({
   line1: orNull(f.line1),
+  line2: orNull(f.line2),
   city: orNull(f.city),
   state: orNull(f.state),
   postalCode: orNull(f.postalCode),
+  ...(f.country ? { country: f.country } : {}),
 });
 
 const fromPerson = (p: PersonDetail): Form => ({
@@ -94,6 +101,8 @@ const fromPerson = (p: PersonDetail): Form => ({
   email: p.email ?? '',
   companyId: p.company?.id ?? '',
   line1: p.address.line1 ?? '',
+  line2: p.address.line2 ?? '',
+  country: p.address.country ?? '',
   city: p.address.city ?? '',
   state: p.address.state ?? '',
   postalCode: p.address.postalCode ?? '',
@@ -233,12 +242,7 @@ export function PersonDialog({
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         companyId: form.companyId || null,
-        address: {
-          line1: form.line1.trim() || null,
-          city: form.city.trim() || null,
-          state: form.state.trim() || null,
-          postalCode: form.postalCode.trim() || null,
-        },
+        address: addressOf(form),
         otherEmails: emailsOut(form.otherEmails),
         otherPhones: phonesOut(form.otherPhones),
         otherAddresses: addressesOut(form.otherAddresses),

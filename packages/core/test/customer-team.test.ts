@@ -111,6 +111,71 @@ describe('assigning a customer', () => {
     expect(items.map((p) => p.id)).not.toContain(personId);
   });
 
+  it('leaves who is on a customer to owners and admins', async () => {
+    const ref = { workspaceId: t.wsId, recordType: 'person' as const, recordId: personId };
+    // A member who could put themselves on any customer could read its bills and threads.
+    await expectHfos(
+      () => run(recordAssign, { ...ref, userId: t.member.id }, t.member),
+      'forbidden',
+    );
+    await expectHfos(
+      () => run(recordUnassign, { ...ref, userId: t.priya.id }, t.member),
+      'forbidden',
+    );
+    await expectHfos(
+      () => run(personUpdate, { workspaceId: t.wsId, personId, ownerUserId: t.marco.id }, t.member),
+      'customer_team_managers_only',
+      403,
+    );
+    // The database refuses it too, whatever writes it as that person.
+    const err = await expectPg(() =>
+      admin().transaction(async (tx) => {
+        await tx.execute(
+          sql`select set_config('request.jwt.claims', ${JSON.stringify({ sub: t.member.id, role: 'authenticated' })}, true)`,
+        );
+        await tx.execute(
+          sql`update app.people set team_user_ids = array[${t.member.id}::uuid] where id = ${personId}`,
+        );
+      }),
+    );
+    expect(err).toMatch(/Only owners and admins change who a customer is assigned to/);
+    // Anything else about the customer is still theirs to edit, and a new customer is anybody's to start.
+    await run(personUpdate, { workspaceId: t.wsId, personId, notes: 'Gate code 4471' }, t.member);
+    const { personId: theirs } = await run(
+      personCreate,
+      { workspaceId: t.wsId, firstName: 'Walk', lastName: 'In', ownerUserId: t.member.id },
+      t.member,
+    );
+    const { person } = await ask(personGet, { workspaceId: t.wsId, personId: theirs }, t.owner);
+    expect(person.owner?.id).toBe(t.member.id);
+  });
+
+  it('makes a teammate the main one after the owner has left the business', async () => {
+    const { personId: client } = await run(
+      personCreate,
+      { workspaceId: t.wsId, firstName: 'Left', lastName: 'Behind', ownerUserId: t.marco.id },
+      t.owner,
+    );
+    const ref = { workspaceId: t.wsId, recordType: 'person' as const, recordId: client };
+    await run(recordAssign, { ...ref, userId: t.priya.id }, t.owner);
+    await rows(
+      admin(),
+      sql`delete from app.workspace_memberships where workspace_id = ${t.wsId} and user_id = ${t.marco.id}`,
+    );
+    try {
+      const out = await run(recordAssign, { ...ref, userId: t.priya.id, main: true }, t.owner);
+      expect(out.owner?.id).toBe(t.priya.id);
+      // Marco stays listed, as a "Former member", and sees nothing.
+      expect(out.team).toEqual([{ id: t.marco.id, fullName: 'Former member' }]);
+    } finally {
+      await rows(
+        admin(),
+        sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+            values (${t.wsId}, ${t.marco.id}, 'member')`,
+      );
+    }
+  });
+
   it('works the same for a company', async () => {
     const { companyId } = await run(
       companyCreate,
@@ -203,3 +268,14 @@ describe('what being on a customer shows a member', () => {
     ).toEqual([]);
   });
 });
+
+/** The database's own refusal, as the message it raised. */
+async function expectPg(fn: () => Promise<unknown>): Promise<string> {
+  try {
+    await fn();
+  } catch (e) {
+    const err = e as { message?: string; cause?: { message?: string } };
+    return `${err.message ?? ''} ${err.cause?.message ?? ''}`;
+  }
+  throw new Error('expected the database to refuse');
+}

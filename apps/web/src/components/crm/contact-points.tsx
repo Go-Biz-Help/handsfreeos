@@ -24,6 +24,9 @@ export interface AddressRow {
   readonly id: string;
   readonly label: string;
   readonly line1: string;
+  /** Kept as it came (an import's "Apt 5", another country): the rows don't edit them, and never drop them. */
+  readonly line2: string;
+  readonly country: string;
   readonly city: string;
   readonly state: string;
   readonly postalCode: string;
@@ -36,6 +39,8 @@ export const newAddress = (a: Partial<Omit<AddressRow, 'id'>> = {}): AddressRow 
   id: rowId(),
   label: '',
   line1: '',
+  line2: '',
+  country: '',
   city: '',
   state: '',
   postalCode: '',
@@ -51,6 +56,8 @@ export const addressRows = (list: readonly OtherAddressOut[]) =>
     newAddress({
       label: a.label ?? '',
       line1: a.line1 ?? '',
+      line2: a.line2 ?? '',
+      country: a.country ?? '',
       city: a.city ?? '',
       state: a.state ?? '',
       postalCode: a.postalCode ?? '',
@@ -71,9 +78,11 @@ export const addressesOut = (rows: readonly AddressRow[]) =>
   sentAddresses(rows).map((r) => ({
     label: r.label.trim() || null,
     line1: r.line1.trim() || null,
+    line2: r.line2.trim() || null,
     city: r.city.trim() || null,
     state: r.state.trim() || null,
     postalCode: r.postalCode.trim() || null,
+    ...(r.country.trim() ? { country: r.country.trim() } : {}),
   }));
 
 /** One of the others becomes the main one, and the main one takes its place in the list (or leaves it, when empty). */
@@ -87,22 +96,41 @@ export function swapMainPoint(main: string, list: readonly PointRow[], row: Poin
   };
 }
 
+/** The main address as a dialog holds it: the parts it shows, and the second line and country it carries along. */
 export interface MainAddressForm {
   readonly line1: string;
+  readonly line2: string;
   readonly city: string;
   readonly state: string;
   readonly postalCode: string;
+  readonly country: string;
 }
+/** Every part moves with its address, the ones the dialog doesn't show too, so nothing is mixed or lost. */
 export function swapMainAddress(
   main: MainAddressForm,
   list: readonly AddressRow[],
   row: AddressRow,
 ) {
   const hadOne = [main.line1, main.city, main.postalCode].some((v) => v.trim());
+  const was = {
+    line1: main.line1,
+    line2: main.line2,
+    city: main.city,
+    state: main.state,
+    postalCode: main.postalCode,
+    country: main.country,
+  };
   return {
-    main: { line1: row.line1, city: row.city, state: row.state, postalCode: row.postalCode },
+    main: {
+      line1: row.line1,
+      line2: row.line2,
+      city: row.city,
+      state: row.state,
+      postalCode: row.postalCode,
+      country: row.country || main.country,
+    },
     list: hadOne
-      ? list.map((r) => (r.id === row.id ? newAddress(main) : r))
+      ? list.map((r) => (r.id === row.id ? newAddress(was) : r))
       : list.filter((r) => r.id !== row.id),
   };
 }

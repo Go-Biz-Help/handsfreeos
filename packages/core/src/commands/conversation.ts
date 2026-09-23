@@ -1,6 +1,7 @@
 import { and, eq, isNull, ne, or } from 'drizzle-orm';
 import { conversations, people } from '@hfos/db/schema';
 import {
+  MAX_OTHER_CONTACTS,
   otherEmailsOf,
   otherPhonesOf,
   tidyOtherEmails,
@@ -530,7 +531,12 @@ export const conversationLinkPerson = defineCommand({
         c.channel === 'sms'
           ? [person.phoneE164, ...otherPhonesOf(person.otherPhones).map((p) => p.phone)]
           : [person.email?.toLowerCase(), ...otherEmailsOf(person.otherEmails).map((e) => e.email)];
-      if (!theirs.includes(c.counterpart)) {
+      // A customer with a full list keeps it as it is: the link still stands, the number just isn't added.
+      const full =
+        (c.channel === 'sms'
+          ? otherPhonesOf(person.otherPhones).length
+          : otherEmailsOf(person.otherEmails).length) >= MAX_OTHER_CONTACTS;
+      if (!theirs.includes(c.counterpart) && !full) {
         await ctx.tx
           .update(people)
           .set(

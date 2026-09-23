@@ -254,6 +254,30 @@ describe('who bills into which account', () => {
     await expectHfos(() => move(main), 'payment_account_not_yours');
   });
 
+  it('keeps somebody who has left on an account until they are taken off', async () => {
+    await access(seo, 'chosen', [t.priya.id, t.owner.id]);
+    await rows(
+      admin(),
+      sql`delete from app.workspace_memberships where workspace_id = ${t.wsId} and user_id = ${t.priya.id}`,
+    );
+    try {
+      // Adding someone else still saves with her on it, and she can be taken off…
+      await access(seo, 'chosen', [t.priya.id, t.owner.id, t.marco.id]);
+      await access(seo, 'chosen', [t.owner.id, t.marco.id]);
+      // …but not put back while she's gone.
+      await expectHfos(
+        () => access(seo, 'chosen', [t.owner.id, t.marco.id, t.priya.id]),
+        'validation',
+      );
+    } finally {
+      await rows(
+        admin(),
+        sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+            values (${t.wsId}, ${t.priya.id}, 'admin')`,
+      );
+    }
+  });
+
   it('never keeps an account to nobody, or to somebody outside the business', async () => {
     await expectHfos(() => access(seo, 'chosen', []), 'validation');
     await expectHfos(() => access(seo, 'chosen', [randomUUID()]), 'validation');

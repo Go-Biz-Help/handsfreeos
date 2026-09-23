@@ -22,8 +22,9 @@ interface Person {
 
 /**
  * Who a customer is assigned to (0101): the owner, marked Main, and everyone else on them — one person installing
- * a client's automations while another runs their SEO. Anyone who edits customers adds and takes people off; one
- * at a time, so two people doing it at once both land.
+ * a client's automations while another runs their SEO. Being on a customer shows a member its bills and threads,
+ * so owners and admins add and take people off (records.assign); everyone else sees who is on it. One at a time,
+ * so two people doing it at once both land.
  */
 export function AssignedCard({
   workspaceId,
@@ -73,7 +74,9 @@ export function AssignedCard({
         ) : null}
       </div>
       {assigned.length === 0 ? (
-        <p className="text-[13px] text-text-2">Nobody yet. Anyone on the team can be added.</p>
+        <p className="text-[13px] text-text-2">
+          {canEdit ? 'Nobody yet. Anyone on the team can be added.' : 'Nobody yet.'}
+        </p>
       ) : (
         <ul className="flex flex-col gap-2" data-testid="assigned-list">
           {assigned.map((p, i) => (

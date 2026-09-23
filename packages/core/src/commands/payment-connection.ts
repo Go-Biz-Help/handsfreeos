@@ -347,11 +347,14 @@ export const paymentConnectionSetAccess = defineCommand({
         409,
         'Only a connected account can be given to people. Reconnect it first.',
       );
+    // Somebody newly chosen belongs to the business; somebody already on it who has since left stays until they
+    // are taken off, as the database's own guard has it.
+    const added = userIds.filter((id) => !(now?.userIds ?? []).includes(id));
     const [ok] = await rows<{ ok: boolean }>(
       ctx.tx,
       sql`select coalesce(bool_and(private.workspace_has_user(${ctx.scope.workspaceId!}::uuid, u)), true) as ok
           from unnest(array[${sql.join(
-            userIds.length ? userIds.map((id) => sql`${id}::uuid`) : [sql`null::uuid`],
+            added.length ? added.map((id) => sql`${id}::uuid`) : [sql`null::uuid`],
             sql`, `,
           )}]) as u where u is not null`,
     );

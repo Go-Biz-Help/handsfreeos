@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   otherAddressesOut,
   otherPhonesOut,
+  rebaseList,
   tidyOtherAddresses,
   tidyOtherEmails,
   tidyOtherPhones,
@@ -76,6 +77,36 @@ describe('tidying', () => {
     ).toEqual([
       { label: 'Rental', line1: '12 Oak', city: 'Katy', postalCode: '77494', country: 'US' },
     ]);
+  });
+
+  it('rebases an edited list on what is there now, entry by entry', () => {
+    const k = (e: { v: string }) => e.v;
+    const base = [{ v: 'a' }, { v: 'b' }, { v: 'c', l: 'x' }];
+    // Nothing changed since: the edit as it is, order and all.
+    expect(rebaseList([{ v: 'c', l: 'x' }, { v: 'a' }], base, base, k)).toEqual([
+      { v: 'c', l: 'x' },
+      { v: 'a' },
+    ]);
+    // Somebody else added d and relabelled c since; the editor took b off and added e.
+    const now = [{ v: 'a' }, { v: 'b' }, { v: 'c', l: 'y' }, { v: 'd' }];
+    expect(rebaseList([{ v: 'a' }, { v: 'c', l: 'x' }, { v: 'e' }], base, now, k)).toEqual([
+      { v: 'a' },
+      { v: 'c', l: 'y' },
+      { v: 'd' },
+      { v: 'e' },
+    ]);
+    // The editor's own change to an entry wins over what was there.
+    expect(rebaseList([{ v: 'a', l: 'z' }], [{ v: 'a' }], [{ v: 'a' }, { v: 'd' }], k)).toEqual([
+      { v: 'a', l: 'z' },
+      { v: 'd' },
+    ]);
+    // Taken off by somebody else: it stays off, unless the editor changed it, which brings it back.
+    expect(rebaseList([{ v: 'a' }, { v: 'b' }], [{ v: 'a' }, { v: 'b' }], [{ v: 'a' }], k)).toEqual(
+      [{ v: 'a' }],
+    );
+    expect(
+      rebaseList([{ v: 'a' }, { v: 'b', l: 'new' }], [{ v: 'a' }, { v: 'b' }], [{ v: 'a' }], k),
+    ).toEqual([{ v: 'a' }, { v: 'b', l: 'new' }]);
   });
 
   it('reads whatever a row or a phone holds without throwing', () => {
@@ -243,14 +274,16 @@ describe('a person with more than one of each', () => {
   it('adds an older phone’s "other phone" to the others instead of replacing them', async () => {
     await run(
       personUpdate,
-      { workspaceId: t.wsId, personId, otherPhones: [{ phone: '+17135550133' }] },
+      { workspaceId: t.wsId, personId, otherPhones: [{ phone: '+17135550133', label: 'Work' }] },
       t.member,
     );
     await run(personUpdate, { workspaceId: t.wsId, personId, phoneAlt: '713-555-0144' }, t.member);
+    // A number already on file keeps its label and its place.
+    await run(personUpdate, { workspaceId: t.wsId, personId, phoneAlt: '713-555-0133' }, t.member);
     const { person } = await ask(personGet, { workspaceId: t.wsId, personId }, t.member);
     expect(person.otherPhones.map((p) => [p.phoneE164, p.label])).toEqual([
+      ['+17135550133', 'Work'],
       ['+17135550144', 'Other'],
-      ['+17135550133', null],
     ]);
     const [row] = await rows<{ phone_alt: string | null }>(
       admin(),
@@ -259,7 +292,7 @@ describe('a person with more than one of each', () => {
     expect(row!.phone_alt).toBeNull();
   });
 
-  it('keeps a list someone else changed after an offline edit was made', async () => {
+  it('merges an offline edit into a list someone else changed since, entry by entry', async () => {
     const { person: before } = await ask(personGet, { workspaceId: t.wsId, personId }, t.member);
     const seen = before.otherEmails.map((e) => ({ email: e.email, label: e.label }));
     // Someone else changes the list now…
@@ -286,9 +319,60 @@ describe('a person with more than one of each', () => {
         occurredAt: new Date(Date.now() - 60_000),
       },
     );
-    expect(late.output.notApplied).toEqual(['otherEmails']);
+    // Both stay: the later change's new email, and the one the phone added.
+    expect(late.output.notApplied).toEqual([]);
     const { person } = await ask(personGet, { workspaceId: t.wsId, personId }, t.member);
-    expect(person.otherEmails.map((e) => e.email)).toEqual(['dale@new.com']);
+    expect(person.otherEmails.map((e) => e.email)).toEqual(['dale@new.com', 'dale@offline.com']);
+  });
+
+  it('keeps both of two people’s additions when they edit the list at the same time', async () => {
+    const { person: opened } = await ask(personGet, { workspaceId: t.wsId, personId }, t.member);
+    const seen = opened.otherPhones.map((p) => ({ phone: p.phoneE164, label: p.label }));
+    const add = (u: Team['owner'], phone: string, label: string) =>
+      run(
+        personUpdate,
+        {
+          workspaceId: t.wsId,
+          personId,
+          otherPhones: [...seen, { phone, label }],
+          base: { otherPhones: seen },
+        },
+        u,
+      );
+    // Both dialogs opened on the same list; each adds a number and saves.
+    await add(t.priya, '+17135550155', 'Office');
+    await add(t.member, '+17135550166', 'Cell');
+    const { person } = await ask(personGet, { workspaceId: t.wsId, personId }, t.member);
+    expect(person.otherPhones.map((p) => p.phoneE164)).toEqual([
+      ...seen.map((p) => p.phone),
+      '+17135550155',
+      '+17135550166',
+    ]);
+    // One of them takes a number off while the other relabels another: both land.
+    const now = person.otherPhones.map((p) => ({ phone: p.phoneE164, label: p.label }));
+    await run(
+      personUpdate,
+      {
+        workspaceId: t.wsId,
+        personId,
+        otherPhones: now.filter((p) => p.phone !== '+17135550155'),
+        base: { otherPhones: now },
+      },
+      t.priya,
+    );
+    await run(
+      personUpdate,
+      {
+        workspaceId: t.wsId,
+        personId,
+        otherPhones: now.map((p) => (p.phone === '+17135550166' ? { ...p, label: 'Mobile' } : p)),
+        base: { otherPhones: now },
+      },
+      t.member,
+    );
+    const { person: after } = await ask(personGet, { workspaceId: t.wsId, personId }, t.member);
+    expect(after.otherPhones.find((p) => p.phoneE164 === '+17135550155')).toBeUndefined();
+    expect(after.otherPhones.find((p) => p.phoneE164 === '+17135550166')?.label).toBe('Mobile');
   });
 
   it('opens a thread on another number on file, and refuses one that is not', async () => {

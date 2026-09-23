@@ -4299,11 +4299,11 @@
     "/v1/commands/record.assign": {
       "post": {
         "operationId": "command_record_assign",
-        "summary": "Assign a customer or a company to someone on the team. They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows its threads and money to a member.",
+        "summary": "Assign a customer or a company to someone on the team (owners and admins). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits person.updated, company.updated.",
+        "description": "Risk level 1. Requires records.assign. Emits person.updated, company.updated.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4422,11 +4422,11 @@
     "/v1/commands/record.unassign": {
       "post": {
         "operationId": "command_record_unassign",
-        "summary": "Take someone off a customer or a company. Taking the owner off makes the next person on its team the owner.",
+        "summary": "Take someone off a customer or a company (owners and admins). Taking the owner off makes the next person on its team the owner.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires records.write. Emits person.updated, company.updated.",
+        "description": "Risk level 1. Requires records.assign. Emits person.updated, company.updated.",
         "requestBody": {
           "required": true,
           "content": {

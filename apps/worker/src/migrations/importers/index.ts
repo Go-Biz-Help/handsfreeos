@@ -27,6 +27,7 @@ import {
   otherEmailsOf,
   otherPhonesOf,
   stricterConsent,
+  MAX_OTHER_CONTACTS,
   tidyOtherEmails,
   tidyOtherPhones,
   slugify,
@@ -57,6 +58,9 @@ export type Importer = (
 ) => Promise<ImporterResult>;
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+/** What the other-emails list takes (0100's private.valid_other_emails): something@somewhere, 3 to 254 long. */
+const emailLike = (v: string | null | undefined): v is string =>
+  !!v && v.length >= 3 && v.length <= 254 && /^[^@\s]+@[^@\s]+$/.test(v);
 
 /** A Postgres `text[]` from a list, empty included. */
 const textArray = (values: readonly string[]) =>
@@ -797,7 +801,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       (d.endpoints ?? [])
         .filter((e) => e.kind === 'email' && !e.primary)
         .map((e) => e.value.trim().toLowerCase())
-        .filter((v) => v && v !== email && /^[^@\s]+@[^@\s]+$/.test(v)),
+        .filter((v) => v !== email && emailLike(v)),
     ),
   ];
   const extraNumbers = (d.endpoints ?? []).filter((e) => e.kind === 'phone' && !e.primary);
@@ -944,20 +948,22 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       // anywhere to put them.
       const mainPhone = (merged.updates['phone'] ? phoneE164 : null) ?? here.phone_e164;
       const mainEmail = (merged.updates['email'] as string | undefined) ?? here.email;
+      // Only what reads as an email goes in the list (the old system's main one was never checked), and a list
+      // keeps what it had first when the old records bring more than it holds.
       const nextPhones = tidyOtherPhones(
         [
           ...here.other_phones,
           ...[phoneE164, ...otherPhones].filter(Boolean).map((phone) => ({ phone })),
         ],
         mainPhone,
-      );
+      ).slice(0, MAX_OTHER_CONTACTS);
       const nextEmails = tidyOtherEmails(
         [
           ...here.other_emails,
-          ...[email, ...otherEmails].filter(Boolean).map((e) => ({ email: e })),
+          ...[email, ...otherEmails].filter(emailLike).map((e) => ({ email: e })),
         ],
         mainEmail,
-      );
+      ).slice(0, MAX_OTHER_CONTACTS);
       if (JSON.stringify(nextPhones) !== JSON.stringify(otherPhonesOf(here.other_phones)))
         changed['other_phones'] = { before: here.other_phones, after: nextPhones };
       if (JSON.stringify(nextEmails) !== JSON.stringify(otherEmailsOf(here.other_emails)))
@@ -1049,13 +1055,13 @@ export const importContact: Importer = async (tx, scope, envelope) => {
         tidyOtherEmails(
           otherEmails.map((e) => ({ email: e })),
           email,
-        ),
+        ).slice(0, MAX_OTHER_CONTACTS),
       )}::jsonb,
       ${JSON.stringify(
         tidyOtherPhones(
           otherPhones.map((phone) => ({ phone })),
           phoneE164,
-        ),
+        ).slice(0, MAX_OTHER_CONTACTS),
       )}::jsonb,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);

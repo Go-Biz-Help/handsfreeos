@@ -2,9 +2,13 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { leads, people } from '@hfos/db/schema';
 import { assertAiReach, refuseInChat } from '../ai-team/reach';
 import {
+  addressKey,
+  emailKey,
+  listEdit,
   otherAddressesOf,
   otherEmailsOf,
   otherPhonesOf,
+  phoneKey,
   tidyOtherAddresses,
   tidyOtherEmails,
   tidyOtherPhones,
@@ -22,6 +26,7 @@ import {
 } from '../kernel/field-merge';
 import { changeMoment } from '../kernel/moment';
 import { PersonUpdateInput, PersonUpdateOutput } from '../schemas/person';
+import { requireAssigner } from './record.assign';
 
 export const personUpdate = defineCommand({
   name: 'person.update',
@@ -89,12 +94,35 @@ export const personUpdate = defineCommand({
         postalCode: then(address.postalCode, current.postalCode),
       },
     };
-    // An older phone's "other phone" joins the other numbers, first, unless the whole list came with it.
+    // An older phone's "other phone" joins the other numbers at the end, unless the whole list came with it; a
+    // number already on file keeps its label and its place.
     const wantedPhones =
       input.otherPhones ??
       (input.phoneAlt
-        ? [{ phone: input.phoneAlt, label: 'Other' }, ...otherPhonesOf(current.otherPhones)]
+        ? [...otherPhonesOf(current.otherPhones), { phone: input.phoneAlt, label: 'Other' }]
         : undefined);
+    // Each list merges entry by entry with the row (0100), so two people adding a number at once both keep theirs.
+    const emails = listEdit(
+      input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
+      seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+      otherEmailsOf(current.otherEmails),
+      emailKey,
+      (l) => tidyOtherEmails(l, main.email),
+    );
+    const phones = listEdit(
+      wantedPhones && tidyOtherPhones(wantedPhones, main.phone),
+      seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+      otherPhonesOf(current.otherPhones),
+      phoneKey,
+      (l) => tidyOtherPhones(l, main.phone),
+    );
+    const addresses = listEdit(
+      input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
+      seen.otherAddresses === undefined ? undefined : otherAddressesOf(seen.otherAddresses ?? []),
+      otherAddressesOf(current.otherAddresses),
+      addressKey,
+      (l) => tidyOtherAddresses(l, main.address),
+    );
     const fields: MergeField[] = [
       {
         key: 'firstName',
@@ -189,27 +217,21 @@ export const personUpdate = defineCommand({
       {
         key: 'otherEmails',
         column: 'otherEmails',
-        value: input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
-        base: seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+        ...emails,
         kind: 'json',
         label: 'other emails',
       },
       {
         key: 'otherPhones',
         column: 'otherPhones',
-        value: wantedPhones && tidyOtherPhones(wantedPhones, main.phone),
-        base: seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+        ...phones,
         kind: 'json',
         label: 'other numbers',
       },
       {
         key: 'otherAddresses',
         column: 'otherAddresses',
-        value: input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
-        base:
-          seen.otherAddresses === undefined
-            ? undefined
-            : otherAddressesOf(seen.otherAddresses ?? []),
+        ...addresses,
         kind: 'json',
         label: 'other addresses',
       },
@@ -240,6 +262,8 @@ export const personUpdate = defineCommand({
     ];
     const merged = mergeFields(current, fields, mergeColumns(people), ctx.meta);
     const { patch } = merged;
+    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0101).
+    if ('ownerUserId' in patch && patch.ownerUserId !== current.ownerUserId) requireAssigner(ctx);
     const nextFirst = (patch.firstName as string | undefined) ?? current.firstName;
     const nextLast = (patch.lastName as string | undefined) ?? current.lastName;
     if (!(nextFirst + nextLast).trim())

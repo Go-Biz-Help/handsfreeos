@@ -8,6 +8,7 @@ import {
   IMPORT_MAX_ROWS,
   mapCompanyRow,
   mapPersonRow,
+  MAX_OTHER_CONTACTS,
   normalizePhone,
   otherEmailsOf,
   otherPhonesOf,
@@ -152,41 +153,78 @@ export async function runImport(
     };
 
     /**
-     * A matched record's other emails and numbers with the file's added to them (0100): an import that updates a
-     * customer adds what it brings and never drops what the business had. Nothing when the file brings none.
+     * The emails and numbers an update brings to a matched record (0100): an import adds what it brings and never
+     * drops what the business had. The file's email or number becomes the main one only where there is none; next
+     * to a different main one it joins the others, as do the file's extra ones — each once, up to the limit.
      */
-    const withOthers = async (
+    const contactsFor = async (
       table: 'people' | 'companies',
       id: string,
-      m: { otherEmails: string[]; otherPhones: string[] },
+      m: {
+        email: string | null;
+        phone: string | null;
+        otherEmails: string[];
+        otherPhones: string[];
+      },
     ) => {
-      if (!m.otherEmails.length && !m.otherPhones.length) return {};
       const [had] = await transact((tx) =>
-        rows<{ other_emails: unknown; other_phones: unknown }>(
+        rows<{
+          email: string | null;
+          phone_e164: string | null;
+          other_emails: unknown;
+          other_phones: unknown;
+        }>(
           tx,
           table === 'people'
-            ? sql`select other_emails, other_phones from app.people where id = ${id}`
-            : sql`select other_emails, other_phones from app.companies where id = ${id}`,
+            ? sql`select email::text, phone_e164, other_emails, other_phones from app.people where id = ${id}`
+            : sql`select email::text, phone_e164, other_emails, other_phones from app.companies where id = ${id}`,
         ),
       );
-      return {
-        ...(m.otherEmails.length
-          ? {
-              otherEmails: [
-                ...otherEmailsOf(had?.other_emails),
-                ...m.otherEmails.map((email) => ({ email })),
-              ],
-            }
-          : {}),
-        ...(m.otherPhones.length
-          ? {
-              otherPhones: [
-                ...otherPhonesOf(had?.other_phones),
-                ...m.otherPhones.map((phone) => ({ phone })),
-              ],
-            }
-          : {}),
-      };
+      const out: {
+        email?: string;
+        phone?: string;
+        otherEmails?: { email: string }[];
+        otherPhones?: { phone: string }[];
+      } = {};
+      const emails = [...m.otherEmails];
+      if (m.email && !had?.email) out.email = m.email;
+      else if (m.email && m.email.toLowerCase() !== had?.email?.toLowerCase())
+        emails.unshift(m.email);
+      const phones = [...m.otherPhones];
+      if (m.phone && !had?.phone_e164) out.phone = m.phone;
+      else if (m.phone && (normalizePhone(m.phone) ?? m.phone) !== had?.phone_e164)
+        phones.unshift(m.phone);
+      const mainEmail = (out.email ?? had?.email ?? '').toLowerCase();
+      const mainPhone = out.phone ? normalizePhone(out.phone) : (had?.phone_e164 ?? null);
+      if (emails.length) {
+        const seen = new Set([mainEmail]);
+        out.otherEmails = [
+          ...otherEmailsOf(had?.other_emails),
+          ...emails.map((email) => ({ email })),
+        ]
+          .filter((e) => {
+            const key = e.email.trim().toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, MAX_OTHER_CONTACTS);
+      }
+      if (phones.length) {
+        const seen = new Set([mainPhone]);
+        out.otherPhones = [
+          ...otherPhonesOf(had?.other_phones),
+          ...phones.map((phone) => ({ phone })),
+        ]
+          .filter((p) => {
+            const key = normalizePhone(p.phone) ?? p.phone.trim();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .slice(0, MAX_OTHER_CONTACTS);
+      }
+      return out;
     };
 
     const processRow = async (raw: Record<string, string>, importRow: number): Promise<Outcome> => {
@@ -216,7 +254,9 @@ export async function runImport(
         if (matches[0]) {
           if (onMatch === 'skip') return 'skipped';
           const patch = Object.fromEntries(
-            Object.entries(fields).filter(([k, v]) => v !== null && v !== '' && k !== 'address'),
+            Object.entries(fields).filter(
+              ([k, v]) => v !== null && v !== '' && !['address', 'email', 'phone'].includes(k),
+            ),
           );
           const address = Object.fromEntries(Object.entries(m.address).filter(([, v]) => v));
           await executeCommand(
@@ -227,7 +267,7 @@ export async function runImport(
               personId: matches[0].id,
               ...patch,
               ...(Object.keys(address).length ? { address } : {}),
-              ...(await withOthers('people', matches[0].id, m)),
+              ...(await contactsFor('people', matches[0].id, m)),
               ...(m.company ? { companyId: await resolveCompany(m.company) } : {}),
             },
             actor,
@@ -279,7 +319,9 @@ export async function runImport(
       if (matches[0]) {
         if (onMatch === 'skip') return 'skipped';
         const patch = Object.fromEntries(
-          Object.entries(fields).filter(([k, v]) => v !== null && v !== '' && k !== 'address'),
+          Object.entries(fields).filter(
+            ([k, v]) => v !== null && v !== '' && !['address', 'email', 'phone'].includes(k),
+          ),
         );
         const address = Object.fromEntries(Object.entries(m.address).filter(([, v]) => v));
         await executeCommand(
@@ -290,7 +332,7 @@ export async function runImport(
             companyId: matches[0].id,
             ...patch,
             ...(Object.keys(address).length ? { address } : {}),
-            ...(await withOthers('companies', matches[0].id, m)),
+            ...(await contactsFor('companies', matches[0].id, m)),
           },
           actor,
           meta,

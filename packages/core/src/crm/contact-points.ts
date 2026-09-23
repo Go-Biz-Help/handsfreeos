@@ -70,7 +70,7 @@ export interface MainAddress {
  * Two addresses are the same when street, second line, town, state and ZIP read the same, ignoring case: the
  * key the database builds with concat_ws, which leaves out a part that is missing altogether.
  */
-function addressKey(a: MainAddress): string {
+export function addressKey(a: MainAddress): string {
   return [a.line1, a.line2, a.city, a.state, a.postalCode]
     .filter((v): v is string => v !== null && v !== undefined)
     .map((v) => v.trim())
@@ -138,6 +138,64 @@ export function tidyOtherAddresses(
     out.push(address);
   }
   return out;
+}
+
+/** What makes one entry the same entry across two copies of a list: its email, its number, its address. */
+export const emailKey = (e: OtherEmail): string => e.email.toLowerCase();
+export const phoneKey = (p: OtherPhone): string => p.phone;
+
+/**
+ * An edited list rebased on the list as it is now (0100), entry by entry: what the editor took off comes off, what
+ * they changed takes their change, what they added is added — and what somebody else added or changed since the
+ * editor opened it stays, so two people adding a number at the same moment both keep theirs. When nothing changed
+ * since (`base` reads the same as `now`), the edit is the list as they left it, order and all.
+ */
+export function rebaseList<T>(
+  edited: readonly T[],
+  base: readonly T[],
+  now: readonly T[],
+  keyOf: (entry: T) => string,
+): T[] {
+  const same = (a: readonly T[], b: readonly T[]) =>
+    a.length === b.length && a.every((e, i) => JSON.stringify(e) === JSON.stringify(b[i]));
+  if (same(base, now)) return [...edited];
+  const saw = new Map(base.map((e) => [keyOf(e), e]));
+  const wants = new Map(edited.map((e) => [keyOf(e), e]));
+  const out: T[] = [];
+  const kept = new Set<string>();
+  for (const e of now) {
+    const key = keyOf(e);
+    // Taken off by the editor: gone, whatever became of it since.
+    if (saw.has(key) && !wants.has(key)) continue;
+    const mine = wants.get(key);
+    const changedByEditor =
+      mine !== undefined && JSON.stringify(mine) !== JSON.stringify(saw.get(key));
+    out.push(changedByEditor || !saw.has(key) ? (mine ?? e) : e);
+    kept.add(key);
+  }
+  for (const [key, e] of wants) {
+    if (kept.has(key)) continue;
+    // New in the edit; or changed in it after somebody else took it off, which brings it back with the change.
+    const theirs = saw.get(key);
+    if (theirs === undefined || JSON.stringify(theirs) !== JSON.stringify(e)) out.push(e);
+  }
+  return out;
+}
+
+/**
+ * One list's edit, ready for mergeFields: rebased on the row when the editor said what it saw, and then counted as
+ * seen as it is now — the rebase already kept whatever changed since. Without what it saw (the API, the Assistant,
+ * an import), the edit is the whole list.
+ */
+export function listEdit<T>(
+  wanted: T[] | undefined,
+  saw: T[] | undefined,
+  now: T[],
+  keyOf: (entry: T) => string,
+  tidy: (list: T[]) => T[],
+): { value: T[] | undefined; base: T[] | undefined } {
+  if (wanted === undefined || saw === undefined) return { value: wanted, base: saw };
+  return { value: tidy(rebaseList(wanted, saw, now, keyOf)), base: now };
 }
 
 /** A list read from a row or a phone's copy (JSON, or JSON text): whatever is there, never a throw. */

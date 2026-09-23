@@ -1,9 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import { companies } from '@hfos/db/schema';
 import {
+  addressKey,
+  emailKey,
+  listEdit,
   otherAddressesOf,
   otherEmailsOf,
   otherPhonesOf,
+  phoneKey,
   tidyOtherAddresses,
   tidyOtherEmails,
   tidyOtherPhones,
@@ -19,6 +23,7 @@ import {
   type MergeKind,
 } from '../kernel/field-merge';
 import { CompanyUpdateInput, CompanyUpdateOutput } from '../schemas/company';
+import { requireAssigner } from './record.assign';
 
 export const companyUpdate = defineCommand({
   name: 'company.update',
@@ -65,6 +70,28 @@ export const companyUpdate = defineCommand({
         postalCode: then(address.postalCode, current.postalCode),
       },
     };
+    // Each list merges entry by entry with the row (0100), so two people adding a number at once both keep theirs.
+    const emails = listEdit(
+      input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
+      seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+      otherEmailsOf(current.otherEmails),
+      emailKey,
+      (l) => tidyOtherEmails(l, main.email),
+    );
+    const phones = listEdit(
+      input.otherPhones && tidyOtherPhones(input.otherPhones, main.phone),
+      seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+      otherPhonesOf(current.otherPhones),
+      phoneKey,
+      (l) => tidyOtherPhones(l, main.phone),
+    );
+    const addresses = listEdit(
+      input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
+      seen.otherAddresses === undefined ? undefined : otherAddressesOf(seen.otherAddresses ?? []),
+      otherAddressesOf(current.otherAddresses),
+      addressKey,
+      (l) => tidyOtherAddresses(l, main.address),
+    );
     const fields: MergeField[] = [
       field('name', 'name', input.name, seen.name, 'text', 'name'),
       field('email', 'email', input.email, seen.email, 'email', 'email'),
@@ -93,27 +120,13 @@ export const companyUpdate = defineCommand({
         'ZIP code',
       ),
       field('address.country', 'country', address.country, seenAddress.country, 'text', 'country'),
-      field(
-        'otherEmails',
-        'otherEmails',
-        input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
-        seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
-        'json',
-        'other emails',
-      ),
-      field(
-        'otherPhones',
-        'otherPhones',
-        input.otherPhones && tidyOtherPhones(input.otherPhones, main.phone),
-        seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
-        'json',
-        'other numbers',
-      ),
+      field('otherEmails', 'otherEmails', emails.value, emails.base, 'json', 'other emails'),
+      field('otherPhones', 'otherPhones', phones.value, phones.base, 'json', 'other numbers'),
       field(
         'otherAddresses',
         'otherAddresses',
-        input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
-        seen.otherAddresses === undefined ? undefined : otherAddressesOf(seen.otherAddresses ?? []),
+        addresses.value,
+        addresses.base,
         'json',
         'other addresses',
       ),
@@ -123,6 +136,8 @@ export const companyUpdate = defineCommand({
     ];
     const merged = mergeFields(current, fields, mergeColumns(companies), ctx.meta);
     const { patch } = merged;
+    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0101).
+    if ('ownerUserId' in patch && patch.ownerUserId !== current.ownerUserId) requireAssigner(ctx);
     const notApplied = merged.notApplied.map((n) => n.key);
     await logNotApplied(
       ctx,

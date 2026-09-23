@@ -783,7 +783,7 @@ export function RecordPage(props: RecordPageProps) {
             owner={record.owner}
             team={record.team}
             members={members}
-            canEdit={!archived && hasWorkspacePermission(role, 'records.write')}
+            canEdit={!archived && hasWorkspacePermission(role, 'records.assign')}
           />
           {person && props.timeZone ? (
             <UpcomingAppointments

@@ -185,11 +185,14 @@ export function accountsFor(
   return connections.filter((c) => c.usableByMe || c.id === current);
 }
 
-/** Where something new is paid into unless they pick: the default if it's theirs, else the first that is. */
+/**
+ * Where something new is paid into unless they pick, as the server would choose it: the default if it's theirs,
+ * else the first of theirs — connected ones only, never one still signing in or needing a reconnect.
+ */
 export function firstAccount(
   connections: readonly PaymentConnectionRow[],
 ): PaymentConnectionRow | undefined {
-  const mine = accountsFor(connections);
+  const mine = accountsFor(connections).filter((c) => c.status === 'active');
   return mine.find((c) => c.isDefault) ?? mine[0];
 }
 

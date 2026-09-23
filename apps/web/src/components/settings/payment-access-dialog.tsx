@@ -66,8 +66,19 @@ export function PaymentAccessDialog({
     setError(null);
   }, [open, connection]);
 
-  // Everyone who bills, and anyone already chosen who no longer does (so taking them off is possible).
-  const offered = team.filter((m) => m.bills || connection.userIds.includes(m.id));
+  // Everyone who bills, and anyone already chosen who no longer does or has left (so taking them off is possible).
+  const offered = [
+    ...team.filter((m) => m.bills || connection.userIds.includes(m.id)),
+    ...connection.userIds
+      .filter((id) => !team.some((m) => m.id === id))
+      .map((id) => ({ id, fullName: 'Former member', bills: false })),
+  ];
+  const labelOf = (m: TeamMember) =>
+    m.bills
+      ? m.fullName
+      : team.some((t) => t.id === m.id)
+        ? `${m.fullName} (can’t bill)`
+        : `${m.fullName} (has left)`;
 
   async function save() {
     if (usedBy !== 'everyone' && chosen.length === 0)
@@ -132,7 +143,7 @@ export function PaymentAccessDialog({
               {offered.map((m) => (
                 <Checkbox
                   key={m.id}
-                  label={m.bills ? m.fullName : `${m.fullName} (can’t bill)`}
+                  label={labelOf(m)}
                   checked={chosen.includes(m.id)}
                   onChange={(e) =>
                     setChosen((ids) =>

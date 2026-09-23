@@ -37,6 +37,14 @@
 --        Somebody who leaves the business stays listed, as an owner does
 --        ("Former member"), and sees nothing, because both rules only ever
 --        name people who can still open the business.
+--
+--        **Owners and admins decide who is on a customer.** Because being on
+--        one now shows its bills and threads, a member who could put
+--        themselves on any customer could read any of them. So changing an
+--        existing customer's owner or team takes a new permission,
+--        records.assign, which owners and admins have. A new customer is
+--        anybody's to start (there is nothing on it to see yet), and the
+--        system — imports, the booking page — is not asked.
 -- =============================================================================
 
 alter table app.people
@@ -51,15 +59,28 @@ comment on column app.people.team_user_ids is
 comment on column app.companies.team_user_ids is
   'Everyone on this company besides the owner (0101), in the order they were added. Never the owner; always people of the business when they were added.';
 
+insert into app.role_permissions (role, permission) values
+  ('owner', 'records.assign'), ('admin', 'records.assign');
+
 -- ---------- who may be on a team ----------
 -- Each person once, in the order they joined, never the owner. Somebody newly added belongs to the business;
--- somebody already there who has since left is left alone, like an owner who left.
+-- somebody already on the customer who has since left — on the team, or its owner stepping aside for a teammate
+-- — is left alone, like an owner who left. Only owners and admins change who is on a customer that exists.
 create or replace function private.guard_customer_team()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
   v_team uuid[];
   v_added uuid;
 begin
+  if tg_op = 'UPDATE'
+     and (new.owner_user_id is distinct from old.owner_user_id
+          or new.team_user_ids is distinct from old.team_user_ids)
+     and auth.uid() is not null
+     and not coalesce(private.system_scope_workspace() = new.workspace_id, false)
+     and not private.has_permission(new.workspace_id, 'records.assign') then
+    raise exception 'Only owners and admins change who a customer is assigned to'
+      using errcode = '42501', detail = 'customer_team_managers_only';
+  end if;
   select coalesce(array_agg(x.u order by x.n), '{}'::uuid[]) into v_team
   from (
     select t.u, min(t.n) as n
@@ -69,7 +90,8 @@ begin
   ) x;
   for v_added in
     select a.u from unnest(v_team) as a(u)
-    where tg_op = 'INSERT' or not (a.u = any (old.team_user_ids))
+    where tg_op = 'INSERT'
+       or not (a.u = any (old.team_user_ids) or a.u is not distinct from old.owner_user_id)
   loop
     if not private.workspace_has_user(new.workspace_id, v_added) then
       raise exception 'References must belong to the same workspace'

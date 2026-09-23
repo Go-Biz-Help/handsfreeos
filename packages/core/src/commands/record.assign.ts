@@ -1,7 +1,8 @@
 /**
  * Who a customer is assigned to (0101): their owner, the main person on them, and a team beside the owner — one
  * teammate installing a client's automations while another runs their SEO. Being on a customer shows it to a
- * member in the inbox and in money, the same as owning it.
+ * member in the inbox and in money, the same as owning it, so owners and admins decide who is on one
+ * (records.assign); everyone sees who is.
  *
  * One person at a time, like tags (record.add_tag), so two people assigning the same customer at the same moment
  * both land. The owner is never also on the team: the database takes them out (0101).
@@ -12,6 +13,7 @@ import { companies, people } from '@hfos/db/schema';
 import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { hasWorkspacePermission } from '../permissions';
 import { stampSql } from '../kernel/field-merge';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
@@ -136,6 +138,23 @@ async function save(
   return after;
 }
 
+/**
+ * Owners and admins change who is on a customer; the database refuses anybody else too (0101). People only: the
+ * system — imports, the booking page, a workflow — is not asked, the same as the database's guard.
+ */
+export function requireAssigner(ctx: CommandContext): void {
+  if (ctx.actor.type !== 'human') return;
+  if (!hasWorkspacePermission(ctx.scope.workspaceRole ?? null, 'records.assign'))
+    throw HfosError.rule(
+      'customer_team_managers_only',
+      403,
+      'Only owners and admins change who a customer is assigned to.',
+    );
+}
+
+/** The most people a customer can have besides its main one: the database's own limit (0101). */
+const MAX_TEAM = 20;
+
 /** Somebody who can open this business, the only people a customer can be assigned to. */
 async function requireTeammate(ctx: CommandContext, userId: string): Promise<void> {
   const [ok] = await rows<{ ok: boolean }>(
@@ -149,11 +168,11 @@ async function requireTeammate(ctx: CommandContext, userId: string): Promise<voi
 export const recordAssign = defineCommand({
   name: 'record.assign',
   description:
-    'Assign a customer or a company to someone on the team. They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows its threads and money to a member.',
+    'Assign a customer or a company to someone on the team (owners and admins). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.',
   risk: 1,
   input: RecordAssignInput,
   output: RecordAssignOutput,
-  permission: 'records.write',
+  permission: 'records.assign',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.updated', 'company.updated'],
   async handler(ctx, input) {
@@ -179,6 +198,12 @@ export const recordAssign = defineCommand({
         : { ownerUserId: userId, teamUserIds: [...before.teamUserIds] };
     }
     if (!next) return answer(ctx, before, false);
+    if (next.teamUserIds.length > MAX_TEAM)
+      throw HfosError.rule(
+        'customer_team_full',
+        409,
+        `A customer can have up to ${MAX_TEAM} people on it besides the main one. Take someone off first.`,
+      );
     return answer(ctx, await save(ctx, input.recordType, before, next), true);
   },
 });
@@ -186,11 +211,11 @@ export const recordAssign = defineCommand({
 export const recordUnassign = defineCommand({
   name: 'record.unassign',
   description:
-    'Take someone off a customer or a company. Taking the owner off makes the next person on its team the owner.',
+    'Take someone off a customer or a company (owners and admins). Taking the owner off makes the next person on its team the owner.',
   risk: 1,
   input: RecordUnassignInput,
   output: RecordAssignOutput,
-  permission: 'records.write',
+  permission: 'records.assign',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   emits: ['person.updated', 'company.updated'],
   async handler(ctx, input) {

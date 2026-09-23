@@ -33,6 +33,16 @@ const RULES: Record<string, { status: number; message: string }> = {
   company_workspace_mismatch: { status: 400, message: 'That company is not in this workspace.' },
   record_workspace_mismatch: { status: 400, message: 'That record is not in this workspace.' },
   archive_forbidden: { status: 403, message: 'Only owners and admins archive or restore records.' },
+  // 0101: being on a customer shows a member its bills and threads, so who is on one is the managers' call.
+  customer_team_managers_only: {
+    status: 403,
+    message: 'Only owners and admins change who a customer is assigned to.',
+  },
+  // 0102: an account kept to other people on the team.
+  payment_account_not_yours: {
+    status: 403,
+    message: 'That payment account is kept for other people on the team. Pick one of yours.',
+  },
   system_activity_immutable: { status: 403, message: 'System timeline entries cannot be changed.' },
   file_confirm_forbidden: { status: 403, message: 'Only the uploader can confirm a file.' },
   file_delete_forbidden: { status: 403, message: 'You cannot delete this file.' },
