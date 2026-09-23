@@ -4,6 +4,7 @@
     "slug": "handsfreeos",
     "owner": "gobizhelp",
     "version": "1.0.0",
+    "platforms": ["ios", "android"],
     "runtimeVersion": {
       "policy": "fingerprint"
     },
