@@ -68,7 +68,13 @@ async function loadView(
     .select()
     .from(attentionItems)
     .where(and(eq(attentionItems.workspaceId, ws), where));
-  const viewer = await viewerFor(ctx.tx, ws, ctx.scope.workspaceRole, me, found);
+  const viewer = await viewerFor(
+    ctx.tx,
+    ws,
+    { role: ctx.scope.workspaceRole, permissions: ctx.scope.workspacePermissions ?? null },
+    me,
+    found,
+  );
   return { list: found.filter((r) => visibleTo(viewer, r)), viewer, me };
 }
 

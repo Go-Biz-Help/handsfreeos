@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -15,7 +16,7 @@ export default async function NewImportPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (got.workspace.role !== 'owner' && got.workspace.role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'records.import')) notFound();
   return (
     <>
       <div className="mb-3.5 flex items-center gap-1.5 text-[13px]">

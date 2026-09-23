@@ -149,14 +149,15 @@ export function RecordMoneyTab({
   personId,
   personName,
   found,
-  canManage,
+  canBill,
   timeZone,
 }: {
   workspaceId: string;
   personId: string;
   personName: string;
   found: RecordMoney | null;
-  canManage: boolean;
+  /** Whether they may write one an estimate or an invoice (0106). */
+  canBill: boolean;
   timeZone: string;
 }) {
   const base = `/app/w/${workspaceId}/money`;
@@ -184,7 +185,7 @@ export function RecordMoneyTab({
                   : 'Nothing has been billed yet.'}
           </p>
         </div>
-        {canManage ? (
+        {canBill ? (
           <div className="flex gap-2">
             <ButtonLink
               href={`${base}/estimates/new?person=${personId}`}
@@ -210,7 +211,7 @@ export function RecordMoneyTab({
         <div className="mt-4 rounded-card border border-dashed border-border-strong px-4 py-6 text-center">
           <div className="text-[15px] font-semibold">Nothing billed to {personName} yet</div>
           <p className="mx-auto mt-1 max-w-[42ch] text-[13px] text-text-2">
-            {canManage
+            {canBill
               ? 'Quote a job with an estimate, or bill one straight away with an invoice. Whatever they pay shows up here.'
               : 'Estimates and invoices on the jobs you work show up here.'}
           </p>
@@ -314,25 +315,26 @@ export function LeadMoneyCard({
   leadId,
   personId,
   found,
-  canManage,
+  canBill,
   timeZone,
 }: {
   workspaceId: string;
   leadId: string;
   personId: string | null;
   found: RecordMoney | null;
-  canManage: boolean;
+  /** Whether they may quote this job (0106). */
+  canBill: boolean;
   timeZone: string;
 }) {
   const base = `/app/w/${workspaceId}/money`;
   // A member who may not see this lead's money gets no card, not an empty one.
-  if (!found || (found.empty && !canManage)) return null;
+  if (!found || (found.empty && !canBill)) return null;
   const newEstimate = `${base}/estimates/new?lead=${leadId}${personId ? `&person=${personId}` : ''}`;
   return (
     <Card className="px-4 pb-3 pt-4 md:px-[18px]" data-testid="lead-money">
       <div className="mb-1 flex items-center justify-between gap-3">
         <h3 className="text-[15px] font-semibold">Money</h3>
-        {canManage ? (
+        {canBill ? (
           <ButtonLink href={newEstimate} variant="ghost" size="sm" data-testid="lead-new-estimate">
             <FilePlus2 className="h-4 w-4" strokeWidth={1.5} />
             New estimate

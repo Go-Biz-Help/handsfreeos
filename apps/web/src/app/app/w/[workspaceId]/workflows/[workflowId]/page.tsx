@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { WorkflowEditor } from '@/components/workflows/editor';
@@ -24,7 +24,7 @@ export default async function WorkflowEditorPage({
   const query = await searchParams;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = hasWorkspacePermission(got.workspace.role, 'workflows.manage');
+  const canManage = can(got.workspace.permissions, 'workflows.manage');
   const [wf, catalogs, people, teammate] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workflow.get', { body: { workspaceId, workflowId } })),
     unwrapPage(await api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } })),

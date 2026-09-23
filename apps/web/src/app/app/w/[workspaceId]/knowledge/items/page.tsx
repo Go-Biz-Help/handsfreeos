@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { ItemList, type ItemFilters } from '@/components/knowledge/item-list';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -77,7 +77,7 @@ export default async function KnowledgeItemsPage({
     <ItemList
       key={JSON.stringify(filters)}
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       filters={filters}
       page={page}
       tags={filters.tag && !tags.includes(filters.tag) ? [filters.tag, ...tags] : tags}

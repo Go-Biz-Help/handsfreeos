@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RelationshipsSettings } from '@/components/settings/relationships-settings';
@@ -15,8 +16,7 @@ export default async function RelationshipsSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'fields.manage')) notFound();
   const [kinds, types] = await Promise.all([
     api.POST('/v1/queries/custom_record_type.list', {
       body: { workspaceId, includeArchived: true },
@@ -28,7 +28,7 @@ export default async function RelationshipsSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <RelationshipsSettings
         workspaceId={workspaceId}
         kinds={unwrapPage(kinds).types}

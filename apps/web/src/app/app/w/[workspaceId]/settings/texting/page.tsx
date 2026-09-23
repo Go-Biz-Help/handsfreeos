@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { SettingsNav } from '@/components/settings/settings-nav';
@@ -30,11 +30,10 @@ export default async function TextingSettingsPage({
     unwrapPage(await api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/form.list', { body: { workspaceId } })),
   ]);
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   // Everyone who works the inbox — by first name for the "these browsers ring" line, and with their ids
   // for choosing who each number rings (M17).
-  const inbox = members.members.filter((m) => hasWorkspacePermission(m.role, 'inbox.use'));
+  const inbox = members.members.filter((m) => can(m.permissions, 'inbox.use'));
   const team = inbox.map((m) => (m.fullName.trim() || m.email).split(/\s+/)[0] ?? m.email);
   const people = inbox.map((m) => ({
     userId: m.userId,
@@ -53,7 +52,7 @@ export default async function TextingSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <TextingPage
         workspaceId={workspaceId}
         businessName={got.workspace.name}

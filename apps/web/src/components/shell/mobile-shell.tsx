@@ -1,4 +1,5 @@
 'use client';
+import { menuFor, menuKeys } from '@hfos/core';
 import { ArrowLeft, Menu, MoreHorizontal, Search, SquarePen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -27,9 +28,9 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
   const [search, setSearch] = useState(false);
   const items = navItems(current.id);
   // A place taken out of the menu is out of the bottom bar too; it still titles its own page, and search and
-  // links still reach it.
-  const { menu } = useMenu();
-  const bar = items.filter((i) => i.primary && !menu.hidden.includes(i.key));
+  // links still reach it. So is one the business keeps this person from (0106).
+  const shown = new Set(menuKeys(menuFor(useMenu().menu, current.permissions)));
+  const bar = items.filter((i) => i.primary && shown.has(i.key));
   const active = items.find((i) => isActive(i, pathname));
   const nested = active && !active.exact && pathname !== active.href;
   const title = active?.label ?? current.name;
@@ -161,6 +162,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
           >
             <NavLinks
               workspaceId={current.id}
+              permissions={current.permissions}
               variant="drawer"
               onNavigate={() => setDrawer(false)}
             />

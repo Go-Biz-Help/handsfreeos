@@ -87,6 +87,8 @@ export interface Member extends Record<string, unknown> {
   full_name: string | null;
   settings: Record<string, unknown>;
   role: 'owner' | 'admin' | 'member' | null;
+  /** What the business lets them do (0106), as the database keeps it. */
+  permissions: string[] | null;
 }
 
 /** On unless the person turned it off. */
@@ -104,7 +106,9 @@ export async function membersOf(
     tx,
     sql`select u.id, u.email::text as email, u.full_name, u.settings,
           coalesce(wm.role::text,
-            case when om.role::text in ('owner', 'admin') then om.role::text end) as role
+            case when om.role::text in ('owner', 'admin') then om.role::text end) as role,
+          (select wa.permissions from app.workspace_access wa
+           where wa.user_id = u.id and wa.workspace_id = ${workspaceId}) as permissions
         from app.users u
         left join app.workspace_memberships wm
           on wm.user_id = u.id and wm.workspace_id = ${workspaceId}
@@ -265,7 +269,13 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       decidable.set(
         p.id,
         approvals.length
-          ? await decidableApprovals(tx, scope.workspaceId, p.role, p.id, approvals)
+          ? await decidableApprovals(
+              tx,
+              scope.workspaceId,
+              { role: p.role, permissions: p.permissions },
+              p.id,
+              approvals,
+            )
           : new Set<string>(),
       );
     const window = dayWindow(now, timeZone);

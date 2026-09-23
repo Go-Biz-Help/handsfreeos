@@ -141,6 +141,11 @@ export interface ResolvedScope {
   readonly organizationId: string | null;
   readonly workspaceId: string | null;
   readonly workspaceRole: WorkspaceRole | null;
+  /**
+   * What this person may do in the business (0106): their role's permissions with the business's settings for the
+   * role and for them applied, as app.workspace_access stores them. Null outside a business, and for the system.
+   */
+  readonly workspacePermissions?: readonly string[] | null;
   readonly orgRole: OrgRole | null;
   /** Set when the person is HandsFreeOS support staff (M13); null for everyone else. */
   readonly staffRole?: StaffRole | null;

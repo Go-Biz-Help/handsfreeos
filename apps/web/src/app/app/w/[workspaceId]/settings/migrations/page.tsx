@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -32,8 +33,7 @@ export default async function WorkspaceMigrationsPage({
   const me = await fetchMe(api);
   const current = me.workspaces.find((w) => w.id === workspaceId);
   if (!current) notFound();
-  const role = current.role;
-  if (role !== 'owner' && role !== 'admin') notFound();
+  if (!can(current.permissions, 'migrations.manage')) notFound();
 
   const { migrations, connections } = await loadMigrations(
     api,
@@ -45,7 +45,7 @@ export default async function WorkspaceMigrationsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={current.permissions} />
       <PageHeader
         title="Migrations"
         description={`Bring ${current.name} here from the CRM it uses today. We look first and count everything, you choose what comes, and your old account is never changed or cancelled.`}

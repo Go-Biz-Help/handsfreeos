@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ServicesPage } from '@/components/calendars/services-page';
@@ -17,7 +18,7 @@ export default async function ServicesSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (got.workspace.role !== 'owner' && got.workspace.role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [services, resources, members] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/service.list', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),
@@ -26,7 +27,7 @@ export default async function ServicesSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <CalendarsSubnav workspaceId={workspaceId} />
       <ServicesPage
         workspaceId={workspaceId}

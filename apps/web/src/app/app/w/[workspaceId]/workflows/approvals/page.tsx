@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/shell/page-header';
 import {
@@ -67,7 +67,7 @@ export default async function ApprovalsPage({
       .then((r) => r.data ?? null)
       .catch(() => null),
   ]);
-  const manages = hasWorkspacePermission(got.workspace.role, 'workflows.manage');
+  const manages = can(got.workspace.permissions, 'workflows.manage');
   const mine = (a: Approval) => manages || a.approvers.some((u) => u.id === userId);
   const at = (a: Approval) => Date.parse(a.decidedAt ?? a.createdAt);
   const decided = [...approved, ...rejected, ...expired]

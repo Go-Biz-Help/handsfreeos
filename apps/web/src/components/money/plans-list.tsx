@@ -22,6 +22,8 @@ export function PlansList({
   timeZone,
   services = [],
   canManage = false,
+  accountNames,
+  filtered = false,
 }: {
   workspaceId: string;
   plans: readonly PlanRow[];
@@ -31,6 +33,10 @@ export function PlansList({
   /** For each plan's visits (Maintenance due). */
   services?: readonly ServiceChoice[];
   canManage?: boolean;
+  /** Each account's name, for a business with more than one to tell apart (0105). */
+  accountNames?: Readonly<Record<string, string>> | null;
+  /** Whether "who is on a plan" is narrowed by a filter, so an empty list says so. */
+  filtered?: boolean;
 }) {
   useLiveRefresh(['subscription', 'plan']);
   const billing = subscriptions.filter((s) => BILLING.has(s.status));
@@ -174,10 +180,14 @@ export function PlansList({
       <h2 className="mb-2.5 mt-6 text-[15px] font-semibold tracking-tight">Who is on a plan</h2>
       {subscriptions.length === 0 ? (
         <Card>
-          <EmptyState title="Nobody is on a plan yet">
-            Start a customer on a plan from their record. It bills itself through the account you
-            are paid into.
-          </EmptyState>
+          {filtered ? (
+            <EmptyState title="Nobody matches">Try another status or account.</EmptyState>
+          ) : (
+            <EmptyState title="Nobody is on a plan yet">
+              Start a customer on a plan from their record. It bills itself through the account you
+              are paid into.
+            </EmptyState>
+          )}
         </Card>
       ) : (
         <Card className="overflow-hidden">
@@ -188,6 +198,7 @@ export function PlansList({
                 <Th>Plan</Th>
                 <Th>Status</Th>
                 <Th className="max-md:hidden">Next bill</Th>
+                {accountNames ? <Th>Paid into</Th> : null}
                 <Th align="right">Price</Th>
               </tr>
             </thead>
@@ -209,6 +220,11 @@ export function PlansList({
                       ? dayLabel(localInstant(s.nextBillingOn, '12:00', timeZone), timeZone)
                       : '—'}
                   </Td>
+                  {accountNames ? (
+                    <Td className="max-w-[200px] truncate text-text-2">
+                      {s.connectionId ? (accountNames[s.connectionId] ?? '—') : 'No account yet'}
+                    </Td>
+                  ) : null}
                   <Td align="right">{planPriceLabel(s.priceCents, s.interval, s.intervalCount)}</Td>
                 </tr>
               ))}
@@ -228,6 +244,13 @@ export function PlansList({
                     <StatusBadge kind="subscription" state={s.status} />
                   </span>
                   <span className="truncate text-[13px] text-text-2">{s.planName}</span>
+                  {accountNames ? (
+                    <span className="truncate text-[13px] text-text-3">
+                      {s.connectionId
+                        ? `Paid into ${accountNames[s.connectionId] ?? 'an account'}`
+                        : 'No account yet'}
+                    </span>
+                  ) : null}
                   <span className="flex items-baseline justify-between gap-3 text-[13px]">
                     <span className="text-text-3">
                       {s.nextBillingOn

@@ -22,6 +22,8 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import { money } from '../money/index';
+import { accountForPerson, assertAccountUsable } from './payment-connection';
+import { requireBillable } from './money-shared';
 import {
   SubscriptionCancelInput,
   SubscriptionRecordCycleInput,
@@ -109,6 +111,7 @@ export async function startSubscription(
 ) {
   const ws = ctx.scope.workspaceId!;
   await requirePerson(ctx.tx, ws, input.personId);
+  await requireBillable(ctx, input);
   const [catalogue] = input.planId
     ? await ctx.tx.select().from(plans).where(eq(plans.id, input.planId))
     : [];
@@ -117,6 +120,13 @@ export async function startSubscription(
   const planName = input.planName ?? catalogue?.name;
   if (!planName)
     throw HfosError.validation([{ path: 'planName', message: 'Name the plan being sold.' }]);
+  // A person sells a plan into an account they may bill into (0105): the one named, or theirs to use. One the
+  // AI teammate offered waits for its card and takes the business's default then, as before.
+  let connectionId = input.connectionId ?? null;
+  if (ctx.actor.type === 'human') {
+    if (connectionId) await assertAccountUsable(ctx, ctx.actor.userId, connectionId);
+    else connectionId = await accountForPerson(ctx, ctx.actor.userId);
+  }
   const [row] = await ctx.tx
     .insert(subscriptions)
     .values({
@@ -131,7 +141,7 @@ export async function startSubscription(
       includes: input.includes ?? catalogue?.includes ?? [],
       personId: input.personId,
       leadId: input.leadId ?? null,
-      connectionId: input.connectionId ?? null,
+      connectionId,
       startedOn: input.startedOn ?? null,
       // A new plan has no card: neither provider will bill a customer they have no card for, so it starts
       // waiting on them and the customer's own link is what closes it.
@@ -168,7 +178,7 @@ export const subscriptionStart = defineCommand({
   risk: 3,
   input: SubscriptionStartInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.started'],
   async handler(ctx, input) {
@@ -183,7 +193,7 @@ export const subscriptionPause = defineCommand({
   risk: 2,
   input: SubscriptionRefInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.paused'],
   async handler(ctx, input) {
@@ -220,7 +230,7 @@ export const subscriptionResume = defineCommand({
   risk: 2,
   input: SubscriptionRefInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.resumed'],
   async handler(ctx, input) {
@@ -309,7 +319,7 @@ export const subscriptionRequestCard = defineCommand({
   risk: 2,
   input: SubscriptionRequestCardInput,
   output: SubscriptionCardOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.card_requested'],
   offline: { freshMinutes: FRESH_MINUTES },
@@ -382,7 +392,7 @@ export const subscriptionSetConnection = defineCommand({
   risk: 2,
   input: SubscriptionSetConnectionInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.connection_changed'],
   async handler(ctx, input) {
@@ -412,6 +422,9 @@ export const subscriptionSetConnection = defineCommand({
           409,
           'That account isn’t connected right now. Reconnect it in Settings → Payments first.',
         );
+      // Pointing a plan back at the account it already uses is not a new choice, whoever makes it.
+      if (input.connectionId !== before.connection_id)
+        await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
     }
     // A plan whose account went away is still billing at the provider: pointing it at the account it is billing
     // through hands it back to us, and the next cycle read corrects the rest.
@@ -444,7 +457,7 @@ export const subscriptionCancel = defineCommand({
   risk: 3,
   input: SubscriptionCancelInput,
   output: SubscriptionStateOutput,
-  permission: 'money.manage',
+  permission: 'money.bill',
   scope: inWorkspace,
   emits: ['subscription.cancelled'],
   async handler(ctx, input) {

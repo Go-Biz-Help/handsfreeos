@@ -1,6 +1,8 @@
 import {
   addDays,
+  canBill,
   COLLECTED_DAYS,
+  effectivePermissions,
   estimateState,
   invoiceState,
   localDateOf,
@@ -19,6 +21,7 @@ import * as React from 'react';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 import { useBusiness } from '@/components/shell/business-context';
+import { useGrants } from '@/lib/grants';
 
 import { withOwnChanges } from './outbox';
 import {
@@ -32,7 +35,6 @@ import {
   INVOICE_SQL,
   INVOICES_SQL,
   MONEY_OUTBOX_SQL,
-  MY_ROLE_SQL,
   PAYMENTS_SQL,
   SUBSCRIPTIONS_SQL,
   SUMMARY_SQL,
@@ -182,17 +184,27 @@ export function useMoneyNow(everyMs = 60_000): number {
 }
 
 /**
- * What this person may see. The synced `workspace_access` row is the truth (it is what the sync rules themselves
- * read); the role the phone kept from `account.me` stands in until the first copy has it.
+ * What this person may see and do with money (0106): the whole business's (`money.manage`), and whether they write
+ * and send bills and take a payment by hand (`money.bill`). From the synced access row (useGrants), and failing
+ * that their role's defaults.
  */
-export function useMoneyRole(): { role: MoneyRole; whole: boolean; tabs: readonly MoneyTab[] } {
-  const { business, me } = useBusiness();
-  const { data } = useQuery<{ role: string | null }>(MY_ROLE_SQL, [business.id, me.user.id]);
-  const role = (data[0]?.role ?? business.role) as MoneyRole;
-  return React.useMemo(
-    () => ({ role, whole: seesWholeBusiness(role), tabs: moneyTabsFor(role) }),
-    [role],
-  );
+export function useMoneyRole(): {
+  role: MoneyRole;
+  whole: boolean;
+  bill: boolean;
+  tabs: readonly MoneyTab[];
+} {
+  const { role: synced, permissions } = useGrants();
+  const role = (synced ?? 'member') as MoneyRole;
+  return React.useMemo(() => {
+    const mine = permissions ?? effectivePermissions(role);
+    return {
+      role,
+      whole: seesWholeBusiness(mine),
+      bill: canBill(mine),
+      tabs: moneyTabsFor(mine),
+    };
+  }, [role, permissions]);
 }
 
 /** Money's changes on this phone, not through or sent just now. */

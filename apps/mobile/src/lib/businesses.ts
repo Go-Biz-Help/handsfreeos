@@ -60,6 +60,7 @@ export function loadMe(userId: string): Promise<Me> {
           organizationName: w.organizationName,
           role: w.role,
           timezone: w.timezone,
+          permissions: w.permissions,
         })),
         organizations: data.organizations.map((o) => ({ id: o.id, name: o.name, role: o.role })),
         fetchedAt: Date.now(),

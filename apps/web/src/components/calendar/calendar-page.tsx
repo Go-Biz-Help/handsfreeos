@@ -2,7 +2,7 @@
 import {
   addDays,
   addMonths,
-  hasWorkspacePermission,
+  can,
   instantAt,
   minutesToClock,
   parseClock,
@@ -44,13 +44,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { errorMessage } from '@/lib/api/client';
-import type {
-  Appointment,
-  CalendarSummary,
-  ResourceItem,
-  Role,
-  TeamSchedule,
-} from '@/lib/api/types';
+import type { Appointment, CalendarSummary, ResourceItem, TeamSchedule } from '@/lib/api/types';
 import {
   clockLabel,
   dateOf,
@@ -113,7 +107,8 @@ const FilterLabel = ({ children }: { children: ReactNode }) => (
 export function CalendarPage(props: {
   workspaceId: string;
   myUserId: string;
-  role: Role;
+  /** What the business lets them do (0106), as workspace.get gives it. */
+  permissions: readonly string[];
   timeZone: string;
   today: string;
   query: CalendarQuery;
@@ -140,7 +135,7 @@ export function CalendarPage(props: {
   useLiveRefresh(['appointment', 'calendar', 'schedule', 'calendar_connection', 'resource']);
   const now = useNow();
   const fine = useMatches('(pointer: fine)');
-  const canManage = hasWorkspacePermission(props.role, 'calendars.manage');
+  const canManage = can(props.permissions, 'calendars.manage');
   const [move, setMove] = useState<GridMove | null>(null);
 
   const href = (patch: Partial<CalendarQuery>) =>
@@ -709,7 +704,7 @@ export function CalendarPage(props: {
             >
               {canManage
                 ? 'Start with a preset like Personal or Round Robin. It only takes a minute.'
-                : 'An owner or admin sets calendars up in Settings.'}
+                : 'Someone who sets up calendars does it in Settings.'}
             </EmptyState>
           </Card>
         ) : null}
@@ -845,7 +840,7 @@ export function CalendarPage(props: {
           timeZone={tz}
           people={simplePeople}
           myUserId={myUserId}
-          myRole={props.role}
+          myPermissions={props.permissions}
           onClose={() => go({ appt: null })}
           onChanged={() => router.refresh()}
         />

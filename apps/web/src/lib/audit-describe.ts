@@ -12,6 +12,13 @@ const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: '
 const s = (v: unknown): string => (typeof v === 'string' ? v : '');
 const who = (e: AuditEntry) =>
   e.entityName || s(e.after?.email) || s(e.before?.email) || 'a person';
+/** "admins", "members": a role's column on the Permissions page, as the log names it. */
+const rolePlural = (role: unknown): string => (s(role) ? `${s(role).toLowerCase()}s` : 'a role');
+/** The one permission a setting changed, and what it says now ("on", "off", "as the default"…). */
+const permissionChange = (e: AuditEntry): [string, string] => {
+  const change = Object.entries(e.after ?? {}).find(([k]) => k !== 'role' && k !== 'person');
+  return change ? [change[0], s(change[1])] : ['a permission', ''];
+};
 
 /** How a change arrived, when that isn't someone working in the app themselves. Every channel is listed. */
 const VIA: Record<RequestChannel, string | null> = {
@@ -117,6 +124,23 @@ function describeAction(e: AuditEntry): string {
       return e.actor.userId === e.entityId
         ? 'left the workspace'
         : `removed ${who(e)} from the workspace`;
+    // 0106: what a business lets its people do
+    case 'permission.set_role':
+    case 'permission.set_member': {
+      const [label, said] = permissionChange(e);
+      const whom =
+        e.action === 'permission.set_role'
+          ? rolePlural(e.after?.role)
+          : s(e.after?.person) || who(e);
+      if (said === 'on' || said === 'off') return `turned “${label}” ${said} for ${whom}`;
+      return e.action === 'permission.set_role'
+        ? `put “${label}” back to the default for ${whom}`
+        : `put “${label}” back to what ${whom}’s role says`;
+    }
+    case 'permission.reset':
+      return s(e.after?.role)
+        ? `put every permission back to the default for ${rolePlural(e.after?.role)}`
+        : `put every permission back to what ${s(e.after?.person) || who(e)}’s role says`;
     // Milestone 2: CRM
     case 'pipeline.create':
       return `created the pipeline ${name(e)}`;

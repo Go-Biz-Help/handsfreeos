@@ -1,7 +1,6 @@
 import {
   BALANCE_WORDS,
   balanceHeadline,
-  canManageMoney,
   cardLine,
   MIN_TOPUP_CENTS,
   money,
@@ -57,9 +56,9 @@ import {
  */
 export default function Balance() {
   const { business } = useBusiness();
-  const { role } = useMoneyRole();
+  // Spending the business's balance is managing its money (money.manage, 0106).
+  const { whole: manage } = useMoneyRole();
   const timeZone = useMoneyZone();
-  const manage = canManageMoney(role);
   const view = useWallet(business.id);
   const { wallet, reload } = view;
   const [busy, setBusy] = React.useState(false);

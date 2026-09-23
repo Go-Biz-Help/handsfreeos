@@ -29,6 +29,8 @@ import {
   writeFormAnswers,
 } from '../forms/submit';
 import { insertWithId, madeBefore } from '../crm/client-ids';
+import { otherPhonesOf } from '../crm/contact-points';
+import { normalizePhone } from '../crm/phone';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
 import { workspaceZone } from '../calendar/load';
 import { defineCommand } from '../kernel/define';
@@ -342,6 +344,17 @@ export const formResponseSubmit = defineCommand({
         const [existing] = await ctx.tx.select().from(people).where(eq(people.id, personId));
         const fill: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(person.fields)) {
+          if (key === 'phoneAlt') {
+            // Another number joins the others (0103) when it reads as one and isn't on file already: a form
+            // never relabels a number the business has, and a stray answer never sinks the submission.
+            const e164 = typeof value === 'string' ? normalizePhone(value) : null;
+            const onFile = [
+              existing?.phoneE164,
+              ...otherPhonesOf(existing?.otherPhones).map((p) => p.phone),
+            ];
+            if (e164 && !onFile.includes(e164)) fill[key] = value;
+            continue;
+          }
           const already = (existing as unknown as Record<string, unknown>)[key];
           if (already === null || already === undefined || already === '') fill[key] = value;
         }

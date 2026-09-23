@@ -23,13 +23,14 @@ export default async function InvoicePage({
     loadEditorCatalogs(shell.api, workspaceId),
   ]);
   const inv = data.invoice;
-  const editable = shell.canManage && inv.status === 'draft' && !inv.sentAt;
+  const editable = shell.canBill && inv.status === 'draft' && !inv.sentAt;
 
   if (!editable)
     return (
       <InvoiceDocument
         workspaceId={workspaceId}
         data={data}
+        canBill={shell.canBill}
         canManage={shell.canManage}
         timeZone={shell.timeZone}
         now={shell.now}

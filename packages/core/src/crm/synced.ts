@@ -13,6 +13,8 @@ import type { FileOut } from '../schemas/file';
 import type { LeadCard } from '../schemas/lead';
 import type { PersonSummary } from '../schemas/person';
 import type { TaskOut } from '../schemas/task';
+import type { OtherAddressOut, OtherEmailOut, OtherPhoneOut } from '../schemas/crm';
+import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from './contact-points';
 import { formatPhone } from './phone';
 import { isImageFile } from './file-words';
 import { taskDueBucket } from './task-words';
@@ -74,6 +76,22 @@ const userRef = (id: Cell, names: SyncedNames) => {
   return userId ? { id: userId, fullName: names.user(userId) ?? 'Former member' } : null;
 };
 
+/** Everyone else on a customer (0104), from the phone's copy: a Postgres array arrives as JSON text. */
+const teamOf = (ids: Cell, names: SyncedNames): { id: string; fullName: string }[] => {
+  const s = text(ids);
+  if (!s) return [];
+  let list: unknown;
+  try {
+    list = JSON.parse(s);
+  } catch {
+    // An array PowerSync didn't turn into JSON reads '{a,b}'.
+    list = s.replace(/^\{|\}$/g, '').split(',');
+  }
+  return (Array.isArray(list) ? list : [])
+    .filter((id): id is string => typeof id === 'string' && id.trim() !== '')
+    .map((id) => ({ id: id.trim(), fullName: names.user(id.trim()) ?? 'Former member' }));
+};
+
 const personRef = (id: Cell, names: SyncedNames) => {
   const personId = text(id);
   if (!personId) return null;
@@ -102,10 +120,16 @@ export interface SyncedPersonRow {
   readonly state: Cell;
   readonly postal_code: Cell;
   readonly country: Cell;
+  /** JSON text (0103); a phone that hasn't caught up has none. */
+  readonly other_emails?: Cell;
+  readonly other_phones?: Cell;
+  readonly other_addresses?: Cell;
   readonly notes: Cell;
   readonly source: Cell;
   readonly company_id: Cell;
   readonly owner_user_id: Cell;
+  /** A JSON array of ids (0104); a phone that hasn't caught up has none. */
+  readonly team_user_ids?: Cell;
   readonly archived_at: Cell;
   readonly possible_duplicate_of: Cell;
   readonly created_at: Cell;
@@ -127,6 +151,7 @@ export function personOfSynced(
 } {
   const first = words(row.first_name);
   const last = words(row.last_name);
+  const otherPhones = otherPhonesOut(row.other_phones ?? null);
   return {
     id: row.id,
     firstName: first,
@@ -135,7 +160,7 @@ export function personOfSynced(
     email: text(row.email),
     phone: text(row.phone) ?? (text(row.phone_e164) ? formatPhone(words(row.phone_e164)) : null),
     phoneE164: text(row.phone_e164),
-    phoneAlt: text(row.phone_alt),
+    phoneAlt: otherPhones[0]?.phone ?? text(row.phone_alt),
     address: {
       line1: text(row.address_line1),
       line2: text(row.address_line2),
@@ -145,9 +170,13 @@ export function personOfSynced(
       // The column is never empty on a saved record; a phone that hasn't caught up reads it as US, as the table does.
       country: text(row.country) ?? 'US',
     },
+    otherEmails: otherEmailsOut(row.other_emails ?? null),
+    otherPhones,
+    otherAddresses: otherAddressesOut(row.other_addresses ?? null),
     source: text(row.source),
     company: companyRef(row.company_id, names),
     owner: userRef(row.owner_user_id, names),
+    team: teamOf(row.team_user_ids, names),
     tags: [...names.tags(row.id)],
     openLeads: counts.openLeads ?? 0,
     lastActivityAt: counts.lastActivityAt ?? null,
@@ -172,9 +201,15 @@ export interface SyncedCompanyRow {
   readonly state: Cell;
   readonly postal_code: Cell;
   readonly country: Cell;
+  /** JSON text (0103); a phone that hasn't caught up has none. */
+  readonly other_emails?: Cell;
+  readonly other_phones?: Cell;
+  readonly other_addresses?: Cell;
   readonly notes: Cell;
   readonly source: Cell;
   readonly owner_user_id: Cell;
+  /** A JSON array of ids (0104); a phone that hasn't caught up has none. */
+  readonly team_user_ids?: Cell;
   readonly archived_at: Cell;
   readonly created_at: Cell;
   readonly updated_at: Cell;
@@ -195,9 +230,13 @@ export interface SyncedCompany {
     readonly postalCode: string | null;
     readonly country: string | null;
   };
+  readonly otherEmails: readonly OtherEmailOut[];
+  readonly otherPhones: readonly OtherPhoneOut[];
+  readonly otherAddresses: readonly OtherAddressOut[];
   readonly notes: string | null;
   readonly source: string | null;
   readonly owner: { readonly id: string; readonly fullName: string } | null;
+  readonly team: readonly { readonly id: string; readonly fullName: string }[];
   readonly tags: readonly TagRef[];
   readonly archivedAt: string | null;
   readonly createdAt: string;
@@ -220,9 +259,13 @@ export function companyOfSynced(row: SyncedCompanyRow, names: SyncedNames): Sync
       postalCode: text(row.postal_code),
       country: text(row.country),
     },
+    otherEmails: otherEmailsOut(row.other_emails ?? null),
+    otherPhones: otherPhonesOut(row.other_phones ?? null),
+    otherAddresses: otherAddressesOut(row.other_addresses ?? null),
     notes: text(row.notes),
     source: text(row.source),
     owner: userRef(row.owner_user_id, names),
+    team: teamOf(row.team_user_ids, names),
     tags: names.tags(row.id),
     archivedAt: time(row.archived_at),
     createdAt: timeOr(row.created_at, new Date(0).toISOString()),

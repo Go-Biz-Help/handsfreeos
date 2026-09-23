@@ -980,6 +980,136 @@
               }
             }
           },
+          "otherEmails": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "maxLength": 254
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["email"]
+            }
+          },
+          "otherPhones": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phone": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["phone"]
+            }
+          },
+          "otherAddresses": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line1": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line2": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "city": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 50
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "postalCode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 20
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "country": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                }
+              }
+            }
+          },
           "notes": {
             "anyOf": [
               {
@@ -1171,6 +1301,136 @@
               }
             }
           },
+          "otherEmails": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "maxLength": 254
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["email"]
+            }
+          },
+          "otherPhones": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phone": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["phone"]
+            }
+          },
+          "otherAddresses": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line1": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line2": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "city": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 50
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "postalCode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 20
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "country": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                }
+              }
+            }
+          },
           "notes": {
             "anyOf": [
               {
@@ -1321,6 +1581,60 @@
                     ]
                   }
                 }
+              },
+              "otherEmails": {
+                "anyOf": [
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "otherPhones": {
+                "anyOf": [
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "otherAddresses": {
+                "anyOf": [
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "notes": {
                 "anyOf": [
@@ -1531,6 +1845,11 @@
             "default": "sms",
             "type": "string",
             "enum": ["sms", "email"]
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 254
           }
         },
         "required": ["workspaceId", "personId"]
@@ -3420,6 +3739,136 @@
               }
             }
           },
+          "otherEmails": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "maxLength": 254
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["email"]
+            }
+          },
+          "otherPhones": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phone": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["phone"]
+            }
+          },
+          "otherAddresses": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line1": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line2": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "city": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 50
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "postalCode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 20
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "country": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                }
+              }
+            }
+          },
           "notes": {
             "anyOf": [
               {
@@ -3625,6 +4074,136 @@
               }
             }
           },
+          "otherEmails": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string",
+                  "maxLength": 254
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["email"]
+            }
+          },
+          "otherPhones": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phone": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["phone"]
+            }
+          },
+          "otherAddresses": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line1": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "line2": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "city": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 50
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "postalCode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 20
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "country": {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 2
+                }
+              }
+            }
+          },
           "notes": {
             "anyOf": [
               {
@@ -3797,6 +4376,60 @@
                     ]
                   }
                 }
+              },
+              "otherEmails": {
+                "anyOf": [
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "otherPhones": {
+                "anyOf": [
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "otherAddresses": {
+                "anyOf": [
+                  {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "notes": {
                 "anyOf": [
@@ -4909,9 +5542,13 @@
         "state": "text",
         "postal_code": "text",
         "country": "text",
+        "other_emails": "jsonb",
+        "other_phones": "jsonb",
+        "other_addresses": "jsonb",
         "notes": "text",
         "source": "text",
         "owner_user_id": "uuid",
+        "team_user_ids": "uuid[]",
         "archived_at": "timestamp with time zone",
         "possible_duplicate_of": "uuid",
         "field_times": "jsonb",
@@ -5263,9 +5900,13 @@
         "state": "text",
         "postal_code": "text",
         "country": "text",
+        "other_emails": "jsonb",
+        "other_phones": "jsonb",
+        "other_addresses": "jsonb",
         "notes": "text",
         "source": "text",
         "owner_user_id": "uuid",
+        "team_user_ids": "uuid[]",
         "archived_at": "timestamp with time zone",
         "sms_consent": "app.sms_consent",
         "sms_consent_at": "timestamp with time zone",
@@ -5888,7 +6529,8 @@
         "id": "text",
         "user_id": "uuid",
         "workspace_id": "uuid",
-        "role": "app.member_role"
+        "role": "app.member_role",
+        "permissions": "text[]"
       }
     }
   }

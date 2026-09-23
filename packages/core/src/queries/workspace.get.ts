@@ -42,6 +42,7 @@ export const workspaceGet = defineQuery({
         timezone: row.ws.timezone,
         industry: row.ws.industry,
         role: ctx.scope.workspaceRole ?? 'member',
+        permissions: [...(ctx.scope.workspacePermissions ?? [])],
         settings: row.ws.settings,
         inboxPerPerson:
           (

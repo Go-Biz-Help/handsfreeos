@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -17,7 +18,7 @@ export default async function NewCalendarPage({
   const { workspaceId } = await params;
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (got.workspace.role !== 'owner' && got.workspace.role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [me, members, services, resources] = await Promise.all([
     fetchMe(api),
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),

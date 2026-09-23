@@ -17,6 +17,7 @@ import {
   pipelineCreate,
   pipelineList,
   executeQuery,
+  recordAssign,
   tagCreate,
   taskComplete,
   taskCreate,
@@ -76,6 +77,18 @@ type Person = {
   tags?: string[];
   source?: string;
   notes?: string;
+  /** More ways to reach them than the main ones (0103). */
+  otherPhones?: { phone: string; label: string }[];
+  otherEmails?: { email: string; label: string }[];
+  otherAddresses?: {
+    label: string;
+    line1: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  }[];
+  /** Everyone else working with them besides whoever added them (0104). */
+  team?: ('dale' | 'priya' | 'marco')[];
 };
 
 const LONESTAR_COMPANIES: {
@@ -152,6 +165,19 @@ const LONESTAR_PEOPLE: Person[] = [
     tags: ['Residential', 'Referral'],
     source: 'Referral · Linda Okafor',
     notes: 'Prefers texts over calls. Gate code 4471.',
+    otherPhones: [{ phone: '713-555-0197', label: 'Work' }],
+    otherEmails: [{ email: 'mjohnson@johnsonroofing.example', label: 'Work' }],
+    otherAddresses: [
+      {
+        label: 'Rental',
+        line1: '2210 Taft St',
+        city: 'Houston',
+        state: 'TX',
+        postalCode: '77006',
+      },
+    ],
+    // Dale added him; Priya looks after the maintenance plan on his rental.
+    team: ['priya'],
   },
   {
     first: 'Sarah',
@@ -697,6 +723,9 @@ export async function seedCrm(
           source: p.source ?? null,
           notes: p.notes ?? null,
           ownerUserId: by.id,
+          otherPhones: p.otherPhones,
+          otherEmails: p.otherEmails,
+          otherAddresses: p.otherAddresses,
           ignoreDuplicates: true,
         },
         actor(by),
@@ -704,6 +733,19 @@ export async function seedCrm(
       ),
     );
     personIds.set(`${p.first} ${p.last}`, out.personId);
+    for (const name of p.team ?? [])
+      await executeCommand(
+        api,
+        recordAssign,
+        {
+          workspaceId: ls.id,
+          recordType: 'person',
+          recordId: out.personId,
+          userId: ls[name].id,
+        },
+        actor(by),
+        meta(),
+      );
   }
 
   step('Lone Star: a second pipeline for maintenance plans');

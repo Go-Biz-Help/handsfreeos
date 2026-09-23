@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import type { CurrentItem } from '@/components/knowledge/suggestion-card';
 import { SuggestionsBoard, type ReasonFilter } from '@/components/knowledge/suggestions-board';
@@ -46,7 +46,7 @@ export default async function KnowledgeSuggestionsPage({
   return (
     <SuggestionsBoard
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       items={pending.items}
       more={!!pending.nextCursor}
       current={Object.fromEntries(current.filter((c): c is readonly [string, CurrentItem] => !!c))}

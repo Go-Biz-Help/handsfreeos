@@ -5,8 +5,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  canBill,
   canManageMoney,
   COLLECTED_DAYS,
+  effectivePermissions,
   estimatesEmpty,
   headlineFigures,
   invoiceDueLabel,
@@ -40,16 +42,31 @@ const summary = (over: Partial<MoneySummaryFacts> = {}): MoneySummaryFacts => ({
 });
 
 describe('what a person may see', () => {
+  const owner = effectivePermissions('owner');
+  const admin = effectivePermissions('admin');
+  const member = effectivePermissions('member');
+  const billingMember = effectivePermissions('member', { 'money.bill': true });
+
   it('gives owners and admins the whole business, and a member their own jobs', () => {
-    expect(seesWholeBusiness('owner')).toBe(true);
-    expect(seesWholeBusiness('admin')).toBe(true);
-    expect(seesWholeBusiness('member')).toBe(false);
-    expect(canManageMoney('member')).toBe(false);
+    expect(seesWholeBusiness(owner)).toBe(true);
+    expect(seesWholeBusiness(admin)).toBe(true);
+    expect(seesWholeBusiness(member)).toBe(false);
+    expect(canManageMoney(member)).toBe(false);
+    expect(canBill(member)).toBe(false);
   });
 
-  it('keeps Payments and Plans, which are the business’s, off a member’s tabs', () => {
-    expect(moneyTabsFor('owner')).toEqual(['invoices', 'estimates', 'payments', 'plans']);
-    expect(moneyTabsFor('member')).toEqual(['invoices', 'estimates']);
+  it('lets a member the business lets bill write and send, still for their own jobs', () => {
+    expect(canBill(billingMember)).toBe(true);
+    expect(seesWholeBusiness(billingMember)).toBe(false);
+    // An admin the business keeps from money sees their own jobs only.
+    expect(seesWholeBusiness(effectivePermissions('admin', { 'money.manage': false }))).toBe(false);
+  });
+
+  it('keeps Payments, which are the business’s, off everyone’s tabs but whoever manages money', () => {
+    expect(moneyTabsFor(owner)).toEqual(['invoices', 'estimates', 'payments', 'plans']);
+    expect(moneyTabsFor(member)).toEqual(['invoices', 'estimates']);
+    // Someone who bills runs their customers' plans on the web: the phone's copy of plans is the managers'.
+    expect(moneyTabsFor(billingMember)).toEqual(['invoices', 'estimates']);
     expect(MONEY_TAB_LABELS.plans).toBe('Plans');
   });
 });

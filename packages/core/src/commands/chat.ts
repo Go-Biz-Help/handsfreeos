@@ -10,7 +10,7 @@
  * - People who work the inbox block a visitor, and can block their network for 7 days.
  */
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { chatVisitors, chatWidgets, conversations, messages, people } from '@hfos/db/schema';
 import {
@@ -35,6 +35,7 @@ import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { translateDbError } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
+import { matchPersonByEmail as matchPersonByEmailIn } from '../messaging/email';
 import { messagePreview } from '../messaging/sms';
 import {
   isOptedOut,
@@ -461,22 +462,9 @@ function splitName(name: string | null): [string, string] {
   return [parts.slice(0, -1).join(' ').slice(0, 80), parts[parts.length - 1]!.slice(0, 80)];
 }
 
-/** The customer with this email (the most recently touched one when several share it). */
-async function matchPersonByEmail(ctx: CommandContext, email: string): Promise<string | null> {
-  const [p] = await ctx.tx
-    .select({ id: people.id })
-    .from(people)
-    .where(
-      and(
-        eq(people.workspaceId, ctx.scope.workspaceId!),
-        eq(people.email, email),
-        isNull(people.archivedAt),
-      ),
-    )
-    .orderBy(desc(people.updatedAt))
-    .limit(1);
-  return p?.id ?? null;
-}
+/** The customer with this email, their main one or another on file (messaging/email's lookup). */
+const matchPersonByEmail = (ctx: CommandContext, email: string): Promise<string | null> =>
+  matchPersonByEmailIn(ctx.tx, ctx.scope.workspaceId!, email);
 
 /** Links the visitor's chat to the customer when it has none yet (the worker backfills its timeline). */
 async function linkChat(ctx: CommandContext, visitor: ChatVisitor, personId: string) {

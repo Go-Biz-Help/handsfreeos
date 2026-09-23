@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/shell/page-header';
 import { FormList } from '@/components/forms/form-list';
@@ -12,7 +12,7 @@ export default async function FormsPage({ params }: { params: Promise<{ workspac
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = hasWorkspacePermission(got.workspace.role, 'forms.manage');
+  const canManage = can(got.workspace.permissions, 'forms.manage');
   const [listRes, siteRes] = await Promise.all([
     api.POST('/v1/queries/form.list', { body: { workspaceId } }),
     api.POST('/v1/queries/booking_site.get', { body: { workspaceId } }),

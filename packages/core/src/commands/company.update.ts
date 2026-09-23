@@ -1,5 +1,17 @@
 import { and, eq } from 'drizzle-orm';
 import { companies } from '@hfos/db/schema';
+import {
+  addressKey,
+  emailKey,
+  listEdit,
+  otherAddressesOf,
+  otherEmailsOf,
+  otherPhonesOf,
+  phoneKey,
+  tidyOtherAddresses,
+  tidyOtherEmails,
+  tidyOtherPhones,
+} from '../crm/contact-points';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
@@ -11,6 +23,7 @@ import {
   type MergeKind,
 } from '../kernel/field-merge';
 import { CompanyUpdateInput, CompanyUpdateOutput } from '../schemas/company';
+import { requireAssigner } from './record.assign';
 
 export const companyUpdate = defineCommand({
   name: 'company.update',
@@ -44,6 +57,41 @@ export const companyUpdate = defineCommand({
       kind: MergeKind,
       label: string,
     ): MergeField => ({ key, column, value, base, kind, label });
+    // The main ones as they will stand, which the other lists never repeat.
+    const then = <T>(value: T | undefined, now: T): T => (value === undefined ? now : value);
+    const main = {
+      email: then(input.email, current.email),
+      phone: then(input.phone, current.phoneE164),
+      address: {
+        line1: then(address.line1, current.addressLine1),
+        line2: then(address.line2, current.addressLine2),
+        city: then(address.city, current.city),
+        state: then(address.state, current.state),
+        postalCode: then(address.postalCode, current.postalCode),
+      },
+    };
+    // Each list merges entry by entry with the row (0103), so two people adding a number at once both keep theirs.
+    const emails = listEdit(
+      input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
+      seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+      otherEmailsOf(current.otherEmails),
+      emailKey,
+      (l) => tidyOtherEmails(l, main.email),
+    );
+    const phones = listEdit(
+      input.otherPhones && tidyOtherPhones(input.otherPhones, main.phone),
+      seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+      otherPhonesOf(current.otherPhones),
+      phoneKey,
+      (l) => tidyOtherPhones(l, main.phone),
+    );
+    const addresses = listEdit(
+      input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
+      seen.otherAddresses === undefined ? undefined : otherAddressesOf(seen.otherAddresses ?? []),
+      otherAddressesOf(current.otherAddresses),
+      addressKey,
+      (l) => tidyOtherAddresses(l, main.address),
+    );
     const fields: MergeField[] = [
       field('name', 'name', input.name, seen.name, 'text', 'name'),
       field('email', 'email', input.email, seen.email, 'email', 'email'),
@@ -72,12 +120,24 @@ export const companyUpdate = defineCommand({
         'ZIP code',
       ),
       field('address.country', 'country', address.country, seenAddress.country, 'text', 'country'),
+      field('otherEmails', 'otherEmails', emails.value, emails.base, 'json', 'other emails'),
+      field('otherPhones', 'otherPhones', phones.value, phones.base, 'json', 'other numbers'),
+      field(
+        'otherAddresses',
+        'otherAddresses',
+        addresses.value,
+        addresses.base,
+        'json',
+        'other addresses',
+      ),
       field('notes', 'notes', input.notes, seen.notes, 'text', 'notes'),
       field('source', 'source', input.source, seen.source, 'text', 'source'),
       field('ownerUserId', 'ownerUserId', input.ownerUserId, seen.ownerUserId, 'id', 'owner'),
     ];
     const merged = mergeFields(current, fields, mergeColumns(companies), ctx.meta);
     const { patch } = merged;
+    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0104).
+    if ('ownerUserId' in patch && patch.ownerUserId !== current.ownerUserId) requireAssigner(ctx);
     const notApplied = merged.notApplied.map((n) => n.key);
     await logNotApplied(
       ctx,

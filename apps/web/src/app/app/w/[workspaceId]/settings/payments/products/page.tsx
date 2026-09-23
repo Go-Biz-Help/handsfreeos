@@ -1,4 +1,4 @@
-import { readMoneySettings } from '@hfos/core';
+import { can, readMoneySettings } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ProductsPage } from '@/components/money/products-page';
@@ -20,8 +20,7 @@ export default async function ProductsSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const role = got.workspace.role;
-  if (role !== 'owner' && role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'money.manage')) notFound();
   const [products, services, settings] = await Promise.all([
     api
       .POST('/v1/queries/product.list', { body: { workspaceId, includeArchived: true } })
@@ -32,7 +31,7 @@ export default async function ProductsSettingsPage({
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <ProductsPage
         workspaceId={workspaceId}
         products={products.products}

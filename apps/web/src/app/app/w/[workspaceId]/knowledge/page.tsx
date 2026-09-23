@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { KnowledgeOverview, type KindCount } from '@/components/knowledge/overview';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -50,7 +50,7 @@ export default async function KnowledgePage({
   return (
     <KnowledgeOverview
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       profile={unwrapPage(profile)}
       counts={counts}
       countsCapped={!!list.nextCursor}

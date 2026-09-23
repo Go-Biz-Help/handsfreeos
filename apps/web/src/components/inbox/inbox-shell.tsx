@@ -1,6 +1,7 @@
 'use client';
 import {
   boxLabel,
+  can,
   CONVERSATION_STATUSES,
   INBOX_BOXES,
   inboxEmptyWords,
@@ -27,7 +28,7 @@ import {
   useTeammateBrief,
   type TeammateBrief,
 } from '@/lib/ai-team/use-inbox';
-import type { ConversationStatus, ConversationSummary, Role } from '@/lib/api/types';
+import type { ConversationStatus, ConversationSummary } from '@/lib/api/types';
 import { useUnread } from '@/lib/realtime/unread-provider';
 import { cn } from '@/lib/utils';
 import { TeammateBoxes } from './ai-bits';
@@ -38,7 +39,8 @@ import { NewMessageDialog } from './new-message-dialog';
 interface InboxContextValue {
   readonly workspaceId: string;
   readonly myUserId: string;
-  readonly role: Role;
+  /** What the business lets them do (0106), as workspace.get gives it. */
+  readonly permissions: readonly string[];
   readonly members: { id: string; fullName: string }[];
   readonly timezone: string;
   /** Refetch the list after this browser changed a conversation (own changes don't come back live). */
@@ -65,7 +67,7 @@ export function useInbox(): InboxContextValue {
 export function InboxShell({
   workspaceId,
   myUserId,
-  role,
+  permissions,
   members,
   timezone,
   narrowed,
@@ -73,7 +75,7 @@ export function InboxShell({
 }: {
   workspaceId: string;
   myUserId: string;
-  role: Role;
+  permissions: readonly string[];
   members: { id: string; fullName: string }[];
   timezone: string;
   /** The business says each person sees their own threads (M17). Changes two words and one default. */
@@ -89,10 +91,11 @@ export function InboxShell({
     : null;
   const boxParam = params.get('box') ?? '';
   const statusParam = params.get('status') ?? '';
-  // Where a person lands with nothing in the address bar. A member of a business that has narrowed its inbox
-  // lands on their own threads, because that is what they came for; everybody else lands where they always
-  // have. Nothing is hidden either way — pressing Everyone still shows them what they may see.
-  const home: InboxBoxKey = narrowed && role === 'member' ? 'mine' : 'all';
+  // Where a person lands with nothing in the address bar. Someone who sees only their own threads in a business
+  // that has narrowed its inbox (everyone who doesn't set up the channels, 0106) lands on them, because that is
+  // what they came for; everybody else lands where they always have. Nothing is hidden either way — pressing
+  // Everyone still shows them what they may see.
+  const home: InboxBoxKey = narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';
   const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
     ? (boxParam as InboxBoxKey)
     : home;
@@ -170,7 +173,7 @@ export function InboxShell({
     () => ({
       workspaceId,
       myUserId,
-      role,
+      permissions,
       members,
       timezone,
       reloadList: list.reload,
@@ -178,7 +181,17 @@ export function InboxShell({
       listQuery,
       teammate,
     }),
-    [workspaceId, myUserId, role, members, timezone, list.reload, list.patch, listQuery, teammate],
+    [
+      workspaceId,
+      myUserId,
+      permissions,
+      members,
+      timezone,
+      list.reload,
+      list.patch,
+      listQuery,
+      teammate,
+    ],
   );
   const empty = inboxEmptyWords(
     archivedView ? 'archived' : box,

@@ -101,14 +101,17 @@ async function loadItem(ctx: CommandContext, itemId: string): Promise<AttentionI
 /** A person may take this action on this item: its permissions, and for an approval, deciding it. */
 async function assertMay(ctx: CommandContext, row: AttentionItemRow, action: AttentionAction) {
   if (ctx.actor.type !== 'human') return;
-  const role = ctx.scope.workspaceRole;
+  const who = {
+    role: ctx.scope.workspaceRole,
+    permissions: ctx.scope.workspacePermissions ?? null,
+  };
   const decidable =
     row.kind === 'ai_approval'
-      ? await decidableApprovals(ctx.tx, ctx.scope.workspaceId!, role, ctx.actor.userId, [
+      ? await decidableApprovals(ctx.tx, ctx.scope.workspaceId!, who, ctx.actor.userId, [
           row.subjectId,
         ])
       : new Set<string>();
-  if (!mayAct({ userId: ctx.actor.userId, role, decidable }, row, action))
+  if (!mayAct({ userId: ctx.actor.userId, ...who, decidable }, row, action))
     throw row.kind === 'ai_approval' && !decidable.has(row.subjectId)
       ? HfosError.forbidden(
           'Only the people who can decide this approval can act on it.',

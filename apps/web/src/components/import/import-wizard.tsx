@@ -106,8 +106,10 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
       const problems: string[] = [];
       if (!m.firstName && !m.lastName && !m.email && !m.phone) problems.push('empty');
       else if (!m.firstName && !m.lastName) problems.push('no name');
-      if (m.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m.email)) problems.push('bad email');
-      if (m.phone && !normalizePhone(m.phone)) problems.push('bad phone');
+      if ([m.email, ...m.otherEmails].some((e) => e && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)))
+        problems.push('bad email');
+      if ([m.phone, ...m.otherPhones].some((p) => p && !normalizePhone(p)))
+        problems.push('bad phone');
       return {
         row: i + 2,
         name: [m.firstName, m.lastName].filter(Boolean).join(' ') || '—',

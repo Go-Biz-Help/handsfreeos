@@ -1,5 +1,5 @@
 import {
-  hasWorkspacePermission,
+  holds,
   namesOfSynced,
   workflowApprovalOfSynced,
   type ApprovalFacts,
@@ -11,6 +11,7 @@ import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
 import { api, errorMessage } from '@/lib/api';
+import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 
 import type { ApprovalListItem, DraftListItem } from './api-types';
@@ -34,6 +35,7 @@ type WorkflowRow = SyncedWorkflowApprovalRow & {
 /** The workflow approvals waiting for this person, newest first, less the ones decided on this phone. */
 export function useWaitingWorkflowApprovals(now: number): readonly ApprovalFacts[] {
   const { business, userId } = useBusiness();
+  const who = useGrants();
   const { data } = useQuery<WorkflowRow>(WORKFLOW_APPROVALS_SQL, [business.id]);
   const users = useQuery<{ id: string; full_name: string | null; email: string | null }>(USERS_SQL);
   const decisions = useApprovalDecisions();
@@ -49,14 +51,15 @@ export function useWaitingWorkflowApprovals(now: number): readonly ApprovalFacts
       .map((r) =>
         workflowApprovalOfSynced(r, {
           names,
-          role: business.role,
+          role: who.role,
+          permissions: who.permissions,
           userId,
           now,
           item: r.item_title ? { title: r.item_title, personId: r.item_person_id } : null,
         }),
       )
       .filter((a) => a.canDecide && !decided.has(a.id));
-  }, [data, users.data, decisions, business.role, userId, now]);
+  }, [data, users.data, decisions, who, userId, now]);
 }
 
 export interface DecidedLately {
@@ -88,6 +91,7 @@ const kept = new Map<string, DecidedLately>();
  */
 export function useDecidedLately(refreshKey: number): DecidedLately {
   const { business, userId } = useBusiness();
+  const who = useGrants();
   const { online } = useNetwork();
   const [state, setState] = React.useState<DecidedLately>(() => kept.get(business.id) ?? EMPTY);
 
@@ -119,7 +123,7 @@ export function useDecidedLately(refreshKey: number): DecidedLately {
     ])
       .then(([approved, rejected, expired, drafts, progress]) => {
         if (cancelled) return;
-        const manages = hasWorkspacePermission(business.role, 'workflows.manage');
+        const manages = holds(who, 'workflows.manage');
         const at = (a: ApprovalListItem) => Date.parse(a.decidedAt ?? a.createdAt);
         const workflows = [...approved, ...rejected, ...expired]
           .filter((a) => manages || a.approvers.some((u) => u.id === userId))
@@ -142,7 +146,7 @@ export function useDecidedLately(refreshKey: number): DecidedLately {
     return () => {
       cancelled = true;
     };
-  }, [online, business.id, business.role, userId, refreshKey]);
+  }, [online, business.id, who, userId, refreshKey]);
 
   return state;
 }

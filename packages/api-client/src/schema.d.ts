@@ -2028,7 +2028,7 @@ export interface paths {
         put?: never;
         /**
          * Turn an estimate into an invoice. The lines are copied as they were agreed and the deposit is carried through as what to ask for first; ask for the deposit on its own and it is raised as a one-line deposit invoice instead.
-         * @description Risk level 2. Requires money.manage. Emits estimate.converted.
+         * @description Risk level 2. Requires money.bill. Emits estimate.converted.
          */
         post: operations["command_estimate_convert"];
         delete?: never;
@@ -2048,7 +2048,7 @@ export interface paths {
         put?: never;
         /**
          * Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It stays a draft until it is sent.
-         * @description Risk level 1. Requires money.manage. Emits estimate.created.
+         * @description Risk level 1. Requires money.bill. Emits estimate.created.
          */
         post: operations["command_estimate_create"];
         delete?: never;
@@ -2068,7 +2068,7 @@ export interface paths {
         put?: never;
         /**
          * Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval.
-         * @description Risk level 2. Requires money.manage. Emits estimate.accepted.
+         * @description Risk level 2. Requires money.bill. Emits estimate.accepted.
          */
         post: operations["command_estimate_mark_accepted"];
         delete?: never;
@@ -2088,7 +2088,7 @@ export interface paths {
         put?: never;
         /**
          * Send an estimate to the customer. It takes the next number, stamps when it went out and freezes: from here its number, its tax, its totals and its lines are what the customer was shown. The worker sends the text or the email with the link.
-         * @description Risk level 2. Requires money.manage. Emits estimate.sent. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 2. Requires money.bill. Emits estimate.sent. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_estimate_send"];
         delete?: never;
@@ -2108,7 +2108,7 @@ export interface paths {
         put?: never;
         /**
          * Save a draft estimate: its header and all of its lines at once, against the revision you loaded. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.
-         * @description Risk level 1. Requires money.manage. Emits estimate.updated.
+         * @description Risk level 1. Requires money.bill. Emits estimate.updated.
          */
         post: operations["command_estimate_update"];
         delete?: never;
@@ -2128,7 +2128,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw an estimate. Its number is kept and never used again — the gap is the record — and nothing about it can change afterwards.
-         * @description Risk level 2. Requires money.manage. Emits estimate.voided.
+         * @description Risk level 2. Requires money.bill. Emits estimate.voided.
          */
         post: operations["command_estimate_void"];
         delete?: never;
@@ -3088,7 +3088,7 @@ export interface paths {
         put?: never;
         /**
          * Start an invoice for a customer: its lines, a discount, what it is for and which connected account it is paid into. It stays a draft until it is sent. A deposit at booking, a plan’s cycle and a quick payment all make one of these.
-         * @description Risk level 1. Requires money.manage. Emits invoice.created.
+         * @description Risk level 1. Requires money.bill. Emits invoice.created.
          */
         post: operations["command_invoice_create"];
         delete?: never;
@@ -3108,7 +3108,7 @@ export interface paths {
         put?: never;
         /**
          * Record money taken off the system: cash, a cheque, or another way. It lands as a payment in your name and the invoice recounts itself — nobody marks an invoice paid by hand.
-         * @description Risk level 2. Requires money.manage. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.
+         * @description Risk level 2. Requires money.bill. Emits payment.recorded, invoice.paid. Can wait on a phone with no signal.
          */
         post: operations["command_invoice_record_cash_payment"];
         delete?: never;
@@ -3128,7 +3128,7 @@ export interface paths {
         put?: never;
         /**
          * Send an invoice to the customer. It takes the next number, works out its due date from the business’s terms if it hasn’t got one, stamps when it went out and freezes. The worker sends the text or the email with the link they pay on.
-         * @description Risk level 2. Requires money.manage. Emits invoice.sent. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 2. Requires money.bill. Emits invoice.sent. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_invoice_send"];
         delete?: never;
@@ -3148,7 +3148,7 @@ export interface paths {
         put?: never;
         /**
          * Save a draft invoice: its header and all of its lines at once, against the revision you loaded. A sent invoice can’t be edited — void it and reissue, so it says the same thing next year.
-         * @description Risk level 1. Requires money.manage. Emits invoice.updated.
+         * @description Risk level 1. Requires money.bill. Emits invoice.updated.
          */
         post: operations["command_invoice_update"];
         delete?: never;
@@ -3168,7 +3168,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw an invoice. Its number is kept and never used again. Money paid on it is refunded first — the money moved, and the ledger has to say so — and once everything paid has been given back it can be voided and a new invoice sent in its place.
-         * @description Risk level 2. Requires money.manage. Emits invoice.voided.
+         * @description Risk level 2. Requires money.bill. Emits invoice.voided.
          */
         post: operations["command_invoice_void"];
         delete?: never;
@@ -4497,6 +4497,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/payment_connection.set_access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose who may bill into a connected account: everyone who bills, only the people chosen, or only them — and they bill into nothing that is open to everyone. For a team whose people are each paid into their own account.
+         * @description Risk level 2. Requires money.manage. Emits payment_connection.access_set.
+         */
+        post: operations["command_payment_connection_set_access"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/payment_connection.set_default": {
         parameters: {
             query?: never;
@@ -4551,6 +4571,66 @@ export interface paths {
          * @description Risk level 3. Requires money.manage. Emits refund.requested.
          */
         post: operations["command_payment_refund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/permission.reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put every permission for the Admin or Member role back to the default, or every permission for one person back to what their role says. Owners only.
+         * @description Risk level 3. Requires permissions.manage. Emits permission.reset.
+         */
+        post: operations["command_permission_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/permission.set_member": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn one permission on or off for one person in this business, whatever their role says, or (allowed null) back to what their role says. Not for owners. Owners only.
+         * @description Risk level 3. Requires permissions.manage. Emits permission.member_set.
+         */
+        post: operations["command_permission_set_member"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/permission.set_role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn one permission on or off for everyone with the Admin or Member role in this business, or (allowed null) back to the default. A person’s own setting still wins. Owners only.
+         * @description Risk level 3. Requires permissions.manage. Emits permission.role_set.
+         */
+        post: operations["command_permission_set_role"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5097,6 +5177,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/record.assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a customer or a company to someone on the team (whoever the business lets choose who is on a customer: owners and admins unless it says otherwise). They join its team, or become its owner when it has none; with main, they become the owner and the owner stays on it. Being on a customer shows a member that customer’s threads and bills; being on a company marks who works with it.
+         * @description Risk level 1. Requires records.assign. Emits person.updated, company.updated.
+         */
+        post: operations["command_record_assign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.remove_tag": {
         parameters: {
             query?: never;
@@ -5151,6 +5251,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits record.tags_changed.
          */
         post: operations["command_record_set_tags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/record.unassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a customer or a company (owners and admins). Taking the owner off makes the next person on its team the owner.
+         * @description Risk level 1. Requires records.assign. Emits person.updated, company.updated.
+         */
+        post: operations["command_record_unassign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5708,7 +5828,7 @@ export interface paths {
         put?: never;
         /**
          * End a plan. The worker cancels it at the provider, so nothing is billed again; what has already been billed stays on the ledger.
-         * @description Risk level 3. Requires money.manage. Emits subscription.cancelled.
+         * @description Risk level 3. Requires money.bill. Emits subscription.cancelled.
          */
         post: operations["command_subscription_cancel"];
         delete?: never;
@@ -5728,7 +5848,7 @@ export interface paths {
         put?: never;
         /**
          * Pause a plan: nothing is billed until it is resumed. The worker pauses it at the provider too.
-         * @description Risk level 2. Requires money.manage. Emits subscription.paused.
+         * @description Risk level 2. Requires money.bill. Emits subscription.paused.
          */
         post: operations["command_subscription_pause"];
         delete?: never;
@@ -5748,7 +5868,7 @@ export interface paths {
         put?: never;
         /**
          * Ask the customer to put a card on their plan, by text, by email, or just to get the link. The plan waits until they do; asking again keeps the same link working.
-         * @description Risk level 2. Requires money.manage. Emits subscription.card_requested. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 2. Requires money.bill. Emits subscription.card_requested. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_subscription_request_card"];
         delete?: never;
@@ -5768,7 +5888,7 @@ export interface paths {
         put?: never;
         /**
          * Start a paused plan billing again, from the next cycle.
-         * @description Risk level 2. Requires money.manage. Emits subscription.resumed.
+         * @description Risk level 2. Requires money.bill. Emits subscription.resumed.
          */
         post: operations["command_subscription_resume"];
         delete?: never;
@@ -5788,7 +5908,7 @@ export interface paths {
         put?: never;
         /**
          * Change which connected account a plan bills through. Only a plan the provider does not hold yet, or one left unmanaged when its account went away: a live plan lives inside one provider account and cannot be moved, so that is cancelled and started again instead.
-         * @description Risk level 2. Requires money.manage. Emits subscription.connection_changed.
+         * @description Risk level 2. Requires money.bill. Emits subscription.connection_changed.
          */
         post: operations["command_subscription_set_connection"];
         delete?: never;
@@ -5808,7 +5928,7 @@ export interface paths {
         put?: never;
         /**
          * Put a customer on a maintenance plan. The plan is copied as it is sold today, so repricing the catalogue never reprices them. It starts as a draft; the worker sets it up at the provider and the first cycle makes it live.
-         * @description Risk level 3. Requires money.manage. Emits subscription.started.
+         * @description Risk level 3. Requires money.bill. Emits subscription.started.
          */
         post: operations["command_subscription_start"];
         delete?: never;
@@ -6307,7 +6427,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Delete a task you created (owners and admins can delete any).
+         * Delete a task you created (anyone the business lets archive records can delete any).
          * @description Risk level 2. Requires records.write. Emits task.deleted. Can wait on a phone with no signal.
          */
         post: operations["command_task_delete"];
@@ -7427,7 +7547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your profile plus every organization and workspace you can reach, with your role in each.
+         * Your profile plus every organization and workspace you can reach, with your role and what you may do in each.
          * @description Any signed-in user.
          */
         post: operations["query_account_me"];
@@ -8267,7 +8387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones on the leads they own; owners and admins see them all.
+         * Estimates, newest first, with what each comes to and where it stands (opened, approved, declined, expired). A member sees the ones for the customers and leads they are on; whoever manages money sees them all.
          * @description Requires money.read.
          */
         post: operations["query_estimate_list"];
@@ -9188,7 +9308,7 @@ export interface paths {
         put?: never;
         /**
          * The money settings, every default filled in: the sales tax and what it is called, numbering with a live preview of the next number, terms and notes, how long an estimate stays good, the deposit and the reminders.
-         * @description Requires money.manage.
+         * @description Requires money.bill.
          */
         post: operations["query_money_settings"];
         delete?: never;
@@ -9207,7 +9327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Owners and admins only: the whole business’s receivables are exactly what the member rule withholds.
+         * What the business is owed, what is late, what is on its way, what it has collected lately, what is quoted and out, and what its plans bill each month. Only for whoever manages money: the whole business’s receivables are exactly what the member rule withholds.
          * @description Requires money.manage.
          */
         post: operations["query_money_summary"];
@@ -9268,7 +9388,7 @@ export interface paths {
         put?: never;
         /**
          * The payment accounts a business has connected, which one is the default, what each can do and how many plans still bill through it. Never a token: those columns are not granted to people at all.
-         * @description Requires money.manage.
+         * @description Requires money.bill.
          */
         post: operations["query_payment_connection_list"];
         delete?: never;
@@ -9291,6 +9411,26 @@ export interface paths {
          * @description Requires money.read.
          */
         post: operations["query_payment_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/permission.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the Admin and Member roles may do in this business, with the business’s own settings for them, and what each person may do, with theirs. Owners only.
+         * @description Requires permissions.manage.
+         */
+        post: operations["query_permission_settings"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9728,7 +9868,7 @@ export interface paths {
         put?: never;
         /**
          * One plan a customer is on, and the invoices its cycles have raised.
-         * @description Requires money.manage.
+         * @description Requires money.bill.
          */
         post: operations["query_subscription_get"];
         delete?: never;
@@ -9747,8 +9887,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The maintenance plans customers are on: what each bills, when it next bills and where it stands. A plan is money a business is owed every month, so it is owners and admins only.
-         * @description Requires money.manage.
+         * The maintenance plans customers are on: what each bills, when it next bills and where it stands. Whoever manages money sees every plan; someone who only bills sees the plans of the customers they bill.
+         * @description Requires money.bill.
          */
         post: operations["query_subscription_list"];
         delete?: never;
@@ -13600,6 +13740,23 @@ export interface operations {
                     importRow?: number;
                     name: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     phone?: string | null;
                     source?: string | null;
@@ -13687,6 +13844,15 @@ export interface operations {
                         email?: string | null;
                         name?: string | null;
                         notes?: string | null;
+                        otherAddresses?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherEmails?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherPhones?: {
+                            [key: string]: unknown;
+                        }[] | null;
                         ownerUserId?: string | null;
                         phone?: string | null;
                         source?: string | null;
@@ -13697,6 +13863,23 @@ export interface operations {
                     email?: string | null;
                     name?: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     phone?: string | null;
                     source?: string | null;
@@ -14016,6 +14199,7 @@ export interface operations {
                     channel?: "sms" | "email";
                     /** Format: uuid */
                     personId: string;
+                    to?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -20185,6 +20369,46 @@ export interface operations {
             };
         };
     };
+    command_payment_connection_set_access: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** @enum {string} */
+                    usedBy: "everyone" | "chosen" | "only_theirs";
+                    /** @default [] */
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        connectionId: string;
+                        isDefault: boolean;
+                        /** @enum {string} */
+                        status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
     command_payment_connection_set_default: {
         parameters: {
             query?: never;
@@ -20301,6 +20525,110 @@ export interface operations {
             };
         };
     };
+    command_permission_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    role?: "admin" | "member";
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        effective: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_permission_set_member: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    allowed: boolean | null;
+                    /** @enum {string} */
+                    permission: "records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        effective: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_permission_set_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    allowed: boolean | null;
+                    /** @enum {string} */
+                    permission: "records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove";
+                    /** @enum {string} */
+                    role: "admin" | "member";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        effective: string[];
+                    };
+                };
+            };
+        };
+    };
     command_person_archive: {
         parameters: {
             query?: never;
@@ -20368,6 +20696,23 @@ export interface operations {
                     /** @default  */
                     lastName?: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     phone?: string | null;
                     phoneAlt?: string | null;
@@ -20493,6 +20838,15 @@ export interface operations {
                         firstName?: string | null;
                         lastName?: string | null;
                         notes?: string | null;
+                        otherAddresses?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherEmails?: {
+                            [key: string]: unknown;
+                        }[] | null;
+                        otherPhones?: {
+                            [key: string]: unknown;
+                        }[] | null;
                         ownerUserId?: string | null;
                         phone?: string | null;
                         phoneAlt?: string | null;
@@ -20503,6 +20857,23 @@ export interface operations {
                     firstName?: string;
                     lastName?: string;
                     notes?: string | null;
+                    otherAddresses?: {
+                        city?: string | null;
+                        country?: string;
+                        label?: string | null;
+                        line1?: string | null;
+                        line2?: string | null;
+                        postalCode?: string | null;
+                        state?: string | null;
+                    }[];
+                    otherEmails?: {
+                        email: string;
+                        label?: string | null;
+                    }[];
+                    otherPhones?: {
+                        label?: string | null;
+                        phone: string;
+                    }[];
                     ownerUserId?: string | null;
                     /** Format: uuid */
                     personId: string;
@@ -21424,6 +21795,53 @@ export interface operations {
             };
         };
     };
+    command_record_assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    main?: boolean;
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_record_remove_tag: {
         parameters: {
             query?: never;
@@ -21548,6 +21966,51 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_record_unassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recordId: string;
+                    /** @enum {string} */
+                    recordType: "person" | "company";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        owner: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                        } | null;
+                        team: {
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
                         }[];
                     };
                 };
@@ -26448,6 +26911,7 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
+                            permissions: string[];
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             slug: string;
@@ -29332,6 +29796,24 @@ export interface operations {
                             name: string;
                             notes: string | null;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -29346,6 +29828,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -29374,6 +29861,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    assignedUserId?: string;
                     cursor?: string;
                     /** @default false */
                     includeArchived?: boolean;
@@ -29412,6 +29901,24 @@ export interface operations {
                             id: string;
                             name: string;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -29426,6 +29933,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -32110,6 +32622,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     attendeeId?: string;
+                    connectionId?: string | null;
                     cursor?: string;
                     /** Format: uuid */
                     leadId?: string;
@@ -33967,6 +34480,10 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
                             tokenExpiresAt: string | null;
+                            usableByMe: boolean;
+                            /** @enum {string} */
+                            usedBy: "everyone" | "chosen" | "only_theirs";
+                            userIds: string[];
                         }[];
                     };
                 };
@@ -33983,6 +34500,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    connectionId?: string | null;
                     cursor?: string;
                     /** Format: uuid */
                     invoiceId?: string;
@@ -34051,6 +34569,54 @@ export interface operations {
             };
         };
     };
+    query_permission_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            effective: string[];
+                            email: string;
+                            fullName: string;
+                            /** @enum {string} */
+                            role: "owner" | "admin" | "member";
+                            settings: {
+                                [key: string]: boolean;
+                            };
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        roles: {
+                            effective: string[];
+                            /** @enum {string} */
+                            role: "admin" | "member";
+                            settings: {
+                                [key: string]: boolean;
+                            };
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_person_get: {
         parameters: {
             query?: never;
@@ -34106,6 +34672,24 @@ export interface operations {
                             lastName: string;
                             notes: string | null;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -34120,6 +34704,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -34139,6 +34728,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    assignedUserId?: string;
                     /** Format: uuid */
                     companyId?: string;
                     cursor?: string;
@@ -34195,6 +34786,24 @@ export interface operations {
                             lastActivityAt: string | null;
                             lastName: string;
                             openLeads: number;
+                            otherAddresses: {
+                                city: string | null;
+                                country: string;
+                                label: string | null;
+                                line1: string | null;
+                                line2: string | null;
+                                postalCode: string | null;
+                                state: string | null;
+                            }[];
+                            otherEmails: {
+                                email: string;
+                                label: string | null;
+                            }[];
+                            otherPhones: {
+                                label: string | null;
+                                phone: string;
+                                phoneE164: string;
+                            }[];
                             owner: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -34209,6 +34818,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
+                            }[];
+                            team: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
                             }[];
                             /** Format: date-time */
                             updatedAt: string;
@@ -35471,6 +36085,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    connectionId?: string | null;
                     cursor?: string;
                     /** @default 25 */
                     limit?: number;
@@ -37358,6 +37973,7 @@ export interface operations {
                             /** Format: uuid */
                             organizationId: string;
                             organizationName: string;
+                            permissions: string[];
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             settings: {
@@ -37445,6 +38061,7 @@ export interface operations {
                             fullName: string;
                             /** Format: date-time */
                             joinedAt: string;
+                            permissions: string[];
                             /** @enum {string} */
                             role: "owner" | "admin" | "member";
                             /** Format: uuid */
@@ -37456,6 +38073,7 @@ export interface operations {
                             fullName: string;
                             /** @enum {string} */
                             orgRole: "owner" | "admin";
+                            permissions: string[];
                             /** Format: uuid */
                             userId: string;
                         }[];

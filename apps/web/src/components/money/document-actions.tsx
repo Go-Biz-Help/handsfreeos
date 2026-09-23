@@ -11,6 +11,7 @@ import { Input, Select } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { PaymentConnectionRow, PaymentRow } from '@/lib/api/types';
+import { accountsFor, firstAccount } from './draft';
 import { MoneyInput } from './money-input';
 
 type Person = { fullName: string; email: string | null; phone: string | null };
@@ -152,9 +153,9 @@ export function ConvertDialog({
 }) {
   const router = useRouter();
   const [purpose, setPurpose] = useState<'standard' | 'deposit'>('standard');
-  const [connectionId, setConnectionId] = useState(
-    connections.find((c) => c.isDefault)?.id ?? connections[0]?.id ?? '',
-  );
+  // Only the accounts this person may bill into (0105), theirs by default.
+  const payable = accountsFor(connections);
+  const [connectionId, setConnectionId] = useState(firstAccount(connections)?.id ?? '');
   const [busy, act] = useAction();
 
   return (
@@ -178,14 +179,14 @@ export function ConvertDialog({
               </Select>
             </Field>
           ) : null}
-          {connections.length > 0 ? (
+          {payable.length > 0 ? (
             <Field label="Paid into" htmlFor="convert-connection">
               <Select
                 id="convert-connection"
                 value={connectionId}
                 onChange={(e) => setConnectionId(e.target.value)}
               >
-                {connections.map((c) => (
+                {payable.map((c) => (
                   <option key={c.id} value={c.id}>
                     {connectionLabel(c)}
                   </option>

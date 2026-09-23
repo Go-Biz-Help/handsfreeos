@@ -5,7 +5,7 @@
  * (`queries/attention.ts`) and the phone (`apps/mobile/src/home`) both build the list here.
  */
 import { localDateOf, startOfLocalDay } from '../calendar/engine/zoned';
-import { hasWorkspacePermission, type WorkspaceRole } from '../permissions';
+import { holds, type Grants, type WorkspaceRole } from '../permissions';
 import type { AttentionItemOut, AttentionListOutput } from '../schemas/attention';
 import { chipText } from './chips';
 import {
@@ -78,8 +78,8 @@ export const DONE_RESOLUTIONS = [
 ] as const;
 const DONE: ReadonlySet<string> = new Set(DONE_RESOLUTIONS);
 
-/** Who is looking: their role, and the approval items they may decide. */
-export interface AttentionViewer {
+/** Who is looking: their role and what the business lets them do, and the approval items they may decide. */
+export interface AttentionViewer extends Grants {
   readonly userId: string;
   readonly role: WorkspaceRole | null;
   /** Subject ids of the approval items this person may decide. */
@@ -98,16 +98,10 @@ export interface ApprovalDecider {
  * Whether a person may decide an approval: a workflow's by the people it names or anyone who manages workflows; a
  * teammate's reply draft by anyone in the inbox, what it asks approval for by owners and admins.
  */
-export function mayDecideApproval(
-  role: WorkspaceRole | null,
-  userId: string,
-  a: ApprovalDecider,
-): boolean {
+export function mayDecideApproval(who: Grants, userId: string, a: ApprovalDecider): boolean {
   if (a.source === 'workflow')
-    return hasWorkspacePermission(role, 'workflows.manage') || (a.approvers ?? []).includes(userId);
-  return a.kind === 'approval'
-    ? hasWorkspacePermission(role, 'ai_team.manage')
-    : hasWorkspacePermission(role, 'inbox.use');
+    return holds(who, 'workflows.manage') || (a.approvers ?? []).includes(userId);
+  return a.kind === 'approval' ? holds(who, 'ai_team.manage') : holds(who, 'inbox.use');
 }
 
 /**
@@ -117,7 +111,7 @@ export function mayDecideApproval(
 export const visibleTo = (v: AttentionViewer, item: Pick<AttentionRow, 'kind' | 'subjectId'>) =>
   item.kind === 'ai_approval'
     ? v.decidable.has(item.subjectId)
-    : item.kind !== 'revenue_moved' || hasWorkspacePermission(v.role, 'money.manage');
+    : item.kind !== 'revenue_moved' || holds(v, 'money.manage');
 
 /** Whether the viewer may take an action on an item (its permissions, and deciding an approval). */
 export function mayAct(
@@ -125,7 +119,7 @@ export function mayAct(
   item: Pick<AttentionRow, 'kind' | 'subjectId'>,
   action: AttentionAction,
 ): boolean {
-  return visibleTo(v, item) && mayTakeAttentionAction(v.role, item.kind as AttentionKind, action);
+  return visibleTo(v, item) && mayTakeAttentionAction(v, item.kind as AttentionKind, action);
 }
 
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);

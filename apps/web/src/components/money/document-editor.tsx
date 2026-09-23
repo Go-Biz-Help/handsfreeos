@@ -31,10 +31,12 @@ import type { PaymentConnectionRow, ProductRow } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { connectionLabel, SendDialog, VoidDialog } from './document-actions';
 import {
+  accountsFor,
   depositTerms,
   draftBody,
   draftProblem,
   draftTotals,
+  firstAccount,
   newLine,
   type DocumentDraft,
   type DraftLine,
@@ -112,6 +114,13 @@ export function DocumentEditor(props: DocumentEditorProps) {
     watch.observe(bar);
     return () => watch.disconnect();
   }, [bar]);
+
+  // The accounts this person may bill into, and the one the invoice was opened with (0105).
+  const payable = useMemo(
+    () => accountsFor(connections, initial.connectionId),
+    [connections, initial.connectionId],
+  );
+  const theirs = firstAccount(connections);
 
   const set = (patch: Partial<DocumentDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const setLine = (key: string, patch: Partial<DraftLine>) =>
@@ -397,7 +406,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
               ) : null}
             </Row>
             <Row label="Paid into">
-              {kind === 'invoice' && connections.length > 0 ? (
+              {kind === 'invoice' && payable.length > 0 ? (
                 <Select
                   selectSize="sm"
                   aria-label="Paid into"
@@ -405,20 +414,29 @@ export function DocumentEditor(props: DocumentEditorProps) {
                   onChange={(e) => set({ connectionId: e.target.value || null })}
                   data-testid="document-connection"
                 >
-                  {connections.map((c) => (
+                  {payable.map((c) => (
                     <option key={c.id} value={c.id}>
                       {connectionLabel(c)}
                       {c.isDefault ? ' · default' : ''}
+                      {c.usableByMe ? '' : ' · not yours'}
                     </option>
                   ))}
                 </Select>
-              ) : connections.length > 0 ? (
+              ) : theirs ? (
                 <span className="flex flex-1 items-center gap-2 text-[13px]">
-                  <span className="font-semibold">
-                    {connectionLabel(connections.find((c) => c.isDefault) ?? connections[0]!)}
-                  </span>
-                  <Badge variant="owner">Default</Badge>
+                  <span className="font-semibold">{connectionLabel(theirs)}</span>
+                  {theirs.isDefault ? <Badge variant="owner">Default</Badge> : null}
                   <span className="text-text-3">Chosen when you turn this into an invoice.</span>
+                </span>
+              ) : connections.length > 0 ? (
+                <span className="flex-1 text-[13px] text-text-3" data-testid="document-no-account">
+                  None of the connected accounts is yours to bill into.{' '}
+                  <Link
+                    href={`/app/w/${workspaceId}/settings/payments`}
+                    className="font-medium text-accent-text hover:underline"
+                  >
+                    See who uses them
+                  </Link>
                 </span>
               ) : (
                 <span className="flex-1 text-[13px] text-text-3">

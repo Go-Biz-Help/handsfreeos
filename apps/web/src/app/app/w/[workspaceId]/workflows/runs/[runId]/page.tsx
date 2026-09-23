@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RunDetail } from '@/components/workflows/runs/run-detail';
@@ -31,7 +31,7 @@ export default async function WorkflowRunPage({
       initial={unwrapPage(run)}
       catalogs={loaded}
       timeZone={loaded.timeZone}
-      canManage={hasWorkspacePermission(got.workspace.role, 'workflows.manage')}
+      canManage={can(got.workspace.permissions, 'workflows.manage')}
     />
   );
 }

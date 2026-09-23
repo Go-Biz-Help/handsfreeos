@@ -1259,11 +1259,14 @@ export const onInvoicePaid: EventHandler = async (ctx) => {
   const people = (
     await rows<PaidRecipient>(
       ctx.tx,
+      // Whoever manages the business's money (0106: owners and admins unless it says otherwise), and whoever the
+      // invoice is assigned to. Someone the business keeps from money isn't told what came in.
       sql`select u.id, u.email::text as email, u.settings
           from app.users u
           join app.workspace_memberships wm on wm.user_id = u.id
+          join app.workspace_access wa on wa.user_id = wm.user_id and wa.workspace_id = wm.workspace_id
           where wm.workspace_id = ${scope.workspaceId}
-            and (wm.role in ('owner', 'admin') or u.id = ${invoice.assignee_user_id}::uuid)
+            and (wa.manages_money or u.id = ${invoice.assignee_user_id}::uuid)
           order by u.email`,
     )
   ).filter(wantsPaidEmail);

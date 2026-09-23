@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import type { CurrentItem } from '@/components/knowledge/suggestion-card';
 import { WebsiteScan } from '@/components/knowledge/website-scan';
@@ -41,7 +41,7 @@ export default async function KnowledgeWebsitePage({
   return (
     <WebsiteScan
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       source={source}
       scan={scan}
       suggestions={suggestions}

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { Linking, View } from 'react-native';
 
 import { savePerson, type PersonEdit } from '@/customers/actions';
+import { assignedWords, contactDetails, otherPhoneLines } from '@/customers/contact-lines';
 import { PERSON_CONVERSATIONS_SQL } from '@/customers/queries';
 import { useRecord } from '@/customers/use-record';
 import {
@@ -147,6 +148,8 @@ export default function PersonScreen() {
           },
         }
       : null,
+    // Their other numbers (0103), each a tap from a call like the main one.
+    ...otherPhoneLines(person),
     person.email ? { key: 'email-line', text: person.email } : null,
     data.address ? { key: 'address', text: data.address } : null,
   ].filter((c): c is { key: string; text: string; onPress?: () => void } => c !== null);
@@ -207,11 +210,13 @@ export default function PersonScreen() {
         tab={tab}
         onTab={setTab}
         details={[
-          { label: RECORD_WORDS.labels.phone, value: person.phone },
-          { label: RECORD_WORDS.labels.email, value: person.email },
-          { label: RECORD_WORDS.labels.address, value: data.address },
+          ...contactDetails(person, {
+            phone: person.phone,
+            email: person.email,
+            address: data.address,
+          }),
           { label: RECORD_WORDS.labels.company, value: person.company?.name ?? null },
-          { label: RECORD_WORDS.labels.owner, value: person.owner?.fullName ?? null },
+          { label: RECORD_WORDS.labels.assignedTo, value: assignedWords(person) },
           { label: RECORD_WORDS.labels.source, value: person.source },
           { label: RECORD_WORDS.labels.created, value: formatDate(person.createdAt) },
           { label: RECORD_WORDS.labels.notes, value: person.notes },

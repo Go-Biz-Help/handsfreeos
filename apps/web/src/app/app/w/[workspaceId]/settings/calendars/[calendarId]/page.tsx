@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarBuilder } from '@/components/calendars/builder';
@@ -21,7 +22,7 @@ export default async function CalendarBuilderPage({
   if (!ID.test(calendarId)) notFound();
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  if (got.workspace.role !== 'owner' && got.workspace.role !== 'admin') notFound();
+  if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const now = Date.now();
   const [cal, members, team, services, resources, territories, pipelines] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } })),

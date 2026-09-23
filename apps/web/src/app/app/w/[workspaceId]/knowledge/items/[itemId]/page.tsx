@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { ItemEditor } from '@/components/knowledge/item-editor';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -23,7 +23,7 @@ export default async function KnowledgeItemPage({
     <ItemEditor
       key={`${item.id}:${item.updatedAt}`}
       workspaceId={workspaceId}
-      canManage={hasWorkspacePermission(workspace.role, 'knowledge.manage')}
+      canManage={can(workspace.permissions, 'knowledge.manage')}
       item={item}
       newKind={null}
     />

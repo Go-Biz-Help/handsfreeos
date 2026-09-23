@@ -285,9 +285,13 @@ export const syncedTables = {
       state: column.text,
       postal_code: column.text,
       country: column.text,
+      other_emails: column.text,
+      other_phones: column.text,
+      other_addresses: column.text,
       notes: column.text,
       source: column.text,
       owner_user_id: column.text,
+      team_user_ids: column.text,
       archived_at: column.text,
       possible_duplicate_of: column.text,
       field_times: column.text,
@@ -680,9 +684,13 @@ export const syncedTables = {
       state: column.text,
       postal_code: column.text,
       country: column.text,
+      other_emails: column.text,
+      other_phones: column.text,
+      other_addresses: column.text,
       notes: column.text,
       source: column.text,
       owner_user_id: column.text,
+      team_user_ids: column.text,
       archived_at: column.text,
       sms_consent: column.text,
       sms_consent_at: column.text,
@@ -976,6 +984,7 @@ export const syncedTables = {
       user_id: column.text,
       workspace_id: column.text,
       role: column.text,
+      permissions: column.text,
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
@@ -1427,10 +1436,18 @@ export interface CompaniesRow {
   readonly state: string | null;
   readonly postal_code: string | null;
   readonly country: string | null;
+  /** jsonb: JSON text here */
+  readonly other_emails: string | null;
+  /** jsonb: JSON text here */
+  readonly other_phones: string | null;
+  /** jsonb: JSON text here */
+  readonly other_addresses: string | null;
   readonly notes: string | null;
   readonly source: string | null;
   /** uuid */
   readonly owner_user_id: string | null;
+  /** uuid[]: a JSON array here */
+  readonly team_user_ids: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly archived_at: string | null;
   /** uuid */
@@ -2034,10 +2051,18 @@ export interface PeopleRow {
   readonly state: string | null;
   readonly postal_code: string | null;
   readonly country: string | null;
+  /** jsonb: JSON text here */
+  readonly other_emails: string | null;
+  /** jsonb: JSON text here */
+  readonly other_phones: string | null;
+  /** jsonb: JSON text here */
+  readonly other_addresses: string | null;
   readonly notes: string | null;
   readonly source: string | null;
   /** uuid */
   readonly owner_user_id: string | null;
+  /** uuid[]: a JSON array here */
+  readonly team_user_ids: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly archived_at: string | null;
   /** app.sms_consent */
@@ -2476,6 +2501,8 @@ export interface WorkspaceAccessRow {
   readonly workspace_id: string | null;
   /** app.member_role */
   readonly role: string | null;
+  /** text[]: a JSON array here */
+  readonly permissions: string | null;
 }
 
 /** A row of `workspace_memberships` (business_v1). */

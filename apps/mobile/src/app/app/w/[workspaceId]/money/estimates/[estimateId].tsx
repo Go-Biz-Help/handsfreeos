@@ -1,6 +1,5 @@
 import {
   BALANCE_AFTER_ROW_LABEL,
-  canManageMoney,
   dayLabel,
   DEPOSIT_ROW_LABEL,
   estimateStanding,
@@ -37,7 +36,8 @@ import { useEstimate, useMoneyNow, useMoneyRole, useMoneyZone } from '@/money/us
 export default function Estimate() {
   const { estimateId } = useLocalSearchParams<{ estimateId: string }>();
   const { business } = useBusiness();
-  const { role } = useMoneyRole();
+  // Sending it and copying its link are billing (money.bill, 0106).
+  const { bill: manage } = useMoneyRole();
   const timeZone = useMoneyZone();
   const now = useMoneyNow();
   const { estimate, lines, loading } = useEstimate(estimateId);
@@ -57,7 +57,6 @@ export default function Estimate() {
       </Screen>
     );
 
-  const manage = canManageMoney(role);
   const totals = totalsOf(estimate);
   const deposit = estimate.deposit_cents ?? 0;
 

@@ -1,4 +1,4 @@
-import { hasWorkspacePermission } from '@hfos/core';
+import { can } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import type { Metadata } from 'next';
 import { CampaignList } from '@/components/campaigns/campaign-list';
@@ -20,7 +20,7 @@ export default async function CampaignsPage({
     api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/campaign.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
-  const canManage = hasWorkspacePermission(got.workspace.role, 'workflows.manage');
+  const canManage = can(got.workspace.permissions, 'workflows.manage');
   return (
     <>
       <PageHeader

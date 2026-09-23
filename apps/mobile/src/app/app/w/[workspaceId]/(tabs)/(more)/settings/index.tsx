@@ -5,7 +5,6 @@ import {
   keptBusinessesLine,
   MY_CELL_WORDS,
   PHONE_SETTINGS_WORDS,
-  seesWholeBusiness,
 } from '@hfos/core';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -44,6 +43,7 @@ import { lockEnabledFor, setLockEnabledFor } from '@/lib/lock';
 import { isTestOffline, setTestOffline, useNetwork } from '@/lib/network';
 import { openWeb } from '@/lib/open-web';
 import { expireSavedSignIn } from '@/lib/test-tools';
+import { useMoneyRole } from '@/money/use-money';
 import { useWorksOffline } from '@/sync/hooks';
 
 /**
@@ -57,6 +57,8 @@ export default function Settings() {
   const choices = useKeepChoices(userId);
   const worksOffline = useWorksOffline(userId);
   const { cell } = useMyCell();
+  // The business's balance is for whoever manages its money here (0106).
+  const { whole } = useMoneyRole();
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
   const [appearanceOpen, setAppearanceOpen] = React.useState(false);
@@ -141,7 +143,7 @@ export default function Settings() {
         />
       </List>
 
-      {seesWholeBusiness(business.role) ? (
+      {whole ? (
         <>
           <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
           <List>

@@ -4,7 +4,7 @@ import {
   briefFromProfile,
   executeQuery,
   groundingRules,
-  hasWorkspacePermission,
+  holds,
   quoteData,
   registry,
   ROLE_LABELS,
@@ -60,6 +60,8 @@ interface WorkspaceGet {
     timezone: string;
     organizationId: string;
     role: 'owner' | 'admin' | 'member';
+    /** What the business lets them do (0106): what the tools follow. */
+    permissions: string[];
   };
 }
 interface PipelineList {
@@ -323,7 +325,7 @@ export async function questionContext(
   return {
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
-    tools: toolsFor((p) => hasWorkspacePermission(workspace.role, p)),
+    tools: toolsFor((p) => holds(workspace, p)),
     prompt: {
       businessName: workspace.name,
       personName: me?.fullName || actor.email,

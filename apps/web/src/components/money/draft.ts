@@ -174,6 +174,28 @@ function base(settings: MoneySettings): DocumentDraft {
   };
 }
 
+/**
+ * The accounts someone may pick to be paid into (0105): the ones they may bill into, and the one a document
+ * already uses even if it isn't theirs, so an invoice someone else raised still reads right.
+ */
+export function accountsFor(
+  connections: readonly PaymentConnectionRow[],
+  current: string | null = null,
+): PaymentConnectionRow[] {
+  return connections.filter((c) => c.usableByMe || c.id === current);
+}
+
+/**
+ * Where something new is paid into unless they pick, as the server would choose it: the default if it's theirs,
+ * else the first of theirs — connected ones only, never one still signing in or needing a reconnect.
+ */
+export function firstAccount(
+  connections: readonly PaymentConnectionRow[],
+): PaymentConnectionRow | undefined {
+  const mine = accountsFor(connections).filter((c) => c.status === 'active');
+  return mine.find((c) => c.isDefault) ?? mine[0];
+}
+
 /** A blank document, with the business's own defaults already in it. */
 export function blankDraft(
   kind: 'estimate' | 'invoice',
@@ -186,7 +208,7 @@ export function blankDraft(
     assigneeUserId?: string | null;
   } = {},
 ): DocumentDraft {
-  const fallback = connections.find((c) => c.isDefault) ?? connections[0];
+  const fallback = firstAccount(connections);
   return {
     ...base(settings),
     personId: seed.person?.id ?? '',

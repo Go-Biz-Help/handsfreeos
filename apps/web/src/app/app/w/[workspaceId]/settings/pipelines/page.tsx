@@ -1,3 +1,4 @@
+import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PipelinesEditor } from '@/components/settings/pipelines-editor';
@@ -15,15 +16,14 @@ export default async function PipelinesSettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const canManage = got.workspace.role === 'owner' || got.workspace.role === 'admin';
-  if (!canManage) notFound();
+  if (!can(got.workspace.permissions, 'pipelines.manage')) notFound();
   const { pipelines } = unwrapPage(
     await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }),
   );
   return (
     <>
       <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} canManage />
+      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <div className="mb-3">
         <h2 className="text-lg font-semibold tracking-tight">Pipelines and stages</h2>
         <p className="text-[13px] text-text-2">

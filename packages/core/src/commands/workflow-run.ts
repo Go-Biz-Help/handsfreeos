@@ -13,7 +13,6 @@ import { decidedVia } from '../kernel/app-request';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import type { CommandContext } from '../kernel/types';
-import { hasWorkspacePermission } from '../permissions';
 import {
   LIVE_RUN_STATUSES,
   WorkflowContactInput,
@@ -27,6 +26,7 @@ import {
   WorkflowStopRunOutput,
 } from '../schemas/workflow';
 import { loadWorkflow, personNames } from '../workflows/load';
+import { scopeCan } from '../kernel/execute';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -35,8 +35,7 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 const LIVE: readonly string[] = LIVE_RUN_STATUSES;
 const customerName = (p: { firstName: string; lastName: string }) =>
   `${p.firstName} ${p.lastName}`.trim() || 'Customer';
-const managesWorkflows = (ctx: CommandContext) =>
-  hasWorkspacePermission(ctx.scope.workspaceRole, 'workflows.manage');
+const managesWorkflows = (ctx: CommandContext) => scopeCan(ctx.scope, 'workflows.manage');
 
 async function workflowName(ctx: CommandContext, workflowId: string): Promise<string> {
   const [w] = await ctx.tx

@@ -38,7 +38,7 @@ export default async function PipelinePage({
       pipelines={pipelines.pipelines}
       members={assigneeOptions(members)}
       tags={tags.tags}
-      role={got.workspace.role}
+      permissions={got.workspace.permissions}
       myUserId={userId}
       initialView={view}
     />

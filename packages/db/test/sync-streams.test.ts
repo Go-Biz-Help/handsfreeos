@@ -261,6 +261,61 @@ describe('the gates', () => {
       expect(await count('me_v1', 'invoices', user)).toBe(0);
   });
 
+  it('send money by what the business lets each person do, not by their role (0106)', async () => {
+    await rows(
+      admin$,
+      sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)
+          values (${business}, 'admin', 'money.manage', false)`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.member_permission_overrides (workspace_id, user_id, permission, allowed)
+          values (${business}, ${member.id}, 'money.bill', true), (${business}, ${member.id}, 'money.manage', true)`,
+    );
+    try {
+      // The admin it kept from money gets none of the business's; the member it handed money to gets all of it,
+      // and no longer needs their own copy of the jobs they're on.
+      expect(await count('business_v1', 'invoices', agencyAdmin)).toBe(0);
+      expect(await count('business_v1', 'invoices', member)).toBe(2);
+      expect(await count('business_v1', 'subscriptions', member)).toBeGreaterThan(0);
+      expect(await count('me_v1', 'invoices', member)).toBe(0);
+      // And each is still sent exactly what they may read.
+      const money = queries.filter(
+        (x) =>
+          !x.cte &&
+          [
+            'estimates',
+            'estimate_lines',
+            'invoices',
+            'invoice_lines',
+            'payments',
+            'refunds',
+            'subscriptions',
+          ].includes(x.output),
+      );
+      for (const q of money)
+        for (const [who, user] of [
+          ['the member', member],
+          ['the agency admin', agencyAdmin],
+        ] as const)
+          expect(await readableBy(q, user), `${who}: ${q.stream} ${q.output}`).toEqual(
+            await sentTo(q, user),
+          );
+    } finally {
+      await rows(
+        admin$,
+        sql`delete from app.role_permission_overrides where workspace_id = ${business}`,
+      );
+      await rows(
+        admin$,
+        sql`delete from app.member_permission_overrides where workspace_id = ${business}`,
+      );
+    }
+    // Back as they were: the member has only their own jobs again.
+    expect(await count('business_v1', 'invoices', member)).toBe(0);
+    expect(await count('business_v1', 'invoices', agencyAdmin)).toBe(2);
+  });
+
   it('send an agency to its own people, and each person only their own things', async () => {
     expect(await count('agency_v1', 'organizations', agencyAdmin)).toBe(1);
     expect(await count('agency_v1', 'organizations', member)).toBe(0);

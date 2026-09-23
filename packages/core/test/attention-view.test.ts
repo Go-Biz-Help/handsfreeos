@@ -194,16 +194,24 @@ describe('attention list', () => {
 describe('who may decide an approval', () => {
   it('a workflow’s: its approvers, or whoever manages workflows', () => {
     const flow = { source: 'workflow' as const, approvers: [PRIYA], kind: null };
-    expect(mayDecideApproval('member', PRIYA, flow)).toBe(true);
-    expect(mayDecideApproval('member', DALE, flow)).toBe(false);
-    expect(mayDecideApproval('admin', DALE, flow)).toBe(true);
+    expect(mayDecideApproval({ role: 'member' }, PRIYA, flow)).toBe(true);
+    expect(mayDecideApproval({ role: 'member' }, DALE, flow)).toBe(false);
+    expect(mayDecideApproval({ role: 'admin' }, DALE, flow)).toBe(true);
   });
   it('a teammate’s reply by anyone in the inbox, what it asks approval for by owners and admins', () => {
     expect(
-      mayDecideApproval('member', DALE, { source: 'teammate', approvers: [], kind: 'reply' }),
+      mayDecideApproval({ role: 'member' }, DALE, {
+        source: 'teammate',
+        approvers: [],
+        kind: 'reply',
+      }),
     ).toBe(true);
     expect(
-      mayDecideApproval('member', DALE, { source: 'teammate', approvers: [], kind: 'approval' }),
+      mayDecideApproval({ role: 'member' }, DALE, {
+        source: 'teammate',
+        approvers: [],
+        kind: 'approval',
+      }),
     ).toBe(false);
   });
 });
@@ -264,7 +272,7 @@ describe('from a phone’s copy', () => {
   });
 
   it('reads the viewer from the waiting approvals it holds', () => {
-    const v = attentionViewerOfSynced(DALE, 'member', [
+    const v = attentionViewerOfSynced(DALE, { role: 'member' }, [
       {
         id: uid(41),
         source: 'workflow',

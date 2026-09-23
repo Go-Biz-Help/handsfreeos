@@ -337,7 +337,8 @@ export const taskReopen = defineCommand({
 
 export const taskDelete = defineCommand({
   name: 'task.delete',
-  description: 'Delete a task you created (owners and admins can delete any).',
+  description:
+    'Delete a task you created (anyone the business lets archive records can delete any).',
   risk: 2,
   input: TaskDeleteInput,
   output: TaskDeleteOutput,
@@ -353,7 +354,7 @@ export const taskDelete = defineCommand({
       .returning({ id: tasks.id });
     if (deleted.length === 0)
       throw HfosError.forbidden(
-        'Only the person who created this task, or an owner or admin, can delete it.',
+        'Only the person who created this task, or someone who can archive records, can delete it.',
       );
     await ctx.emit({
       type: 'task.deleted',
