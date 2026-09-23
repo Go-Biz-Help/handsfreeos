@@ -8,6 +8,7 @@ import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
+import { requireCustomRecord } from '../relationships/store';
 import {
   ActivityDeleteInput,
   ActivityDeleteOutput,
@@ -19,7 +20,8 @@ import {
 
 export const activityLog = defineCommand({
   name: 'activity.log',
-  description: 'Log a note, call or visit on a person, company or lead.',
+  description:
+    'Log a note, call or visit on a person, company or lead, or on a record like a pet, vehicle or property.',
   risk: 1,
   input: ActivityLogInput,
   output: ActivityLogOutput,
@@ -47,6 +49,7 @@ export const activityLog = defineCommand({
         .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
       if (!lead) throw HfosError.notFound('Lead not found.');
     }
+    if (input.customRecordId) await requireCustomRecord(ctx.tx, workspaceId, input.customRecordId);
     const [row] = await insertWithId('activities', input.id, () =>
       ctx.tx
         .insert(activities)
@@ -60,6 +63,7 @@ export const activityLog = defineCommand({
           personId: input.personId ?? null,
           companyId: input.companyId ?? null,
           leadId: input.leadId ?? null,
+          customRecordId: input.customRecordId ?? null,
           authorUserId: userIdOf(ctx.actor),
           actorType: ctx.actor.type,
           meta: actorMeta(ctx.actor),
@@ -76,6 +80,7 @@ export const activityLog = defineCommand({
         personId: input.personId ?? null,
         companyId: input.companyId ?? null,
         leadId: input.leadId ?? null,
+        customRecordId: input.customRecordId ?? null,
       },
       after: { kind: input.kind, body: input.body.slice(0, 200) },
       broadcast: true,

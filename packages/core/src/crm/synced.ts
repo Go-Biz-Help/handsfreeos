@@ -347,6 +347,8 @@ export function taskOfSynced(
     person: personRef(row.person_id, names),
     company: companyRef(row.company_id, names),
     lead: leadId ? { id: leadId, title: names.lead(leadId)?.title ?? '' } : null,
+    // Kinds of records a business makes up (0101) don't reach the phone yet: a task about one reads as the rest.
+    customRecord: null,
     doneAt,
     doneBy: userRef(row.done_by, names),
     createdBy: userRef(row.created_by, names),
@@ -416,6 +418,8 @@ export function timelineEntryOfSynced(row: SyncedActivityRow, names: SyncedNames
     personId: text(row.person_id),
     companyId: text(row.company_id),
     leadId: text(row.lead_id),
+    // Not synced yet (0101): the phone shows an entry on the customer, company or lead it's also on.
+    customRecordId: null,
     meta: json(row.meta),
   };
 }

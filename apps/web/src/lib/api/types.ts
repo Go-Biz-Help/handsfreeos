@@ -51,7 +51,25 @@ export type ImportGet = Ok<'/v1/queries/import.get'>;
 export type ImportList = Ok<'/v1/queries/import.list'>;
 export type FindMatches = Ok<'/v1/queries/crm.find_matches'>;
 export type Match = FindMatches['matches'][number];
-export type RecordType = 'person' | 'company' | 'lead';
+/** What a timeline, a file or a note hangs off: a customer, a company, a lead, or a pet, vehicle or property (0101). */
+export type RecordType = 'person' | 'company' | 'lead' | 'custom_record';
+
+// Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
+export type CustomFieldList = Ok<'/v1/queries/custom_field.list'>;
+export type CustomField = CustomFieldList['fields'][number];
+export type CustomRecordTypeList = Ok<'/v1/queries/custom_record_type.list'>;
+export type CustomRecordType = CustomRecordTypeList['types'][number];
+export type RelationshipTypeList = Ok<'/v1/queries/relationship_type.list'>;
+export type RelationshipType = RelationshipTypeList['types'][number];
+export type RelationshipEnd = RelationshipType['a'];
+export type CustomRecordList = Ok<'/v1/queries/custom_record.list'>;
+export type CustomRecordSummary = CustomRecordList['items'][number];
+export type CustomRecordGet = Ok<'/v1/queries/custom_record.get'>;
+export type CustomRecordDetail = CustomRecordGet['record'];
+export type RelationshipList = Ok<'/v1/queries/relationship.list'>;
+export type Relationship = RelationshipList['items'][number];
+/** A record that can be related: a person, a company, or a record of one of the business's own kinds. */
+export type RelatableKind = Relationship['other']['kind'];
 
 // Milestone 3: texting and the inbox
 export type InboxList = Ok<'/v1/queries/inbox.list'>;

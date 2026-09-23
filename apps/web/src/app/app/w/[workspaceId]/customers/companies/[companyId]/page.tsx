@@ -13,7 +13,19 @@ export default async function CompanyPage({
   const { workspaceId, companyId } = await params;
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const [company, timeline, tasks, files, leads, tags, members, pipelines] = await Promise.all([
+  const [
+    company,
+    timeline,
+    tasks,
+    files,
+    leads,
+    tags,
+    members,
+    pipelines,
+    relationships,
+    relationshipTypes,
+    fields,
+  ] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/company.get', { body: { workspaceId, companyId } })),
     unwrapPage(
       await api.POST('/v1/queries/timeline.list', {
@@ -36,6 +48,15 @@ export default async function CompanyPage({
     unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
     unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
+    unwrapPage(
+      await api.POST('/v1/queries/relationship.list', {
+        body: { workspaceId, recordType: 'company', recordId: companyId },
+      }),
+    ),
+    unwrapPage(await api.POST('/v1/queries/relationship_type.list', { body: { workspaceId } })),
+    unwrapPage(
+      await api.POST('/v1/queries/custom_field.list', { body: { workspaceId, entity: 'company' } }),
+    ),
   ]);
   return (
     <RecordPage
@@ -52,6 +73,9 @@ export default async function CompanyPage({
       members={assigneeOptions(members)}
       pipelines={pipelines.pipelines}
       timeZone={got.workspace.timezone}
+      relationships={relationships.items}
+      relationshipTypes={relationshipTypes.types}
+      fields={fields.fields}
     />
   );
 }

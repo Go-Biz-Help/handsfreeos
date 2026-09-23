@@ -109,7 +109,6 @@ export const RECORD_WORDS = {
   none: '—',
   notLinked: 'Not linked to a company.',
   nobodyLinked: 'Nobody linked yet.',
-  laterMilestone: 'Properties and equipment arrive with jobs in a later milestone.',
   openLead: 'Open lead',
   leads: 'Leads',
   noOpenLeads: 'No open leads.',

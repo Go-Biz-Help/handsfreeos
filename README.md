@@ -169,6 +169,16 @@ The menu down the left is each person's own. **Settings** → **Side menu** → 
 
 The arrangement is kept with the account (`users.settings.menu`), so every device you sign in on shows the same menu, and the long list scrolls on its own — Get help and your account stay at the foot of the sidebar. A place you hid is not gone: search and links still open it, and the editor lists it under **Hidden**. A section that ships after you arranged your menu appears on its own, beside the neighbour it belongs next to (`packages/core/src/account/menu.ts`).
 
+## Relationships
+
+A business can keep its own kinds of records — pets, vehicles, properties, units, students, equipment, or anything it names — and connect any two records: a customer to their pets, a parent to a child, a tenant to a unit, a person to the businesses they work at, two spouses. **Settings** → **Relationships** makes them from starters in one press or from a short form, and **Settings** → **Fields** gives customers, companies and each kind their own fields.
+
+- **Nothing is one-to-one unless a business says so.** Every type starts many to many; a business picks "one" for a side only when there can never be more, and the database holds it to that (`private.check_relationship`, with a lock per record so two people can't both slip one past).
+- **Both directions, one row.** A customer's page lists their vehicles, and each vehicle's page lists all its owners, from the same pair. Adding or removing one writes on both timelines.
+- **A record is a full record.** Each pet, vehicle or property has its own page under **Customers**, with its fields, notes, timeline, tasks, appointments and files, and the conversations of the people it's connected to.
+
+`docs/relationships.md` covers the tables, the rules and what isn't done yet.
+
 ## How the pieces fit
 
 - **Security lives in the database.** App tables sit in schema `app`, which Supabase's REST API never exposes. The API connects as `hfos_api` and switches to the `authenticated` role with the verified JWT claims for every transaction, so row-level security decides what each request can see. The worker connects as `hfos_worker` and is scoped to one tenant per job. Nothing in the apps can bypass RLS; the database suite in `packages/db/test` proves it.

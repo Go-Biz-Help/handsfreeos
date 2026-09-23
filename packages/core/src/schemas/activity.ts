@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
-import { ListInput, recordType, UserRef } from './crm';
+import { attachableRecordType, ListInput, UserRef } from './crm';
 
 export const loggableKind = z.enum(['note', 'call', 'visit']);
 export const activityKind = z.enum(['note', 'call', 'visit', 'email', 'sms', 'system']);
@@ -17,10 +17,12 @@ export const ActivityLogInput = z
     personId: uuid.nullable().optional(),
     companyId: uuid.nullable().optional(),
     leadId: uuid.nullable().optional(),
+    /** A record of a kind the business made up: a pet, a vehicle, a property (0101). */
+    customRecordId: uuid.nullable().optional(),
   })
-  .refine((v) => !!v.personId || !!v.companyId || !!v.leadId, {
+  .refine((v) => !!v.personId || !!v.companyId || !!v.leadId || !!v.customRecordId, {
     path: ['personId'],
-    error: 'Attach it to a person, company or lead.',
+    error: 'Attach it to a person, company, lead or record.',
   });
 export const ActivityLogOutput = z.object({ activityId: uuid });
 export const ActivityUpdateInput = z.object({
@@ -45,13 +47,14 @@ export const TimelineEntry = z.object({
   personId: uuid.nullable(),
   companyId: uuid.nullable(),
   leadId: uuid.nullable(),
+  customRecordId: uuid.nullable(),
   meta: z.record(z.string(), z.unknown()),
 });
 export type TimelineEntry = z.infer<typeof TimelineEntry>;
 
 export const TimelineListInput = ListInput.extend({
   workspaceId: uuid,
-  recordType,
+  recordType: attachableRecordType,
   recordId: uuid,
 });
 export const TimelineListOutput = z.object({

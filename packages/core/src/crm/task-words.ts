@@ -93,8 +93,19 @@ export function taskRelatedLine(task: {
   readonly lead?: { readonly title: string } | null;
   readonly person?: { readonly fullName: string } | null;
   readonly company?: { readonly name: string } | null;
+  /** A pet, vehicle or property (0101): "Max (Pet)". */
+  readonly customRecord?: { readonly name: string; readonly kind: string } | null;
 }): string {
-  return [task.lead?.title, task.person?.fullName, task.company?.name].filter(Boolean).join(' · ');
+  return [
+    task.lead?.title,
+    task.person?.fullName,
+    task.company?.name,
+    task.customRecord
+      ? `${task.customRecord.name}${task.customRecord.kind ? ` (${task.customRecord.kind})` : ''}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 export const TASK_WORDS = {

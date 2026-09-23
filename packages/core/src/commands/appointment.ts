@@ -51,6 +51,7 @@ import {
 } from '../calendar/load';
 import { resolveTerms } from '../calendar/terms';
 import { requirePerson } from '../crm/records';
+import { requireCustomRecord } from '../relationships/store';
 import { HfosError } from '../errors';
 import { logNotApplied, mergeColumns, mergeFields } from '../kernel/field-merge';
 import { FRESH_MINUTES } from '../mobile';
@@ -268,6 +269,7 @@ export const appointmentCreate = defineCommand({
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     assertOpen(calendar);
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
+    if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const source = staffSource(ctx);
     const attendee = input.personId
       ? await attendeeFromPerson(ctx.tx, ws, input.personId, input.partySize, source)
@@ -289,6 +291,7 @@ export const appointmentCreate = defineCommand({
       notes: input.notes,
       location: input.location,
       leadId: input.leadId,
+      customRecordId: input.customRecordId,
       clientId: input.clientId,
       source,
     });
@@ -308,7 +311,7 @@ export const appointmentCreate = defineCommand({
 export const appointmentUpdate = defineCommand({
   name: 'appointment.update',
   description:
-    'Change an appointment’s title, notes, location or lead: only what was edited, each with what the editor saw, and the newest change to each wins.',
+    'Change an appointment’s title, notes, location, lead or record (the pet, vehicle or property it’s for): only what was edited, each with what the editor saw, and the newest change to each wins.',
   risk: 1,
   input: AppointmentUpdateInput,
   output: AppointmentUpdateOutput,
@@ -325,6 +328,7 @@ export const appointmentUpdate = defineCommand({
       .for('update');
     if (!appt) throw HfosError.notFound('Appointment not found.');
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
+    if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const seen: NonNullable<typeof input.base> = input.base ?? {};
     const merged = mergeFields(
       appt,
@@ -360,6 +364,14 @@ export const appointmentUpdate = defineCommand({
           base: seen.leadId,
           kind: 'id',
           label: 'lead',
+        },
+        {
+          key: 'customRecordId',
+          column: 'customRecordId',
+          value: input.customRecordId === undefined ? undefined : (input.customRecordId ?? null),
+          base: seen.customRecordId,
+          kind: 'id',
+          label: 'record',
         },
       ],
       mergeColumns(appointments),

@@ -165,6 +165,7 @@ export const companyGet = defineQuery({
           tags.get(c.id) ?? [],
         ),
         notes: c.notes,
+        custom: c.custom ?? {},
       },
       people: members.map((p) => ({
         id: p.id,

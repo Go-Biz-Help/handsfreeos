@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
-import { recordType, UserRef } from './crm';
+import { attachableRecordType, UserRef } from './crm';
 
 export const ATTACHMENT_TYPES = [
   'image/jpeg',
@@ -21,7 +21,7 @@ export const FileBeginUploadInput = z.object({
   workspaceId: uuid,
   /** The file's id, made by the phone so a photo taken offline has one before it uploads (M10). */
   id: uuid.optional(),
-  recordType,
+  recordType: attachableRecordType,
   recordId: uuid,
   name: z.string().trim().min(1).max(200),
   mimeType: z.enum(ATTACHMENT_TYPES, { error: 'That file type is not supported.' }),
@@ -43,7 +43,7 @@ export const FileDeleteOutput = z.object({ fileId: uuid });
 
 export const FileOut = z.object({
   id: uuid,
-  recordType,
+  recordType: attachableRecordType,
   recordId: uuid,
   bucket: z.string(),
   objectPath: z.string(),
@@ -55,5 +55,9 @@ export const FileOut = z.object({
   createdAt: isoDateTime,
 });
 export type FileOut = z.infer<typeof FileOut>;
-export const FileListInput = z.object({ workspaceId: uuid, recordType, recordId: uuid });
+export const FileListInput = z.object({
+  workspaceId: uuid,
+  recordType: attachableRecordType,
+  recordId: uuid,
+});
 export const FileListOutput = z.object({ files: z.array(FileOut) });
