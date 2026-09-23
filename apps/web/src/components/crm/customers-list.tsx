@@ -11,7 +11,20 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { CompanyList, CompanySummary, PersonList, PersonSummary, Tag } from '@/lib/api/types';
+import { lowerLabel } from '@hfos/core';
+import { CustomRecordDialog } from '@/components/relationships/custom-record-dialog';
+import { RecordIcon } from '@/components/relationships/record-icon';
+import type {
+  CompanyList,
+  CompanySummary,
+  CustomField,
+  CustomRecordList,
+  CustomRecordSummary,
+  CustomRecordType,
+  PersonList,
+  PersonSummary,
+  Tag,
+} from '@/lib/api/types';
 import { addressLine } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
@@ -44,9 +57,13 @@ export function CustomersList({
   companies,
   counts,
   canImport,
+  kinds = [],
+  kind = null,
+  records = null,
+  kindFields = [],
 }: {
   workspaceId: string;
-  tab: 'people' | 'companies';
+  tab: 'people' | 'companies' | 'records';
   filters: CustomerFilters;
   tags: Tag[];
   owners: { id: string; fullName: string }[];
@@ -54,19 +71,26 @@ export function CustomersList({
   companies: CompanyList | null;
   counts: { people: number; companies: number };
   canImport: boolean;
+  /** The kinds of records the business keeps (0101): a tab each, beside People and Companies. */
+  kinds?: CustomRecordType[];
+  /** The kind whose tab this is, its records, and its fields (for Add). */
+  kind?: CustomRecordType | null;
+  records?: CustomRecordList | null;
+  kindFields?: CustomField[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [q, setQ] = useState(filters.q);
   const [adding, setAdding] = useState(false);
-  useLiveRefresh(['person', 'company', 'tag']);
+  useLiveRefresh(['person', 'company', 'tag', 'custom_record', 'relationship']);
 
   // Filters live in the URL so the server renders the right page and links are shareable.
   function navigate(next: Partial<CustomerFilters> & { tab?: 'people' | 'companies' }) {
     const params = new URLSearchParams();
     const merged = { ...filters, tab, ...next };
     if (merged.tab === 'companies') params.set('tab', 'companies');
+    if (merged.tab === 'records' && kind) params.set('kind', kind.id);
     if (merged.q.trim()) params.set('q', merged.q.trim());
     if (merged.tagId) params.set('tag', merged.tagId);
     if (merged.ownerUserId) params.set('owner', merged.ownerUserId);
@@ -82,31 +106,46 @@ export function CustomersList({
   useEffect(() => setQ(filters.q), [filters.q]);
 
   const base = `/app/w/${workspaceId}/customers`;
-  const shown = tab === 'people' ? (people?.items.length ?? 0) : (companies?.items.length ?? 0);
+  const shown =
+    tab === 'people'
+      ? (people?.items.length ?? 0)
+      : tab === 'companies'
+        ? (companies?.items.length ?? 0)
+        : (records?.items.length ?? 0);
+  const tabs: { key: string; label: string; href: string; current: boolean }[] = [
+    { key: 'people', label: `People · ${counts.people}`, href: base, current: tab === 'people' },
+    {
+      key: 'companies',
+      label: `Companies · ${counts.companies}`,
+      href: `${base}?tab=companies`,
+      current: tab === 'companies',
+    },
+    ...kinds.map((k) => ({
+      key: k.key,
+      label: `${k.plural} · ${k.recordCount}`,
+      href: `${base}?kind=${k.id}`,
+      current: tab === 'records' && kind?.id === k.id,
+    })),
+  ];
 
   return (
     <>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex gap-0.5 border-b border-border">
-          {(
-            [
-              ['people', `People · ${counts.people}`],
-              ['companies', `Companies · ${counts.companies}`],
-            ] as const
-          ).map(([key, label]) => (
+        <div className="flex max-w-full gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none]">
+          {tabs.map((t) => (
             <Link
-              key={key}
-              href={key === 'people' ? base : `${base}?tab=companies`}
-              aria-current={tab === key ? 'page' : undefined}
-              data-testid={`customers-tab-${key}`}
+              key={t.key}
+              href={t.href}
+              aria-current={t.current ? 'page' : undefined}
+              data-testid={`customers-tab-${t.key}`}
               className={cn(
-                '-mb-px flex h-10 items-center border-b-2 px-3 text-sm font-medium transition-colors',
-                tab === key
+                '-mb-px flex h-10 flex-none items-center border-b-2 px-3 text-sm font-medium transition-colors',
+                t.current
                   ? 'border-accent text-accent-text'
                   : 'border-transparent text-text-2 hover:text-text',
               )}
             >
-              {label}
+              {t.label}
             </Link>
           ))}
         </div>
@@ -119,7 +158,11 @@ export function CustomersList({
           ) : null}
           <Button onClick={() => setAdding(true)} data-testid="customers-add">
             <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            {tab === 'people' ? 'Add person' : 'Add company'}
+            {tab === 'people'
+              ? 'Add person'
+              : tab === 'companies'
+                ? 'Add company'
+                : `Add ${lowerLabel(kind?.singular ?? 'record')}`}
           </Button>
         </div>
       </div>
@@ -129,26 +172,32 @@ export function CustomersList({
           type="search"
           inputSize="sm"
           className="w-full sm:w-[320px]"
-          placeholder="Search by name, phone, email or street"
+          placeholder={
+            tab === 'records'
+              ? `Search ${lowerLabel(kind?.plural ?? 'records')} by name or any field`
+              : 'Search by name, phone, email or street'
+          }
           aria-label="Search customers"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           data-testid="customers-search"
         />
-        <Select
-          selectSize="sm"
-          className="w-[150px]"
-          aria-label="Tag"
-          value={filters.tagId}
-          onChange={(e) => navigate({ tagId: e.target.value })}
-        >
-          <option value="">Any tag</option>
-          {tags.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </Select>
+        {tab === 'records' ? null : (
+          <Select
+            selectSize="sm"
+            className="w-[150px]"
+            aria-label="Tag"
+            value={filters.tagId}
+            onChange={(e) => navigate({ tagId: e.target.value })}
+          >
+            <option value="">Any tag</option>
+            {tags.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </Select>
+        )}
         {tab === 'people' ? (
           <Select
             selectSize="sm"
@@ -189,7 +238,7 @@ export function CustomersList({
           onAdd={() => setAdding(true)}
           canImport={canImport}
         />
-      ) : (
+      ) : tab === 'companies' ? (
         <CompaniesTable
           workspaceId={workspaceId}
           filters={filters}
@@ -197,7 +246,15 @@ export function CustomersList({
           onAdd={() => setAdding(true)}
           canImport={canImport}
         />
-      )}
+      ) : kind && records ? (
+        <RecordsTable
+          workspaceId={workspaceId}
+          filters={filters}
+          kind={kind}
+          initial={records}
+          onAdd={() => setAdding(true)}
+        />
+      ) : null}
 
       {tab === 'people' ? (
         <PersonDialog
@@ -206,14 +263,22 @@ export function CustomersList({
           open={adding}
           onOpenChange={setAdding}
         />
-      ) : (
+      ) : tab === 'companies' ? (
         <CompanyDialog
           workspaceId={workspaceId}
           tags={tags}
           open={adding}
           onOpenChange={setAdding}
         />
-      )}
+      ) : kind ? (
+        <CustomRecordDialog
+          workspaceId={workspaceId}
+          kind={kind}
+          fields={kindFields}
+          open={adding}
+          onOpenChange={setAdding}
+        />
+      ) : null}
     </>
   );
 }
@@ -527,6 +592,147 @@ function CompaniesTable({
                 </span>
               </span>
               {c.openLeads ? <Badge variant="accent">{c.openLeads} open</Badge> : null}
+              <ChevronRight className="h-[18px] w-[18px] text-text-3" strokeWidth={1.5} />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {more.cursor ? (
+        <div className="flex justify-center border-t border-border p-3">
+          <Button variant="ghost" size="sm" loading={busy} onClick={loadMore}>
+            Show more
+          </Button>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+/** The records of one of the business's own kinds: its pets, its vehicles, its properties. */
+function RecordsTable({
+  workspaceId,
+  filters,
+  kind,
+  initial,
+  onAdd,
+}: {
+  workspaceId: string;
+  filters: CustomerFilters;
+  kind: CustomRecordType;
+  initial: CustomRecordList;
+  onAdd: () => void;
+}) {
+  const key = JSON.stringify({
+    filters,
+    kind: kind.id,
+    first: initial.items[0]?.id,
+    n: initial.items.length,
+  });
+  const more = useMore<CustomRecordSummary>(key, initial.nextCursor);
+  const [busy, setBusy] = useState(false);
+  const items = [...initial.items, ...more.items];
+  const href = (id: string) => `/app/w/${workspaceId}/customers/records/${id}`;
+  const relatedLine = (r: CustomRecordSummary) =>
+    r.related.map((x) => `${x.name} (${x.label})`).join(', ');
+  async function loadMore() {
+    if (!more.cursor) return;
+    setBusy(true);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/queries/custom_record.list', {
+          body: {
+            workspaceId,
+            typeId: kind.id,
+            q: filters.q || undefined,
+            includeArchived: filters.archived,
+            cursor: more.cursor,
+            limit: 50,
+          },
+        }),
+      );
+      more.append(out.items, out.nextCursor);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (items.length === 0)
+    return (
+      <Card>
+        <EmptyState
+          title={
+            filters.q
+              ? `No ${lowerLabel(kind.plural)} match`
+              : filters.archived
+                ? `No archived ${lowerLabel(kind.plural)}`
+                : `No ${lowerLabel(kind.plural)} yet`
+          }
+          actions={
+            filters.q ? undefined : (
+              <Button size="sm" onClick={onAdd}>
+                Add {lowerLabel(kind.singular)}
+              </Button>
+            )
+          }
+        >
+          {filters.q
+            ? 'Try a different search.'
+            : `Add one here, or from a customer’s page under Relationships.`}
+        </EmptyState>
+      </Card>
+    );
+  return (
+    <Card className={scrollingCard}>
+      <table className="hidden w-full text-sm md:table" data-testid="records-table">
+        <thead>
+          <tr className="text-left text-xs font-medium text-text-2">
+            <th className={cn(stickyHead, 'w-[34%] px-4')}>{kind.singular}</th>
+            <th className={stickyHead}>Related to</th>
+            <th className={stickyHead}>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((r) => (
+            <tr
+              key={r.id}
+              className="border-t border-border hover:bg-card-2/60"
+              data-testid={`record-row-${r.id}`}
+            >
+              <td className="px-4 py-2.5">
+                <Link href={href(r.id)} className="flex items-center gap-3">
+                  <RecordIcon icon={kind.icon} size="md" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium">
+                      {r.name}
+                      {r.archivedAt ? (
+                        <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
+                      ) : null}
+                    </span>
+                    <span className="truncate text-xs text-text-3">{r.detail ?? ''}</span>
+                  </span>
+                </Link>
+              </td>
+              <td className="px-3 py-2.5 text-[13px] text-text-2">{relatedLine(r)}</td>
+              <td className="px-3 py-2.5 text-[13px] text-text-2">{relativeTime(r.updatedAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ul className="flex flex-col divide-y divide-border md:hidden">
+        {items.map((r) => (
+          <li key={r.id}>
+            <Link
+              href={href(r.id)}
+              className="flex min-h-[64px] items-center gap-3 px-4 py-3 active:bg-card-2"
+            >
+              <RecordIcon icon={kind.icon} size="md" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-medium">{r.name}</span>
+                <span className="truncate text-xs text-text-3">
+                  {relatedLine(r) || r.detail || ''}
+                </span>
+              </span>
               <ChevronRight className="h-[18px] w-[18px] text-text-3" strokeWidth={1.5} />
             </Link>
           </li>

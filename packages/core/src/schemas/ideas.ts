@@ -1,5 +1,5 @@
 /**
- * Ideas, the roadmap and What's new (0100): what the board sends and gets back, for the people who share and
+ * Ideas, the roadmap and What's new (0102): what the board sends and gets back, for the people who share and
  * vote and for the team who answer. Browser-safe.
  */
 import { z } from 'zod';

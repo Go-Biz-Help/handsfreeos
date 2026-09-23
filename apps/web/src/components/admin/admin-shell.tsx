@@ -34,7 +34,7 @@ const SECTIONS: readonly {
   needs?: string;
 }[] = [
   { href: '/admin/tickets', label: 'Tickets', icon: Inbox },
-  // Ideas, the roadmap and What's new (0100): every support role answers them; leads and admins move them.
+  // Ideas, the roadmap and What's new (0102): every support role answers them; leads and admins move them.
   { href: '/admin/ideas', label: 'Ideas', icon: Lightbulb, needs: 'platform.ideas.moderate' },
   {
     href: '/admin/businesses',

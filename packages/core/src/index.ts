@@ -21,6 +21,9 @@ export * from './crm/pipeline-words';
 export * from './crm/task-words';
 export * from './crm/file-words';
 export * from './crm/synced';
+// Fields a business invents, and the kinds of records and relationships it makes up (0101).
+export * from './crm/custom-fields';
+export * from './relationships/index';
 export * from './hosting/branded-paths';
 export * from './messaging/consent';
 export * from './messaging/a2p';
@@ -52,5 +55,5 @@ export * from './automations/index';
 export * from './money/index';
 export * from './inbox/index';
 export * from './migrations/index';
-// Ideas, the roadmap and What's new (0100).
+// Ideas, the roadmap and What's new (0102).
 export * from './ideas/index';

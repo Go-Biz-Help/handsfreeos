@@ -18,7 +18,7 @@ import type { Business, Me } from '@/lib/businesses';
 import { setTestOffline } from '@/lib/network';
 
 /**
- * Ideas on the phone (0100): the board every business shares, a vote given and taken back from the business the
+ * Ideas on the phone (0102): the board every business shares, a vote given and taken back from the business the
  * person has open, sharing with "Is it one of these?" first, one idea with its story and its comments, the roadmap's
  * three lists, and What's new marked read once it has come down. None of it is kept on the phone, so with no signal
  * each screen says so and Try again asks once more.

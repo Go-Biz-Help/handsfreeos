@@ -1,5 +1,5 @@
 /**
- * What the worker does about ideas (0100): it tells people.
+ * What the worker does about ideas (0102): it tells people.
  *
  * When the team moves an idea along the roadmap, ships it in What's new or folds it into another idea, everybody
  * following it gets one email. When the team answers an idea in its comments, whoever shared it gets one too.

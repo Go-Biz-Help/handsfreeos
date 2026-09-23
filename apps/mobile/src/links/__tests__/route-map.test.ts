@@ -45,7 +45,7 @@ describe('the route map', () => {
       settings: { href: 'settings', later: false },
       // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
       'settings/usage': { href: 'settings/usage', later: false },
-      // Ideas, the roadmap and What's new (0100), all live on the phone.
+      // Ideas, the roadmap and What's new (0102), all live on the phone.
       ideas: { href: 'ideas', later: false },
       'ideas/roadmap': { href: 'ideas/roadmap', later: false },
       'ideas/whats-new': { href: 'ideas/whats-new', later: false },

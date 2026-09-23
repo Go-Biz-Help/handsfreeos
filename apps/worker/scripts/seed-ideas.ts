@@ -1,5 +1,5 @@
 /**
- * Ideas, the roadmap and What's new (0100): a board with something on it. Every change goes through the
+ * Ideas, the roadmap and What's new (0102): a board with something on it. Every change goes through the
  * commands, so the counts are the database's, the story under each idea is real, and the followers' emails reach
  * Mailpit like anybody else's.
  * - Seven ideas from four businesses: one planned (Dale's "on the way" texts, with a note from Chris), one being

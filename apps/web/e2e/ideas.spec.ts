@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
- * Ideas, the roadmap and What's new (0100), as a business owner finds them: a place in the side menu, an idea
+ * Ideas, the roadmap and What's new (0102), as a business owner finds them: a place in the side menu, an idea
  * shared with their vote already on it, the board offering the existing idea instead of a second copy, a vote
  * taken back and given again, a comment, and the emails turned off. Who may do what is proven on the database
  * (packages/db/test/ideas-rls.test.ts) and the team's side through the commands (packages/core/test/ideas.test.ts).

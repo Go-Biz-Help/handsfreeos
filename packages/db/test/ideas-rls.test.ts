@@ -12,7 +12,7 @@ import {
 } from './harness';
 
 /**
- * Ideas, the roadmap and What's new (0100): the read and write rules, asked of the database rather than trusted.
+ * Ideas, the roadmap and What's new (0102): the read and write rules, asked of the database rather than trusted.
  *   1. The board is for people who work in a business here (and the team), and for nobody else.
  *   2. Another business sees an idea and a short name, never what anybody voted for.
  *   3. The counts, the stamps and the roadmap are not a person's to write: an author fixes their words, the team

@@ -1,5 +1,5 @@
 /**
- * Ideas, the roadmap and What's new (0100): the words the board, the admin side and the emails share, so an
+ * Ideas, the roadmap and What's new (0102): the words the board, the admin side and the emails share, so an
  * idea is "Planned" in the same word wherever it shows up. Browser-safe.
  */
 

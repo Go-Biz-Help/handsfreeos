@@ -167,7 +167,7 @@ Locally everything runs against a **stand-in provider** (`apps/worker/src/paymen
 
 **Ideas** in the side menu is where the people who use HandsFreeOS tell us what would make it better, vote on what matters to them and follow an idea from **Under review** to **Done** — the board GoHighLevel keeps at ideas.gohighlevel.com, built in. Its three tabs are the board (trending, most votes or newest, by status and area, with search), the **Roadmap** (planned, being built, shipped lately) and **What's new**, with a dot in the menu until each person has read it. The phone app has all of it under **More**, live rather than kept on the phone, and the emails' links open it there.
 
-- **One board for every business.** Ideas are HandsFreeOS's own, so they live in the `platform` schema beside the support desk (migration `20261005000100`), and the database decides who takes part: anybody who works in a business here, and the team. Another business sees a short name ("Dale R.") beside what someone wrote, never their email, their business or their votes.
+- **One board for every business.** Ideas are HandsFreeOS's own, so they live in the `platform` schema beside the support desk (migration `20261006000100`), and the database decides who takes part: anybody who works in a business here, and the team. Another business sees a short name ("Dale R.") beside what someone wrote, never their email, their business or their votes.
 - **A vote instead of a copy.** Sharing an idea shows the ideas already on the board that sound like it, with a vote button, before a second copy is made; sharing, voting and commenting follow an idea, and **Email me updates** turns that off. The counts and the trending score (votes halving in weight each week) are kept by triggers, never written by a command.
 - **The team's side** is **Ideas** in `/admin`: the ideas nobody has answered yet, how many businesses want each, and an idea's page to move it along the roadmap with a note, answer it with the HandsFreeOS badge, merge a duplicate (its votes and followers go with it) or take it down. Every support role answers (`platform.ideas.moderate`); leads and admins move the roadmap and write What's new (`platform.ideas.manage`).
 - **Hearing about it.** The worker emails everybody following an idea when it moves, when it is merged, and when a What's new entry that delivers it is published (which marks it Done); whoever shared an idea hears when the team answers it. Each email is written down as it goes, so a retry tells nobody twice.
@@ -176,9 +176,19 @@ Locally everything runs against a **stand-in provider** (`apps/worker/src/paymen
 
 ## Your own side menu
 
-The menu down the left is each person's own. **Settings** → **Side menu** → **Edit menu** moves a place up or down, folds the ones you rarely open into a **group** — one row that opens beside the sidebar when the pointer rests on it or you press it, and in place in the phone's drawer — or takes a place out of the menu altogether. **Use suggested groups** does the tidying in one press: the everyday places stay out and the rest go under **More**, nine rows instead of sixteen. The menu itself holds only places to go: arranging it is something done once, and a row for it would be read past every day. Home and Settings can be moved or grouped but never hidden, so there is always a way home and always a way back to the editor.
+The menu down the left is each person's own. **Settings** → **Side menu** → **Edit menu** moves a place up or down, folds the ones you rarely open into a **group** — one row that opens beside the sidebar when the pointer rests on it or you press it, and in place in the phone's drawer — or takes a place out of the menu altogether. **Use suggested groups** does the tidying in one press: the everyday places stay out and the rest go under **More**, nine rows instead of seventeen. The menu itself holds only places to go: arranging it is something done once, and a row for it would be read past every day. Home and Settings can be moved or grouped but never hidden, so there is always a way home and always a way back to the editor.
 
 The arrangement is kept with the account (`users.settings.menu`), so every device you sign in on shows the same menu, and the long list scrolls on its own — Get help and your account stay at the foot of the sidebar. A place you hid is not gone: search and links still open it, and the editor lists it under **Hidden**. A section that ships after you arranged your menu appears on its own, beside the neighbour it belongs next to (`packages/core/src/account/menu.ts`).
+
+## Relationships
+
+A business can keep its own kinds of records — pets, vehicles, properties, units, students, equipment, or anything it names — and connect any two records: a customer to their pets, a parent to a child, a tenant to a unit, a person to the businesses they work at, two spouses. **Settings** → **Relationships** makes them from starters in one press or from a short form, and **Settings** → **Fields** gives customers, companies and each kind their own fields.
+
+- **Nothing is one-to-one unless a business says so.** Every type starts many to many; a business picks "one" for a side only when there can never be more, and the database holds it to that (`private.check_relationship`, with a lock per record so two people can't both slip one past).
+- **Both directions, one row.** A customer's page lists their vehicles, and each vehicle's page lists all its owners, from the same pair. Adding or removing one writes on both timelines.
+- **A record is a full record.** Each pet, vehicle or property has its own page under **Customers**, with its fields, notes, timeline, tasks, appointments and files, and the conversations of the people it's connected to.
+
+`docs/relationships.md` covers the tables, the rules and what isn't done yet.
 
 ## How the pieces fit
 

@@ -1,5 +1,5 @@
 /**
- * Reading ideas, the roadmap and What's new (0100). The board, one idea with its story, "is it one of these?",
+ * Reading ideas, the roadmap and What's new (0102). The board, one idea with its story, "is it one of these?",
  * the roadmap's three columns and What's new are the person's own reads (`account` scope): the database shows
  * them what anybody who takes part may see, and shows somebody who takes no part nothing. The team's two reads
  * — the triage list and who is behind an idea — are `platform` scope, like the support desk's.
@@ -76,7 +76,7 @@ const textArray = (values: readonly string[]) =>
       )}]::text[]`
     : sql`array[]::text[]`;
 
-/** The names to show beside ideas, comments and updates, by user id (0100's private.idea_people). */
+/** The names to show beside ideas, comments and updates, by user id (0102's private.idea_people). */
 async function namesOf(tx: Tx, ids: readonly (string | null)[]): Promise<Map<string, string>> {
   const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   if (!wanted.length) return new Map();
@@ -519,7 +519,7 @@ export const whatsNewList = defineQuery({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const offset = offsetOf(input.cursor);
-    // Drafts exist only for the team (0100's policy); asking for them is how the team's page shows them first.
+    // Drafts exist only for the team (0102's policy); asking for them is how the team's page shows them first.
     const list = await rows<{
       id: string;
       title: string;

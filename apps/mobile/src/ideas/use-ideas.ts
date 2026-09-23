@@ -6,7 +6,7 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 import { useNetwork } from '@/lib/network';
 
 /**
- * Ideas, the roadmap and What's new on the phone (0100): what `idea.*` and `whats_new.*` answer, and the things a
+ * Ideas, the roadmap and What's new on the phone (0102): what `idea.*` and `whats_new.*` answer, and the things a
  * person does there.
  *
  * **None of it is in the phone's copy.** The board belongs to HandsFreeOS rather than to the business, so the sync

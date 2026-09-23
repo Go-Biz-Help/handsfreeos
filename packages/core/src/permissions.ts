@@ -115,7 +115,7 @@ export const ROLE_PERMISSIONS = {
     'support.reply',
     'platform.businesses.read',
     'platform.view_as',
-    // Ideas (0100): answering as the team, tidying, merging duplicates and taking down spam.
+    // Ideas (0102): answering as the team, tidying, merging duplicates and taking down spam.
     'platform.ideas.moderate',
   ],
   staff_lead: [

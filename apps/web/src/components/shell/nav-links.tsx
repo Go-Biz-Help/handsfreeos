@@ -14,6 +14,7 @@ import {
   Layers,
   Lightbulb,
   ListOrdered,
+  Megaphone,
   Settings2,
   Sparkles,
   UserCircle,
@@ -64,6 +65,8 @@ const PLACES: Record<MenuKey, Place> = {
   money: { path: '/money', label: 'Money', icon: CircleDollarSign },
   // Workflows is a drawer item on phones, so the bottom bar stays at five.
   workflows: { path: '/workflows', label: 'Workflows', icon: Workflow },
+  // Outreach campaigns (Automations, stage 5): a drawer item on phones too.
+  campaigns: { path: '/campaigns', label: 'Campaigns', icon: Megaphone },
   // Forms is a drawer item on phones, so the bottom bar stays at five.
   forms: { path: '/forms', label: 'Forms', icon: ClipboardList },
   // Reviews is a drawer item on phones too. It sits after Forms because both are about what the outside

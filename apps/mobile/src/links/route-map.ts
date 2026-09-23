@@ -93,7 +93,7 @@ export const ROUTES: readonly Rule[] = [
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
   // how the payment provider sends somebody back to the app once they have typed a card.
   { web: 'settings/usage', phone: 'settings/usage', query: ['card'] },
-  // Ideas, the roadmap and What's new (0100): the phone has all four, so a link to any of them opens it here.
+  // Ideas, the roadmap and What's new (0102): the phone has all four, so a link to any of them opens it here.
   { web: 'ideas', phone: 'ideas' },
   { web: 'ideas/roadmap', phone: 'ideas/roadmap' },
   { web: 'ideas/whats-new', phone: 'ideas/whats-new' },
@@ -101,6 +101,7 @@ export const ROUTES: readonly Rule[] = [
   // The desk work the phone leaves to the web.
   { web: 'settings', phone: 'web', deeper: true },
   { web: 'workflows', phone: 'web', deeper: true },
+  { web: 'campaigns', phone: 'web', deeper: true },
   { web: 'ai-team', phone: 'web', deeper: true },
   { web: 'knowledge', phone: 'web', deeper: true },
   { web: 'imports', phone: 'web', deeper: true },

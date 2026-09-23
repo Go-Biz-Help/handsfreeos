@@ -36,7 +36,7 @@ import {
 import { useColors } from '@/theme';
 
 /**
- * Ideas, reached from More (0100): the board every business on HandsFreeOS shares, the ideas moving lately first.
+ * Ideas, reached from More (0102): the board every business on HandsFreeOS shares, the ideas moving lately first.
  * A vote is one press on the row; the idea itself, its story and its comments are a press on its title. Search,
  * the sort and the web's three filters are here too, kept on the screen rather than in an address. It is live, as
  * the whole board is: with no signal it says so.

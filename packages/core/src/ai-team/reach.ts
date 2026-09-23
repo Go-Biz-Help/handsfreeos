@@ -115,11 +115,13 @@ export async function assertAiReach(
     readonly personId?: string | null;
     readonly leadId?: string | null;
     readonly companyId?: string | null;
+    readonly customRecordId?: string | null;
   },
 ): Promise<void> {
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai) return;
-  if (ref.companyId) throw outsideItsConversation();
+  // A company, or a customer's pet, car or property, is beyond the one conversation it's answering.
+  if (ref.companyId || ref.customRecordId) throw outsideItsConversation();
   // Once a person takes the conversation over, a run already under way changes nothing more.
   if (ai.conversationId) {
     const [c] = await ctx.tx

@@ -159,7 +159,39 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 403,
     message: 'That is one of our own addresses. Use a domain your business owns.',
   },
-  // Ideas, the roadmap and What's new (0100): the board's guards and limits.
+  // Relationships (0101): what the database says when a pair or a type breaks its rules.
+  relationship_end_full: {
+    status: 409,
+    message: 'That record already has as many of these as it can have. Remove one first.',
+  },
+  relationship_end_mismatch: {
+    status: 400,
+    message: 'That record can’t go on that end of this relationship.',
+  },
+  relationship_to_itself: { status: 400, message: 'A record can’t be related to itself.' },
+  relationship_type_archived: {
+    status: 409,
+    message: 'That relationship type is archived. Restore it in Settings first.',
+  },
+  relationship_cardinality_conflict: {
+    status: 409,
+    message:
+      'Some records already have more than one of these. Remove the extra relationships before saying “one”.',
+  },
+  too_many_record_types: {
+    status: 409,
+    message: 'That is as many kinds of records as a business can keep (30). Archive one first.',
+  },
+  too_many_relationship_types: {
+    status: 409,
+    message: 'That is as many relationship types as a business can keep (50). Archive one first.',
+  },
+  too_many_custom_fields: {
+    status: 409,
+    message: 'That is as many fields as a record can carry (200). Archive one first.',
+  },
+  unknown_custom_field: { status: 400, message: 'That field isn’t on this record.' },
+  // Ideas, the roadmap and What's new (0102): the board's guards and limits.
   too_many_ideas: { status: 429, message: 'That is ten ideas today. Share the next one tomorrow.' },
   too_many_idea_comments: {
     status: 429,

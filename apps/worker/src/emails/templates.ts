@@ -1133,7 +1133,7 @@ export function chatCodeEmail(input: {
 export const chatCodeText = (business: string, code: string, minutes: number): string =>
   `${business}: your chat code is ${code}. It expires in ${minutes} minutes. If you didn’t ask for it, ignore this text.`;
 
-// ---- Ideas, the roadmap and What's new (0100) ----
+// ---- Ideas, the roadmap and What's new (0102) ----
 
 const IDEA_FOOT =
   'You get these because you follow this idea. To stop, open it and turn off “Email me updates”.';

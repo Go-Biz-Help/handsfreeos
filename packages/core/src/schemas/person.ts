@@ -132,5 +132,9 @@ export const PersonListOutput = z.object({
 
 export const PersonGetInput = z.object({ workspaceId: uuid, personId: uuid });
 export const PersonGetOutput = z.object({
-  person: PersonSummary.extend({ notes: z.string().nullable() }),
+  person: PersonSummary.extend({
+    notes: z.string().nullable(),
+    /** The fields this business invented, by field id (M15, 0076). */
+    custom: z.record(z.string(), z.unknown()),
+  }),
 });

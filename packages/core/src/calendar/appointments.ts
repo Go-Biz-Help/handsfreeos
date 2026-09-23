@@ -126,7 +126,8 @@ export async function appointmentSnapshot(
 
 /**
  * Timeline entries for an appointment: one per customer on it (the first carries the event id, which is
- * unique per entry), or one on the lead when nobody is attached. Nothing when there is neither.
+ * unique per entry, and the pet, vehicle or property it's for), or one on the lead and the record when nobody is
+ * attached. Nothing when there is none of them.
  */
 export async function logAppointmentActivity(
   ctx: CommandContext,
@@ -149,10 +150,11 @@ export async function logAppointmentActivity(
   };
   const targets = [...new Set(personIds)];
   if (!targets.length) {
-    if (appt.leadId)
+    if (appt.leadId || appt.customRecordId)
       await logSystemActivity(ctx, {
         subtype,
         leadId: appt.leadId,
+        customRecordId: appt.customRecordId,
         body: appt.title,
         meta,
         eventId,
@@ -165,6 +167,8 @@ export async function logAppointmentActivity(
       subtype,
       personId,
       leadId: appt.leadId,
+      // The pet, vehicle or property's own timeline hears of it once, not once per customer on it.
+      customRecordId: first ? appt.customRecordId : null,
       body: appt.title,
       meta,
       eventId: first ? eventId : null,

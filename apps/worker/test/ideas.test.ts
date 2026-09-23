@@ -20,7 +20,7 @@ import { processOnce } from '../src/outbox';
 import { testServices, type TestServices } from './helpers';
 
 /**
- * Ideas (0100), the worker's half: the people following an idea hear when the team moves it, once each, and
+ * Ideas (0102), the worker's half: the people following an idea hear when the team moves it, once each, and
  * whoever shared it hears when the team answers it. Nothing here belongs to a business: the events have no
  * tenant, and the worker tells people with none in scope.
  */

@@ -160,6 +160,17 @@ reacts to an event · **T** AI teammate change.
    - **FAQ suggestions**: a card as soon as the same question the AI couldn't answer comes up 3 times; type an
      answer and it's saved to the AI's knowledge.
 
-5. **Outreach campaigns.**
+5. **Outreach campaigns** (Chris, 2026-09-23): pick customers by tag or pipeline stage; texts only, to people who
+   agreed to texts.
+   - **Drafts**: the owner writes one line of goal ("Fall tune-up special, $89 this month"); the AI writes each text
+     in the business's voice from the person's name, last job and past messages.
+   - **Approval**: a person reviews every draft on one screen, edits any, and approves them all at once.
+   - **Pace**: 20 an hour by default, which the business can change; open hours only, never in quiet hours.
+   - **Left out automatically**: anyone texted in the last 14 days, anyone mid-conversation or with an open card on
+     Home, and anyone booked in the next 30 days.
+   - **Replies**: go to the inbox like any text; the AI teammate answers by its usual rules when it's on.
+   - **Built as**: `app.campaigns` and `app.campaign_recipients`; the `campaign.*` commands and queries; the worker's
+     `campaigns.draft` (ten a run) and `campaigns.send` (one a run, then the next at the pace); a **Campaigns** page
+     in the side menu, linked from the Marketing group on Settings → Automations.
 
 Each stage adds its rows to the catalog as it ships, so the page never shows a switch that does nothing.

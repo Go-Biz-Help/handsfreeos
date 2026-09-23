@@ -1,10 +1,10 @@
 /**
- * Ideas, the roadmap and What's new (0100). What the people who use HandsFreeOS do on the board — share an idea,
+ * Ideas, the roadmap and What's new (0102). What the people who use HandsFreeOS do on the board — share an idea,
  * fix its words, vote, follow it, comment — and what the team does with it: move it along the roadmap, merge a
  * duplicate, take down spam, keep the list of areas, and write What's new.
  *
  * The board is nobody's business data. A person's commands are their own (`account` scope), and the database
- * decides who takes part and what they may touch (0100's policies and guards), so the same rules hold whatever
+ * decides who takes part and what they may touch (0102's policies and guards), so the same rules hold whatever
  * calls them. The team's commands are `platform` scope, like the support desk's.
  *
  * Nothing here sends an email. A move along the roadmap is written down with what the team said, and the worker
@@ -195,7 +195,7 @@ export const ideaShare = defineCommand({
     await assertAreaOpen(ctx, input.areaId);
     await assertWorksIn(ctx, input.workspaceId);
     // Column by column: a person's grant on ideas names these and nothing else. The author's vote and follow
-    // are the database's (0100), so an idea never exists without them.
+    // are the database's (0102), so an idea never exists without them.
     const [row] = await rows<{ id: string; number: string }>(
       ctx.tx,
       sql`insert into platform.ideas (title, body, area_id, author_user_id, workspace_id)
@@ -378,7 +378,7 @@ export const ideaComment = defineCommand({
         `This idea was merged into ${await mergedWords(ctx, idea)}. Comment there instead.`,
         'idea_merged',
       );
-    // Whether it is the team's answer is the database's to say, from who wrote it (0100).
+    // Whether it is the team's answer is the database's to say, from who wrote it (0102).
     const [row] = await rows<{ id: string; from_team: boolean }>(
       ctx.tx,
       sql`insert into platform.idea_comments (idea_id, author_user_id, body)

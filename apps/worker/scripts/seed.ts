@@ -491,7 +491,7 @@ async function main(): Promise<void> {
     )
   ).output.workspaceId;
 
-  // Ideas, the roadmap and What's new (0100): the one board every business shares, so it comes last, once
+  // Ideas, the roadmap and What's new (0102): the one board every business shares, so it comes last, once
   // Northstar can take part too. Chris answers it as the team.
   const ideas = await seedIdeas(
     { api: api.db, actor, meta, step },

@@ -2,7 +2,7 @@ appId: com.gobizhelp.handsfreeos
 name: Ideas - the board, a vote given and taken back, an idea, the roadmap and What's new
 tags:
   - ci
-# More → Ideas (0100): the board every business shares, live from HandsFreeOS. Dale finds Riley's "Recurring jobs on
+# More → Ideas (0102): the board every business shares, live from HandsFreeOS. Dale finds Riley's "Recurring jobs on
 # the calendar" (under review, with Riley's vote and Tom's), votes for it and takes the vote back, so the seeded board
 # is as it was; opens it and sees the switch for its emails; then the roadmap's planned ideas and What's new, newest
 # first.

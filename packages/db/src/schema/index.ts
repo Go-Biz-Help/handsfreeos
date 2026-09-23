@@ -253,6 +253,8 @@ export const recordType = app.enum('record_type', [
   'knowledge',
   /** The signed authorisation and the bill for moving a number to us — record_id is the port (0081). */
   'port',
+  /** A record of a kind the business made up: a pet, a vehicle, a property (0100). Tags never use it. */
+  'custom_record',
 ]);
 export const activityKind = app.enum('activity_kind', [
   'note',
@@ -541,6 +543,10 @@ export const tasks = app.table('tasks', {
   ...timestamps(),
   // Milestone 10
   fieldTimes: fieldTimes(),
+  /** The pet, vehicle or property it is about (0101). */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
 });
 
 export const activities = app.table('activities', {
@@ -562,6 +568,10 @@ export const activities = app.table('activities', {
   ...timestamps(),
   // Milestone 10
   syncWindow: syncWindow(),
+  /** A record of a kind the business made up, whose timeline this is on too (0101). */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
 });
 
 export const files = app.table('files', {
@@ -1720,6 +1730,10 @@ export const appointments = app.table('appointments', {
   rescheduledAt: ts('rescheduled_at'),
   /** M18: the job this visit is part of (every booked visit starts one). */
   jobId: uuid('job_id').references((): AnyPgColumn => jobs.id, { onDelete: 'set null' }),
+  /** The pet, vehicle or property the visit is for (0101). */
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
 });
 
 /** M18: the work a customer waits on — one visit or several — with a status they hear about. */
@@ -4532,7 +4546,13 @@ export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
 export const formStatus = app.enum('form_status', ['draft', 'live', 'closed', 'archived']);
 export const formResponseStatus = app.enum('form_response_status', ['in_progress', 'completed']);
 export const formSource = app.enum('form_source', ['link', 'embed', 'chat', 'qr', 'app', 'api']);
-export const customFieldEntity = app.enum('custom_field_entity', ['person', 'company', 'lead']);
+export const customFieldEntity = app.enum('custom_field_entity', [
+  'person',
+  'company',
+  'lead',
+  /** A kind of record the business made up; the field says which (`record_type_id`, 0101). */
+  'custom_record',
+]);
 export const customFieldType = app.enum('custom_field_type', [
   'text',
   'long_text',
@@ -4798,6 +4818,105 @@ export const customFields = app.table('custom_fields', {
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** The kind of record it belongs to, when entity is 'custom_record' (0101); null for everything else. */
+  recordTypeId: uuid('record_type_id').references((): AnyPgColumn => customRecordTypes.id),
+});
+
+// ---- Relationships (0100, 0101) ----
+
+/** What each end of a relationship may be. */
+export const relationshipEnd = app.enum('relationship_end', ['person', 'company', 'custom_record']);
+/** How many on each end, read from end A to end B: one_to_many is one A with many Bs. */
+export const relationshipCardinality = app.enum('relationship_cardinality', [
+  'one_to_one',
+  'one_to_many',
+  'many_to_one',
+  'many_to_many',
+]);
+
+export type RelationshipEnd = (typeof relationshipEnd.enumValues)[number];
+export type RelationshipCardinality = (typeof relationshipCardinality.enumValues)[number];
+
+/** A kind of record a business makes up for itself: "Pet" and "Pets", "Vehicle", "Property". */
+export const customRecordTypes = app.table('custom_record_types', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** The short name used in the API and imports ('pet'). Never changes, never reused. */
+  key: text('key').notNull(),
+  singular: text('singular').notNull(),
+  plural: text('plural').notNull(),
+  /** What one's name is called on its page ("Name", "Address"). */
+  nameLabel: text('name_label').notNull().default('Name'),
+  /** One of core's RECORD_ICONS. */
+  icon: text('icon').notNull().default('box'),
+  position: integer('position').notNull().default(0),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** One pet, one vehicle, one property: a name, notes and its kind's fields. */
+export const customRecords = app.table('custom_records', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  typeId: uuid('type_id')
+    .notNull()
+    .references(() => customRecordTypes.id),
+  name: text('name').notNull(),
+  notes: text('notes'),
+  /** Its kind's fields, keyed by custom_fields.id. */
+  custom: jsonb('custom').$type<Json>().notNull().default({}),
+  fieldTimes: fieldTimes(),
+  archivedAt: ts('archived_at'),
+  archivedBy: userRef('archived_by'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+  searchText: text('search_text').generatedAlwaysAs(
+    sql`lower(name || ' ' || coalesce(jsonb_path_query_array(custom, 'strict $.*')::text, ''))`,
+  ),
+});
+
+/** Which two kinds of record relate, what each end is called from the other, and how many on each end. */
+export const relationshipTypes = app.table('relationship_types', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  aEnd: relationshipEnd('a_end').notNull(),
+  aRecordTypeId: uuid('a_record_type_id').references(() => customRecordTypes.id),
+  aLabel: text('a_label').notNull(),
+  bEnd: relationshipEnd('b_end').notNull(),
+  bRecordTypeId: uuid('b_record_type_id').references(() => customRecordTypes.id),
+  bLabel: text('b_label').notNull(),
+  cardinality: relationshipCardinality('cardinality').notNull().default('many_to_many'),
+  /** The same part on both ends (spouses, siblings): a pair with no direction, lower id on end A. */
+  mutual: boolean('mutual').notNull().default(false),
+  position: integer('position').notNull().default(0),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/** One pair. Each end is one record, in the column for its kind; a_id and b_id are whichever it is. */
+export const relationships = app.table('relationships', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  typeId: uuid('type_id')
+    .notNull()
+    .references(() => relationshipTypes.id),
+  aPersonId: uuid('a_person_id').references(() => people.id, { onDelete: 'cascade' }),
+  aCompanyId: uuid('a_company_id').references(() => companies.id, { onDelete: 'cascade' }),
+  aCustomRecordId: uuid('a_custom_record_id').references(() => customRecords.id, {
+    onDelete: 'cascade',
+  }),
+  bPersonId: uuid('b_person_id').references(() => people.id, { onDelete: 'cascade' }),
+  bCompanyId: uuid('b_company_id').references(() => companies.id, { onDelete: 'cascade' }),
+  bCustomRecordId: uuid('b_custom_record_id').references(() => customRecords.id, {
+    onDelete: 'cascade',
+  }),
+  aId: uuid('a_id').generatedAlwaysAs(sql`coalesce(a_person_id, a_company_id, a_custom_record_id)`),
+  bId: uuid('b_id').generatedAlwaysAs(sql`coalesce(b_person_id, b_company_id, b_custom_record_id)`),
+  note: text('note'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
 });
 
 /**
@@ -5047,6 +5166,47 @@ export const promises = app.table('promises', {
   ...timestamps(),
 });
 
+/** Automations 5: one text to a list of customers, written per person by the AI and approved by a person. */
+export const campaigns = app.table('campaigns', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  goal: text('goal').notNull(),
+  audience: jsonb('audience').$type<Json>().notNull().default({}),
+  perHour: integer('per_hour').notNull().default(20),
+  /** drafting, review, sending, paused, done or cancelled. */
+  status: text('status').notNull().default('drafting'),
+  createdBy: userRef('created_by'),
+  approvedBy: userRef('approved_by'),
+  approvedAt: ts('approved_at'),
+  startedAt: ts('started_at'),
+  finishedAt: ts('finished_at'),
+  nextSendAt: ts('next_send_at'),
+  ...timestamps(),
+});
+
+/** Automations 5: one customer in a campaign: their draft, why they were left out, and what became of it. */
+export const campaignRecipients = app.table('campaign_recipients', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  campaignId: uuid('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  /** drafting, ready, skipped, removed, approved, sent or failed. */
+  status: text('status').notNull().default('drafting'),
+  skipReason: text('skip_reason'),
+  draft: text('draft'),
+  edited: boolean('edited').notNull().default(false),
+  clientId: text('client_id').notNull(),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  sentAt: ts('sent_at'),
+  error: text('error'),
+  ...timestamps(),
+});
+
 /** Automations 4b: one line of guidance the worker made of repeated corrections to the AI teammate. */
 export const teammateLessons = app.table('teammate_lessons', {
   id: id(),
@@ -5111,7 +5271,7 @@ export const maintenanceReminders = app.table('maintenance_reminders', {
 });
 
 /* ===========================================================================
- * platform · Ideas, the roadmap and What's new (0100). HandsFreeOS's own, so
+ * platform · Ideas, the roadmap and What's new (0102). HandsFreeOS's own, so
  * they sit beside the support desk: every business reads the same board, and
  * no tenant policy says who may. The counts are kept by the database.
  * ======================================================================== */
@@ -5298,6 +5458,8 @@ export const tables = {
   referrals,
   promises,
   teammateLessons,
+  campaigns,
+  campaignRecipients,
   foundingOffers,
   foundingGrants,
   foundingApplications,
@@ -5312,6 +5474,10 @@ export const tables = {
   formAnswers,
   formDays,
   customFields,
+  customRecordTypes,
+  customRecords,
+  relationshipTypes,
+  relationships,
   intakeSources,
   intakeSubmissions,
   staff,

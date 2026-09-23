@@ -17,6 +17,8 @@ export const TaskCreateInput = z.object({
   personId: uuid.nullable().optional(),
   companyId: uuid.nullable().optional(),
   leadId: uuid.nullable().optional(),
+  /** A record of a kind the business made up: a pet, a vehicle, a property (0101). */
+  customRecordId: uuid.nullable().optional(),
 });
 export const TaskCreateOutput = z.object({ taskId: uuid });
 /** What the person saw of each detail they edited (see kernel/field-merge). */
@@ -29,6 +31,7 @@ export const TaskSeen = z.object({
   personId: seenId,
   companyId: seenId,
   leadId: seenId,
+  customRecordId: seenId,
 });
 /** Only the details that were edited, each merged on its own: newest wins. */
 export const TaskUpdateInput = z.object({
@@ -42,6 +45,7 @@ export const TaskUpdateInput = z.object({
   personId: uuid.nullable().optional(),
   companyId: uuid.nullable().optional(),
   leadId: uuid.nullable().optional(),
+  customRecordId: uuid.nullable().optional(),
   base: TaskSeen.optional(),
 });
 export const TaskUpdateOutput = z.object({
@@ -78,6 +82,17 @@ export const TaskOut = z.object({
   person: PersonRef.nullable(),
   company: CompanyRef.nullable(),
   lead: z.object({ id: uuid, title: z.string() }).nullable(),
+  /** The pet, vehicle or property it's about, with its kind's name and picture. */
+  customRecord: z
+    .object({
+      id: uuid,
+      name: z.string(),
+      archived: z.boolean(),
+      typeId: uuid,
+      kind: z.string(),
+      icon: z.string(),
+    })
+    .nullable(),
   doneAt: isoDateTime.nullable(),
   doneBy: UserRef,
   createdBy: UserRef,
@@ -95,6 +110,7 @@ export const TaskListInput = ListInput.extend({
   personId: uuid.optional(),
   companyId: uuid.optional(),
   leadId: uuid.optional(),
+  customRecordId: uuid.optional(),
 });
 export const TaskListOutput = z.object({
   items: z.array(TaskOut),

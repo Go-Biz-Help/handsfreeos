@@ -1,5 +1,5 @@
 /**
- * Ideas, the roadmap and What's new (0100), through the command pipeline.
+ * Ideas, the roadmap and What's new (0102), through the command pipeline.
  *
  * The database's own tests (packages/db/test/ideas-rls.test.ts) prove who the policies let through. These prove
  * the board works as the people using it see it: sharing an idea votes for it and follows it, another business
