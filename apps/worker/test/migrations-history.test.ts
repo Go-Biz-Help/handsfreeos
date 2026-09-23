@@ -359,7 +359,8 @@ describe('the history arrives as history', () => {
             provider_sid, started_at
           from app.calls where workspace_id = ${workspaceId}::uuid order by started_at`,
     );
-    expect(list).toHaveLength(2);
+    // Two from the phone system, and one placed from the dialer.
+    expect(list).toHaveLength(3);
     expect(list[0]).toMatchObject({
       direction: 'outbound',
       duration_seconds: 214,
@@ -367,6 +368,7 @@ describe('the history arrives as history', () => {
     });
     expect(list[1]).toMatchObject({ direction: 'inbound', is_voicemail: true });
     expect(list[1]!.transcript).toContain('thermostat');
+    expect(list[2]).toMatchObject({ direction: 'outbound', is_voicemail: false });
     // No carrier id: that column is unique across the whole database and holds a carrier's own id, so an
     // imported call leaves it empty and is traced through the migration's mapping instead.
     expect(list[0]!.provider_sid).toBeNull();

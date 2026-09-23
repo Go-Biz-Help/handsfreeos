@@ -1381,6 +1381,10 @@ async function threadFor(
   if (!counterpart) {
     if (want.stayWhenUnaddressable)
       return { id: parent.id, channel: parent.channel as 'sms' | 'email' | 'chat' };
+    // A thread that is already a chat — because nothing in it could be addressed either, like a text
+    // exchange with a five-digit short code — keeps its unaddressable texts itself, rather than growing a
+    // second chat thread beside it for the same conversation.
+    if (parent.channel === 'chat') return { id: parent.id, channel: 'chat' };
     channel = 'chat';
     counterpart = chatAddress(scope.sourceSystem, `${parent.sourceId}-${want.channel}`);
   }

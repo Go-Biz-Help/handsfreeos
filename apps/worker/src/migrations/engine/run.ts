@@ -1375,9 +1375,15 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
       };
 
       // What arrived against what the old system said it had.
-      const perCategory = await rows<{ category: string; expected: number; actual: number }>(
+      const perCategory = await rows<{
+        category: string;
+        expected: number;
+        actual: number;
+        failed: number;
+      }>(
         tx,
         sql`select c.category,
+            sum(coalesce((c.counts ->> 'failed')::bigint, 0))::bigint as failed,
             coalesce((select sum(i.found_count) from app.migration_inventory i
                       where i.migration_id = c.migration_id and i.category = c.category
                         and i.resource_id is null), 0)::bigint as expected,
@@ -1391,7 +1397,12 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
       for (const row of perCategory) {
         const expected = Number(row.expected);
         const actual = Number(row.actual);
+        const failed = Number(row.failed);
         const label = migrationCategory(row.category)?.label ?? row.category;
+        // The ones set aside with a reason are known, not a mystery: saying they "may have been added or
+        // removed while we read" sent people looking for a problem that was already written down.
+        const short = expected - actual;
+        const explained = Math.min(failed, short);
         await put(
           'counts',
           row.category,
@@ -1400,7 +1411,11 @@ async function verify(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
           actual,
           actual >= expected
             ? `${label}: everything the old system listed is here.`
-            : `${label}: ${expected - actual} fewer than the old system listed. They may have been added or removed while we read.`,
+            : explained === short
+              ? `${label}: ${short} could not be brought across, each listed with the reason.`
+              : `${label}: ${short} fewer than the old system listed${
+                  explained > 0 ? ` (${explained} listed with the reason)` : ''
+                }. The rest may have been added or removed while we read.`,
         );
       }
 
