@@ -135,7 +135,7 @@ async function defaultConnection(ctx: CommandContext): Promise<string | null> {
 }
 
 /**
- * The account a new invoice is paid into (0104). A person bills only into an account they may use: the one they
+ * The account a new invoice is paid into (0105). A person bills only into an account they may use: the one they
  * named, or else the default when it is theirs to use, or the first one that is. What the business raises on its
  * own — a deposit, a plan's cycle, the AI teammate's bill once an owner has said yes — takes the one named, else
  * the default, as it always has.
@@ -322,7 +322,7 @@ export const invoiceUpdate = defineCommand({
       );
     if (input.connectionId && input.connectionId !== before.connection_id)
       await assertAccountUsable(ctx, requireHuman(ctx).userId, input.connectionId);
-    // Moved to another lead: still one they may bill (0105).
+    // Moved to another lead: still one they may bill (0106).
     if ((input.leadId ?? null) !== before.lead_id)
       await requireBillable(ctx, {
         personId: before.person_id,

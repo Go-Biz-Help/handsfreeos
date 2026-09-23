@@ -58,7 +58,7 @@ export type Importer = (
 ) => Promise<ImporterResult>;
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-/** What the other-emails list takes (0102's private.valid_other_emails): something@somewhere, 3 to 254 long. */
+/** What the other-emails list takes (0103's private.valid_other_emails): something@somewhere, 3 to 254 long. */
 const emailLike = (v: string | null | undefined): v is string =>
   !!v && v.length >= 3 && v.length <= 254 && /^[^@\s]+@[^@\s]+$/.test(v);
 
@@ -673,7 +673,7 @@ async function candidatesFor(
                  or other_phones @> ${JSON.stringify([{ phone: phoneE164 ?? '' }])}::jsonb)))
         limit 20`,
   );
-  // A customer's other numbers and emails (0102) are theirs as much as the main ones; phone_alt is the column
+  // A customer's other numbers and emails (0103) are theirs as much as the main ones; phone_alt is the column
   // imports wrote before those lists existed.
   return list.map((p) => ({
     id: p.id,
@@ -806,7 +806,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     else custom[field.id] = held;
   }
   // Every address and number they had over there. One of each is the main one here; the others go in their
-  // other emails and numbers (0102), where a person sees them and the next text or email from one finds them. A
+  // other emails and numbers (0103), where a person sees them and the next text or email from one finds them. A
   // number that doesn't read as one is kept in the notes rather than dropped.
   const otherEmails = [
     ...new Set(
@@ -954,7 +954,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       for (const [k, v] of Object.entries(merged.updates)) changed[k] = { before: null, after: v };
       if (consent !== here.sms_consent)
         changed['sms_consent'] = { before: here.sms_consent, after: consent };
-      // A number or an email that isn't the one kept here is kept beside it rather than replacing it (0102):
+      // A number or an email that isn't the one kept here is kept beside it rather than replacing it (0103):
       // the old system's main one when this record already has a different one, and all of its others. Four old
       // records sharing one email address, each with its own number, lost two of them before there was
       // anywhere to put them.

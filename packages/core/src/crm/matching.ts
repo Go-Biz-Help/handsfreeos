@@ -2,7 +2,7 @@ import { rows, sql, type Tx } from '@hfos/db/client';
 import type { companies, people } from '@hfos/db/schema';
 
 /**
- * "This record has this number" and "this email", as conditions: the main one, or any of the others (0102). A
+ * "This record has this number" and "this email", as conditions: the main one, or any of the others (0103). A
  * customer who texts from their office line, or writes from their other address, is still themselves. Each
  * arm has its index: (workspace_id, phone_e164) and (workspace_id, email) for the main ones, and a GIN index
  * on each list, probed with `@>`.
@@ -50,7 +50,7 @@ export async function findMatches(
   const name = kind === 'company' ? q.name?.trim() || null : null;
   if (!email && !phone && !name) return [];
   const table = kind === 'person' ? sql`app.people` : sql`app.companies`;
-  // The other emails and numbers count too (0102): a new customer whose number is on someone's list is them.
+  // The other emails and numbers count too (0103): a new customer whose number is on someone's list is them.
   const emailProbe = JSON.stringify([{ email: email ?? '' }]);
   const phoneProbe = JSON.stringify([{ phone: phone ?? '' }]);
   const display = kind === 'person' ? sql`btrim(first_name || ' ' || last_name)` : sql`name`;

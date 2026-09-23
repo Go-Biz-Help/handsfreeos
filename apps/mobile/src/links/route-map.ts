@@ -93,6 +93,11 @@ export const ROUTES: readonly Rule[] = [
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
   // how the payment provider sends somebody back to the app once they have typed a card.
   { web: 'settings/usage', phone: 'settings/usage', query: ['card'] },
+  // Ideas, the roadmap and What's new (0102): the phone has all four, so a link to any of them opens it here.
+  { web: 'ideas', phone: 'ideas' },
+  { web: 'ideas/roadmap', phone: 'ideas/roadmap' },
+  { web: 'ideas/whats-new', phone: 'ideas/whats-new' },
+  { web: 'ideas/:ideaId', phone: 'ideas/:ideaId' },
   // The desk work the phone leaves to the web.
   { web: 'settings', phone: 'web', deeper: true },
   { web: 'workflows', phone: 'web', deeper: true },
@@ -172,6 +177,16 @@ export function routeFor(pathAndQuery: string): LinkTarget {
   if (parts[0] !== 'app') return { kind: 'none' };
   if (parts.length === 1)
     return { kind: 'screen', href: '/app', businessId: null, later: null, params: query };
+  // An email about an idea (`/app/ideas/<id>`) names no business, since the board is every business's: it opens in
+  // the one the phone had open last (app/ideas/[ideaId].tsx), as the web's own page does.
+  if (parts[1] === 'ideas' && parts.length === 3 && UUID.test(parts[2]!))
+    return {
+      kind: 'screen',
+      href: `/app/ideas/${parts[2]!}`,
+      businessId: null,
+      later: null,
+      params: { ...query, ideaId: parts[2]! },
+    };
   if (parts[1] === 'w') {
     const businessId = parts[2];
     if (!businessId || !UUID.test(businessId)) return { kind: 'none' };

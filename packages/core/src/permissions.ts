@@ -115,7 +115,14 @@ export const ROLE_PERMISSIONS = {
     'org.templates.manage',
     'org.migrations.manage',
   ],
-  staff_agent: ['support.read', 'support.reply', 'platform.businesses.read', 'platform.view_as'],
+  staff_agent: [
+    'support.read',
+    'support.reply',
+    'platform.businesses.read',
+    'platform.view_as',
+    // Ideas (0102): answering as the team, tidying, merging duplicates and taking down spam.
+    'platform.ideas.moderate',
+  ],
   staff_lead: [
     'support.read',
     'support.reply',
@@ -124,6 +131,9 @@ export const ROLE_PERMISSIONS = {
     'platform.businesses.read',
     'platform.view_as',
     'platform.health.read',
+    'platform.ideas.moderate',
+    // Moving an idea along the roadmap (which emails its followers) and writing What's new.
+    'platform.ideas.manage',
   ],
   staff_admin: [
     'support.read',
@@ -137,6 +147,8 @@ export const ROLE_PERMISSIONS = {
     'platform.rates.manage',
     'platform.wallets.adjust',
     'platform.founding.manage',
+    'platform.ideas.moderate',
+    'platform.ideas.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -145,7 +157,7 @@ export type Permission = (typeof ROLE_PERMISSIONS)[RoleKey][number];
 /** Everything anyone can do inside a business: the owner has all of it. */
 export type WorkspacePermission = (typeof ROLE_PERMISSIONS)['owner'][number];
 
-// ---------- permissions a business sets (0105) ----------
+// ---------- permissions a business sets (0106) ----------
 
 /** One permission an owner can turn on or off, in plain words, with what it stands on. */
 export interface PermissionInfo {
@@ -434,7 +446,7 @@ export function effectivePermissions(
 }
 
 /**
- * Who is asking, as far as permissions go: their role, and what the business lets them do when that is known (0105)
+ * Who is asking, as far as permissions go: their role, and what the business lets them do when that is known (0106)
  * — the API gives it, the phone's access row holds it. Code that only has a role still works, with the defaults.
  */
 export interface Grants {
@@ -460,8 +472,9 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Support admin',
 };
 export const STAFF_ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
-  agent: 'Answers tickets and can look at a business read-only to see what the customer sees.',
-  lead: 'Everything an agent does, plus assigning tickets, saved replies and the health page.',
+  agent:
+    'Answers tickets, answers ideas as the team, and can look at a business read-only to see what the customer sees.',
+  lead: 'Everything an agent does, plus assigning tickets, saved replies, the health page, the roadmap and What’s new.',
   admin: 'Everything a lead does, plus inviting and removing support people.',
 };
 

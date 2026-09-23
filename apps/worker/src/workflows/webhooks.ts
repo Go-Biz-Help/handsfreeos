@@ -504,7 +504,7 @@ async function matchPerson(
     if (id) return id;
   }
   if (by !== 'phone' && who.email) {
-    // Their main email or one of their others (0102); the one whose main email it is first.
+    // Their main email or one of their others (0103); the one whose main email it is first.
     const email = who.email.toLowerCase();
     const [p] = await rows<{ id: string }>(
       tx,

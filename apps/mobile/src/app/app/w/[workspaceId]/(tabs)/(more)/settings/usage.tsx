@@ -56,7 +56,7 @@ import {
  */
 export default function Balance() {
   const { business } = useBusiness();
-  // Spending the business's balance is managing its money (money.manage, 0105).
+  // Spending the business's balance is managing its money (money.manage, 0106).
   const { whole: manage } = useMoneyRole();
   const timeZone = useMoneyZone();
   const view = useWallet(business.id);

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0105 · What each role may do, and what each person may do, set by the
+-- 0106 · What each role may do, and what each person may do, set by the
 --        business's owners — and members who bill.
 --
 --        The three roles and what they may do have been fixed since 0002:
@@ -42,7 +42,7 @@
 --        void estimates and invoices, take a payment by hand, and start and
 --        run plans. Owners and admins have it; members don't until an owner
 --        says so. Someone who bills but doesn't manage money bills the
---        customers they can already see money for (0050's rule, with 0103's
+--        customers they can already see money for (0050's rule, with 0104's
 --        customer arm): the ones they're on, the leads they work, the visits
 --        they're staffed on. The documents, their lines, their payments and
 --        the plans gain policies saying exactly that. Refunds, the catalogue,
@@ -61,7 +61,7 @@ create table app.customizable_permissions (
   requires text[] not null default '{}'
 );
 comment on table app.customizable_permissions is
-  'The permissions an owner may turn on or off for a role or a person (0105), and what each needs to mean anything. Mirrored in packages/core/src/permissions.ts.';
+  'The permissions an owner may turn on or off for a role or a person (0106), and what each needs to mean anything. Mirrored in packages/core/src/permissions.ts.';
 
 insert into app.customizable_permissions (permission, requires) values
   ('records.write', '{records.read}'),
@@ -107,7 +107,7 @@ create table app.role_permission_overrides (
   primary key (workspace_id, role, permission)
 );
 comment on table app.role_permission_overrides is
-  'A business''s own answer for one role and one permission (0105), in place of app.role_permissions'' default.';
+  'A business''s own answer for one role and one permission (0106), in place of app.role_permissions'' default.';
 
 create table app.member_permission_overrides (
   workspace_id uuid not null references app.workspaces (id) on delete cascade,
@@ -120,7 +120,7 @@ create table app.member_permission_overrides (
 );
 create index member_permission_overrides_user_idx on app.member_permission_overrides (user_id);
 comment on table app.member_permission_overrides is
-  'A business''s own answer for one person and one permission (0105), in place of their role''s. Never read for an owner.';
+  'A business''s own answer for one person and one permission (0106), in place of their role''s. Never read for an owner.';
 
 -- A person set here belongs to the business when they are set. Somebody who later leaves keeps their row, which
 -- reads nothing (they have no role here), until the business or they are gone.
@@ -195,9 +195,9 @@ alter table app.workspace_access
   add column permissions text[] not null default '{}',
   add column manages_money boolean not null default false;
 comment on column app.workspace_access.permissions is
-  'Everything this person may do in this business (0105): private.user_permissions(), kept by triggers. What private.has_permission() and the phone read.';
+  'Everything this person may do in this business (0106): private.user_permissions(), kept by triggers. What private.has_permission() and the phone read.';
 comment on column app.workspace_access.manages_money is
-  'Whether this person manages money here (money.manage, 0105): what the business_v1 `managed` sync parameter reads.';
+  'Whether this person manages money here (money.manage, 0106): what the business_v1 `managed` sync parameter reads.';
 
 -- One person in one business, recomputed: their role and, now, their permissions.
 create or replace function private.refresh_workspace_access(p_user uuid, p_ws uuid)

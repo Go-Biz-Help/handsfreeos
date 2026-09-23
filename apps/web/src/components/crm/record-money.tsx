@@ -156,7 +156,7 @@ export function RecordMoneyTab({
   personId: string;
   personName: string;
   found: RecordMoney | null;
-  /** Whether they may write one an estimate or an invoice (0105). */
+  /** Whether they may write one an estimate or an invoice (0106). */
   canBill: boolean;
   timeZone: string;
 }) {
@@ -322,7 +322,7 @@ export function LeadMoneyCard({
   leadId: string;
   personId: string | null;
   found: RecordMoney | null;
-  /** Whether they may quote this job (0105). */
+  /** Whether they may quote this job (0106). */
   canBill: boolean;
   timeZone: string;
 }) {

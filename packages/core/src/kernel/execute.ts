@@ -142,7 +142,7 @@ function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope 
 }
 
 /**
- * Whether the person in this scope may do something in the business: what the business has set for them (0105)
+ * Whether the person in this scope may do something in the business: what the business has set for them (0106)
  * when the scope was resolved with it, else their role's defaults. Handlers ask this rather than the role.
  */
 export function scopeCan(scope: ResolvedScope, permission: Permission): boolean {

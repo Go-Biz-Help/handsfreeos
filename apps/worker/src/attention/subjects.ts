@@ -150,6 +150,10 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'knowledge_suggestion.proposed',
   'knowledge_suggestion.accepted',
   'knowledge_suggestion.rejected',
+  // Promotions: an offer's end date changed, or it was archived.
+  'offer.created',
+  'offer.updated',
+  'offer.archived',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -181,6 +185,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'lesson',
   'scan',
   'suggestion',
+  'offer',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -332,6 +337,9 @@ export async function subjectsOf(
       break;
     case 'knowledge_scan':
       add('scan', id);
+      break;
+    case 'offer':
+      add('offer', id);
       break;
     case 'knowledge_suggestion':
       add('suggestion', id);

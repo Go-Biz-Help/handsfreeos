@@ -104,7 +104,7 @@ const TABS: readonly Tab[] = [
 export interface RecordPageProps {
   workspaceId: string;
   myUserId: string;
-  /** What the business lets them do (0105), as workspace.get gives it. */
+  /** What the business lets them do (0106), as workspace.get gives it. */
   permissions: readonly string[];
   person?: PersonDetail;
   company?: CompanyDetail;
@@ -144,7 +144,7 @@ export function RecordPage(props: RecordPageProps) {
   const email = person ? person.email : company!.email;
   const currentTags = (person ?? company)!.tags;
   const record = (person ?? company)!;
-  // Every number and email on file (0102): the main one first, then the others with their labels.
+  // Every number and email on file (0103): the main one first, then the others with their labels.
   const numbers = [
     ...(phoneE164 ? [{ phone: phoneE164, label: 'Main' }] : []),
     ...record.otherPhones.map((p) => ({
@@ -169,7 +169,7 @@ export function RecordPage(props: RecordPageProps) {
   /**
    * This customer's money, for the header's "Owes $X" and the Money tab. `money.for_record` already holds a
    * member to the jobs they are on, so a member who is on none of this customer's simply finds nothing here.
-   * Whoever the business lets bill (0105) may write them an estimate or an invoice.
+   * Whoever the business lets bill (0106) may write them an estimate or an invoice.
    */
   const recordMoney = useRecordMoney(workspaceId, 'person', person?.id ?? null, { payments: true });
   const canBill = can(permissions, 'money.bill');

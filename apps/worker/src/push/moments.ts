@@ -502,7 +502,7 @@ export const onPaidPush = pushMoment('payment', async (ctx, scope) => {
   if (!invoice) return;
   const people = await rows<{ id: string }>(
     ctx.tx,
-    // As the paid email: whoever manages money here (0105), and the invoice's own person.
+    // As the paid email: whoever manages money here (0106), and the invoice's own person.
     sql`select wm.user_id as id from app.workspace_memberships wm
         join app.workspace_access wa on wa.user_id = wm.user_id and wa.workspace_id = wm.workspace_id
         where wm.workspace_id = ${ws}

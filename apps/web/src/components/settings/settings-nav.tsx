@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Sub-navigation shared by the settings pages. Everyone has their account and their calendar; each of the
- * business's own pages shows for whoever may change what is on it, as the business has set that up (0105).
+ * business's own pages shows for whoever may change what is on it, as the business has set that up (0106).
  */
 export function SettingsNav({
   workspaceId,

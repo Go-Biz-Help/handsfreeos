@@ -308,7 +308,7 @@ export function workflowApprovalOfSynced(
   o: {
     readonly names: ReadonlyMap<string, string>;
     readonly role: WorkspaceRole | null;
-    /** What the business lets them do (0105), when the copy holds it. */
+    /** What the business lets them do (0106), when the copy holds it. */
     readonly permissions?: readonly string[] | null;
     readonly userId: string;
     readonly now: number;

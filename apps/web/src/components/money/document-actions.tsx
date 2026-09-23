@@ -153,7 +153,7 @@ export function ConvertDialog({
 }) {
   const router = useRouter();
   const [purpose, setPurpose] = useState<'standard' | 'deposit'>('standard');
-  // Only the accounts this person may bill into (0104), theirs by default.
+  // Only the accounts this person may bill into (0105), theirs by default.
   const payable = accountsFor(connections);
   const [connectionId, setConnectionId] = useState(firstAccount(connections)?.id ?? '');
   const [busy, act] = useAction();

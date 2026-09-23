@@ -58,7 +58,7 @@ export interface CallTarget {
   readonly phone: string;
   readonly personId?: string | null;
   readonly conversationId?: string | null;
-  /** Every number the customer has on file (0102), so the dialer can call another one; `phone` is chosen first. */
+  /** Every number the customer has on file (0103), so the dialer can call another one; `phone` is chosen first. */
   readonly numbers?: readonly { readonly phone: string; readonly label: string }[];
 }
 

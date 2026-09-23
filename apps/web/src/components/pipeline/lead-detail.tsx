@@ -96,7 +96,7 @@ export function LeadDetail({
   initial?: LeadDetailData;
   members: { id: string; fullName: string }[];
   myUserId: string;
-  /** What the business lets them do (0105), as workspace.get gives it. */
+  /** What the business lets them do (0106), as workspace.get gives it. */
   permissions: readonly string[];
   tags: Tag[];
   compact?: boolean;

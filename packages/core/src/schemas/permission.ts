@@ -1,5 +1,5 @@
 /**
- * What an owner sets about what people may do (0105): a role's permissions in their business, one person's, and
+ * What an owner sets about what people may do (0106): a role's permissions in their business, one person's, and
  * the settings page that shows both.
  */
 import { z } from 'zod';

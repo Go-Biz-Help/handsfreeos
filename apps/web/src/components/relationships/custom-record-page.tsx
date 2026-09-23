@@ -65,7 +65,7 @@ const TABS: readonly Tab[] = ['timeline', 'appointments', 'tasks', 'files', 'det
 export interface CustomRecordPageProps {
   workspaceId: string;
   myUserId: string;
-  /** What the business lets them do (0105), as workspace.get gives it. */
+  /** What the business lets them do (0106), as workspace.get gives it. */
   permissions: readonly string[];
   record: CustomRecordDetail;
   /** Its kind's fields. */

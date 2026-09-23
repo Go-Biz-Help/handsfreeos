@@ -75,7 +75,7 @@ export const AddressOut = z.object({
 export type AddressOut = z.infer<typeof AddressOut>;
 
 /**
- * The other emails, numbers and addresses a person or company keeps beside the main ones (0102). An update sends
+ * The other emails, numbers and addresses a person or company keeps beside the main ones (0103). An update sends
  * the whole list it wants; the command tidies it the way the database would (crm/contact-points).
  */
 const contactLabel = z.string().trim().max(40).nullable().optional();
@@ -162,7 +162,7 @@ export const tagIds = z.array(uuid).max(20);
 export const PersonRef = z.object({ id: uuid, fullName: z.string(), archived: z.boolean() });
 
 /**
- * Everyone on a customer besides the owner (0103), in the order they were added. With the owner they are who the
+ * Everyone on a customer besides the owner (0104), in the order they were added. With the owner they are who the
  * customer is assigned to; somebody who has left the business reads "Former member".
  */
 export const TeamRef = z.array(z.object({ id: uuid, fullName: z.string() }));

@@ -70,6 +70,8 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   ai_corrections: { grows: 'since', start: 1, stepMs: 7 * DAY },
   website_changed: { grows: 'since', start: 1, stepMs: 7 * DAY },
   faq_suggestions: { grows: 'since', start: 1, stepMs: 3 * DAY },
+  // Climbs toward the end date: the last day is the last chance to extend it or send one more campaign.
+  offer_lapsing: { grows: 'until_due', windowMs: 3 * DAY },
 };
 
 /**

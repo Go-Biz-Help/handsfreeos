@@ -73,7 +73,7 @@ export default function CompanyScreen() {
   ];
   const contact = [
     company.phone ? { key: 'phone', text: company.phone } : null,
-    // Its other numbers (0102), each a tap from a call.
+    // Its other numbers (0103), each a tap from a call.
     ...otherPhoneLines(company),
     company.email ? { key: 'email-line', text: company.email } : null,
     data.address ? { key: 'address', text: data.address } : null,

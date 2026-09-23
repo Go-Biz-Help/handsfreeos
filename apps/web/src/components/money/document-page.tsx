@@ -145,7 +145,7 @@ export function EstimateDocument({
 }: {
   workspaceId: string;
   data: EstimateGetOut;
-  /** Turn it into an invoice, record their yes, copy its link or void it (0105). */
+  /** Turn it into an invoice, record their yes, copy its link or void it (0106). */
   canBill: boolean;
   connections: readonly PaymentConnectionRow[];
   timeZone: string;
@@ -378,7 +378,7 @@ export function InvoiceDocument({
 }: {
   workspaceId: string;
   data: InvoiceGetOut;
-  /** Record a payment by hand, copy its link or void it (0105). */
+  /** Record a payment by hand, copy its link or void it (0106). */
   canBill: boolean;
   /** Give money back: only for whoever manages money. */
   canManage: boolean;

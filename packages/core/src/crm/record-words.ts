@@ -131,7 +131,7 @@ export const RECORD_WORDS = {
     address: 'Address',
     company: 'Company',
     owner: 'Owner',
-    /** The owner and everyone else on the customer (0103). */
+    /** The owner and everyone else on the customer (0104). */
     assignedTo: 'Assigned to',
     source: 'Source',
     created: 'Created',

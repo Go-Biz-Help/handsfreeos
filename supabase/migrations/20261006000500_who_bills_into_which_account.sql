@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0104 · Who bills into which account. A business can connect several
+-- 0105 · Who bills into which account. A business can connect several
 --        Stripe and Square accounts — two of the same provider as easily as
 --        one of each (0046) — and until now anybody who could bill could bill
 --        into any of them. A team where each person's work is paid to their
@@ -44,9 +44,9 @@ alter table app.payment_connections
   add constraint payment_connections_user_ids_size check (cardinality(user_ids) <= 50);
 
 comment on column app.payment_connections.used_by is
-  'Who may bill into this account (0104): everyone who bills, only the people in user_ids, or only them and they into nothing that is open to everyone.';
+  'Who may bill into this account (0105): everyone who bills, only the people in user_ids, or only them and they into nothing that is open to everyone.';
 comment on column app.payment_connections.user_ids is
-  'The people this account is kept to (0104). Empty exactly when it is open to everyone.';
+  'The people this account is kept to (0105). Empty exactly when it is open to everyone.';
 
 -- Each person once, in the order they were chosen; somebody newly chosen belongs to the business.
 create or replace function private.guard_payment_account_people()

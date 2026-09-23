@@ -1,6 +1,6 @@
 /**
  * `POST /v1/money/link`: a customer's own link, for whoever bills to copy. Signed in, with `money.bill` — and
- * only for the customers they're on unless they manage money (0105) — only for something a customer can
+ * only for the customers they're on unless they manage money (0106) — only for something a customer can
  * actually use, never cached — and **exactly the link the messages send**, which is also what
  * `/test/money/link` hands a browser test.
  */

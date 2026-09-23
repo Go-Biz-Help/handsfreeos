@@ -345,7 +345,7 @@ export const formResponseSubmit = defineCommand({
         const fill: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(person.fields)) {
           if (key === 'phoneAlt') {
-            // Another number joins the others (0102) when it reads as one and isn't on file already: a form
+            // Another number joins the others (0103) when it reads as one and isn't on file already: a form
             // never relabels a number the business has, and a stray answer never sinks the submission.
             const e164 = typeof value === 'string' ? normalizePhone(value) : null;
             const onFile = [

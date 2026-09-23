@@ -37,6 +37,8 @@ export const MENU_KEYS = [
   'tasks',
   'members',
   'audit',
+  // Ideas, the roadmap and What's new (0102): the one place about HandsFreeOS itself rather than the business.
+  'ideas',
   'settings',
 ] as const;
 export type MenuKey = (typeof MENU_KEYS)[number];
@@ -99,7 +101,7 @@ export const DEFAULT_MENU: Menu = {
 
 /**
  * The tidy-up the editor offers in one press: the places a day is spent in stay out, and the rest fold into
- * **More**. Nine rows instead of fifteen, and nothing is lost.
+ * **More**. Nine rows instead of seventeen, and nothing is lost.
  */
 export const SUGGESTED_MENU: Menu = {
   entries: [
@@ -123,6 +125,7 @@ export const SUGGESTED_MENU: Menu = {
         'ai-team',
         'members',
         'audit',
+        'ideas',
       ],
     },
     { kind: 'link', key: 'settings' },
@@ -131,7 +134,7 @@ export const SUGGESTED_MENU: Menu = {
 };
 
 /**
- * The places that are nothing without a permission a business may take away (0105): Money without seeing bills,
+ * The places that are nothing without a permission a business may take away (0106): Money without seeing bills,
  * the inbox without using it, the audit log without reading it.
  */
 export const MENU_NEEDS: Readonly<Partial<Record<MenuKey, WorkspacePermission>>> = {

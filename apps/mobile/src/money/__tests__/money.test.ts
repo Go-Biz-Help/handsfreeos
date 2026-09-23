@@ -178,7 +178,7 @@ describe('who sees what', () => {
     expect(moneyTabsFor(member)).toEqual(['invoices', 'estimates']);
   });
 
-  it('lets a member the business lets bill send from their own jobs, still without the totals (0105)', () => {
+  it('lets a member the business lets bill send from their own jobs, still without the totals (0106)', () => {
     const billing = effectivePermissions('member', { 'money.bill': true });
     expect(canBill(member)).toBe(false);
     expect(canBill(billing)).toBe(true);

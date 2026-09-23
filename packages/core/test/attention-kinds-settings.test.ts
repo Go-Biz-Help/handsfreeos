@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the thirty-one kinds in order', () => {
+  it('lists the thirty-two kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -62,6 +62,7 @@ describe('attention kinds', () => {
       'ai_corrections',
       'website_changed',
       'faq_suggestions',
+      'offer_lapsing',
     ]);
   });
 
@@ -118,6 +119,8 @@ describe('attention kinds', () => {
       'ai_corrections',
       'website_changed',
       'faq_suggestions',
+      // Extending an offer is a knowledge edit too.
+      'offer_lapsing',
     ];
     for (const role of WORKSPACE_ROLES)
       for (const kind of ATTENTION_KINDS)
@@ -205,6 +208,7 @@ describe('attention kinds', () => {
       'job_not_thanked',
       'job_unconfirmed',
       'maintenance_due',
+      'offer_lapsing',
       'overdue_task',
       'pipeline_mismatch',
       'promise_due',

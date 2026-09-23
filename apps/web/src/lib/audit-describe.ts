@@ -124,7 +124,7 @@ function describeAction(e: AuditEntry): string {
       return e.actor.userId === e.entityId
         ? 'left the workspace'
         : `removed ${who(e)} from the workspace`;
-    // 0105: what a business lets its people do
+    // 0106: what a business lets its people do
     case 'permission.set_role':
     case 'permission.set_member': {
       const [label, said] = permissionChange(e);

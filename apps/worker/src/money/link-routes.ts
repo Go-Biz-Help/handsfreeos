@@ -11,7 +11,7 @@
  * Refused when there is nothing a customer could use: a draft (no link to one was ever given out), a voided
  * estimate or invoice, and a plan that has ended (what `subscription.request_card` refuses as well). Someone who
  * may not bill gets a 403 before anything is read: a link is a way to take someone's money. Someone who bills
- * without managing money (0105) gets the links of what they can see — the bills and plans of the customers
+ * without managing money (0106) gets the links of what they can see — the bills and plans of the customers
  * they're on — and "not there" for anything else, asked as them so the rules that show them a bill decide. The
  * answer is `no-store`, because it is a working link.
  *

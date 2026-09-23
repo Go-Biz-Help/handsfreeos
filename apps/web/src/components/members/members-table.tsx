@@ -34,7 +34,7 @@ export function MembersTable({
   workspaceId: string;
   members: Member[];
   myRole: Role;
-  /** What the business lets the person looking do (0105). */
+  /** What the business lets the person looking do (0106). */
   myPermissions: readonly string[];
   myUserId: string;
   /** Every role's and person's own permission settings, for an owner who sets them; null for anyone else. */

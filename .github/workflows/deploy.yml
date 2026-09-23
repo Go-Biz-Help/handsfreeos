@@ -1,38 +1,67 @@
 name: Deploy
 
-# After CI passes on main, ship the API and the worker to Fly.io, then the sync service. Until the FLY_API_TOKEN
-# repository secret exists this workflow only notes that it skipped, so main stays green before the Fly organization
-# is set up; the sync service likewise waits until its own Fly app has its secrets.
+# Ship the API and the worker to Fly.io as soon as Vercel has built the web app for a push to main, then the sync
+# service. Until the FLY_API_TOKEN repository secret exists this workflow only notes that it skipped; the sync service
+# likewise waits until its own Fly app has its secrets.
 #
-# The web app is not deployed here: Vercel builds it from the same push. What keeps it from going live ahead of the
-# API is Vercel's Deployment Checks, which hold the address back until CI and the first job below have passed
-# ("Make Vercel wait for CI and the API" in docs/operations.md). That is why the sync service is a second job rather
-# than three more steps in the first: the web app should wait for the API it calls, and never for PowerSync copying
-# a database for a quarter of an hour.
+# The web app is not deployed here: Vercel builds it from the same push and, when the build is ready, tells GitHub
+# (a `repository_dispatch` event). This workflow deploys that same commit's worker and API, then reports back to
+# Vercel, whose Deployment Check holds app.handsfreeos.com until the report says the API is up ("Make Vercel wait for
+# the API" in docs/operations.md). The web app and the API it calls go live together, a few minutes after a merge,
+# rather than the web app at once and the API forty-five minutes later behind CI. CI still runs on every pull request
+# and on main; it no longer holds the deploy back.
+#
+# That is why the sync service is a second job rather than three more steps in the first: the web app should wait
+# for the API it calls, and never for PowerSync copying a database for a quarter of an hour.
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
+  # Vercel sends these for every deployment of every project it builds from this repository, previews included; the
+  # deploy job answers only the web app's production builds. `skipped` and `ignored` are production builds Vercel
+  # chose not to make (nothing in the web app changed), and the API and the worker still ship for those.
+  repository_dispatch:
+    types: [vercel.deployment.ready, vercel.deployment.skipped, vercel.deployment.ignored]
+  # A hand run ships the newest commit on main. It doesn't report to Vercel, so a web build still waiting on its check
+  # needs its own run re-run, or Force Promote in Vercel.
   workflow_dispatch:
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
 
 jobs:
   deploy:
-    # Vercel waits on this job by name. Renaming it makes that wait silently stop happening, so change the checks in
-    # the Vercel project in the same breath.
     name: The API and the worker on Fly.io
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.client_payload.environment == 'production' &&
+      github.event.client_payload.project.name == 'handsfreeos-web')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # One deploy at a time, with at most one waiting. Every preview build starts a run of this workflow too, and one of
+    # those (whose jobs all skip) must never take a real deploy's waiting slot, so only a real deploy joins the group.
+    concurrency:
+      group: >-
+        ${{ (github.event_name == 'workflow_dispatch' || (github.event.client_payload.environment == 'production' &&
+        github.event.client_payload.project.name == 'handsfreeos-web')) && 'deploy-production' ||
+        format('deploy-skipped-{0}', github.run_id) }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      # The report to Vercel is a commit status; the action reads this run's jobs to know whether they passed.
+      statuses: write
+      actions: read
     outputs:
       ready: ${{ steps.check.outputs.ready }}
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      # The commit Vercel built, not whatever main points at by now.
+      SHA: ${{ github.event.client_payload.git.sha || github.sha }}
     steps:
+      # First, so it reports last: it marks the check pending now and, once every step below has run, passed or
+      # failed. The name is what the Deployment Check in the Vercel project waits for; change both together. A report
+      # that can't be sent never stops the deploy: the web app then waits for Force Promote, which is visible and safe.
+      - name: Tell Vercel when the API is up
+        if: github.event_name == 'repository_dispatch'
+        continue-on-error: true
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: 'Vercel - handsfreeos-web: api'
+
       - name: Is Fly.io set up?
         id: check
         run: |
@@ -43,11 +72,23 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # A production build of a commit that isn't on main (`vercel deploy --prod` from a branch, or anyone who can write
+      # to the repository sending this event by hand) doesn't ship the API: only a merged commit does.
+      - name: Is the commit on main?
+        if: github.event_name == 'repository_dispatch' && steps.check.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/$SHA...main" --jq .status)
+          if [ "$status" != "ahead" ] && [ "$status" != "identical" ]; then
+            echo "::error::$SHA is not on main ($status), so it was not deployed."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         if: steps.check.outputs.ready == 'true'
         with:
-          # The commit CI just verified, not whatever main points at now.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.SHA }}
 
       - uses: superfly/flyctl-actions/setup-flyctl@1.6
         if: steps.check.outputs.ready == 'true'
@@ -72,12 +113,16 @@ jobs:
     runs-on: ubuntu-latest
     # A changed sync config can take up to 15 minutes to finish copying.
     timeout-minutes: 60
+    # Its own queue, so a slow copy never holds up the next API deploy, and two never deploy the service at once.
+    concurrency:
+      group: ${{ needs.deploy.outputs.ready == 'true' && 'deploy-sync' || format('deploy-sync-skipped-{0}', github.run_id) }}
+      cancel-in-progress: false
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.client_payload.git.sha || github.sha }}
 
       - uses: superfly/flyctl-actions/setup-flyctl@1.6
 

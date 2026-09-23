@@ -20,7 +20,7 @@ export function MoneyFilterBar({
   filters: MoneyFilters;
   statuses?: readonly FilterChoice[];
   methods?: readonly FilterChoice[];
-  /** The payment accounts to split by (0104). Left out for a business with only one. */
+  /** The payment accounts to split by (0105). Left out for a business with only one. */
   accounts?: readonly FilterChoice[];
   /** Left out, the list's query has no search of its own and the box is hidden. */
   searchLabel?: string;

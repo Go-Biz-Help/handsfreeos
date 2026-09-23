@@ -95,7 +95,7 @@ export function MoneyCrumbs({
   );
 }
 
-/** The two buttons in the Money page header, for whoever may write a document (`money.bill`, 0105). */
+/** The two buttons in the Money page header, for whoever may write a document (`money.bill`, 0106). */
 export function MoneyActions({ workspaceId }: { workspaceId: string }) {
   const base = moneyBase(workspaceId);
   return (

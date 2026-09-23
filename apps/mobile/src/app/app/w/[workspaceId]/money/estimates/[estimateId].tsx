@@ -36,7 +36,7 @@ import { useEstimate, useMoneyNow, useMoneyRole, useMoneyZone } from '@/money/us
 export default function Estimate() {
   const { estimateId } = useLocalSearchParams<{ estimateId: string }>();
   const { business } = useBusiness();
-  // Sending it and copying its link are billing (money.bill, 0105).
+  // Sending it and copying its link are billing (money.bill, 0106).
   const { bill: manage } = useMoneyRole();
   const timeZone = useMoneyZone();
   const now = useMoneyNow();

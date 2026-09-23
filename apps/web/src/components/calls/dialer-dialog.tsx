@@ -18,7 +18,7 @@ export function DialerDialog() {
   useEffect(() => setChosen(target?.phone ?? ''), [target]);
   if (!target) return null;
   const known = !!target.personId;
-  // The customer's other numbers too (0102), labelled; a number typed in the inbox is the only one there is.
+  // The customer's other numbers too (0103), labelled; a number typed in the inbox is the only one there is.
   const numbers = target.numbers?.length ? target.numbers : [{ phone: target.phone, label: '' }];
   return (
     <Dialog

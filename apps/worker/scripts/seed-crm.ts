@@ -77,7 +77,7 @@ type Person = {
   tags?: string[];
   source?: string;
   notes?: string;
-  /** More ways to reach them than the main ones (0102). */
+  /** More ways to reach them than the main ones (0103). */
   otherPhones?: { phone: string; label: string }[];
   otherEmails?: { email: string; label: string }[];
   otherAddresses?: {
@@ -87,7 +87,7 @@ type Person = {
     state: string;
     postalCode: string;
   }[];
-  /** Everyone else working with them besides whoever added them (0103). */
+  /** Everyone else working with them besides whoever added them (0104). */
   team?: ('dale' | 'priya' | 'marco')[];
 };
 

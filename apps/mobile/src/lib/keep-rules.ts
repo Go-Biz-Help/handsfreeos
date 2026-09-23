@@ -12,7 +12,7 @@ export interface Business {
   readonly organizationName: string;
   readonly role: Role;
   readonly timezone: string;
-  /** What they may do there (0105), as `account.me` said; a phone's older copy may not have it. */
+  /** What they may do there (0106), as `account.me` said; a phone's older copy may not have it. */
   readonly permissions?: readonly string[];
 }
 

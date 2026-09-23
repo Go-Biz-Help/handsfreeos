@@ -60,7 +60,7 @@ interface WorkspaceGet {
     timezone: string;
     organizationId: string;
     role: 'owner' | 'admin' | 'member';
-    /** What the business lets them do (0105): what the tools follow. */
+    /** What the business lets them do (0106): what the tools follow. */
     permissions: string[];
   };
 }

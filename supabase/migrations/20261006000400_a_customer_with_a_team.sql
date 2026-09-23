@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0103 · More than one person on a customer. A customer had one owner, and
+-- 0104 · More than one person on a customer. A customer had one owner, and
 --        real work is not shaped like that: one teammate installs a client's
 --        automations while another runs their SEO, and both of them talk to
 --        the client and bill them. So a person and a company now keep a team:
@@ -55,9 +55,9 @@ alter table app.companies
     check (cardinality(team_user_ids) <= 20);
 
 comment on column app.people.team_user_ids is
-  'Everyone on this customer besides the owner (0103), in the order they were added. Never the owner; always people of the business when they were added.';
+  'Everyone on this customer besides the owner (0104), in the order they were added. Never the owner; always people of the business when they were added.';
 comment on column app.companies.team_user_ids is
-  'Everyone on this company besides the owner (0103), in the order they were added. Never the owner; always people of the business when they were added.';
+  'Everyone on this company besides the owner (0104), in the order they were added. Never the owner; always people of the business when they were added.';
 
 insert into app.role_permissions (role, permission) values
   ('owner', 'records.assign'), ('admin', 'records.assign');

@@ -1259,7 +1259,7 @@ export const onInvoicePaid: EventHandler = async (ctx) => {
   const people = (
     await rows<PaidRecipient>(
       ctx.tx,
-      // Whoever manages the business's money (0105: owners and admins unless it says otherwise), and whoever the
+      // Whoever manages the business's money (0106: owners and admins unless it says otherwise), and whoever the
       // invoice is assigned to. Someone the business keeps from money isn't told what came in.
       sql`select u.id, u.email::text as email, u.settings
           from app.users u

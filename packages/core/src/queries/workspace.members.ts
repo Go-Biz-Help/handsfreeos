@@ -40,7 +40,7 @@ export const workspaceMembers = defineQuery({
       .innerJoin(users, eq(users.id, organizationMemberships.userId))
       .where(eq(organizationMemberships.organizationId, ctx.scope.organizationId!))
       .orderBy(asc(organizationMemberships.createdAt));
-    // What each of them may do here (0105), as the database keeps it.
+    // What each of them may do here (0106), as the database keeps it.
     const granted = new Map(
       (
         await rows<{ user_id: string; permissions: string[] }>(

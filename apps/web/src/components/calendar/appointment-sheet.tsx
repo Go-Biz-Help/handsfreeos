@@ -220,7 +220,7 @@ export function AppointmentSheet({
   people: readonly { userId: string; fullName: string }[];
   /** Who is reading: their own confirmation mark says "Confirmed by you". */
   myUserId?: string;
-  /** What the business lets them do (0105): billing a visit is for whoever may bill. */
+  /** What the business lets them do (0106): billing a visit is for whoever may bill. */
   myPermissions?: readonly string[];
   onClose: () => void;
   onChanged?: () => void;
@@ -345,7 +345,7 @@ export function AppointmentSheet({
    */
   const hold = appt ? holdOf(appt, now) : null;
   /**
-   * Billing is for whoever the business lets bill (0105), one customer at a time, once the time is really
+   * Billing is for whoever the business lets bill (0106), one customer at a time, once the time is really
    * theirs and nobody has billed it yet — a second press would raise a second invoice for one visit.
    */
   const billable =

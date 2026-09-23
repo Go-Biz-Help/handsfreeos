@@ -8,7 +8,7 @@ jest.mock('@powersync/react-native', () => ({
 }));
 
 /**
- * What a person may do, as the phone reads it from its copy (0105): the synced `text[]` arrives as a JSON array,
+ * What a person may do, as the phone reads it from its copy (0106): the synced `text[]` arrives as a JSON array,
  * and anything the phone can't read counts as "not known yet", so their role's defaults stand in.
  */
 describe('what the phone knows a person may do', () => {

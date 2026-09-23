@@ -5,7 +5,8 @@
  * - the AI writes each person's text from the goal, one it can't write is left out, then the owner reviews;
  * - approved, the texts go one at a time at the campaign's pace, the first carrying the STOP wording, an edited
  *   text as edited; someone who says STOP after the review is left out when their turn comes;
- * - a faster pace brings the next text forward; quiet hours hold it; people just texted aren't picked again.
+ * - a faster pace brings the next text forward; quiet hours hold it; people just texted aren't picked again;
+ * - a campaign about an offer gets the offer's end date in its texts.
  */
 import {
   campaignApprove,
@@ -14,6 +15,7 @@ import {
   campaignPreviewAudience,
   campaignSetPace,
   campaignUpdateDraft,
+  offerCreate,
   tagCreate,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -209,5 +211,27 @@ describe('outreach campaigns', () => {
             and status = 'pending'`,
     );
     expect(j?.n).toBe(1);
+  });
+
+  it('writes about the campaign’s offer, with its end date', async () => {
+    const gil = await listed('Gil');
+    const { offerId } = await run(w, offerCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Fall tune-up',
+      details: '$89 tune-up for past customers',
+      endsOn: '2099-10-31',
+    });
+    const made = await run(w, campaignCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Tune-up offer',
+      goal: 'Fall tune-up for $89',
+      audience: { tagIds: [tagId], stageIds: [] },
+      offerId,
+    });
+    await drain(w);
+    const got = await statusOf(made.campaignId);
+    expect(got.campaign.offer).toEqual({ id: offerId, name: 'Fall tune-up' });
+    const gils = got.recipients.find((r) => r.personId === gil.id)!;
+    expect(gils.draft).toBe('Hi Gil, Fall tune-up for $89. Ends October 31. Just reply here.');
   });
 });

@@ -153,7 +153,7 @@ export async function runImport(
     };
 
     /**
-     * The emails and numbers an update brings to a matched record (0102): an import adds what it brings and never
+     * The emails and numbers an update brings to a matched record (0103): an import adds what it brings and never
      * drops what the business had. The file's email or number becomes the main one only where there is none; next
      * to a different main one it joins the others, as do the file's extra ones — each once, up to the limit.
      */

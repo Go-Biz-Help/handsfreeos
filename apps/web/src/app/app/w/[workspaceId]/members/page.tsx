@@ -23,7 +23,7 @@ export default async function MembersPage({
   const myRole = got.workspace.role;
   const mine = got.workspace.permissions;
   const seesInvitations = can(mine, 'invitations.read');
-  // An owner sets what each person may do (0105) from here, so they get everyone's settings.
+  // An owner sets what each person may do (0106) from here, so they get everyone's settings.
   const setsPermissions = can(mine, 'permissions.manage');
   const [members, invitations, permissionSettings] = await Promise.all([
     unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),

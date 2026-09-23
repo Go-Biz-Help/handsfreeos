@@ -168,7 +168,7 @@ async function clearDefault(
     );
 }
 
-// ---------- who bills into which account (0104) ----------
+// ---------- who bills into which account (0105) ----------
 
 /** The connected accounts this person may bill into, the default first: private.payment_account_usable's answer. */
 export async function usableAccounts(
@@ -584,7 +584,7 @@ export const paymentConnectionActivate = defineCommand({
       )
       .limit(1);
     const isDefault = !other;
-    // The same account signed in again keeps who uses it (0104): a reconnect never opens somebody's own account to
+    // The same account signed in again keeps who uses it (0105): a reconnect never opens somebody's own account to
     // everyone. Only the people still in the business carry over; with nobody left, it is everyone's again.
     const [earlier] = await ctx.tx
       .select({ usedBy: paymentConnections.usedBy, userIds: paymentConnections.userIds })

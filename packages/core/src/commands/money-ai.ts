@@ -75,7 +75,7 @@ async function approvedFor(ctx: CommandContext): Promise<Approved> {
       'money_needs_approval',
     );
   const ws = ctx.scope.workspaceId!;
-  // Whoever approved it still manages money here, as the business has set it (0105).
+  // Whoever approved it still manages money here, as the business has set it (0106).
   const [approver] = await rows<{ ok: boolean }>(
     ctx.tx,
     sql`select private.user_has_permission(${ai.approvedBy}::uuid, ${ws}::uuid, 'money.manage') as ok`,

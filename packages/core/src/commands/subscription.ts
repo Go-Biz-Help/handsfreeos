@@ -120,7 +120,7 @@ export async function startSubscription(
   const planName = input.planName ?? catalogue?.name;
   if (!planName)
     throw HfosError.validation([{ path: 'planName', message: 'Name the plan being sold.' }]);
-  // A person sells a plan into an account they may bill into (0104): the one named, or theirs to use. One the
+  // A person sells a plan into an account they may bill into (0105): the one named, or theirs to use. One the
   // AI teammate offered waits for its card and takes the business's default then, as before.
   let connectionId = input.connectionId ?? null;
   if (ctx.actor.type === 'human') {

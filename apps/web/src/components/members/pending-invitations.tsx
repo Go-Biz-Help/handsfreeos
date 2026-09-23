@@ -17,7 +17,7 @@ export function PendingInvitations({
 }: {
   workspaceId: string;
   invitations: PendingInvitation[];
-  /** Sending a fresh link is inviting (members.invite); cancelling is its own permission (0105). */
+  /** Sending a fresh link is inviting (members.invite); cancelling is its own permission (0106). */
   canResend?: boolean;
   canRevoke?: boolean;
 }) {

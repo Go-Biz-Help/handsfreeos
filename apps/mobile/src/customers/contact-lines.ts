@@ -9,7 +9,7 @@ import {
 } from '@hfos/core';
 import { Linking } from 'react-native';
 
-/** A customer's or a company's other ways to reach them (0102), and who is on them (0103). */
+/** A customer's or a company's other ways to reach them (0103), and who is on them (0104). */
 interface Reachable {
   readonly otherPhones: readonly OtherPhoneOut[];
   readonly otherEmails: readonly OtherEmailOut[];

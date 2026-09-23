@@ -42,7 +42,7 @@ export function MessageSheet({
     email?: string | null;
   };
   channel?: Channel;
-  /** Another of their numbers or emails to use instead of the main one (0102); left out, the main one. */
+  /** Another of their numbers or emails to use instead of the main one (0103); left out, the main one. */
   to?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;

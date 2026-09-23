@@ -12,8 +12,8 @@ import {
 } from './helpers';
 
 /**
- * A customer with more than one of everything (0102), more than one person on them (0103), and payment accounts
- * kept to the people who bill into them (0104): one person installing a client's automations and another running
+ * A customer with more than one of everything (0103), more than one person on them (0104), and payment accounts
+ * kept to the people who bill into them (0105): one person installing a client's automations and another running
  * their SEO, each paid into their own Stripe account, and both able to reach the client and see their bills.
  */
 

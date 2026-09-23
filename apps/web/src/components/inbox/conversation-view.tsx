@@ -181,7 +181,7 @@ export function ConversationView({
   const name = rowName({ person, counterpartDisplay: c.counterpartDisplay });
   const listHref = `/app/w/${workspaceId}/inbox${listQuery}`;
   const customerHref = person ? `/app/w/${workspaceId}/customers/people/${person.id}` : null;
-  // What the business lets them do (0105). Archiving matches every other record in HandsFreeOS
+  // What the business lets them do (0106). Archiving matches every other record in HandsFreeOS
   // (records.archive), not everyone with the inbox; setting up a number is channels.manage.
   const canArchive = can(permissions, 'records.archive');
   const canSetUp = can(permissions, 'channels.manage');

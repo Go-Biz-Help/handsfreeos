@@ -41,7 +41,7 @@ export type CompanyField = (typeof COMPANY_FIELDS)[number];
 export const SKIP = 'skip';
 /**
  * Fields several columns may map to at once: every "Home phone", "Work phone" and "Phone 2" joins the other numbers
- * (0102), and every extra email column the other emails.
+ * (0103), and every extra email column the other emails.
  */
 export const REPEATABLE_FIELDS: readonly string[] = ['phone_alt', 'email_alt'];
 

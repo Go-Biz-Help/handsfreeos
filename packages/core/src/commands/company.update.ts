@@ -70,7 +70,7 @@ export const companyUpdate = defineCommand({
         postalCode: then(address.postalCode, current.postalCode),
       },
     };
-    // Each list merges entry by entry with the row (0102), so two people adding a number at once both keep theirs.
+    // Each list merges entry by entry with the row (0103), so two people adding a number at once both keep theirs.
     const emails = listEdit(
       input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
       seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
@@ -136,7 +136,7 @@ export const companyUpdate = defineCommand({
     ];
     const merged = mergeFields(current, fields, mergeColumns(companies), ctx.meta);
     const { patch } = merged;
-    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0103).
+    // Who a customer is assigned to shows members its bills and threads, so it is the managers' call (0104).
     if ('ownerUserId' in patch && patch.ownerUserId !== current.ownerUserId) requireAssigner(ctx);
     const notApplied = merged.notApplied.map((n) => n.key);
     await logNotApplied(

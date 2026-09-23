@@ -215,7 +215,7 @@ export function PaymentsSettings({
   nextEstimateNumber: string;
   nextInvoiceNumber: string;
   connections: readonly PaymentConnectionRow[];
-  /** The business's people and whether each bills, for who may use each account (0104). */
+  /** The business's people and whether each bills, for who may use each account (0105). */
   team: readonly TeamMember[];
   /** Whether an estimate or an invoice has ever gone out: the missing-address warning waits for it. */
   hasSentDocuments: boolean;

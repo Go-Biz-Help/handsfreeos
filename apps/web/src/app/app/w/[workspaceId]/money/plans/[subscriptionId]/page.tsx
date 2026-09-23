@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Plan' };
 /**
  * One maintenance plan: what it bills, when it bills next, the cycles it has run and the card paying for it.
  *
- * Plans are for whoever bills (`money.bill`, 0105): someone who manages money sees every plan, and anyone else who
+ * Plans are for whoever bills (`money.bill`, 0106): someone who manages money sees every plan, and anyone else who
  * bills sees the plans of the customers they're on. Everyone else never gets here.
  */
 export default async function PlanDetailPage({

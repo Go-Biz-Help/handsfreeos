@@ -965,7 +965,7 @@ describe('parity with core', () => {
       dbs.admin.db,
       sql`select role, permission from app.role_permissions where permission like 'money.%' order by 1, 2`,
     );
-    // The defaults: a business can hand billing, or all of it, to anyone (0105).
+    // The defaults: a business can hand billing, or all of it, to anyone (0106).
     expect(live).toEqual([
       { role: 'admin', permission: 'money.bill' },
       { role: 'admin', permission: 'money.manage' },

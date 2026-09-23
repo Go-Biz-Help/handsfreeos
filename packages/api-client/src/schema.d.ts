@@ -2637,6 +2637,226 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/idea_area.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a part of HandsFreeOS ideas can be about, rename one, reorder it, or archive it (its ideas keep it).
+         * @description Risk level 1. Requires platform.ideas.manage. Emits platform.idea_area_saved.
+         */
+        post: operations["command_idea_area_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comment on an idea. From the HandsFreeOS team, it is shown as the team’s answer and its author hears about it.
+         * @description Risk level 1. Emits platform.idea_commented.
+         */
+        post: operations["command_idea_comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an idea’s title, details or area: its author, until the team has answered it, or the team.
+         * @description Risk level 1. Emits platform.idea_edited.
+         */
+        post: operations["command_idea_edit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hear by email when an idea moves along the roadmap, or stop hearing about it. Sharing, voting and commenting follow an idea on their own.
+         * @description Risk level 0. Emits platform.idea_followed.
+         */
+        post: operations["command_idea_follow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fold a duplicate into the idea it repeats. Its votes and followers go with it, and its followers are told where.
+         * @description Risk level 2. Requires platform.ideas.moderate. Emits platform.idea_merged.
+         */
+        post: operations["command_idea_merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.set_comment_hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a comment down (your own, or any as the team), or put one back (the team only).
+         * @description Risk level 1. Emits platform.idea_comment_hidden.
+         */
+        post: operations["command_idea_set_comment_hidden"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.set_hidden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an idea off the board (spam, or not an idea at all), or put it back. Its author still sees it.
+         * @description Risk level 1. Requires platform.ideas.moderate. Emits platform.idea_hidden.
+         */
+        post: operations["command_idea_set_hidden"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an idea along the roadmap, with a note for the people following it, who are emailed unless you say not to.
+         * @description Risk level 2. Requires platform.ideas.manage. Emits platform.idea_status_changed.
+         */
+        post: operations["command_idea_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share an idea for HandsFreeOS. It starts under review with your vote on it, and you hear when it moves.
+         * @description Risk level 1. Emits platform.idea_shared.
+         */
+        post: operations["command_idea_share"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.unvote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take your vote back from an idea.
+         * @description Risk level 0. Emits platform.idea_unvoted.
+         */
+        post: operations["command_idea_unvote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/idea.vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vote for an idea. You hear when it moves along the roadmap.
+         * @description Risk level 0. Emits platform.idea_voted.
+         */
+        post: operations["command_idea_vote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/import.cancel": {
         parameters: {
             query?: never;
@@ -6657,6 +6877,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/whats_new.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete a draft in What’s new. A published entry is unpublished first.
+         * @description Risk level 2. Requires platform.ideas.manage. Emits platform.whats_new_deleted.
+         */
+        post: operations["command_whats_new_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/whats_new.mark_seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that you have read What’s new, so nothing in it shows as new to you.
+         * @description Risk level 0. Emits .
+         */
+        post: operations["command_whats_new_mark_seen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/whats_new.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish an entry in What’s new. The ideas it delivers become Done, and the people following them are emailed.
+         * @description Risk level 2. Requires platform.ideas.manage. Emits platform.whats_new_published, platform.idea_status_changed.
+         */
+        post: operations["command_whats_new_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/whats_new.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write or change an entry in What’s new, and say which ideas it delivers. It stays a draft until published.
+         * @description Risk level 1. Requires platform.ideas.manage. Emits platform.whats_new_saved.
+         */
+        post: operations["command_whats_new_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/whats_new.unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an entry out of What’s new and back to a draft. Ideas it marked Done stay Done.
+         * @description Risk level 1. Requires platform.ideas.manage. Emits platform.whats_new_unpublished.
+         */
+        post: operations["command_whats_new_unpublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/workflow_proposal.apply": {
         parameters: {
             query?: never;
@@ -8317,6 +8637,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/idea.areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The parts of HandsFreeOS an idea can be about, with how many open ideas each has.
+         * @description Any signed-in user.
+         */
+        post: operations["query_idea_areas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/idea.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One idea: its details, your vote, whether you follow it, its comments and its story.
+         * @description Any signed-in user.
+         */
+        post: operations["query_idea_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/idea.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The ideas board: trending, most voted or newest, by status and area, with a search. Your votes marked.
+         * @description Any signed-in user.
+         */
+        post: operations["query_idea_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/idea.roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The roadmap: what is planned, what is being built, and what shipped lately.
+         * @description Any signed-in user.
+         */
+        post: operations["query_idea_roadmap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/idea.similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ideas already on the board that look like what someone is typing, so they can vote instead of repeating it.
+         * @description Any signed-in user.
+         */
+        post: operations["query_idea_similar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/idea.team_view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who is behind one idea, for the team: who shared it and from where, who voted, and how many would be emailed.
+         * @description Requires platform.ideas.moderate.
+         */
+        post: operations["query_idea_team_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/idea.triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The team’s list of ideas: who shared each, from which business, and how many businesses want it.
+         * @description Requires platform.ideas.moderate.
+         */
+        post: operations["query_idea_triage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/import.get": {
         parameters: {
             query?: never;
@@ -9711,6 +10171,46 @@ export interface paths {
          * @description Requires money.read.
          */
         post: operations["query_wallet_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/whats_new.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What’s new in HandsFreeOS, newest first, with the ideas each entry delivers.
+         * @description Any signed-in user.
+         */
+        post: operations["query_whats_new_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/whats_new.unseen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How many entries in What’s new were published since you last looked.
+         * @description Any signed-in user.
+         */
+        post: operations["query_whats_new_unseen"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11224,6 +11724,8 @@ export interface operations {
                             /** @default true */
                             missing_next_action?: boolean;
                             /** @default true */
+                            offer_lapsing?: boolean;
+                            /** @default true */
                             overdue_task?: boolean;
                             /** @default true */
                             pipeline_mismatch?: boolean;
@@ -11373,6 +11875,8 @@ export interface operations {
                                 maintenance_due: true;
                                 /** @default true */
                                 missing_next_action: boolean;
+                                /** @default true */
+                                offer_lapsing: boolean;
                                 /** @default true */
                                 overdue_task: boolean;
                                 /** @default true */
@@ -12696,6 +13200,8 @@ export interface operations {
                     };
                     goal: string;
                     name: string;
+                    /** @default null */
+                    offerId?: string | null;
                     /** @default 20 */
                     perHour?: number;
                     /** Format: uuid */
@@ -15986,6 +16492,386 @@ export interface operations {
                         applicationId: string;
                         /** @enum {string} */
                         status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
+                    };
+                };
+            };
+        };
+    };
+    command_idea_area_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    archived?: boolean;
+                    /** @default  */
+                    description?: string;
+                    id: string;
+                    name: string;
+                    /** @default 500 */
+                    sort?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    ideaId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        commentId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_edit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    areaId: string;
+                    /** @default  */
+                    body?: string;
+                    /** Format: uuid */
+                    ideaId: string;
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ideaId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_follow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    following: boolean;
+                    /** Format: uuid */
+                    ideaId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        following: boolean;
+                        /** Format: uuid */
+                        ideaId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                    /** Format: uuid */
+                    intoIdeaId: string;
+                    /** @default  */
+                    note?: string;
+                    /** @default true */
+                    notify?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ideaId: string;
+                        /** Format: uuid */
+                        intoIdeaId: string;
+                        movedFollowers: number;
+                        movedVotes: number;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_set_comment_hidden: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    commentId: string;
+                    hidden: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        commentId: string;
+                        hidden: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_set_hidden: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hidden: boolean;
+                    /** Format: uuid */
+                    ideaId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hidden: boolean;
+                        /** Format: uuid */
+                        ideaId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                    /** @default  */
+                    note?: string;
+                    /** @default true */
+                    notify?: boolean;
+                    /** @enum {string} */
+                    status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ideaId: string;
+                        /** @enum {string} */
+                        status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                        updateId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default other */
+                    areaId?: string;
+                    /** @default  */
+                    body?: string;
+                    title: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ideaId: string;
+                        number: number;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_unvote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ideaId: string;
+                        voteCount: number;
+                        voted: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_idea_vote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                    /** Format: uuid */
+                    workspaceId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        ideaId: string;
+                        voteCount: number;
+                        voted: boolean;
                     };
                 };
             };
@@ -24179,6 +25065,171 @@ export interface operations {
             };
         };
     };
+    command_whats_new_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_whats_new_mark_seen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        seenAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_whats_new_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** @default true */
+                    markIdeasDone?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        ideasDone: number;
+                        /** Format: date-time */
+                        publishedAt: string;
+                    };
+                };
+            };
+        };
+    };
+    command_whats_new_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    areaId?: string | null;
+                    /** @default  */
+                    body?: string;
+                    /** Format: uuid */
+                    id?: string;
+                    /** @default [] */
+                    ideaIds?: string[];
+                    /**
+                     * @default new
+                     * @enum {string}
+                     */
+                    kind?: "new" | "improved" | "fixed";
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_whats_new_unpublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
     command_workflow_proposal_apply: {
         parameters: {
             query?: never;
@@ -26792,7 +27843,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -27098,7 +28149,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -27108,7 +28159,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -27151,7 +28202,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -27218,7 +28269,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -27228,7 +28279,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -27298,7 +28349,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -27308,7 +28359,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -27342,7 +28393,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -27402,7 +28453,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -27522,6 +28573,8 @@ export interface operations {
                                 maintenance_due: true;
                                 /** @default true */
                                 missing_next_action: boolean;
+                                /** @default true */
+                                offer_lapsing: boolean;
                                 /** @default true */
                                 overdue_task: boolean;
                                 /** @default true */
@@ -28411,6 +29464,11 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
+                            offer: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             perHour: number;
                             /** @enum {string} */
                             status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
@@ -28478,6 +29536,11 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             name: string;
+                            offer: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
                             perHour: number;
                             /** @enum {string} */
                             status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
@@ -30555,6 +31618,436 @@ export interface operations {
                         status: ("active" | "grace" | "past_due" | "canceled") | null;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_idea_areas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        areas: {
+                            archived: boolean;
+                            description: string;
+                            id: string;
+                            name: string;
+                            openCount: number;
+                            sort: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_idea_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comments: {
+                            author: {
+                                name: string;
+                                team: boolean;
+                                you: boolean;
+                            };
+                            body: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                        }[];
+                        idea: {
+                            areaId: string;
+                            author: {
+                                name: string;
+                                you: boolean;
+                            };
+                            body: string;
+                            canEdit: boolean;
+                            commentCount: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            excerpt: string;
+                            following: boolean;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            mergedInto: {
+                                /** Format: uuid */
+                                id: string;
+                                number: number;
+                                title: string;
+                            } | null;
+                            number: number;
+                            /** @enum {string} */
+                            status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                            statusChangedAt: string | null;
+                            title: string;
+                            voteCount: number;
+                            voted: boolean;
+                            votingOpen: boolean;
+                        };
+                        shipped: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            publishedAt: string;
+                            title: string;
+                        }[];
+                        updates: {
+                            by: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            fromStatus: ("under_review" | "planned" | "in_progress" | "done" | "not_planned") | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "status" | "merged" | "merged_in";
+                            note: string;
+                            other: {
+                                /** Format: uuid */
+                                id: string;
+                                number: number;
+                                title: string;
+                            } | null;
+                            toStatus: ("under_review" | "planned" | "in_progress" | "done" | "not_planned") | null;
+                            whatsNew: {
+                                /** Format: uuid */
+                                id: string;
+                                title: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_idea_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    areaId?: string;
+                    cursor?: string;
+                    /** @default 20 */
+                    limit?: number;
+                    /** @enum {string} */
+                    mine?: "shared" | "voted" | "following";
+                    search?: string;
+                    /**
+                     * @default trending
+                     * @enum {string}
+                     */
+                    sort?: "trending" | "top" | "new";
+                    /** @default open */
+                    status?: ("open" | "all") | ("under_review" | "planned" | "in_progress" | "done" | "not_planned");
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ideas: {
+                            areaId: string;
+                            author: {
+                                name: string;
+                                you: boolean;
+                            };
+                            commentCount: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            excerpt: string;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                            statusChangedAt: string | null;
+                            title: string;
+                            voteCount: number;
+                            voted: boolean;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_idea_roadmap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        done: {
+                            areaId: string;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            statusChangedAt: string | null;
+                            title: string;
+                            voteCount: number;
+                            voted: boolean;
+                        }[];
+                        inProgress: {
+                            areaId: string;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            statusChangedAt: string | null;
+                            title: string;
+                            voteCount: number;
+                            voted: boolean;
+                        }[];
+                        planned: {
+                            areaId: string;
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            statusChangedAt: string | null;
+                            title: string;
+                            voteCount: number;
+                            voted: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_idea_similar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    excludeIdeaId?: string;
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ideas: {
+                            /** Format: uuid */
+                            id: string;
+                            number: number;
+                            /** @enum {string} */
+                            status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                            title: string;
+                            voteCount: number;
+                            voted: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_idea_team_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        author: {
+                            email: string;
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        } | null;
+                        business: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        businessCount: number;
+                        followerCount: number;
+                        voters: {
+                            business: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            email: string;
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            /** Format: date-time */
+                            votedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_idea_triage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    areaId?: string;
+                    cursor?: string;
+                    /** @default 30 */
+                    limit?: number;
+                    search?: string;
+                    /**
+                     * @default board
+                     * @enum {string}
+                     */
+                    show?: "board" | "hidden" | "merged";
+                    /**
+                     * @default top
+                     * @enum {string}
+                     */
+                    sort?: "trending" | "top" | "new";
+                    /** @default under_review */
+                    status?: "all" | ("under_review" | "planned" | "in_progress" | "done" | "not_planned");
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            done: number;
+                            hidden: number;
+                            in_progress: number;
+                            not_planned: number;
+                            planned: number;
+                            under_review: number;
+                        };
+                        ideas: {
+                            areaId: string;
+                            author: {
+                                email: string;
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            business: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            businessCount: number;
+                            commentCount: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            excerpt: string;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            mergedInto: {
+                                /** Format: uuid */
+                                id: string;
+                                number: number;
+                                title: string;
+                            } | null;
+                            number: number;
+                            /** @enum {string} */
+                            status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                            statusChangedAt: string | null;
+                            title: string;
+                            voteCount: number;
+                        }[];
+                        nextCursor: string | null;
                     };
                 };
             };
@@ -35441,6 +36934,86 @@ export interface operations {
                             reason: string | null;
                         } | null;
                         topupCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_whats_new_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** @default false */
+                    includeDrafts?: boolean;
+                    /** @default 20 */
+                    limit?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: {
+                            areaId: string | null;
+                            body: string;
+                            /** Format: uuid */
+                            id: string;
+                            ideas: {
+                                /** Format: uuid */
+                                id: string;
+                                number: number;
+                                /** @enum {string} */
+                                status: "under_review" | "planned" | "in_progress" | "done" | "not_planned";
+                                title: string;
+                                voteCount: number;
+                            }[];
+                            /** @enum {string} */
+                            kind: "new" | "improved" | "fixed";
+                            publishedAt: string | null;
+                            title: string;
+                            unseen: boolean;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_whats_new_unseen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        unseen: number;
                     };
                 };
             };

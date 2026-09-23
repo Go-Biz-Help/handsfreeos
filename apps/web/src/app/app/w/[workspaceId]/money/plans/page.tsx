@@ -21,7 +21,7 @@ const STATUSES = PLAN_STATUS_CHOICES.map((s) => s.value);
 
 /**
  * The maintenance plans a business sells and who is on them. Each row opens the plan's own page, where it is
- * paused, resumed, cancelled or pointed at another account. Someone who bills (0105) sees and starts plans for
+ * paused, resumed, cancelled or pointed at another account. Someone who bills (0106) sees and starts plans for
  * the customers they're on; changing the plans themselves stays with whoever manages money.
  */
 export default async function PlansPage({

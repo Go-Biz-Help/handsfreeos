@@ -145,7 +145,7 @@ export function ContextPanel({
   tags: Tag[];
   /**
    * Whether estimates and invoices are this person's to write. Everything else here is `records.write`, which
-   * everyone who can open the inbox normally has; money is for whoever the business lets bill (`money.bill`, 0105),
+   * everyone who can open the inbox normally has; money is for whoever the business lets bill (`money.bill`, 0106),
    * and its editor 404s for anyone else — so the links are the one thing the panel hides rather than offers and
    * then refuses.
    */

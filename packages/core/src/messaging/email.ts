@@ -27,7 +27,7 @@ const EMAIL_ATTACHMENTS_MAX_BYTES = 10 * 1024 * 1024;
 type Conversation = typeof conversations.$inferSelect;
 
 /**
- * The customer with this email address: their main one, or one of their others (0102). When several have it, the
+ * The customer with this email address: their main one, or one of their others (0103). When several have it, the
  * one whose main address it is, then the most recently touched.
  */
 export async function matchPersonByEmail(

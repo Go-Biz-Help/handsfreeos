@@ -85,7 +85,7 @@ function summary(r: Row, tags: PersonSummary['tags']): PersonSummary {
 }
 
 /**
- * The rest of the team on a customer (0103) as JSON, in the order they were added, with each person's name; somebody
+ * The rest of the team on a customer (0104) as JSON, in the order they were added, with each person's name; somebody
  * whose account is gone has none, and reads "Former member".
  */
 export const TEAM = (alias: 'p' | 'c') => sql`(

@@ -401,6 +401,7 @@ export function useItemActions(o: {
           case 'ai_unreviewed':
           case 'website_changed':
           case 'faq_suggestions':
+          case 'offer_lapsing':
             return router.push(targetOf(item, workspaceId).href);
           case 'ai_corrections':
             return void withBusy(item.id, () => addLesson(item));

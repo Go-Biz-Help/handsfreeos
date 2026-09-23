@@ -87,7 +87,7 @@ export interface Member extends Record<string, unknown> {
   full_name: string | null;
   settings: Record<string, unknown>;
   role: 'owner' | 'admin' | 'member' | null;
-  /** What the business lets them do (0105), as the database keeps it. */
+  /** What the business lets them do (0106), as the database keeps it. */
   permissions: string[] | null;
 }
 

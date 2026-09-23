@@ -230,7 +230,7 @@ export const estimateUpdate = defineCommand({
         409,
         'An estimate stays with the customer it was written for. Make a new one instead.',
       );
-    // Moved to another lead: still one they may bill (0105).
+    // Moved to another lead: still one they may bill (0106).
     if ((input.leadId ?? null) !== before.lead_id)
       await requireBillable(ctx, { personId: before.person_id, leadId: input.leadId ?? null });
     const settings = await loadMoneySettings(ctx.tx, ws);

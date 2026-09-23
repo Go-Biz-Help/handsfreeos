@@ -37,13 +37,13 @@ interface Form {
   email: string;
   companyId: string;
   line1: string;
-  /** Not shown: carried so a swap with another address moves them too (0102). */
+  /** Not shown: carried so a swap with another address moves them too (0103). */
   line2: string;
   country: string;
   city: string;
   state: string;
   postalCode: string;
-  /** The other emails, numbers and addresses (0102); a blank row is not saved. */
+  /** The other emails, numbers and addresses (0103); a blank row is not saved. */
   otherEmails: PointRow[];
   otherPhones: PointRow[];
   otherAddresses: AddressRow[];

@@ -35,6 +35,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [A business's own web address](#a-businesss-own-web-address)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
+- [Ideas, the roadmap and What's new](#ideas-the-roadmap-and-whats-new)
 - [Push notifications: Expo](#push-notifications-expo)
 - [The phone app: builds and the stores](#the-phone-app-builds-and-the-stores)
 - [Local development](#local-development)
@@ -552,7 +553,7 @@ Every database change is a new file in `supabase/migrations`, named `<version>_<
 
 Nothing applies migrations to the hosted database automatically. The Deploy workflow only ships the two Fly apps. So:
 
-- Push a migration to the hosted database before the code that needs it reaches `main`. A push to `main` deploys as soon as CI passes.
+- Push a migration to the hosted database before the code that needs it reaches `main`. A push to `main` deploys within minutes, as soon as Vercel has built the web app.
 - Write migrations so the code already running keeps working. Add new tables and columns first, and remove old ones in a later migration.
 - Never change tables, policies or functions by hand in the SQL Editor. The only exceptions are role passwords, a role's expiry date (see "When something goes wrong" below) and the history fix in "If you used the Supabase connector instead".
 
@@ -2083,11 +2084,13 @@ After the redeploy:
 
 ### Every deploy after that
 
-- A push to `main` runs CI. When CI passes, the Deploy workflow ships the commit CI checked: the worker first, then the API. CI can take up to 45 minutes.
-- Vercel builds the web app from the same push straight away, but does not put it live until this workflow's first job has passed, so the browser is never running a commit whose API is not up yet. That wait is a setting in the Vercel project, not in this repository: "Make Vercel wait for CI and the API" in "The web app on Vercel".
-- Only one deploy runs at a time. A deploy that starts while another is running waits for it to finish. At most one run waits. If another arrives while one is already waiting, GitHub cancels the older waiting run, and only the newest commit ships. A cancelled Deploy run is normal.
-- If the worker deploy fails, the API deploy does not run.
-- To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run skips the CI check and ships the newest commit on the branch you pick.
+- A push to `main` makes Vercel build the web app. When that production build is ready, Vercel tells GitHub, and the Deploy workflow ships the same commit: the worker first, then the API. That takes about five minutes.
+- Vercel holds the new web app back until the Deploy workflow reports that the API is up, then puts it live, so the browser is never running a commit whose API is not up yet. That wait is a setting in the Vercel project, not in this repository: "Make Vercel wait for the API" in "The web app on Vercel".
+- CI runs on every pull request and on `main` as before, but it no longer holds the deploy back. A commit that fails CI on `main` is live anyway, so keep pull requests green before merging.
+- A production build of a commit that isn't on `main` (for example `vercel deploy --prod` from a branch) doesn't ship the API: the Deploy job refuses it, and Vercel keeps that build waiting.
+- Only one deploy runs at a time. A deploy that starts while another is running waits for it to finish. At most one run waits. If another arrives while one is already waiting, GitHub cancels the older waiting run, and only the newest commit ships; the cancelled commit's web build never goes live, and the newer one does. A cancelled Deploy run is normal.
+- If the worker deploy fails, the API deploy does not run, and Vercel keeps that commit's web app waiting. Re-run the failed job in GitHub (**Re-run failed jobs**) once the cause is fixed; the re-run reports to Vercel like the first run.
+- To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run ships the newest commit on the branch you pick. It doesn't report to Vercel, so a web build waiting on its check still needs its own run re-run, or **Force Promote** in Vercel.
 
   ```bash
   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
@@ -2270,9 +2273,9 @@ Fly's docs describe no rollback command. Instead you redeploy an earlier image.
     git push
     ```
 
-    You should see CI start on GitHub. When it passes, the Deploy workflow ships the reverted code.
+    You should see Vercel build the web app and, a few minutes later, the Deploy workflow ship the reverted API and worker.
 
-11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job ("Make Vercel wait for CI and the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
+11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job to report ("Make Vercel wait for the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
 
     ```bash
     gh workflow disable Deploy --repo gobizhelp/handsfreeos
@@ -2556,7 +2559,7 @@ How it fits together:
 - **Its working data lives in a Postgres of its own**, never in the Supabase database. In a test, keeping it in the Supabase database wrote about 7 times the synced data again as WAL on every full copy, and lost the slot twice. That Postgres holds nothing that can't be rebuilt from the database, so it needs no backups.
 - **Phones sign in with their Supabase access token.** The service checks it against Supabase's published signing keys and refuses a token more than an hour old, so Auth's access tokens must keep their 1-hour lifetime (Sync Part 3).
 - **One machine each, always on.** Only one process may follow the slot, and a stopped one lets WAL pile up.
-- **Deploys and alerts.** After CI passes on `main`, the Deploy workflow ships the sync service after the API and the worker, but only when its settings changed. It waits for a new sync config to finish copying and keeps the daily compaction machine in step. The **Sync health** workflow checks the service every hour, and fails, which emails you, when it needs attention.
+- **Deploys and alerts.** After each push to `main`, the Deploy workflow ships the sync service after the API and the worker, but only when its settings changed. It waits for a new sync config to finish copying and keeps the daily compaction machine in step. The **Sync health** workflow checks the service every hour, and fails, which emails you, when it needs attention.
 
 The first time, do the parts in order. Stage 4 of the go-live checklist says when.
 
@@ -2897,7 +2900,7 @@ The phone app's builds carry this address. Nothing else calls it.
 
 ### Sync Part 8: Let GitHub deploy it
 
-The organization token from Fly Part 9 already covers both new apps. From now on, after CI passes on `main`, the Deploy workflow's second job, **The sync service on Fly.io**, runs once the API and the worker are up and:
+The organization token from Fly Part 9 already covers both new apps. From now on, after each push to `main`, the Deploy workflow's second job, **The sync service on Fly.io**, runs once the API and the worker are up and:
 
 1. **Checks that the sync service is set up**: `handsfreeos-sync` exists and has all three secrets. Until then it notes "handsfreeos-sync doesn't exist on Fly yet, so the sync service wasn't deployed." and ends there.
 2. **Checks whether its settings changed** since the running machine was deployed, from a fingerprint of `apps/sync/fly.toml`, `service.yaml`, `sync-config.yaml` and the status check. Every deploy makes phones reconnect, so when nothing changed it notes "The sync service's config hasn't changed, so it wasn't redeployed." Your hand deploy in Sync Part 6 had no fingerprint, so the first run after it deploys once more.
@@ -3617,38 +3620,38 @@ Optional: stop building previews altogether.
 
 Vercel still starts each skipped build and cancels it, and those count toward its deployment limits.
 
-### Make Vercel wait for CI and the API
+### Make Vercel wait for the API
 
-**Do this one.** It is the only thing standing between a push and half an hour of a half-deployed product.
+**Do this one.** It is the only thing standing between a push and a few minutes of a half-deployed product.
 
-By default Vercel puts a new production build live as soon as it is ready. The API waits for CI and then for a Fly deploy, twenty-odd minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers 404 — and a page built out of one of them shows "We could not find that. The page does not exist, or you do not have access to it." It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and nothing was wrong with any of them.
+By default Vercel puts a new production build live as soon as it is ready. The API ships from the same push a few minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers "No such route", and a page built out of one of them shows an error. It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and on 23 September to Customers, and nothing was wrong with any of them.
 
-Vercel's Deployment Checks hold the address back until named GitHub jobs pass. Three of them cover it: the two CI jobs, and the Fly deploy itself, so the web app goes live in the minute **after** the API it calls, not before.
+Vercel's Deployment Checks hold the address back until a named check passes. One check covers it: the Deploy workflow reports **Vercel - handsfreeos-web: api** on the commit once the worker and the API are up, so the web app goes live in the minute **after** the API it calls, not before. It does not wait for CI, which takes up to 45 minutes; CI runs on the pull request before the merge.
+
+Add it only after the Deploy workflow on `main` has reported the check at least once. Until then nothing sends it, and every production build would wait for Force Promote.
 
 1. Open the project and click **Settings** → **Environments** → **Production**.
 2. Check that automatic aliasing for production is on. It is the setting that gives each new production build `app.handsfreeos.com`, and Deployment Checks need it.
 3. Click **Settings** → **Build and Deployment** and find **Deployment Checks**.
-4. Click **Add Checks**.
-5. Choose **GitHub** as the provider.
-6. Search for and select three jobs: **Lint, typecheck, tests, browser tests** and **Secret scan** from CI, and **The API and the worker on Fly.io** from Deploy.
+4. If it lists the older checks (**Lint, typecheck, tests, browser tests**, **Secret scan**, or **The API and the worker on Fly.io**), remove them. They made every release wait for CI.
+5. Click **Add Checks** and choose **GitHub** as the provider.
+6. Search for and select **Vercel - handsfreeos-web: api**.
 
-   You should see all three listed under **Deployment Checks**.
-
-   The Deploy job only appears in the search once it has run at least once under that name. If it is missing, add the two CI jobs now, push once, and come back for the third.
+   You should see it listed under **Deployment Checks**.
 
 7. Push the next change to `main` as usual.
 
-   You should see the new production deployment wait, and `https://app.handsfreeos.com` switch to it only after the API on Fly has been replaced.
+   You should see the new production deployment wait, and `https://app.handsfreeos.com` switch to it only after the Deploy workflow's first job has finished.
 
-Production builds are still created, but they only get `app.handsfreeos.com` once the checks pass. In an emergency, open the deployment's page and choose **Force Promote** to put it live without waiting — worth remembering that this is exactly the ordering the checks exist to prevent, so only reach for it when the alternative is worse.
+Production builds are still created, but they only get `app.handsfreeos.com` once the check passes. In an emergency, open the deployment's page and choose **Force Promote** to put it live without waiting — worth remembering that this is exactly the ordering the check exists to prevent, so only reach for it when the alternative is worse.
 
-GitHub identifies checks by job name, so renaming a job here quietly stops the wait rather than failing loudly. The two CI job names live in `.github/workflows/ci.yml` and the Deploy one in `.github/workflows/deploy.yml`; rename either and change the checks in Vercel in the same breath.
+The check's name lives in `.github/workflows/deploy.yml`, in the step **Tell Vercel when the API is up**. Rename it there and change the check in Vercel in the same breath; otherwise every production build waits for a check nobody sends.
 
 The sync service is a separate job in Deploy on purpose. A changed PowerSync config copies the whole database and can take a quarter of an hour, and the web app has no reason to wait for that — only for the API.
 
 ### Good to know
 
-- **Vercel does not wait for anything by default.** A push to `main` goes live on Vercel within minutes, while the API and the worker wait for CI and then for Fly. Without the checks, a web change that needs a new API reaches people twenty-odd minutes before the API does, and a web change that fails CI is live anyway. Set up "Make Vercel wait for CI and the API" above; it is not optional in practice.
+- **Vercel does not wait for anything by default.** A push to `main` goes live on Vercel as soon as it is built, while the API and the worker take a few more minutes on Fly. Without the check, a web change that needs a new API reaches people before the API does. Set up "Make Vercel wait for the API" above; it is not optional in practice.
 - **Rolling back.** On the project's overview page, click **Instant Rollback** on the production deployment tile. Pick an earlier deployment, click **Continue**, then **Confirm Rollback**. The earlier deployment comes back with the settings it was built with. After a rollback, new pushes to `main` stop going live. To undo it, click **Undo Rollback** on the same tile, pick the deployment to put live (usually the newest good one), and click **Confirm**. New pushes to `main` then go live again.
 - **Calls need HTTPS.** Browsers only allow the microphone on HTTPS pages. Vercel serves HTTPS, so calls work at `https://app.handsfreeos.com`.
 - **New web settings.** The build may run through Turborepo, which hides every setting not listed for builds in `turbo.json`. That file already lists `NEXT_PUBLIC_*`. A future web setting with any other name must be added there too.
@@ -7711,10 +7714,20 @@ Left out, with the reason shown: no mobile number, no agreement to texts (or sai
 
 Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `campaigns.draft` and `campaigns.send`. Needs `20261004001300_campaigns.sql`. See "Apply new migrations".
 
+**About an offer**: a campaign can be about one of the business's offers (Knowledge → Offers, live or upcoming). Picking one fills in the goal if it's empty, and the AI writes each text from the offer's own words and says when it ends. An archived offer can't be picked.
+
+### Offer ending
+
+| Row              | What it does                                                                                                                                                                                                                                 | On to begin with |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Offer ending** | A card on Home from the start of the day three days before an offer's last day, urgent on the last day. **Open the offers** goes to Knowledge → Offers to extend it; it closes when the offer is extended past that window, archived or over | Yes              |
+
+Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind and `campaigns.offer_id`). See "Apply new migrations".
+
 ## Who can do what: roles and permissions
 
 Everyone in a business has a role: **Owner**, **Admin** or **Member**. Each role comes with a set of things it can
-do, and an owner can change that set for their business (migration 0105). Nothing here needs setting up: the
+do, and an owner can change that set for their business (migration 0106). Nothing here needs setting up: the
 defaults are what the roles always did.
 
 - **For a role:** **Settings** → **Permissions** lists every permission in six groups (Customers, Inbox and calls,
@@ -7893,11 +7906,14 @@ Do this after the worker is live at `https://hooks.handsfreeos.com` (Fly Part 8)
 4. Choose the API version Square offers as current, and select these events, which are the ones the worker acts on:
    - `payment.created`, `payment.updated` — Square has no "payment failed" event and no separate "succeeded" one, so where the money is has to be read off the payment itself
    - `refund.created`, `refund.updated`
-   - `dispute.created`, `dispute.state.changed`, `dispute.evidence.added`
+   - `dispute.created`, `dispute.state.updated`, `dispute.evidence.created`
    - `invoice.payment_made`
    - `subscription.created`, `subscription.updated`
-   - `merchant.updated`, `location.updated`
+   - `location.updated`
    - `oauth.authorization.revoked`
+
+   Older guides name `dispute.state.changed`, `dispute.evidence.added` and `merchant.updated`. Square no longer offers them: the first two are the old names of the dispute events above, and the Merchants API has no webhooks. The worker still reads the two old dispute names if they ever arrive.
+
 5. Save, then copy the **Signature Key** from the subscription's page.
 6. Save it in your password manager as "Square developer application", under webhook signature key.
 7. Do the same in **Sandbox** if you will test from your laptop, and keep that signature key separate.
@@ -8527,6 +8543,8 @@ only for the address it was sent to, and only after they have a HandsFreeOS sign
 | See every business in the directory       | Yes   | Yes  | Yes   |
 | Assign tickets, keep the saved replies    |       | Yes  | Yes   |
 | The health page                           |       | Yes  | Yes   |
+| Answer ideas, merge them, take them down  | Yes   | Yes  | Yes   |
+| Move ideas along the roadmap, What's new  |       | Yes  | Yes   |
 | Invite, suspend and remove support people |       |      | Yes   |
 
 Nobody changes their own role, and the last admin cannot be removed or demoted — the database refuses both,
@@ -8583,6 +8601,74 @@ button never appears.
 3. Mail to an address that is not in `SUPPORT_ADDRESSES` is accepted and dropped on purpose. Add the address
    there if it should open a ticket.
 4. An out-of-office reply is dropped on purpose too, and says so in the worker's log.
+
+## Ideas, the roadmap and What's new
+
+The board where the people who use HandsFreeOS tell you what would make it better, vote on what matters to
+them, and follow an idea from "under review" to "done" — the same thing GoHighLevel keeps at
+ideas.gohighlevel.com, built into the app. It needs nothing set up: no new service, no new setting, and the
+emails go out the way the team's other emails do (`SMTP_URL` and `MAIL_FROM` on the worker). The tables are
+migration `20261006000100_ideas_and_whats_new.sql`, in the `platform` schema beside the support desk.
+
+### What the businesses see
+
+- **Ideas** is a place in every business's side menu, for every role, just above Settings (and under **More**
+  in the suggested menu). It has three tabs: **Ideas** (the board), **Roadmap** (planned, being built, and
+  shipped in the last ninety days) and **What's new**. A dot beside Ideas says What's new has something the
+  person has not read yet.
+- **Sharing an idea** asks for a title, a few words more and which part of HandsFreeOS it is about. While they
+  type the title, the ideas already on the board that sound like it come up with a vote button, because a
+  vote on the idea that exists counts for more than a second copy of it. Sharing an idea votes for it.
+- **Voting, commenting and following.** One vote per person, taken back any time while the idea is open.
+  Sharing, voting and commenting all follow an idea; **Email me updates** on its page turns that off.
+- **What other businesses see of them** is a short name ("Dale R.") beside an idea or a comment they wrote,
+  and nothing else: never their email, never their business, never what they voted for.
+- **Limits.** Ten ideas a day and thirty comments an hour per person, so a script cannot fill the board. The
+  database holds the line; the team is never counted.
+- **On the phone** it is **Ideas** under **More**, with the same three tabs, sharing, voting, comments and
+  **Email me updates**, and **New** beside it while What's new has something unread. None of it is kept on the
+  phone, so with no signal each screen says it needs one; nothing waits in the queue of changes.
+
+### The team's side
+
+It is **Ideas** in `/admin` (see the role table above: every support role answers, leads and admins move).
+
+- **The list** opens on **Under review**: the ideas nobody here has answered yet. Each row says how many
+  different businesses voted for it, which is a better signal than the vote count alone, and who shared it
+  from which business.
+- **An idea's page** has everything a business sees, plus who shared it (name, address, business) and every
+  voter with their business. From there:
+  - **Where it stands** moves it: Under review, Planned, In progress, Done, Not planned. Write a note — it is
+    shown on the idea and goes into the email — and leave **Email the people following it** ticked. With the
+    status unchanged, a note alone posts an update ("still planned, now for spring").
+  - **Answer as the team** posts a comment with the HandsFreeOS badge, and emails whoever shared the idea:
+    ask your questions here.
+  - **Is it a duplicate?** lists the ideas that sound like it; **Merge into** folds it into one of them. Its
+    votes and followers move over (anybody who had turned the emails off stays off), it leaves the board, and
+    its followers are told where it went.
+  - **Take it off the board** is for spam and for things that are not ideas at all. Its author still sees it,
+    with a line saying the team took it down.
+- **What's new** is where you write what shipped. An entry is a draft only the team sees until you press
+  **Publish**. Link it to the ideas it delivers: publishing marks them **Done** and emails everybody following
+  them, with the entry's title in the email. **Unpublish** takes it back to a draft (ideas it marked Done stay
+  Done); only a draft can be deleted.
+- **Areas** (admins and leads) are the parts of HandsFreeOS an idea can be about. Add one when a part of the
+  product ships; archive one to stop new ideas going into it (the ideas already there keep it).
+
+### The emails
+
+- **An idea moves** (a new status, a note, shipped in What's new, or merged into another): one email to
+  everybody following it who still works in a business here, except whoever made the change. The subject says
+  what happened ("“Send invoices by text” is planned") and the button opens the idea.
+- **The team answers** in the comments: one email to whoever shared the idea, if they still follow it.
+- **Nobody is told twice.** Each email is written down as it goes, so a retry after a failure carries on
+  where it stopped.
+- The link in an email is `app.handsfreeos.com/app/ideas/<id>`, which opens the idea in the business the
+  person was last in (or on the admin side, for somebody who works here and in no business). On a phone with
+  the app, the same link opens the idea in the app, in the business it had open last.
+
+Locally, `pnpm db:seed` puts seven ideas from four businesses on the board, three What's new entries and a
+draft. Sign in as `chris@gobizhelp.test` and open `/admin/ideas`; the emails land in Mailpit.
 
 ## Push notifications: Expo
 
@@ -8871,7 +8957,7 @@ iOS internal-distribution builds install only on phones registered to the Apple 
 
 #### What production does, and what it still won't do
 
-`mobile-release.yml` waits for CI the same way `deploy.yml` does — on `workflow_run`, using the commit CI verified rather than whatever `main` points at by then — and then asks EAS to run `deploy-production.yml` on that commit through the workflows REST API. It waits up to forty-five minutes so a failure turns the job red next to the commit that caused it. A run that outlives the wait is not failed; it carries on at EAS, and the job prints its link.
+`mobile-release.yml` waits for CI on `workflow_run`, using the commit CI verified rather than whatever `main` points at by then, and then asks EAS to run `deploy-production.yml` on that commit through the workflows REST API. It waits up to forty-five minutes so a failure turns the job red next to the commit that caused it. A run that outlives the wait is not failed; it carries on at EAS, and the job prints its link.
 
 The reach of all this ends at **TestFlight and Play's internal testing track**. Promoting a build to the public App Store or to a Play production release is still somebody opening a console and deciding to — which is what `release-checklist.md` means by "publishing still waits for Chris's go-live". Neither promotion is another upload: in App Store Connect you submit a TestFlight build for review, and in Play Console you promote the internal testing release.
 

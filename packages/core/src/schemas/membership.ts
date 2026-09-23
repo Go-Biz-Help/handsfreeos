@@ -33,7 +33,7 @@ export const Member = z.object({
   fullName: z.string(),
   avatarUrl: z.string().nullable(),
   role: workspaceRole,
-  /** What they may do here (0105), their role's permissions with the business's settings applied. */
+  /** What they may do here (0106), their role's permissions with the business's settings applied. */
   permissions: z.array(z.string()),
   joinedAt: isoDateTime,
 });
@@ -45,7 +45,7 @@ export const OrganizationPerson = z.object({
   fullName: z.string(),
   avatarUrl: z.string().nullable(),
   orgRole: z.enum(['owner', 'admin']),
-  /** What they may do in this business (0105). */
+  /** What they may do in this business (0106). */
   permissions: z.array(z.string()),
 });
 
