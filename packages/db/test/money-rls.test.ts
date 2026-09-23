@@ -940,6 +940,7 @@ describe('parity with core', () => {
       'ai_corrections',
       'website_changed',
       'faq_suggestions',
+      'offer_lapsing',
     ]);
     await worker(A)((tx) =>
       tx.execute(
