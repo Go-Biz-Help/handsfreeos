@@ -133,7 +133,20 @@ reacts to an event · **T** AI teammate change.
    - **Booked, never completed**: a card 3 days after the job's time.
    - **No address**: for services done at the customer's address, a card 2 days before; it clears when the
      address is added.
-4. **a. Service, handoffs and revenue.** **b. Health.**
+4. **a. Service, handoffs and revenue** (Chris, 2026-09-23):
+   - **Aging hand-off**: after the 15-minute alert, a second push to whoever it was handed to at 1 hour; at 4
+     hours the owner is told too and the card turns urgent.
+   - **Client going quiet**: a card to check in. A regular is 3+ past paid visits; quiet is twice their usual gap
+     between visits, at least 60 days. Skipped when "Maintenance due" already covers them.
+   - **Promises not kept**: the AI reads what the team wrote (texts and emails) and call transcripts for a promise
+     with a time ("I'll send the quote Tuesday"), a word check first; a card when nothing happened by then.
+   - **Decisions expiring**: an approval or draft turns urgent 2 hours before it expires, with a push to whoever
+     can approve it.
+   - **Revenue moved**: a Monday card only when last week's money in was 30% or more above or below the usual
+     week, with the main reason.
+
+   **b. Health.**
+
 5. **Outreach campaigns.**
 
 Each stage adds its rows to the catalog as it ships, so the page never shows a switch that does nothing.
