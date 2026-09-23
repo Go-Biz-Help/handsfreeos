@@ -552,7 +552,7 @@ Every database change is a new file in `supabase/migrations`, named `<version>_<
 
 Nothing applies migrations to the hosted database automatically. The Deploy workflow only ships the two Fly apps. So:
 
-- Push a migration to the hosted database before the code that needs it reaches `main`. A push to `main` deploys as soon as CI passes.
+- Push a migration to the hosted database before the code that needs it reaches `main`. A push to `main` deploys within minutes, as soon as Vercel has built the web app.
 - Write migrations so the code already running keeps working. Add new tables and columns first, and remove old ones in a later migration.
 - Never change tables, policies or functions by hand in the SQL Editor. The only exceptions are role passwords, a role's expiry date (see "When something goes wrong" below) and the history fix in "If you used the Supabase connector instead".
 
@@ -2083,11 +2083,13 @@ After the redeploy:
 
 ### Every deploy after that
 
-- A push to `main` runs CI. When CI passes, the Deploy workflow ships the commit CI checked: the worker first, then the API. CI can take up to 45 minutes.
-- Vercel builds the web app from the same push straight away, but does not put it live until this workflow's first job has passed, so the browser is never running a commit whose API is not up yet. That wait is a setting in the Vercel project, not in this repository: "Make Vercel wait for CI and the API" in "The web app on Vercel".
-- Only one deploy runs at a time. A deploy that starts while another is running waits for it to finish. At most one run waits. If another arrives while one is already waiting, GitHub cancels the older waiting run, and only the newest commit ships. A cancelled Deploy run is normal.
-- If the worker deploy fails, the API deploy does not run.
-- To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run skips the CI check and ships the newest commit on the branch you pick.
+- A push to `main` makes Vercel build the web app. When that production build is ready, Vercel tells GitHub, and the Deploy workflow ships the same commit: the worker first, then the API. That takes about five minutes.
+- Vercel holds the new web app back until the Deploy workflow reports that the API is up, then puts it live, so the browser is never running a commit whose API is not up yet. That wait is a setting in the Vercel project, not in this repository: "Make Vercel wait for the API" in "The web app on Vercel".
+- CI runs on every pull request and on `main` as before, but it no longer holds the deploy back. A commit that fails CI on `main` is live anyway, so keep pull requests green before merging.
+- A production build of a commit that isn't on `main` (for example `vercel deploy --prod` from a branch) doesn't ship the API: the Deploy job refuses it, and Vercel keeps that build waiting.
+- Only one deploy runs at a time. A deploy that starts while another is running waits for it to finish. At most one run waits. If another arrives while one is already waiting, GitHub cancels the older waiting run, and only the newest commit ships; the cancelled commit's web build never goes live, and the newer one does. A cancelled Deploy run is normal.
+- If the worker deploy fails, the API deploy does not run, and Vercel keeps that commit's web app waiting. Re-run the failed job in GitHub (**Re-run failed jobs**) once the cause is fixed; the re-run reports to Vercel like the first run.
+- To run the workflow by hand in GitHub, go to **Actions** → **Deploy** → **Run workflow**, leave the branch on `main`, and click the green **Run workflow** button. Or run it from Terminal. A hand run ships the newest commit on the branch you pick. It doesn't report to Vercel, so a web build waiting on its check still needs its own run re-run, or **Force Promote** in Vercel.
 
   ```bash
   gh workflow run Deploy --repo gobizhelp/handsfreeos --ref main
@@ -2270,9 +2272,9 @@ Fly's docs describe no rollback command. Instead you redeploy an earlier image.
     git push
     ```
 
-    You should see CI start on GitHub. When it passes, the Deploy workflow ships the reverted code.
+    You should see Vercel build the web app and, a few minutes later, the Deploy workflow ship the reverted API and worker.
 
-11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job ("Make Vercel wait for CI and the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
+11. Or, instead of steps 8 to 10, pause the Deploy workflow. This also stops the web app going live, because Vercel waits for this workflow's first job to report ("Make Vercel wait for the API"). That is usually what you want while a bad commit is on `main`; if you need a web-only fix out while it is paused, use **Force Promote** on the Vercel deployment.
 
     ```bash
     gh workflow disable Deploy --repo gobizhelp/handsfreeos
@@ -2556,7 +2558,7 @@ How it fits together:
 - **Its working data lives in a Postgres of its own**, never in the Supabase database. In a test, keeping it in the Supabase database wrote about 7 times the synced data again as WAL on every full copy, and lost the slot twice. That Postgres holds nothing that can't be rebuilt from the database, so it needs no backups.
 - **Phones sign in with their Supabase access token.** The service checks it against Supabase's published signing keys and refuses a token more than an hour old, so Auth's access tokens must keep their 1-hour lifetime (Sync Part 3).
 - **One machine each, always on.** Only one process may follow the slot, and a stopped one lets WAL pile up.
-- **Deploys and alerts.** After CI passes on `main`, the Deploy workflow ships the sync service after the API and the worker, but only when its settings changed. It waits for a new sync config to finish copying and keeps the daily compaction machine in step. The **Sync health** workflow checks the service every hour, and fails, which emails you, when it needs attention.
+- **Deploys and alerts.** After each push to `main`, the Deploy workflow ships the sync service after the API and the worker, but only when its settings changed. It waits for a new sync config to finish copying and keeps the daily compaction machine in step. The **Sync health** workflow checks the service every hour, and fails, which emails you, when it needs attention.
 
 The first time, do the parts in order. Stage 4 of the go-live checklist says when.
 
@@ -2897,7 +2899,7 @@ The phone app's builds carry this address. Nothing else calls it.
 
 ### Sync Part 8: Let GitHub deploy it
 
-The organization token from Fly Part 9 already covers both new apps. From now on, after CI passes on `main`, the Deploy workflow's second job, **The sync service on Fly.io**, runs once the API and the worker are up and:
+The organization token from Fly Part 9 already covers both new apps. From now on, after each push to `main`, the Deploy workflow's second job, **The sync service on Fly.io**, runs once the API and the worker are up and:
 
 1. **Checks that the sync service is set up**: `handsfreeos-sync` exists and has all three secrets. Until then it notes "handsfreeos-sync doesn't exist on Fly yet, so the sync service wasn't deployed." and ends there.
 2. **Checks whether its settings changed** since the running machine was deployed, from a fingerprint of `apps/sync/fly.toml`, `service.yaml`, `sync-config.yaml` and the status check. Every deploy makes phones reconnect, so when nothing changed it notes "The sync service's config hasn't changed, so it wasn't redeployed." Your hand deploy in Sync Part 6 had no fingerprint, so the first run after it deploys once more.
@@ -3618,38 +3620,38 @@ Optional: stop building previews altogether.
 
 Vercel still starts each skipped build and cancels it, and those count toward its deployment limits.
 
-### Make Vercel wait for CI and the API
+### Make Vercel wait for the API
 
-**Do this one.** It is the only thing standing between a push and half an hour of a half-deployed product.
+**Do this one.** It is the only thing standing between a push and a few minutes of a half-deployed product.
 
-By default Vercel puts a new production build live as soon as it is ready. The API waits for CI and then for a Fly deploy, twenty-odd minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers 404 — and a page built out of one of them shows "We could not find that. The page does not exist, or you do not have access to it." It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and nothing was wrong with any of them.
+By default Vercel puts a new production build live as soon as it is ready. The API ships from the same push a few minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers "No such route", and a page built out of one of them shows an error. It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and on 23 September to Customers, and nothing was wrong with any of them.
 
-Vercel's Deployment Checks hold the address back until named GitHub jobs pass. Three of them cover it: the two CI jobs, and the Fly deploy itself, so the web app goes live in the minute **after** the API it calls, not before.
+Vercel's Deployment Checks hold the address back until a named check passes. One check covers it: the Deploy workflow reports **Vercel - handsfreeos-web: api** on the commit once the worker and the API are up, so the web app goes live in the minute **after** the API it calls, not before. It does not wait for CI, which takes up to 45 minutes; CI runs on the pull request before the merge.
+
+Add it only after the Deploy workflow on `main` has reported the check at least once. Until then nothing sends it, and every production build would wait for Force Promote.
 
 1. Open the project and click **Settings** → **Environments** → **Production**.
 2. Check that automatic aliasing for production is on. It is the setting that gives each new production build `app.handsfreeos.com`, and Deployment Checks need it.
 3. Click **Settings** → **Build and Deployment** and find **Deployment Checks**.
-4. Click **Add Checks**.
-5. Choose **GitHub** as the provider.
-6. Search for and select three jobs: **Lint, typecheck, tests, browser tests** and **Secret scan** from CI, and **The API and the worker on Fly.io** from Deploy.
+4. If it lists the older checks (**Lint, typecheck, tests, browser tests**, **Secret scan**, or **The API and the worker on Fly.io**), remove them. They made every release wait for CI.
+5. Click **Add Checks** and choose **GitHub** as the provider.
+6. Search for and select **Vercel - handsfreeos-web: api**.
 
-   You should see all three listed under **Deployment Checks**.
-
-   The Deploy job only appears in the search once it has run at least once under that name. If it is missing, add the two CI jobs now, push once, and come back for the third.
+   You should see it listed under **Deployment Checks**.
 
 7. Push the next change to `main` as usual.
 
-   You should see the new production deployment wait, and `https://app.handsfreeos.com` switch to it only after the API on Fly has been replaced.
+   You should see the new production deployment wait, and `https://app.handsfreeos.com` switch to it only after the Deploy workflow's first job has finished.
 
-Production builds are still created, but they only get `app.handsfreeos.com` once the checks pass. In an emergency, open the deployment's page and choose **Force Promote** to put it live without waiting — worth remembering that this is exactly the ordering the checks exist to prevent, so only reach for it when the alternative is worse.
+Production builds are still created, but they only get `app.handsfreeos.com` once the check passes. In an emergency, open the deployment's page and choose **Force Promote** to put it live without waiting — worth remembering that this is exactly the ordering the check exists to prevent, so only reach for it when the alternative is worse.
 
-GitHub identifies checks by job name, so renaming a job here quietly stops the wait rather than failing loudly. The two CI job names live in `.github/workflows/ci.yml` and the Deploy one in `.github/workflows/deploy.yml`; rename either and change the checks in Vercel in the same breath.
+The check's name lives in `.github/workflows/deploy.yml`, in the step **Tell Vercel when the API is up**. Rename it there and change the check in Vercel in the same breath; otherwise every production build waits for a check nobody sends.
 
 The sync service is a separate job in Deploy on purpose. A changed PowerSync config copies the whole database and can take a quarter of an hour, and the web app has no reason to wait for that — only for the API.
 
 ### Good to know
 
-- **Vercel does not wait for anything by default.** A push to `main` goes live on Vercel within minutes, while the API and the worker wait for CI and then for Fly. Without the checks, a web change that needs a new API reaches people twenty-odd minutes before the API does, and a web change that fails CI is live anyway. Set up "Make Vercel wait for CI and the API" above; it is not optional in practice.
+- **Vercel does not wait for anything by default.** A push to `main` goes live on Vercel as soon as it is built, while the API and the worker take a few more minutes on Fly. Without the check, a web change that needs a new API reaches people before the API does. Set up "Make Vercel wait for the API" above; it is not optional in practice.
 - **Rolling back.** On the project's overview page, click **Instant Rollback** on the production deployment tile. Pick an earlier deployment, click **Continue**, then **Confirm Rollback**. The earlier deployment comes back with the settings it was built with. After a rollback, new pushes to `main` stop going live. To undo it, click **Undo Rollback** on the same tile, pick the deployment to put live (usually the newest good one), and click **Confirm**. New pushes to `main` then go live again.
 - **Calls need HTTPS.** Browsers only allow the microphone on HTTPS pages. Vercel serves HTTPS, so calls work at `https://app.handsfreeos.com`.
 - **New web settings.** The build may run through Turborepo, which hides every setting not listed for builds in `turbo.json`. That file already lists `NEXT_PUBLIC_*`. A future web setting with any other name must be added there too.
@@ -8904,7 +8906,7 @@ iOS internal-distribution builds install only on phones registered to the Apple 
 
 #### What production does, and what it still won't do
 
-`mobile-release.yml` waits for CI the same way `deploy.yml` does — on `workflow_run`, using the commit CI verified rather than whatever `main` points at by then — and then asks EAS to run `deploy-production.yml` on that commit through the workflows REST API. It waits up to forty-five minutes so a failure turns the job red next to the commit that caused it. A run that outlives the wait is not failed; it carries on at EAS, and the job prints its link.
+`mobile-release.yml` waits for CI on `workflow_run`, using the commit CI verified rather than whatever `main` points at by then, and then asks EAS to run `deploy-production.yml` on that commit through the workflows REST API. It waits up to forty-five minutes so a failure turns the job red next to the commit that caused it. A run that outlives the wait is not failed; it carries on at EAS, and the job prints its link.
 
 The reach of all this ends at **TestFlight and Play's internal testing track**. Promoting a build to the public App Store or to a Play production release is still somebody opening a console and deciding to — which is what `release-checklist.md` means by "publishing still waits for Chris's go-live". Neither promotion is another upload: in App Store Connect you submit a TestFlight build for review, and in Play Console you promote the internal testing release.
 
