@@ -23877,6 +23877,18 @@
                           "job_no_address": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "client_quiet": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "promise_due": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "revenue_moved": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -24162,6 +24174,18 @@
                             "job_no_address": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "client_quiet": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "promise_due": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "revenue_moved": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -24185,7 +24209,10 @@
                             "quiet_after_price",
                             "job_unconfirmed",
                             "job_never_completed",
-                            "job_no_address"
+                            "job_no_address",
+                            "client_quiet",
+                            "promise_due",
+                            "revenue_moved"
                           ],
                           "additionalProperties": false
                         },
@@ -24477,6 +24504,14 @@
                           "jobCheck": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "handoffFollowUp": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "approvalExpiry": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -24696,6 +24731,14 @@
                             "jobCheck": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "handoffFollowUp": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "approvalExpiry": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -24710,7 +24753,9 @@
                             "maintenance",
                             "pipelineMoves",
                             "engagedLeads",
-                            "jobCheck"
+                            "jobCheck",
+                            "handoffFollowUp",
+                            "approvalExpiry"
                           ],
                           "additionalProperties": false
                         },
@@ -53695,7 +53740,10 @@
                                               "quiet_after_price",
                                               "job_unconfirmed",
                                               "job_never_completed",
-                                              "job_no_address"
+                                              "job_no_address",
+                                              "client_quiet",
+                                              "promise_due",
+                                              "revenue_moved"
                                             ]
                                           },
                                           "chips": {
@@ -67135,7 +67183,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 21,
+                    "maxItems": 24,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -67160,7 +67208,10 @@
                         "quiet_after_price",
                         "job_unconfirmed",
                         "job_never_completed",
-                        "job_no_address"
+                        "job_no_address",
+                        "client_quiet",
+                        "promise_due",
+                        "revenue_moved"
                       ]
                     }
                   },
@@ -67229,7 +67280,10 @@
                               "quiet_after_price",
                               "job_unconfirmed",
                               "job_never_completed",
-                              "job_no_address"
+                              "job_no_address",
+                              "client_quiet",
+                              "promise_due",
+                              "revenue_moved"
                             ]
                           },
                           "state": {
@@ -67391,7 +67445,10 @@
                                     "maintenance",
                                     "price",
                                     "job_passed",
-                                    "no_address"
+                                    "no_address",
+                                    "quiet",
+                                    "promise",
+                                    "revenue"
                                   ]
                                 },
                                 "label": {
@@ -67763,7 +67820,10 @@
                               "quiet_after_price",
                               "job_unconfirmed",
                               "job_never_completed",
-                              "job_no_address"
+                              "job_no_address",
+                              "client_quiet",
+                              "promise_due",
+                              "revenue_moved"
                             ]
                           },
                           "state": {
@@ -67925,7 +67985,10 @@
                                     "maintenance",
                                     "price",
                                     "job_passed",
-                                    "no_address"
+                                    "no_address",
+                                    "quiet",
+                                    "promise",
+                                    "revenue"
                                   ]
                                 },
                                 "label": {
@@ -68297,7 +68360,10 @@
                               "quiet_after_price",
                               "job_unconfirmed",
                               "job_never_completed",
-                              "job_no_address"
+                              "job_no_address",
+                              "client_quiet",
+                              "promise_due",
+                              "revenue_moved"
                             ]
                           },
                           "title": {
@@ -68586,7 +68652,10 @@
                               "quiet_after_price",
                               "job_unconfirmed",
                               "job_never_completed",
-                              "job_no_address"
+                              "job_no_address",
+                              "client_quiet",
+                              "promise_due",
+                              "revenue_moved"
                             ]
                           },
                           "state": {
@@ -68748,7 +68817,10 @@
                                     "maintenance",
                                     "price",
                                     "job_passed",
-                                    "no_address"
+                                    "no_address",
+                                    "quiet",
+                                    "promise",
+                                    "revenue"
                                   ]
                                 },
                                 "label": {
@@ -69169,7 +69241,10 @@
                         "quiet_after_price",
                         "job_unconfirmed",
                         "job_never_completed",
-                        "job_no_address"
+                        "job_no_address",
+                        "client_quiet",
+                        "promise_due",
+                        "revenue_moved"
                       ]
                     },
                     "mode": {
@@ -69616,6 +69691,18 @@
                             "job_no_address": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "client_quiet": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "promise_due": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "revenue_moved": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -69639,7 +69726,10 @@
                             "quiet_after_price",
                             "job_unconfirmed",
                             "job_never_completed",
-                            "job_no_address"
+                            "job_no_address",
+                            "client_quiet",
+                            "promise_due",
+                            "revenue_moved"
                           ],
                           "additionalProperties": false
                         },

@@ -930,6 +930,9 @@ describe('parity with core', () => {
       'job_unconfirmed',
       'job_never_completed',
       'job_no_address',
+      'client_quiet',
+      'promise_due',
+      'revenue_moved',
     ]);
     await worker(A)((tx) =>
       tx.execute(

@@ -2,7 +2,10 @@
 import type { JobMap } from '../jobs';
 import { EVENING_JOB, eveningBriefJob } from './evening';
 import { INTAKE_JOB, intakeJob } from './intake';
+import { EXPIRING_JOB, expiringJob } from './expiring';
+import { HANDOFF_NUDGE_JOB, handoffNudgeJob } from './handoff';
 import { JOB_CHECK_JOB, jobCheckJob } from './job-check';
+import { PROMISE_JOB, promiseJob } from './promises';
 import { MAINTENANCE_JOB, maintenanceJob } from './maintenance';
 import { REENGAGE_JOB, reengageJob } from './reengage';
 import { REFERRAL_JOB, referralJob } from './referrals';
@@ -39,6 +42,22 @@ export {
   onStillGoing,
 } from './job-check';
 export { moveDeals, onEngaged, onPipelineEvidence } from './pipeline';
+export { EXPIRING_JOB, expiringJobKey, onExpiringArm } from './expiring';
+export {
+  HANDOFF_NUDGE_AFTER_MS,
+  HANDOFF_NUDGE_JOB,
+  handoffNudgeKey,
+  onHandoffNudge,
+} from './handoff';
+export {
+  dueFrom,
+  onCallPromise,
+  onMessagePromise,
+  PROMISE_ASK,
+  PROMISE_JOB,
+  promiseJobKey,
+  teamLines,
+} from './promises';
 export { INTAKE_DELAY_MS, INTAKE_JOB, intakeJobKey, onBookedIntake } from './intake';
 
 export const automationJobs: JobMap = {
@@ -49,4 +68,7 @@ export const automationJobs: JobMap = {
   [MAINTENANCE_JOB]: maintenanceJob,
   [EVENING_JOB]: eveningBriefJob,
   [JOB_CHECK_JOB]: jobCheckJob,
+  [HANDOFF_NUDGE_JOB]: handoffNudgeJob,
+  [PROMISE_JOB]: promiseJob,
+  [EXPIRING_JOB]: expiringJob,
 };

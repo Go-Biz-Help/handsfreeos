@@ -121,6 +121,9 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'price',
   'job_passed',
   'no_address',
+  'quiet',
+  'promise',
+  'revenue',
 ];
 
 /** Chips in CHIP_ORDER, one per code (the first of each wins). */

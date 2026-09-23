@@ -44,6 +44,9 @@ const kindSwitches = {
   job_unconfirmed: always(),
   job_never_completed: on(),
   job_no_address: on(),
+  client_quiet: on(),
+  promise_due: on(),
+  revenue_moved: on(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

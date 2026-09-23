@@ -150,6 +150,8 @@ export function useHomeActions(o: {
           // Two texts went already: a call when this phone can, else a reply.
           case 'maintenance_due':
           case 'quiet_after_price':
+          case 'client_quiet':
+          case 'promise_due':
             if (item.personId) return call(item);
             return item.conversationId ? reply(item) : target(item);
           // A deal on the wrong stage opens it, where the move is a press away.
@@ -171,6 +173,9 @@ export function useHomeActions(o: {
               }
             })();
           // The address goes on the customer, where every visit at their place reads it.
+          // The week's money opens Money.
+          case 'revenue_moved':
+            return target(item);
           case 'job_no_address':
             return item.personId
               ? openWebPath(`/app/w/${workspaceId}/customers/people/${item.personId}`)

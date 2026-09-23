@@ -891,6 +891,36 @@ export function handoffEmail(input: {
 }
 
 /**
+ * A hand-off still waiting (Automations' "Hand-off nobody picked up"): four hours on, the owners and admins hear
+ * that nobody has picked it up.
+ */
+export function handoffWaitingEmail(input: {
+  customer: string;
+  /** "4 hours". */
+  waiting: string;
+  /** Who it was handed to, or null when nobody. */
+  handedTo: string | null;
+  link: string;
+}): EmailContent {
+  const subject = `${input.customer} is still waiting for a person`;
+  const opening = `The AI teammate handed ${input.customer} to ${input.handedTo ?? 'your team'} ${input.waiting} ago, and nobody has picked it up yet.`;
+  const why =
+    'You’re getting this because you’re an owner or admin and the hand-off has waited this long. Replying takes it over.';
+  const text = [opening, '', `Open the conversation: ${input.link}`, '', why, STOP_THESE].join(
+    '\n',
+  );
+  const html = shell(
+    preheader(opening) +
+      wordmark +
+      `<p style="font-size: 15px; line-height: 1.5; margin: 0;">${escapeHtml(opening)}</p>` +
+      button(input.link, 'Open the conversation') +
+      small(escapeHtml(why)) +
+      small(STOP_THESE),
+  );
+  return { subject, text, html };
+}
+
+/**
  * An emergency: sent marked urgent to the assignee and every owner and admin, whatever their settings. It says
  * what the customer wrote and the safety text they got, word for word.
  */

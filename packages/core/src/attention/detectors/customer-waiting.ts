@@ -35,6 +35,8 @@ export interface CustomerWaitingFacts {
     readonly handledBy: 'none' | 'ai' | 'person';
     readonly needsPersonSince: string | null;
     readonly takenOverBy: string | null;
+    /** A hand-off nobody picked up for hours, and the owners have been told (Automations). */
+    readonly escalated?: boolean;
   };
   /** The business's reply threshold in minutes (`unansweredReminderMinutes`); 0 turns the alert off. */
   readonly replyThresholdMinutes: number;
@@ -77,7 +79,14 @@ function assess(f: CustomerWaitingFacts, settings: AttentionSettings, now: numbe
     reasons: [
       ...valueChips(value),
       sinceChip('waiting', since, now),
-      ...(handoffAt !== null ? [chip('handed_off', 'handed to a person')] : []),
+      ...(handoffAt !== null
+        ? [
+            chip(
+              'handed_off',
+              c.escalated ? 'handed to a person · owner told' : 'handed to a person',
+            ),
+          ]
+        : []),
     ],
     assignee: c.assigneeUserId,
     recheckAt: null,

@@ -33,6 +33,10 @@ export const ATTENTION_KINDS = [
   'job_unconfirmed',
   'job_never_completed',
   'job_no_address',
+  // Service, hand-offs and revenue (Automations, stage 4a).
+  'client_quiet',
+  'promise_due',
+  'revenue_moved',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -61,6 +65,9 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   job_unconfirmed: 'Did it happen?',
   job_never_completed: 'Never marked done',
   job_no_address: 'No address',
+  client_quiet: 'Gone quiet',
+  promise_due: 'Promise due',
+  revenue_moved: 'Money in changed',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -87,6 +94,9 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   job_unconfirmed: 'Jobs to check',
   job_never_completed: 'Jobs never marked done',
   job_no_address: 'Jobs with no address',
+  client_quiet: 'Regulars gone quiet',
+  promise_due: 'Promises due',
+  revenue_moved: 'Money in changed',
 };
 
 /**
@@ -121,6 +131,12 @@ export const ATTENTION_SUBJECT_OF = {
   job_unconfirmed: 'appointment',
   job_never_completed: 'appointment',
   job_no_address: 'appointment',
+  // A regular customer: the person themselves.
+  client_quiet: 'person',
+  // A row of app.promises: something someone on the team said they'd do, by when.
+  promise_due: 'promise',
+  // One per business, like the wallet's: the subject is the workspace's own id.
+  revenue_moved: 'revenue',
 } as const satisfies Record<AttentionKind, string>;
 export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
 
@@ -329,6 +345,30 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Checking in is a call or a text: a person's, since they're a regular.
+  client_quiet: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // Keeping the promise is on whoever made it.
+  promise_due: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
+  // The business's own money: owners and admins. Nobody to assign it to.
+  revenue_moved: {
+    handle: [ITEM, MONEY],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -378,6 +418,9 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   job_unconfirmed: 'Mark done',
   job_never_completed: 'Mark done',
   job_no_address: 'Add address',
+  client_quiet: 'Check in',
+  promise_due: 'Follow through',
+  revenue_moved: 'Open money',
 };
 
 // ---- What runs on its own ----
@@ -452,6 +495,9 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   job_unconfirmed: 'Only someone who was there knows whether it happened.',
   job_never_completed: 'Only someone who was there knows whether it happened.',
   job_no_address: 'Only you or the customer know where the job is.',
+  client_quiet: 'A regular hears from a person, not an automatic text.',
+  promise_due: 'The promise was yours, so keeping it is too.',
+  revenue_moved: 'This is for you to look at, not something to send.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

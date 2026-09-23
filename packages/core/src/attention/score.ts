@@ -56,6 +56,12 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   job_never_completed: { grows: 'since', start: 1.5, stepMs: 3 * DAY },
   // Someone has to know where to go before they set off.
   job_no_address: { grows: 'until_due', windowMs: 48 * HOUR },
+  // A regular drifting off: steady over weeks.
+  client_quiet: { grows: 'since', start: 1, stepMs: 7 * DAY },
+  // A promise already late: it climbs by the day.
+  promise_due: { grows: 'since', start: 1.5, stepMs: DAY },
+  // Worth a look this week, never urgent.
+  revenue_moved: { grows: 'since', start: 1, stepMs: 7 * DAY },
 };
 
 /**

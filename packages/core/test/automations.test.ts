@@ -113,6 +113,8 @@ describe('automation settings', () => {
       pipelineMoves: true,
       engagedLeads: true,
       jobCheck: true,
+      handoffFollowUp: true,
+      approvalExpiry: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,

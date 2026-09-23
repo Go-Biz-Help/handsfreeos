@@ -45,6 +45,13 @@ import {
   type JobInfo,
   type PriceState,
 } from './load-pipeline-jobs';
+import {
+  loadPromises,
+  loadRegulars,
+  loadRevenue,
+  type PromiseInfo,
+  type RegularInfo,
+} from './load-service';
 import { automationSettingsOf } from '../automations/settings';
 import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } from './kinds';
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
@@ -76,7 +83,8 @@ export interface AttentionSubjectRef {
     | 'thank_you'
     | 'referral'
     | 'maintenance'
-    | 'appointment';
+    | 'appointment'
+    | 'promise';
   readonly id: string;
 }
 
@@ -153,6 +161,7 @@ const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set([
   'job_unconfirmed',
   'job_never_completed',
   'job_no_address',
+  'promise_due',
 ]);
 
 const DAY = 86_400_000;
@@ -232,6 +241,7 @@ interface SubjectSets {
   readonly referrals: Set<string>;
   readonly maintenance: Set<string>;
   readonly appointments: Set<string>;
+  readonly promises: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -247,6 +257,7 @@ const emptySets = (): SubjectSets => ({
   referrals: new Set(),
   maintenance: new Set(),
   appointments: new Set(),
+  promises: new Set(),
 });
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
@@ -262,6 +273,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'referral') s.referrals.add(id);
   else if (type === 'maintenance') s.maintenance.add(id);
   else if (type === 'appointment') s.appointments.add(id);
+  else if (type === 'promise') s.promises.add(id);
 }
 
 /**
@@ -280,7 +292,7 @@ async function expand(
   const s = emptySets();
   for (const x of subjects) addSubject(s, x.type, x.id);
   // A thank-you or a referral brings in its customer, so writing to them settles both.
-  if (s.thankYous.size || s.referrals.size || s.maintenance.size) {
+  if (s.thankYous.size || s.referrals.size || s.maintenance.size || s.promises.size) {
     const whose = await rows<{ person_id: string }>(
       tx,
       sql`select person_id from app.thank_yous
@@ -290,7 +302,10 @@ async function expand(
           where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.referrals])})
           union all
           select person_id from app.maintenance_reminders
-          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.maintenance])})`,
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.maintenance])})
+          union all
+          select person_id from app.promises
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.promises])})`,
     );
     for (const w of whose) s.persons.add(w.person_id);
   }
@@ -341,7 +356,11 @@ async function expand(
           join app.appointment_attendees aa on aa.appointment_id = a.id
           where a.workspace_id = ${workspaceId} and aa.person_id = any(${uuidArray([...s.persons])})
             and a.status = 'scheduled' and a.starts_at > now() - interval '31 days'
-            and a.starts_at < now() + interval '4 days'`,
+            and a.starts_at < now() + interval '4 days'
+          union all
+          select 'promise', id from app.promises
+          where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
+            and status = 'open'`,
     );
     for (const t of theirs) addSubject(s, t.type, t.id);
   }
@@ -520,6 +539,8 @@ interface ConversationInfo {
   readonly handledBy: 'none' | 'ai' | 'person';
   readonly needsPersonSince: string | null;
   readonly takenOverBy: string | null;
+  /** Automations told the owners a hand-off still waits (`conversation.handoff_escalated`). */
+  readonly escalated: boolean;
   readonly lastMessageAt: string | null;
   readonly counterpart: string;
   readonly personName: string | null;
@@ -640,6 +661,7 @@ async function loadConversations(
     handled_by: 'none' | 'ai' | 'person';
     needs_person_since: Date | null;
     taken_over_by: string | null;
+    escalated: boolean;
     last_message_at: Date | null;
     counterpart: string;
     first_name: string | null;
@@ -648,6 +670,10 @@ async function loadConversations(
     tx,
     sql`select c.id, c.person_id, c.channel::text as channel, c.status::text as status, c.assignee_user_id,
           c.awaiting_reply_since, c.handled_by::text as handled_by, c.needs_person_since, c.taken_over_by,
+          c.needs_person_since is not null and exists (select 1 from app.events e
+            where e.entity_type = 'conversation' and e.entity_id = c.id
+              and e.event_type = 'conversation.handoff_escalated'
+              and e.created_at >= c.needs_person_since) as escalated,
           c.last_message_at, c.counterpart, p.first_name, p.last_name
         from app.conversations c left join app.people p on p.id = c.person_id
         where c.workspace_id = ${workspaceId}
@@ -676,6 +702,7 @@ async function loadConversations(
         handledBy: r.handled_by,
         needsPersonSince: iso(r.needs_person_since),
         takenOverBy: r.taken_over_by,
+        escalated: r.escalated,
         lastMessageAt: iso(r.last_message_at),
         counterpart: r.counterpart,
         personName: nameOf(r.first_name, r.last_name),
@@ -1199,6 +1226,8 @@ interface Loaded {
   readonly deals: Map<string, DealState>;
   readonly prices: Map<string, PriceState>;
   readonly jobs: Map<string, JobInfo>;
+  readonly regulars: Map<string, RegularInfo>;
+  readonly promises: Map<string, PromiseInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1400,6 +1429,23 @@ function resolutionOf(
       if (r.referral.status === 'dismissed') return 'dismissed';
       return 'expired';
     }
+    case 'client_quiet': {
+      const r = loaded.regulars.get(row.subjectId);
+      if (!r) return 'subject_gone';
+      if (r.regular.bookedAhead) return 'booked';
+      if (r.regular.lastContactAt) return 'contacted';
+      return 'expired';
+    }
+    case 'promise_due': {
+      const p = loaded.promises.get(row.subjectId);
+      if (!p) return 'subject_gone';
+      if (p.promise.status === 'dismissed') return 'dismissed';
+      if (p.keptAt) return 'done';
+      return 'expired';
+    }
+    // The week passed, or it came back into line: nothing was done about it either way.
+    case 'revenue_moved':
+      return 'expired';
     case 'pipeline_mismatch': {
       const lead = loaded.leads.get(row.subjectId)?.facts;
       if (!lead) return 'subject_gone';
@@ -1571,6 +1617,9 @@ export async function reconcile(
     ...scope.referrals,
     ...scope.maintenance,
     ...scope.appointments,
+    ...scope.promises,
+    // A regular gone quiet is about the person themselves.
+    ...scope.persons,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1645,7 +1694,20 @@ export async function reconcile(
     now,
   );
   const jobs = await loadJobs(tx, workspaceId, [...scope.appointments], all, now, ctx.timeZone);
-  const jobCheckOn = automationSettingsOf(ctx.rawSettings).switches.jobCheck;
+  const regulars = await loadRegulars(
+    tx,
+    workspaceId,
+    [...scope.persons],
+    all,
+    now,
+    ctx.timeZone,
+    ctx.rawSettings,
+  );
+  const promises = await loadPromises(tx, workspaceId, [...scope.promises], all, now, ctx.timeZone);
+  // Only on a full sweep, like the wallet: the business's week has no subject row to be woken by.
+  const revenue = all ? await loadRevenue(tx, workspaceId, now, ctx.timeZone) : null;
+  const automations = automationSettingsOf(ctx.rawSettings);
+  const jobCheckOn = automations.switches.jobCheck;
   // Only on a full sweep: a wallet has no subject row to be woken by, so it is looked at when everything is.
   const walletInfo = all ? await loadWallet(tx, workspaceId) : null;
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
@@ -1663,6 +1725,8 @@ export async function reconcile(
     deals,
     prices,
     jobs,
+    regulars,
+    promises,
   };
 
   // Detect.
@@ -1790,6 +1854,54 @@ export async function reconcile(
       );
   }
 
+  for (const r of regulars.values())
+    run(
+      'client_quiet',
+      { business, regular: r.regular, lead: r.lead, assigneeUserId: r.assigneeUserId },
+      r.regular.personId,
+      { leadId: null, personId: r.regular.personId },
+      {
+        subjectType: 'person',
+        title: itemTitle(r.personName ?? 'Customer', `${r.regular.visits} visits`),
+        detail: `Last visit ${dayLabel(Date.parse(r.regular.lastVisitAt), ctx.timeZone)}`,
+        conversationId: null,
+      },
+    );
+
+  for (const p of promises.values())
+    run(
+      'promise_due',
+      {
+        business,
+        promise: p.promise,
+        keptAt: p.keptAt,
+        lead: p.lead,
+        assigneeUserId: p.assigneeUserId,
+      },
+      p.promise.id,
+      { leadId: null, personId: p.personId },
+      {
+        subjectType: 'promise',
+        title: itemTitle(p.personName ?? 'Customer', p.promise.what),
+        detail: `Due ${p.promise.dueLabel}`,
+        conversationId: p.conversationId,
+      },
+    );
+
+  if (revenue)
+    run(
+      'revenue_moved',
+      { business, ...revenue },
+      workspaceId,
+      { leadId: null, personId: null },
+      {
+        subjectType: 'revenue',
+        title: 'Last week’s money in',
+        detail: revenue.reason ? detailOf(revenue.reason) : null,
+        conversationId: null,
+      },
+    );
+
   for (const j of jobs.values()) {
     const facts = {
       business,
@@ -1830,6 +1942,7 @@ export async function reconcile(
           handledBy: c.handledBy,
           needsPersonSince: c.needsPersonSince,
           takenOverBy: c.takenOverBy,
+          escalated: c.escalated,
         },
         replyThresholdMinutes: ctx.replyThresholdMinutes,
         lead,
@@ -1878,6 +1991,7 @@ export async function reconcile(
         approval: a.approval,
         lead,
         conversationAssigneeUserId: a.conversationAssigneeUserId,
+        expiryWarn: automations.switches.approvalExpiry,
       },
       a.approval.id,
       { leadId: lead?.id ?? null, personId: a.personId },

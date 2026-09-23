@@ -8,6 +8,9 @@ import { chipText, type AttentionKind } from '@hfos/core';
 import {
   BadgeDollarSign,
   CalendarClock,
+  ChartLine,
+  Handshake,
+  UserMinus,
   Check,
   ClipboardCheck,
   ClipboardX,
@@ -67,6 +70,9 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   job_unconfirmed: { icon: ClipboardCheck, tone: `${BR_SOFT} ${BR_TEXT}` },
   job_never_completed: { icon: ClipboardX, tone: 'bg-warning-soft text-warning-text' },
   job_no_address: { icon: MapPinOff, tone: 'bg-warning-soft text-warning-text' },
+  client_quiet: { icon: UserMinus, tone: 'bg-card-2 text-text-2' },
+  promise_due: { icon: Handshake, tone: 'bg-warning-soft text-warning-text' },
+  revenue_moved: { icon: ChartLine, tone: 'bg-accent-soft text-accent-text' },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -92,6 +98,9 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   job_unconfirmed: 'Did it happen?',
   job_never_completed: 'Never marked done',
   job_no_address: 'No address',
+  client_quiet: 'Gone quiet',
+  promise_due: 'Promise due',
+  revenue_moved: 'Money in changed',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

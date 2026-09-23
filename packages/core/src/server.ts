@@ -26,6 +26,7 @@ export * from './messaging/handling';
 export * from './attention/load';
 export * from './automations/maintenance-load';
 export * from './automations/pipeline-load';
+export { mondayOf } from './attention/load-service';
 export * from './attention/items';
 export * from './attention/auto-plan';
 export * from './attention/hints';

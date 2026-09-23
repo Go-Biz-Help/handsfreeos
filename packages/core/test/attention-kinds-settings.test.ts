@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the twenty-one kinds in order', () => {
+  it('lists the twenty-four kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -52,6 +52,9 @@ describe('attention kinds', () => {
       'job_unconfirmed',
       'job_never_completed',
       'job_no_address',
+      'client_quiet',
+      'promise_due',
+      'revenue_moved',
     ]);
   });
 
@@ -102,6 +105,8 @@ describe('attention kinds', () => {
       'wallet_low',
       'wallet_empty',
       'wallet_card_declined',
+      // The business's week of money: only people who manage it open it.
+      'revenue_moved',
     ];
     for (const role of WORKSPACE_ROLES)
       for (const kind of ATTENTION_KINDS)
@@ -177,6 +182,7 @@ describe('attention kinds', () => {
     // Only the kinds nobody can hand off are refused; every other kind has something to offer.
     expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual([
       'ai_approval',
+      'client_quiet',
       'job_never_completed',
       'job_no_address',
       'job_not_thanked',
@@ -184,8 +190,10 @@ describe('attention kinds', () => {
       'maintenance_due',
       'overdue_task',
       'pipeline_mismatch',
+      'promise_due',
       'quiet_after_price',
       'referral_mentioned',
+      'revenue_moved',
       'wallet_card_declined',
       'wallet_empty',
       'wallet_low',

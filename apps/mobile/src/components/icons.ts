@@ -20,6 +20,7 @@ export { default as CalendarPlus } from 'lucide-react-native/icons/calendar-plus
 export { default as CalendarOff } from 'lucide-react-native/icons/calendar-off';
 export { default as CalendarX } from 'lucide-react-native/icons/calendar-x';
 export { default as Camera } from 'lucide-react-native/icons/camera';
+export { default as ChartLine } from 'lucide-react-native/icons/chart-line';
 export { default as Check } from 'lucide-react-native/icons/check';
 export { default as CheckCheck } from 'lucide-react-native/icons/check-check';
 export { default as ChevronDown } from 'lucide-react-native/icons/chevron-down';
@@ -51,6 +52,7 @@ export { default as Flame } from 'lucide-react-native/icons/flame';
 export { default as Gauge } from 'lucide-react-native/icons/gauge';
 export { default as Globe } from 'lucide-react-native/icons/globe';
 export { default as HandCoins } from 'lucide-react-native/icons/hand-coins';
+export { default as Handshake } from 'lucide-react-native/icons/handshake';
 export { default as Heart } from 'lucide-react-native/icons/heart';
 export { default as Hourglass } from 'lucide-react-native/icons/hourglass';
 export { default as House } from 'lucide-react-native/icons/house';
@@ -112,6 +114,7 @@ export { default as TriangleAlert } from 'lucide-react-native/icons/triangle-ale
 export { default as Undo2 } from 'lucide-react-native/icons/undo-2';
 export { default as User } from 'lucide-react-native/icons/user';
 export { default as UserCheck } from 'lucide-react-native/icons/user-check';
+export { default as UserMinus } from 'lucide-react-native/icons/user-minus';
 export { default as UserPen } from 'lucide-react-native/icons/user-pen';
 export { default as UserPlus } from 'lucide-react-native/icons/user-plus';
 export { default as UserRound } from 'lucide-react-native/icons/user-round';

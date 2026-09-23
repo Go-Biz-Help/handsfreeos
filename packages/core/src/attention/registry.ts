@@ -3,6 +3,7 @@
  * kinds.ts and their detector file).
  */
 import * as aiApproval from './detectors/ai-approval';
+import * as clientQuiet from './detectors/client-quiet';
 import * as customerWaiting from './detectors/customer-waiting';
 import * as estimateWaiting from './detectors/estimate-waiting';
 import * as hotLead from './detectors/hot-lead';
@@ -15,8 +16,10 @@ import * as jobUnconfirmed from './detectors/job-unconfirmed';
 import * as missingNextAction from './detectors/missing-next-action';
 import * as overdueTask from './detectors/overdue-task';
 import * as pipelineMismatch from './detectors/pipeline-mismatch';
+import * as promiseDue from './detectors/promise-due';
 import * as quietAfterPrice from './detectors/quiet-after-price';
 import * as referralMentioned from './detectors/referral-mentioned';
+import * as revenueMoved from './detectors/revenue-moved';
 import * as staleOpportunity from './detectors/stale-opportunity';
 import * as unansweredLead from './detectors/unanswered-lead';
 import * as unconfirmedAppointment from './detectors/unconfirmed-appointment';
@@ -53,6 +56,9 @@ export const DETECTORS = {
   job_unconfirmed: jobUnconfirmed,
   job_never_completed: jobNeverCompleted,
   job_no_address: jobNoAddress,
+  client_quiet: clientQuiet,
+  promise_due: promiseDue,
+  revenue_moved: revenueMoved,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

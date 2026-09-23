@@ -4977,6 +4977,30 @@ export const referrals = app.table('referrals', {
   ...timestamps(),
 });
 
+/** Automations 4a: what someone on the team told a customer they'd do, by when (read from their own words). */
+export const promises = app.table('promises', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  callId: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
+  promisedBy: userRef('promised_by'),
+  what: text('what').notNull(),
+  /** call, send, visit or other. */
+  kind: text('kind').notNull().default('other'),
+  dueAt: ts('due_at').notNull(),
+  /** open or dismissed. */
+  status: text('status').notNull().default('open'),
+  dismissedBy: userRef('dismissed_by'),
+  dismissedAt: ts('dismissed_at'),
+  ...timestamps(),
+});
+
 /** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
 export const serviceSchedules = app.table('service_schedules', {
   id: id(),
@@ -5025,6 +5049,7 @@ export const tables = {
   maintenanceReminders,
   thankYous,
   referrals,
+  promises,
   foundingOffers,
   foundingGrants,
   foundingApplications,

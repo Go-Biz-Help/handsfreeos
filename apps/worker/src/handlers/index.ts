@@ -25,7 +25,10 @@ import {
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
+import { onExpiringArm } from '../automations/expiring';
+import { onHandoffNudge } from '../automations/handoff';
 import { onArmJobCheck, onStillGoing } from '../automations/job-check';
+import { onCallPromise, onMessagePromise } from '../automations/promises';
 import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
 import { onReviewReplied, onReviewSyncWanted } from './reviews';
 import {
@@ -104,7 +107,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'branded_domain.removed': onBrandedDomainRemoved,
     // Automations' pipeline rows (automations/pipeline.ts): someone got back to a customer, so their deal may move
     // on; and someone really talking with the business may need a deal of their own.
-    'message.queued': [onMessageQueued, onPipelineEvidence, onEngaged],
+    // …and "Promises not kept" reads what a person on the team wrote for one (automations/promises.ts).
+    'message.queued': [onMessageQueued, onPipelineEvidence, onEngaged, onMessagePromise],
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,
     'message.schedule_cancelled': onScheduleCancelled,
@@ -193,7 +197,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
     'message.received': [onMessageReferral, onEngaged],
-    'call.transcribed': onCallReferral,
+    'call.transcribed': [onCallReferral, onCallPromise],
+    // Automations' "Hand-off nobody picked up" (automations/handoff.ts) and "Approvals about to expire"
+    // (automations/expiring.ts): the rounds after a hand-off, and the warning before a decision runs out.
+    'conversation.handed_off': onHandoffNudge,
+    'workflow.approval_requested': onExpiringArm,
+    'ai_teammate.drafted': onExpiringArm,
     'call.completed': [onPipelineEvidence, onEngaged],
     // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
     'appointment.completed': [onAppointmentChanged, onCompletedThankYou, onPipelineEvidence],

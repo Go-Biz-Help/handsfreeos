@@ -110,9 +110,14 @@ export function mayDecideApproval(
     : hasWorkspacePermission(role, 'inbox.use');
 }
 
-/** Whether the viewer sees this item at all: approval items only for the people who can decide them. */
+/**
+ * Whether the viewer sees this item at all: approval items only for the people who can decide them, and the
+ * business's week of money only for the people who manage its money.
+ */
 export const visibleTo = (v: AttentionViewer, item: Pick<AttentionRow, 'kind' | 'subjectId'>) =>
-  item.kind !== 'ai_approval' || v.decidable.has(item.subjectId);
+  item.kind === 'ai_approval'
+    ? v.decidable.has(item.subjectId)
+    : item.kind !== 'revenue_moved' || hasWorkspacePermission(v.role, 'money.manage');
 
 /** Whether the viewer may take an action on an item (its permissions, and deciding an approval). */
 export function mayAct(

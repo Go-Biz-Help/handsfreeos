@@ -508,6 +508,57 @@ export const AUTOMATIONS = [
     needs: [],
     adjust: null,
   },
+  {
+    id: 'handoff_follow_up',
+    group: 'service',
+    label: 'Hand-off nobody picked up',
+    oneLiner: 'Pings them again at 1 hour when nobody took a hand-off, and tells the owner at 4.',
+    effect: 'alerts',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'handoffFollowUp' },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
+  },
+  {
+    id: 'client_quiet',
+    group: 'service',
+    label: 'Regular customer gone quiet',
+    oneLiner:
+      'Flags a regular who hasn’t been back for twice their usual gap, so someone checks in.',
+    effect: 'alerts',
+    defaultOn: true,
+    binding: { store: 'attention_kind', kinds: ['client_quiet'] },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
+  },
+  {
+    id: 'promise_due',
+    group: 'service',
+    label: 'Promises not kept',
+    oneLiner:
+      'AI spots what you promised a customer and by when, and flags it if it didn’t happen.',
+    effect: 'alerts',
+    defaultOn: true,
+    binding: { store: 'attention_kind', kinds: ['promise_due'] },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
+  },
+  {
+    id: 'approval_expiry',
+    group: 'service',
+    label: 'Approvals about to expire',
+    oneLiner:
+      'Makes a waiting approval urgent 2 hours before it expires, and pings who can decide.',
+    effect: 'alerts',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'approvalExpiry' },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
+  },
 
   // ---- Marketing and content ----
   {
@@ -536,6 +587,18 @@ export const AUTOMATIONS = [
     customerFacing: null,
     needs: [],
     adjust: 'balance',
+  },
+  {
+    id: 'revenue_moved',
+    group: 'money',
+    label: 'Money in changed',
+    oneLiner: 'On Monday, flags a week whose money in was 30% above or below usual, and why.',
+    effect: 'alerts',
+    defaultOn: true,
+    binding: { store: 'attention_kind', kinds: ['revenue_moved'] },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
   },
 ] as const satisfies readonly AutomationDef[];
 

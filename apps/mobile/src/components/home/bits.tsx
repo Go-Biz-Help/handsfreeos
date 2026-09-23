@@ -15,6 +15,9 @@ import { useAiColors } from '@/components/drafts';
 import {
   BadgeDollarSign,
   CalendarClock,
+  ChartLine,
+  Handshake,
+  UserMinus,
   CalendarPlus,
   Check,
   ChevronDown,
@@ -85,6 +88,9 @@ const KIND_LOOK: Readonly<
   job_unconfirmed: { icon: ClipboardCheck, tone: 'teal' },
   job_never_completed: { icon: ClipboardX, tone: 'warning' },
   job_no_address: { icon: MapPinOff, tone: 'warning' },
+  client_quiet: { icon: UserMinus, tone: 'gray' },
+  promise_due: { icon: Handshake, tone: 'warning' },
+  revenue_moved: { icon: ChartLine, tone: 'accent' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {

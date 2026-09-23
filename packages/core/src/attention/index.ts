@@ -60,3 +60,20 @@ export {
 } from './detectors/job-unconfirmed';
 export { JOB_NEVER_COMPLETED_UNTIL_DAYS } from './detectors/job-never-completed';
 export { JOB_NO_ADDRESS_DAYS, type JobNoAddressFacts } from './detectors/job-no-address';
+export {
+  CLIENT_QUIET_CARD_DAYS,
+  CLIENT_QUIET_MIN_DAYS,
+  CLIENT_QUIET_MIN_VISITS,
+  quietFrom,
+  spanWords,
+  type ClientQuietFacts,
+} from './detectors/client-quiet';
+export { PROMISE_CARD_DAYS, PROMISE_GRACE_MS, type PromiseDueFacts } from './detectors/promise-due';
+export {
+  REVENUE_MOVED_MIN_CENTS,
+  REVENUE_MOVED_MIN_WEEKS,
+  REVENUE_MOVED_SHARE,
+  revenueChange,
+  type RevenueMovedFacts,
+} from './detectors/revenue-moved';
+export { APPROVAL_EXPIRY_WARN_MS } from './detectors/ai-approval';

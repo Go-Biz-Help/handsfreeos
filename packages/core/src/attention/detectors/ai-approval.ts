@@ -6,7 +6,10 @@ import { chip, sinceChip, untilChip } from '../chips';
 import { leadValue, type BusinessFacts, type LinkedLeadFacts } from '../facts';
 import { fingerprintOf } from '../fingerprint';
 import type { AttentionSettings } from '../settings';
-import { defineDetector, detection, ms, valueChips, type Assessment } from './define';
+import { defineDetector, detection, HOUR, ms, valueChips, type Assessment } from './define';
+
+/** Automations' "Approvals about to expire": how long before it expires a decision turns urgent. */
+export const APPROVAL_EXPIRY_WARN_MS = 2 * HOUR;
 
 export interface AiApprovalFacts {
   readonly business: BusinessFacts;
@@ -25,6 +28,8 @@ export interface AiApprovalFacts {
   readonly lead: LinkedLeadFacts | null;
   /** A teammate draft's conversation assignee: who should look first. */
   readonly conversationAssigneeUserId: string | null;
+  /** Automations' "Approvals about to expire" is on: it turns urgent two hours before it expires. */
+  readonly expiryWarn?: boolean;
 }
 
 function assess(f: AiApprovalFacts, settings: AttentionSettings, now: number): Assessment {
@@ -47,7 +52,8 @@ function assess(f: AiApprovalFacts, settings: AttentionSettings, now: number): A
   return detection({
     fingerprint: fingerprintOf('ai_approval', { approval: `${a.source}:${a.id}` }),
     since,
-    urgentFrom: null,
+    urgentFrom:
+      f.expiryWarn && expires !== null ? Math.max(since, expires - APPROVAL_EXPIRY_WARN_MS) : null,
     dueAt: expires,
     value,
     probability: 0.45,

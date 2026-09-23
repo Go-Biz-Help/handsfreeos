@@ -120,6 +120,9 @@ export const ATTENTION_EVENTS: readonly string[] = [
   // someone said was still going, whose card waits.
   'person.updated',
   'appointment.still_going',
+  // Service (Automations 4a): a promise the team made, and a hand-off the owners were told about.
+  'promise.found',
+  'conversation.handoff_escalated',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -141,6 +144,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'referral',
   'maintenance',
   'appointment',
+  'promise',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -269,6 +273,10 @@ export async function subjectsOf(
       break;
     case 'maintenance_reminder':
       add('maintenance', id);
+      break;
+    case 'promise':
+      add('promise', id);
+      add('person', p['personId']);
       break;
     // Their address may be what a visit at their place was missing; reconcile widens a customer to their visits.
     case 'person':

@@ -51,6 +51,10 @@ const Switches = z.object({
   engagedLeads: on(),
   /** A push to whoever was on a job, once its time is over: did it happen? */
   jobCheck: on(),
+  /** A hand-off nobody picked up: another push at 1 hour, the owner told at 4. */
+  handoffFollowUp: on(),
+  /** An approval or AI draft turns urgent two hours before it expires, with a push. */
+  approvalExpiry: on(),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];

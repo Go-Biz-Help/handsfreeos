@@ -37,6 +37,9 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   job_unconfirmed: ['job', 'jobs'],
   job_never_completed: ['job', 'jobs'],
   job_no_address: ['job', 'jobs'],
+  client_quiet: ['customer', 'customers'],
+  promise_due: ['promise', 'promises'],
+  revenue_moved: ['week', 'weeks'],
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
@@ -469,7 +472,12 @@ export function attentionTargetOf(
     case 'job_not_thanked':
     case 'referral_mentioned':
     case 'maintenance_due':
+    case 'client_quiet':
+    case 'promise_due':
       break;
+    // What came in, and what's still owed.
+    case 'revenue_moved':
+      return { href: `${base}/money`, label: 'Open money' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -586,6 +594,13 @@ export function handleButtonOf(
       return { label: 'Mark done', icon: 'check' };
     case 'job_no_address':
       return { label: 'Add address', icon: 'calendar-plus' };
+    case 'client_quiet':
+    case 'promise_due':
+      if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
+      if (email) return { label: `Email ${first}`, icon: 'mail' };
+      return { label: `Text ${first}`, icon: 'message' };
+    case 'revenue_moved':
+      return { label: 'Open money', icon: 'receipt' };
   }
 }
 
@@ -603,6 +618,9 @@ export function letHandleOffReason(
   if (item.kind === 'job_unconfirmed' || item.kind === 'job_never_completed')
     return 'Only someone who was there knows';
   if (item.kind === 'job_no_address') return 'Only you or the customer know where';
+  if (item.kind === 'client_quiet') return 'A regular hears from a person';
+  if (item.kind === 'promise_due') return 'The promise was yours';
+  if (item.kind === 'revenue_moved') return 'This one is for you to look at';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

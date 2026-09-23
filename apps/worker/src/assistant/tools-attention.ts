@@ -63,6 +63,9 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   job_unconfirmed: 'Did it happen?',
   job_never_completed: 'Never marked done',
   job_no_address: 'No address',
+  client_quiet: 'Gone quiet',
+  promise_due: 'Promise due',
+  revenue_moved: 'Money in changed',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -622,6 +625,9 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   job_unconfirmed: 'Only who follows up on it. The appointment stays as it is.',
   job_never_completed: 'Only who follows up on it. The appointment stays as it is.',
   job_no_address: 'Only who follows up on it. The appointment stays as it is.',
+  client_quiet: 'Only who checks in with them. Nothing else changes.',
+  promise_due: 'Only who follows through. Nothing else changes.',
+  revenue_moved: 'A week of money belongs to the business, not to a person.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

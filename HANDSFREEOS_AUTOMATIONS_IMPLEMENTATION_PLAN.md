@@ -93,10 +93,10 @@ reacts to an event · **T** AI teammate change.
 |                      | Jobs missing an address       | K `job_no_address`                                                           | 3b    |
 |                      | Job window passed             | J: push the staff member when the job's time has passed                      | 3b    |
 | Service and handoffs | Overdue tasks                 | E (`overdue_task`)                                                           | 1     |
-|                      | Aging handoff                 | G in `ai-team/escalation.ts`                                                 | 4a    |
+|                      | Aging handoff                 | J: pushes at 1 h and 4 h (`automations/handoff.ts`), owner told at 4 h       | 4a    |
 |                      | Client going quiet            | K `client_quiet`                                                             | 4a    |
-|                      | Requests never answered       | K `request_unanswered`                                                       | 4a    |
-|                      | Decisions expiring            | `ai_approval` gains an "expiring" reason                                     | 4a    |
+|                      | Requests never answered       | K `promise_due` (promises not kept), over `app.promises`                     | 4a    |
+|                      | Decisions expiring            | `ai_approval` urgent 2 h before, plus a push (`automations/expiring.ts`)     | 4a    |
 | Marketing            | Drafts awaiting review        | E (`ai_approval`), always on; campaigns join it in stage 5                   | 1     |
 | Ads and money        | Balance running low           | E (`wallet_low`)                                                             | 1     |
 |                      | Revenue moved                 | K `revenue_moved`, from payments                                             | 4a    |

@@ -818,7 +818,46 @@ export function scriptedReferral(message: string): Record<string, unknown> {
   };
 }
 
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+/** The stand-in's read of the team's words for a promise: what, what kind, and when (local). */
+export function scriptedPromise(message: string): Record<string, unknown> {
+  const words = unquote(quotedBlock(message, 'team_message') ?? '').trim();
+  const said = /Said on \w+ (\d{4}-\d{2}-\d{2})/.exec(message)?.[1] ?? null;
+  const act =
+    /\b(send (?:you |over )?(?:the |a |your )?[a-z]+(?: [a-z]+)?|call you back|(?:swing|come|stop) by)\b/i.exec(
+      words,
+    );
+  const none = { promise: false, what: null, kind: null, due: null };
+  if (!act || !said) return none;
+  const what = act[1]!
+    .toLowerCase()
+    .replace(/ (?:tomorrow|today|tonight|by|on|at|this)$/, '')
+    .trim();
+  const kind = what.startsWith('send') ? 'send' : what.startsWith('call') ? 'call' : 'visit';
+  let day: string | null = null;
+  if (/\btomorrow\b/i.test(words)) day = addDays(said, 1);
+  else if (/\b(today|tonight|this (?:morning|afternoon|evening))\b/i.test(words)) day = said;
+  else {
+    const named = DAY_NAMES.findIndex((d) => new RegExp(`\\b${d}\\b`, 'i').test(words));
+    if (named >= 0) day = addDays(said, (named - weekdayOf(said) + 7) % 7 || 7);
+  }
+  if (!day) return none;
+  const clock = /\b(?:at|by|before|around) (\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i.exec(words);
+  let due = day;
+  if (clock) {
+    let hour = Number(clock[1]) % 12;
+    if ((clock[3] ?? '').toLowerCase() === 'pm' || (!clock[3] && hour < 7)) hour += 12;
+    due = `${day}T${String(hour).padStart(2, '0')}:${clock[2] ?? '00'}`;
+  }
+  return { promise: true, what, kind, due };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Say whether the team’s words above promise the customer something by a time, and when it is due\.$/,
+    json: (message) => scriptedPromise(message),
+  },
   {
     when: /Say whether the customer’s words above mention someone else who needs the business\.$/,
     json: (message) => scriptedReferral(message),

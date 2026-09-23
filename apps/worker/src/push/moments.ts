@@ -36,6 +36,7 @@ import { runtimeConfigOf } from '../ai-team/config';
 import { standIns } from '../booking/team-email';
 import { conversationContact } from '../chat/store';
 import { handlersFor, type EventHandler, type HandlerMap } from '../handlers/types';
+import type { TenantScope } from '../services';
 import { onCustomerMessagePush } from './arrival';
 import {
   isRecord,
@@ -50,37 +51,50 @@ import {
   strings,
   userName,
 } from './moment';
-import { pushAudience, queuePush } from './queue';
+import { pushAudience, queuePush, type PushMoment } from './queue';
 import { CHANNEL_WORD, conversationCollapseId } from './urgent';
 
 // ---------- approvals ----------
 
-/** workflow.approval_requested: an approval step is waiting for someone's yes. */
-export const onApprovalPush = pushMoment('approval', async (ctx, scope) => {
-  const approvalId = str(payloadOf(ctx)['approvalId']) ?? ctx.event.entityId;
-  if (!approvalId) return;
+/**
+ * The push for a workflow approval step still waiting, to the people named on it (else the owners and admins);
+ * null once it's decided. Also what "Approvals about to expire" sends (automations/expiring.ts).
+ */
+export async function approvalPushOf(
+  tx: Tx,
+  scope: TenantScope,
+  approvalId: string,
+): Promise<PushMoment | null> {
   const [a] = await rows<{ approvers: string[] | null; preview: unknown; status: string }>(
-    ctx.tx,
+    tx,
     sql`select approvers, preview, status::text as status from app.workflow_approvals
         where id = ${approvalId} and workspace_id = ${scope.workspaceId}`,
   );
-  if (!a || a.status !== 'pending') return;
-  const named = await stillHere(ctx.tx, scope.workspaceId, a.approvers ?? []);
+  if (!a || a.status !== 'pending') return null;
+  const named = await stillHere(tx, scope.workspaceId, a.approvers ?? []);
   const preview = isRecord(a.preview) ? a.preview : {};
   const workflow = str(preview['workflow']) ?? 'A workflow';
   const customer = str(preview['customer']);
   const fields = isRecord(preview['fields']) ? Object.values(preview['fields']) : [];
   const written = fields.find((v): v is string => typeof v === 'string' && !!v.trim());
   const personId = str(preview['personId']);
-  await queuePush(ctx.tx, scope, {
+  return {
     key: `approval:${approvalId}`,
     category: 'approval',
-    userIds: named.length ? named : await managerIds(ctx.tx, scope.workspaceId),
+    userIds: named.length ? named : await managerIds(tx, scope.workspaceId),
     title: `Approval · ${customer ?? workflow}`,
     body: `${workflow}: ${written ? quoted(written) : (str(preview['message']) ?? 'waiting for your OK')}`,
     path: `/app/w/${scope.workspaceId}/workflows/approvals`,
     refs: { approvalId, ...(personId ? { personId } : {}) },
-  });
+  };
+}
+
+/** workflow.approval_requested: an approval step is waiting for someone's yes. */
+export const onApprovalPush = pushMoment('approval', async (ctx, scope) => {
+  const approvalId = str(payloadOf(ctx)['approvalId']) ?? ctx.event.entityId;
+  if (!approvalId) return;
+  const moment = await approvalPushOf(ctx.tx, scope, approvalId);
+  if (moment) await queuePush(ctx.tx, scope, moment);
 });
 
 /**
@@ -145,10 +159,16 @@ async function handOffList(tx: Tx, workspaceId: string, config: unknown): Promis
   return managerIds(tx, workspaceId);
 }
 
-/** ai_teammate.drafted: the AI teammate wrote something that waits for a person's OK. */
-export const onDraftPush = pushMoment('approval', async (ctx, scope) => {
-  const draftId = str(payloadOf(ctx)['draftId']) ?? ctx.event.entityId;
-  if (!draftId) return;
+/**
+ * The push for an AI teammate draft still waiting: an action to approve goes to the owners and admins, a reply to
+ * the conversation's assignee (else the teammate's hand-off list); null once it's decided. Also what "Approvals
+ * about to expire" sends (automations/expiring.ts).
+ */
+export async function draftPushOf(
+  tx: Tx,
+  scope: TenantScope,
+  draftId: string,
+): Promise<PushMoment | null> {
   const ws = scope.workspaceId;
   const [d] = await rows<{
     kind: string;
@@ -159,40 +179,38 @@ export const onDraftPush = pushMoment('approval', async (ctx, scope) => {
     name: string;
     config: unknown;
   }>(
-    ctx.tx,
+    tx,
     sql`select d.kind::text as kind, d.status::text as status, d.preview, d.conversation_id, d.person_id,
           t.name, t.config
         from app.ai_teammate_drafts d join app.ai_teammates t on t.id = d.teammate_id
         where d.id = ${draftId} and d.workspace_id = ${ws}`,
   );
-  if (!d || d.status !== 'pending') return;
+  if (!d || d.status !== 'pending') return null;
   const [conv] = d.conversation_id
     ? await rows<{ assignee_user_id: string | null; channel: 'sms' | 'email' | 'chat' }>(
-        ctx.tx,
+        tx,
         sql`select assignee_user_id, channel::text as channel from app.conversations
             where id = ${d.conversation_id}`,
       )
     : [];
   // Only owners and admins decide what the teammate asks approval for; anyone in the inbox decides a reply.
-  const assignee = conv?.assignee_user_id
-    ? await stillHere(ctx.tx, ws, [conv.assignee_user_id])
-    : [];
+  const assignee = conv?.assignee_user_id ? await stillHere(tx, ws, [conv.assignee_user_id]) : [];
   const userIds =
     d.kind === 'approval'
-      ? await managerIds(ctx.tx, ws)
+      ? await managerIds(tx, ws)
       : assignee.length
         ? assignee
-        : await handOffList(ctx.tx, ws, d.config);
+        : await handOffList(tx, ws, d.config);
   const preview = TeammateDraftPreview.safeParse(d.preview);
   const message = preview.success ? (preview.data.message?.body ?? null) : null;
   const discount = preview.success ? preview.data.discount : null;
-  const customer = await personName(ctx.tx, d.person_id);
+  const customer = await personName(tx, d.person_id);
   const body = discount
     ? `${d.name} wants to take ${discount.percent}% off${message ? `: ${quoted(message)}` : '.'}`
     : message
       ? `${d.name} wrote: ${quoted(message)}`
       : `${d.name} is waiting for your OK.`;
-  await queuePush(ctx.tx, scope, {
+  return {
     key: `draft:${draftId}`,
     category: 'approval',
     userIds,
@@ -206,7 +224,15 @@ export const onDraftPush = pushMoment('approval', async (ctx, scope) => {
         : {}),
       ...(d.person_id ? { personId: d.person_id } : {}),
     },
-  });
+  };
+}
+
+/** ai_teammate.drafted: the AI teammate wrote something that waits for a person's OK. */
+export const onDraftPush = pushMoment('approval', async (ctx, scope) => {
+  const draftId = str(payloadOf(ctx)['draftId']) ?? ctx.event.entityId;
+  if (!draftId) return;
+  const moment = await draftPushOf(ctx.tx, scope, draftId);
+  if (moment) await queuePush(ctx.tx, scope, moment);
 });
 
 // ---------- your appointments ----------

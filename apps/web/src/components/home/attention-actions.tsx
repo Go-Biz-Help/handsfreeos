@@ -366,8 +366,12 @@ export function useItemActions(o: {
           // Two texts went already: a call when this browser can, else the conversation.
           case 'maintenance_due':
           case 'quiet_after_price':
+          case 'client_quiet':
+          case 'promise_due':
             if (callsAvailable && item.personId) return void withBusy(item.id, () => call(item));
             return router.push(reachOf(item));
+          case 'revenue_moved':
+            return router.push(targetOf(item, workspaceId).href);
           // Pipeline and jobs: the deal moves in one press; a visit is marked done in one; an address is
           // added on the customer (where every visit at their place reads it).
           case 'pipeline_mismatch':

@@ -45,6 +45,12 @@ export const REASON_CODES = [
   'job_passed',
   /** A visit at the customer's place with nowhere to go. */
   'no_address',
+  /** A regular who hasn't been back: "Usually every 3 months · 7 months since". */
+  'quiet',
+  /** What someone on the team said they'd do: "You said: send the quote · Tue". */
+  'promise',
+  /** Last week's money in against the usual week: "$6,200 last week · usually $9,000 (−31%)". */
+  'revenue',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

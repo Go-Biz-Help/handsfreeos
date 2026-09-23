@@ -7670,6 +7670,18 @@ Each person can turn off their own copy of either in **Settings** → **Account*
 
 Which stage means what is guessed from each stage's name ("Estimate sent" means a quote went out; "Scheduled" a visit was booked) and fixed per stage in **Adjust**, stored in `workspaces.settings.automations.pipeline.roles`. The push has its own switch, **A job you were on is over** (`jobs`), under Notifications. Needs `20261004000600_pipeline_and_jobs.sql`. See "Apply new migrations".
 
+### Service, hand-offs and revenue
+
+| Row                             | What it does                                                                                                                                                                                                                                                                          | On to begin with |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Hand-off nobody picked up**   | When the AI teammate hands a customer to a person and nobody takes it: another push after 1 hour (open hours) to whoever it went to, and after 4 hours a push and an email to the owners and admins too. The card on Home then says "owner told". Stops once someone takes it over    | Yes              |
+| **Regular customer gone quiet** | A card to check in with someone who has had 3 or more visits and hasn't been back in twice their usual gap (at least 60 days). Not for someone booked ahead, already contacted, or covered by **Maintenance due**. It lets go after 90 days                                           | Yes              |
+| **Promises not kept**           | The AI reads what the team says in texts, emails and calls for a promise with a time ("I'll send the quote tomorrow"). An hour after that time, if nothing of the kind reached the customer, a card to follow through. Uses AI; a word check runs first so most messages cost nothing | Yes              |
+| **Approvals about to expire**   | Two hours before a workflow approval or an AI teammate draft runs out, another push to whoever can decide, and its card turns urgent. Only for ones that last more than 3 hours                                                                                                       | Yes              |
+| **Money in changed**            | A Monday card (from 6 AM) when last week's money in was 30% or more above or below the usual week, with the main reason (jobs done, one big payment, or invoices still unpaid). Needs 4 weeks of history and a usual week of at least $500. Only people who manage money see it       | Yes              |
+
+The promises found are kept in `app.promises`; dismissing the card is enough to drop one. Needs `20261004000700_service_and_revenue.sql`. See "Apply new migrations".
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.
