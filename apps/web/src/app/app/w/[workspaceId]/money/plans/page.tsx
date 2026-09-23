@@ -31,7 +31,7 @@ export default async function PlansPage({
   const { workspaceId } = await params;
   const filters = readFilters(await searchParams, { status: STATUSES });
   const shell = await loadMoneyShell(workspaceId);
-  const [plans, subscriptions, connections] = await Promise.all([
+  const [plans, subscriptions, connections, services] = await Promise.all([
     shell.api.POST('/v1/queries/plan.list', { body: { workspaceId } }).then((r) => unwrapPage(r)),
     allowed(
       shell.api
@@ -45,6 +45,11 @@ export default async function PlansPage({
         .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
         .then((r) => unwrapPage(r)),
     ),
+    // For each plan's visits: the service it covers (Maintenance due).
+    shell.api
+      .POST('/v1/queries/service.list', { body: { workspaceId } })
+      .then((r) => r.data?.items ?? [])
+      .catch(() => []),
   ]);
 
   return (
@@ -79,6 +84,8 @@ export default async function PlansPage({
         subscriptions={subscriptions?.subscriptions ?? []}
         monthlyRecurringCents={shell.summary?.monthlyRecurringCents ?? 0}
         timeZone={shell.timeZone}
+        services={services.map((s) => ({ id: s.id, name: s.name }))}
+        canManage={shell.canManage}
       />
     </>
   );

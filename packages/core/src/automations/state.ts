@@ -24,10 +24,15 @@ export interface AutomationContext {
   readonly attention: AttentionSettings;
   readonly automations: AutomationSettings;
   readonly teammate: TeammateView | null;
+  /**
+   * Whether any service repeats or any plan names a service (so "Maintenance due" has something to go on).
+   * Unknown (undefined) reads as ready.
+   */
+  readonly maintenanceReady?: boolean;
 }
 
 export interface NeedsSetup {
-  readonly code: 'teammate_on';
+  readonly code: 'teammate_on' | 'intake_form' | 'maintenance_schedule';
   /** One sentence the row shows under its title. */
   readonly text: string;
 }
@@ -44,6 +49,8 @@ export interface AutomationRow {
   readonly drafts: boolean;
   /** Its wording must be read in Adjust before the switch can go on. */
   readonly awaitingReview: boolean;
+  /** What it does instead while there is no AI teammate (the catalog's `withoutTeammate`), or null. */
+  readonly fallback: string | null;
 }
 
 const readPath = (doc: Readonly<Record<string, unknown>>, path: string): unknown =>
@@ -92,6 +99,13 @@ function needsSetupOf(def: AutomationDef, ctx: AutomationContext): NeedsSetup | 
           ? 'Turn on your AI teammate to start.'
           : 'Set up your AI teammate to start.',
       };
+    if (need === 'intake_form' && ctx.automations.intake.formId === null)
+      return { code: 'intake_form', text: 'Pick a form to start.' };
+    if (need === 'maintenance_schedule' && ctx.maintenanceReady === false)
+      return {
+        code: 'maintenance_schedule',
+        text: 'Set how often a service repeats to start.',
+      };
   }
   return null;
 }
@@ -112,6 +126,10 @@ export function automationRow(def: AutomationDef, ctx: AutomationContext): Autom
     locked: def.locked === true,
     needsSetup,
     drafts: def.customerFacing === 'ai' && ctx.teammate?.status === 'training',
+    fallback:
+      def.withoutTeammate && (!ctx.teammate || ctx.teammate.status === 'off')
+        ? def.withoutTeammate
+        : null,
     awaitingReview: def.reviewFirst === true && reviewedAtOf(def, ctx) === null,
   };
 }

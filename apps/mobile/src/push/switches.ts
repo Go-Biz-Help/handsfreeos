@@ -6,7 +6,7 @@ import type { Me } from '@/lib/businesses';
  * Settings → Notifications on the phone (design/m10/More.dc.html, "Notifications: push beside email"): a push switch
  * for each moment beside today's email switches, the same switches as the web's Settings → Account. They belong to the
  * person, not the phone: push goes to every phone they're signed in on. A change saves the whole group it's in, as the
- * web does: `user.update_profile` with all seven push switches (`settings.push`), or all six email ones
+ * web does: `user.update_profile` with all seven push switches (`settings.push`), or all seven email ones
  * (`settings.notifications`).
  */
 
@@ -14,6 +14,7 @@ import type { Me } from '@/lib/businesses';
 export interface EmailSwitches {
   readonly unansweredEmail: boolean;
   readonly attentionDigest: boolean;
+  readonly eveningSummary: boolean;
   readonly aiHandoff: boolean;
   readonly bookingEmail: boolean;
   readonly paymentEmail: boolean;
@@ -93,6 +94,12 @@ export const EMAIL_ONLY_ROWS: readonly NotificationRow[] = [
     email: 'attentionDigest',
   },
   {
+    title: 'End-of-day email',
+    detail: 'The day in numbers, owners and admins',
+    push: null,
+    email: 'eveningSummary',
+  },
+  {
     title: 'The AI teammate hands you a conversation',
     detail: 'When the AI teammate needs you',
     push: null,
@@ -128,7 +135,7 @@ export function pushSwitchesFrom(settings: unknown): PushSwitches {
   return pushSwitchesOf(settingsOf(settings));
 }
 
-/** The six email switches, each on unless turned off, as the web reads them. */
+/** The seven email switches, each on unless turned off, as the web reads them. */
 export function emailSwitchesFrom(settings: unknown): EmailSwitches {
   const stored = settingsOf(settings)['notifications'];
   const n = isRecord(stored) ? stored : {};
@@ -136,6 +143,7 @@ export function emailSwitchesFrom(settings: unknown): EmailSwitches {
   return {
     unansweredEmail: on('unansweredEmail'),
     attentionDigest: on('attentionDigest'),
+    eveningSummary: on('eveningSummary'),
     aiHandoff: on('aiHandoff'),
     bookingEmail: on('bookingEmail'),
     paymentEmail: on('paymentEmail'),

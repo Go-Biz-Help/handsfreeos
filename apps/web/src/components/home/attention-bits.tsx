@@ -4,9 +4,11 @@ import {
   Check,
   ChevronDown,
   Clock,
+  Wrench,
   CreditCard,
   FileText,
   Flame,
+  Heart,
   Hourglass,
   ListChecks,
   MessageCircle,
@@ -42,6 +44,9 @@ const KIND_LOOK: Readonly<
   wallet_low: { icon: Wallet, tile: 'bg-warning-soft text-warning-text' },
   wallet_empty: { icon: Wallet, tile: 'bg-danger-soft text-danger-text' },
   wallet_card_declined: { icon: CreditCard, tile: 'bg-danger-soft text-danger-text' },
+  job_not_thanked: { icon: Heart, tile: 'bg-accent-soft text-accent-text' },
+  referral_mentioned: { icon: UserPlus, tile: 'bg-accent-soft text-accent-text' },
+  maintenance_due: { icon: Wrench, tile: cn(BR_SOFT, BR_TEXT) },
 };
 
 /** The kind label's colour where it isn't grey: hot leads in red, approvals in the AI teammate's violet. */

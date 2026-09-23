@@ -60,53 +60,53 @@ the Home words, and a migration re-creating `attention_items_kind_check` (like
 **E** exists · **G** new switch over existing code · **K** new Action Center kind · **J** scheduled job · **R**
 reacts to an event · **T** AI teammate change.
 
-| Group                | Automation                    | How                                                                       | Stage |
-| -------------------- | ----------------------------- | ------------------------------------------------------------------------- | ----- |
-| Leads and sales      | New lead greeting             | E (`respond.newLeads`) + T: 15-minute night window                        | 1, 2a |
-|                      | Hot lead alert                | E (`hot_lead`)                                                            | 1     |
-|                      | Unanswered-message alert      | E (`unanswered_lead`, `customer_waiting`)                                 | 1     |
-|                      | Follow-ups after silence      | E (`followUp`) + T: the 9-step ladder, then monthly                       | 1, 2a |
-|                      | Follow-ups when never replied | T: same ladder, written from the form's answers                           | 2a    |
-|                      | Chase an offered time         | J + T: offered times, no reply, slot still free                           | 2a    |
-|                      | Re-engage dead leads          | J, off by default, wording read first                                     | 2a    |
-|                      | Outreach campaigns            | New campaigns feature                                                     | 5     |
-| Appointments         | Day-before confirmation       | G `dayBefore` in `booking/reminders.ts`                                   | 1     |
-|                      | Day-of reminder               | G `dayOf` in `booking/reminders.ts`                                       | 1     |
-|                      | Unconfirmed visit alert       | E (`unconfirmed_appointment`) + the confirmation request                  | 1     |
-|                      | Waitlist slot opened          | G `waitlist` in `booking/waitlist.ts`                                     | 1     |
-|                      | Intake questions              | R on booking: the chosen form's link                                      | 2b    |
-|                      | Maintenance due               | R + J: `service_schedules`, a rebook ask before it's due                  | 2c    |
-| After the job        | Overdue invoices              | E (`invoice_overdue`)                                                     | 1     |
-|                      | Job finished, no thank-you    | R + J: thank-you after the job, unless a review workflow covers it        | 2b    |
-|                      | Referral mentioned            | K `referral_mentioned` + `app.referrals` + T                              | 2b    |
-| Daily briefings      | Morning brief                 | E + G `morningBrief`; adds today's jobs, who to call and unconfirmed jobs | 1, 3a |
-|                      | End-of-day close-out + report | J `evening_brief.send`                                                    | 3a    |
-| Pipeline and records | Stale opportunities           | E (`stale_opportunity`), with the follow-up in the business's words       | 1     |
-|                      | Leads with no next step       | E (`missing_next_action`)                                                 | 1     |
-|                      | Quotes with no decision       | E (`estimate_waiting`)                                                    | 1     |
-|                      | Open / move deals             | R: `pipeline_stages.automation_role`, forward only                        | 3b    |
-|                      | Pipeline reality check        | K `pipeline_mismatch`                                                     | 3b    |
-|                      | Engaged leads not in pipeline | K `engaged_no_lead`                                                       | 3b    |
-|                      | Went quiet after a price      | K `quiet_after_price`                                                     | 3b    |
-|                      | Confirm yesterday's jobs      | K `job_unconfirmed` + the job-check push                                  | 3b    |
-|                      | Booked, never completed       | K `job_never_completed`                                                   | 3b    |
-|                      | Jobs missing an address       | K `job_no_address`                                                        | 3b    |
-|                      | Job window passed             | J: push the staff member when the job's time has passed                   | 3b    |
-| Service and handoffs | Overdue tasks                 | E (`overdue_task`)                                                        | 1     |
-|                      | Aging handoff                 | G in `ai-team/escalation.ts`                                              | 4a    |
-|                      | Client going quiet            | K `client_quiet`                                                          | 4a    |
-|                      | Requests never answered       | K `request_unanswered`                                                    | 4a    |
-|                      | Decisions expiring            | `ai_approval` gains an "expiring" reason                                  | 4a    |
-| Marketing            | Drafts awaiting review        | E (`ai_approval`), always on; campaigns join it in stage 5                | 1     |
-| Ads and money        | Balance running low           | E (`wallet_low`)                                                          | 1     |
-|                      | Revenue moved                 | K `revenue_moved`, from payments                                          | 4a    |
-| Health and quality   | Channel went quiet            | K `channel_quiet`                                                         | 4b    |
-|                      | Connected system silent       | K `connection_silent`, over an `app.connection_health` view               | 4b    |
-|                      | Connection error              | K `connection_error`                                                      | 4b    |
-|                      | Nobody reviewing the AI       | K `ai_unreviewed`                                                         | 4b    |
-|                      | Repeated corrections          | K `ai_corrections`                                                        | 4b    |
-|                      | Website changed               | K `website_changed`                                                       | 4b    |
-|                      | FAQ suggestions               | K `faq_suggestions`                                                       | 4b    |
+| Group                | Automation                    | How                                                                          | Stage |
+| -------------------- | ----------------------------- | ---------------------------------------------------------------------------- | ----- |
+| Leads and sales      | New lead greeting             | E (`respond.newLeads`) + T: 15-minute night window                           | 1, 2a |
+|                      | Hot lead alert                | E (`hot_lead`)                                                               | 1     |
+|                      | Unanswered-message alert      | E (`unanswered_lead`, `customer_waiting`)                                    | 1     |
+|                      | Follow-ups after silence      | E (`followUp`) + T: the 9-step ladder, then monthly                          | 1, 2a |
+|                      | Follow-ups when never replied | T: same ladder, written from the form's answers                              | 2a    |
+|                      | Chase an offered time         | J + T: offered times, no reply, slot still free                              | 2a    |
+|                      | Re-engage dead leads          | J, off by default, wording read first                                        | 2a    |
+|                      | Outreach campaigns            | New campaigns feature                                                        | 5     |
+| Appointments         | Day-before confirmation       | G `dayBefore` in `booking/reminders.ts`                                      | 1     |
+|                      | Day-of reminder               | G `dayOf` in `booking/reminders.ts`                                          | 1     |
+|                      | Unconfirmed visit alert       | E (`unconfirmed_appointment`) + the confirmation request                     | 1     |
+|                      | Waitlist slot opened          | G `waitlist` in `booking/waitlist.ts`                                        | 1     |
+|                      | Intake questions              | R on booking: the chosen form's link                                         | 2b    |
+|                      | Maintenance due               | R + J: `service_schedules`, a rebook ask before it's due                     | 2c    |
+| After the job        | Overdue invoices              | E (`invoice_overdue`)                                                        | 1     |
+|                      | Job finished, no thank-you    | R + J + T: the teammate's thank-you (a `task` run), else K `job_not_thanked` | 2b    |
+|                      | Referral mentioned            | K `referral_mentioned` + `app.referrals` + T                                 | 2b    |
+| Daily briefings      | Morning brief                 | E + G `morningBrief`; adds today's jobs, who to call and unconfirmed jobs    | 1, 3a |
+|                      | End-of-day close-out + report | J `evening_brief.send`                                                       | 3a    |
+| Pipeline and records | Stale opportunities           | E (`stale_opportunity`), with the follow-up in the business's words          | 1     |
+|                      | Leads with no next step       | E (`missing_next_action`)                                                    | 1     |
+|                      | Quotes with no decision       | E (`estimate_waiting`)                                                       | 1     |
+|                      | Open / move deals             | R: `pipeline_stages.automation_role`, forward only                           | 3b    |
+|                      | Pipeline reality check        | K `pipeline_mismatch`                                                        | 3b    |
+|                      | Engaged leads not in pipeline | K `engaged_no_lead`                                                          | 3b    |
+|                      | Went quiet after a price      | K `quiet_after_price`                                                        | 3b    |
+|                      | Confirm yesterday's jobs      | K `job_unconfirmed` + the job-check push                                     | 3b    |
+|                      | Booked, never completed       | K `job_never_completed`                                                      | 3b    |
+|                      | Jobs missing an address       | K `job_no_address`                                                           | 3b    |
+|                      | Job window passed             | J: push the staff member when the job's time has passed                      | 3b    |
+| Service and handoffs | Overdue tasks                 | E (`overdue_task`)                                                           | 1     |
+|                      | Aging handoff                 | G in `ai-team/escalation.ts`                                                 | 4a    |
+|                      | Client going quiet            | K `client_quiet`                                                             | 4a    |
+|                      | Requests never answered       | K `request_unanswered`                                                       | 4a    |
+|                      | Decisions expiring            | `ai_approval` gains an "expiring" reason                                     | 4a    |
+| Marketing            | Drafts awaiting review        | E (`ai_approval`), always on; campaigns join it in stage 5                   | 1     |
+| Ads and money        | Balance running low           | E (`wallet_low`)                                                             | 1     |
+|                      | Revenue moved                 | K `revenue_moved`, from payments                                             | 4a    |
+| Health and quality   | Channel went quiet            | K `channel_quiet`                                                            | 4b    |
+|                      | Connected system silent       | K `connection_silent`, over an `app.connection_health` view                  | 4b    |
+|                      | Connection error              | K `connection_error`                                                         | 4b    |
+|                      | Nobody reviewing the AI       | K `ai_unreviewed`                                                            | 4b    |
+|                      | Repeated corrections          | K `ai_corrections`                                                           | 4b    |
+|                      | Website changed               | K `website_changed`                                                          | 4b    |
+|                      | FAQ suggestions               | K `faq_suggestions`                                                          | 4b    |
 
 ## Build order
 
@@ -114,9 +114,25 @@ reacts to an event · **T** AI teammate change.
    the day-before and day-of reminders, waitlist offers and the morning email get a business-wide switch
    (on by default). Settings → Action Center redirects here.
 2. **a. Leads** — the night greeting, the follow-up ladder, never-replied, chasing an offered time, re-engaging
-   dead leads. **b. Appointments and after the job** — intake questions, the thank-you, referrals.
-   **c. Maintenance due.**
-3. **a. Briefings** — the morning email's additions and the evening email. **b. Pipeline and jobs.**
+   dead leads. **b. Appointments and after the job** — intake questions, the thank-you, referrals
+   (`app.thank_yous`, `app.referrals`, and the Action Center kinds `job_not_thanked` and `referral_mentioned`).
+   **c. Maintenance due** — `services.repeat_months`, a plan's service and `visit_every_months`, a customer's own
+   `app.service_schedules`, the daily `automations.maintenance` job with `app.maintenance_reminders`, and the
+   Action Center kind `maintenance_due`.
+3. **a. Briefings** — the morning email's additions and the evening email. **b. Pipeline and jobs**
+   (Chris, 2026-09-23):
+   - **Moving deals** also marks them **won** when the customer says yes: the quote is accepted, or the job is
+     done. Always noted on the timeline, forward only.
+   - **Someone really talking with you** (a back-and-forth, or a real call) who has no open deal gets a lead made
+     for them in the first stage, with the reason noted.
+   - **Went quiet after a price**: a Home card 2 days after a price with no reply; the follow-up texts carry on.
+   - **Wrong stage**: when a deal's stage disagrees with what happened and it couldn't move itself, a card with a
+     one-tap move.
+   - **Job check**: 30 minutes after a job ends, the staff member on it gets a push (Done / Didn't happen / Still
+     there). Unanswered, a second push that evening; then the owner's morning email and a Home card.
+   - **Booked, never completed**: a card 3 days after the job's time.
+   - **No address**: for services done at the customer's address, a card 2 days before; it clears when the
+     address is added.
 4. **a. Service, handoffs and revenue.** **b. Health.**
 5. **Outreach campaigns.**
 

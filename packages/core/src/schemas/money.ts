@@ -277,6 +277,14 @@ export const PlanCreateInput = z.object({
   taxable: z.boolean().optional(),
   /** The "what you get" lines the plan page prints. */
   includes: z.array(z.string().trim().min(1).max(200)).max(30).default([]),
+  /** Maintenance: the service the plan covers, and how often its members are due. Both, or neither. */
+  serviceId: uuid.nullable().optional(),
+  visitEveryMonths: z
+    .int()
+    .min(1, 'At least 1 month.')
+    .max(60, 'At most 5 years.')
+    .nullable()
+    .optional(),
 });
 export const PlanUpdateInput = z.object({
   ...inWorkspace,
@@ -288,6 +296,14 @@ export const PlanUpdateInput = z.object({
   intervalCount: z.int().min(1).max(36).optional(),
   taxable: z.boolean().optional(),
   includes: z.array(z.string().trim().min(1).max(200)).max(30).optional(),
+  /** Maintenance: the service the plan covers, and how often its members are due. Both, or neither. */
+  serviceId: uuid.nullable().optional(),
+  visitEveryMonths: z
+    .int()
+    .min(1, 'At least 1 month.')
+    .max(60, 'At most 5 years.')
+    .nullable()
+    .optional(),
 });
 export const PlanArchiveInput = z.object({
   ...inWorkspace,
@@ -303,6 +319,8 @@ export const PlanOut = z.object({
   intervalCount: z.int(),
   taxable: z.boolean(),
   includes: z.array(z.string()),
+  serviceId: uuid.nullable(),
+  visitEveryMonths: z.int().nullable(),
   archivedAt: isoDateTime.nullable(),
 });
 export const PlanRefOutput = z.object({ planId: uuid, archived: z.boolean() });

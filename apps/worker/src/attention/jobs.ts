@@ -25,6 +25,8 @@ import {
   SWEEP_HORIZON_MARGIN_MS,
   sweepJobKey,
 } from './constants';
+import { ensureEvening } from '../automations/evening';
+import { ensureMaintenance } from '../automations/maintenance';
 import { ensureReengage } from '../automations/reengage';
 import { ensureDigests, sendAttentionDigest } from './digest';
 import { settle, type SettleCause, type SettleOutcome } from './settle';
@@ -82,6 +84,8 @@ export const BUSINESS_PLANNERS: readonly BusinessPlanner[] = [
   ensureSweeps,
   ensureDigests,
   ensureReengage,
+  ensureMaintenance,
+  ensureEvening,
 ];
 
 /** Hourly: every business has its sweep (new ones get theirs within the next hour). */

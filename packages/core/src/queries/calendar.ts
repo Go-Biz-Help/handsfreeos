@@ -802,6 +802,7 @@ export const serviceList = defineQuery({
           bufferAfter: s.bufferAfter,
           color: s.color,
           priceCents: s.priceCents,
+          repeatMonths: s.repeatMonths,
           locationKinds: s.locationKinds,
           staffUserIds: staff.filter((x) => x.serviceId === s.id).map((x) => x.userId),
           resources: needs

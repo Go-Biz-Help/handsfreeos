@@ -18,7 +18,9 @@ import {
   automationOn,
   chipsOf,
   chipText,
+  clockLabel,
   decidableApprovals,
+  FOLLOW_UP_OVERDUE,
   isUrgent,
   localDateOf,
   localInstant,
@@ -32,7 +34,14 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { attentionItems } from '@hfos/db/schema';
-import { attentionMorningEmail, type MorningItem } from '../emails/templates';
+import {
+  dayWindow,
+  followUpsDueToday,
+  todaysJobs,
+  type FollowUpDue,
+  type TodaysJob,
+} from '../automations/briefings';
+import { attentionMorningEmail, type MorningItem, type MorningJob } from '../emails/templates';
 import type { JobHandler } from '../jobs';
 import { errorMessage } from '../outbox';
 import { tenantOf } from '../services';
@@ -72,7 +81,7 @@ export const ensureDigests: BusinessPlanner = async (tx, businesses, now) => {
   }
 };
 
-interface Member extends Record<string, unknown> {
+export interface Member extends Record<string, unknown> {
   id: string;
   email: string;
   full_name: string | null;
@@ -86,7 +95,11 @@ const wantsDigest = (u: Member) =>
     ?.attentionDigest !== false;
 
 /** Everyone who works in the business, with the role their list follows (a member sees their own plus unassigned). */
-async function membersOf(tx: Tx, workspaceId: string, organizationId: string): Promise<Member[]> {
+export async function membersOf(
+  tx: Tx,
+  workspaceId: string,
+  organizationId: string,
+): Promise<Member[]> {
   return rows<Member>(
     tx,
     sql`select u.id, u.email::text as email, u.full_name, u.settings,
@@ -104,6 +117,29 @@ async function membersOf(tx: Tx, workspaceId: string, organizationId: string): P
 
 const firstNameOf = (full: string | null): string => (full ?? '').trim().split(/\s+/)[0] ?? '';
 
+/** The morning's "who to call": items that are a call to make today. */
+function isCall(r: AttentionItemRow, endOfTomorrow: number): boolean {
+  switch (r.kind as AttentionKind) {
+    case 'hot_lead':
+    case 'estimate_waiting':
+      return true;
+    case 'unconfirmed_appointment':
+      return !r.dueAt || r.dueAt.getTime() < endOfTomorrow;
+    case 'missing_next_action':
+      return chipsOf(r).some((c) => c.code === FOLLOW_UP_OVERDUE);
+    default:
+      return false;
+  }
+}
+
+/** What the morning adds to the Action Center's items: today's jobs and follow-ups due later today. */
+export interface MorningExtras {
+  readonly jobs: readonly TodaysJob[];
+  readonly followUps: readonly FollowUpDue[];
+  readonly timeZone: string;
+  readonly endOfTomorrow: number;
+}
+
 /** One person's morning summary, or null when nothing needs them. */
 function summaryFor(
   person: Member,
@@ -111,6 +147,7 @@ function summaryFor(
   decidable: ReadonlySet<string>,
   now: number,
   links: { business: string; home: string },
+  extras: MorningExtras,
 ): ReturnType<typeof attentionMorningEmail> | null {
   const everyone = person.role === 'owner' || person.role === 'admin';
   const theirs = items.filter(
@@ -118,7 +155,24 @@ function summaryFor(
       (everyone || i.assigneeUserId === null || i.assigneeUserId === person.id) &&
       (i.kind !== 'ai_approval' || decidable.has(i.subjectId)),
   );
-  if (theirs.length === 0) return null;
+  const jobs: MorningJob[] = extras.jobs
+    .filter((j) => everyone || j.userIds.includes(person.id))
+    .map((j) => ({
+      time: clockLabel(j.startsAt, extras.timeZone),
+      customers: j.customers,
+      title: j.title,
+      unconfirmed: !j.confirmed,
+      link: `${links.home}/calendar?appt=${j.id}`,
+    }));
+  const dueLater: MorningItem[] = extras.followUps
+    .filter((f) => everyone || f.assigneeUserId === null || f.assigneeUserId === person.id)
+    .map((f) => ({
+      kind: 'Follow-up due',
+      title: `${f.name} · ${f.title}`,
+      chips: [f.nextAction, clockLabel(f.dueAt, extras.timeZone)].filter((c): c is string => !!c),
+      link: `${links.home}/leads/${f.leadId}`,
+    }));
+  if (theirs.length === 0 && jobs.length === 0 && dueLater.length === 0) return null;
   const ranked = rankItems(
     theirs.map((r) => ({ ...scorableOf(r), row: r })),
     now,
@@ -131,8 +185,10 @@ function summaryFor(
       .map((c) => chipText(c, now)),
     link: `${links.home}?item=${r.id}`,
   });
-  const urgent = ranked.filter((r) => isUrgent(scorableOf(r), now));
-  const rest = ranked.filter((r) => !urgent.includes(r)).slice(0, TOP);
+  const calls = ranked.filter((r) => isCall(r, extras.endOfTomorrow));
+  const others = ranked.filter((r) => !calls.includes(r));
+  const urgent = others.filter((r) => isUrgent(scorableOf(r), now));
+  const rest = others.filter((r) => !urgent.includes(r)).slice(0, TOP);
   return attentionMorningEmail({
     business: links.business,
     firstName: firstNameOf(person.full_name),
@@ -144,6 +200,8 @@ function summaryFor(
         leadId: r.leadId,
       })),
     ),
+    jobs,
+    call: [...calls.map(listed), ...dueLater],
     urgent: urgent.map(listed),
     rest: rest.map(listed),
     total: ranked.length,
@@ -183,6 +241,12 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       people: [] as Member[],
       items: [] as AttentionItemRow[],
       decidable: new Map<string, ReadonlySet<string>>(),
+      extras: {
+        jobs: [],
+        followUps: [],
+        timeZone,
+        endOfTomorrow: now,
+      } as MorningExtras,
     };
     if (sent.length > 0 || !automationOn(w.settings, 'morningBrief'))
       return { ...nobody, done: true };
@@ -204,12 +268,26 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
           ? await decidableApprovals(tx, scope.workspaceId, p.role, p.id, approvals)
           : new Set<string>(),
       );
-    return { ...nobody, done: false, people, items, decidable };
+    const window = dayWindow(now, timeZone);
+    const extras: MorningExtras = {
+      jobs: await todaysJobs(tx, scope.workspaceId, window),
+      followUps: await followUpsDueToday(tx, scope.workspaceId, now, window),
+      timeZone,
+      endOfTomorrow: localInstant(addDays(window.day, 2), '00:00', timeZone),
+    };
+    return { ...nobody, done: false, people, items, decidable, extras };
   });
   // The business is gone (its jobs go with it).
   if (!found) return;
   const next = { rescheduleAt: new Date(nextAttentionDigestAt(now, found.timeZone)) };
-  if (found.done || found.people.length === 0 || found.items.length === 0) return next;
+  if (
+    found.done ||
+    found.people.length === 0 ||
+    (found.items.length === 0 &&
+      found.extras.jobs.length === 0 &&
+      found.extras.followUps.length === 0)
+  )
+    return next;
 
   const links = {
     business: found.name,
@@ -224,6 +302,7 @@ export const sendAttentionDigest: JobHandler = async (ctx) => {
       found.decidable?.get(person.id) ?? new Set<string>(),
       now,
       links,
+      found.extras,
     );
     if (!mail) continue;
     try {

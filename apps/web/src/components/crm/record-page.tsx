@@ -69,6 +69,7 @@ import {
   ContactWorkflowsCard,
 } from '@/components/workflows/contact-workflows';
 import { ArchiveDialog } from './archive-dialog';
+import { MaintenanceCard } from './maintenance-card';
 import { NextActionChip, StageBadge } from './chips';
 import { CompanyDialog } from './company-dialog';
 import { LeadDialog } from './lead-dialog';
@@ -689,6 +690,13 @@ export function RecordPage(props: RecordPageProps) {
               items={upcoming.slice(0, 5)}
               onBook={archived ? undefined : () => setBooking(true)}
               onOpen={setOpenAppt}
+            />
+          ) : null}
+          {person ? (
+            <MaintenanceCard
+              workspaceId={workspaceId}
+              personId={person.id}
+              canEdit={!archived && hasWorkspacePermission(role, 'records.write')}
             />
           ) : null}
           {person ? (

@@ -1397,6 +1397,8 @@ export const services = app.table('services', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** Maintenance: due again this many months after a visit; null when it doesn't repeat (0095). */
+  repeatMonths: smallint('repeat_months'),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
@@ -1933,6 +1935,7 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'builder',
   'knowledge',
   'teammate',
+  'automations',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -2837,6 +2840,9 @@ export const plans = app.table('plans', {
   taxable: boolean('taxable').notNull().default(true),
   /** The "what you get" lines the plan page prints. */
   includes: jsonb('includes').$type<string[]>().notNull().default([]),
+  /** Maintenance (0095): the service the plan covers, and how often its members are due. */
+  serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+  visitEveryMonths: smallint('visit_every_months'),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
@@ -4877,7 +4883,105 @@ export const workspacePlans = app.table('workspace_plans', {
   ...timestamps(),
 });
 
+/**
+ * Automations' "Thank-you after the job" (0094): which way each customer's thank-you went, one per attendee. A
+ * `card` row is what opens Home's "job not thanked" card.
+ */
+export const thankYous = app.table('thank_yous', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  attendeeId: uuid('attendee_id')
+    .notNull()
+    .references(() => appointmentAttendees.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  completedAt: ts('completed_at').notNull(),
+  /** sent, drafted, card or skipped. */
+  outcome: text('outcome').notNull(),
+  reason: text('reason'),
+  ...timestamps(),
+});
+
+/** Automations' "Referral mentioned" (0094): somebody a customer said needs the business, and what became of it. */
+export const referrals = app.table('referrals', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  referrerPersonId: uuid('referrer_person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, {
+    onDelete: 'set null',
+  }),
+  messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
+  callId: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
+  referredName: text('referred_name'),
+  relation: text('relation'),
+  referredPhoneE164: text('referred_phone_e164'),
+  referredEmail: text('referred_email'),
+  need: text('need'),
+  quote: text('quote'),
+  /** mentioned, lead_created or dismissed. */
+  status: text('status').notNull().default('mentioned'),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
+  thankedAt: ts('thanked_at'),
+  ...timestamps(),
+});
+
+/** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
+export const serviceSchedules = app.table('service_schedules', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id')
+    .notNull()
+    .references(() => services.id, { onDelete: 'cascade' }),
+  everyMonths: smallint('every_months'),
+  updatedBy: userRef('updated_by'),
+  ...timestamps(),
+});
+
+/** Maintenance (0095): the worker's reminders for one customer, service and due day. */
+export const maintenanceReminders = app.table('maintenance_reminders', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id')
+    .notNull()
+    .references(() => services.id, { onDelete: 'cascade' }),
+  dueOn: date('due_on').notNull(),
+  lastVisitId: uuid('last_visit_id').references(() => appointments.id, { onDelete: 'set null' }),
+  subscriptionId: uuid('subscription_id').references(() => subscriptions.id, {
+    onDelete: 'set null',
+  }),
+  sentCount: smallint('sent_count').notNull().default(0),
+  firstSentAt: ts('first_sent_at'),
+  secondSentAt: ts('second_sent_at'),
+  /** reminding, booked, card or stopped. */
+  status: text('status').notNull().default('reminding'),
+  bookedAppointmentId: uuid('booked_appointment_id').references(() => appointments.id, {
+    onDelete: 'set null',
+  }),
+  cardAt: ts('card_at'),
+  reason: text('reason'),
+  ...timestamps(),
+});
+
 export const tables = {
+  serviceSchedules,
+  maintenanceReminders,
+  thankYous,
+  referrals,
   foundingOffers,
   foundingGrants,
   foundingApplications,

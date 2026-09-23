@@ -292,6 +292,13 @@ export const ServiceCreateInput = z.object({
   bufferBefore: bufferMinutes.default(0),
   bufferAfter: bufferMinutes.default(0),
   color: hexColor.optional(),
+  /** Maintenance: a customer is due again this many months after a visit; null when it doesn't repeat. */
+  repeatMonths: z
+    .int()
+    .min(1, 'At least 1 month.')
+    .max(60, 'At most 5 years.')
+    .nullable()
+    .optional(),
   priceCents: z.int().min(0).max(100_000_000).nullable().optional(),
   locationKinds: z
     .array(LocationKind)
@@ -320,6 +327,13 @@ export const ServiceUpdateInput = z.object({
   bufferBefore: bufferMinutes.optional(),
   bufferAfter: bufferMinutes.optional(),
   color: hexColor.optional(),
+  /** Maintenance: a customer is due again this many months after a visit; null when it doesn't repeat. */
+  repeatMonths: z
+    .int()
+    .min(1, 'At least 1 month.')
+    .max(60, 'At most 5 years.')
+    .nullable()
+    .optional(),
   priceCents: z.int().min(0).max(100_000_000).nullable().optional(),
   locationKinds: z.array(LocationKind).max(4).optional(),
   staffUserIds: z.array(uuid).max(50).optional(),
@@ -407,6 +421,7 @@ export const ServiceOut = z.object({
   bufferAfter: z.int(),
   color: z.string(),
   priceCents: z.int().nullable(),
+  repeatMonths: z.int().nullable(),
   locationKinds: z.array(z.string()),
   staffUserIds: z.array(uuid),
   resources: z.array(z.object({ resourceId: uuid, quantity: z.int() })),

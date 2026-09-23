@@ -37,27 +37,42 @@ export default async function AutomationsSettingsPage({
   if (role !== 'owner' && role !== 'admin') notFound();
   const body = { body: { workspaceId } };
   // The number, addresses and chat sites are only for the wording's check (the business's own may be given).
-  const [pipelines, worked, phone, email, widgets, team] = await Promise.all([
-    api.POST('/v1/queries/pipeline.list', body).then(unwrapPage),
-    // What HandsFreeOS works out for a lead with no value: the median won lead over a year, else $500.
-    api.POST('/v1/queries/attention.settings', body).then(unwrapPage),
-    api
-      .POST('/v1/queries/phone.setup_status', body)
-      .then((r) => r.data ?? null)
-      .catch(() => null),
-    api
-      .POST('/v1/queries/email.setup_status', body)
-      .then((r) => r.data ?? null)
-      .catch(() => null),
-    api
-      .POST('/v1/queries/chat_widget.list', body)
-      .then((r) => r.data ?? null)
-      .catch(() => null),
-    api
-      .POST('/v1/queries/ai_teammate.get', body)
-      .then((r) => r.data?.teammate ?? null)
-      .catch(() => null),
-  ]);
+  const [pipelines, worked, phone, email, widgets, team, forms, services, plans] =
+    await Promise.all([
+      api.POST('/v1/queries/pipeline.list', body).then(unwrapPage),
+      // What HandsFreeOS works out for a lead with no value: the median won lead over a year, else $500.
+      api.POST('/v1/queries/attention.settings', body).then(unwrapPage),
+      api
+        .POST('/v1/queries/phone.setup_status', body)
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      api
+        .POST('/v1/queries/email.setup_status', body)
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      api
+        .POST('/v1/queries/chat_widget.list', body)
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      api
+        .POST('/v1/queries/ai_teammate.get', body)
+        .then((r) => r.data?.teammate ?? null)
+        .catch(() => null),
+      // "Intake questions" picks one of them.
+      api
+        .POST('/v1/queries/form.list', body)
+        .then((r) => r.data?.items ?? [])
+        .catch(() => []),
+      // "Maintenance due" has something to go on once a service repeats or a plan names one.
+      api
+        .POST('/v1/queries/service.list', body)
+        .then((r) => r.data?.items ?? [])
+        .catch(() => []),
+      api
+        .POST('/v1/queries/plan.list', body)
+        .then((r) => r.data?.plans ?? [])
+        .catch(() => []),
+    ]);
   const number = phone?.number && phone.number.status === 'active' ? phone.number : null;
   const addresses = email?.addresses.map((a) => a.address) ?? [];
   const domains = [
@@ -101,6 +116,11 @@ export default async function AutomationsSettingsPage({
         replyMinutes={phone?.settings.unansweredReminderMinutes ?? 10}
         check={check}
         senderName={(me.user.fullName.trim() || me.user.email).split(/\s+/)[0] ?? 'the team'}
+        forms={forms.map((f) => ({ id: f.formId, name: f.name, status: f.status }))}
+        maintenanceReady={
+          services.some((s) => s.repeatMonths !== null) ||
+          plans.some((p) => p.serviceId !== null && !p.archivedAt)
+        }
       />
     </>
   );

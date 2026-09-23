@@ -12,6 +12,8 @@ export interface NotificationPrefs {
   readonly unansweredEmail: boolean;
   /** The Action Center's morning summary, at 7 AM where the business is. */
   readonly attentionDigest: boolean;
+  /** Automations' end-of-day email, to owners and admins. */
+  readonly eveningSummary: boolean;
   /** The AI teammate handed a conversation to you, or to its list when nobody is assigned. */
   readonly aiHandoff: boolean;
   /** Online bookings and cancellations on your appointments (the calendar's team email). */
@@ -92,9 +94,17 @@ const ROWS: readonly Row[] = [
   },
   {
     title: 'Morning summary',
-    description: 'One email at 7 AM with what needs your attention that day, urgent first.',
+    description:
+      'One email at 7 AM with today’s jobs, who to call, and what needs your attention, urgent first.',
     push: null,
     email: 'attentionDigest',
+  },
+  {
+    title: 'End-of-day email',
+    description:
+      'One email in the evening with the day in numbers and what’s still open. Owners and admins only.',
+    push: null,
+    email: 'eveningSummary',
   },
   {
     title: 'The AI teammate hands you a conversation',

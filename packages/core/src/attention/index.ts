@@ -39,3 +39,6 @@ export type { OverdueTaskFacts } from './detectors/overdue-task';
 export type { StaleOpportunityFacts } from './detectors/stale-opportunity';
 export type { UnansweredLeadFacts } from './detectors/unanswered-lead';
 export type { UnconfirmedAppointmentFacts } from './detectors/unconfirmed-appointment';
+export { THANK_YOU_CARD_DAYS, type JobNotThankedFacts } from './detectors/job-not-thanked';
+export { REFERRAL_CARD_DAYS, type ReferralMentionedFacts } from './detectors/referral-mentioned';
+export { MAINTENANCE_CARD_DAYS, type MaintenanceDueFacts } from './detectors/maintenance-due';

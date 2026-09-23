@@ -67,6 +67,9 @@ import {
   onRegistrationSubmitted,
   onReleaseRequested,
 } from './telephony';
+import { onBookedIntake } from '../automations/intake';
+import { onCallReferral, onMessageReferral } from '../automations/referrals';
+import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import type { HandlerMap } from './types';
 import { onSeatFreed } from './waitlist';
@@ -168,12 +171,19 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onArmReminders,
       onBookedConfirm,
       onBookedTeamEmail,
+      // Automations' "Intake questions": the form, two minutes after the confirmation (automations/intake.ts).
+      onBookedIntake,
     ],
     'appointment.updated': onAppointmentChanged,
     'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice],
     'appointment.reassigned': [onAppointmentChanged, onReassignedNotice],
     'appointment.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
-    'appointment.completed': onAppointmentChanged,
+    // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
+    // business is read by the AI in a job of its own (automations/referrals.ts).
+    'message.received': onMessageReferral,
+    'call.transcribed': onCallReferral,
+    // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
+    'appointment.completed': [onAppointmentChanged, onCompletedThankYou],
     'appointment.no_show': onAppointmentChanged,
     'attendee.added': [onAppointmentChanged, onArmReminders, onAddedConfirm],
     'attendee.removed': [onAppointmentChanged, onCancelledNotice],

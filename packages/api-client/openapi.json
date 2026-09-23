@@ -10756,6 +10756,18 @@
                     "type": "string",
                     "pattern": "^#[0-9a-fA-F]{6}$"
                   },
+                  "repeatMonths": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "priceCents": {
                     "anyOf": [
                       {
@@ -10952,6 +10964,18 @@
                   "color": {
                     "type": "string",
                     "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "repeatMonths": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "priceCents": {
                     "anyOf": [
@@ -23748,6 +23772,24 @@
                             "enum": [
                               true
                             ]
+                          },
+                          "job_not_thanked": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
+                          },
+                          "referral_mentioned": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "maintenance_due": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
                           }
                         }
                       },
@@ -23992,6 +24034,24 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "job_not_thanked": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "referral_mentioned": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "maintenance_due": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -24007,7 +24067,10 @@
                             "invoice_overdue",
                             "wallet_low",
                             "wallet_empty",
-                            "wallet_card_declined"
+                            "wallet_card_declined",
+                            "job_not_thanked",
+                            "referral_mentioned",
+                            "maintenance_due"
                           ],
                           "additionalProperties": false
                         },
@@ -24268,8 +24331,24 @@
                             "default": true,
                             "type": "boolean"
                           },
+                          "eveningBrief": {
+                            "default": true,
+                            "type": "boolean"
+                          },
                           "reengage": {
                             "default": false,
+                            "type": "boolean"
+                          },
+                          "intake": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "thankYou": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "maintenance": {
+                            "default": true,
                             "type": "boolean"
                           }
                         }
@@ -24314,6 +24393,78 @@
                             "type": "integer",
                             "minimum": 30,
                             "maximum": 730
+                          }
+                        }
+                      },
+                      "intake": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "formId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "message": {
+                            "default": "Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link}",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 480
+                          }
+                        }
+                      },
+                      "maintenance": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "leadDays": {
+                            "default": 14,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 60
+                          },
+                          "secondAfterDays": {
+                            "default": 7,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 30
+                          },
+                          "maxPerDay": {
+                            "default": 20,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200
+                          },
+                          "template": {
+                            "default": "Hi {firstName}, it's {businessName}. Your {service} is due soon. Book a time that suits you here: {link}",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 480
+                          },
+                          "planTemplate": {
+                            "default": "Hi {firstName}, it's {businessName}. Your {service} is due soon, and it's included in your {plan}. Book a time here: {link}",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 480
+                          }
+                        }
+                      },
+                      "briefings": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "eveningAt": {
+                            "default": "18:00",
+                            "type": "string",
+                            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                           }
                         }
                       }
@@ -24363,8 +24514,24 @@
                               "default": true,
                               "type": "boolean"
                             },
+                            "eveningBrief": {
+                              "default": true,
+                              "type": "boolean"
+                            },
                             "reengage": {
                               "default": false,
+                              "type": "boolean"
+                            },
+                            "intake": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "thankYou": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "maintenance": {
+                              "default": true,
                               "type": "boolean"
                             }
                           },
@@ -24373,7 +24540,11 @@
                             "dayOf",
                             "waitlist",
                             "morningBrief",
-                            "reengage"
+                            "eveningBrief",
+                            "reengage",
+                            "intake",
+                            "thankYou",
+                            "maintenance"
                           ],
                           "additionalProperties": false
                         },
@@ -24426,11 +24597,100 @@
                             "cooldownDays"
                           ],
                           "additionalProperties": false
+                        },
+                        "intake": {
+                          "type": "object",
+                          "properties": {
+                            "formId": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "message": {
+                              "default": "Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link}",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            }
+                          },
+                          "required": [
+                            "formId",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maintenance": {
+                          "type": "object",
+                          "properties": {
+                            "leadDays": {
+                              "default": 14,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 60
+                            },
+                            "secondAfterDays": {
+                              "default": 7,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 30
+                            },
+                            "maxPerDay": {
+                              "default": 20,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 200
+                            },
+                            "template": {
+                              "default": "Hi {firstName}, it's {businessName}. Your {service} is due soon. Book a time that suits you here: {link}",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            },
+                            "planTemplate": {
+                              "default": "Hi {firstName}, it's {businessName}. Your {service} is due soon, and it's included in your {plan}. Book a time here: {link}",
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 480
+                            }
+                          },
+                          "required": [
+                            "leadDays",
+                            "secondAfterDays",
+                            "maxPerDay",
+                            "template",
+                            "planTemplate"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "briefings": {
+                          "type": "object",
+                          "properties": {
+                            "eveningAt": {
+                              "default": "18:00",
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "eveningAt"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "switches",
-                        "reengage"
+                        "reengage",
+                        "intake",
+                        "maintenance",
+                        "briefings"
                       ],
                       "additionalProperties": false
                     },
@@ -24442,6 +24702,260 @@
                     "workspaceId",
                     "settings",
                     "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/referral.create_lead": {
+      "post": {
+        "operationId": "command_referral_create_lead",
+        "summary": "Turn somebody a customer mentioned into a customer and a lead, with the customer who mentioned them as its source. Finds them first if their phone or email is already here.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits referral.lead_created.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "referralId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "phone": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 254
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "referralId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "referralId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "leadId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "existingPerson": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "referralId",
+                    "personId",
+                    "leadId",
+                    "existingPerson"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/maintenance.set_schedule": {
+      "post": {
+        "operationId": "command_maintenance_set_schedule",
+        "summary": "Set how often one customer is due for a service (every N months), stop reminding them (\"never\"), or go back to what their plan or the service says (\"default\").",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires records.write. Emits maintenance.schedule_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "serviceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "every": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "default"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "never"
+                        ]
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 60
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId",
+                  "serviceId",
+                  "every"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "serviceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "everyMonths": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "customer",
+                            "plan",
+                            "service"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "dueOn": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "personId",
+                    "serviceId",
+                    "everyMonths",
+                    "source",
+                    "dueOn"
                   ],
                   "additionalProperties": false
                 }
@@ -25120,6 +25634,30 @@
                       "minLength": 1,
                       "maxLength": 200
                     }
+                  },
+                  "serviceId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visitEveryMonths": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -25188,6 +25726,30 @@
                             "type": "string"
                           }
                         },
+                        "serviceId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "visitEveryMonths": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -25210,6 +25772,8 @@
                         "intervalCount",
                         "taxable",
                         "includes",
+                        "serviceId",
+                        "visitEveryMonths",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -25306,6 +25870,30 @@
                       "minLength": 1,
                       "maxLength": 200
                     }
+                  },
+                  "serviceId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visitEveryMonths": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -25374,6 +25962,30 @@
                             "type": "string"
                           }
                         },
+                        "serviceId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "visitEveryMonths": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "archivedAt": {
                           "anyOf": [
                             {
@@ -25396,6 +26008,8 @@
                         "intervalCount",
                         "taxable",
                         "includes",
+                        "serviceId",
+                        "visitEveryMonths",
                         "archivedAt"
                       ],
                       "additionalProperties": false
@@ -52473,7 +53087,10 @@
                                               "invoice_overdue",
                                               "wallet_low",
                                               "wallet_empty",
-                                              "wallet_card_declined"
+                                              "wallet_card_declined",
+                                              "job_not_thanked",
+                                              "referral_mentioned",
+                                              "maintenance_due"
                                             ]
                                           },
                                           "chips": {
@@ -57072,6 +57689,18 @@
                               }
                             ]
                           },
+                          "repeatMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "locationKinds": {
                             "type": "array",
                             "items": {
@@ -57165,6 +57794,7 @@
                           "bufferAfter",
                           "color",
                           "priceCents",
+                          "repeatMonths",
                           "locationKinds",
                           "staffUserIds",
                           "resources",
@@ -65900,7 +66530,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 13,
+                    "maxItems": 16,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -65917,7 +66547,10 @@
                         "invoice_overdue",
                         "wallet_low",
                         "wallet_empty",
-                        "wallet_card_declined"
+                        "wallet_card_declined",
+                        "job_not_thanked",
+                        "referral_mentioned",
+                        "maintenance_due"
                       ]
                     }
                   },
@@ -65978,7 +66611,10 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned",
+                              "maintenance_due"
                             ]
                           },
                           "state": {
@@ -66134,7 +66770,10 @@
                                     "overdue",
                                     "not_viewed",
                                     "stage",
-                                    "not_a_fit"
+                                    "not_a_fit",
+                                    "job_done",
+                                    "referral",
+                                    "maintenance"
                                   ]
                                 },
                                 "label": {
@@ -66498,7 +67137,10 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned",
+                              "maintenance_due"
                             ]
                           },
                           "state": {
@@ -66654,7 +67296,10 @@
                                     "overdue",
                                     "not_viewed",
                                     "stage",
-                                    "not_a_fit"
+                                    "not_a_fit",
+                                    "job_done",
+                                    "referral",
+                                    "maintenance"
                                   ]
                                 },
                                 "label": {
@@ -67018,7 +67663,10 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned",
+                              "maintenance_due"
                             ]
                           },
                           "title": {
@@ -67299,7 +67947,10 @@
                               "invoice_overdue",
                               "wallet_low",
                               "wallet_empty",
-                              "wallet_card_declined"
+                              "wallet_card_declined",
+                              "job_not_thanked",
+                              "referral_mentioned",
+                              "maintenance_due"
                             ]
                           },
                           "state": {
@@ -67455,7 +68106,10 @@
                                     "overdue",
                                     "not_viewed",
                                     "stage",
-                                    "not_a_fit"
+                                    "not_a_fit",
+                                    "job_done",
+                                    "referral",
+                                    "maintenance"
                                   ]
                                 },
                                 "label": {
@@ -67868,7 +68522,10 @@
                         "invoice_overdue",
                         "wallet_low",
                         "wallet_empty",
-                        "wallet_card_declined"
+                        "wallet_card_declined",
+                        "job_not_thanked",
+                        "referral_mentioned",
+                        "maintenance_due"
                       ]
                     },
                     "mode": {
@@ -68274,6 +68931,24 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "job_not_thanked": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "referral_mentioned": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "maintenance_due": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -68289,7 +68964,10 @@
                             "invoice_overdue",
                             "wallet_low",
                             "wallet_empty",
-                            "wallet_card_declined"
+                            "wallet_card_declined",
+                            "job_not_thanked",
+                            "referral_mentioned",
+                            "maintenance_due"
                           ],
                           "additionalProperties": false
                         },
@@ -68507,6 +69185,211 @@
                     "settings",
                     "typicalJobValueCents",
                     "typicalFrom"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/maintenance.for_person": {
+      "post": {
+        "operationId": "query_maintenance_for_person",
+        "summary": "A customer’s regular services: when each was last done, how often it’s due (theirs, their plan’s or the service’s), when next, and the reminders sent.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "serviceId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "serviceName": {
+                            "type": "string"
+                          },
+                          "lastVisitOn": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "everyMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "customer",
+                                  "plan",
+                                  "service"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "planName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "serviceMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "dueOn": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "bookedAhead": {
+                            "type": "boolean"
+                          },
+                          "reminder": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "dueOn": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  "sentCount": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "reminding",
+                                      "booked",
+                                      "card",
+                                      "stopped"
+                                    ]
+                                  },
+                                  "lastSentAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "dueOn",
+                                  "sentCount",
+                                  "status",
+                                  "lastSentAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "serviceId",
+                          "serviceName",
+                          "lastVisitOn",
+                          "everyMonths",
+                          "source",
+                          "planName",
+                          "serviceMonths",
+                          "dueOn",
+                          "bookedAhead",
+                          "reminder"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
                   ],
                   "additionalProperties": false
                 }
@@ -68746,6 +69629,30 @@
                               "type": "string"
                             }
                           },
+                          "serviceId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "visitEveryMonths": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "archivedAt": {
                             "anyOf": [
                               {
@@ -68768,6 +69675,8 @@
                           "intervalCount",
                           "taxable",
                           "includes",
+                          "serviceId",
+                          "visitEveryMonths",
                           "archivedAt"
                         ],
                         "additionalProperties": false

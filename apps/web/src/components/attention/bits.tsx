@@ -9,15 +9,18 @@ import {
   CalendarClock,
   Check,
   Clock,
+  Wrench,
   CreditCard,
   FileText,
   Flame,
+  Heart,
   Hourglass,
   ListChecks,
   MessageCircle,
   Receipt,
   Signpost,
   Sparkles,
+  UserPlus,
   UserRound,
   Wallet,
   type LucideIcon,
@@ -52,6 +55,9 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   wallet_low: { icon: Wallet, tone: 'bg-warning-soft text-warning-text' },
   wallet_empty: { icon: Wallet, tone: `${HOT_SOFT} ${HOT_TEXT}` },
   wallet_card_declined: { icon: CreditCard, tone: `${HOT_SOFT} ${HOT_TEXT}` },
+  job_not_thanked: { icon: Heart, tone: 'bg-accent-soft text-accent-text' },
+  referral_mentioned: { icon: UserPlus, tone: 'bg-accent-soft text-accent-text' },
+  maintenance_due: { icon: Wrench, tone: `${BR_SOFT} ${BR_TEXT}` },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -69,6 +75,9 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   wallet_low: 'Balance running low',
   wallet_empty: 'Balance empty',
   wallet_card_declined: 'Card declined',
+  job_not_thanked: 'Say thanks',
+  referral_mentioned: 'Referral',
+  maintenance_due: 'Maintenance due',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

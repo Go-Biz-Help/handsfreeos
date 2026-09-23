@@ -110,6 +110,12 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'payment.updated',
   'payment.failed',
   'refund.recorded',
+  // After the job (Automations): a thank-you that couldn't go, and a referral found or turned into a lead.
+  'thank_you.recorded',
+  'referral.mentioned',
+  'referral.lead_created',
+  'maintenance.card',
+  'maintenance.booked',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -127,6 +133,9 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'task',
   'estimate',
   'invoice',
+  'thank_you',
+  'referral',
+  'maintenance',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -217,6 +226,16 @@ export async function subjectsOf(
               and (appointment_id = any(${uuidArray(appointments)}) or id = any(${uuidArray(named)}))`,
       );
       for (const s of seats) add('attendee', s.id);
+      // A booking of a service a card asks about settles that card (Automations' "Maintenance due").
+      const cards = await rows<{ id: string }>(
+        tx,
+        sql`select r.id from app.maintenance_reminders r
+            join app.appointment_attendees aa on aa.person_id = r.person_id
+            join app.appointments a on a.id = aa.appointment_id and a.service_id = r.service_id
+            where r.workspace_id = ${workspaceId} and r.status = 'card'
+              and (a.id = any(${uuidArray(appointments)}) or aa.id = any(${uuidArray(named)}))`,
+      );
+      for (const c of cards) add('maintenance', c.id);
       break;
     }
     // A money document is its own subject; reconcile widens it to the lead and the customer behind it, so an
@@ -233,6 +252,16 @@ export async function subjectsOf(
     case 'payment':
     case 'refund':
       add('invoice', p['invoiceId']);
+      break;
+    case 'thank_you':
+      add('thank_you', id);
+      break;
+    case 'referral':
+      add('referral', id);
+      add('lead', p['leadId']);
+      break;
+    case 'maintenance_reminder':
+      add('maintenance', id);
       break;
     case 'attention_item':
       add(String(p['subjectType'] ?? ''), p['subjectId']);

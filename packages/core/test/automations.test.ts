@@ -16,7 +16,19 @@ import {
   DEFAULT_REENGAGE_TEMPLATE,
   defaultAutomationSettings,
   parseAutomationSettings,
+  DEFAULT_INTAKE_MESSAGE,
+  DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
+  DEFAULT_MAINTENANCE_TEMPLATE,
+  everyMonthsWords,
+  intakeFormOf,
+  maintenanceDueOn,
+  maintenanceScheduleOf,
+  maintenanceTemplateProblem,
+  renderMaintenance,
+  intakeMessageProblem,
+  mayMentionReferral,
   reengageOn,
+  renderIntakeMessage,
   sendModeOf,
   type AutomationContext,
   type AutomationDef,
@@ -52,7 +64,13 @@ describe('the automations catalog', () => {
 
   it('gives every switchable Action Center kind exactly one row', () => {
     // The two wallet kinds that mean the business has stopped working are always on, and not switches.
-    const alwaysOn: AttentionKind[] = ['wallet_empty', 'wallet_card_declined'];
+    // A customer nobody could thank is always looked for: "Thank-you after the job" is its switch.
+    const alwaysOn: AttentionKind[] = [
+      'wallet_empty',
+      'wallet_card_declined',
+      'job_not_thanked',
+      'maintenance_due',
+    ];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],
     );
@@ -70,7 +88,9 @@ describe('the automations catalog', () => {
 
   it('only lets the AI teammate write to customers through its own switches', () => {
     for (const a of AUTOMATIONS as readonly AutomationDef[]) {
-      if (a.customerFacing === 'ai') expect(a.needs, a.id).toContain('teammate_on');
+      // Unless, like the thank-you, it does something else without one (and says what).
+      if (a.customerFacing === 'ai' && !a.withoutTeammate)
+        expect(a.needs, a.id).toContain('teammate_on');
       if (a.customerFacing !== null) expect(a.effect, a.id).toBe('texts');
     }
   });
@@ -83,7 +103,11 @@ describe('automation settings', () => {
       dayOf: true,
       waitlist: true,
       morningBrief: true,
+      eveningBrief: true,
       reengage: false,
+      intake: true,
+      thankYou: true,
+      maintenance: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,
@@ -206,20 +230,46 @@ describe('automation rows', () => {
   });
 
   it('counts what is working, and what is on but waiting to be set up', () => {
-    // Everything works but re-engaging, which starts off.
+    // Everything works but re-engaging, which starts off, and intake questions, which waits for a form.
     const rows = automationRows(ctx({ teammate: teammate('automatic') }));
     expect(automationCounts(rows)).toEqual({
-      working: rows.length - 1,
-      needsSetup: 0,
+      working: rows.length - 2,
+      needsSetup: 1,
       total: rows.length,
     });
-    // No teammate: its four rows read as a new one starts (all on), and none works yet.
+    // No teammate: its four rows read as a new one starts (all on), and none works yet. The thank-you still
+    // works: a card asks a person instead.
     const none = automationRows(ctx());
     expect(automationCounts(none)).toEqual({
-      working: none.length - 5,
-      needsSetup: 4,
+      working: none.length - 6,
+      needsSetup: 5,
       total: none.length,
     });
+    expect(automationRow(def('job_thank_you'), ctx()).fallback).toMatch(/card on Home/);
+    expect(
+      automationRow(def('job_thank_you'), ctx({ teammate: teammate('automatic') })).fallback,
+    ).toBeNull();
+  });
+
+  it('asks for a form before intake questions can go', () => {
+    expect(automationRow(def('intake_questions'), ctx()).needsSetup).toEqual({
+      code: 'intake_form',
+      text: 'Pick a form to start.',
+    });
+    const chosen = {
+      ...defaultAutomationSettings(),
+      intake: {
+        ...defaultAutomationSettings().intake,
+        formId: '00000000-0000-4000-8000-000000000001',
+      },
+    };
+    expect(automationRow(def('intake_questions'), ctx({ automations: chosen }))).toMatchObject({
+      on: true,
+      working: true,
+      needsSetup: null,
+    });
+    expect(intakeFormOf(chosen)).toBe('00000000-0000-4000-8000-000000000001');
+    expect(intakeFormOf({ ...chosen, switches: { ...chosen.switches, intake: false } })).toBeNull();
   });
 
   it('won’t turn re-engaging on until its message is read, and always lets it off', () => {
@@ -287,5 +337,146 @@ describe('who sends what', () => {
     expect(sendModeOf('ai', 'automatic')).toBe('send');
     expect(sendModeOf('ai', 'off')).toBe('blocked');
     expect(sendModeOf('ai', null)).toBe('blocked');
+  });
+});
+
+describe('the intake message', () => {
+  it('starts with wording that carries the link, and fills it in', () => {
+    expect(intakeMessageProblem(DEFAULT_INTAKE_MESSAGE)).toBeNull();
+    expect(
+      renderIntakeMessage(DEFAULT_INTAKE_MESSAGE, {
+        firstName: 'Maria',
+        businessName: 'Lone Star HVAC',
+        link: 'https://book.example.com/f/ls/intake',
+      }),
+    ).toBe(
+      'Hi Maria, thanks for booking with Lone Star HVAC! Before your visit, could you answer a few quick questions? https://book.example.com/f/ls/intake',
+    );
+    expect(
+      renderIntakeMessage('Hi {firstName}: {link}', {
+        firstName: null,
+        businessName: 'X',
+        link: 'L',
+      }),
+    ).toBe('Hi there: L');
+  });
+
+  it('refuses wording without the link, or with a slot it can’t fill', () => {
+    expect(intakeMessageProblem('Please fill in our form')).toMatch(/\{link\}/);
+    expect(intakeMessageProblem('Hi {name}, {link}')).toMatch(/can't be filled in/);
+    expect(intakeMessageProblem('Hi {{firstName}}, {link}')).toMatch(/can't be filled in/);
+    expect(() => parseAutomationSettings({ intake: { message: 'No link here' } })).toThrow();
+    expect(() => parseAutomationSettings({ intake: { formId: 'not-a-uuid' } })).toThrow();
+  });
+});
+
+describe('the referral word check', () => {
+  it('lets through words that might be about somebody who needs the business', () => {
+    for (const text of [
+      'My neighbor Jan needs her AC looked at, 713-555-0199',
+      'my sister is looking for someone to fix her furnace',
+      'I recommended you to my boss',
+      'Can I pass along your number to a friend?',
+      'I know someone who needs a new water heater',
+    ])
+      expect(mayMentionReferral(text), text).toBe(true);
+  });
+
+  it('leaves out the rest, cheaply', () => {
+    for (const text of [
+      'Thanks, see you Tuesday',
+      'My friend dropped me off',
+      'What time are you coming?',
+      '',
+      null,
+    ])
+      expect(mayMentionReferral(text), String(text)).toBe(false);
+  });
+});
+
+describe('maintenance due', () => {
+  it('asks for a repeating service before it can work', () => {
+    expect(
+      automationRow(def('maintenance_due'), ctx({ maintenanceReady: false })).needsSetup,
+    ).toEqual({
+      code: 'maintenance_schedule',
+      text: 'Set how often a service repeats to start.',
+    });
+    expect(automationRow(def('maintenance_due'), ctx({ maintenanceReady: true })).working).toBe(
+      true,
+    );
+  });
+
+  it('takes how often from the customer, then their plan, then the service', () => {
+    expect(maintenanceScheduleOf({ customer: 3, plan: 12, service: 6 })).toEqual({
+      everyMonths: 3,
+      source: 'customer',
+    });
+    // "Never" is theirs to choose too.
+    expect(maintenanceScheduleOf({ customer: null, plan: 12, service: 6 })).toEqual({
+      everyMonths: null,
+      source: 'customer',
+    });
+    expect(maintenanceScheduleOf({ plan: 12, service: 6 })).toEqual({
+      everyMonths: 12,
+      source: 'plan',
+    });
+    expect(maintenanceScheduleOf({ plan: null, service: 6 })).toEqual({
+      everyMonths: 6,
+      source: 'service',
+    });
+    expect(maintenanceScheduleOf({})).toEqual({ everyMonths: null, source: null });
+  });
+
+  it('counts months on the calendar, the 31st landing on the month’s last day', () => {
+    expect(maintenanceDueOn('2026-03-15', 6)).toBe('2026-09-15');
+    expect(maintenanceDueOn('2026-08-31', 6)).toBe('2027-02-28');
+    expect(maintenanceDueOn('2027-08-31', 6)).toBe('2028-02-29');
+    expect(maintenanceDueOn('2026-11-02', 12)).toBe('2027-11-02');
+    expect(everyMonthsWords(6)).toBe('every 6 months');
+    expect(everyMonthsWords(12)).toBe('every year');
+    expect(everyMonthsWords(24)).toBe('every 2 years');
+    expect(everyMonthsWords(1)).toBe('every month');
+  });
+
+  it('writes the reminder in the business’s words, with the plan for members', () => {
+    const v = {
+      firstName: 'Maria',
+      businessName: 'Lone Star HVAC',
+      service: 'AC tune-up',
+      link: 'https://book.example.com/book/ls/ac?service=1',
+      plan: 'Comfort Club',
+    };
+    expect(renderMaintenance(DEFAULT_MAINTENANCE_TEMPLATE, v)).toBe(
+      "Hi Maria, it's Lone Star HVAC. Your AC tune-up is due soon. Book a time that suits you here: https://book.example.com/book/ls/ac?service=1",
+    );
+    expect(renderMaintenance(DEFAULT_MAINTENANCE_PLAN_TEMPLATE, v)).toContain(
+      "it's included in your Comfort Club",
+    );
+    expect(maintenanceTemplateProblem(DEFAULT_MAINTENANCE_TEMPLATE, { plan: false })).toBeNull();
+    // {plan} only in the members' wording, and the link always.
+    expect(maintenanceTemplateProblem('Your {plan} visit: {link}', { plan: false })).toMatch(
+      /can't be filled in/,
+    );
+    expect(maintenanceTemplateProblem('Your {service} is due!', { plan: false })).toMatch(
+      /\{link\}/,
+    );
+    expect(() => parseAutomationSettings({ maintenance: { template: 'No link' } })).toThrow();
+    expect(defaultAutomationSettings().maintenance).toMatchObject({
+      leadDays: 14,
+      secondAfterDays: 7,
+      maxPerDay: 20,
+    });
+  });
+});
+
+describe('the end-of-day email', () => {
+  it('goes at 6 PM unless the business picks another time between noon and 10 PM', () => {
+    expect(defaultAutomationSettings().briefings).toEqual({ eveningAt: '18:00' });
+    expect(parseAutomationSettings({ briefings: { eveningAt: '20:30' } }).briefings.eveningAt).toBe(
+      '20:30',
+    );
+    for (const eveningAt of ['07:00', '23:00', '6 PM', '25:00'])
+      expect(() => parseAutomationSettings({ briefings: { eveningAt } }), eveningAt).toThrow();
   });
 });

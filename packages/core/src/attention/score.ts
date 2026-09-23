@@ -41,6 +41,12 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   // These two start at the cap. The business cannot send a text; there is no "getting worse" about it.
   wallet_empty: { grows: 'since', start: URGENCY_CAP, stepMs: DAY },
   wallet_card_declined: { grows: 'since', start: URGENCY_CAP, stepMs: DAY },
+  // A thank-you is best the same day: it climbs through the day after.
+  job_not_thanked: { grows: 'since', start: 1, stepMs: DAY },
+  // Somebody new who needs the business cools off in days, not weeks.
+  referral_mentioned: { grows: 'since', start: 1.5, stepMs: 2 * DAY },
+  // Overdue already, and two texts went: steady, not urgent.
+  maintenance_due: { grows: 'since', start: 1, stepMs: 5 * DAY },
 };
 
 /**

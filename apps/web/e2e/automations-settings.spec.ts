@@ -23,6 +23,9 @@ type Attention = {
 
 type Automations = {
   switches: Record<string, boolean>;
+  intake?: { formId: string | null; message: string };
+  maintenance?: { leadDays: number };
+  briefings?: { eveningAt: string };
   reengage?: { reviewedAt: string | null; maxPerDay: number; template: string };
 };
 
@@ -107,9 +110,10 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
     'Set up your AI teammate to start.',
   );
   await expect(page.getByTestId('automation-switch-new_lead_greeting')).toBeDisabled();
-  // The header counts only what's actually working: the AI teammate's four rows wait on it.
+  // The header counts only what's actually working: the AI teammate's four rows wait on it, intake
+  // questions on a form, and maintenance reminders on a service that repeats.
   await expect(page.getByTestId('automations-count')).toContainText(
-    '4 need something set up first.',
+    '6 need something set up first.',
   );
 
   // An Action Center kind off and on again, saved each time.
@@ -348,4 +352,112 @@ test('Automations: the AI teammate’s rows and the follow-up schedule', async (
       return [f.ladderHours.join(), f.monthlyForMonths];
     })
     .toEqual(['4,24,48,96,168,240,336,504,720', 6]);
+});
+
+test('Automations: intake questions’ form and message, the thank-you without a teammate, and referrals', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const owner = await ownerWithSite(page, 'ac-afterjob', 'Lone Star After HVAC');
+  // A live form to pick.
+  const form = await api<{ formId: string }>(owner.token, 'commands', 'form.create', {
+    workspaceId: owner.workspaceId,
+    name: 'Before your first visit',
+  });
+  const got = await api<{ definition: { pages: { id: string }[] }; revision: number }>(
+    owner.token,
+    'queries',
+    'form.get',
+    { workspaceId: owner.workspaceId, formId: form.formId },
+  );
+  const draft = await api<{ revision: number }>(owner.token, 'commands', 'form.save_draft', {
+    workspaceId: owner.workspaceId,
+    formId: form.formId,
+    baseRevision: got.revision,
+    ops: [
+      {
+        op: 'add_question',
+        pageId: got.definition.pages[0]!.id,
+        index: null,
+        question: { id: 'q_pets0000', type: 'yes_no', title: 'Any pets at home?', config: {} },
+      },
+    ],
+  });
+  await api(owner.token, 'commands', 'form.publish', {
+    workspaceId: owner.workspaceId,
+    formId: form.formId,
+    baseRevision: draft.revision,
+  });
+  const intake = async () => (await settingsOf(owner)).automations?.intake;
+
+  await page.goto(`/app/w/${owner.workspaceId}/settings/automations`);
+  // On, but waiting for a form: its link opens the sheet where the form is picked.
+  await expect(page.getByTestId('needs-setup-intake_questions')).toContainText(
+    'Pick a form to start.',
+  );
+  await page.getByTestId('needs-setup-open-intake_questions').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByTestId('intake-form').selectOption({ label: 'Before your first visit' });
+  await expect.poll(async () => (await intake())?.formId).toBe(form.formId);
+
+  // The message: it must carry the link, and the preview shows what a customer reads.
+  const box = page.getByTestId('intake-message');
+  await box.fill('Hi {firstName}, please fill in our form before we come.');
+  await expect(page.getByTestId('intake-message-error')).toContainText('{link}');
+  await expect(page.getByTestId('intake-message-save')).toBeDisabled();
+  await box.fill('Hi {firstName}! A few questions from {businessName} before we come: {link}');
+  await expect(page.getByTestId('intake-preview')).toHaveText(
+    'Hi Maria! A few questions from Lone Star After HVAC before we come: https://.../f/your-form',
+  );
+  await page.getByTestId('intake-message-save').click();
+  await expect
+    .poll(async () => (await intake())?.message)
+    .toBe('Hi {firstName}! A few questions from {businessName} before we come: {link}');
+  await close(page);
+  await expect(page.getByTestId('needs-setup-intake_questions')).toHaveCount(0);
+
+  // With no AI teammate the thank-you still does something, and says what.
+  await expect(page.getByTestId('fallback-job_thank_you')).toContainText('card on Home');
+  await expect(page.getByTestId('automation-switch-job_thank_you')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  // Maintenance due waits for a service that repeats; its sheet shows the reminder as a customer reads it.
+  await expect(page.getByTestId('needs-setup-maintenance_due')).toContainText(
+    'Set how often a service repeats to start.',
+  );
+  await adjust(page, 'maintenance_due');
+  await expect(page.getByTestId('maint-preview')).toHaveText(
+    "Hi Maria, it's Lone Star After HVAC. Your AC tune-up is due soon. Book a time that suits you here: https://.../book/your-calendar",
+  );
+  await expect(page.getByTestId('maint-plan-preview')).toContainText(
+    "it's included in your Comfort Club",
+  );
+  await enter(page, 'maint-lead-days', '21');
+  await expect
+    .poll(async () => (await settingsOf(owner)).automations?.maintenance?.leadDays)
+    .toBe(21);
+  await close(page);
+  // A service that repeats every 6 months: the row has what it needs.
+  await api(owner.token, 'commands', 'service.create', {
+    workspaceId: owner.workspaceId,
+    name: 'AC tune-up',
+    repeatMonths: 6,
+  });
+  await page.reload();
+  await expect(page.getByTestId('needs-setup-maintenance_due')).toHaveCount(0);
+
+  // The end-of-day email goes at the business's own time.
+  await adjust(page, 'evening_brief');
+  await page.getByTestId('evening-at').selectOption('20:00');
+  await expect
+    .poll(async () => (await settingsOf(owner)).automations?.briefings?.eveningAt)
+    .toBe('20:00');
+  await close(page);
+
+  // Referrals are an Action Center kind: the row turns it off.
+  await expect(page.getByTestId('automation-referral_mentioned')).toContainText('Just alerts you');
+  await page.getByTestId('automation-switch-referral_mentioned').click();
+  await expect.poll(async () => (await saved(owner)).kinds?.['referral_mentioned']).toBe(false);
 });

@@ -213,15 +213,29 @@ export interface MorningItem {
   readonly link: string;
 }
 
+/** One visit on today's list: "9:00 AM · Maria Lopez · AC tune-up". */
+export interface MorningJob {
+  readonly time: string;
+  readonly customers: string;
+  readonly title: string;
+  /** The customer hasn't confirmed it. */
+  readonly unconfirmed: boolean;
+  readonly link: string;
+}
+
 /**
- * Once a day, at 7 AM where the business is: what needs this person's attention, urgent first. Only sent to
- * someone who has something waiting.
+ * Once a day, at 7 AM where the business is (Automations' "Morning brief"): today's jobs, who to call, and
+ * whatever else needs this person, urgent first. Only sent to someone who has something.
  */
 export function attentionMorningEmail(input: {
   readonly business: string;
   readonly firstName: string;
   /** "$18,500 affected", in cents; 0 leaves the amount out. */
   readonly affectedCents: number;
+  /** Today's visits, earliest first. */
+  readonly jobs?: readonly MorningJob[];
+  /** Who to call today: follow-ups due, hot leads, quotes waiting, visits not confirmed. */
+  readonly call?: readonly MorningItem[];
   readonly urgent: readonly MorningItem[];
   /** The rest, ranked; the email lists the top few. */
   readonly rest: readonly MorningItem[];
@@ -231,24 +245,34 @@ export function attentionMorningEmail(input: {
   /** They see everyone's items (an owner or admin), not just their own. */
   readonly everyone: boolean;
 }): EmailContent {
+  const jobs = input.jobs ?? [];
+  const call = input.call ?? [];
   const n = input.total;
   const urgent = input.urgent.length;
-  const subject = `${count(n, 'thing')} need${n === 1 ? 's' : ''} your attention today${
-    urgent > 0 ? `, ${urgent} urgent` : ''
-  }`;
+  const subject = [
+    jobs.length ? `${count(jobs.length, 'job')} today` : '',
+    call.length ? `${count(call.length, 'call')} to make` : '',
+    n > 0 ? `${count(n, 'thing')} need${n === 1 ? 's' : ''} your attention today` : '',
+    urgent > 0 ? `${urgent} urgent` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
   const tally = [
     input.affectedCents > 0 ? `${moneyLabel(input.affectedCents)} affected` : '',
-    `${count(n, 'thing')} to look at`,
+    jobs.length ? count(jobs.length, 'job') : '',
+    n > 0 ? `${count(n, 'thing')} to look at` : '',
     urgent > 0 ? `${urgent} urgent` : '',
   ]
     .filter(Boolean)
     .join(' · ');
   const hello = `Good morning${input.firstName ? `, ${input.firstName}` : ''}.`;
   const scope = input.everyone
-    ? `Here’s what needs attention at ${input.business}.`
-    : `Here’s what needs you at ${input.business}, plus anything nobody has taken.`;
+    ? `Here’s the day at ${input.business}.`
+    : `Here’s your day at ${input.business}, plus anything nobody has taken.`;
   const line = (i: MorningItem) =>
     `${i.kind}: ${i.title}${i.chips.length ? ` (${i.chips.join(' · ')})` : ''}`;
+  const jobLine = (j: MorningJob) =>
+    `${j.time} · ${j.customers} · ${j.title}${j.unconfirmed ? ' (not confirmed)' : ''}`;
   const why = `You’re getting this because Morning summary is on for your account.`;
   const section = (heading: string, items: readonly MorningItem[]) =>
     items.length ? [heading, ...items.map((i) => `- ${line(i)}: ${i.link}`), ''] : [];
@@ -257,8 +281,10 @@ export function attentionMorningEmail(input: {
     '',
     tally,
     '',
+    ...(jobs.length ? ['Today’s jobs', ...jobs.map((j) => `- ${jobLine(j)}: ${j.link}`), ''] : []),
+    ...section('Who to call today', call),
     ...section('Urgent', input.urgent),
-    ...section(input.urgent.length ? 'Also today' : 'Today', input.rest),
+    ...section(input.urgent.length ? 'Also needs you' : 'Needs you', input.rest),
     `Open the Action Center: ${input.homeLink}`,
     '',
     why,
@@ -277,19 +303,160 @@ export function attentionMorningEmail(input: {
           }</li>`,
       )
       .join('');
-  const htmlSection = (heading: string, items: readonly MorningItem[]) =>
-    items.length
-      ? `<p style="font-size: 12.5px; font-weight: 600; color: #5b616a; margin: 18px 0 6px;">${escapeHtml(heading)}</p>` +
-        `<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5;">${htmlItems(items)}</ul>`
-      : '';
+  const heading = (h: string) =>
+    `<p style="font-size: 12.5px; font-weight: 600; color: #5b616a; margin: 18px 0 6px;">${escapeHtml(h)}</p>`;
+  const list = (inner: string) =>
+    `<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5;">${inner}</ul>`;
+  const htmlSection = (h: string, items: readonly MorningItem[]) =>
+    items.length ? heading(h) + list(htmlItems(items)) : '';
+  const htmlJobs = jobs.length
+    ? heading('Today’s jobs') +
+      list(
+        jobs
+          .map(
+            (j) =>
+              `<li style="margin-bottom: 6px;"><a href="${escapeHtml(j.link)}" style="color: #2d69d8; text-decoration: none;">${escapeHtml(
+                `${j.time} · ${j.customers}`,
+              )}</a> · ${escapeHtml(j.title)}${
+                j.unconfirmed
+                  ? ' <span style="font-size: 12.5px; color: #b45309;">not confirmed</span>'
+                  : ''
+              }</li>`,
+          )
+          .join(''),
+      )
+    : '';
   const html = shell(
     preheader(tally) +
       wordmark +
       para(`${escapeHtml(hello)} ${escapeHtml(scope)}`) +
       `<p style="font-size: 12.5px; color: #5b616a; margin: 0 0 4px;">${escapeHtml(tally)}</p>` +
+      htmlJobs +
+      htmlSection('Who to call today', call) +
       htmlSection('Urgent', input.urgent) +
-      htmlSection(input.urgent.length ? 'Also today' : 'Today', input.rest) +
+      htmlSection(input.urgent.length ? 'Also needs you' : 'Needs you', input.rest) +
       button(input.homeLink, 'Open the Action Center') +
+      small(escapeHtml(why)) +
+      small(STOP_THESE),
+  );
+  return { subject: subject || 'Your day', text, html };
+}
+
+/** The day in numbers, as the evening email counts it. */
+export interface EveningNumbers {
+  readonly newLeads: number;
+  readonly leadsReached: number;
+  readonly jobsBooked: number;
+  readonly jobsDone: number;
+  readonly noShows: number;
+  readonly paidCents: number;
+  readonly payments: number;
+  readonly invoicesSent: number;
+  readonly estimatesSent: number;
+  /** Null: no AI teammate, so no AI line. */
+  readonly ai: { readonly answered: number; readonly draftsWaiting: number } | null;
+}
+
+/**
+ * At the end of the day (Automations' "End-of-day email", 6 PM by default), to owners and admins: what's still
+ * open, today's jobs nobody marked done, and the day in numbers.
+ */
+export function eveningBriefEmail(input: {
+  readonly business: string;
+  readonly firstName: string;
+  readonly numbers: EveningNumbers;
+  /** Today's visits whose time has passed and nobody marked done or a no-show. */
+  readonly notMarked: readonly MorningJob[];
+  /** Open Action Center items, urgent first; the email lists the top few. */
+  readonly open: readonly MorningItem[];
+  readonly openTotal: number;
+  readonly urgent: number;
+  readonly homeLink: string;
+}): EmailContent {
+  const m = input.numbers;
+  const subject = [
+    `${count(m.newLeads, 'new lead')}`,
+    `${count(m.jobsDone, 'job')} done`,
+    m.paidCents > 0 ? `${moneyLabel(m.paidCents)} in` : '',
+    input.openTotal > 0 ? `${input.openTotal} still open` : 'nothing left open',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const hello = `Good evening${input.firstName ? `, ${input.firstName}` : ''}.`;
+  const scope = `Here’s how today went at ${input.business}.`;
+  const lines = [
+    `Leads: ${count(m.newLeads, 'new lead')}${m.newLeads ? `, ${m.leadsReached} reached` : ''}`,
+    `Jobs: ${m.jobsBooked} booked, ${m.jobsDone} done${m.noShows ? `, ${count(m.noShows, 'no-show')}` : ''}${
+      input.notMarked.length ? `, ${input.notMarked.length} not marked done` : ''
+    }`,
+    `Money: ${moneyLabel(m.paidCents)} in${m.payments ? ` (${count(m.payments, 'payment')})` : ''}, ${count(
+      m.invoicesSent,
+      'invoice',
+    )} and ${count(m.estimatesSent, 'estimate')} sent`,
+    ...(m.ai
+      ? [
+          `AI teammate: answered ${count(m.ai.answered, 'conversation')}${
+            m.ai.draftsWaiting ? `, ${count(m.ai.draftsWaiting, 'draft')} waiting for you` : ''
+          }`,
+        ]
+      : []),
+  ];
+  const why = 'You’re getting this because End-of-day email is on for your account.';
+  const text = [
+    `${hello} ${scope}`,
+    '',
+    ...lines,
+    '',
+    ...(input.notMarked.length
+      ? [
+          'Not marked done yet',
+          ...input.notMarked.map((j) => `- ${j.time} · ${j.customers} · ${j.title}: ${j.link}`),
+          '',
+        ]
+      : []),
+    ...(input.open.length
+      ? [
+          `Still open (${input.openTotal}${input.urgent ? `, ${input.urgent} urgent` : ''})`,
+          ...input.open.map(
+            (i) =>
+              `- ${i.kind}: ${i.title}${i.chips.length ? ` (${i.chips.join(' · ')})` : ''}: ${i.link}`,
+          ),
+          '',
+        ]
+      : ['Nothing is left open on Home.', '']),
+    `Open HandsFreeOS: ${input.homeLink}`,
+    '',
+    why,
+    STOP_THESE,
+  ].join('\n');
+  const heading = (h: string) =>
+    `<p style="font-size: 12.5px; font-weight: 600; color: #5b616a; margin: 18px 0 6px;">${escapeHtml(h)}</p>`;
+  const li = (href: string, label: string, after = '') =>
+    `<li style="margin-bottom: 6px;"><a href="${escapeHtml(href)}" style="color: #2d69d8; text-decoration: none;">${escapeHtml(label)}</a>${after}</li>`;
+  const ul = (inner: string) =>
+    `<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5;">${inner}</ul>`;
+  const html = shell(
+    preheader(subject) +
+      wordmark +
+      para(`${escapeHtml(hello)} ${escapeHtml(scope)}`) +
+      heading('The day in numbers') +
+      `<ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6;">${lines
+        .map((l) => `<li>${escapeHtml(l)}</li>`)
+        .join('')}</ul>` +
+      (input.notMarked.length
+        ? heading('Not marked done yet') +
+          ul(
+            input.notMarked
+              .map((j) => li(j.link, `${j.time} · ${j.customers}`, ` · ${escapeHtml(j.title)}`))
+              .join(''),
+          )
+        : '') +
+      (input.open.length
+        ? heading(
+            `Still open (${input.openTotal}${input.urgent ? `, ${input.urgent} urgent` : ''})`,
+          ) + ul(input.open.map((i) => li(i.link, `${i.kind}: ${i.title}`)).join(''))
+        : para('Nothing is left open on Home.')) +
+      button(input.homeLink, 'Open HandsFreeOS') +
       small(escapeHtml(why)) +
       small(STOP_THESE),
   );

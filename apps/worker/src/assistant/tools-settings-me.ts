@@ -31,6 +31,7 @@ const meOf = (db: Db, ctx: ToolContext) => query<Me>(db, ctx, 'account.me');
 const EMAIL_SWITCHES: Record<string, { key: string; label: string }> = {
   emailWhenCustomerWaiting: { key: 'unansweredEmail', label: 'A customer is waiting' },
   morningEmail: { key: 'attentionDigest', label: 'The morning list' },
+  eveningEmail: { key: 'eveningSummary', label: 'The end-of-day email' },
   emailWhenAiHandsOver: { key: 'aiHandoff', label: 'Your AI hands a customer over' },
   emailWhenBooked: { key: 'bookingEmail', label: 'Someone books' },
   emailWhenPaid: { key: 'paymentEmail', label: 'Someone pays' },

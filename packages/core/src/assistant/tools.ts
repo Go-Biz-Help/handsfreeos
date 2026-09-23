@@ -866,6 +866,10 @@ export const assistantTools = [
       appearance: z.enum(['light', 'dark', 'system']).optional(),
       emailWhenCustomerWaiting: z.boolean().optional(),
       morningEmail: z.boolean().optional().describe('The morning list of what needs attention'),
+      eveningEmail: z
+        .boolean()
+        .optional()
+        .describe('The end-of-day email with the day in numbers (owners and admins)'),
       emailWhenAiHandsOver: z.boolean().optional(),
       emailWhenBooked: z.boolean().optional(),
       emailWhenPaid: z.boolean().optional(),

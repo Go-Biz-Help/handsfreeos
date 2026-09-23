@@ -12,9 +12,16 @@ import {
   checkNudgeTemplate,
   DEFAULT_FOLLOW_UP_LADDER_HOURS,
   DEFAULT_NUDGE_TEMPLATE,
+  DEFAULT_INTAKE_MESSAGE,
+  DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
+  DEFAULT_MAINTENANCE_TEMPLATE,
   DEFAULT_REENGAGE_TEMPLATE,
+  intakeMessageProblem,
+  maintenanceTemplateProblem,
   followUpLadderWords,
   NUDGE_SAMPLE,
+  renderIntakeMessage,
+  renderMaintenance,
   renderNudge,
   shortBusinessName,
   smsSegments,
@@ -33,6 +40,7 @@ import { toast } from 'sonner';
 import { useNow } from '@/components/calendar/appt';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { fieldErrors } from '@/lib/api/field-errors';
@@ -79,6 +87,15 @@ export interface PanelEnv {
   /** The preview's {senderName}: the person reading. */
   readonly senderName: string;
   readonly teammateName: string | null;
+  /** The business's forms (not archived), for "Intake questions". */
+  readonly forms: readonly IntakeFormOption[];
+}
+
+/** A form "Intake questions" may send. Only a live one goes out. */
+export interface IntakeFormOption {
+  readonly id: string;
+  readonly name: string;
+  readonly status: 'draft' | 'live' | 'closed' | 'archived';
 }
 
 const heading = 'text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3';
@@ -586,6 +603,291 @@ function WaitlistPanel({ env }: { env: PanelEnv }) {
   );
 }
 
+function IntakePanel({ env }: { env: PanelEnv }) {
+  const intake = env.automations.intake;
+  const live = env.forms.filter((f) => f.status === 'live');
+  const chosen = env.forms.find((f) => f.id === intake.formId) ?? null;
+  const [draft, setDraft] = useState(intake.message);
+  const [error, setError] = useState<string | null>(null);
+  const problem = intakeMessageProblem(draft);
+  const dirty = draft.trim() !== intake.message;
+  const preview = renderIntakeMessage(draft, {
+    firstName: NUDGE_SAMPLE.firstName,
+    businessName: env.businessName,
+    link: 'https://…/f/your-form',
+  });
+  const formsHref = `/app/w/${env.workspaceId}/forms`;
+  return (
+    <>
+      <Block>
+        <Note>
+          Right after a customer books their first visit, they get your intake form by text, or by
+          email when they can’t be texted. It goes a couple of minutes after the booking
+          confirmation, only when the customer is told about the booking, and never to a returning
+          customer or someone who already filled it in.
+        </Note>
+      </Block>
+      <Block title="The form">
+        {live.length ? (
+          <Select
+            selectSize="sm"
+            aria-label="Intake form"
+            value={chosen?.id ?? ''}
+            data-testid="intake-form"
+            onChange={(e) => {
+              const formId = e.target.value || null;
+              const name = env.forms.find((f) => f.id === formId)?.name;
+              void env.saveAutomations(
+                (s) => ({ ...s, intake: { ...s.intake, formId } }),
+                name ? `First-time customers get “${name}”.` : 'No intake form is sent.',
+              );
+            }}
+          >
+            <option value="">Pick a form…</option>
+            {live.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </Select>
+        ) : (
+          <Note>
+            You don’t have a live form yet. The “Before your first visit” starter in{' '}
+            <Link href={formsHref} className={linkCls}>
+              Forms
+            </Link>{' '}
+            is a good place to begin.
+          </Note>
+        )}
+        {chosen && chosen.status !== 'live' ? (
+          <p className="text-[12.5px] text-warning-text" data-testid="intake-form-not-live">
+            “{chosen.name}” isn’t live, so nothing goes until it is.
+          </p>
+        ) : null}
+        <Note>
+          Change the questions in{' '}
+          <Link href={formsHref} className={linkCls}>
+            Forms
+          </Link>
+          .
+        </Note>
+      </Block>
+      <Block title="The message">
+        <Textarea
+          aria-label="Intake message"
+          value={draft}
+          rows={3}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+          }}
+          data-testid="intake-message"
+        />
+        <p className="text-[12.5px] text-text-3">
+          Use {'{firstName}'}, {'{businessName}'} and {'{link}'}. The link is the form’s.
+        </p>
+        {problem || error ? (
+          <p className="text-[12.5px] text-danger-text" data-testid="intake-message-error">
+            {problem ?? error}
+          </p>
+        ) : null}
+        <div className="rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[13px] leading-[1.45]">
+          <span className="text-text-3">What {NUDGE_SAMPLE.firstName} gets: </span>
+          <span data-testid="intake-preview">{preview}</span>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            disabled={!dirty || !!problem}
+            onClick={() =>
+              void env.saveAutomations(
+                (s) => ({ ...s, intake: { ...s.intake, message: draft.trim() } }),
+                'Saved the intake message.',
+                (e) => {
+                  const f = fieldErrors(e);
+                  setError(Object.values(f)[0] ?? 'That didn’t save.');
+                },
+              )
+            }
+            data-testid="intake-message-save"
+          >
+            Save
+          </Button>
+          {draft.trim() !== DEFAULT_INTAKE_MESSAGE ? (
+            <Button size="sm" variant="ghost" onClick={() => setDraft(DEFAULT_INTAKE_MESSAGE)}>
+              Use the standard wording
+            </Button>
+          ) : null}
+        </div>
+      </Block>
+    </>
+  );
+}
+
+// ---- Maintenance due ----
+
+/** One maintenance wording: the box, its problems, a preview, and Save. */
+function MaintenanceWording({ env, which }: { env: PanelEnv; which: 'template' | 'planTemplate' }) {
+  const plan = which === 'planTemplate';
+  const saved = env.automations.maintenance[which];
+  const fallback = plan ? DEFAULT_MAINTENANCE_PLAN_TEMPLATE : DEFAULT_MAINTENANCE_TEMPLATE;
+  const [draft, setDraft] = useState(saved);
+  const [error, setError] = useState<string | null>(null);
+  const problem = maintenanceTemplateProblem(draft, { plan });
+  const preview = renderMaintenance(draft, {
+    firstName: NUDGE_SAMPLE.firstName,
+    businessName: env.businessName,
+    service: 'AC tune-up',
+    link: 'https://…/book/your-calendar',
+    plan: plan ? 'Comfort Club' : null,
+  });
+  const id = plan ? 'maint-plan' : 'maint';
+  return (
+    <div className="flex flex-col gap-2">
+      <Textarea
+        aria-label={plan ? 'Maintenance message for plan members' : 'Maintenance message'}
+        value={draft}
+        rows={3}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setError(null);
+        }}
+        data-testid={`${id}-message`}
+      />
+      <p className="text-[12.5px] text-text-3">
+        Use {'{firstName}'}, {'{businessName}'}, {'{service}'}
+        {plan ? <>, {'{plan}'}</> : null} and {'{link}'}. The link opens your booking page on that
+        service.
+      </p>
+      {problem || error ? (
+        <p className="text-[12.5px] text-danger-text" data-testid={`${id}-error`}>
+          {problem ?? error}
+        </p>
+      ) : null}
+      <div className="rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[13px] leading-[1.45]">
+        <span className="text-text-3">What {NUDGE_SAMPLE.firstName} gets: </span>
+        <span data-testid={`${id}-preview`}>{preview}</span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={draft.trim() === saved || !!problem}
+          onClick={() =>
+            void env.saveAutomations(
+              (s) => ({ ...s, maintenance: { ...s.maintenance, [which]: draft.trim() } }),
+              'Saved the maintenance message.',
+              (e) => setError(Object.values(fieldErrors(e))[0] ?? 'That didn’t save.'),
+            )
+          }
+          data-testid={`${id}-save`}
+        >
+          Save
+        </Button>
+        {draft.trim() !== fallback ? (
+          <Button size="sm" variant="ghost" onClick={() => setDraft(fallback)}>
+            Use the standard wording
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MaintenancePanel({ env }: { env: PanelEnv }) {
+  const m = env.automations.maintenance;
+  const saveNumber = (key: 'leadDays' | 'secondAfterDays' | 'maxPerDay', n: number, done: string) =>
+    void env.saveAutomations((s) => ({ ...s, maintenance: { ...s.maintenance, [key]: n } }), done);
+  return (
+    <>
+      <Block>
+        <Note>
+          When a customer’s regular service comes round again, they get a text in your words with a
+          link to book it. If they don’t book, a second text goes, and then a card on Home asks
+          someone to call them. Booking it at any point stops the rest.
+        </Note>
+        <Note>
+          How often comes from the service’s “Repeats every” in{' '}
+          <Link href={`/app/w/${env.workspaceId}/settings/calendars/services`} className={linkCls}>
+            Services
+          </Link>
+          , from a maintenance plan that covers it, or from a customer’s own schedule on their page.
+          Only people who agreed to texts get one; STOP always wins.
+        </Note>
+      </Block>
+      <Block title="When">
+        <SetRow first center title="First text" description="Before the visit is due.">
+          <NumberBox
+            value={m.leadDays}
+            min={0}
+            max={60}
+            unit="days before"
+            label="Days before the visit is due"
+            onCommit={(n) => saveNumber('leadDays', n, `The first text goes ${n} days before.`)}
+            testId="maint-lead-days"
+          />
+        </SetRow>
+        <SetRow
+          center
+          title="Second text, then a card"
+          description="If they haven’t booked, after this long each time."
+        >
+          <NumberBox
+            value={m.secondAfterDays}
+            min={1}
+            max={30}
+            unit="days"
+            label="Days between the texts, and before the card"
+            onCommit={(n) => saveNumber('secondAfterDays', n, `${n} days between each step.`)}
+            testId="maint-second-days"
+          />
+        </SetRow>
+        <SetRow
+          center
+          title="At most a day"
+          description="Customers already overdue go a few at a time, most overdue first."
+        >
+          <NumberBox
+            value={m.maxPerDay}
+            min={1}
+            max={200}
+            unit="texts"
+            label="At most this many first reminders a day"
+            onCommit={(n) => saveNumber('maxPerDay', n, `At most ${n} a day.`)}
+            testId="maint-max-per-day"
+          />
+        </SetRow>
+      </Block>
+      <Block title="The message">
+        <MaintenanceWording env={env} which="template" />
+      </Block>
+      <Block title="For customers on a maintenance plan">
+        <MaintenanceWording env={env} which="planTemplate" />
+      </Block>
+    </>
+  );
+}
+
+// ---- After the job ----
+
+function ThankYouPanel({ env }: { env: PanelEnv }) {
+  const ai = env.teammateName ?? 'Your AI teammate';
+  return (
+    <Block>
+      <Note>
+        Two hours after a job is marked done, {ai} texts the customer a short thank-you that
+        mentions the job. It asks for nothing: no review, no payment. While it’s training, the
+        thank-you waits in Approvals for you.
+      </Note>
+      <Note>
+        It skips anyone someone already wrote to since the job, anyone who can’t be reached, and
+        calendars with their own “job done” workflow. With no AI teammate switched on, or when
+        someone on the team has their conversation, a card on Home reminds you to thank them
+        instead.
+      </Note>
+    </Block>
+  );
+}
+
 // ---- Money ----
 
 function InvoicesPanel({ env }: { env: PanelEnv }) {
@@ -706,9 +1008,10 @@ function MorningPanel({ env }: { env: PanelEnv }) {
   return (
     <Block>
       <Note>
-        At 7 AM where the business is, everyone on the team gets one email about what needs them,
-        urgent first, and only when there’s something. A member sees their own items and the ones
-        nobody has taken; owners and admins see everything.
+        At 7 AM where the business is, everyone on the team gets one email: today’s jobs (with the
+        ones not confirmed yet), who to call (follow-ups due, hot leads, quotes waiting on a yes,
+        visits not confirmed), then whatever else needs them, urgent first. A member sees their own
+        jobs and items and the ones nobody has taken; owners and admins see everything.
       </Note>
       <Note>
         Anyone can turn off their own copy in{' '}
@@ -718,6 +1021,62 @@ function MorningPanel({ env }: { env: PanelEnv }) {
         . This switch turns it off for the whole team.
       </Note>
     </Block>
+  );
+}
+
+/** "6:00 PM" choices for the evening email, noon to 10 PM on the half hour. */
+const EVENING_TIMES = Array.from({ length: 21 }, (_, i) => {
+  const minutes = 12 * 60 + i * 30;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const label = `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  return { value, label };
+});
+
+function EveningPanel({ env }: { env: PanelEnv }) {
+  const at = env.automations.briefings.eveningAt;
+  return (
+    <>
+      <Block>
+        <Note>
+          Owners and admins get one email at the end of the day: the day in numbers (new leads and
+          how many were reached, jobs booked, done and missed, money in, what the AI teammate did),
+          today’s jobs nobody marked done, and what’s still open on Home.
+        </Note>
+        <Note>
+          Anyone can turn off their own copy in{' '}
+          <Link href={`/app/w/${env.workspaceId}/settings`} className={linkCls}>
+            Account
+          </Link>
+          . This switch turns it off for everyone.
+        </Note>
+      </Block>
+      <Block title="When">
+        <SetRow first center title="Sends at" description="Where the business is.">
+          <Select
+            selectSize="sm"
+            aria-label="When the evening email goes"
+            value={at}
+            onChange={(e) => {
+              const next = e.target.value;
+              const label = EVENING_TIMES.find((t) => t.value === next)?.label ?? next;
+              void env.saveAutomations(
+                (s) => ({ ...s, briefings: { ...s.briefings, eveningAt: next } }),
+                `The end-of-day email goes at ${label}.`,
+              );
+            }}
+            data-testid="evening-at"
+          >
+            {EVENING_TIMES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      </Block>
+    </>
   );
 }
 
@@ -1225,8 +1584,12 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   day_before: DayBeforePanel,
   unconfirmed: UnconfirmedPanel,
   waitlist: WaitlistPanel,
+  intake: IntakePanel,
+  maintenance: MaintenancePanel,
+  thank_you: ThankYouPanel,
   invoices: InvoicesPanel,
   morning: MorningPanel,
+  evening: EveningPanel,
   stale: StalePanel,
   estimates: EstimatesPanel,
   balance: BalancePanel,

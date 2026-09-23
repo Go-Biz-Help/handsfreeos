@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import type { PlanRow, SubscriptionRow } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CustomerCell, ListNote, RowLink, Td, Th } from './list-bits';
+import { PlanVisitsButton, type ServiceChoice } from './plan-visits';
 import { StatusBadge } from './status-badge';
 
 /** "$29 a month", "$290 a year", "$149 every 3 months": core's, so the phone's list says the same. */
@@ -19,12 +20,17 @@ export function PlansList({
   subscriptions,
   monthlyRecurringCents,
   timeZone,
+  services = [],
+  canManage = false,
 }: {
   workspaceId: string;
   plans: readonly PlanRow[];
   subscriptions: readonly SubscriptionRow[];
   monthlyRecurringCents: number;
   timeZone: string;
+  /** For each plan's visits (Maintenance due). */
+  services?: readonly ServiceChoice[];
+  canManage?: boolean;
 }) {
   useLiveRefresh(['subscription', 'plan']);
   const billing = subscriptions.filter((s) => BILLING.has(s.status));
@@ -53,6 +59,7 @@ export function PlansList({
                 <Th>Price</Th>
                 <Th align="right">Members</Th>
                 <Th className="max-md:hidden">What it includes</Th>
+                <Th>Visits</Th>
                 <Th align="right">A month</Th>
               </tr>
             </thead>
@@ -73,6 +80,14 @@ export function PlansList({
                         {p.includes.length ? p.includes.join(', ') : (p.description ?? '—')}
                       </span>
                     </Td>
+                    <Td className="whitespace-nowrap">
+                      <PlanVisitsButton
+                        workspaceId={workspaceId}
+                        plan={p}
+                        services={services}
+                        canManage={canManage}
+                      />
+                    </Td>
                     <Td align="right">{monthly === null ? '—' : money(monthly)}</Td>
                   </tr>
                 );
@@ -82,6 +97,7 @@ export function PlansList({
                 <Td />
                 <Td />
                 <Td className="max-md:hidden" />
+                <Td />
                 <Td align="right" className="whitespace-nowrap font-semibold">
                   {money(monthlyRecurringCents)} a month
                 </Td>
@@ -92,6 +108,7 @@ export function PlansList({
                   <Td />
                   <Td />
                   <Td className="max-md:hidden" />
+                  <Td />
                   <Td align="right" className="whitespace-nowrap text-text-3">
                     {money(Math.round(yearlyCents))} a year
                   </Td>

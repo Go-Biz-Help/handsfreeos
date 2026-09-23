@@ -9,7 +9,7 @@ import {
 } from '@hfos/ai';
 import { addDays, weekdayOf } from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
-import { FIRST_MESSAGE_ASK, NUDGE_ASK } from '../ai-team/turns';
+import { FIRST_MESSAGE_ASK, NUDGE_ASK, TASK_ASK } from '../ai-team/turns';
 
 /**
  * The stand-in model for AI work outside the Assistant: workflow AI steps, the AI builder, the knowledge base
@@ -658,6 +658,30 @@ function firstMessageStep(t: TeammateTurn): TeammateStep {
   return say(`${hello(t)}Thanks for getting in touch with ${businessName(t.context)}! ${ask}`);
 }
 
+/** A thank-you after a job: warm, and it asks for nothing. */
+const thankYouStep = (t: TeammateTurn): TeammateStep =>
+  say(
+    `${hello(t)}Thanks for choosing ${businessName(t.context)} today. We hope everything is working well!`,
+  );
+
+/** A reply to someone who just mentioned a referral starts by thanking them for it (prompt.ts's <referral>). */
+function thanked(asked: string, step: TeammateStep): TeammateStep {
+  if (!asked.includes('<referral>') || 'text' in step) return step;
+  return {
+    calls: step.calls.map((c) =>
+      c.name === 'reply' && typeof c.arguments['message'] === 'string'
+        ? {
+            ...c,
+            arguments: {
+              ...c.arguments,
+              message: `Thanks so much for thinking of us! ${c.arguments['message']}`,
+            },
+          }
+        : c,
+    ),
+  };
+}
+
 /** A nudge: short, and it asks again. */
 const nudgeStep = (): TeammateStep => say('Just checking in: did you still want help with that?');
 
@@ -720,7 +744,9 @@ export function scriptedTeammateTurn(
       ? firstMessageStep(turn)
       : asked.includes(NUDGE_ASK)
         ? nudgeStep()
-        : (rules.find((r) => r.when.test(words)) ?? TEAMMATE_FALLBACK).step(turn);
+        : asked.includes(TASK_ASK)
+          ? thankYouStep(turn)
+          : thanked(asked, (rules.find((r) => r.when.test(words)) ?? TEAMMATE_FALLBACK).step(turn));
   const usage = {
     inputTokens: Math.ceil(
       (request.system.length + turn.context.length + JSON.stringify(request.messages).length) / 4,
@@ -766,8 +792,42 @@ class WorkerScriptedProvider extends ScriptedProvider {
 }
 
 /** Every scripted rule, feature by feature. */
+// ---- Automations: whether a customer mentioned a referral (automations/referrals.ts) ----
+
+const RELATIONS =
+  /\b(neighbou?r|friend|sister|brother|mom|mum|dad|mother|father|son|daughter|aunt|uncle|cousin|coworker|co-worker|colleague|boss|landlord|tenant)\b(?:\s+([A-Z][a-z]+))?/;
+const NEEDS =
+  /\b(?:needs?|is looking for|wants?)\s+(?:a |an |her |his |their |some )?([^,.;!?\n]+)/i;
+
+/** Reads a referral the plain way: who (a relation and the capitalised name after it), a number, and a need. */
+export function scriptedReferral(message: string): Record<string, unknown> {
+  const words = customerWords(message);
+  const who = RELATIONS.exec(words);
+  const need = NEEDS.exec(words)?.[1]?.trim() ?? null;
+  const phone = /(\+?1?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})/.exec(words)?.[1] ?? null;
+  const email = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i.exec(words)?.[0] ?? null;
+  const referral =
+    !!who && (!!need || !!phone || /recommend|pass(?:ed)? (?:along|on)/i.test(words));
+  return {
+    referral,
+    name: referral ? (who?.[2] ?? null) : null,
+    relation: referral ? who![1]!.toLowerCase() : null,
+    phone: referral ? phone : null,
+    email: referral ? email : null,
+    need: referral ? need : null,
+  };
+}
+
+export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Say whether the customer’s words above mention someone else who needs the business\.$/,
+    json: (message) => scriptedReferral(message),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...KNOWLEDGE_RULES,
+  ...AUTOMATION_RULES,
   ...WORKFLOW_RULES,
   ...BUILDER_RULES,
 ];
