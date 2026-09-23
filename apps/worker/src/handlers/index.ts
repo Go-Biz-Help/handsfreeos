@@ -49,6 +49,7 @@ import {
 import { onWalletLow } from '../money/recharge';
 import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
+import { onFoundingCheckoutRequested } from '../founding/checkout';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
@@ -135,6 +136,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'payment_connection.disconnected': onPaymentConnectionDisconnected,
     // A person asked for a refund: the provider call is queued, so it retries on its own (money/refunds.ts).
     'refund.requested': onRefundRequested,
+    // Somebody pressed Pay on a founding seat (0093): Stripe's page is made by a job, which retries on its own.
+    'founding.checkout_requested': onFoundingCheckoutRequested,
     // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
     // for the same reason a refund is. `wallet.empty` brings no second attempt — by then the top-up has
     // already been tried — but it does bring the email, because a push can be switched off and at zero we do

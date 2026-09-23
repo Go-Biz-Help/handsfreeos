@@ -32,6 +32,8 @@ export const applicationStatus = z.enum([
   'withdrawn',
 ]);
 export const offerStatus = z.enum(['draft', 'open', 'closed']);
+/** Where one attempt to pay for a seat has got to (0093). `pending` has no Stripe page yet. */
+export const checkoutStatus = z.enum(['pending', 'open', 'paid', 'expired', 'failed']);
 /** `once` is a founding seat, free or paid once. `monthly` is the plan: no seats, no applications (0092). */
 export const offerBilling = z.enum(['once', 'monthly']);
 export const planKind = z.enum(['founding_free', 'founding_lifetime', 'monthly']);
@@ -96,8 +98,11 @@ export const FoundingApplicationOutput = z.strictObject({
 
 // ---------- claiming ----------
 
+/** The claim link's token, exactly as the link carries it. */
+const claimToken = z.string().trim().min(16).max(200);
+
 export const FoundingClaimInput = z.strictObject({
-  token: z.string().trim().min(16).max(200),
+  token: claimToken,
   workspaceId: uuid,
 });
 
@@ -108,6 +113,96 @@ export const FoundingClaimOutput = z.strictObject({
   plan: planKind,
   /** What was put in the wallet to start them off, in cents. Zero on an offer that grants none. */
   creditedCents: z.int(),
+});
+
+export const FoundingClaimPreviewInput = z.strictObject({ token: claimToken });
+
+/**
+ * What the page a claim link opens needs to know, and nothing else: the offer, its price, the business it was
+ * approved for, and where the seat stands. Only ever about the seat whose token was sent.
+ */
+export const FoundingClaimPreviewOutput = z.strictObject({
+  /**
+   * `ready` to take up or pay for, `claimed` when it already is, `expired` when the link ran out, and `gone`
+   * when the seat was taken back or lapsed.
+   */
+  state: z.enum(['ready', 'claimed', 'expired', 'gone']),
+  offerId,
+  offerName: z.string(),
+  priceCents: z.int(),
+  /** The business the seat was approved for. Its workspaces are the only ones it can go on. */
+  organizationId: uuid,
+  businessName: z.string(),
+  expiresAt: z.iso.datetime().nullable(),
+  /** A checkout already under way on this seat, to be picked up rather than started again. */
+  checkoutId: uuid.nullable(),
+  checkoutWorkspaceId: uuid.nullable(),
+});
+
+export const FoundingStartCheckoutInput = z.strictObject({
+  token: claimToken,
+  workspaceId: uuid,
+});
+
+export const FoundingStartCheckoutOutput = z.strictObject({
+  checkoutId: uuid,
+  status: checkoutStatus,
+  /** Stripe's page, once the worker has made it. Null while it is being made — ask again in a moment. */
+  url: z.string().nullable(),
+  /** False when this picked up a checkout already under way instead of starting one. */
+  created: z.boolean(),
+});
+
+export const FoundingCheckoutStatusInput = z.strictObject({ checkoutId: uuid });
+
+export const FoundingCheckoutStatusOutput = z.strictObject({
+  checkoutId: uuid,
+  workspaceId: uuid,
+  offerName: z.string(),
+  amountCents: z.int(),
+  status: checkoutStatus,
+  url: z.string().nullable(),
+  expiresAt: z.iso.datetime().nullable(),
+  /** True once the seat is on the workspace: what the page waits for after Stripe sends somebody back. */
+  seatActive: z.boolean(),
+  /** Why it did not go through, in words for the person who was paying. Empty when nothing went wrong. */
+  problem: z.string(),
+});
+
+/** The worker made Stripe's page. */
+export const FoundingRecordCheckoutOpenedInput = z.strictObject({
+  workspaceId: uuid,
+  checkoutId: uuid,
+  sessionRef: z.string().trim().min(1).max(255),
+  url: z.url().max(2000),
+  expiresAt: z.iso.datetime().nullable(),
+});
+
+/** Stripe says the money is in. */
+export const FoundingRecordCheckoutPaidInput = z.strictObject({
+  workspaceId: uuid,
+  checkoutId: uuid,
+  sessionRef: z.string().trim().min(1).max(255),
+  /** The PaymentIntent, when Stripe named one: what a refund is made against. */
+  paymentRef: z.string().trim().max(255).nullable(),
+  paidCents: z.int().min(0),
+});
+
+/** A checkout that will not be paid: the page lapsed, or it could not be made. */
+export const FoundingRecordCheckoutClosedInput = z.strictObject({
+  workspaceId: uuid,
+  checkoutId: uuid,
+  status: z.enum(['expired', 'failed']),
+  problem: z.string().trim().max(1000).default(''),
+});
+
+export const FoundingCheckoutRecordOutput = z.strictObject({
+  checkoutId: uuid,
+  /**
+   * `activated`: the seat is theirs. `already`: this was recorded before. `no_seat`: the money is in and the
+   * seat is not — written on the checkout for staff. `opened`, `closed` and `unchanged` for the other two.
+   */
+  outcome: z.enum(['activated', 'already', 'no_seat', 'opened', 'closed', 'unchanged']),
 });
 
 // ---------- taking a seat back ----------
@@ -224,6 +319,10 @@ export const FoundingQueueOutput = z.strictObject({
       revokedAt: z.iso.datetime().nullable(),
       revokeReason: z.string(),
       graceEndsAt: z.iso.datetime().nullable(),
+      /** The latest attempt to pay for this seat, if it is a paid one and somebody has started. */
+      checkoutStatus: checkoutStatus.nullable(),
+      /** Set when a payment needs a person: paid, but the seat could not be turned on. */
+      checkoutProblem: z.string(),
     }),
   ),
 });

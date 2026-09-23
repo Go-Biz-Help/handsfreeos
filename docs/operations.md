@@ -145,6 +145,7 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | Chat IP key                                                                | `CHAT_IP_KEY`, a value you make with `openssl rand -base64 32`. The website chat keeps visitors' IP addresses only as a one-way hash made with it.                                                                  | Fly.io secret `CHAT_IP_KEY` on `handsfreeos-worker` only                                                                                                                                                                        |
 | Stripe Connect platform                                                    | The platform's **Client ID** (starts `ca_`), its live **secret key** (starts `sk_live_`), its live **publishable key** (starts `pk_live_`, not secret) and the Connect **webhook signing secret** (starts `whsec_`) | Fly.io secrets `STRIPE_CLIENT_ID`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` and `STRIPE_WEBHOOK_SECRET` on `handsfreeos-worker` only                                                                                       |
 | Stripe test keys                                                           | The same four values from Stripe's test mode, for your laptop                                                                                                                                                       | `apps/worker/.env` on your Mac only                                                                                                                                                                                             |
+| Stripe — our own account                                                   | The **webhook signing secret** (starts `whsec_`) of the second endpoint, for the founding seats' Checkout (see "Founding seats")                                                                                    | Fly.io secret `STRIPE_PLATFORM_WEBHOOK_SECRET` on `handsfreeos-worker` only                                                                                                                                                     |
 | Square developer application                                               | The application's **Application ID** and **Application Secret**, and the **webhook signature key** for each of production and sandbox                                                                               | Fly.io secrets `SQUARE_APPLICATION_ID`, `SQUARE_APPLICATION_SECRET` and `SQUARE_WEBHOOK_SIGNATURE_KEYS` on `handsfreeos-worker` only                                                                                            |
 | Square sandbox                                                             | The sandbox application id, secret and signature key, for your laptop                                                                                                                                               | `apps/worker/.env` on your Mac only                                                                                                                                                                                             |
 | Dev tunnel token, Postmark dev server token, Postmark dev webhook password | Laptop testing only (see "Local development")                                                                                                                                                                       | On your Mac only: the tunnel token in `~/.cloudflared/handsfreeos-dev.token`, the two Postmark dev values in `apps/worker/.env`. The dev webhook password also goes inside the dev server's webhook address in Postmark.        |
@@ -8085,6 +8086,100 @@ faster and smaller answer to "this one business is having a bad time".
   in a few days become one larger charge instead of many small ones, up to a cap shown on their own page. They
   were emailed before anything above twice their amount was charged. The fix they want is to raise their own
   top-up amount, which the email says.
+
+## Founding seats
+
+The founding offers are the first businesses on HandsFreeOS: twenty-five free seats, then a hundred at $497 paid
+once, and partway through those the $97 monthly plan goes on sale beside them. The sequence moves on by itself —
+the $497 seats open the moment the last free one goes — and the website follows it. Everything here happens
+in **Admin** → **Founding**.
+
+Founding needs the migrations `20261003000100_a_seat_at_the_founding_table.sql`,
+`20261003000200_one_offer_opens_the_next.sql` and `20261003000500_paying_for_a_seat.sql`. See "Apply new
+migrations".
+
+### Approving somebody
+
+1. Ask them to sign up to HandsFreeOS first, with the email they applied with. A seat belongs to a business, and
+   there has to be one to give it to.
+2. In **Admin** → **Founding**, find their application under **Waiting on you** and press **Approve**.
+3. Paste their business id, add a note on why them if you like, and press **Approve and hold a seat**.
+4. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
+   copy is kept, so closing the window without copying it means approving them again.
+
+You should see the seat under **Seats out**, marked "approved, not taken up". It is held for them for fourteen
+days. A seat nobody takes up in that time goes back to the offer on its own, within the hour after it runs out.
+
+### What they do with the link
+
+They open it signed in as an owner or admin of the business the seat was approved for. Signed in as anybody
+else, the page says so and offers to switch account — the link cannot put a seat on somebody else's business,
+whoever holds it.
+
+- **A free seat:** they press **Take up my seat**. Their workspace is on the founding plan at once, with its
+  starting usage credit.
+- **A $497 seat:** they press **Pay $497** and go to Stripe's own payment page. The seat turns on when Stripe
+  tells us the money is in, not when they arrive back — so it needs the webhook in "Paying for a seat: the
+  Stripe side" below. While they are paying, the seat stays held for them, and **Seats out** says "paying now".
+
+### Paying for a seat: the Stripe side
+
+The $497 is paid into HandsFreeOS's own Stripe account, the same one in "Money: Stripe and Square", through
+Stripe Checkout. It needs the live secret key on the worker and **a second webhook endpoint**, separate from the
+Connect one.
+
+**Part 1: The secret key.** If the worker already has `STRIPE_SECRET_KEY` from "Money: Stripe and Square" Part 3,
+skip this. Otherwise copy the live secret key from **Developers** → **API keys** (it starts with `sk_live_`) and
+put it on the worker the way that section's "Give the worker the values" does. The Connect client id is not
+needed for this. **The worker refuses to start with a test key (`sk_test_…`) in production.**
+
+**Part 2: The webhook for our own account.**
+
+1. In the Stripe dashboard, in **live** mode, go to **Developers** → **Webhooks** (on newer dashboards,
+   **Workbench** → **Webhooks**), and add a destination.
+2. Choose **Your account**, not **Connected accounts**. These events happen in HandsFreeOS's own account; the
+   Connect endpoint drops anything that isn't a business's.
+3. Select these four events, and no others:
+   - `checkout.session.completed`
+   - `checkout.session.expired`
+   - `checkout.session.async_payment_succeeded`
+   - `checkout.session.async_payment_failed`
+4. Set the API version to the one the worker pins (`API_VERSION` in `apps/worker/src/payments/stripe.ts`,
+   today `2026-08-26.dahlia`).
+5. Choose **Webhook endpoint**, and use this address:
+
+   ```text
+   https://hooks.handsfreeos.com/webhooks/stripe/platform
+   ```
+
+6. Create it, then press **Reveal** under **Signing secret** and copy it. It starts with `whsec_`. It is **not**
+   the Connect endpoint's secret; each endpoint has its own.
+7. Save it in your password manager as "Stripe — our own account", under webhook signing secret.
+8. In Terminal:
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+9. Type `STRIPE_PLATFORM_WEBHOOK_SECRET=` then paste, with no space and no quotes. Press Return, then Control-D.
+
+You should see `STRIPE_PLATFORM_WEBHOOK_SECRET` in `fly secrets list --app handsfreeos-worker`, and the worker
+restart. Until it is there, pressing **Pay** tells the person that paying online isn't switched on yet and
+keeps their seat held — the worker will not make a page nobody would hear back from.
+
+### When a payment needs a person
+
+- **Paid, but the seat could not be turned on.** Shown in red under the seat in **Admin** → **Founding**. The
+  money is in and nothing was undone, but the seat was revoked while they were paying, or it ran out and went to
+  somebody else. Either restore their seat (**Undo** under **Seats given back**, if there is room) and approve
+  them again, or refund them in the Stripe dashboard: **Payments**, search for the `pi_…` in the worker log line
+  `a founding seat was paid for and could not be turned on`.
+- **"This is taking longer than it should" after paying.** Stripe's event has not arrived. Check the endpoint in
+  Part 2 exists on **live**, and that the worker log does not say `rejected an unsigned or mis-signed Stripe
+webhook for our own account`. A wrong secret is fixed by setting the right one; Stripe tries a failed event
+  again for three days, so nothing is lost meanwhile.
+- **Somebody paid twice.** They did not. One checkout is live per seat, and the same idempotency key goes to
+  Stripe every time the page is asked for, so a second press of **Pay** opens the same page.
 
 ## A business's own web address
 

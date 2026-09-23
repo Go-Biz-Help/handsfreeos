@@ -416,6 +416,51 @@ export interface PaymentProvider {
  * false there and every method refuses in words a person can read — which is what `wallet.request_card` says
  * back to a business that has only connected Square.
  */
+/**
+ * A page to pay HandsFreeOS once (0093): a founding seat. The provider hosts it, so a card number never touches
+ * us, and the money lands in our own account — there is no seller's account anywhere in it.
+ */
+export interface CheckoutInput {
+  /** Ours. Stamped on the page and on its payment, so every event about it finds its way back. */
+  readonly checkoutId: string;
+  readonly amountCents: number;
+  /** What the person is buying, as the page and their receipt name it. */
+  readonly productName: string;
+  readonly description: string | null;
+  /** Where the provider sends them after paying, and after giving up. */
+  readonly successUrl: string;
+  readonly cancelUrl: string;
+  /** Filled in on the page for them, and where the receipt goes. */
+  readonly customerEmail: string | null;
+  readonly metadata: Readonly<Record<string, string>>;
+  /** Stable per checkout, so a retry makes the same page rather than a second one. */
+  readonly idempotencyKey: string;
+}
+
+export interface CheckoutSession {
+  /** The provider's id for the page (`cs_…`). */
+  readonly sessionRef: string;
+  readonly url: string;
+  /** When the page stops taking payment, if the provider said. */
+  readonly expiresAt: string | null;
+}
+
+/** What one of our own account's checkout events says, read the same way whoever sent it. */
+export interface CheckoutEvent {
+  /** The provider's event id: what the delivery is deduplicated on. */
+  readonly id: string;
+  /** `checkout.session.completed`, `.expired`, `.async_payment_succeeded`, `.async_payment_failed`. */
+  readonly type: string;
+  readonly sessionRef: string;
+  /** Ours, from the page's metadata. Null on a page some other part of the account made. */
+  readonly checkoutId: string | null;
+  /** `paid`, `unpaid` or `no_payment_required`. Only `paid` means the money is in. */
+  readonly paymentStatus: string | null;
+  /** The payment behind it (`pi_…`): what a refund is made against. */
+  readonly paymentRef: string | null;
+  readonly amountTotal: number | null;
+}
+
 export interface PlatformPayments {
   readonly supported: boolean;
   /** Us, as a customer of the provider, for one business. Their id for it is kept on the wallet. */
@@ -441,6 +486,18 @@ export interface PlatformPayments {
   forgetMethod(input: { customerRef: string; token: string }): Promise<void>;
   /** A top-up. A declined card is a returned `failed`, never an exception: it is an answer, not a breakdown. */
   charge(input: ChargeInput): Promise<PaymentResult>;
+  /** A hosted page to pay us once. Square refuses, like everything else here. */
+  createCheckout(input: CheckoutInput): Promise<CheckoutSession>;
+  /**
+   * Our own account's events — Stripe's "Your account" destination, not the Connect one — signed with a secret
+   * of their own. `configured` is false until that secret is on the server, and nothing verifies without it.
+   */
+  readonly webhooks: {
+    readonly configured: boolean;
+    verify(input: WebhookInput): boolean;
+    /** A checkout event, or null for anything else (answered and dropped). */
+    checkout(rawBody: string): CheckoutEvent | null;
+  };
 }
 
 /** What a provider says when it has no way to take money for us. */

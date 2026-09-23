@@ -243,4 +243,44 @@ export function registerFakePaymentRoutes(app: FastifyInstance, deps: HttpDeps):
             ),
           );
   });
+
+  /**
+   * Our own Checkout page (0093): a founding seat, paid for in HandsFreeOS's account rather than a business's.
+   * Pay or give up; either way back to the app, as Stripe's hosted page does. Paying posts the signed event to
+   * our own account's endpoint, which is the only thing that turns the seat on.
+   */
+  app.get<{ Params: { ref: string } }>('/payments/fake/checkout/:ref', async (req, reply) => {
+    const page = fake.checkouts().find((p) => p.sessionRef === req.params.ref);
+    if (!page || page.status !== 'open')
+      return problem(reply, 'This payment page has already been used, or it ran out.');
+    const action = `/payments/fake/checkout/${encodeURIComponent(page.sessionRef)}`;
+    return reply
+      .type('text/html; charset=utf-8')
+      .header('cache-control', 'no-store')
+      .send(
+        shell(
+          `Pay ${money(page.amountCents)}`,
+          `<h1 style="font-size: 18px; margin: 0 0 6px;">Pay ${escapeHtml(money(page.amountCents))}</h1>` +
+            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 18px;">` +
+            `${escapeHtml(page.productName)}. A stand-in for Stripe Checkout on this development server. No real money moves.</p>` +
+            `<form method="post" action="${escapeHtml(action)}">` +
+            `<div style="display: flex; gap: 8px;">` +
+            `<button type="submit" name="decision" value="pay" data-testid="fake-checkout-pay" style="height: 36px; padding: 0 16px; border: 0; border-radius: 8px; background: #2d69d8; color: #fff; font-weight: 600;">Pay ${escapeHtml(money(page.amountCents))}</button>` +
+            `<button type="submit" name="decision" value="cancel" data-testid="fake-checkout-cancel" style="height: 36px; padding: 0 16px; border: 1px solid #c9ced6; border-radius: 8px; background: #fff;">Cancel</button>` +
+            `</div></form>`,
+        ),
+      );
+  });
+
+  app.post<{ Params: { ref: string } }>('/payments/fake/checkout/:ref', async (req, reply) => {
+    const page = fake.checkouts().find((p) => p.sessionRef === req.params.ref);
+    if (!page) return problem(reply, 'Go back and start the payment again.');
+    const decision = ((req.body ?? {}) as { decision?: string }).decision;
+    if (decision === 'pay') await fake.payCheckout(page.sessionRef);
+    const to = safeReturn(decision === 'pay' ? page.successUrl : page.cancelUrl) ?? deps.webUrl;
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .header('cache-control', 'no-store')
+      .redirect(to, 302);
+  });
 }

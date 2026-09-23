@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CopyField } from '@/components/ui/copy-field';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,10 @@ export function FoundingPage({ queue }: { queue: Queue }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [approving, setApproving] = useState<Application | null>(null);
   const [revoking, setRevoking] = useState<Grant | null>(null);
+  /** The claim link just made. Shown once: only its hash is kept, so closing this is the last chance to copy it. */
+  const [issued, setIssued] = useState<{ business: string; link: string; until: string } | null>(
+    null,
+  );
 
   const call = (path: string, body: object) =>
     (apiBrowser().POST as (p: string, o: { body: unknown }) => Promise<never>)(path, {
@@ -167,7 +172,15 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                   {g.status === 'reserved'
                     ? `approved ${when(g.reservedAt)}, not taken up — expires ${when(g.expiresAt)}`
                     : `using it since ${when(g.activatedAt)}`}
+                  {g.status === 'reserved' &&
+                  (g.checkoutStatus === 'pending' || g.checkoutStatus === 'open')
+                    ? ' · paying now'
+                    : ''}
                 </p>
+                {g.checkoutStatus === 'paid' && g.checkoutProblem ? (
+                  // Money in, no seat on: somebody has to refund it at Stripe or find them a seat.
+                  <p className="mt-1 text-[13px] text-danger-text">{g.checkoutProblem}</p>
+                ) : null}
               </div>
               <Button size="sm" variant="secondary" onClick={() => setRevoking(g)}>
                 Revoke
@@ -196,6 +209,9 @@ export function FoundingPage({ queue }: { queue: Queue }) {
                       : `revoked ${when(g.revokedAt)} · ${g.revokeReason}`}
                     {g.graceEndsAt ? ` · still working until ${when(g.graceEndsAt)}` : ''}
                   </p>
+                  {g.checkoutStatus === 'paid' && g.checkoutProblem ? (
+                    <p className="mt-1 text-[13px] text-danger-text">{g.checkoutProblem}</p>
+                  ) : null}
                 </div>
                 {g.status === 'revoked' ? (
                   <Button
@@ -223,16 +239,46 @@ export function FoundingPage({ queue }: { queue: Queue }) {
           busy={busy === `approve:${approving.applicationId}`}
           onClose={() => setApproving(null)}
           onApprove={async (organizationId, note) => {
-            const ok = await run(`approve:${approving.applicationId}`, () =>
-              call('/v1/commands/founding.approve', {
+            let out: { claimToken: string; expiresAt: string } | null = null;
+            const ok = await run(`approve:${approving.applicationId}`, async () => {
+              out = (await call('/v1/commands/founding.approve', {
                 applicationId: approving.applicationId,
                 organizationId,
                 note,
-              }),
-            );
-            if (ok) setApproving(null);
+              })) as { claimToken: string; expiresAt: string };
+            });
+            if (!ok || !out) return;
+            const made: { claimToken: string; expiresAt: string } = out;
+            setApproving(null);
+            setIssued({
+              business: approving.businessName,
+              link: `${window.location.origin}/founding/${made.claimToken}`,
+              until: made.expiresAt,
+            });
           }}
         />
+      ) : null}
+
+      {issued ? (
+        <Dialog open onOpenChange={() => setIssued(null)}>
+          <DialogContent
+            title={`Send ${issued.business} their link`}
+            description="This is the only time it is shown. Copy it into an email to them now — once this closes, it cannot be seen again, and a new one means approving again."
+          >
+            <CopyField
+              className="mt-4"
+              value={issued.link}
+              label="Copy the claim link"
+              copied="Copied the claim link"
+            />
+            <p className="mt-3 text-[13px] text-text-3">
+              It works once, for an owner or admin of their business, until {when(issued.until)}.
+            </p>
+            <div className="mt-5 flex justify-end">
+              <Button onClick={() => setIssued(null)}>I’ve sent it</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
 
       {revoking ? (
@@ -320,9 +366,9 @@ function OfferCard({
       ) : null}
 
       {!monthly && offer.priceCents > 0 ? (
-        <p className="mt-2 rounded-[10px] bg-card-2 px-3 py-2 text-[13px] text-text-2">
-          Paying online is not built yet. You can approve people and hold their seat, but their link
-          will not work until it is.
+        <p className="mt-2 text-[13px] text-text-3">
+          Paid for at Stripe Checkout from the claim link. The seat turns on when Stripe says the
+          money is in.
         </p>
       ) : null}
 

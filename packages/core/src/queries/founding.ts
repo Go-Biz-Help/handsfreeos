@@ -12,7 +12,13 @@
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
+import { HfosError } from '../errors';
+import { hashClaimToken } from '../commands/founding';
 import {
+  FoundingCheckoutStatusInput,
+  FoundingCheckoutStatusOutput,
+  FoundingClaimPreviewInput,
+  FoundingClaimPreviewOutput,
   FoundingCountsInput,
   FoundingCountsOutput,
   FoundingMineInput,
@@ -145,16 +151,25 @@ export const platformFounding = defineQuery({
         revoked_at: Date | null;
         revoke_reason: string;
         grace_ends_at: Date | null;
+        checkout_status: 'pending' | 'open' | 'paid' | 'expired' | 'failed' | null;
+        checkout_problem: string | null;
       }>(
         ctx.tx,
         // The plan is joined in for `grace_ends_at` alone: the page has to show how long a revoked business
         // has left, and that date lives with the plan rather than with the seat.
+        // The latest checkout rides along too (0093): "paying now", and the one that matters most — paid, with
+        // no seat to turn on, which somebody has to refund or fix.
         sql`select g.id, g.offer_id, g.organization_id, org.name as organization_name, g.workspace_id,
               g.status::text as status, g.reserved_at, g.expires_at, g.activated_at, g.revoked_at,
-              g.revoke_reason, p.grace_ends_at
+              g.revoke_reason, p.grace_ends_at,
+              c.status::text as checkout_status, c.problem as checkout_problem
             from platform.founding_grants g
             left join app.organizations org on org.id = g.organization_id
             left join app.workspace_plans p on p.workspace_id = g.workspace_id
+            left join lateral (
+              select c.status, c.problem from platform.founding_checkouts c
+              where c.grant_id = g.id order by c.created_at desc limit 1
+            ) c on true
             where (${offerFilter}::text is null or g.offer_id = ${offerFilter})
             order by g.reserved_at desc
             limit ${input.limit}`,
@@ -205,6 +220,8 @@ export const platformFounding = defineQuery({
         revokedAt: iso(g.revoked_at),
         revokeReason: g.revoke_reason,
         graceEndsAt: iso(g.grace_ends_at),
+        checkoutStatus: g.checkout_status,
+        checkoutProblem: g.checkout_problem ?? '',
       })),
     };
   },
@@ -249,4 +266,94 @@ export const foundingMine = defineQuery({
   },
 });
 
-export const foundingQueries = [foundingCounts, platformFounding, foundingMine];
+/**
+ * The page a claim link opens (0093). Anybody signed in may ask, and the answer is only ever about the seat whose
+ * token they sent: a person holding a link is who the link was for, the same as an invitation's.
+ *
+ * `none`, not a workspace: the person may not have picked one yet, and the seat says which business's
+ * workspaces it can go on. The authority is the token, checked in the database.
+ */
+export const foundingClaimPreview = defineQuery({
+  name: 'founding.claim_preview',
+  description:
+    'What a founding claim link is for: the offer, its price, the business it was approved for, and whether it can still be taken up.',
+  input: FoundingClaimPreviewInput,
+  output: FoundingClaimPreviewOutput,
+  permission: null,
+  scope: () => ({ kind: 'none' as const }),
+  actors: ['human'],
+  async handler(ctx, input) {
+    const [seat] = await rows<{
+      offer_id: string;
+      offer_name: string;
+      price_cents: number;
+      organization_id: string;
+      business_name: string;
+      state: 'ready' | 'claimed' | 'expired' | 'gone';
+      expires_at: Date | string | null;
+      checkout_id: string | null;
+      checkout_workspace_id: string | null;
+    }>(ctx.tx, sql`select * from private.founding_seat_by_token(${hashClaimToken(input.token)})`);
+    if (!seat) throw HfosError.notFound('That link is not valid. Ask us for a new one.');
+    return {
+      state: seat.state,
+      offerId: seat.offer_id,
+      offerName: seat.offer_name,
+      priceCents: Number(seat.price_cents),
+      organizationId: seat.organization_id,
+      businessName: seat.business_name,
+      expiresAt: iso(seat.expires_at),
+      checkoutId: seat.checkout_id,
+      checkoutWorkspaceId: seat.checkout_workspace_id,
+    };
+  },
+});
+
+/**
+ * One checkout, for the page that waits for Stripe's address and the one Stripe sends somebody back to. Only for
+ * whoever runs the workspace it is for; anybody else gets the same "not found" as a checkout that never existed.
+ */
+export const foundingCheckoutStatus = defineQuery({
+  name: 'founding.checkout_status',
+  description:
+    "Where a founding seat's payment has got to: waiting for Stripe's page, open, paid, or lapsed — and whether the seat is on the workspace yet.",
+  input: FoundingCheckoutStatusInput,
+  output: FoundingCheckoutStatusOutput,
+  permission: null,
+  scope: () => ({ kind: 'none' as const }),
+  actors: ['human'],
+  async handler(ctx, input) {
+    const [c] = await rows<{
+      checkout_id: string;
+      workspace_id: string;
+      offer_name: string;
+      amount_cents: number;
+      status: 'pending' | 'open' | 'paid' | 'expired' | 'failed';
+      session_url: string | null;
+      session_expires_at: Date | string | null;
+      seat_active: boolean;
+      problem: string;
+    }>(ctx.tx, sql`select * from private.founding_checkout_view(${input.checkoutId}::uuid)`);
+    if (!c) throw HfosError.notFound('There is no checkout by that id.');
+    return {
+      checkoutId: c.checkout_id,
+      workspaceId: c.workspace_id,
+      offerName: c.offer_name,
+      amountCents: Number(c.amount_cents),
+      status: c.status,
+      // Only an open checkout has a page worth sending somebody to.
+      url: c.status === 'open' ? c.session_url : null,
+      expiresAt: iso(c.session_expires_at),
+      seatActive: c.seat_active,
+      problem: c.problem,
+    };
+  },
+});
+
+export const foundingQueries = [
+  foundingCounts,
+  platformFounding,
+  foundingMine,
+  foundingClaimPreview,
+  foundingCheckoutStatus,
+];

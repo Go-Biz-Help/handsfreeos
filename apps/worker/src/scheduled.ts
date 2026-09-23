@@ -61,6 +61,7 @@ import {
   RECHARGE_PLAN_KEY,
 } from './money/recharge';
 import { moneyJobs } from './money/refunds';
+import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
 import { SUPPORT_JOBS } from './support/draft';
@@ -314,6 +315,9 @@ export const jobs: JobMap = {
   ...paymentJobs,
   // Money: a refund carried out at the provider, with its own retries (money/refunds.ts).
   ...moneyJobs,
+  // Founding seats (0093): a Checkout page made at Stripe, and the hourly sweep that gives back reservations
+  // nobody took up or paid for (founding/checkout.ts).
+  ...foundingJobs,
   // Money: an invoice's message and its reminders, marking one overdue, an estimate's message, its nudge and
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).
@@ -419,6 +423,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: RECHARGE_JOBS.plan,
       dedupeKey: RECHARGE_PLAN_KEY,
       runAt: nextWalletPlanAt(Date.now()),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Founding seats (0093), hourly: a reservation nobody took up or paid for goes back to the offer. Before
+    // this ran, a seat approved for somebody who never came back was held for ever.
+    await scheduleJob(tx, {
+      kind: FOUNDING_JOBS.expire,
+      dedupeKey: FOUNDING_EXPIRE_KEY,
+      runAt,
       payload: {},
       workspaceId: null,
       organizationId: null,

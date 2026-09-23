@@ -679,6 +679,8 @@ export function createSquarePayments(opts: {
       saveMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
       forgetMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
       charge: () => Promise.reject(new PlatformUnsupportedError('square')),
+      createCheckout: () => Promise.reject(new PlatformUnsupportedError('square')),
+      webhooks: { configured: false, verify: () => false, checkout: () => null },
     },
 
     subscriptions: {
