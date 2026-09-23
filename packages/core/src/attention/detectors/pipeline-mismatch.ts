@@ -15,6 +15,11 @@ import { DAY, defineDetector, detection, ms, type Assessment } from './define';
 
 /** How long a deal may be behind before a person is asked: long enough for the automatic move to have run. */
 export const PIPELINE_MISMATCH_AFTER_MS = DAY;
+/**
+ * Only what happened lately counts: a business's old deals that were never moved along are its history, not a
+ * list of chores the day this ships.
+ */
+export const PIPELINE_MISMATCH_WITHIN_DAYS = 14;
 
 export interface PipelineMismatchFacts {
   readonly business: BusinessFacts;
@@ -23,6 +28,8 @@ export interface PipelineMismatchFacts {
     readonly stageName: string;
     /** Where what happened says it belongs, and why; null when its stage is right. */
     readonly target: {
+      /** What happened. Someone getting back to them only moves a deal; it never asks a person to. */
+      readonly step: 'contacted' | 'quoted' | 'booked' | 'won';
       readonly stageId: string;
       readonly stageName: string;
       readonly why: string;
@@ -34,9 +41,10 @@ export interface PipelineMismatchFacts {
 
 function assess(f: PipelineMismatchFacts, settings: AttentionSettings, now: number): Assessment {
   const t = f.deal.target;
-  if (f.lead.status !== 'open' || !t) return null;
+  if (f.lead.status !== 'open' || !t || t.step === 'contacted') return null;
   const since = ms(t.at);
   const opens = since + PIPELINE_MISMATCH_AFTER_MS;
+  if (now >= since + PIPELINE_MISMATCH_WITHIN_DAYS * DAY) return null;
   if (now < opens) return { wakeAt: opens };
   return detection({
     fingerprint: fingerprintOf('pipeline_mismatch', { lead: f.lead.id, to: t.stageId }),
@@ -48,7 +56,7 @@ function assess(f: PipelineMismatchFacts, settings: AttentionSettings, now: numb
     confidence: 0.8,
     reasons: [chip('stage', `Says ${f.deal.stageName} · ${t.why.toLowerCase()}`)],
     assignee: f.assigneeUserId,
-    recheckAt: null,
+    recheckAt: since + PIPELINE_MISMATCH_WITHIN_DAYS * DAY,
   });
 }
 

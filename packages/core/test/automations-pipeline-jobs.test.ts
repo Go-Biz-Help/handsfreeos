@@ -106,7 +106,8 @@ describe('pipeline_mismatch', () => {
     deal: { stageName: 'New', target },
     assigneeUserId: DALE,
   });
-  const target = (at: string) => ({
+  const target = (at: string, step: 'contacted' | 'quoted' = 'quoted') => ({
+    step,
     stageId: uid(2),
     stageName: 'Estimate sent',
     why: 'Quote 1042 went out',
@@ -124,6 +125,9 @@ describe('pipeline_mismatch', () => {
       label: 'Says New · quote 1042 went out',
     });
     expect(d.detect(facts(null), settings, NOW)).toBeNull();
+    // Someone getting back to them only moves a deal; and old history is left alone.
+    expect(d.detect(facts(target(ago(DAY + HOUR), 'contacted')), settings, NOW)).toBeNull();
+    expect(d.detect(facts(target(ago(15 * DAY))), settings, NOW)).toBeNull();
   });
 });
 

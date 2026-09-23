@@ -295,6 +295,7 @@ describe('pushSwitchOn', () => {
       payment: false,
       // M16. On by default like the rest: `payment` is the only one that starts off.
       wallet: true,
+      jobs: true,
     });
   });
 });

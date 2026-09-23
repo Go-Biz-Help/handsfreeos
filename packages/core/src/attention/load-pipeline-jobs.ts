@@ -42,6 +42,7 @@ export async function loadDealStates(
       stageName: d.stages.find((s) => s.id === d.stageId)?.name ?? 'its stage',
       target: move
         ? {
+            step: move.step,
             stageId: move.stage.id,
             stageName: move.stage.name,
             why: move.why,

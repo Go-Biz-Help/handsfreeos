@@ -312,6 +312,7 @@ describe('offline classes', () => {
     'appointment.cancel': FRESH,
     'appointment.update': 'anytime',
     'appointment.set_status': 'anytime',
+    'appointment.still_going': 'anytime',
     'attendee.confirm': 'anytime',
     // Putting a conversation away and bringing it back: nothing reaches a customer either way, and doing it
     // twice is doing it once. The phone's screen and sync rules come with the M16 mobile work; the class is
