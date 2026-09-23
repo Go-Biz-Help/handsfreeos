@@ -25,7 +25,7 @@ export const TEXT_STATUS: Readonly<Record<string, DeliveryStatus>> = {
   sending: 'sending',
   sent: 'sent',
   delivered: 'delivered',
-  // RCS says when the customer opened it (0101). It used to be folded into delivered.
+  // RCS says when the customer opened it (0103). It used to be folded into delivered.
   read: 'read',
   partially_delivered: 'delivered',
   undelivered: 'undelivered',
@@ -50,7 +50,7 @@ const EXTENSIONS: Readonly<Record<string, string>> = {
 };
 
 /**
- * Whether a message or a callback came over RCS (0101): Twilio puts `rcs:` in front of the address — the
+ * Whether a message or a callback came over RCS (0103): Twilio puts `rcs:` in front of the address — the
  * customer's `rcs:+15551234567` on the way in, the sender's `rcs:<id>` on the way out — and names the channel.
  */
 const viaRcs = (p: Params): boolean =>
@@ -71,7 +71,7 @@ function tenant(ctx: DeliveryContext): TenantScope | null {
 }
 
 /**
- * A customer texted one of our numbers, or wrote to the business's RCS sender (0101): file it through
+ * A customer texted one of our numbers, or wrote to the business's RCS sender (0103): file it through
  * message.receive, then copy any photos off the provider. An RCS message is the same message on its way in —
  * the customer's number with `rcs:` in front of it — and lands in the same thread; a tapped button comes with
  * its id and its words, which the command matches to the message that offered it.
@@ -183,7 +183,7 @@ async function copyMedia(
 /**
  * The carrier moved a text along: sent, delivered, read, failed. Callbacks can arrive out of order or twice.
  *
- * A text sent RCS first (0101) also learns here which way it went: `rcs:` in the callback's `From` when it went
+ * A text sent RCS first (0103) also learns here which way it went: `rcs:` in the callback's `From` when it went
  * over RCS, the thread's own number when Twilio fell back to SMS or MMS. And once it is done with — delivered,
  * read or failed — its content template is deleted at Twilio, where it would otherwise sit for good.
  */
@@ -227,7 +227,7 @@ export const onTextStatus: DeliveryProcessor = async (ctx) => {
       direction: 'outbound',
       status: p.MessageStatus ?? null,
       segments: sent.segments ?? 1,
-      // A carousel is a picture message's worth over RCS, which is how Twilio prices rich media (0101).
+      // A carousel is a picture message's worth over RCS, which is how Twilio prices rich media (0103).
       mediaCount:
         sent.pictures > 0 || sent.rich_kind === 'carousel' ? Math.max(1, sent.pictures) : 0,
       counterpart: sent.counterpart,

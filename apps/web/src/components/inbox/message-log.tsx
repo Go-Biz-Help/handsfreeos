@@ -301,7 +301,7 @@ function MessageEntry({
           out ? 'items-end self-end' : 'self-start',
         )}
       >
-        {/* A rich text's buttons, card or carousel go with its words (RCS, 0101). */}
+        {/* A rich text's buttons, card or carousel go with its words (RCS, 0103). */}
         <RichContent
           item={item}
           bubble={

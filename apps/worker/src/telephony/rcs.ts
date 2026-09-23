@@ -1,5 +1,5 @@
 /**
- * A business's RCS sender: the Twilio side (0101).
+ * A business's RCS sender: the Twilio side (0103).
  *
  * The twin of the number-port jobs (telephony/ports.ts), and for the same reason: every provider call here is a
  * job, never an outbox handler, so a Twilio that is slow or throttling costs one retry with backoff rather than

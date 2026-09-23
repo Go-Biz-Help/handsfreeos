@@ -458,7 +458,7 @@ export const onMessageQueued: EventHandler = async (ctx) => {
     return;
   }
   /*
-   * RCS first (0101), when the business's sender is approved, switched on and in its messaging service's pool.
+   * RCS first (0103), when the business's sender is approved, switched on and in its messaging service's pool.
    * Nobody chooses: Twilio checks whether the customer's phone can show RCS and, when it can't, sends the same
    * message as an SMS or MMS from this thread's own number. Which way it went comes back on the status
    * callbacks. Without an RCS sender every text goes exactly as it always did.

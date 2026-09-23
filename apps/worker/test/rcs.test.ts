@@ -1,5 +1,5 @@
 /**
- * RCS (0101), end to end against the fake carrier: connecting a business's RCS sender, texts going RCS first
+ * RCS (0103), end to end against the fake carrier: connecting a business's RCS sender, texts going RCS first
  * with the thread's own number as the fallback, a rich text's template and its plain face, read receipts, a
  * tapped button and a texted-back number landing in the customer's one thread, and pausing and letting go.
  */

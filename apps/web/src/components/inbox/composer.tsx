@@ -98,7 +98,7 @@ export interface ComposerTarget {
   readonly handoverNote?: string | null;
   /** A website chat whose visitor was blocked: replies can't reach them. */
   readonly chatBlocked?: boolean;
-  /** Texts go RCS first for this business right now (0101): the buttons editor says what that means. */
+  /** Texts go RCS first for this business right now (0103): the buttons editor says what that means. */
   readonly rcs?: boolean;
 }
 
@@ -260,7 +260,7 @@ export function Composer({
   const [cc, setCc] = useState('');
   const [ccOpen, setCcOpen] = useState(false);
   const [fromKey, setFromKey] = useState<string | null>(null);
-  /** Buttons, a card or a carousel going with the text (0101), while the editor is open. */
+  /** Buttons, a card or a carousel going with the text (0103), while the editor is open. */
   const [rich, setRich] = useState<RichDraft | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const area = useRef<HTMLTextAreaElement>(null);

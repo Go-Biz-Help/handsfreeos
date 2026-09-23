@@ -119,7 +119,7 @@ const MMS_MAX_BYTES = 5 * 1024 * 1024;
 /** Twilio: the recipient replied STOP to this sender. */
 const UNSUBSCRIBED_ERROR = '21610';
 
-/** private.message_status_rank (0101), for the one decision made here rather than in the database. */
+/** private.message_status_rank (0103), for the one decision made here rather than in the database. */
 const STATUS_RANK: Readonly<Record<string, number>> = {
   queued: 0,
   sending: 1,
@@ -425,7 +425,7 @@ async function attachmentMedia(
 }
 
 /**
- * A carousel's pictures (0101), one per card, in card order. The same checks as a photo on a text — uploaded,
+ * A carousel's pictures (0103), one per card, in card order. The same checks as a photo on a text — uploaded,
  * finished, a type every phone shows — but counted one at a time: a carousel goes over RCS, not as one picture
  * message, and a phone without RCS gets its words, not ten photos.
  */
@@ -464,7 +464,7 @@ async function cardPictures(ctx: CommandContext, fileIds: readonly string[]): Pr
 }
 
 /**
- * What a text carries besides its words (0101), as the message stores it: every button with its id, and the
+ * What a text carries besides its words (0103), as the message stores it: every button with its id, and the
  * words a phone without RCS gets instead. A message with buttons or a card keeps its one photo in the message's
  * own `media`, like any picture message; a carousel's pictures ride on its cards.
  */
@@ -1327,7 +1327,7 @@ async function askedSeats(ctx: CommandContext, phone: string, at: Date) {
 const CHOICE_WINDOW_MS = 7 * 86_400_000;
 
 /**
- * Which button a customer's reply came from (0101), when it came from one.
+ * Which button a customer's reply came from (0103), when it came from one.
  *
  * - **A tap on RCS** carries the id we gave the button (`ButtonPayload`), and the id names its message, so an
  *   old message's button is found as surely as the newest one's. A button that could not carry an id comes
@@ -1397,7 +1397,7 @@ export const messageReceive = defineCommand({
   scope: inWorkspace,
   emits: [
     'message.received',
-    // A customer tapped a link or call button on an RCS message (0101): noted, never a reply to answer.
+    // A customer tapped a link or call button on an RCS message (0103): noted, never a reply to answer.
     'message.action_tapped',
     'conversation.linked',
     // A number nobody knows becomes a customer and a lead here (M14), unless the business turned that off.
@@ -1425,7 +1425,7 @@ export const messageReceive = defineCommand({
         confirmedAttendeeIds: [],
       };
 
-    // An RCS message comes to the business's sender rather than to one of its numbers (0101).
+    // An RCS message comes to the business's sender rather than to one of its numbers (0103).
     const viaRcs = input.via === 'rcs';
     const [ours] = viaRcs
       ? []
@@ -1489,7 +1489,7 @@ export const messageReceive = defineCommand({
     // Confirming by reply (M8): C, CONFIRM or CONFIRMED confirms the sender's bookings HandsFreeOS asked about,
     // and so does YES while one is waiting (YES is still START: it opts them in as before). CANCEL is STOP.
     // A button called Confirm confirms however it was chosen: tapped (its words are the body) or texted back
-    // by number to the list a phone without RCS got (0101).
+    // by number to the list a phone without RCS got (0103).
     const cWord =
       mediaCount === 0 &&
       (confirmWord(input.body) ||
@@ -1690,7 +1690,7 @@ export const messageUpdateStatus = defineCommand({
   emits: [
     'message.sent',
     'message.delivered',
-    // RCS: the customer opened it (0101).
+    // RCS: the customer opened it (0103).
     'message.read',
     'message.failed',
     'message.bounced',
@@ -1742,7 +1742,7 @@ export const messageUpdateStatus = defineCommand({
     if (reached && !m.deliveredAt) patch.deliveredAt = now;
     if (input.status === 'read' && !m.readAt) patch.readAt = now;
     /*
-     * Which way it went (0101). An RCS-first text learns it from its callbacks: `rcs:` in their `From` when it
+     * Which way it went (0103). An RCS-first text learns it from its callbacks: `rcs:` in their `From` when it
      * went over RCS, the thread's number when Twilio fell back to SMS or MMS. Callbacks arrive out of order, so a
      * callback only says which way it went when it is at least as far along as what we know — a late RCS `sent`
      * must not relabel a text that was delivered as an SMS.

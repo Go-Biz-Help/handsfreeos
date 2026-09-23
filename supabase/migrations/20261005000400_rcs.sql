@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0101 · RCS, part 2: a business's RCS sender, and what a text now remembers.
+-- 0103 · RCS, part 2: a business's RCS sender, and what a text now remembers.
 --
 --        **An RCS sender is made at Twilio, not here.** Twilio creates and
 --        onboards them only in its own console — the brand's name, logo and
@@ -187,13 +187,13 @@ alter table app.messages add constraint messages_rcs_is_a_texts
     and content_sid is null));
 
 comment on column app.messages.transport is
-  'How a text actually went or came in: sms, mms or rcs (0101). Null until the carrier says, for a text sent '
+  'How a text actually went or came in: sms, mms or rcs (0103). Null until the carrier says, for a text sent '
   'RCS first, which only learns its way from the first status callback.';
 comment on column app.messages.rich is
-  'The card, carousel or buttons a text carried, and `smsText`, the words a phone without RCS got instead (0101). '
+  'The card, carousel or buttons a text carried, and `smsText`, the words a phone without RCS got instead (0103). '
   'Written once, with the message.';
 comment on column app.messages.button_reply is
-  'Which button a customer''s reply came from (0101): a tap on RCS, or the number they texted back to a list.';
+  'Which button a customer''s reply came from (0103): a tap on RCS, or the number they texted back to a list.';
 
 -- Same name, so it keeps its place among the messages triggers (they fire in name order). What was sent and
 -- what was tapped are facts about the past.

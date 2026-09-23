@@ -650,7 +650,7 @@ type ThreadRow = {
   approved_name: string | null;
   ai_draft_id: string | null;
   handoff_line: boolean;
-  /** Texts (0101): how it went, when it was read, what it carried and which button a reply came from. */
+  /** Texts (0103): how it went, when it was read, what it carried and which button a reply came from. */
   transport: 'sms' | 'mms' | 'rcs' | null;
   read_at: Date | null;
   rich: RichTextOut | null;

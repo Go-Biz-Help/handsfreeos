@@ -140,6 +140,17 @@ export const personGet = defineQuery({
     );
     if (!row) throw HfosError.notFound('Person not found.');
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'person', [row.id]);
-    return { person: { ...summary(row, tags.get(row.id) ?? []), notes: row.notes } };
+    // The fields this business invented, only here: a list of fifty customers needn't carry them.
+    const [values] = await rows<{ custom: Record<string, unknown> }>(
+      ctx.tx,
+      sql`select custom from app.people where id = ${row.id}`,
+    );
+    return {
+      person: {
+        ...summary(row, tags.get(row.id) ?? []),
+        notes: row.notes,
+        custom: values?.custom ?? {},
+      },
+    };
   },
 });

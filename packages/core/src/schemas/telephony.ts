@@ -330,6 +330,6 @@ export const PhoneSetupStatusOutput = z.object({
   timezone: z.string(),
   quiet: QuietState,
   canManage: z.boolean(),
-  /** The business's RCS sender (0101), or null when it has none connected. */
+  /** The business's RCS sender (0103), or null when it has none connected. */
   rcsSender: RcsSenderOut.nullable(),
 });

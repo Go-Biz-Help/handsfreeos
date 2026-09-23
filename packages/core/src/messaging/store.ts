@@ -525,7 +525,7 @@ export async function isWorkspaceUser(
 }
 
 /**
- * The business's RCS sender (0101): the one that is not `disconnected`, of which there is at most one
+ * The business's RCS sender (0103): the one that is not `disconnected`, of which there is at most one
  * (`rcs_senders_one_per_workspace`). Null when it has never connected one, or let the last one go.
  */
 export async function currentRcsSender(tx: Tx, workspaceId: string) {
@@ -548,7 +548,7 @@ export const rcsSending = (
 ): boolean => !!s && s.status === 'active' && s.enabled && s.inService;
 
 /**
- * The line a customer's first RCS message starts its thread on (0101). An RCS message arrives at the sender,
+ * The line a customer's first RCS message starts its thread on (0103). An RCS message arrives at the sender,
  * not at one of the business's numbers, so the thread needs a line from somewhere: the one the business chose
  * for its sender, else its default — where a new thread starts everywhere else too. A customer who already has
  * a thread never gets here; `findOrCreateConversation` puts them wherever they are.

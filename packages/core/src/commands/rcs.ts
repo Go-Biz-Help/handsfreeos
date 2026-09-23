@@ -1,5 +1,5 @@
 /**
- * A business's RCS sender (0101).
+ * A business's RCS sender (0103).
  *
  * **Made at Twilio, connected here.** Twilio creates and onboards RCS senders only in its own console — the
  * brand's name, logo and colours, the carriers' review — so a business (or Go Biz Help for it) makes the sender

@@ -101,7 +101,7 @@ export async function textFromCustomer(opts: {
 }
 
 /**
- * A customer taps a reply button on an RCS message (0101): posted to the worker the way Twilio would, signed. An
+ * A customer taps a reply button on an RCS message (0103): posted to the worker the way Twilio would, signed. An
  * RCS message arrives at the business's sender, not at one of its numbers, so it names the business's Twilio
  * account (Settings → Texting & calls shows it) — the fake's stand-in senders have the same id in every account.
  */

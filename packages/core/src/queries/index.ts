@@ -3,6 +3,7 @@ import { formQueries } from './form';
 import { campaignQueries } from './campaign';
 import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
+import { relationshipQueries } from './relationship';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
@@ -270,6 +271,7 @@ export const queries: readonly QueryDef[] = [
   ...campaignQueries,
   ...templateQueries,
   ...reviewQueries,
+  ...relationshipQueries,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -329,3 +331,4 @@ export * from './port';
 export * from './branded-domain';
 export * from './founding';
 export * from './offer';
+export * from './relationship';

@@ -60,13 +60,13 @@ export interface OutboundMessage {
   readonly mediaUrls: readonly string[];
   readonly statusCallbackUrl: string;
   /**
-   * RCS first (0101): through the messaging service, whose sender pool holds the business's RCS sender. Twilio
+   * RCS first (0103): through the messaging service, whose sender pool holds the business's RCS sender. Twilio
    * checks whether the customer's phone can show RCS and, when it can't, sends an SMS or MMS from `from` — the
    * thread's own number, as `FallbackFrom` — so a business with several lines still answers from the right one.
    */
   readonly rcsFirst?: boolean;
   /**
-   * A rich text's content template (0101). What goes out is the template — its card or carousel over RCS, its
+   * A rich text's content template (0103). What goes out is the template — its card or carousel over RCS, its
    * text or media fallback otherwise — so `body` and `mediaUrls` are not sent alongside it.
    */
   readonly contentSid?: string | null;
@@ -75,7 +75,7 @@ export interface OutboundMessage {
 /** Where Twilio says an RCS sender stands, in the four states this system acts on. */
 export type RcsSenderState = 'online' | 'in_review' | 'offline' | 'failed';
 
-/** An RCS sender as Twilio has it (0101): made and approved in the Twilio console, in the business's account. */
+/** An RCS sender as Twilio has it (0103): made and approved in the Twilio console, in the business's account. */
 export interface RcsSenderInfo {
   /** Twilio's reference for it (XE…), which is what goes on a messaging service. */
   readonly sid: string;
@@ -91,7 +91,7 @@ export interface RcsSenderInfo {
 }
 
 /**
- * A rich text as a Twilio content template (0101): the rich type (`twilio/card`, `twilio/carousel`) and the
+ * A rich text as a Twilio content template (0103): the rich type (`twilio/card`, `twilio/carousel`) and the
  * fallbacks a phone without RCS gets (`twilio/text`, and `twilio/media` when there is a picture). Twilio sends
  * the richest one the channel it ends up on can show.
  */
@@ -256,7 +256,7 @@ export interface TelephonyProvider {
     account: ProviderAccount,
     message: OutboundMessage,
   ): Promise<{ sid: string; status: string }>;
-  /** The RCS senders in a business's own account (0101), for Settings to offer and the worker to find. */
+  /** The RCS senders in a business's own account (0103), for Settings to offer and the worker to find. */
   listRcsSenders(account: ProviderAccount): Promise<RcsSenderInfo[]>;
   /** One RCS sender by its reference; null when Twilio no longer has it. */
   fetchRcsSender(account: ProviderAccount, sid: string): Promise<RcsSenderInfo | null>;
@@ -275,7 +275,7 @@ export interface TelephonyProvider {
     serviceSid: string,
     senderSid: string,
   ): Promise<void>;
-  /** Makes a rich text's content template (0101) and hands back its reference (HX…). */
+  /** Makes a rich text's content template (0103) and hands back its reference (HX…). */
   createContent(account: ProviderAccount, template: ContentTemplate): Promise<{ sid: string }>;
   /** Removes a template once its message has been delivered, or has failed. One already gone is fine. */
   deleteContent(account: ProviderAccount, contentSid: string): Promise<void>;

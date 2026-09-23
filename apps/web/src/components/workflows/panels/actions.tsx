@@ -354,7 +354,7 @@ function choicesLine(titles: readonly string[]): string {
 }
 
 /**
- * Reply buttons under the text (0101): tapped where the customer's phone shows RCS, answered with a number where
+ * Reply buttons under the text (0103): tapped where the customer's phone shows RCS, answered with a number where
  * it doesn't. Either way the reply names the button, so a later check can branch on "Button they chose in
  * their reply". Kept as typed while a name is still wrong, like the text itself.
  */

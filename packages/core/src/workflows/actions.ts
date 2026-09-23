@@ -27,7 +27,7 @@ const bookingCalendarId = Ref.nullable()
   .describe('The calendar whose booking page {{links.booking}} opens; null uses the main one');
 
 /**
- * Reply buttons under a workflow's text (0101): a customer taps one where their phone shows RCS, and texts back
+ * Reply buttons under a workflow's text (0103): a customer taps one where their phone shows RCS, and texts back
  * its number where it doesn't. Either way the reply names the button, and a later check reads it as
  * `wait.button` ("Button they chose in their reply").
  */

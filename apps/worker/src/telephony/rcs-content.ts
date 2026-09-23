@@ -1,5 +1,5 @@
 /**
- * A rich text as a Twilio content template (0101).
+ * A rich text as a Twilio content template (0103).
  *
  * **One template, both faces.** A template holds several types and Twilio sends the richest one the channel it
  * ends up on can show: the card or carousel over RCS, and — when the customer's phone can't show RCS — the

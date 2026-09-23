@@ -110,7 +110,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
     'number_port.submitted': onPortSubmitted,
     'number_port.cancelled': onPortCancelled,
-    // A business's RCS sender (0101): connecting it, looking again (or switching RCS on or off, which the look
+    // A business's RCS sender (0103): connecting it, looking again (or switching RCS on or off, which the look
     // puts right in the messaging service's pool) and letting it go are jobs (telephony/rcs.ts).
     'rcs_sender.connect_requested': onRcsConnectRequested,
     'rcs_sender.refresh_requested': onRcsCheckWanted,

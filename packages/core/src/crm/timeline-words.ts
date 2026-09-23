@@ -7,6 +7,7 @@
  */
 import { zonedParts } from '../calendar/engine/zoned';
 import { callClock } from '../inbox/time';
+import { lowerLabel, relatedWords } from '../relationships/words';
 import type { TimelineEntry } from '../schemas/activity';
 import { notAppliedWords } from './not-applied';
 
@@ -103,7 +104,7 @@ export const timelineFormatAt: FormatAt = (iso, timeZone) => {
 /** The sentence after the actor's name. */
 export function describeTimeline(
   e: TimelineEntry,
-  recordType: 'person' | 'company' | 'lead',
+  recordType: 'person' | 'company' | 'lead' | 'custom_record',
   /** Who is reading, for "you answered in the browser". */
   viewerId?: string,
   /** The workspace's zone, for appointment times. */
@@ -141,7 +142,10 @@ export function describeTimeline(
       ? 'this person'
       : recordType === 'company'
         ? 'this company'
-        : 'this lead';
+        : recordType === 'custom_record'
+          ? // A record of a kind the business made up says what it is: "added this pet".
+            `this ${str(e.meta.kind) ? lowerLabel(str(e.meta.kind)) : 'record'}`
+          : 'this lead';
   switch (e.subtype) {
     case 'created':
       return `added ${noun}`;
@@ -175,6 +179,18 @@ export function describeTimeline(
       return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
     case 'edit_not_applied':
       return notAppliedWords(e.meta);
+    // Relationships (0101): the pair as both records were named then, the same on either one's page.
+    case 'related':
+    case 'unrelated': {
+      const a = obj(e.meta.a);
+      const b = obj(e.meta.b);
+      return relatedWords(
+        e.subtype,
+        { name: str(a.name) || 'someone', label: str(a.label) },
+        { name: str(b.name) || 'someone', label: str(b.label) },
+        e.meta.mutual === true,
+      );
+    }
     default:
       return e.subtype?.replace(/_/g, ' ') ?? 'made a change';
   }
@@ -316,6 +332,7 @@ export function timelineTone(e: TimelineEntry): TimelineTone {
     return 'success';
   if (e.subtype === 'won') return 'success';
   if (e.subtype === 'lost') return 'danger';
+  if (e.subtype === 'related') return 'accent';
   return 'muted';
 }
 

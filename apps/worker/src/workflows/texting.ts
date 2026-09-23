@@ -207,7 +207,7 @@ function quiet(
 }
 
 /**
- * A send_text step, its body already rendered. Its reply buttons (0101) go with it: over RCS as buttons to tap,
+ * A send_text step, its body already rendered. Its reply buttons (0103) go with it: over RCS as buttons to tap,
  * and to a phone without RCS as the same text with the choices numbered.
  */
 export async function sendTextAction(

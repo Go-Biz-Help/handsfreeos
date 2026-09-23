@@ -40,7 +40,7 @@ async function sendWithButtons(page: Page, words: string): Promise<Locator> {
 }
 
 /**
- * RCS (0101) in the same inbox as texts: a business connects the sender it made at Twilio, its texts then go RCS
+ * RCS (0103) in the same inbox as texts: a business connects the sender it made at Twilio, its texts then go RCS
  * first — buttons and all — and say so, a tap comes back to the same thread naming the button, and a phone that
  * can't show RCS gets the words with the choices listed, whose texted-back number counts as the tap.
  */

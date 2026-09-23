@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0100 · RCS, part 1: enum values and types. A business with an RCS sender
+-- 0102 · RCS, part 1: enum values and types. A business with an RCS sender
 --        texts its customers as itself — its name, its logo, a tick that says
 --        it is verified — with pictures, buttons and cards, and the phones that
 --        can't show RCS get the same message as an ordinary text. It all stays
@@ -17,7 +17,7 @@
 --
 --        They are added in a migration of their own because Postgres can't use
 --        a new enum value in the transaction that adds it; the table, columns
---        and functions that use them follow in 0101 (20261005000200).
+--        and functions that use them follow in 0103 (20261005000400).
 -- =============================================================================
 
 alter type app.message_status add value if not exists 'read' after 'delivered';

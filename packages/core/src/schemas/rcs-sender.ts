@@ -1,5 +1,5 @@
 /**
- * A business's RCS sender (0101): what Settings shows and what the commands take. Browser-safe.
+ * A business's RCS sender (0103): what Settings shows and what the commands take. Browser-safe.
  *
  * Apart from the rich-text schemas (schemas/rcs.ts) because `phone.setup_status` returns a sender, and the
  * rich-text schemas import the telephony ones for a call button's number: one module for both would be a cycle.

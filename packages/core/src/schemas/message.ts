@@ -58,7 +58,7 @@ export const MessageSendInput = z
      */
     inReplyToMessageId: uuid.optional(),
     /**
-     * Texts: buttons, a card or a carousel to go with the words (0101). It goes as RCS where the customer's
+     * Texts: buttons, a card or a carousel to go with the words (0103). It goes as RCS where the customer's
      * phone can show it and as a text with the choices written out where it can't; nobody picks which.
      */
     rich: RichInput.optional(),
@@ -133,10 +133,10 @@ export const MessageReceiveInput = z.object({
       .trim()
       .regex(/^rcs:[A-Za-z0-9][A-Za-z0-9_.-]{1,99}$/),
   ]),
-  /** How it came in (0101): as an ordinary text, or over RCS. */
+  /** How it came in (0103): as an ordinary text, or over RCS. */
   via: z.enum(['sms', 'rcs']).default('sms'),
   /**
-   * A button the customer tapped on RCS (0101): Twilio's `ButtonPayload` (the id we gave it), `ButtonText` and
+   * A button the customer tapped on RCS (0103): Twilio's `ButtonPayload` (the id we gave it), `ButtonText` and
    * `ButtonType`. The body is the button's name either way.
    */
   button: z
@@ -167,7 +167,7 @@ export const deliveryStatusUpdate = z.enum([
   'sending',
   'sent',
   'delivered',
-  /** RCS: the customer opened it (0101). */
+  /** RCS: the customer opened it (0103). */
   'read',
   'undelivered',
   'failed',
@@ -187,7 +187,7 @@ export const MessageUpdateStatusInput = z
     messageIdHeader: z.string().trim().min(3).max(998).optional(),
     /** Texts: which way it actually went, when the carrier says (an RCS-first text learns it here). */
     transport: textTransport.optional(),
-    /** A rich text's content template at the carrier, recorded with its provider id when it is sent (0101). */
+    /** A rich text's content template at the carrier, recorded with its provider id when it is sent (0103). */
     contentSid: z.string().trim().min(2).max(64).optional(),
   })
   .refine((v) => !!v.messageId || !!v.providerMessageId, {
@@ -266,7 +266,7 @@ export const ThreadItem = z.object({
   aiDraftId: uuid.nullable(),
   /** The business's hand-off line ("someone from our team will reply"), sent when the teammate handed it over. */
   handoffLine: z.boolean(),
-  /** Texts: how it went or came in — sms, mms or rcs — once the carrier has said (0101). */
+  /** Texts: how it went or came in — sms, mms or rcs — once the carrier has said (0103). */
   transport: textTransport.nullable(),
   /** Texts sent over RCS: when the customer opened it. */
   readAt: isoDateTime.nullable(),

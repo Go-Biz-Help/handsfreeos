@@ -983,7 +983,7 @@ describe('one number is the default', () => {
   });
 });
 
-describe('RCS (0101)', () => {
+describe('RCS (0103)', () => {
   it('a read message stays read, and what a text carried and which button a reply came from never change', async () => {
     const [msg] = await worker(
       wsA,

@@ -1,5 +1,5 @@
 /**
- * RCS (0101): a business's RCS sender, and the buttons, cards and carousels a text can carry. Browser-safe.
+ * RCS (0103): a business's RCS sender, and the buttons, cards and carousels a text can carry. Browser-safe.
  *
  * The limits are Twilio's, from `messaging/rcs.ts`, so the composer refuses what Twilio would have refused
  * rather than the worker finding out after the person pressed Send.

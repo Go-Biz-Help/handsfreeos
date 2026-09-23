@@ -75,7 +75,7 @@ export function searchNumbers(input: {
   return workerPost('/v1/telephony/available-numbers', input);
 }
 
-/** An RCS sender in the business's own Twilio account (0101), as Settings offers it before connecting. */
+/** An RCS sender in the business's own Twilio account (0103), as Settings offers it before connecting. */
 export interface FoundRcsSender {
   readonly sid: string;
   /** What Settings connects it by: `lonestar_hvac_agent`. */

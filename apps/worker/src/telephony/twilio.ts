@@ -27,7 +27,7 @@ const PORTING = 'https://numbers.twilio.com/v1/Porting';
 const HOSTED = 'https://numbers.twilio.com/v2/HostedNumber/Orders';
 /** The Conversational Intelligence service whole calls are transcribed in: one per subaccount, found by this name. */
 const TRANSCRIPT_SERVICE = 'hfos-call-transcripts';
-/** RCS senders (0101), and the content templates a rich text goes out as. */
+/** RCS senders (0103), and the content templates a rich text goes out as. */
 const SENDERS = 'https://messaging.twilio.com/v2/Channels/Senders';
 const CONTENT = 'https://content.twilio.com/v1/Content';
 
@@ -100,7 +100,7 @@ async function callJson<T>(creds: Creds, url: string, body: unknown): Promise<T>
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
 
 /**
- * Twilio's word for an RCS sender, onto the four this system acts on (0101). Anything unrecognised is still in
+ * Twilio's word for an RCS sender, onto the four this system acts on (0103). Anything unrecognised is still in
  * review, deliberately: an unknown status means Twilio is still doing something, and guessing `failed` would tell
  * a business its sender broke when it had not. The word itself is kept too, so Settings can say which step.
  */
@@ -915,7 +915,7 @@ export function createTwilioTelephony(master: {
     },
 
     async sendMessage(account, m) {
-      // RCS first (0101): the service tries RCS and falls back to an SMS or MMS from the thread's own number.
+      // RCS first (0103): the service tries RCS and falls back to an SMS or MMS from the thread's own number.
       const rcsFirst = !!m.rcsFirst && !!m.messagingServiceSid;
       const res = await call<{ sid: string; status: string }>(
         credsOf(account),

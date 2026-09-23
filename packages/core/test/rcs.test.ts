@@ -1,5 +1,5 @@
 /**
- * RCS (0101): the rules a rich text keeps. Its plain face (what a phone without RCS gets), the numbering a
+ * RCS (0103): the rules a rich text keeps. Its plain face (what a phone without RCS gets), the numbering a
  * customer texts back against, the ids a tap comes back with, and what the composer and the command refuse.
  */
 import { describe, expect, it } from 'vitest';

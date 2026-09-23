@@ -60,6 +60,7 @@ const entry = (over: Partial<TimelineEntry> = {}): TimelineEntry => ({
   personId: null,
   companyId: null,
   leadId: null,
+  customRecordId: null,
   meta: {},
   ...over,
 });

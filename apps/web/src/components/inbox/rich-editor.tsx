@@ -1,6 +1,6 @@
 'use client';
 /**
- * Buttons, a card or a carousel to go with a text (RCS, 0101), as the composer builds them.
+ * Buttons, a card or a carousel to go with a text (RCS, 0103), as the composer builds them.
  *
  * **Nobody picks RCS or SMS.** What is built here goes as RCS to a phone that can show it, and as the same
  * words with the choices written out to one that can't — so the editor always shows that plain face too,

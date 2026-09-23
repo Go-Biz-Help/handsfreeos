@@ -22,6 +22,12 @@ type Row = {
   company_archived: Date | null;
   lead_id: string | null;
   lead_title: string | null;
+  custom_record_id: string | null;
+  custom_record_name: string | null;
+  custom_record_archived: Date | null;
+  custom_record_type_id: string | null;
+  custom_record_kind: string | null;
+  custom_record_icon: string | null;
   done_at: Date | null;
   done_by: string | null;
   done_by_name: string | null;
@@ -54,6 +60,8 @@ export const taskList = defineQuery({
             t.person_id, btrim(p.first_name || ' ' || p.last_name) as person_name, p.archived_at as person_archived,
             t.company_id, c.name as company_name, c.archived_at as company_archived,
             t.lead_id, l.title as lead_title,
+            t.custom_record_id, cr.name as custom_record_name, cr.archived_at as custom_record_archived,
+            cr.type_id as custom_record_type_id, crt.singular as custom_record_kind, crt.icon as custom_record_icon,
             t.done_at, t.done_by, coalesce(nullif(d.full_name, ''), d.email::text) as done_by_name,
             t.created_by, coalesce(nullif(cb.full_name, ''), cb.email::text) as created_by_name,
             t.created_at, t.updated_at,
@@ -69,6 +77,8 @@ export const taskList = defineQuery({
           left join app.people p on p.id = t.person_id
           left join app.companies c on c.id = t.company_id
           left join app.leads l on l.id = t.lead_id
+          left join app.custom_records cr on cr.id = t.custom_record_id
+          left join app.custom_record_types crt on crt.id = cr.type_id
           where t.workspace_id = ${input.workspaceId}
             ${input.scope === 'mine' ? sql`and (t.assignee_user_id = ${me} or (t.assignee_user_id is null and t.created_by = ${me}))` : sql``}
             ${input.status === 'open' ? sql`and t.done_at is null` : input.status === 'done' ? sql`and t.done_at is not null` : sql``}
@@ -76,6 +86,7 @@ export const taskList = defineQuery({
             ${input.personId ? sql`and t.person_id = ${input.personId}` : sql``}
             ${input.companyId ? sql`and t.company_id = ${input.companyId}` : sql``}
             ${input.leadId ? sql`and t.lead_id = ${input.leadId}` : sql``}
+            ${input.customRecordId ? sql`and t.custom_record_id = ${input.customRecordId}` : sql``}
         ) x
         ${cursor ? (doneOrder ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
         order by ${doneOrder ? sql`x.sort_key desc, x.id desc` : sql`x.sort_key, x.id`}
@@ -108,6 +119,17 @@ export const taskList = defineQuery({
           ? { id: r.company_id, name: r.company_name ?? '', archived: !!r.company_archived }
           : null,
         lead: r.lead_id ? { id: r.lead_id, title: r.lead_title ?? '' } : null,
+        customRecord:
+          r.custom_record_id && r.custom_record_type_id
+            ? {
+                id: r.custom_record_id,
+                name: r.custom_record_name ?? '',
+                archived: !!r.custom_record_archived,
+                typeId: r.custom_record_type_id,
+                kind: r.custom_record_kind ?? '',
+                icon: r.custom_record_icon ?? 'box',
+              }
+            : null,
         doneAt: iso(r.done_at),
         doneBy: r.done_by ? { id: r.done_by, fullName: r.done_by_name ?? 'Former member' } : null,
         createdBy: r.created_by

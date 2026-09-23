@@ -344,7 +344,7 @@ export const COMPOSER_WORDS = {
   attachPhotoOrFile: 'Attach a photo or file',
   attach: 'Attach',
   addCustomerForPhotos: 'Add them as a customer to send photos',
-  /** The composer's RCS extras (0101). */
+  /** The composer's RCS extras (0103). */
   addButtons: 'Add buttons or a card',
   carouselPictures: 'A carousel carries its pictures on its cards',
   subject: 'Subject',

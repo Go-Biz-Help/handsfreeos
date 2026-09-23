@@ -46,20 +46,20 @@ export interface FakeSent extends OutboundMessage {
   /** When the fake "carrier" took it, so usageDaily can bucket it by day. */
   readonly at: number;
   /**
-   * How the "carrier" delivered it (0101): over RCS, or the SMS or MMS a phone without RCS gets instead. For a
+   * How the "carrier" delivered it (0103): over RCS, or the SMS or MMS a phone without RCS gets instead. For a
    * rich text that fell back, `delivered` is what that phone was actually sent — the template's own fallback.
    */
   readonly via: 'rcs' | 'sms' | 'mms';
   readonly delivered: { readonly body: string; readonly mediaUrls: readonly string[] };
 }
 
-/** One of the fake's RCS senders (0101). */
+/** One of the fake's RCS senders (0103). */
 export interface FakeRcsSender extends RcsSenderInfo {
   readonly accountSid: string;
 }
 
 /**
- * The fake's stand-in RCS senders, in every account (0101). Twilio makes senders only in its console, so locally
+ * The fake's stand-in RCS senders, in every account (0103). Twilio makes senders only in its console, so locally
  * there is nothing to make: these are already "there" for Settings to find and connect.
  *
  * - `hfos_demo_agent` is approved and online;
@@ -108,11 +108,11 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly transcribed: string[];
   /** Subaccounts closed, by sid; their numbers are released with them. */
   readonly closedAccounts: string[];
-  /** RCS senders the "carrier" has, by sid (0101). The stand-ins appear the first time an account is looked at. */
+  /** RCS senders the "carrier" has, by sid (0103). The stand-ins appear the first time an account is looked at. */
   readonly rcsSenders: Map<string, FakeRcsSender>;
-  /** Which RCS sender sits in which messaging service's pool (0101): what makes a text go RCS first. */
+  /** Which RCS sender sits in which messaging service's pool (0103): what makes a text go RCS first. */
   readonly rcsPools: Map<string, string>;
-  /** Content templates made for rich texts, by sid, and the ones deleted once their message was done (0101). */
+  /** Content templates made for rich texts, by sid, and the ones deleted once their message was done (0103). */
   readonly contents: Map<string, ContentTemplate & { readonly accountSid: string }>;
   readonly deletedContents: string[];
 }
@@ -152,7 +152,7 @@ export interface FakeOptions {
 
 /**
  * An in-memory Twilio. Texts get "sent" then "delivered" callbacks (a body containing [fail] gets a
- * failure instead). With an online RCS sender in the messaging service's pool (0101) a text goes over RCS —
+ * failure instead). With an online RCS sender in the messaging service's pool (0103) a text goes over RCS —
  * callbacks from `rcs:<sender>`, and a "read" after the "delivered" — unless the customer's number ends in 7,
  * which plays a phone without RCS and gets the SMS or MMS from the thread's number instead. Registrations
  * are approved after `approvalMs` (a legal name containing "reject" is
@@ -453,7 +453,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       if (message.contentSid && !template)
         throw new ProviderError('The content template does not exist.', '21655', true, 400);
       /*
-       * RCS first, as Twilio does it (0101): an online sender in the service's pool is tried for every text sent
+       * RCS first, as Twilio does it (0103): an online sender in the service's pool is tried for every text sent
        * through the service, and a phone that can't show RCS gets the SMS or MMS instead — from `from`, which is
        * the `FallbackFrom` the worker names.
        */

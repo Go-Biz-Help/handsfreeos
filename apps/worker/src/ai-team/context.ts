@@ -96,13 +96,13 @@ type MessageRow = {
   subject: string | null;
   media: unknown;
   occurred_at: Date | string;
-  /** RCS (0101): the buttons, card or carousel a text offered, and the button a reply came from. */
+  /** RCS (0103): the buttons, card or carousel a text offered, and the button a reply came from. */
   rich?: RichText | null;
   button_reply?: ButtonReply | null;
 };
 
 /**
- * What a text offered besides its words (0101), so the model knows what a customer's "Reschedule" was an answer
+ * What a text offered besides its words (0103), so the model knows what a customer's "Reschedule" was an answer
  * to: "(with buttons: Confirm, Reschedule)", "(as a card titled “…” …)", "(with 3 cards: Basic, Plus, Premium)".
  */
 function offeredLine(rich: RichText): string {
@@ -123,7 +123,7 @@ function textOf(
   const sent = photos === 1 ? 'a photo' : `${photos} photos`;
   // M18: a photo with words says so too, so the model knows there is one to look at.
   let text = !photos ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
-  // A tap is the customer's answer, in the button's own words (0101); saying so tells the model it answers the
+  // A tap is the customer's answer, in the button's own words (0103); saying so tells the model it answers the
   // message that offered it rather than being something they typed out of the blue.
   if (r.button_reply)
     text += `\n(chose “${r.button_reply.title}” from the buttons on an earlier message)`;

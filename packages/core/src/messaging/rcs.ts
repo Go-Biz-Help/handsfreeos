@@ -1,5 +1,5 @@
 /**
- * RCS (0101): the rules a rich text keeps, the same in the composer, the command and the worker. Browser-safe.
+ * RCS (0103): the rules a rich text keeps, the same in the composer, the command and the worker. Browser-safe.
  *
  * **RCS is how a text travels, never a channel of its own.** A business with an RCS sender still texts its
  * customers in their ordinary text thread; Twilio tries RCS first and, when the customer's phone can't show it,

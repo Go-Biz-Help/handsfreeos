@@ -223,7 +223,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   twilioWebhook(app, deps, '/webhooks/twilio/messaging/status', {
     kind: 'messaging.status',
     // An RCS-first text can be `sent` twice under one sid — over RCS, then as the SMS it fell back to — and the
-    // second says which way it really went (0101), so the two are kept apart rather than one dropped as a replay.
+    // second says which way it really went (0103), so the two are kept apart rather than one dropped as a replay.
     dedupeKey: (p) =>
       p['MessageSid'] && p['MessageStatus']
         ? `${p['MessageSid']}:${p['MessageStatus']}:${p['ErrorCode'] ?? ''}${/^rcs:/i.test(p['From'] ?? '') ? ':rcs' : ''}`
@@ -276,7 +276,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   });
 
   /**
-   * The RCS senders in the business's own Twilio account (0101), for Settings to offer before anything is
+   * The RCS senders in the business's own Twilio account (0103), for Settings to offer before anything is
    * connected. Twilio makes senders only in its console, so this is how a business sees the one it made — and,
    * when there is none, which account to make it in.
    */

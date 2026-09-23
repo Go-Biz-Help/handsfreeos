@@ -200,7 +200,7 @@ export const ConversationGetOutput = z.object({
   canText: z.object({ ok: z.boolean(), reason: canTextReason.nullable() }),
   fromNumber: z.string().nullable(),
   /**
-   * Texts here go RCS first (0101): the business's RCS sender is connected, approved and switched on. A phone
+   * Texts here go RCS first (0103): the business's RCS sender is connected, approved and switched on. A phone
    * that can't show RCS still gets every message, as an ordinary text from `fromNumber`.
    */
   rcs: z.boolean(),

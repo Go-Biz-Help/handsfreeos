@@ -1090,7 +1090,7 @@ describe('calls through a cell and their words', () => {
   });
 });
 
-describe('RCS (0101)', () => {
+describe('RCS (0103)', () => {
   const texting = {
     from: '+18335551234',
     messagingServiceSid: 'MGservicetest',

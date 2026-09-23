@@ -41,7 +41,7 @@ export interface ThreadItemFacts {
   readonly aiDraftId: string | null;
   readonly handoffLine: boolean;
   /**
-   * Texts (0101): which way it went — SMS, MMS or RCS — and when an RCS message was read, what it carried and
+   * Texts (0103): which way it went — SMS, MMS or RCS — and when an RCS message was read, what it carried and
    * which button a customer's reply came from. Optional because the phone's copy doesn't hold them yet.
    */
   readonly transport?: 'sms' | 'mms' | 'rcs' | null;

@@ -1,6 +1,6 @@
 'use client';
 /**
- * Settings → Texting: RCS (0101).
+ * Settings → Texting: RCS (0103).
  *
  * **One setting for the whole business, nothing in the composer.** Once a sender is connected and the carriers
  * approve it, every text goes RCS first — the business's name and logo at the top, pictures, buttons to tap —

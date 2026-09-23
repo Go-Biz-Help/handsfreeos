@@ -170,7 +170,7 @@ function triggerContext(e: EventRow): Record<string, unknown> {
     eventId: e.id,
     at: e.createdAt.toISOString(),
     ...(str(p['channel']) ? { channel: p['channel'] } : {}),
-    // The button a customer's reply came from (0101), by its words: "Confirm", "Reschedule".
+    // The button a customer's reply came from (0103), by its words: "Confirm", "Reschedule".
     ...(isRecord(p['button']) && str(p['button']['title']) ? { button: p['button']['title'] } : {}),
     ...(str(p['fromStageId']) ? { from_stage_id: p['fromStageId'] } : {}),
     ...(str(p['toStageId']) ? { to_stage_id: p['toStageId'] } : {}),
@@ -290,7 +290,7 @@ async function wake(ctx: HandlerContext, scope: TenantScope, r: WatchedRun): Pro
     eventId: e.id,
     at: e.createdAt.toISOString(),
     conversationId,
-    // A reply that came from a button carries it on, for the steps after the wait (`wait.button`, 0101).
+    // A reply that came from a button carries it on, for the steps after the wait (`wait.button`, 0103).
     button: triggerContext(e)['button'] ?? null,
     // What it woke for can have reached HandsFreeOS late too: the run is then as far behind as it was.
     late: lateOfEvent(e),

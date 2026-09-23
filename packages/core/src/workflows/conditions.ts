@@ -164,7 +164,7 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   f('trigger.channel', 'Came in by', 'trigger', 'enum', null, {
     options: opts(['sms', 'Text'], ['email', 'Email'], ['chat', 'Website chat']),
   }),
-  // RCS (0101): the button a customer's message came from — tapped, or texted back by number — by its words.
+  // RCS (0103): the button a customer's message came from — tapped, or texted back by number — by its words.
   f('trigger.button', 'Button they chose', 'trigger', 'text', null),
   f('trigger.from_stage_id', 'Moved from stage', 'trigger', 'ref', null, { refKind: 'stage' }),
   f('trigger.to_stage_id', 'Moved to stage', 'trigger', 'ref', null, { refKind: 'stage' }),

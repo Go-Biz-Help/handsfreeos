@@ -20,6 +20,10 @@ export function SettingsNav({
       ? [
           { href: `${base}/workspace`, label: 'Workspace' },
           { href: `${base}/pipelines`, label: 'Pipelines' },
+          // What a business keeps about its customers: its own fields, and its own kinds of records (pets,
+          // vehicles, properties) with how they relate.
+          { href: `${base}/fields`, label: 'Fields' },
+          { href: `${base}/relationships`, label: 'Relationships' },
           { href: `${base}/calendars`, label: 'Calendars' },
           { href: `${base}/imports`, label: 'Imports' },
           // Its own page, not a tab inside Imports: that page lists spreadsheets, and this moves a whole

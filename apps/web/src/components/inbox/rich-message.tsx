@@ -1,6 +1,6 @@
 'use client';
 /**
- * A rich text in the thread (RCS, 0101): its buttons, card or carousel, drawn the way an RCS phone showed them.
+ * A rich text in the thread (RCS, 0103): its buttons, card or carousel, drawn the way an RCS phone showed them.
  * Here they only show — the business reads what its customer could tap — and under a rich text that went to a
  * phone without RCS, the plain text that phone got instead is one click away.
  */

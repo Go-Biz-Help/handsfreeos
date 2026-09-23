@@ -501,7 +501,7 @@ export function textingRejectedEmail(input: {
   return { subject, text, html };
 }
 
-/** The carriers approved the business's RCS sender (0101): texts go as RCS where phones can show it. */
+/** The carriers approved the business's RCS sender (0103): texts go as RCS where phones can show it. */
 export function rcsLiveEmail(input: {
   business: string;
   sender: string;
@@ -522,7 +522,7 @@ See RCS in Settings: ${input.link}`;
   return { subject, text, html };
 }
 
-/** The business's RCS sender stopped (0101): texts go as SMS and MMS until it is back. */
+/** The business's RCS sender stopped (0103): texts go as SMS and MMS until it is back. */
 export function rcsStoppedEmail(input: {
   business: string;
   sender: string;

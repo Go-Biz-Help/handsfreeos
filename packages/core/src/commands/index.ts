@@ -98,6 +98,9 @@ import {
 } from './phone';
 import { registrationSubmit, registrationUpdateStatus } from './registration';
 import { brandedDomainCommands } from './branded-domain';
+import { customFieldCommands } from './custom-field';
+import { customRecordCommands } from './custom-record';
+import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
 import { rcsCommands } from './rcs';
@@ -784,7 +787,11 @@ export const commands: readonly CommandDef[] = [
   ...portCommands,
   ...inboxVisibilityCommands,
   ...brandedDomainCommands,
-  // A business's RCS sender: connected, paused, looked at again and let go (0101).
+  // Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
+  ...customFieldCommands,
+  ...customRecordCommands,
+  ...relationshipCommands,
+  // A business's RCS sender: connected, paused, looked at again and let go (0103).
   ...rcsCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
@@ -839,3 +846,6 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './job';
+export * from './custom-field';
+export * from './custom-record';
+export * from './relationship';

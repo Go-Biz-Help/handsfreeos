@@ -278,7 +278,7 @@ export const jobs: JobMap = {
   'registration.poll': registrationPoll,
   // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
   ...portJobs,
-  // A business's RCS sender: connecting it, asking Twilio after it, letting it go (0101).
+  // A business's RCS sender: connecting it, asking Twilio after it, letting it go (0103).
   ...rcsJobs,
   // A business's own domain: claiming it, watching for its DNS, and giving it back (M17).
   ...domainJobs,
