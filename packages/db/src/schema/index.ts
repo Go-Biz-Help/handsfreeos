@@ -5212,6 +5212,8 @@ export const ideaComments = platform.table('idea_comments', {
   body: text('body').notNull(),
   hiddenAt: ts('hidden_at'),
   hiddenBy: userRef('hidden_by'),
+  /** When the idea's author was emailed about this answer from the team (the worker's). */
+  authorToldAt: ts('author_told_at'),
   ...timestamps(),
 });
 

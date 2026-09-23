@@ -283,6 +283,8 @@ create table platform.idea_comments (
   /** Taken down, by its author or by the team. */
   hidden_at timestamptz,
   hidden_by uuid references app.users (id) on delete set null,
+  /** When the idea's author was emailed about this answer from the team. The worker's alone. */
+  author_told_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -569,6 +571,21 @@ language sql stable security definer set search_path = '' as $$
   order by u.id
 $$;
 
+-- Whoever shared an idea, when the team answers it in the comments: if they still follow it and still take part.
+create or replace function private.idea_author_to_tell(p_idea uuid)
+returns table (user_id uuid, email text, first_name text)
+language sql stable security definer set search_path = '' as $$
+  select u.id, u.email::text, split_part(btrim(u.full_name), ' ', 1)
+  from platform.ideas i
+  join platform.idea_followers f on f.idea_id = i.id and f.user_id = i.author_user_id and f.following
+  join app.users u on u.id = i.author_user_id
+  where i.id = p_idea
+    and u.deleted_at is null
+    and (exists (select 1 from app.workspace_memberships m where m.user_id = u.id)
+      or exists (select 1 from app.organization_memberships m where m.user_id = u.id)
+      or exists (select 1 from platform.staff s where s.user_id = u.id and s.status = 'active'))
+$$;
+
 -- ---------- the staff permissions ----------
 insert into app.role_permissions (role, permission) values
   ('staff_agent', 'platform.ideas.moderate'),
@@ -720,7 +737,7 @@ revoke all on function
   private.guard_new_idea(), private.guard_idea(), private.count_idea_vote(), private.vote_for_own_idea(),
   private.stamp_idea_comment(), private.guard_idea_comment(), private.count_idea_comment(),
   private.merge_idea(uuid, uuid), private.short_name(text), private.idea_people(uuid[]),
-  private.idea_followers_to_tell(uuid)
+  private.idea_followers_to_tell(uuid), private.idea_author_to_tell(uuid)
   from public;
 grant execute on function
   private.takes_part_in_ideas(), private.idea_search_vector(text, text), private.my_recent_idea_writes(interval),
@@ -729,4 +746,5 @@ grant execute on function
   private.short_name(text)
   to authenticated, service_actor;
 grant execute on function private.merge_idea(uuid, uuid), private.idea_people(uuid[]) to authenticated;
-grant execute on function private.idea_followers_to_tell(uuid) to service_actor;
+grant execute on function private.idea_followers_to_tell(uuid), private.idea_author_to_tell(uuid)
+  to service_actor;
