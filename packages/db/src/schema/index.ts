@@ -5270,7 +5270,188 @@ export const maintenanceReminders = app.table('maintenance_reminders', {
   ...timestamps(),
 });
 
+/* ===========================================================================
+ * platform · Ideas, the roadmap and What's new (0102). HandsFreeOS's own, so
+ * they sit beside the support desk: every business reads the same board, and
+ * no tenant policy says who may. The counts are kept by the database.
+ * ======================================================================== */
+
+export const ideaStatus = platform.enum('idea_status', [
+  'under_review',
+  'planned',
+  'in_progress',
+  'done',
+  'not_planned',
+]);
+export const ideaUpdateKind = platform.enum('idea_update_kind', ['status', 'merged', 'merged_in']);
+export const whatsNewKind = platform.enum('whats_new_kind', ['new', 'improved', 'fixed']);
+
+export type IdeaStatus = (typeof ideaStatus.enumValues)[number];
+export type WhatsNewKind = (typeof whatsNewKind.enumValues)[number];
+
+/** The parts of HandsFreeOS an idea can be about. Archived ones take no new ideas. */
+export const ideaAreas = platform.table('idea_areas', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  sort: integer('sort').notNull().default(0),
+  archivedAt: ts('archived_at'),
+  ...timestamps(),
+});
+
+export const ideas = platform.table('ideas', {
+  id: id(),
+  number: bigint('number', { mode: 'number' })
+    .notNull()
+    .default(sql`nextval('platform.idea_number_seq')`),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  areaId: text('area_id')
+    .notNull()
+    .default('other')
+    .references(() => ideaAreas.id),
+  status: ideaStatus('status').notNull().default('under_review'),
+  authorUserId: userRef('author_user_id'),
+  /** The business it was shared from. The team's to know, nobody else's. */
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  /** Kept by the database from the votes; no command writes it. */
+  voteCount: integer('vote_count').notNull().default(0),
+  commentCount: integer('comment_count').notNull().default(0),
+  /** Votes, each halving in weight every week, summed as at `trendAt`. */
+  trendScore: doublePrecision('trend_score').notNull().default(0),
+  trendAt: ts('trend_at').notNull().defaultNow(),
+  mergedInto: uuid('merged_into').references((): AnyPgColumn => ideas.id, {
+    onDelete: 'set null',
+  }),
+  hiddenAt: ts('hidden_at'),
+  hiddenBy: userRef('hidden_by'),
+  statusChangedAt: ts('status_changed_at'),
+  ...timestamps(),
+  /** Weighted English search document: title A, details B. */
+  search: tsvector('search').generatedAlwaysAs(sql`private.idea_search_vector(title, body)`),
+});
+
+export const ideaVotes = platform.table(
+  'idea_votes',
+  {
+    ideaId: uuid('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.ideaId, t.userId] })],
+);
+
+export const ideaFollowers = platform.table(
+  'idea_followers',
+  {
+    ideaId: uuid('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    following: boolean('following').notNull().default(true),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.ideaId, t.userId] })],
+);
+
+export const ideaComments = platform.table('idea_comments', {
+  id: id(),
+  ideaId: uuid('idea_id')
+    .notNull()
+    .references(() => ideas.id, { onDelete: 'cascade' }),
+  authorUserId: userRef('author_user_id'),
+  /** Decided by the database when it was written: whether its author was on the HandsFreeOS team. */
+  fromTeam: boolean('from_team').notNull().default(false),
+  body: text('body').notNull(),
+  hiddenAt: ts('hidden_at'),
+  hiddenBy: userRef('hidden_by'),
+  /** When the idea's author was emailed about this answer from the team (the worker's). */
+  authorToldAt: ts('author_told_at'),
+  ...timestamps(),
+});
+
+export const whatsNew = platform.table('whats_new', {
+  id: id(),
+  title: text('title').notNull(),
+  body: text('body').notNull().default(''),
+  kind: whatsNewKind('kind').notNull().default('new'),
+  areaId: text('area_id').references(() => ideaAreas.id),
+  /** Null while it is a draft. */
+  publishedAt: ts('published_at'),
+  authorUserId: userRef('author_user_id'),
+  ...timestamps(),
+});
+
+export const whatsNewIdeas = platform.table(
+  'whats_new_ideas',
+  {
+    whatsNewId: uuid('whats_new_id')
+      .notNull()
+      .references(() => whatsNew.id, { onDelete: 'cascade' }),
+    ideaId: uuid('idea_id')
+      .notNull()
+      .references(() => ideas.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.whatsNewId, t.ideaId] })],
+);
+
+export const whatsNewReads = platform.table('whats_new_reads', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  seenAt: ts('seen_at').notNull().defaultNow(),
+});
+
+export const ideaUpdates = platform.table('idea_updates', {
+  id: id(),
+  ideaId: uuid('idea_id')
+    .notNull()
+    .references(() => ideas.id, { onDelete: 'cascade' }),
+  kind: ideaUpdateKind('kind').notNull(),
+  fromStatus: ideaStatus('from_status'),
+  toStatus: ideaStatus('to_status'),
+  note: text('note').notNull().default(''),
+  otherIdeaId: uuid('other_idea_id').references(() => ideas.id, { onDelete: 'set null' }),
+  whatsNewId: uuid('whats_new_id').references(() => whatsNew.id, { onDelete: 'set null' }),
+  notify: boolean('notify').notNull().default(true),
+  notifiedAt: ts('notified_at'),
+  actorUserId: userRef('actor_user_id'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** Who has been told about which update: the worker's record, so a retry never tells anybody twice. */
+export const ideaUpdateDeliveries = platform.table(
+  'idea_update_deliveries',
+  {
+    updateId: uuid('update_id')
+      .notNull()
+      .references(() => ideaUpdates.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sentAt: ts('sent_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.updateId, t.userId] })],
+);
+
 export const tables = {
+  ideaAreas,
+  ideas,
+  ideaVotes,
+  ideaFollowers,
+  ideaComments,
+  whatsNew,
+  whatsNewIdeas,
+  whatsNewReads,
+  ideaUpdates,
+  ideaUpdateDeliveries,
   serviceSchedules,
   maintenanceReminders,
   thankYous,

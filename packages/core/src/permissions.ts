@@ -110,7 +110,14 @@ export const ROLE_PERMISSIONS = {
     'org.templates.manage',
     'org.migrations.manage',
   ],
-  staff_agent: ['support.read', 'support.reply', 'platform.businesses.read', 'platform.view_as'],
+  staff_agent: [
+    'support.read',
+    'support.reply',
+    'platform.businesses.read',
+    'platform.view_as',
+    // Ideas (0102): answering as the team, tidying, merging duplicates and taking down spam.
+    'platform.ideas.moderate',
+  ],
   staff_lead: [
     'support.read',
     'support.reply',
@@ -119,6 +126,9 @@ export const ROLE_PERMISSIONS = {
     'platform.businesses.read',
     'platform.view_as',
     'platform.health.read',
+    'platform.ideas.moderate',
+    // Moving an idea along the roadmap (which emails its followers) and writing What's new.
+    'platform.ideas.manage',
   ],
   staff_admin: [
     'support.read',
@@ -132,6 +142,8 @@ export const ROLE_PERMISSIONS = {
     'platform.rates.manage',
     'platform.wallets.adjust',
     'platform.founding.manage',
+    'platform.ideas.moderate',
+    'platform.ideas.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -144,8 +156,9 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Support admin',
 };
 export const STAFF_ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
-  agent: 'Answers tickets and can look at a business read-only to see what the customer sees.',
-  lead: 'Everything an agent does, plus assigning tickets, saved replies and the health page.',
+  agent:
+    'Answers tickets, answers ideas as the team, and can look at a business read-only to see what the customer sees.',
+  lead: 'Everything an agent does, plus assigning tickets, saved replies, the health page, the roadmap and What’s new.',
   admin: 'Everything a lead does, plus inviting and removing support people.',
 };
 

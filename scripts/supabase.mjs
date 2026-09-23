@@ -65,13 +65,15 @@ function runReading(args) {
 /**
  * `supabase start` downloads every image the stack needs before it starts any of them, and a registry can refuse
  * downloads for a long time: on 2026-09-23 ghcr.io answered `toomanyrequests` to every CI run for over an hour, and
- * the CLI's own three tries came microseconds apart, so the job failed before lint or a single test had run. So when
- * the CLI fails saying an image didn't download, stop whatever did start and try again a minute later, up to ten
- * times. Any other failure, a broken migration or a port in use, ends it at once as before.
+ * the CLI's own three tries, 4 and 8 seconds apart, all fell inside it, so the job failed before lint or a single test
+ * had run. So when the CLI fails saying an image didn't download, stop whatever did start and try again a minute
+ * later, up to ten times. Any other failure, a broken migration or a port in use, ends it at once as before.
  *
- * Many short tries beat a few long waits. Docker keeps every layer that did arrive, so each try picks up where the
- * last one stopped, and ghcr.io counts its limit per minute. That day, four tries 1, 2 and 4 minutes apart finished
- * six of the eight images; the 2- and 4-minute waits got no further than the 1-minute one.
+ * Many short tries beat a few long waits. ghcr.io counts its limit per minute, and every image that finished
+ * downloading stays for the next try, so each try asks only for what is left. That day, four tries 1, 2 and 4 minutes
+ * apart finished six of the eight images; the 2- and 4-minute waits got no further than the 1-minute one. An image
+ * that fails part-way starts over, though, so against a registry that keeps refusing, the big ones never arrive
+ * whole: ci.yml lets the CLI try other registries for that.
  *
  * Telling a download failure from the rest means reading the CLI's output, which happens in CI and wherever else it
  * is piped. In a terminal nothing is read and nothing is retried: the person watching sees it fail and runs it again.
