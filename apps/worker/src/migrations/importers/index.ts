@@ -342,7 +342,7 @@ const fieldKey = (raw: string, fallback: string): string => {
 };
 
 /** The most fields one kind of record carries here: `private.custom_field_room`, in the database. */
-const CUSTOM_FIELD_ROOM = 50;
+const CUSTOM_FIELD_ROOM = 200;
 
 export const importCustomField: Importer = async (tx, scope, envelope) => {
   const d = envelope.data as {
@@ -452,7 +452,7 @@ export const importCustomField: Importer = async (tx, scope, envelope) => {
       detail: { field: label },
     });
   /**
-   * Room for it. A record here carries at most 50 fields, and the wall is a deferred check — it fires at
+   * Room for it. A record here carries at most 200 fields, and the wall is a deferred check — it fires at
    * commit, so one field too many used to throw away the whole page of fields with it, and the page failed
    * the same way every time it was tried. A GoHighLevel account with 163 of them is ordinary. So the ones past
    * the wall are said out loud and left out, and their values still come across: a value whose field is not
