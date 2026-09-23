@@ -26,6 +26,7 @@ export const ATTENTION_KINDS = [
   // After the job (Automations, stage 2b).
   'job_not_thanked',
   'referral_mentioned',
+  'maintenance_due',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -48,6 +49,7 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   wallet_card_declined: 'Card declined',
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Referral',
+  maintenance_due: 'Maintenance due',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -68,6 +70,7 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   wallet_card_declined: 'Card declined',
   job_not_thanked: 'Customers to thank',
   referral_mentioned: 'Referrals',
+  maintenance_due: 'Maintenance due',
 };
 
 /**
@@ -92,6 +95,8 @@ export const ATTENTION_SUBJECT_OF = {
   // A row of app.thank_yous: one customer, one job.
   job_not_thanked: 'thank_you',
   referral_mentioned: 'referral',
+  // A row of app.maintenance_reminders: one customer, one service, one due day.
+  maintenance_due: 'maintenance',
 } as const satisfies Record<AttentionKind, string>;
 export type AttentionSubjectType = (typeof ATTENTION_SUBJECT_OF)[AttentionKind];
 
@@ -253,6 +258,14 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Two texts went already: this one is a person's call.
+  maintenance_due: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -296,6 +309,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   wallet_card_declined: 'Fix the card',
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Create lead',
+  maintenance_due: 'Call',
 };
 
 // ---- What runs on its own ----
@@ -364,6 +378,7 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   wallet_card_declined: 'Only you can put a working card on your own balance.',
   job_not_thanked: 'HandsFreeOS couldn’t send this thank-you, so it’s one for you.',
   referral_mentioned: 'Reaching out to somebody new is your call.',
+  maintenance_due: 'HandsFreeOS already texted them twice, so this one needs a person.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

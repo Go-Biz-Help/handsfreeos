@@ -112,5 +112,6 @@ export { default as Users } from 'lucide-react-native/icons/users';
 export { default as UserX } from 'lucide-react-native/icons/user-x';
 export { default as Voicemail } from 'lucide-react-native/icons/voicemail';
 export { default as Wallet } from 'lucide-react-native/icons/wallet';
+export { default as Wrench } from 'lucide-react-native/icons/wrench';
 export { default as X } from 'lucide-react-native/icons/x';
 export { default as Zap } from 'lucide-react-native/icons/zap';

@@ -17,7 +17,14 @@ import {
   defaultAutomationSettings,
   parseAutomationSettings,
   DEFAULT_INTAKE_MESSAGE,
+  DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
+  DEFAULT_MAINTENANCE_TEMPLATE,
+  everyMonthsWords,
   intakeFormOf,
+  maintenanceDueOn,
+  maintenanceScheduleOf,
+  maintenanceTemplateProblem,
+  renderMaintenance,
   intakeMessageProblem,
   mayMentionReferral,
   reengageOn,
@@ -58,7 +65,12 @@ describe('the automations catalog', () => {
   it('gives every switchable Action Center kind exactly one row', () => {
     // The two wallet kinds that mean the business has stopped working are always on, and not switches.
     // A customer nobody could thank is always looked for: "Thank-you after the job" is its switch.
-    const alwaysOn: AttentionKind[] = ['wallet_empty', 'wallet_card_declined', 'job_not_thanked'];
+    const alwaysOn: AttentionKind[] = [
+      'wallet_empty',
+      'wallet_card_declined',
+      'job_not_thanked',
+      'maintenance_due',
+    ];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],
     );
@@ -94,6 +106,7 @@ describe('automation settings', () => {
       reengage: false,
       intake: true,
       thankYou: true,
+      maintenance: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,
@@ -377,5 +390,81 @@ describe('the referral word check', () => {
       null,
     ])
       expect(mayMentionReferral(text), String(text)).toBe(false);
+  });
+});
+
+describe('maintenance due', () => {
+  it('asks for a repeating service before it can work', () => {
+    expect(
+      automationRow(def('maintenance_due'), ctx({ maintenanceReady: false })).needsSetup,
+    ).toEqual({
+      code: 'maintenance_schedule',
+      text: 'Set how often a service repeats to start.',
+    });
+    expect(automationRow(def('maintenance_due'), ctx({ maintenanceReady: true })).working).toBe(
+      true,
+    );
+  });
+
+  it('takes how often from the customer, then their plan, then the service', () => {
+    expect(maintenanceScheduleOf({ customer: 3, plan: 12, service: 6 })).toEqual({
+      everyMonths: 3,
+      source: 'customer',
+    });
+    // "Never" is theirs to choose too.
+    expect(maintenanceScheduleOf({ customer: null, plan: 12, service: 6 })).toEqual({
+      everyMonths: null,
+      source: 'customer',
+    });
+    expect(maintenanceScheduleOf({ plan: 12, service: 6 })).toEqual({
+      everyMonths: 12,
+      source: 'plan',
+    });
+    expect(maintenanceScheduleOf({ plan: null, service: 6 })).toEqual({
+      everyMonths: 6,
+      source: 'service',
+    });
+    expect(maintenanceScheduleOf({})).toEqual({ everyMonths: null, source: null });
+  });
+
+  it('counts months on the calendar, the 31st landing on the month’s last day', () => {
+    expect(maintenanceDueOn('2026-03-15', 6)).toBe('2026-09-15');
+    expect(maintenanceDueOn('2026-08-31', 6)).toBe('2027-02-28');
+    expect(maintenanceDueOn('2027-08-31', 6)).toBe('2028-02-29');
+    expect(maintenanceDueOn('2026-11-02', 12)).toBe('2027-11-02');
+    expect(everyMonthsWords(6)).toBe('every 6 months');
+    expect(everyMonthsWords(12)).toBe('every year');
+    expect(everyMonthsWords(24)).toBe('every 2 years');
+    expect(everyMonthsWords(1)).toBe('every month');
+  });
+
+  it('writes the reminder in the business’s words, with the plan for members', () => {
+    const v = {
+      firstName: 'Maria',
+      businessName: 'Lone Star HVAC',
+      service: 'AC tune-up',
+      link: 'https://book.example.com/book/ls/ac?service=1',
+      plan: 'Comfort Club',
+    };
+    expect(renderMaintenance(DEFAULT_MAINTENANCE_TEMPLATE, v)).toBe(
+      "Hi Maria, it's Lone Star HVAC. Your AC tune-up is due soon. Book a time that suits you here: https://book.example.com/book/ls/ac?service=1",
+    );
+    expect(renderMaintenance(DEFAULT_MAINTENANCE_PLAN_TEMPLATE, v)).toContain(
+      "it's included in your Comfort Club",
+    );
+    expect(maintenanceTemplateProblem(DEFAULT_MAINTENANCE_TEMPLATE, { plan: false })).toBeNull();
+    // {plan} only in the members' wording, and the link always.
+    expect(maintenanceTemplateProblem('Your {plan} visit: {link}', { plan: false })).toMatch(
+      /can't be filled in/,
+    );
+    expect(maintenanceTemplateProblem('Your {service} is due!', { plan: false })).toMatch(
+      /\{link\}/,
+    );
+    expect(() => parseAutomationSettings({ maintenance: { template: 'No link' } })).toThrow();
+    expect(defaultAutomationSettings().maintenance).toMatchObject({
+      leadDays: 14,
+      secondAfterDays: 7,
+      maxPerDay: 20,
+    });
   });
 });

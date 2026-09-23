@@ -692,6 +692,8 @@ function describeAction(e: AuditEntry): string {
       return attentionSettingsSentence(e);
     case 'automations.save_settings':
       return automationsSettingsSentence(e);
+    case 'maintenance.set_schedule':
+      return `set ${s(e.after?.customer) || 'a customer'}’s ${s(e.after?.service) || 'service'} to ${s(e.after?.every) || 'the default'}`;
     case 'referral.create_lead':
       return s(e.after?.lead)
         ? `made a lead from a referral: “${s(e.after?.lead)}” (${s(e.after?.source) || 'Referral'})`
@@ -818,6 +820,7 @@ const SWITCH_WORDS: Readonly<Record<string, string>> = {
   reengage: 're-engaging dead leads',
   intake: 'intake questions',
   thankYou: 'thank-yous after the job',
+  maintenance: 'maintenance reminders',
 };
 
 function automationsSettingsSentence(e: AuditEntry): string {

@@ -72,6 +72,7 @@ export function AutomationsSettings({
   check,
   senderName,
   forms,
+  maintenanceReady,
 }: {
   workspaceId: string;
   role: Role;
@@ -86,6 +87,8 @@ export function AutomationsSettings({
   check: NudgeCheckContext;
   senderName: string;
   forms: readonly IntakeFormOption[];
+  /** Whether any service repeats or plan names a service ("Maintenance due" has something to go on). */
+  maintenanceReady: boolean;
 }) {
   const attention = useQueuedSave(initialAttention, async (settings) => {
     const out = unwrap(
@@ -124,6 +127,7 @@ export function AutomationsSettings({
     attention: attention.value,
     automations: automations.value,
     teammate: teammate.value,
+    maintenanceReady,
   };
   const rows = automationRows(ctx);
   const counts = automationCounts(rows);
@@ -296,7 +300,15 @@ function AutomationRowView({
         {row.needsSetup && row.on ? (
           <span className="text-[12.5px] text-warning-text" data-testid={`needs-setup-${def.id}`}>
             {row.needsSetup.text}{' '}
-            {row.needsSetup.code === 'intake_form' ? (
+            {row.needsSetup.code === 'maintenance_schedule' ? (
+              <Link
+                href={`/app/w/${workspaceId}/settings/calendars/services`}
+                className="font-medium hover:underline"
+                data-testid={`needs-setup-open-${def.id}`}
+              >
+                Go to Services
+              </Link>
+            ) : row.needsSetup.code === 'intake_form' ? (
               <button
                 type="button"
                 onClick={onAdjust}

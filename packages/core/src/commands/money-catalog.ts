@@ -268,8 +268,27 @@ const planOut = (p: typeof plans.$inferSelect): typeof PlanOut._output => ({
   intervalCount: p.intervalCount,
   taxable: p.taxable,
   includes: p.includes ?? [],
+  serviceId: p.serviceId,
+  visitEveryMonths: p.visitEveryMonths,
   archivedAt: iso(p.archivedAt),
 });
+
+/** A plan's maintenance schedule: a service and how often, both or neither. */
+function visitScheduleOf(input: {
+  readonly serviceId?: string | null;
+  readonly visitEveryMonths?: number | null;
+}): { serviceId: string | null; visitEveryMonths: number | null } | undefined {
+  if (input.serviceId === undefined && input.visitEveryMonths === undefined) return undefined;
+  const serviceId = input.serviceId ?? null;
+  const visitEveryMonths = input.visitEveryMonths ?? null;
+  if (!!serviceId !== !!visitEveryMonths)
+    throw HfosError.validation([
+      serviceId
+        ? { path: 'visitEveryMonths', message: 'Say how often the service is due.' }
+        : { path: 'serviceId', message: 'Pick the service this plan covers.' },
+    ]);
+  return { serviceId, visitEveryMonths };
+}
 
 export const planCreate = defineCommand({
   name: 'plan.create',
@@ -295,6 +314,7 @@ export const planCreate = defineCommand({
         intervalCount: input.intervalCount,
         taxable: input.taxable ?? settings.tax.newProductsTaxable,
         includes: input.includes,
+        ...(visitScheduleOf(input) ?? {}),
         createdBy: me,
       })
       .returning();
@@ -332,6 +352,8 @@ export const planUpdate = defineCommand({
       'taxable',
       'includes',
     ]);
+    const visits = visitScheduleOf(input);
+    if (visits) Object.assign(set, visits);
     if (!Object.keys(set).length)
       return {
         planId: before.id,

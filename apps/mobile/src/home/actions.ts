@@ -147,6 +147,10 @@ export function useHomeActions(o: {
             return item.conversationId ? reply(item) : target(item);
           case 'referral_mentioned':
             return target(item);
+          // Two texts went already: a call when this phone can, else a reply.
+          case 'maintenance_due':
+            if (item.personId) return call(item);
+            return item.conversationId ? reply(item) : target(item);
         }
       },
       call,

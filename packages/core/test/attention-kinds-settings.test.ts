@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the fifteen kinds in order', () => {
+  it('lists the sixteen kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -46,6 +46,7 @@ describe('attention kinds', () => {
       'wallet_card_declined',
       'job_not_thanked',
       'referral_mentioned',
+      'maintenance_due',
     ]);
   });
 
@@ -171,6 +172,7 @@ describe('attention kinds', () => {
     expect(Object.keys(LET_HANDLE_REFUSALS).sort()).toEqual([
       'ai_approval',
       'job_not_thanked',
+      'maintenance_due',
       'overdue_task',
       'referral_mentioned',
       'wallet_card_declined',

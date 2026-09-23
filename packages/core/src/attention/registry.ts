@@ -7,6 +7,7 @@ import * as customerWaiting from './detectors/customer-waiting';
 import * as estimateWaiting from './detectors/estimate-waiting';
 import * as hotLead from './detectors/hot-lead';
 import * as invoiceOverdue from './detectors/invoice-overdue';
+import * as maintenanceDue from './detectors/maintenance-due';
 import * as jobNotThanked from './detectors/job-not-thanked';
 import * as missingNextAction from './detectors/missing-next-action';
 import * as overdueTask from './detectors/overdue-task';
@@ -41,6 +42,7 @@ export const DETECTORS = {
   wallet_card_declined: walletCardDeclined,
   job_not_thanked: jobNotThanked,
   referral_mentioned: referralMentioned,
+  maintenance_due: maintenanceDue,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

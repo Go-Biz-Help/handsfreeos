@@ -24,10 +24,15 @@ export interface AutomationContext {
   readonly attention: AttentionSettings;
   readonly automations: AutomationSettings;
   readonly teammate: TeammateView | null;
+  /**
+   * Whether any service repeats or any plan names a service (so "Maintenance due" has something to go on).
+   * Unknown (undefined) reads as ready.
+   */
+  readonly maintenanceReady?: boolean;
 }
 
 export interface NeedsSetup {
-  readonly code: 'teammate_on' | 'intake_form';
+  readonly code: 'teammate_on' | 'intake_form' | 'maintenance_schedule';
   /** One sentence the row shows under its title. */
   readonly text: string;
 }
@@ -96,6 +101,11 @@ function needsSetupOf(def: AutomationDef, ctx: AutomationContext): NeedsSetup | 
       };
     if (need === 'intake_form' && ctx.automations.intake.formId === null)
       return { code: 'intake_form', text: 'Pick a form to start.' };
+    if (need === 'maintenance_schedule' && ctx.maintenanceReady === false)
+      return {
+        code: 'maintenance_schedule',
+        text: 'Set how often a service repeats to start.',
+      };
   }
   return null;
 }

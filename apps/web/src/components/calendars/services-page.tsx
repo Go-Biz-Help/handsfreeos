@@ -38,6 +38,8 @@ interface Form {
   resources: { resourceId: string; quantity: number }[];
   hours: WeeklyHours | null;
   color: string;
+  /** "Repeats every" in months, as typed ('' when it doesn't repeat). */
+  repeat: string;
 }
 
 const blank = (): Form => ({
@@ -51,6 +53,7 @@ const blank = (): Form => ({
   resources: [],
   hours: null,
   color: '#0e7490',
+  repeat: '',
 });
 
 const formOf = (s: ServiceItem): Form => ({
@@ -64,6 +67,7 @@ const formOf = (s: ServiceItem): Form => ({
   resources: s.resources,
   hours: (s.hours as WeeklyHours | null) ?? null,
   color: s.color,
+  repeat: s.repeatMonths ? String(s.repeatMonths) : '',
 });
 
 /** Settings → Calendars → Services: what customers can book; each calendar picks which it offers. */
@@ -198,7 +202,10 @@ function ServiceEditor({
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
   const price = f.price.trim() ? parseMoney(f.price) : null;
+  const repeat = f.repeat.trim() ? Number(f.repeat) : null;
+  const repeatBad = repeat !== null && (!Number.isInteger(repeat) || repeat < 1 || repeat > 60);
   const invalid =
+    repeatBad ||
     !f.name.trim() ||
     !f.durations.length ||
     (f.price.trim() !== '' && price === null) ||
@@ -215,6 +222,7 @@ function ServiceEditor({
         bufferBefore: f.bufferBefore,
         bufferAfter: f.bufferAfter,
         priceCents: price,
+        repeatMonths: repeat,
         staffUserIds: f.staffUserIds,
         resources: f.resources,
         hours: f.hours,
@@ -289,6 +297,27 @@ function ServiceEditor({
             invalid={f.price.trim() !== '' && price === null}
             onChange={(e) => setF({ ...f, price: e.target.value })}
           />
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field label="Repeats every" htmlFor="service-repeat">
+          <div className="flex items-center gap-2">
+            <Input
+              id="service-repeat"
+              inputSize="sm"
+              inputMode="numeric"
+              className="w-20"
+              placeholder="—"
+              value={f.repeat}
+              invalid={repeatBad}
+              onChange={(e) => setF({ ...f, repeat: e.target.value })}
+              data-testid="service-repeat"
+            />
+            <span className="text-[13px] text-text-2">
+              months. Customers are reminded to book it again (Settings → Automations, Maintenance
+              due). Leave empty if it doesn’t repeat.
+            </span>
+          </div>
         </Field>
       </div>
       <div className="mt-3">

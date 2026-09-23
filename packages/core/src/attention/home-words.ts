@@ -31,6 +31,7 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   wallet_card_declined: ['card', 'cards'],
   job_not_thanked: ['customer', 'customers'],
   referral_mentioned: ['referral', 'referrals'],
+  maintenance_due: ['customer', 'customers'],
 };
 
 /** The kinds about a lead: assigning one makes that person the lead's owner. */
@@ -456,6 +457,7 @@ export function attentionTargetOf(
     // The customer who mentioned them: that's where the conversation is.
     case 'job_not_thanked':
     case 'referral_mentioned':
+    case 'maintenance_due':
       break;
   }
   if (item.personId)
@@ -558,6 +560,10 @@ export function handleButtonOf(
         : { label: `Thank ${first}`, icon: 'message' };
     case 'referral_mentioned':
       return { label: 'Create lead', icon: 'user-plus' };
+    case 'maintenance_due':
+      if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
+      if (email) return { label: `Email ${first}`, icon: 'mail' };
+      return { label: `Text ${first}`, icon: 'message' };
   }
 }
 
@@ -569,6 +575,7 @@ export function letHandleOffReason(
   if (item.kind === 'overdue_task') return 'HandsFreeOS can’t do your tasks';
   if (item.kind === 'job_not_thanked') return 'HandsFreeOS couldn’t send this one';
   if (item.kind === 'referral_mentioned') return 'Reaching out to someone new is your call';
+  if (item.kind === 'maintenance_due') return 'It already texted them twice';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

@@ -11,6 +11,11 @@ import { z } from 'zod';
 import { nudgePlaceholderProblem } from '../attention/nudge';
 import { isoDateTime } from '../schemas/common';
 import { DEFAULT_INTAKE_MESSAGE, intakeMessageProblem } from './intake';
+import {
+  DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
+  DEFAULT_MAINTENANCE_TEMPLATE,
+  maintenanceTemplateProblem,
+} from './maintenance';
 import { readForgiving } from '../schemas/forgiving';
 
 const on = () => z.boolean().default(true);
@@ -35,6 +40,8 @@ const Switches = z.object({
   intake: on(),
   /** A short thank-you two hours after a job is marked done (the AI teammate's, else a card on Home). */
   thankYou: on(),
+  /** A text when a customer's recurring service comes round again (once a service or plan says how often). */
+  maintenance: on(),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];
@@ -79,11 +86,36 @@ const Intake = z.object({
     .default(DEFAULT_INTAKE_MESSAGE),
 });
 
+const maintenanceWording = (fallback: string, plan: boolean) =>
+  z
+    .string()
+    .trim()
+    .min(1, 'Write the message.')
+    .max(480, 'Keep it under 480 characters.')
+    .superRefine((template, ctx) => {
+      const problem = maintenanceTemplateProblem(template, { plan });
+      if (problem) ctx.addIssue({ code: 'custom', message: problem });
+    })
+    .default(fallback);
+
+const Maintenance = z.object({
+  /** The first text goes this many days before the visit is due. */
+  leadDays: z.int().min(0).max(60, 'At most 60 days.').default(14),
+  /** The second, this many days after the first; a card on Home the same again after that. */
+  secondAfterDays: z.int().min(1, 'At least 1 day.').max(30, 'At most 30 days.').default(7),
+  /** At most this many first reminders a day, so customers already overdue don't all get one at once. */
+  maxPerDay: z.int().min(1).max(200, 'At most 200 a day.').default(20),
+  template: maintenanceWording(DEFAULT_MAINTENANCE_TEMPLATE, false),
+  /** For a customer on a maintenance plan that covers the service. */
+  planTemplate: maintenanceWording(DEFAULT_MAINTENANCE_PLAN_TEMPLATE, true),
+});
+
 export const AutomationSettings = z
   .object({
     switches: Switches.prefault({}),
     reengage: Reengage.prefault({}),
     intake: Intake.prefault({}),
+    maintenance: Maintenance.prefault({}),
   })
   .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
     error: 'Read the message and choose “Looks good, turn on” first.',

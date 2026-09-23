@@ -320,6 +320,10 @@ export function useItemActions(o: {
             return router.push(reachOf(item));
           case 'referral_mentioned':
             return void withBusy(item.id, () => createReferralLead(item));
+          // Two texts went already: a call when this browser can, else the conversation.
+          case 'maintenance_due':
+            if (callsAvailable && item.personId) return void withBusy(item.id, () => call(item));
+            return router.push(reachOf(item));
         }
       },
       call(item) {

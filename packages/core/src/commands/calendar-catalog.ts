@@ -149,6 +149,7 @@ export const serviceCreate = defineCommand({
           bufferAfter: input.bufferAfter,
           ...(input.color ? { color: input.color } : {}),
           priceCents: input.priceCents ?? null,
+          repeatMonths: input.repeatMonths ?? null,
           locationKinds: unique(input.locationKinds),
           createdBy: me,
         })
@@ -231,6 +232,10 @@ export const serviceUpdate = defineCommand({
     change('bufferAfter', input.bufferAfter);
     change('color', input.color);
     change('priceCents', input.priceCents === undefined ? undefined : (input.priceCents ?? null));
+    change(
+      'repeatMonths',
+      input.repeatMonths === undefined ? undefined : (input.repeatMonths ?? null),
+    );
     change('locationKinds', input.locationKinds ? unique(input.locationKinds) : undefined);
     const updated = [
       ...Object.keys(patch),

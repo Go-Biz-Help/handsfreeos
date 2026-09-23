@@ -3037,6 +3037,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/maintenance.set_schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set how often one customer is due for a service (every N months), stop reminding them ("never"), or go back to what their plan or the service says ("default").
+         * @description Risk level 1. Requires records.write. Emits maintenance.schedule_set.
+         */
+        post: operations["command_maintenance_set_schedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/membership.change_role": {
         parameters: {
             query?: never;
@@ -7637,6 +7657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/maintenance.for_person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A customer’s regular services: when each was last done, how often it’s due (theirs, their plan’s or the service’s), when next, and the reminders sent.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_maintenance_for_person"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/message.get": {
         parameters: {
             query?: never;
@@ -10014,6 +10054,11 @@ export interface operations {
                              * @enum {boolean}
                              */
                             job_not_thanked?: true;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            maintenance_due?: true;
                             /** @default true */
                             missing_next_action?: boolean;
                             /** @default true */
@@ -10123,6 +10168,11 @@ export interface operations {
                                  * @enum {boolean}
                                  */
                                 job_not_thanked: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                maintenance_due: true;
                                 /** @default true */
                                 missing_next_action: boolean;
                                 /** @default true */
@@ -10283,6 +10333,19 @@ export interface operations {
                             message?: string;
                         };
                         /** @default {} */
+                        maintenance?: {
+                            /** @default 14 */
+                            leadDays?: number;
+                            /** @default 20 */
+                            maxPerDay?: number;
+                            /** @default Hi {firstName}, it's {businessName}. Your {service} is due soon, and it's included in your {plan}. Book a time here: {link} */
+                            planTemplate?: string;
+                            /** @default 7 */
+                            secondAfterDays?: number;
+                            /** @default Hi {firstName}, it's {businessName}. Your {service} is due soon. Book a time that suits you here: {link} */
+                            template?: string;
+                        };
+                        /** @default {} */
                         reengage?: {
                             /** @default 90 */
                             afterDays?: number;
@@ -10303,6 +10366,8 @@ export interface operations {
                             dayOf?: boolean;
                             /** @default true */
                             intake?: boolean;
+                            /** @default true */
+                            maintenance?: boolean;
                             /** @default true */
                             morningBrief?: boolean;
                             /** @default false */
@@ -10334,6 +10399,18 @@ export interface operations {
                                 /** @default Hi {firstName}, thanks for booking with {businessName}! Before your visit, could you answer a few quick questions? {link} */
                                 message: string;
                             };
+                            maintenance: {
+                                /** @default 14 */
+                                leadDays: number;
+                                /** @default 20 */
+                                maxPerDay: number;
+                                /** @default Hi {firstName}, it's {businessName}. Your {service} is due soon, and it's included in your {plan}. Book a time here: {link} */
+                                planTemplate: string;
+                                /** @default 7 */
+                                secondAfterDays: number;
+                                /** @default Hi {firstName}, it's {businessName}. Your {service} is due soon. Book a time that suits you here: {link} */
+                                template: string;
+                            };
                             reengage: {
                                 /** @default 90 */
                                 afterDays: number;
@@ -10353,6 +10430,8 @@ export interface operations {
                                 dayOf: boolean;
                                 /** @default true */
                                 intake: boolean;
+                                /** @default true */
+                                maintenance: boolean;
                                 /** @default true */
                                 morningBrief: boolean;
                                 /** @default false */
@@ -15620,6 +15699,46 @@ export interface operations {
             };
         };
     };
+    command_maintenance_set_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    every: "default" | "never" | number;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    serviceId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        dueOn: string | null;
+                        everyMonths: number | null;
+                        /** Format: uuid */
+                        personId: string;
+                        /** Format: uuid */
+                        serviceId: string;
+                        source: ("customer" | "plan" | "service") | null;
+                    };
+                };
+            };
+        };
+    };
     command_membership_change_role: {
         parameters: {
             query?: never;
@@ -17887,7 +18006,9 @@ export interface operations {
                     name: string;
                     /** @default 0 */
                     priceCents?: number;
+                    serviceId?: string | null;
                     taxable?: boolean;
+                    visitEveryMonths?: number | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -17913,7 +18034,9 @@ export interface operations {
                             intervalCount: number;
                             name: string;
                             priceCents: number;
+                            serviceId: string | null;
                             taxable: boolean;
+                            visitEveryMonths: number | null;
                         };
                         /** Format: uuid */
                         planId: string;
@@ -17943,7 +18066,9 @@ export interface operations {
                     /** Format: uuid */
                     planId: string;
                     priceCents?: number;
+                    serviceId?: string | null;
                     taxable?: boolean;
+                    visitEveryMonths?: number | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -17969,7 +18094,9 @@ export interface operations {
                             intervalCount: number;
                             name: string;
                             priceCents: number;
+                            serviceId: string | null;
                             taxable: boolean;
+                            visitEveryMonths: number | null;
                         };
                         /** Format: uuid */
                         planId: string;
@@ -18994,6 +19121,7 @@ export interface operations {
                     locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
                     name: string;
                     priceCents?: number | null;
+                    repeatMonths?: number | null;
                     /** @default [] */
                     resources?: {
                         /** @default 1 */
@@ -19047,6 +19175,7 @@ export interface operations {
                     locationKinds?: ("customer_address" | "business" | "virtual" | "phone")[];
                     name?: string;
                     priceCents?: number | null;
+                    repeatMonths?: number | null;
                     resources?: {
                         /** @default 1 */
                         quantity?: number;
@@ -23579,7 +23708,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -23885,7 +24014,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -23895,7 +24024,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -23938,7 +24067,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -24005,7 +24134,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -24015,7 +24144,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -24085,7 +24214,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -24095,7 +24224,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -24129,7 +24258,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -24189,7 +24318,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -24276,6 +24405,11 @@ export interface operations {
                                  * @enum {boolean}
                                  */
                                 job_not_thanked: true;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                maintenance_due: true;
                                 /** @default true */
                                 missing_next_action: boolean;
                                 /** @default true */
@@ -28222,6 +28356,56 @@ export interface operations {
             };
         };
     };
+    query_maintenance_for_person: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            bookedAhead: boolean;
+                            dueOn: string | null;
+                            everyMonths: number | null;
+                            lastVisitOn: string | null;
+                            planName: string | null;
+                            reminder: {
+                                /** Format: date */
+                                dueOn: string;
+                                lastSentAt: string | null;
+                                sentCount: number;
+                                /** @enum {string} */
+                                status: "reminding" | "booked" | "card" | "stopped";
+                            } | null;
+                            /** Format: uuid */
+                            serviceId: string;
+                            serviceMonths: number | null;
+                            serviceName: string;
+                            source: ("customer" | "plan" | "service") | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_message_get: {
         parameters: {
             query?: never;
@@ -29579,7 +29763,9 @@ export interface operations {
                             intervalCount: number;
                             name: string;
                             priceCents: number;
+                            serviceId: string | null;
                             taxable: boolean;
+                            visitEveryMonths: number | null;
                         }[];
                     };
                 };
@@ -30375,6 +30561,7 @@ export interface operations {
                             locationKinds: string[];
                             name: string;
                             priceCents: number | null;
+                            repeatMonths: number | null;
                             resources: {
                                 quantity: number;
                                 /** Format: uuid */

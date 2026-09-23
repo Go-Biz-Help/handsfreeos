@@ -29,9 +29,11 @@ import { openHoursOf } from '../schemas/workspace';
 import type { BusinessFacts, LeadFacts, LinkedLeadFacts } from './facts';
 import { foldCandidates } from './folding';
 import {
+  loadMaintenance,
   loadReferrals,
   loadThankYous,
   thankYouSwitchOn,
+  type MaintenanceInfo,
   type ReferralInfo,
   type ThankYouInfo,
 } from './load-after-job';
@@ -63,7 +65,8 @@ export interface AttentionSubjectRef {
     | 'estimate'
     | 'invoice'
     | 'thank_you'
-    | 'referral';
+    | 'referral'
+    | 'maintenance';
   readonly id: string;
 }
 
@@ -135,6 +138,7 @@ const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set([
   'invoice_overdue',
   'job_not_thanked',
   'referral_mentioned',
+  'maintenance_due',
 ]);
 
 const DAY = 86_400_000;
@@ -212,6 +216,7 @@ interface SubjectSets {
   readonly invoices: Set<string>;
   readonly thankYous: Set<string>;
   readonly referrals: Set<string>;
+  readonly maintenance: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -225,6 +230,7 @@ const emptySets = (): SubjectSets => ({
   invoices: new Set(),
   thankYous: new Set(),
   referrals: new Set(),
+  maintenance: new Set(),
 });
 
 function addSubject(s: SubjectSets, type: string, id: string): void {
@@ -238,6 +244,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'invoice') s.invoices.add(id);
   else if (type === 'thank_you') s.thankYous.add(id);
   else if (type === 'referral') s.referrals.add(id);
+  else if (type === 'maintenance') s.maintenance.add(id);
 }
 
 /**
@@ -256,14 +263,17 @@ async function expand(
   const s = emptySets();
   for (const x of subjects) addSubject(s, x.type, x.id);
   // A thank-you or a referral brings in its customer, so writing to them settles both.
-  if (s.thankYous.size || s.referrals.size) {
+  if (s.thankYous.size || s.referrals.size || s.maintenance.size) {
     const whose = await rows<{ person_id: string }>(
       tx,
       sql`select person_id from app.thank_yous
           where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.thankYous])})
           union all
           select referrer_person_id from app.referrals
-          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.referrals])})`,
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.referrals])})
+          union all
+          select person_id from app.maintenance_reminders
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.maintenance])})`,
     );
     for (const w of whose) s.persons.add(w.person_id);
   }
@@ -304,7 +314,11 @@ async function expand(
           union all
           select 'referral', id from app.referrals
           where workspace_id = ${workspaceId}
-            and referrer_person_id = any(${uuidArray([...s.persons])}) and status = 'mentioned'`,
+            and referrer_person_id = any(${uuidArray([...s.persons])}) and status = 'mentioned'
+          union all
+          select 'maintenance', id from app.maintenance_reminders
+          where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
+            and status = 'card'`,
     );
     for (const t of theirs) addSubject(s, t.type, t.id);
   }
@@ -1158,6 +1172,7 @@ interface Loaded {
   readonly invoices: Map<string, InvoiceInfo>;
   readonly thankYous: Map<string, ThankYouInfo>;
   readonly referrals: Map<string, ReferralInfo>;
+  readonly maintenance: Map<string, MaintenanceInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1359,6 +1374,14 @@ function resolutionOf(
       if (r.referral.status === 'dismissed') return 'dismissed';
       return 'expired';
     }
+    case 'maintenance_due': {
+      const m = loaded.maintenance.get(row.subjectId);
+      if (!m) return 'subject_gone';
+      if (m.reminder.booked || m.reminder.status === 'booked') return 'booked';
+      if (m.reminder.contactedAt) return 'contacted';
+      if (m.reminder.status === 'stopped') return 'turned_off';
+      return 'expired';
+    }
   }
 }
 
@@ -1489,6 +1512,7 @@ export async function reconcile(
     ...scope.invoices,
     ...scope.thankYous,
     ...scope.referrals,
+    ...scope.maintenance,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1552,6 +1576,7 @@ export async function reconcile(
   const invoices = await loadInvoices(tx, workspaceId, [...scope.invoices], all);
   const thankYous = await loadThankYous(tx, workspaceId, [...scope.thankYous], all, now);
   const referrals = await loadReferrals(tx, workspaceId, [...scope.referrals], all, now);
+  const maintenance = await loadMaintenance(tx, workspaceId, [...scope.maintenance], all, now);
   // Only on a full sweep: a wallet has no subject row to be woken by, so it is looked at when everything is.
   const walletInfo = all ? await loadWallet(tx, workspaceId) : null;
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
@@ -1565,6 +1590,7 @@ export async function reconcile(
     invoices,
     thankYous,
     referrals,
+    maintenance,
   };
 
   // Detect.
@@ -1857,6 +1883,25 @@ export async function reconcile(
         ),
         detail: detailOf(r.quote),
         conversationId: r.conversationId,
+      },
+    );
+
+  for (const m of maintenance.values())
+    run(
+      'maintenance_due',
+      {
+        business,
+        reminder: m.reminder,
+        lead: m.lead,
+        assigneeUserId: m.assigneeUserId,
+      },
+      m.reminder.id,
+      { leadId: null, personId: m.personId },
+      {
+        subjectType: 'maintenance',
+        title: itemTitle(m.personName ?? 'Customer', m.serviceName),
+        detail: null,
+        conversationId: m.conversationId,
       },
     );
 

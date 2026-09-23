@@ -1,5 +1,6 @@
 import type { QueryDef } from '../kernel/types';
 import { formQueries } from './form';
+import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
@@ -247,6 +248,7 @@ export const queries: readonly QueryDef[] = [
   attentionForRecord,
   attentionPreviewHandle,
   attentionSettingsGet,
+  maintenanceForPerson,
   productList,
   planList,
   paymentConnectionList,
@@ -311,6 +313,7 @@ export {
 };
 
 export * from './form';
+export * from './maintenance';
 export * from './template';
 export * from './review';
 export * from './migration';

@@ -1394,6 +1394,8 @@ export const services = app.table('services', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** Maintenance: due again this many months after a visit; null when it doesn't repeat (0095). */
+  repeatMonths: smallint('repeat_months'),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
@@ -2762,6 +2764,9 @@ export const plans = app.table('plans', {
   taxable: boolean('taxable').notNull().default(true),
   /** The "what you get" lines the plan page prints. */
   includes: jsonb('includes').$type<string[]>().notNull().default([]),
+  /** Maintenance (0095): the service the plan covers, and how often its members are due. */
+  serviceId: uuid('service_id').references(() => services.id, { onDelete: 'set null' }),
+  visitEveryMonths: smallint('visit_every_months'),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
@@ -4853,7 +4858,52 @@ export const referrals = app.table('referrals', {
   ...timestamps(),
 });
 
+/** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
+export const serviceSchedules = app.table('service_schedules', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id')
+    .notNull()
+    .references(() => services.id, { onDelete: 'cascade' }),
+  everyMonths: smallint('every_months'),
+  updatedBy: userRef('updated_by'),
+  ...timestamps(),
+});
+
+/** Maintenance (0095): the worker's reminders for one customer, service and due day. */
+export const maintenanceReminders = app.table('maintenance_reminders', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id')
+    .notNull()
+    .references(() => services.id, { onDelete: 'cascade' }),
+  dueOn: date('due_on').notNull(),
+  lastVisitId: uuid('last_visit_id').references(() => appointments.id, { onDelete: 'set null' }),
+  subscriptionId: uuid('subscription_id').references(() => subscriptions.id, {
+    onDelete: 'set null',
+  }),
+  sentCount: smallint('sent_count').notNull().default(0),
+  firstSentAt: ts('first_sent_at'),
+  secondSentAt: ts('second_sent_at'),
+  /** reminding, booked, card or stopped. */
+  status: text('status').notNull().default('reminding'),
+  bookedAppointmentId: uuid('booked_appointment_id').references(() => appointments.id, {
+    onDelete: 'set null',
+  }),
+  cardAt: ts('card_at'),
+  reason: text('reason'),
+  ...timestamps(),
+});
+
 export const tables = {
+  serviceSchedules,
+  maintenanceReminders,
   thankYous,
   referrals,
   foundingOffers,

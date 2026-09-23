@@ -37,6 +37,8 @@ export const REASON_CODES = [
   'job_done',
   /** Who a referral is and what they need: "neighbour · AC looked at". */
   'referral',
+  /** A regular service that's due and not booked: "AC tune-up due Oct 5". */
+  'maintenance',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

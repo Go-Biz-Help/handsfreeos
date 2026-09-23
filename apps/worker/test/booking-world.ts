@@ -24,6 +24,7 @@ import {
   zonedParts,
   type CalendarConfig,
   type CommandDef,
+  type QueryDef,
   type ConfigPatch,
   type HumanActor,
   type ReminderState,
@@ -87,6 +88,15 @@ export function run<I extends z.ZodType, O extends z.ZodType>(
   input: unknown,
 ): Promise<z.output<O>> {
   return executeCommand(api(), cmd, input, actorOf(w.owner), meta()).then((r) => r.output);
+}
+
+/** A query as the world's owner. */
+export function query<I extends z.ZodType, O extends z.ZodType>(
+  w: World,
+  q: QueryDef<I, O>,
+  input: z.input<I>,
+): Promise<z.output<O>> {
+  return executeQuery(api(), q, input, actorOf(w.owner), meta());
 }
 
 export async function makeWorld(label: string): Promise<World> {

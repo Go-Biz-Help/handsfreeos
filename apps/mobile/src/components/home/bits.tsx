@@ -18,6 +18,7 @@ import {
   Check,
   ChevronDown,
   Clock,
+  Wrench,
   CreditCard,
   FileText,
   Flame,
@@ -73,6 +74,7 @@ const KIND_LOOK: Readonly<
   wallet_card_declined: { icon: CreditCard, tone: 'danger' },
   job_not_thanked: { icon: Heart, tone: 'accent' },
   referral_mentioned: { icon: UserPlus, tone: 'accent' },
+  maintenance_due: { icon: Wrench, tone: 'teal' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {

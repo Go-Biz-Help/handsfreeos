@@ -13,11 +13,15 @@ import {
   DEFAULT_FOLLOW_UP_LADDER_HOURS,
   DEFAULT_NUDGE_TEMPLATE,
   DEFAULT_INTAKE_MESSAGE,
+  DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
+  DEFAULT_MAINTENANCE_TEMPLATE,
   DEFAULT_REENGAGE_TEMPLATE,
   intakeMessageProblem,
+  maintenanceTemplateProblem,
   followUpLadderWords,
   NUDGE_SAMPLE,
   renderIntakeMessage,
+  renderMaintenance,
   renderNudge,
   shortBusinessName,
   smsSegments,
@@ -720,6 +724,149 @@ function IntakePanel({ env }: { env: PanelEnv }) {
   );
 }
 
+// ---- Maintenance due ----
+
+/** One maintenance wording: the box, its problems, a preview, and Save. */
+function MaintenanceWording({ env, which }: { env: PanelEnv; which: 'template' | 'planTemplate' }) {
+  const plan = which === 'planTemplate';
+  const saved = env.automations.maintenance[which];
+  const fallback = plan ? DEFAULT_MAINTENANCE_PLAN_TEMPLATE : DEFAULT_MAINTENANCE_TEMPLATE;
+  const [draft, setDraft] = useState(saved);
+  const [error, setError] = useState<string | null>(null);
+  const problem = maintenanceTemplateProblem(draft, { plan });
+  const preview = renderMaintenance(draft, {
+    firstName: NUDGE_SAMPLE.firstName,
+    businessName: env.businessName,
+    service: 'AC tune-up',
+    link: 'https://…/book/your-calendar',
+    plan: plan ? 'Comfort Club' : null,
+  });
+  const id = plan ? 'maint-plan' : 'maint';
+  return (
+    <div className="flex flex-col gap-2">
+      <Textarea
+        aria-label={plan ? 'Maintenance message for plan members' : 'Maintenance message'}
+        value={draft}
+        rows={3}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setError(null);
+        }}
+        data-testid={`${id}-message`}
+      />
+      <p className="text-[12.5px] text-text-3">
+        Use {'{firstName}'}, {'{businessName}'}, {'{service}'}
+        {plan ? <>, {'{plan}'}</> : null} and {'{link}'}. The link opens your booking page on that
+        service.
+      </p>
+      {problem || error ? (
+        <p className="text-[12.5px] text-danger-text" data-testid={`${id}-error`}>
+          {problem ?? error}
+        </p>
+      ) : null}
+      <div className="rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[13px] leading-[1.45]">
+        <span className="text-text-3">What {NUDGE_SAMPLE.firstName} gets: </span>
+        <span data-testid={`${id}-preview`}>{preview}</span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={draft.trim() === saved || !!problem}
+          onClick={() =>
+            void env.saveAutomations(
+              (s) => ({ ...s, maintenance: { ...s.maintenance, [which]: draft.trim() } }),
+              'Saved the maintenance message.',
+              (e) => setError(Object.values(fieldErrors(e))[0] ?? 'That didn’t save.'),
+            )
+          }
+          data-testid={`${id}-save`}
+        >
+          Save
+        </Button>
+        {draft.trim() !== fallback ? (
+          <Button size="sm" variant="ghost" onClick={() => setDraft(fallback)}>
+            Use the standard wording
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MaintenancePanel({ env }: { env: PanelEnv }) {
+  const m = env.automations.maintenance;
+  const saveNumber = (key: 'leadDays' | 'secondAfterDays' | 'maxPerDay', n: number, done: string) =>
+    void env.saveAutomations((s) => ({ ...s, maintenance: { ...s.maintenance, [key]: n } }), done);
+  return (
+    <>
+      <Block>
+        <Note>
+          When a customer’s regular service comes round again, they get a text in your words with a
+          link to book it. If they don’t book, a second text goes, and then a card on Home asks
+          someone to call them. Booking it at any point stops the rest.
+        </Note>
+        <Note>
+          How often comes from the service’s “Repeats every” in{' '}
+          <Link href={`/app/w/${env.workspaceId}/settings/calendars/services`} className={linkCls}>
+            Services
+          </Link>
+          , from a maintenance plan that covers it, or from a customer’s own schedule on their page.
+          Only people who agreed to texts get one; STOP always wins.
+        </Note>
+      </Block>
+      <Block title="When">
+        <SetRow first center title="First text" description="Before the visit is due.">
+          <NumberBox
+            value={m.leadDays}
+            min={0}
+            max={60}
+            unit="days before"
+            label="Days before the visit is due"
+            onCommit={(n) => saveNumber('leadDays', n, `The first text goes ${n} days before.`)}
+            testId="maint-lead-days"
+          />
+        </SetRow>
+        <SetRow
+          center
+          title="Second text, then a card"
+          description="If they haven’t booked, after this long each time."
+        >
+          <NumberBox
+            value={m.secondAfterDays}
+            min={1}
+            max={30}
+            unit="days"
+            label="Days between the texts, and before the card"
+            onCommit={(n) => saveNumber('secondAfterDays', n, `${n} days between each step.`)}
+            testId="maint-second-days"
+          />
+        </SetRow>
+        <SetRow
+          center
+          title="At most a day"
+          description="Customers already overdue go a few at a time, most overdue first."
+        >
+          <NumberBox
+            value={m.maxPerDay}
+            min={1}
+            max={200}
+            unit="texts"
+            label="At most this many first reminders a day"
+            onCommit={(n) => saveNumber('maxPerDay', n, `At most ${n} a day.`)}
+            testId="maint-max-per-day"
+          />
+        </SetRow>
+      </Block>
+      <Block title="The message">
+        <MaintenanceWording env={env} which="template" />
+      </Block>
+      <Block title="For customers on a maintenance plan">
+        <MaintenanceWording env={env} which="planTemplate" />
+      </Block>
+    </>
+  );
+}
+
 // ---- After the job ----
 
 function ThankYouPanel({ env }: { env: PanelEnv }) {
@@ -1381,6 +1528,7 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   unconfirmed: UnconfirmedPanel,
   waitlist: WaitlistPanel,
   intake: IntakePanel,
+  maintenance: MaintenancePanel,
   thank_you: ThankYouPanel,
   invoices: InvoicesPanel,
   morning: MorningPanel,

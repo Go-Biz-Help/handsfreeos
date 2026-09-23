@@ -84,7 +84,11 @@ export type AutomationBinding =
 export type CustomerFacing = 'ai' | 'owner_wording' | null;
 
 /** What a row needs before it can do anything. Shown as "needs setup" with a link, never as an error. */
-export const AUTOMATION_REQUIREMENTS = ['teammate_on', 'intake_form'] as const;
+export const AUTOMATION_REQUIREMENTS = [
+  'teammate_on',
+  'intake_form',
+  'maintenance_schedule',
+] as const;
 export type AutomationRequirement = (typeof AUTOMATION_REQUIREMENTS)[number];
 
 /** The fine-tuning panels the page's Adjust sheet offers. */
@@ -100,6 +104,7 @@ export const ADJUST_PANELS = [
   'unconfirmed',
   'waitlist',
   'intake',
+  'maintenance',
   'thank_you',
   'invoices',
   'morning',
@@ -274,6 +279,18 @@ export const AUTOMATIONS = [
     customerFacing: 'owner_wording',
     needs: ['intake_form'],
     adjust: 'intake',
+  },
+  {
+    id: 'maintenance_due',
+    group: 'appointments',
+    label: 'Maintenance due',
+    oneLiner: 'Texts a customer to rebook when their regular service comes round again.',
+    effect: 'texts',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'maintenance' },
+    customerFacing: 'owner_wording',
+    needs: ['maintenance_schedule'],
+    adjust: 'maintenance',
   },
   {
     id: 'waitlist_slot_opened',

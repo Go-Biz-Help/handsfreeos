@@ -45,6 +45,8 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   job_not_thanked: { grows: 'since', start: 1, stepMs: DAY },
   // Somebody new who needs the business cools off in days, not weeks.
   referral_mentioned: { grows: 'since', start: 1.5, stepMs: 2 * DAY },
+  // Overdue already, and two texts went: steady, not urgent.
+  maintenance_due: { grows: 'since', start: 1, stepMs: 5 * DAY },
 };
 
 /**

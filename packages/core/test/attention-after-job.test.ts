@@ -8,8 +8,10 @@ import {
   DETECTORS,
   letHandleModeOf,
   THANK_YOU_CARD_DAYS,
+  MAINTENANCE_CARD_DAYS,
   REFERRAL_CARD_DAYS,
   type JobNotThankedFacts,
+  type MaintenanceDueFacts,
   type ReferralMentionedFacts,
 } from '../src/attention/index';
 import { ago, business, DALE, DAY, HOUR, NOW, uid } from './attention-fixtures';
@@ -95,5 +97,38 @@ describe('referral_mentioned', () => {
     expect(DETECTORS.referral_mentioned.detect(facts(), off, NOW)).toBeNull();
     // Nothing said about them but that they exist: no chip, still a card.
     expect(detect(facts({ relation: null, need: null }))!.reasons).toEqual([]);
+  });
+});
+
+describe('maintenance_due', () => {
+  const facts = (over: Partial<MaintenanceDueFacts['reminder']> = {}): MaintenanceDueFacts => ({
+    business,
+    reminder: {
+      id: uid(900),
+      status: 'card',
+      cardAt: ago(DAY),
+      label: 'AC tune-up due Oct 5',
+      booked: false,
+      contactedAt: null,
+      ...over,
+    },
+    lead: null,
+    assigneeUserId: DALE,
+  });
+  const detect = (f: MaintenanceDueFacts, now = NOW) =>
+    DETECTORS.maintenance_due.detect(f, settings, now);
+
+  it('asks a person once the texts ran out, and says which service and when', () => {
+    const d = detect(facts());
+    expect(d!.reasons).toEqual([{ code: 'maintenance', label: 'AC tune-up due Oct 5' }]);
+    expect(d!.assignee).toBe(DALE);
+    expect(letHandleModeOf('maintenance_due')).toBe('none');
+  });
+
+  it('clears once they book or someone gets in touch, and lets go after its days', () => {
+    expect(detect(facts({ status: 'reminding', cardAt: null }))).toBeNull();
+    expect(detect(facts({ booked: true }))).toBeNull();
+    expect(detect(facts({ contactedAt: ago(HOUR) }))).toBeNull();
+    expect(detect(facts({ cardAt: ago(MAINTENANCE_CARD_DAYS * DAY + HOUR) }))).toBeNull();
   });
 });

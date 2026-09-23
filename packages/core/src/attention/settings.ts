@@ -36,6 +36,8 @@ const kindSwitches = {
   // decides whether a thank-you is tried at all; the card is only what happens when one couldn't go.
   job_not_thanked: always(),
   referral_mentioned: on(),
+  // Its switch is Automations' "Maintenance due", which decides whether anyone is reminded at all.
+  maintenance_due: always(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

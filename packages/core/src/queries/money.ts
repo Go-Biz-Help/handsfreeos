@@ -207,11 +207,14 @@ export const planList = defineQuery({
       interval_count: number;
       taxable: boolean;
       includes: unknown;
+      service_id: string | null;
+      visit_every_months: number | null;
       archived_at: Date | string | null;
     }>(
       ctx.tx,
       sql`select pl.id, pl.name, pl.description, pl.price_cents::float8 as price_cents,
-            pl.interval::text as interval, pl.interval_count, pl.taxable, pl.includes, pl.archived_at
+            pl.interval::text as interval, pl.interval_count, pl.taxable, pl.includes, pl.service_id,
+            pl.visit_every_months, pl.archived_at
           from app.plans pl
           where pl.workspace_id = ${ctx.scope.workspaceId!}
             ${input.includeArchived ? sql`` : sql`and pl.archived_at is null`}
@@ -228,6 +231,8 @@ export const planList = defineQuery({
         intervalCount: p.interval_count,
         taxable: p.taxable,
         includes: Array.isArray(p.includes) ? p.includes.filter((x) => typeof x === 'string') : [],
+        serviceId: p.service_id,
+        visitEveryMonths: p.visit_every_months,
         archivedAt: moneyIso(p.archived_at),
       })),
     };

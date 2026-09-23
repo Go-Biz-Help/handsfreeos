@@ -57,6 +57,7 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   wallet_card_declined: 'Card declined',
   job_not_thanked: 'Say thanks',
   referral_mentioned: 'Referral',
+  maintenance_due: 'Maintenance due',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -610,6 +611,7 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   wallet_card_declined: 'A card belongs to the business, not to a person.',
   job_not_thanked: 'Only who thanks them. The job stays as it is.',
   referral_mentioned: 'Only who reaches out. Nothing else changes.',
+  maintenance_due: 'Only who calls them. Nothing else changes.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

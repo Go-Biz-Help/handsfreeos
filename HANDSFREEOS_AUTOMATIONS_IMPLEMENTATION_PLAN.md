@@ -116,7 +116,9 @@ reacts to an event · **T** AI teammate change.
 2. **a. Leads** — the night greeting, the follow-up ladder, never-replied, chasing an offered time, re-engaging
    dead leads. **b. Appointments and after the job** — intake questions, the thank-you, referrals
    (`app.thank_yous`, `app.referrals`, and the Action Center kinds `job_not_thanked` and `referral_mentioned`).
-   **c. Maintenance due.**
+   **c. Maintenance due** — `services.repeat_months`, a plan's service and `visit_every_months`, a customer's own
+   `app.service_schedules`, the daily `automations.maintenance` job with `app.maintenance_reminders`, and the
+   Action Center kind `maintenance_due`.
 3. **a. Briefings** — the morning email's additions and the evening email. **b. Pipeline and jobs.**
 4. **a. Service, handoffs and revenue.** **b. Health.**
 5. **Outreach campaigns.**

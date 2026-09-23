@@ -24,6 +24,7 @@ type Attention = {
 type Automations = {
   switches: Record<string, boolean>;
   intake?: { formId: string | null; message: string };
+  maintenance?: { leadDays: number };
   reengage?: { reviewedAt: string | null; maxPerDay: number; template: string };
 };
 
@@ -108,10 +109,10 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
     'Set up your AI teammate to start.',
   );
   await expect(page.getByTestId('automation-switch-new_lead_greeting')).toBeDisabled();
-  // The header counts only what's actually working: the AI teammate's four rows wait on it, and intake
-  // questions on a form.
+  // The header counts only what's actually working: the AI teammate's four rows wait on it, intake
+  // questions on a form, and maintenance reminders on a service that repeats.
   await expect(page.getByTestId('automations-count')).toContainText(
-    '5 need something set up first.',
+    '6 need something set up first.',
   );
 
   // An Action Center kind off and on again, saved each time.
@@ -420,6 +421,31 @@ test('Automations: intake questions’ form and message, the thank-you without a
     'aria-checked',
     'true',
   );
+
+  // Maintenance due waits for a service that repeats; its sheet shows the reminder as a customer reads it.
+  await expect(page.getByTestId('needs-setup-maintenance_due')).toContainText(
+    'Set how often a service repeats to start.',
+  );
+  await adjust(page, 'maintenance_due');
+  await expect(page.getByTestId('maint-preview')).toHaveText(
+    "Hi Maria, it's Lone Star After HVAC. Your AC tune-up is due soon. Book a time that suits you here: https://…/book/your-calendar",
+  );
+  await expect(page.getByTestId('maint-plan-preview')).toContainText(
+    "it's included in your Comfort Club",
+  );
+  await enter(page, 'maint-lead-days', '21');
+  await expect
+    .poll(async () => (await settingsOf(owner)).automations?.maintenance?.leadDays)
+    .toBe(21);
+  await close(page);
+  // A service that repeats every 6 months: the row has what it needs.
+  await api(owner.token, 'commands', 'service.create', {
+    workspaceId: owner.workspaceId,
+    name: 'AC tune-up',
+    repeatMonths: 6,
+  });
+  await page.reload();
+  await expect(page.getByTestId('needs-setup-maintenance_due')).toHaveCount(0);
 
   // Referrals are an Action Center kind: the row turns it off.
   await expect(page.getByTestId('automation-referral_mentioned')).toContainText('Just alerts you');

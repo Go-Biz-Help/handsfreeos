@@ -456,10 +456,13 @@ export function BookingFlow({
   page,
   site,
   calendarSlug,
+  initialServiceId = null,
 }: {
   page: PublicCalendarPage;
   site: string;
   calendarSlug: string;
+  /** The service to start on (a link's `?service=`), when this calendar offers it. */
+  initialServiceId?: string | null;
 }) {
   const info = page.booking!;
   const tz = page.timezone;
@@ -467,7 +470,9 @@ export function BookingFlow({
   const sessionsMode = info.mode === 'sessions';
 
   // What, where and who.
-  const [serviceId, setServiceId] = useState<string | null>(info.services[0]?.id ?? null);
+  const [serviceId, setServiceId] = useState<string | null>(
+    info.services.find((s) => s.id === initialServiceId)?.id ?? info.services[0]?.id ?? null,
+  );
   const service = info.services.find((s) => s.id === serviceId) ?? null;
   const lengths = service ? service.durations : info.durations;
   const [duration, setDuration] = useState<number>(lengths[0] ?? 60);
