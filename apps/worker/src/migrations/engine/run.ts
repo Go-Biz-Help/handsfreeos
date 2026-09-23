@@ -69,8 +69,8 @@ export const MIGRATION_BATCH = 4;
 
 /**
  * How long one pass keeps reading pages, and the most pages one category takes in a turn, before it yields.
- * The budget is the pass's, shared by every batch in it: the pass runs between the loops that send texts and
- * emails, so twenty batches each reading for ten seconds would hold a reply up for minutes.
+ * The budget is the pass's, shared evenly by the batches in it: the pass runs between the loops that send texts
+ * and emails, so twenty batches each reading for ten seconds would hold a reply up for minutes.
  */
 const PAGE_BUDGET_MS = 10_000;
 const MAX_PAGES_PER_TURN = 50;
@@ -124,9 +124,13 @@ export async function processMigrationJobs(deps: MigrationDeps): Promise<LoopSta
   );
   stats.claimed = claimed.length;
   const passEndsAt = Date.now() + (deps.pageBudgetMs ?? PAGE_BUDGET_MS);
-  for (const job of claimed) {
+  for (const [i, job] of claimed.entries()) {
+    // An even share of what is left of the pass. The whole of it went to whichever batch came first, and that
+    // was the same batch every pass: the first real import's calls read for ten seconds at a time while its
+    // messages crept along a page per pass behind them.
+    const endsAt = Date.now() + Math.max(0, passEndsAt - Date.now()) / (claimed.length - i);
     try {
-      const outcome = await runJob(deps, job, passEndsAt);
+      const outcome = await runJob(deps, job, endsAt);
       if (outcome === 'again') stats.requeued += 1;
       else stats.done += 1;
     } catch (e) {
@@ -175,6 +179,27 @@ async function finishJob(
          set state = 'done', finished_at = now(), leased_by = null, leased_until = null,
              result = ${JSON.stringify(result)}::jsonb
        where id = ${job.id}`),
+  );
+  await recovered(deps, job);
+}
+
+/**
+ * A batch that failed and has since gone through: its failure is over. Left open, it kept the screen saying
+ * something could be tried again and the report counting a failed item after every record had arrived — the
+ * first real import's notes had one GoHighLevel timeout, recovered a minute later, and said so to the end.
+ * Only a batch that did fail (claimed more than once in a row) has anything to close.
+ */
+async function recovered(deps: MigrationDeps, job: JobRow): Promise<void> {
+  if (job.attempts <= 1) return;
+  await asWorker(
+    deps.db,
+    { workspaceId: job.workspace_id, organizationId: job.organization_id },
+    (tx) =>
+      tx.execute(sql`
+        update app.migration_errors set resolved_at = now()
+         where migration_id = ${job.migration_id} and code = 'batch_failed' and resolved_at is null
+           and category is not distinct from ${job.category}
+           and scope_id is not distinct from ${job.scope_id}::uuid`),
   );
 }
 
@@ -510,8 +535,8 @@ async function fetchCategory(
    * whole worker pass and its pause for every page, and a GoHighLevel account reads its messages one
    * conversation to a page: 778 turns for the first real account, most of an hour on their own. Nothing about
    * a page changes — each is still read from the checkpoint and saved with it, alone — only how many a turn
-   * may take before it yields. The time is the whole pass's: a batch that comes after one that used it up
-   * still reads its one page, and goes back in the queue with it.
+   * may take before it yields. The time is its share of the pass's, and a batch whose share is spent still
+   * reads its one page before it goes back in the queue.
    */
   for (let pagesThisTurn = 1; ; pagesThisTurn++) {
     /**
@@ -670,6 +695,7 @@ async function fetchCategory(
       await finishJob(deps, job, { skipped: 'another batch read this page' });
       return 'done';
     }
+    if (pagesThisTurn === 1) await recovered(deps, job);
     if (!page.done && page.cursor) {
       if (Date.now() < passEndsAt && pagesThisTurn < MAX_PAGES_PER_TURN) continue;
       await requeueJob(deps, job, { ...job.input, cursor: page.cursor });
@@ -879,6 +905,7 @@ async function copyFiles(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
     MEDIA_BATCH,
   );
   if (!result.done) {
+    await recovered(deps, job);
     await requeueJob(deps, job, job.input);
     return 'again';
   }
@@ -1682,6 +1709,9 @@ const takeBackPlan = (migrationId: string): ReadonlyArray<readonly [string, Take
   // The work. A task and a note are the import's own rows, and nothing hangs off them.
   ['task', { table: 'tasks', away: 'delete' }],
   ['activity', { table: 'activities', away: 'delete' }],
+  // "Do not email" the old system kept. Only the import's own entries are in its journal; one the business
+  // had already is not, and stays.
+  ['email_suppression', { table: 'email_suppressions', away: 'delete' }],
   // The board. Deals are archived like the customers they belong to; the board goes with them unless
   // somebody has put a deal of their own on it.
   [

@@ -253,6 +253,28 @@ describe('reading GoHighLevel page by page', () => {
     );
   });
 
+  it('asks for a rendered copy again when the first try does not come back', async () => {
+    const preview =
+      'https://firebasestorage.googleapis.com/v0/b/highlevel-backend.appspot.com/o/t.html?alt=media';
+    let tries = 0;
+    serve((url) => {
+      if (url.hostname !== 'firebasestorage.googleapis.com')
+        return {
+          builders: [
+            { id: 'tpl_1', name: 'Welcome', templateType: 'builder', previewUrl: preview },
+          ],
+          total: [{ total: 1 }],
+        };
+      tries += 1;
+      return tries === 1
+        ? new Response('upstream hiccup', { status: 503 })
+        : '<html><body><p>Hello again.</p></body></html>';
+    });
+    const page = await adapter.list(connection, scope, 'templates', { cursor: null, limit: 100 });
+    expect(page.records[0]!.payload['__previewText']).toBe('Hello again.');
+    expect(tries).toBe(2);
+  }, 15_000);
+
   it("never follows a template link to somewhere that is not HighLevel's storage", async () => {
     const calls = serve(() => ({
       builders: [
@@ -527,6 +549,25 @@ describe('what a GoHighLevel thread is made of', () => {
     expect(data[4]).toMatchObject({ direction: 'inbound', subject: 'Listed m4', body: null });
   });
 
+  it('keeps a customer who texted STOP from being texted, whichever word HighLevel used for it', () => {
+    const consent = (dndSettings: Record<string, unknown>, dnd = false) =>
+      (
+        adapter.normalize(
+          {
+            objectType: 'contact',
+            objectId: 'con_1',
+            payload: { id: 'con_1', firstName: 'Dave', phone: '+15125550101', dnd, dndSettings },
+          },
+          context,
+        )[0]!.data as { consent: { channel: string; state: string }[] }
+      ).consent.find((c) => c.channel === 'sms')!.state;
+    expect(consent({ SMS: { status: 'permanent', message: 'STOP_KEYWORD' } })).toBe('opted_out');
+    expect(consent({ SMS: { status: 'active' } })).toBe('opted_out');
+    expect(consent({ SMS: { status: 'inactive' } })).toBe('unknown');
+    expect(consent({})).toBe('unknown');
+    expect(consent({}, true)).toBe('opted_out');
+  });
+
   it('reads a booked call as a step on the way, and only a won or lost name as won or lost', () => {
     const [pipeline] = adapter.normalize(
       {
@@ -638,6 +679,26 @@ describe('what a GoHighLevel thread is made of', () => {
       countQuality: 'complete',
     });
   });
+
+  it('asks again when HighLevel says its own command timed out, which it says with a 401', async () => {
+    let answered = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        answered += 1;
+        return answered === 1
+          ? new Response(JSON.stringify({ statusCode: 401, message: 'Command timed out' }), {
+              status: 401,
+            })
+          : new Response(JSON.stringify({ tags: [{ id: 'tag_1', name: 'vip' }] }), {
+              status: 200,
+            });
+      }),
+    );
+    const page = await adapter.list(connection, scope, 'tags', { cursor: null, limit: 100 });
+    expect(page.records.map((r) => r.objectId)).toEqual(['tag_1']);
+    expect(answered).toBe(2);
+  }, 15_000);
 
   it('asks again when a request times out, rather than failing the page', async () => {
     let dropped = 0;

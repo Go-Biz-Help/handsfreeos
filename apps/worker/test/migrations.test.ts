@@ -376,6 +376,32 @@ describe('a business moves house', () => {
     expect(tom).toHaveLength(1); // the same person in both sub-accounts, joined on the number
   }, 120_000);
 
+  it('keeps the business a customer works for, when the old system only wrote its name on them', async () => {
+    const [sam] = await rows<{ company: string | null; website: string | null }>(
+      admin(),
+      sql`select c.name as company, c.website from app.people p
+          left join app.companies c on c.id = p.company_id
+          where p.workspace_id = ${w.workspaceId} and p.first_name = 'Sam' and p.last_name = 'Okafor'`,
+    );
+    expect(sam).toEqual({ company: 'Okafor Property Management', website: 'okaforpm.example' });
+  });
+
+  it('does not email a customer who switched email off in the old system', async () => {
+    // Priya asked the old system not to contact her. Her address is on the list every email here stops at.
+    const [stop] = await rows<{ reason: string }>(
+      admin(),
+      sql`select reason::text as reason from app.email_suppressions
+          where workspace_id = ${w.workspaceId} and address = 'priya@example.com' and released_at is null`,
+    );
+    expect(stop?.reason).toBe('manual');
+    const [priya] = await rows<{ sms_consent: string }>(
+      admin(),
+      sql`select sms_consent::text as sms_consent from app.people
+          where workspace_id = ${w.workspaceId} and email = 'priya@example.com'`,
+    );
+    expect(priya?.sms_consent).toBe('opted_out');
+  });
+
   it('keeps back a customer with no name, no email and no number, and says which one', async () => {
     // GoHighLevel makes a contact for a form somebody opened and abandoned. One with nothing on it is not a
     // customer, and the insert could never have worked: `app.people` will not take a row with no name. It

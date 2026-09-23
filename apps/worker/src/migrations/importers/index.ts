@@ -666,8 +666,10 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     lastName?: string | null;
     fullName?: string | null;
     companyName?: string | null;
+    website?: string | null;
     email?: string | null;
     phone?: string | null;
+    endpoints?: { kind: string; value: string; primary?: boolean }[];
     address?: {
       line1?: string | null;
       city?: string | null;
@@ -773,9 +775,20 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     if (held === undefined) homeless.push([key, value]);
     else custom[field.id] = held;
   }
-  const notes = homeless.length
-    ? `From the old system:\n${homeless.map(([k, v]) => `• ${k}: ${String(v)}`).join('\n')}`
-    : null;
+  // Every address they had over there. One is the email here; the others are kept where a person sees them.
+  const otherEmails = [
+    ...new Set(
+      (d.endpoints ?? [])
+        .filter((e) => e.kind === 'email' && !e.primary)
+        .map((e) => e.value.trim().toLowerCase())
+        .filter((v) => v && v !== email),
+    ),
+  ];
+  const noteLines = [
+    ...homeless.map(([k, v]) => `• ${k}: ${String(v)}`),
+    ...otherEmails.map((v) => `• Another email address: ${v}`),
+  ];
+  const notes = noteLines.length ? `From the old system:\n${noteLines.join('\n')}` : null;
 
   if (already) {
     // Seen before: bring anything that has changed since, and never make a second one.
@@ -981,6 +994,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
         checksum: envelope.source.payloadChecksum,
       });
       await applyTags(tx, scope, 'person', here.id, d.tags ?? []);
+      await keepEmailOptOut(tx, scope, envelope, email, d.consent);
       return { counts: { merged: 1 } };
     }
   }
@@ -1014,6 +1028,7 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     sourceObjectId: envelope.source.objectId,
   });
   await applyTags(tx, scope, 'person', id, d.tags ?? []);
+  await keepEmailOptOut(tx, scope, envelope, email, d.consent);
   await linkOwner(tx, scope, id, envelope);
   await linkCompany(tx, scope, id, envelope);
   if (!createdAt)
@@ -1030,6 +1045,39 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     });
   return { counts: { imported: 1 } };
 };
+
+/**
+ * A customer who told the old system not to email them is not emailed here either. Their address goes on the
+ * list every email here already stops at — the one a bounce or a spam complaint puts an address on — and the
+ * entry is the import's own, so taking the import back takes it off again. An address already on the list is
+ * the business's entry, and is left as it is.
+ */
+async function keepEmailOptOut(
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+  email: string | null,
+  consent: readonly { channel: string; state: SmsConsent }[] | undefined,
+): Promise<void> {
+  if (!email || email.indexOf('@') < 1) return;
+  if (consent?.find((c) => c.channel === 'email')?.state !== 'opted_out') return;
+  const [made] = await rows<{ id: string }>(
+    tx,
+    sql`insert into app.email_suppressions (workspace_id, address, reason, origin)
+        values (${scope.workspaceId}, ${email.toLowerCase()}, 'manual'::app.suppression_reason,
+          'Email was switched off for them in the old system')
+        on conflict (workspace_id, address) where released_at is null do nothing
+        returning id::text as id`,
+  );
+  if (!made) return;
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'email_suppression',
+    targetId: made.id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+}
 
 /** Tags by name, made if they are not here yet. A tag is its name, so this is not a guess. */
 async function applyTags(
@@ -1097,18 +1145,72 @@ async function linkCompany(
   envelope: CanonicalEnvelope,
 ): Promise<void> {
   const ref = envelope.relationships.find((r) => r.role === 'company');
-  if (!ref) return;
-  const company = await existingMapping(tx, scope, ref.objectType, ref.objectId);
-  if (!company || company.targetType !== 'company') return;
+  const company = ref ? await existingMapping(tx, scope, ref.objectType, ref.objectId) : null;
+  const companyId =
+    company?.targetType === 'company' ? company.targetId : await companyNamed(tx, scope, envelope);
+  if (!companyId) return;
   await tx.execute(
-    sql`update app.people set company_id = ${company.targetId}::uuid where id = ${personId}::uuid`,
+    sql`update app.people set company_id = ${companyId}::uuid where id = ${personId}::uuid`,
   );
   await journal(tx, scope, {
     action: 'link',
     targetType: 'person',
     targetId: personId,
-    changedFields: { company_id: { before: null, after: company.targetId } },
+    changedFields: { company_id: { before: null, after: companyId } },
   });
+}
+
+/**
+ * The business a customer works for, when the old system only wrote its name on them.
+ *
+ * GoHighLevel's company records are a feature of their own that most accounts never switch on — the first
+ * real account's answered 404 — while 152 of its customers had a company typed on them, and none of it came
+ * across. The company is the one here by that name, or a new one with the website the customer gave, which
+ * is nearly always the business's. A new one is the import's own, and taking the import back archives it.
+ */
+async function companyNamed(
+  tx: Tx,
+  scope: ImportScope,
+  envelope: CanonicalEnvelope,
+): Promise<string | null> {
+  const d = envelope.data as { companyName?: string | null; website?: string | null };
+  const name = str(d.companyName)?.slice(0, 120).trim();
+  if (!name) return null;
+  const website = str(d.website);
+  const [here] = await rows<{ id: string }>(
+    tx,
+    sql`select id::text as id from app.companies
+        where workspace_id = ${scope.workspaceId} and archived_at is null
+          and lower(name) = lower(${name})
+        order by created_at limit 1`,
+  );
+  if (here) {
+    // A website it did not have yet, from a later customer of the same business.
+    if (website)
+      await tx.execute(sql`
+        update app.companies set website = ${website}
+        where id = ${here.id}::uuid and website is null
+          and exists (select 1 from app.migration_change_journal j
+                      where j.migration_id = ${scope.migrationId} and j.action = 'create'
+                        and j.target_type = 'company' and j.target_id = ${here.id}::uuid)`);
+    return here.id;
+  }
+  const { createdAt } = sourceTimes(envelope);
+  const id = randomUUID();
+  await tx.execute(sql`
+    insert into app.companies (id, workspace_id, name, website, source, created_at, updated_at)
+    values (${id}::uuid, ${scope.workspaceId}, ${name}, ${website},
+      ${`Named on a customer in the old system`},
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
+      coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()))`);
+  await journal(tx, scope, {
+    action: 'create',
+    targetType: 'company',
+    targetId: id,
+    sourceObjectType: envelope.source.objectType,
+    sourceObjectId: envelope.source.objectId,
+  });
+  return id;
 }
 
 // ---------- conversations, messages and calls ----------

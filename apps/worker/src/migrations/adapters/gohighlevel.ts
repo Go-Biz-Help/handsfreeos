@@ -549,7 +549,15 @@ export function createGoHighLevelAdapter(config: GoHighLevelConfig): CrmSourceAd
          * here is a read, so asking twice changes nothing over there — and one slow answer from HighLevel
          * (the first real import had one, forty minutes in, on a calendar) is not a reason to fail a page.
          */
-        const dropped = !(e instanceof GhlError);
+        /**
+         * HighLevel's own timeouts count too. It answers a request it gave up on with a 401 that says
+         * "Command timed out" — not a sign-in problem at all, and read as one it failed a batch of the
+         * first real import's notes — and a busy moment with a 502, 503 or 504.
+         */
+        const dropped =
+          !(e instanceof GhlError) ||
+          (err.status === 401 && /timed out/i.test(err.message)) ||
+          [502, 503, 504].includes(err.status);
         if (dropped && attempt < NETWORK_TRIES) {
           await new Promise((r) => setTimeout(r, 2_000 * attempt));
           continue;
@@ -1971,6 +1979,7 @@ const CONTACT_USED = [
   'dndSettings',
   'assignedTo',
   'companyName',
+  'website',
   'businessId',
   'dateAdded',
   'dateUpdated',
@@ -1990,18 +1999,30 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
   const phone = asString(p['phone']);
   if (email) endpoints.push({ kind: 'email', value: email, primary: true });
   if (phone) endpoints.push({ kind: 'phone', value: phone, primary: true });
-  for (const extra of Array.isArray(p['additionalEmails']) ? p['additionalEmails'] : [])
-    if (asString(extra)) endpoints.push({ kind: 'email', value: String(extra), primary: false });
-  for (const extra of Array.isArray(p['additionalPhones']) ? p['additionalPhones'] : [])
-    if (asString(extra)) endpoints.push({ kind: 'phone', value: String(extra), primary: false });
+  // The extra ones come as `{ email }` (and `{ phone }`), not as strings: read as strings, all of them went.
+  const extraOf = (v: unknown, key: string): string | null =>
+    asString(v) ?? asString((v as Record<string, unknown> | null)?.[key]);
+  for (const extra of Array.isArray(p['additionalEmails']) ? p['additionalEmails'] : []) {
+    const value = extraOf(extra, 'email');
+    if (value) endpoints.push({ kind: 'email', value, primary: false });
+  }
+  for (const extra of Array.isArray(p['additionalPhones']) ? p['additionalPhones'] : []) {
+    const value = extraOf(extra, 'phone');
+    if (value) endpoints.push({ kind: 'phone', value, primary: false });
+  }
 
   // What the customer agreed to, channel by channel. GoHighLevel's `dnd` is the whole-person switch and
   // `dndSettings` is per channel; the stricter of the two wins, which is what "do not disturb" has to mean.
   const dnd = p['dnd'] === true;
   const dndSettings = (p['dndSettings'] ?? {}) as Record<string, { status?: string }>;
   const consentFor = (key: string, channel: string) => {
-    const status = dndSettings[key]?.status;
-    const off = dnd || status === 'active';
+    /**
+     * Anything but `inactive` means do not send. `permanent` is the one a customer's own STOP sets, and it
+     * was the one read as nothing: nine people on the first real account who had texted STOP came across
+     * free to be texted again. A state not known here is read the careful way too.
+     */
+    const status = (asString(dndSettings[key]?.status) ?? '').toLowerCase();
+    const off = dnd || (status !== '' && status !== 'inactive');
     return { channel, state: off ? ('opted_out' as const) : ('unknown' as const) };
   };
   const consent = [
@@ -2059,6 +2080,7 @@ function contactEnvelope(record: SourceRecord, context: MappingContext): Canonic
     fullName:
       [firstName, lastName].filter(Boolean).join(' ') || nameCase(asString(p['contactName'])),
     companyName: asString(p['companyName'])?.slice(0, 200) ?? null,
+    website: asString(p['website'])?.slice(0, 400) ?? null,
     email,
     phone,
     endpoints,
@@ -2708,20 +2730,30 @@ async function previewText(url: string | null): Promise<string | null> {
     !PREVIEW_HOSTS.some((h) => (h.startsWith('.') ? host.endsWith(h) : host === h))
   )
     return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15_000);
-  try {
-    const res = await fetch(at, { signal: controller.signal, redirect: 'error' });
-    if (!res.ok) return null;
-    const html = (await res.text()).slice(0, 2_000_000);
-    const text = htmlToText(html);
-    return text ? text.slice(0, 20_000) : null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+  // A few tries: one blip on the way to the rendered copy used to leave the template without its words for good.
+  for (let attempt = 1; attempt <= PREVIEW_TRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch(at, { signal: controller.signal, redirect: 'error' });
+      if (res.ok) {
+        const html = (await res.text()).slice(0, 2_000_000);
+        const text = htmlToText(html);
+        return text ? text.slice(0, 20_000) : null;
+      }
+      // Not there, or not ours to read: asking again will not change that.
+      if (res.status < 500 && res.status !== 429) return null;
+    } catch {
+      // Timed out or dropped: asked again below.
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < PREVIEW_TRIES) await new Promise((r) => setTimeout(r, 1_000 * attempt));
   }
+  return null;
 }
+
+const PREVIEW_TRIES = 3;
 
 const ENTITIES: Readonly<Record<string, string>> = {
   amp: '&',

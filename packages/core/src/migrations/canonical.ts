@@ -117,6 +117,8 @@ export const CanonicalContact = z.object({
   fullName: z.string().max(240).nullish(),
   /** The business they work for, as the old system spelled it. A name to call them by when nothing else is. */
   companyName: z.string().max(200).nullish(),
+  /** The website they gave — nearly always their business's, so it goes on the company. */
+  website: z.string().max(400).nullish(),
   email: z.string().max(320).nullish(),
   phone: z.string().max(40).nullish(),
   endpoints: z.array(CanonicalEndpoint).max(50).default([]),

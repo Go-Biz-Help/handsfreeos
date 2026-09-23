@@ -513,6 +513,9 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
       state: 'TX',
       postalCode: '78701',
       country: 'US',
+      // The business he works for, typed on him: the old system has no company record for it.
+      companyName: 'Okafor Property Management',
+      website: 'okaforpm.example',
     },
   }),
   // A form somebody opened and walked away from. GoHighLevel keeps the contact it made: an email address,
@@ -1921,6 +1924,8 @@ export function createFakeSourceAdapter(): FakeSource {
                 firstName: str(p['firstName']),
                 lastName: str(p['lastName']),
                 fullName: str(p['contactName']),
+                companyName: str(p['companyName']),
+                website: str(p['website']),
                 email: str(p['email']),
                 phone: str(p['phone']),
                 endpoints: [],
