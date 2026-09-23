@@ -5,7 +5,13 @@
 import { formatDuration, formatHours } from '../calendar/format';
 import type { NotifyWho } from '../workflows/actions';
 import type { TeammateCatalogs } from './catalogs';
-import type { DisclosureMode, HoursMode, TeammateConfig, UnsureAction } from './config';
+import {
+  followUpLadderWords,
+  type DisclosureMode,
+  type HoursMode,
+  type TeammateConfig,
+  type UnsureAction,
+} from './config';
 
 export const DISCLOSURE_NAMES: Readonly<Record<DisclosureMode, string>> = {
   first_message: 'in its first message',
@@ -158,7 +164,20 @@ export function diffTeammateConfigs(
 
   // Follow up and hours
   change('Follows up', a.followUp.enabled, b.followUp.enabled, onOff);
-  change('Most nudges', a.followUp.maxNudges, b.followUp.maxNudges);
+  change(
+    'Follows up new leads who never replied',
+    a.followUp.neverReplied,
+    b.followUp.neverReplied,
+    onOff,
+  );
+  change('Chases times it offered', a.followUp.chaseTimes, b.followUp.chaseTimes, onOff);
+  change('Follow-ups', a.followUp.ladderHours, b.followUp.ladderHours, followUpLadderWords);
+  change(
+    'Then monthly for',
+    a.followUp.monthlyForMonths,
+    b.followUp.monthlyForMonths,
+    (v) => `${v} ${v === 1 ? 'month' : 'months'}`,
+  );
   change('Works', a.hours.mode, b.hours.mode, (v) => HOURS_MODE_NAMES[v]);
   if (b.hours.mode === 'custom')
     change('Hours', a.hours.custom, b.hours.custom, (v) => formatHours(v));

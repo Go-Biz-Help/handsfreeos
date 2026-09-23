@@ -19,7 +19,7 @@
  *   Hannah Nguyen confirmed; and Linda Park pressed Confirm on her booking page.
  *
  * Settings stay at their defaults on purpose: confirmation requests on, follow-up nudges off until an owner has
- * read the wording and chosen "Looks good, turn on" in Settings → Action Center.
+ * read the wording and chosen "Looks good, turn on" in Settings → Automations.
  *
  * Nothing HandsFreeOS sends is due when the seed finishes: every waiting confirmation request is an hour out,
  * or waits for quiet hours to end. The seed checks that before it returns.

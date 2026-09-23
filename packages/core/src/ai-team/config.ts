@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { mergePatch, WeeklyHours } from '../calendar/config';
 import { NotifyWho } from '../workflows/actions';
 
-export const TEAMMATE_CONFIG_VERSION = 1;
+export const TEAMMATE_CONFIG_VERSION = 2;
 
 const id = z.uuid();
 const uniqueList = (list: readonly string[]) => new Set(list).size === list.length;
@@ -185,10 +185,34 @@ const Book = z.object({
   cancel: z.boolean().default(true),
 });
 
+/**
+ * When follow-ups go, in hours after the message they didn't answer: 4 hours, then days 1, 2, 4, 7, 10, 14, 21
+ * and 30 (Chris's ladder). Then once a month for `monthlyForMonths` more.
+ */
+export const DEFAULT_FOLLOW_UP_LADDER_HOURS: readonly number[] = [
+  4, 24, 48, 96, 168, 240, 336, 504, 720,
+];
+export const FOLLOW_UP_MONTH_HOURS = 30 * 24;
+const MAX_LADDER_HOURS = 365 * 24;
+
 const FollowUp = z.object({
-  /** Nudges a lead who stops replying. */
-  enabled: z.boolean().default(false),
-  maxNudges: z.int().min(1).max(5).default(2),
+  /** Nudges a customer who stops replying, on the ladder below. */
+  enabled: z.boolean().default(true),
+  /** Also follows up a new lead who never answered its first message, from what they sent when they came in. */
+  neverReplied: z.boolean().default(true),
+  /** When it offered times and heard nothing, the first follow-up comes sooner and says which are still open. */
+  chaseTimes: z.boolean().default(true),
+  /** Hours after the unanswered message, one per follow-up, each later than the last. */
+  ladderHours: z
+    .array(z.int().min(1, 'At least an hour.').max(MAX_LADDER_HOURS, 'At most a year.'))
+    .min(1, 'At least one follow-up.')
+    .max(12, 'At most 12 follow-ups.')
+    .refine((l) => l.every((h, i) => i === 0 || h > l[i - 1]!), {
+      error: 'Each follow-up comes after the one before.',
+    })
+    .default(() => [...DEFAULT_FOLLOW_UP_LADDER_HOURS]),
+  /** Then one a month for this many months (0: none). */
+  monthlyForMonths: z.int().min(0).max(12, 'At most 12 months.').default(6),
 });
 
 // ---- Hours ----
@@ -306,8 +330,66 @@ export type TeammatePatch = Patch<Omit<TeammateConfigInput, 'version'>>;
 
 export type TeammateConfigUpgrade = (doc: Record<string, unknown>) => Record<string, unknown>;
 
-/** Step n turns a version n document into version n + 1. Version 1 is the first, so there are none yet. */
-export const TEAMMATE_CONFIG_UPGRADES: Readonly<Record<number, TeammateConfigUpgrade>> = {};
+/**
+ * Step n turns a version n document into version n + 1.
+ * - 1 → 2 (Automations): follow-ups move from "up to 5 nudges a day apart" to the ladder, and are on for every
+ *   business (Chris's call: the old default was off, and nobody could tell a choice from a default).
+ */
+export const TEAMMATE_CONFIG_UPGRADES: Readonly<Record<number, TeammateConfigUpgrade>> = {
+  1: (doc) => ({
+    ...doc,
+    followUp: {
+      enabled: true,
+      neverReplied: true,
+      chaseTimes: true,
+      ladderHours: [...DEFAULT_FOLLOW_UP_LADDER_HOURS],
+      monthlyForMonths: 6,
+    },
+  }),
+};
+
+/** Every follow-up's time after the unanswered message, in hours: the ladder, then the monthly ones. */
+export function followUpScheduleHours(f: {
+  readonly ladderHours: readonly number[];
+  readonly monthlyForMonths: number;
+}): number[] {
+  const last = f.ladderHours[f.ladderHours.length - 1] ?? 0;
+  return [
+    ...f.ladderHours,
+    ...Array.from({ length: f.monthlyForMonths }, (_, i) => last + (i + 1) * FOLLOW_UP_MONTH_HOURS),
+  ];
+}
+
+/** One step in words: "4 hours", "day 1", "day 30". Whole days read as days. */
+const stepWords = (h: number): string =>
+  h % 24 === 0 ? `day ${h / 24}` : `${h} ${h === 1 ? 'hour' : 'hours'}`;
+
+/** The ladder in plain words: "4 hours, then days 1, 2, 4, 7, 10, 14, 21 and 30". */
+export function followUpLadderWords(ladderHours: readonly number[]): string {
+  const words = ladderHours.map(stepWords);
+  const hours = words.filter((w) => !w.startsWith('day '));
+  const days = ladderHours.filter((h) => h % 24 === 0).map((h) => h / 24);
+  const dayWords =
+    days.length === 0
+      ? ''
+      : days.length === 1
+        ? `day ${days[0]}`
+        : `days ${days.slice(0, -1).join(', ')} and ${days[days.length - 1]}`;
+  // Hours first (they're the early ones), then the days; a ladder that mixes them differently reads step by step.
+  const ordered = ladderHours.every((h, i) => (h % 24 === 0) === i >= hours.length);
+  if (!ordered) return words.join(', ');
+  return [hours.join(', '), dayWords].filter(Boolean).join(', then ');
+}
+
+/** When follow-up `n` (1-based) is due after the message they didn't answer, or null when there's none left. */
+export function followUpDueAt(
+  f: { readonly ladderHours: readonly number[]; readonly monthlyForMonths: number },
+  anchorAt: number,
+  n: number,
+): number | null {
+  const hours = followUpScheduleHours(f)[n - 1];
+  return hours === undefined ? null : anchorAt + hours * 3_600_000;
+}
 
 export class TeammateConfigVersionError extends Error {
   constructor(readonly version: number) {

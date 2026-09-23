@@ -293,7 +293,13 @@ export const onCustomerMessage: EventHandler = async (ctx) => {
   if (!(await widgetAnswers(ctx.tx, conv, teammate.id))) return;
   if (channel === 'sms' && (await textsStopped(ctx.tx, scope.workspaceId, conv))) return;
   const clock = await workspaceClock(ctx.tx, scope.workspaceId);
-  if (!workingNow(config, clock.openHours, clock.timeZone, Date.now())) return;
+  // A lead's own message is answered right away, whatever the teammate's hours (Automations, "New lead
+  // greeting"); anyone else waits for them.
+  if (
+    !workingNow(config, clock.openHours, clock.timeZone, Date.now()) &&
+    !(await hasOpenLead(ctx.tx, scope.workspaceId, conv.personId))
+  )
+    return;
   const loop = await loopReason(ctx.tx, conv.id);
   if (loop) {
     if (mine) await handOffAsSystem(ctx.tx, scope, conv.id, 'loop', loop, meta);
@@ -332,6 +338,17 @@ export const onCustomerMessage: EventHandler = async (ctx) => {
 };
 
 /** `conversation.handed_to_ai`: a person handed it back, so the teammate answers what's waiting. */
+/** They have an open lead: a lead is answered at once, whatever the teammate's hours. */
+async function hasOpenLead(tx: Tx, workspaceId: string, personId: string | null): Promise<boolean> {
+  if (!personId) return false;
+  const [r] = await rows<{ yes: boolean }>(
+    tx,
+    sql`select exists (select 1 from app.leads l where l.workspace_id = ${workspaceId}
+          and l.person_id = ${personId} and l.status = 'open' and l.archived_at is null) as yes`,
+  );
+  return !!r?.yes;
+}
+
 export const onHandedToAi: EventHandler = async (ctx) => {
   const e = ctx.event;
   const scope = scopeOf(e);

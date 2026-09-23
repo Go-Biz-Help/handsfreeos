@@ -1,0 +1,107 @@
+/**
+ * Automations' own settings, `workspaces.settings.automations`: the switches for automations that had no single
+ * switch before (the day-before and day-of reminders, waitlist offers, the morning email), and later each new
+ * automation's timing. Browser-safe, read forgivingly like the Action Center's: a bad or missing field falls back
+ * to its default, so a business that never opened the page gets every default.
+ *
+ * Automations that already had a switch keep it where it was (the Action Center's kinds, the AI teammate's
+ * skills): the catalog points at it, so nothing reads a second copy.
+ */
+import { z } from 'zod';
+import { nudgePlaceholderProblem } from '../attention/nudge';
+import { isoDateTime } from '../schemas/common';
+import { readForgiving } from '../schemas/forgiving';
+
+const on = () => z.boolean().default(true);
+
+/**
+ * The switches this document owns. The first four default to on, because each is something the business already
+ * had working before the Automations page existed: turning it into a switch must not turn it off. Re-engaging
+ * dead leads is new and texts people who haven't heard from the business in months, so it starts off.
+ */
+const Switches = z.object({
+  /** The day-before reminder (calendar reminders of kind `day_before`). */
+  dayBefore: on(),
+  /** Reminders on the day (calendar reminders of kind `before`). */
+  dayOf: on(),
+  /** Offering a freed time to the next person on a waitlist. */
+  waitlist: on(),
+  /** The 7 AM email. Each person can still turn off their own copy in Notifications. */
+  morningBrief: on(),
+  /** One text, in the business's own words, to open leads nobody has been in touch with for months. */
+  reengage: z.boolean().default(false),
+});
+export type AutomationSwitch = keyof z.infer<typeof Switches>;
+export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];
+
+/** Straight apostrophes: a curly one sends a text in the slower encoding. */
+export const DEFAULT_REENGAGE_TEMPLATE =
+  "Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with?";
+
+const Reengage = z.object({
+  template: z
+    .string()
+    .trim()
+    .min(1, 'Write the message.')
+    .max(480, 'Keep it under 480 characters.')
+    .superRefine((template, ctx) => {
+      const problem = nudgePlaceholderProblem(template);
+      if (problem) ctx.addIssue({ code: 'custom', message: problem });
+    })
+    .default(DEFAULT_REENGAGE_TEMPLATE),
+  /** When an owner read the message and chose "Looks good, turn on". It can't go on until then. */
+  reviewedAt: isoDateTime.nullable().default(null),
+  /** An open lead nobody has been in touch with for this long has gone cold. */
+  afterDays: z.int().min(30, 'At least 30 days.').max(730, 'At most two years.').default(90),
+  /** At most this many a day, so a big old list doesn't all go at once. */
+  maxPerDay: z.int().min(1).max(200, 'At most 200 a day.').default(20),
+  /** Never to the same lead again within this long. */
+  cooldownDays: z.int().min(30, 'At least 30 days.').max(730, 'At most two years.').default(180),
+});
+
+export const AutomationSettings = z
+  .object({
+    switches: Switches.prefault({}),
+    reengage: Reengage.prefault({}),
+  })
+  .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
+    error: 'Read the message and choose “Looks good, turn on” first.',
+    path: ['switches', 'reengage'],
+  });
+export type AutomationSettings = z.infer<typeof AutomationSettings>;
+export type AutomationSettingsInput = z.input<typeof AutomationSettings>;
+
+/** Every setting at its default. */
+export function defaultAutomationSettings(): AutomationSettings {
+  return AutomationSettings.parse({});
+}
+
+/** Validates settings being saved, filling defaults. Throws a ZodError when invalid. */
+export function parseAutomationSettings(raw: unknown): AutomationSettings {
+  return AutomationSettings.parse(raw ?? {});
+}
+
+/** Reads stored settings forgivingly: every field that doesn't pass falls back to its default. Never throws. */
+export function readAutomationSettings(raw: unknown): AutomationSettings {
+  return readForgiving(AutomationSettings, raw);
+}
+
+/** A business's automation settings, from its workspace settings (like `attentionSettingsOf`). */
+export function automationSettingsOf(
+  settings: Readonly<Record<string, unknown>> | null | undefined,
+): AutomationSettings {
+  return readAutomationSettings(settings?.['automations']);
+}
+
+/** Whether re-engaging dead leads may run: switched on, after an owner reviewed the message. */
+export function reengageOn(settings: AutomationSettings): boolean {
+  return settings.switches.reengage && settings.reengage.reviewedAt !== null;
+}
+
+/** Whether one of this document's switches is on. */
+export function automationOn(
+  settings: Readonly<Record<string, unknown>> | null | undefined,
+  key: AutomationSwitch,
+): boolean {
+  return automationSettingsOf(settings).switches[key];
+}

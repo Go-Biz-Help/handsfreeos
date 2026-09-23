@@ -637,6 +637,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/automations.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save Settings → Automations’ own switches and timings: the day-before and day-of reminders, waitlist offers, the morning email, and re-engaging dead leads with its message. Turning re-engaging on (“Looks good, turn on”) records that the message was read.
+         * @description Risk level 2. Requires workspace.update. Emits automations.settings_saved.
+         */
+        post: operations["command_automations_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/booking_site.update": {
         parameters: {
             query?: never;
@@ -10210,6 +10230,91 @@ export interface operations {
             };
         };
     };
+    command_automations_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    settings: {
+                        /** @default {} */
+                        reengage?: {
+                            /** @default 90 */
+                            afterDays?: number;
+                            /** @default 180 */
+                            cooldownDays?: number;
+                            /** @default 20 */
+                            maxPerDay?: number;
+                            /** @default null */
+                            reviewedAt?: string | null;
+                            /** @default Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with? */
+                            template?: string;
+                        };
+                        /** @default {} */
+                        switches?: {
+                            /** @default true */
+                            dayBefore?: boolean;
+                            /** @default true */
+                            dayOf?: boolean;
+                            /** @default true */
+                            morningBrief?: boolean;
+                            /** @default false */
+                            reengage?: boolean;
+                            /** @default true */
+                            waitlist?: boolean;
+                        };
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        settings: {
+                            reengage: {
+                                /** @default 90 */
+                                afterDays: number;
+                                /** @default 180 */
+                                cooldownDays: number;
+                                /** @default 20 */
+                                maxPerDay: number;
+                                /** @default null */
+                                reviewedAt: string | null;
+                                /** @default Hi {firstName}, it's {senderName} at {businessName}. It's been a while since we talked about {leadTitle}. Is that still something we can help with? */
+                                template: string;
+                            };
+                            switches: {
+                                /** @default true */
+                                dayBefore: boolean;
+                                /** @default true */
+                                dayOf: boolean;
+                                /** @default true */
+                                morningBrief: boolean;
+                                /** @default false */
+                                reengage: boolean;
+                                /** @default true */
+                                waitlist: boolean;
+                            };
+                        };
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_booking_site_update: {
         parameters: {
             query?: never;
@@ -13606,9 +13711,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        billing: "once" | "monthly";
                         claimed: number;
                         name: string;
                         offerId: string;
+                        openedAt: string | null;
+                        opensAfterCount: number | null;
+                        opensAfterOfferId: string | null;
                         priceCents: number;
                         remaining: number;
                         seatCap: number;
@@ -13643,9 +13753,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        billing: "once" | "monthly";
                         claimed: number;
                         name: string;
                         offerId: string;
+                        openedAt: string | null;
+                        opensAfterCount: number | null;
+                        opensAfterOfferId: string | null;
                         priceCents: number;
                         remaining: number;
                         seatCap: number;
@@ -26522,6 +26637,8 @@ export interface operations {
                         /** Format: date-time */
                         generatedAt: string;
                         offers: {
+                            /** @enum {string} */
+                            billing: "once" | "monthly";
                             blurb: string;
                             claimed: number;
                             name: string;
@@ -26529,8 +26646,10 @@ export interface operations {
                             priceCents: number;
                             remaining: number;
                             seatCap: number;
+                            showCounter: boolean;
                             /** @enum {string} */
                             status: "draft" | "open" | "closed";
+                            superseded: boolean;
                         }[];
                     };
                 };
@@ -29560,9 +29679,14 @@ export interface operations {
                             workspaceId: string | null;
                         }[];
                         offers: {
+                            /** @enum {string} */
+                            billing: "once" | "monthly";
                             claimed: number;
                             name: string;
                             offerId: string;
+                            openedAt: string | null;
+                            opensAfterCount: number | null;
+                            opensAfterOfferId: string | null;
                             priceCents: number;
                             remaining: number;
                             seatCap: number;
