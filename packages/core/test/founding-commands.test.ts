@@ -25,6 +25,8 @@ import {
 } from '../src/server';
 
 const api = () => testDbs().api.db;
+// Only the worker's login may act as HandsFreeOS itself, so the worker's commands go through it, as they do live.
+const worker = () => testDbs().worker.db;
 const admin = () => testDbs().admin.db;
 const human = (u: TestUser): HumanActor => ({
   type: 'human',
@@ -161,7 +163,7 @@ describe('a paid seat', () => {
 
     const system: SystemActor = { type: 'system', workspaceId: wsId, organizationId: orgId };
     const opened = await executeCommand(
-      api(),
+      worker(),
       foundingRecordCheckoutOpened,
       {
         workspaceId: wsId,
@@ -201,7 +203,7 @@ describe('a paid seat', () => {
     expect(hidden.status).toBe(404);
 
     const paid = await executeCommand(
-      api(),
+      worker(),
       foundingRecordCheckoutPaid,
       {
         workspaceId: wsId,
@@ -236,7 +238,7 @@ describe('a paid seat', () => {
     );
     const system: SystemActor = { type: 'system', workspaceId: wsId, organizationId: orgId };
     const paid = await executeCommand(
-      api(),
+      worker(),
       foundingRecordCheckoutPaid,
       {
         workspaceId: wsId,
