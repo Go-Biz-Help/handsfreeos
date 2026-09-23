@@ -234,8 +234,8 @@ describe('a business moves house', () => {
       'Lone Star HVAC — Dallas',
     ]);
     const contacts = got.inventory.find((i) => i.category === 'contacts');
-    expect(contacts?.found).toBe(9);
-    expect(contacts?.countLabel).toBe('9');
+    expect(contacts?.found).toBe(11);
+    expect(contacts?.countLabel).toBe('11');
   }, 60_000);
 
   it('never shows a permission problem as an empty account', async () => {
@@ -360,9 +360,14 @@ describe('a business moves house', () => {
     await drain();
 
     const list = await people();
-    // Nine customers over two sub-accounts, one of whom is in both, and one waiting on a person:
-    // so seven arrive, one is a merge, one is a question.
-    expect(list.length).toBe(7);
+    // Eleven customers over two sub-accounts: one is in both, one waits on a person, and one has no name,
+    // no email and no number at all. So eight arrive, one is a merge, one is a question, one is kept back.
+    expect(list.length).toBe(8);
+    // The nameless one that could still be identified came across under what identifies it, because the
+    // book has no room for a customer with no name and the old system showed them this way too.
+    const nameless = list.find((p) => p.email === 'no.name@example.com');
+    expect(nameless?.first_name).toBe('no.name@example.com');
+    expect(nameless?.last_name).toBe('');
     const dave = list.filter((p) => p.last_name === 'Smith');
     expect(dave).toHaveLength(2); // two different Daves, never joined on a name
     const austinDave = dave.find((p) => p.phone_e164 === '+15125550101');
@@ -370,6 +375,20 @@ describe('a business moves house', () => {
     const tom = list.filter((p) => p.first_name === 'Tom');
     expect(tom).toHaveLength(1); // the same person in both sub-accounts, joined on the number
   }, 120_000);
+
+  it('keeps back a customer with no name, no email and no number, and says which one', async () => {
+    // GoHighLevel makes a contact for a form somebody opened and abandoned. One with nothing on it is not a
+    // customer, and the insert could never have worked: `app.people` will not take a row with no name. It
+    // used to take the whole batch of customers down with it.
+    const [kept] = await rows<{ source_object_id: string; message: string; retryable: boolean }>(
+      admin(),
+      sql`select source_object_id, message, retryable from app.migration_errors
+          where migration_id = ${w.migrationId} and code = 'person_without_name'`,
+    );
+    expect(kept?.source_object_id).toBe('con_a7');
+    expect(kept?.message).toContain('nothing here to bring');
+    expect(kept?.retryable).toBe(false);
+  });
 
   /**
    * The test above is the one that used to fail at random, and this is why it does not any more.

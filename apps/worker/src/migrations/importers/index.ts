@@ -647,6 +647,34 @@ export const importContact: Importer = async (tx, scope, envelope) => {
   const smsConsent: SmsConsent = d.consent?.find((c) => c.channel === 'sms')?.state ?? 'unknown';
   const { createdAt, updatedAt } = sourceTimes(envelope);
 
+  /**
+   * **Everybody here has a name.** The table says so (`btrim(first_name) || btrim(last_name)` cannot be
+   * empty) and every screen leans on it. The old system does not agree: a form somebody opened and walked
+   * away from leaves a contact behind with no name, and often with nothing else either.
+   *
+   * So a customer who arrives nameless is named by whatever *does* identify them — their email address, or
+   * their phone number as the old system wrote it — which is what the old system's own screens showed and
+   * what somebody here can act on and correct. One with nothing to be identified by is not a customer at
+   * all, and is kept back with a reason rather than invented as "Someone" in the middle of the book.
+   */
+  if (!firstName && !lastName) {
+    const known = email ?? str(d.phone) ?? phoneE164;
+    if (!known) {
+      await quarantine(tx, scope, {
+        category: 'contacts',
+        sourceObjectType: envelope.source.objectType,
+        sourceObjectId: envelope.source.objectId,
+        kind: 'mapping',
+        code: 'person_without_name',
+        message:
+          'A customer with no name, no email address and no phone number: there is nothing here to bring.',
+        retryable: false,
+      });
+      return { counts: { failed: 1 } };
+    }
+    firstName = known.slice(0, 80);
+  }
+
   // Custom-field values. Since M15 these have a real home: `people.custom`, keyed by the id of the field the
   // custom-field importer made earlier in the same import. What is left over — a value whose field never came
   // across, because its shape was not readable or it lived on something we have no fields for — still goes

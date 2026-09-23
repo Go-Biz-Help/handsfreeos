@@ -515,6 +515,23 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
       country: 'US',
     },
   }),
+  // A form somebody opened and walked away from. GoHighLevel keeps the contact it made: an email address,
+  // no name, and nothing else. It is a real customer and it has to come across.
+  contact({
+    id: 'con_a6',
+    first: '',
+    last: '',
+    email: 'no.name@example.com',
+    added: '2024-02-03T11:00:00.000Z',
+  }),
+  // And the same thing with the email missing too — no name, no email, no number. There is no customer
+  // here to bring, and saying so is better than a book full of people called "Someone".
+  contact({
+    id: 'con_a7',
+    first: '',
+    last: '',
+    added: '2024-02-04T11:00:00.000Z',
+  }),
 
   // ---------- the work ----------
   // Stages with no meaning of their own: nothing here reads as won or lost, so the import has to add
