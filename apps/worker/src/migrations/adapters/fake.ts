@@ -749,6 +749,14 @@ const AUSTIN_RECORDS: readonly FakeRecord[] = [
     'Here is your invoice.',
     { meta: { email: { subject: 'Your invoice' } } },
   ),
+  // His answer, which came only as HTML — and says which way it went only where HighLevel's emails do.
+  said('msg_a11', 'cnv_a5', 'TYPE_EMAIL', 'inbound', '2024-07-01T10:15:00.000Z', '', {
+    direction: undefined,
+    meta: { email: { subject: 'Re: Your invoice', direction: 'inbound' } },
+    html:
+      '<div><p>Paid, thank you!</p><img src="https://fake.invalid/pixel.gif">' +
+      '<script>alert(1)</script></div>',
+  }),
   said(
     'msg_a10',
     'cnv_a5',
@@ -1749,8 +1757,13 @@ export function createFakeSourceAdapter(): FakeSource {
             : type.includes('WHATSAPP')
               ? 'whatsapp'
               : null;
-          const emailMeta = ((p['meta'] ?? {}) as { email?: { subject?: string } }).email;
-          const direction = str(p['direction']) === 'inbound' ? 'inbound' : 'outbound';
+          const emailMeta = (
+            (p['meta'] ?? {}) as { email?: { subject?: string; direction?: string } }
+          ).email;
+          const direction =
+            (str(p['direction']) ?? str(emailMeta?.direction)) === 'inbound'
+              ? 'inbound'
+              : 'outbound';
           return [
             {
               ...base,
@@ -1772,7 +1785,7 @@ export function createFakeSourceAdapter(): FakeSource {
                 status: direction === 'inbound' ? 'received' : 'delivered',
                 subject: str(p['subject']) ?? str(emailMeta?.subject),
                 body: str(p['body']),
-                bodyHtml: null,
+                bodyHtml: str(p['html']),
                 fromAddress: str(p['from']),
                 toAddresses: [str(p['to'])].filter((v): v is string => !!v),
                 occurredAt: record.sourceCreatedAt?.toISOString() ?? new Date(0).toISOString(),

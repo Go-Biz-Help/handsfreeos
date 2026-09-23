@@ -49,6 +49,8 @@ function serve(answer: (url: URL) => unknown): URL[] {
       const url = new URL(String(input));
       calls.push(url);
       const body = answer(url);
+      // An answer that is not a 200 is given whole.
+      if (body instanceof Response) return body;
       // A string is a page, not JSON: a template's rendered copy.
       return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
         status: 200,
@@ -425,6 +427,167 @@ describe('what a GoHighLevel thread is made of', () => {
     expect(messages.records.map((r) => r.objectId)).toEqual(['m1']);
     const [reaction] = adapter.normalize(messages.records[0]!, context);
     expect(reaction!.data).toMatchObject({ channel: 'sms' });
+  });
+
+  it('asks for each email the list leaves without words, and brings each email of an exchange as itself', async () => {
+    const emails: Record<string, Record<string, unknown>> = {
+      em_1: {
+        id: 'em_1',
+        direction: 'inbound',
+        dateAdded: '2026-01-02T10:00:00.000Z',
+        from: 'Dave Smith <dave@example.com>',
+        to: ['office@example.com'],
+        subject: 'Question',
+        body: '<p>Can you come <b>Tuesday</b>?</p>',
+      },
+      em_2: {
+        id: 'em_2',
+        direction: 'outbound',
+        dateAdded: '2026-01-03T09:00:00.000Z',
+        from: 'Office <office@example.com>',
+        to: ['dave@example.com'],
+        subject: 'Invoice',
+        body: '<p>Here it is.</p>',
+      },
+      em_3: {
+        id: 'em_3',
+        direction: 'inbound',
+        dateAdded: '2026-01-03T09:30:00.000Z',
+        from: 'dave@example.com',
+        to: ['office@example.com'],
+        subject: 'Re: Invoice',
+        body: 'Paid.',
+      },
+    };
+    const asked = serve((url) => {
+      if (url.pathname === '/conversations/search')
+        return { conversations: [{ id: 'cnv_1', lastMessageDate: 1 }], total: 1 };
+      if (url.pathname.startsWith('/conversations/messages/email/')) {
+        const one = emails[decodeURIComponent(url.pathname.split('/').pop()!)];
+        return one
+          ? { emailMessage: one }
+          : new Response(JSON.stringify({ message: 'Not found' }), { status: 404 });
+      }
+      const email = (id: string, ids: string[], extra: Record<string, unknown> = {}) => ({
+        id,
+        messageType: 'TYPE_EMAIL',
+        dateAdded: '2026-01-02T10:00:00.000Z',
+        ...extra,
+        meta: { email: { messageIds: ids, direction: 'inbound', subject: `Listed ${id}` } },
+      });
+      return {
+        messages: {
+          messages: [
+            // No words, and which way it went only under `meta.email`.
+            email('m1', ['em_1']),
+            // One entry for an exchange of two.
+            email('m2', ['em_2', 'em_3']),
+            // Its words are already here: nothing more to ask.
+            email('m3', ['em_4'], { direction: 'outbound', body: 'See you then.' }),
+            // One HighLevel no longer has: kept as it was listed.
+            email('m4', ['em_gone']),
+          ],
+          nextPage: false,
+        },
+      };
+    });
+    const page = await adapter.list(connection, scope, 'messages', { cursor: null, limit: 100 });
+    expect(page.records.map((r) => r.objectId)).toEqual(['m1', 'm2', 'em_3', 'm3', 'm4']);
+    const lookedUp = asked
+      .filter((u) => u.pathname.startsWith('/conversations/messages/email/'))
+      .map((u) => u.pathname.split('/').pop());
+    expect(lookedUp.sort()).toEqual(['em_1', 'em_2', 'em_3', 'em_gone']);
+
+    const data = page.records.map((r) => adapter.normalize(r, context)[0]!.data);
+    expect(data[0]).toMatchObject({
+      direction: 'inbound',
+      fromAddress: 'dave@example.com',
+      toAddresses: ['office@example.com'],
+      subject: 'Question',
+      body: null,
+      bodyHtml: '<p>Can you come <b>Tuesday</b>?</p>',
+    });
+    expect(data[1]).toMatchObject({
+      direction: 'outbound',
+      subject: 'Invoice',
+      toAddresses: ['dave@example.com'],
+      occurredAt: '2026-01-03T09:00:00.000Z',
+      providerMessageId: 'm2',
+    });
+    expect(data[2]).toMatchObject({
+      direction: 'inbound',
+      subject: 'Re: Invoice',
+      body: 'Paid.',
+      bodyHtml: null,
+      occurredAt: '2026-01-03T09:30:00.000Z',
+      providerMessageId: 'em_3',
+    });
+    expect(data[3]).toMatchObject({ direction: 'outbound', body: 'See you then.' });
+    // Its direction was only under `meta.email` too, and it was the customer's.
+    expect(data[4]).toMatchObject({ direction: 'inbound', subject: 'Listed m4', body: null });
+  });
+
+  it('reads a booked call as a step on the way, and only a won or lost name as won or lost', () => {
+    const [pipeline] = adapter.normalize(
+      {
+        objectType: 'pipeline',
+        objectId: 'pip_1',
+        payload: {
+          id: 'pip_1',
+          name: 'Prospect Funnel',
+          stages: [
+            { id: 'st_1', name: 'New Lead' },
+            { id: 'st_2', name: 'Booked Call' },
+            { id: 'st_3', name: 'Ai Booked Sales Call ' },
+            { id: 'st_4', name: 'Signed Up For Service' },
+            { id: 'st_5', name: 'Closed Lost' },
+          ],
+        },
+      },
+      context,
+    );
+    const stages = (pipeline!.data as { stages: { name: string; kind: string }[] }).stages;
+    expect(stages.map((st) => st.kind)).toEqual(['open', 'open', 'open', 'won', 'lost']);
+  });
+
+  it('reads a plan whose first payment never went through as over, not as running', () => {
+    const plan = (status: string) =>
+      adapter.normalize(
+        {
+          objectType: 'subscription',
+          objectId: `sub_${status}`,
+          payload: { _id: `sub_${status}`, status, amount: 99, contactId: 'con_1' },
+        },
+        context,
+      )[0]!.data as { status: string };
+    expect(plan('incomplete_expired').status).toBe('cancelled');
+    expect(plan('canceled').status).toBe('cancelled');
+    expect(plan('active').status).toBe('active');
+    expect(plan('past_due').status).toBe('past_due');
+  });
+
+  it('asks each product for its prices, which the list leaves off', async () => {
+    serve((url) => {
+      if (url.pathname === '/products/')
+        return {
+          products: [
+            { _id: 'prd_1', name: 'SEO 500', hasPrices: false },
+            { _id: 'prd_2', name: 'Free consult', hasPrices: false },
+          ],
+          total: [{ total: 2 }],
+        };
+      if (url.pathname === '/products/prd_1/price')
+        return { prices: [{ _id: 'pr_1', name: '500', amount: 500, currency: 'USD' }], total: 1 };
+      return { prices: [], total: 0 };
+    });
+    const page = await adapter.list(connection, scope, 'products', { cursor: null, limit: 100 });
+    const data = page.records.map(
+      (r) => adapter.normalize(r, context)[0]!.data as { name: string; unitPriceCents: number },
+    );
+    expect(data.map((d) => [d.name, d.unitPriceCents])).toEqual([
+      ['SEO 500', 50_000],
+      ['Free consult', 0],
+    ]);
   });
 
   it('counts invoices by asking the way the list insists on, with an offset', async () => {

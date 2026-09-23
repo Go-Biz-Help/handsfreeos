@@ -32,6 +32,7 @@ import {
   type MergeDecision,
   type SmsConsent,
 } from '@hfos/core/server';
+import { htmlToText, sanitizeInboundHtml } from '../../email/render';
 import {
   existingMapping,
   finding,
@@ -1501,10 +1502,18 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
    * A body longer than the column holds keeps all of itself: the first 10,000 characters where the timeline
    * reads them, and the whole thing in the HTML body, which has no limit. A long marketing email is the
    * common case and truncating it silently would be the wrong kind of quiet.
+   *
+   * An email that came only as HTML is read the way a received one is: its words for the timeline, and its
+   * HTML made safe to show — no scripts, remote pictures waiting until someone asks for them.
    */
-  const body = str(d.body);
+  const html = str(d.bodyHtml);
+  const body = str(d.body) ?? (html ? str(htmlToText(html)) : null);
   const tooLong = body !== null && body.length > 10_000;
-  const bodyHtml = str(d.bodyHtml) ?? (tooLong ? `<pre>${escapeText(body!)}</pre>` : null);
+  const bodyHtml = html
+    ? sanitizeInboundHtml(html, new Map()).slice(0, 1_000_000)
+    : tooLong
+      ? `<pre>${escapeText(body!)}</pre>`
+      : null;
   if (tooLong) await bodyKept(tx, scope);
   const id = randomUUID();
   await tx.execute(sql`
@@ -1536,7 +1545,7 @@ export const importMessage: Importer = async (tx, scope, envelope) => {
       last_direction = case when coalesce(last_message_at, 'epoch'::timestamptz) <= ${occurredAt}::timestamptz
         then ${direction}::app.direction else last_direction end,
       last_preview = case when coalesce(last_message_at, 'epoch'::timestamptz) <= ${occurredAt}::timestamptz
-        then ${str(d.body)?.slice(0, 200) ?? null} else last_preview end,
+        then ${body?.slice(0, 200) ?? null} else last_preview end,
       last_inbound_at = case when ${direction} = 'inbound'
         then greatest(coalesce(last_inbound_at, ${occurredAt}::timestamptz), ${occurredAt}::timestamptz)
         else last_inbound_at end,
@@ -1928,11 +1937,14 @@ export const importLead: Importer = async (tx, scope, envelope) => {
       : null;
   let stageId = sourceStage?.targetType === 'pipeline_stage' ? sourceStage.targetId : null;
   if (stageId) {
-    // Only if it really is a stage of this pipeline; a stage id from another pipeline would be refused.
+    // Only if it really is a stage of this pipeline; a stage id from another pipeline would be refused. And
+    // only if it is an open one: a lead's status follows its stage here, so an open deal in a column whose
+    // name read as won or lost would come across won or lost, and the old system said it was neither.
     const [ok] = await rows<{ id: string }>(
       tx,
       sql`select id::text as id from app.pipeline_stages
-          where id = ${stageId}::uuid and pipeline_id = ${pipeline.targetId}::uuid limit 1`,
+          where id = ${stageId}::uuid and pipeline_id = ${pipeline.targetId}::uuid
+            and kind = 'open'::app.stage_kind limit 1`,
     );
     if (!ok) stageId = null;
   }

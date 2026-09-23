@@ -131,6 +131,9 @@ beforeAll(async () => {
     fetchUrl: media.fetchUrl,
     workerId: `vitest-history-${process.pid}`,
     batchSize: 8,
+    // No time to read on: every batch reads its one page and goes back in the queue, so this history arrives
+    // through the way a category carries on once its pass's time is used up.
+    pageBudgetMs: 0,
   } as never;
 
   const connectionId = randomUUID();
@@ -304,7 +307,21 @@ describe('the history arrives as history', () => {
       ).map((m) => [m.body_text, m.subject]);
     const email = daves.find((t) => t.channel === 'email')!;
     expect(email.counterpart).toBe('dave.smith@example.com');
-    expect(await bodies(email.id)).toEqual([['Here is your invoice.', 'Your invoice']]);
+    expect(await bodies(email.id)).toEqual([
+      ['Here is your invoice.', 'Your invoice'],
+      ['Paid, thank you!', 'Re: Your invoice'],
+    ]);
+    // His answer came only as HTML, and said it was his only under the email's own details: it is his, its
+    // words are in the timeline, and its HTML is kept safe to show.
+    const [answer] = await rows<{ direction: string; body_html: string | null }>(
+      admin(),
+      sql`select direction::text as direction, body_html from app.messages
+          where conversation_id = ${email.id}::uuid and subject = 'Re: Your invoice'`,
+    );
+    expect(answer!.direction).toBe('inbound');
+    expect(answer!.body_html).toContain('Paid, thank you!');
+    expect(answer!.body_html).not.toContain('<script');
+    expect(answer!.body_html).toContain('data-remote-src="https://fake.invalid/pixel.gif"');
     const facebook = daves.find((t) => t.counterpart.includes('cnv_a5-facebook'))!;
     expect(facebook.channel).toBe('chat');
     expect(await bodies(facebook.id)).toEqual([['Got it, thanks!', null]]);

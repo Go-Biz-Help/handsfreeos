@@ -67,7 +67,11 @@ const MEDIA_REAP_PAGE = 200;
 /** How many batches one pass of the loop claims. */
 export const MIGRATION_BATCH = 4;
 
-/** How long a category keeps reading pages in one turn, and the most pages it takes, before it yields. */
+/**
+ * How long one pass keeps reading pages, and the most pages one category takes in a turn, before it yields.
+ * The budget is the pass's, shared by every batch in it: the pass runs between the loops that send texts and
+ * emails, so twenty batches each reading for ten seconds would hold a reply up for minutes.
+ */
 const PAGE_BUDGET_MS = 10_000;
 const MAX_PAGES_PER_TURN = 50;
 
@@ -83,7 +87,7 @@ export interface MigrationDeps {
   readonly workerId: string;
   /** Tests run the loop until it is quiet; production runs it on a timer. */
   readonly batchSize?: number;
-  /** How long one category may keep reading pages in a turn before it yields (`PAGE_BUDGET_MS`). */
+  /** How long one pass may keep reading pages before its batches yield (`PAGE_BUDGET_MS`). */
   readonly pageBudgetMs?: number;
 }
 
@@ -119,9 +123,10 @@ export async function processMigrationJobs(deps: MigrationDeps): Promise<LoopSta
     ),
   );
   stats.claimed = claimed.length;
+  const passEndsAt = Date.now() + (deps.pageBudgetMs ?? PAGE_BUDGET_MS);
   for (const job of claimed) {
     try {
-      const outcome = await runJob(deps, job);
+      const outcome = await runJob(deps, job, passEndsAt);
       if (outcome === 'again') stats.requeued += 1;
       else stats.done += 1;
     } catch (e) {
@@ -134,14 +139,14 @@ export async function processMigrationJobs(deps: MigrationDeps): Promise<LoopSta
 
 type Outcome = 'done' | 'again';
 
-async function runJob(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
+async function runJob(deps: MigrationDeps, job: JobRow, passEndsAt: number): Promise<Outcome> {
   switch (job.kind) {
     case 'discover':
       return discover(deps, job);
     case 'scan':
       return scanScope(deps, job);
     case 'fetch':
-      return fetchCategory(deps, job);
+      return fetchCategory(deps, job, passEndsAt);
     case 'import':
       return importDecided(deps, job);
     case 'media':
@@ -416,7 +421,11 @@ async function unfinishedParents(
  * One page of one category: read it, keep what came, turn it into HandsFreeOS's shape, write it, and save
  * where to carry on — all in one transaction, so resuming can only ever re-read, never half-write.
  */
-async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome> {
+async function fetchCategory(
+  deps: MigrationDeps,
+  job: JobRow,
+  passEndsAt: number,
+): Promise<Outcome> {
   if (!job.scope_id || !job.workspace_id) {
     await finishJob(deps, job, { skipped: 'nowhere to put it' });
     return 'done';
@@ -501,9 +510,9 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
    * whole worker pass and its pause for every page, and a GoHighLevel account reads its messages one
    * conversation to a page: 778 turns for the first real account, most of an hour on their own. Nothing about
    * a page changes — each is still read from the checkpoint and saved with it, alone — only how many a turn
-   * may take before it yields.
+   * may take before it yields. The time is the whole pass's: a batch that comes after one that used it up
+   * still reads its one page, and goes back in the queue with it.
    */
-  const turnStarted = Date.now();
   for (let pagesThisTurn = 1; ; pagesThisTurn++) {
     /**
      * Where to start: the checkpoint, not the batch.
@@ -662,8 +671,7 @@ async function fetchCategory(deps: MigrationDeps, job: JobRow): Promise<Outcome>
       return 'done';
     }
     if (!page.done && page.cursor) {
-      const budget = deps.pageBudgetMs ?? PAGE_BUDGET_MS;
-      if (Date.now() - turnStarted < budget && pagesThisTurn < MAX_PAGES_PER_TURN) continue;
+      if (Date.now() < passEndsAt && pagesThisTurn < MAX_PAGES_PER_TURN) continue;
       await requeueJob(deps, job, { ...job.input, cursor: page.cursor });
       return 'again';
     }
