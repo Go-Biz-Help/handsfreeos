@@ -55,6 +55,18 @@ export const AI_EMPLOYEE_COMMANDS = [
   'appointment.book_for_customer',
   'attendee.reschedule_for_customer',
   'attendee.cancel_for_customer',
+  // M18: repeat visits and waitlist places, on its own calendars.
+  'series.book_for_customer',
+  'waitlist.join_for_customer',
+  'appointment.add_for_customer',
+  // M18: money, only ever from an approval draft an owner or admin approved (each refuses without them).
+  'invoice.create_for_customer',
+  'estimate.create_for_customer',
+  'estimate.answer_for_customer',
+  'subscription.start_for_customer',
+  // M18: a website chat visitor proves who they are with a code sent to the contact on file.
+  'chat.send_code_for_customer',
+  'chat.check_code_for_customer',
   // M15: asking one of the business's forms in the conversation, a question at a time.
   'form_response.start',
   'form_response.save',

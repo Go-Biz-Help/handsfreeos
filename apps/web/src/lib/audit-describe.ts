@@ -658,6 +658,30 @@ function describeAction(e: AuditEntry): string {
       return 'moved a visit for the customer';
     case 'attendee.cancel_for_customer':
       return 'cancelled a visit for the customer';
+    case 'series.book_for_customer':
+      return `booked ${count(e.after?.occurrences, 'visit', 'visits')} of ${apptTitle(e)} for the customer, starting ${when(e.after?.startsAt)}`;
+    case 'invoice.create_for_customer':
+      return `sent the customer a bill${s(e.after?.invoice) ? ` (${s(e.after?.invoice)})` : ''}, with an owner’s OK`;
+    case 'estimate.create_for_customer':
+      return `sent the customer a quote${s(e.after?.estimate) ? ` (${s(e.after?.estimate)})` : ''}, with an owner’s OK`;
+    case 'estimate.answer_for_customer':
+      return `recorded the customer’s answer to ${s(e.after?.estimate) || 'a quote'}, with an owner’s OK`;
+    case 'subscription.start_for_customer':
+      return `signed the customer up for ${s(e.after?.plan) || 'a plan'}, with an owner’s OK`;
+    case 'chat.send_code_for_customer':
+      return `sent a code to ${s(e.after?.sentTo) || 'the customer'} to check who is in the chat`;
+    case 'chat.check_code_for_customer':
+      return 'checked the chat visitor’s code: they’re the customer';
+    case 'offer.create':
+      return `added the offer “${s(e.after?.name) || 'an offer'}”`;
+    case 'offer.update':
+      return 'changed an offer';
+    case 'offer.archive':
+      return `removed the offer “${s(e.after?.name) || 'an offer'}”`;
+    case 'appointment.add_for_customer':
+      return `added to ${apptTitle(e)}${s(e.after?.service) ? `: ${s(e.after?.service)}` : ''}${e.after?.seats !== undefined ? `, now for ${String(e.after?.seats)}` : ''}${s(e.after?.note) ? ', with a note' : ''}`;
+    case 'waitlist.join_for_customer':
+      return `added ${s(e.after?.customer) || 'the customer'} to the waitlist for ${s(e.after?.calendar) || 'a calendar'}`;
     case 'message.record_opt_out':
       return `recorded that ${s(e.after?.number) || 'a customer'} asked to stop getting texts${s(e.after?.words) ? ` (“${s(e.after?.words)}”)` : ''}`;
     // Milestone 8: confirming a booking (by text in message.receive, above)

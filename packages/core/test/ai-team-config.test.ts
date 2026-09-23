@@ -60,7 +60,16 @@ describe('defaults', () => {
       whenQualified: { stageId: null, notify: null, offerTimes: true },
       whenNotAFit: { tellTeam: true },
     });
-    expect(c.book).toEqual({ enabled: false, calendarIds: [], reschedule: true, cancel: true });
+    expect(c.book).toEqual({
+      enabled: false,
+      calendarIds: [],
+      reschedule: true,
+      cancel: true,
+      waitlist: true,
+      repeats: false,
+      serviceArea: true,
+    });
+    expect(c.deals).toEqual({ enabled: false });
     expect(c.followUp).toEqual({
       enabled: true,
       neverReplied: true,
@@ -78,11 +87,20 @@ describe('defaults', () => {
       toolRounds: 6,
       dailySharePercent: 60,
     });
-    expect(c.money).toEqual({ discounts: 'never', maxPercent: 10 });
+    expect(c.money).toEqual({
+      discounts: 'never',
+      maxPercent: 10,
+      bills: false,
+      newBills: false,
+      quotes: 'off',
+      plans: false,
+    });
     expect(c.handOff).toEqual({
       onFrustration: true,
       sensitiveTopics: [],
       notify: { kind: 'admins' },
+      // Email stays on for a document saved before M18; new teammates start with it off.
+      alerts: { push: true, text: true, email: true },
       tellCustomer: "Thanks for your patience. I've passed this to our team, and {expectation}.",
     });
   });
@@ -104,6 +122,7 @@ describe('defaults', () => {
       'autonomy',
       'book',
       'channels',
+      'deals',
       'followUp',
       'handOff',
       'hours',
@@ -327,7 +346,12 @@ describe('applyTeammatePatch', () => {
       book: { calendarIds: [] },
       respond: { newLeads: { delayMinutes: 5 } },
     });
-    expect(next.book).toEqual({ enabled: true, calendarIds: [], reschedule: true, cancel: true });
+    expect(next.book).toMatchObject({
+      enabled: true,
+      calendarIds: [],
+      reschedule: true,
+      cancel: true,
+    });
     expect(next.respond.newLeads).toEqual({ enabled: true, channel: 'sms', delayMinutes: 5 });
     expect(base.book.calendarIds).toEqual([SERVICE_CAL]);
   });
@@ -386,7 +410,12 @@ describe('presets', () => {
       calendarIds: [SERVICE_CAL],
       reschedule: true,
       cancel: true,
+      waitlist: true,
+      repeats: false,
+      serviceArea: true,
     });
+    // A new teammate reaches the team on their phones, not by email.
+    expect(a.handOff.alerts).toEqual({ push: true, text: true, email: false });
     expect(a.respond.newLeads.enabled).toBe(false);
     expect(teammateConfigFromPreset('appointment_coordinator').book.calendarIds).toEqual([]);
     expect(teammateConfigFromPreset('lead_responder', presetContext).followUp.enabled).toBe(true);

@@ -3,7 +3,7 @@ import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { TEAMMATE_TOOL_NAMES } from '../src/ai-team/tools';
+import { TEAMMATE_TOOLS, TEAMMATE_TOOL_NAMES } from '../src/ai-team/tools';
 import { assistantTools, toolInputSchema } from '../src/assistant/tools';
 import { AssistantCard } from '../src/schemas/assistant';
 import { HfosError } from '../src/errors';
@@ -202,9 +202,13 @@ describe('Assistant money tools', () => {
     for (const name of WRITES) expect(offered('member')).not.toContain(name);
   });
 
-  it('are never handed to the AI teammate: it may not quote a price, or issue an invoice', () => {
+  it('are never handed to the AI teammate, whose own money tools always wait for an owner (M18)', () => {
     for (const name of [...READS, ...WRITES]) expect(TEAMMATE_TOOL_NAMES).not.toContain(name);
-    expect(TEAMMATE_TOOL_NAMES.some((n) => /money|invoice|estimate|payment/i.test(n))).toBe(false);
+    // What the teammate may do with money is only ever ask: every tool that would bill, quote, record an
+    // answer or sign someone up waits for an owner or admin in every mode. Its look-ups change nothing.
+    for (const t of TEAMMATE_TOOLS)
+      if (/bill|quote|plan|payment|invoice|estimate/i.test(t.name) && !/^my_/.test(t.name))
+        expect(t.autonomy, t.name).toBe('approval');
   });
 
   it('take the ids and amounts the commands take, and refuse what they do not', () => {

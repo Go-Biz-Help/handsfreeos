@@ -10,9 +10,11 @@ import { eq } from 'drizzle-orm';
 import {
   allQuestions,
   calendarMostCharged,
+  chatVerified,
   LeadQualification,
   parseStoredForm,
   loadCalendar,
+  localDateOf,
   openHoursOf,
   uuidArray,
   type KnowledgeMatch,
@@ -29,9 +31,12 @@ import type { TenantScope } from '../services';
 import {
   BATCH_MAX,
   CALL_WORDS_MAX,
+  CATALOGUE_MAX,
   HISTORY_DAYS,
   HISTORY_MAX,
   KNOWLEDGE_MATCHES,
+  OFFERS_MAX,
+  PLANS_MAX,
 } from './constants';
 import { stripQuoted } from './gates';
 
@@ -154,6 +159,40 @@ export interface RunCalendar {
   readonly deposit: { readonly amountCents: number; readonly mode: 'deposit' | 'full' } | null;
   /** The page a customer books it on, when the booking site is on. */
   readonly bookingPath: string | null;
+  /** It offers times by the customer's ZIP code, so find_times needs theirs (M18). */
+  readonly byZip: boolean;
+  /** The service areas (territories) it serves when it goes by ZIP; empty means all of them. */
+  readonly areaIds: readonly string[];
+  /** It keeps a waitlist the teammate may add customers to (M18). */
+  readonly waitlist: boolean;
+  /** Customers may book repeat visits on it, at most this many; null when they can't (M18). */
+  readonly maxRepeats: number | null;
+}
+
+/** A maintenance plan the teammate may offer (M18, when its settings let it). */
+export interface RunPlan {
+  readonly id: string;
+  readonly name: string;
+  readonly priceCents: number;
+  readonly interval: 'month' | 'quarter' | 'year';
+  readonly intervalCount: number;
+  readonly includes: readonly string[];
+}
+
+/** An offer the business is running today (M18). */
+export interface RunOffer {
+  readonly name: string;
+  readonly details: string;
+  /** The last day it runs, when it has one. */
+  readonly endsOn: string | null;
+}
+
+/** Something on the price list the teammate may put on a bill or a quote (M18). */
+export interface RunProduct {
+  readonly id: string;
+  readonly name: string;
+  readonly priceCents: number;
+  readonly unitLabel: string;
 }
 
 export interface RunAppointment {
@@ -214,8 +253,10 @@ export interface RunContext {
     readonly counterpart: string | null;
     readonly personId: string | null;
   };
-  /** A website chat: whoever is typing hasn't proved they're the customer it matched. */
+  /** A website chat whose visitor hasn't proved, with a code, that they're the customer it matched. */
   readonly unverifiedChat: boolean;
+  /** The language the teammate last said the customer writes in (M18), or null. */
+  readonly conversationLanguage: string | null;
   /** The name a chat visitor typed. */
   readonly visitorName: string | null;
   /** No message from the teammate has gone to this customer in this conversation yet. */
@@ -227,8 +268,16 @@ export interface RunContext {
   readonly lead: RunLead | null;
   readonly stages: readonly { id: string; name: string; kind: string }[];
   readonly calendars: readonly RunCalendar[];
+  /** The plans it may offer; empty unless its settings let it (M18). */
+  readonly plans: readonly RunPlan[];
+  /** The price list it builds bills and quotes from; empty unless its settings let it (M18). */
+  readonly catalogue: readonly RunProduct[];
+  /** The offers running today, in the business's time zone (M18). */
+  readonly offers: readonly RunOffer[];
   /** Upcoming visits; none for a chat visitor. */
   readonly appointments: readonly RunAppointment[];
+  /** Their most recent visit that has happened (M18); none for a chat visitor. */
+  readonly lastVisit: PastVisit | null;
   readonly batch: readonly BatchMessage[];
   readonly history: readonly HistoryLine[];
   readonly matches: readonly KnowledgeMatch[];
@@ -273,7 +322,8 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const timeZone = w.timezone || 'UTC';
   const channel = (conv?.channel ?? target!.channel) as TeammateChannel;
   const personId = conv ? conv.personId : target!.personId;
-  const unverifiedChat = channel === 'chat';
+  // M18: a chat whose visitor typed back the code sent to the customer on file counts as theirs, like a text.
+  const unverifiedChat = channel === 'chat' && !(conv && (await chatVerified(tx, conv)));
   const grounding = await loadGrounding(tx, ws);
   const customer = personId ? await customerOf(tx, personId) : null;
   const lead = customer ? await openLeadOf(tx, ws, customer.id) : null;
@@ -283,6 +333,15 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     : [];
   const appointments =
     customer && !unverifiedChat ? await upcomingAppointments(tx, ws, customer.id, timeZone) : [];
+  const [lastVisit] =
+    customer && !unverifiedChat ? await pastAppointments(tx, ws, customer.id, timeZone, 1) : [];
+  const offers = input.config.answer.enabled ? await liveOffers(tx, ws, timeZone) : [];
+  const money = input.config.money;
+  const plans = money.plans && !unverifiedChat ? await plansOf(tx, ws) : [];
+  const catalogue =
+    (money.newBills || money.quotes === 'build') && !unverifiedChat
+      ? await catalogueOf(tx, ws)
+      : [];
   const history = conv
     ? await historyOf(
         tx,
@@ -334,6 +393,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       personId,
     },
     unverifiedChat,
+    conversationLanguage: conv?.language ?? null,
     visitorName: visitor?.name ?? null,
     firstAiMessage,
     discloseNow: firstAiMessage && input.config.identity.disclosure === 'first_message',
@@ -341,7 +401,11 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     lead,
     stages,
     calendars,
+    plans,
+    catalogue,
+    offers,
     appointments,
+    lastVisit: lastVisit ?? null,
     batch: input.batch,
     history,
     matches,
@@ -506,9 +570,73 @@ async function calendarsOf(
       services,
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,
       bookingPath: site ? `/book/${site}/${cal.slug}` : null,
+      byZip: cal.config.territory.routing === 'zip',
+      areaIds: cal.config.territory.territoryIds,
+      waitlist: cal.config.waitlist.enabled,
+      maxRepeats:
+        cal.config.recurring.customerSeries && cal.config.schedule.mode !== 'sessions'
+          ? cal.config.recurring.maxOccurrences
+          : null,
     });
   }
   return out;
+}
+
+/** The business's plans on sale, cheapest first. */
+async function plansOf(tx: Tx, workspaceId: string): Promise<RunPlan[]> {
+  const list = await rows<{
+    id: string;
+    name: string;
+    price_cents: string;
+    interval: RunPlan['interval'];
+    interval_count: number;
+    includes: unknown;
+  }>(
+    tx,
+    sql`select id, name, price_cents::text as price_cents, interval::text as interval, interval_count, includes
+        from app.plans where workspace_id = ${workspaceId} and archived_at is null
+        order by price_cents, name limit ${PLANS_MAX}`,
+  );
+  return list.map((p) => ({
+    id: p.id,
+    name: p.name,
+    priceCents: Number(p.price_cents),
+    interval: p.interval,
+    intervalCount: p.interval_count,
+    includes: Array.isArray(p.includes)
+      ? p.includes.filter((x): x is string => typeof x === 'string').slice(0, 10)
+      : [],
+  }));
+}
+
+/** The offers running today where the business is, soonest to end first. */
+async function liveOffers(tx: Tx, workspaceId: string, timeZone: string): Promise<RunOffer[]> {
+  const today = localDateOf(Date.now(), timeZone);
+  const list = await rows<{ name: string; details: string; ends_on: string | null }>(
+    tx,
+    sql`select name, details, ends_on::text as ends_on from app.offers
+        where workspace_id = ${workspaceId} and archived_at is null
+          and (starts_on is null or starts_on <= ${today}::date)
+          and (ends_on is null or ends_on >= ${today}::date)
+        order by ends_on nulls last, created_at limit ${OFFERS_MAX}`,
+  );
+  return list.map((o) => ({ name: o.name, details: o.details, endsOn: o.ends_on }));
+}
+
+/** What's on the price list, by name. */
+async function catalogueOf(tx: Tx, workspaceId: string): Promise<RunProduct[]> {
+  const list = await rows<{ id: string; name: string; price_cents: string; unit_label: string }>(
+    tx,
+    sql`select id, name, unit_price_cents::text as price_cents, unit_label
+        from app.products where workspace_id = ${workspaceId} and archived_at is null
+        order by lower(name) limit ${CATALOGUE_MAX}`,
+  );
+  return list.map((p) => ({
+    id: p.id,
+    name: p.name,
+    priceCents: Number(p.price_cents),
+    unitLabel: p.unit_label,
+  }));
 }
 
 /** The customer's upcoming visits with the business, soonest first. */
@@ -522,6 +650,7 @@ export async function upcomingAppointments(
     id: string;
     title: string;
     service_name: string | null;
+    extras: string | null;
     starts_at: Date | string;
     ends_at: Date | string;
     calendar_id: string;
@@ -530,6 +659,8 @@ export async function upcomingAppointments(
   }>(
     tx,
     sql`select a.id, a.title, s.name as service_name, a.starts_at, a.ends_at, a.calendar_id,
+          (select string_agg(x.name, ' + ' order by x.created_at) from app.appointment_services x
+            where x.appointment_id = a.id) as extras,
           c.name as calendar_name, c.timezone
         from app.appointment_attendees t
         join app.appointments a on a.id = t.appointment_id
@@ -541,12 +672,74 @@ export async function upcomingAppointments(
   );
   return list.map((r) => ({
     id: r.id,
-    title: r.service_name ?? r.title,
+    title: withExtras(r.service_name ?? r.title, r.extras),
     startsAt: ms(r.starts_at),
     endsAt: ms(r.ends_at),
     calendarId: r.calendar_id,
     calendarName: r.calendar_name,
     timeZone: r.timezone || timeZone,
+  }));
+}
+
+/** A visit the customer had (M18): what it was, when, and how it went. */
+export interface PastVisit extends RunAppointment {
+  /** completed, no_show, or scheduled when nobody marked it. */
+  readonly outcome: 'completed' | 'no_show' | 'unmarked';
+}
+
+/** "AC tune-up + Filter change": a visit's own service, then those added to it (M18). */
+const withExtras = (title: string, extras: string | null) =>
+  extras ? `${title} + ${extras}` : title;
+
+/** The customer's visits that have happened, most recent first. */
+export async function pastAppointments(
+  tx: Tx,
+  workspaceId: string,
+  personId: string,
+  timeZone: string,
+  limit = 10,
+): Promise<PastVisit[]> {
+  const list = await rows<{
+    id: string;
+    title: string;
+    service_name: string | null;
+    extras: string | null;
+    starts_at: Date | string;
+    ends_at: Date | string;
+    calendar_id: string;
+    calendar_name: string;
+    timezone: string | null;
+    status: string;
+    attendee: string;
+  }>(
+    tx,
+    sql`select a.id, a.title, s.name as service_name, a.starts_at, a.ends_at, a.calendar_id,
+          (select string_agg(x.name, ' + ' order by x.created_at) from app.appointment_services x
+            where x.appointment_id = a.id) as extras,
+          c.name as calendar_name, c.timezone, a.status::text as status, t.status::text as attendee
+        from app.appointment_attendees t
+        join app.appointments a on a.id = t.appointment_id
+        join app.calendars c on c.id = a.calendar_id
+        left join app.services s on s.id = a.service_id
+        where t.workspace_id = ${workspaceId} and t.person_id = ${personId}
+          and t.status in ('booked', 'attended', 'no_show')
+          and a.status <> 'cancelled' and a.starts_at <= now()
+        order by a.starts_at desc, a.id limit ${limit}`,
+  );
+  return list.map((r) => ({
+    id: r.id,
+    title: withExtras(r.service_name ?? r.title, r.extras),
+    startsAt: ms(r.starts_at),
+    endsAt: ms(r.ends_at),
+    calendarId: r.calendar_id,
+    calendarName: r.calendar_name,
+    timeZone: r.timezone || timeZone,
+    outcome:
+      r.status === 'no_show' || r.attendee === 'no_show'
+        ? 'no_show'
+        : r.status === 'completed' || r.attendee === 'attended'
+          ? 'completed'
+          : 'unmarked',
   }));
 }
 

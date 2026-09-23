@@ -9,17 +9,32 @@
  * - `auto` runs at once in every mode: look-ups and internal work (answers, stages, notes, tasks).
  * - `draft` reaches the customer, so with training wheels it's held in the reply's one draft until a person
  *   approves (a reply, a booking, a reschedule, a cancellation).
- * - `approval` always waits for a person, even once the teammate is automatic (a discount).
+ * - `approval` always waits for an owner or admin, even once the teammate is automatic (a discount, and M18's
+ *   bills, quotes, answers to quotes and plans).
  *
  * `hand_off`, `reply` and `no_reply` end the turn (`TEAMMATE_TURN_ENDERS`).
  */
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
+import { REPEAT_EVERY } from '../schemas/ai-team';
 import type { TeammateConfig, TeammateSkill } from './config';
 
 export type TeammateToolAutonomy = 'auto' | 'draft' | 'approval';
-/** What turns a tool on: a skill, `core` (every teammate) or `discounts` (discounts "with approval"). */
-export type TeammateToolSkill = TeammateSkill | 'core' | 'discounts';
+/**
+ * What turns a tool on: a skill, `core` (every teammate), `discounts` (discounts "with approval"), or one of
+ * M18's switches: `deals`, and the money ones (`bills`, `newBills`, `quotes` for sending the team's quotes,
+ * `buildQuotes` for putting one together, `plans`).
+ */
+export type TeammateToolSkill =
+  | TeammateSkill
+  | 'core'
+  | 'discounts'
+  | 'deals'
+  | 'bills'
+  | 'newBills'
+  | 'quotes'
+  | 'buildQuotes'
+  | 'plans';
 
 export interface TeammateTool<I extends z.ZodType = z.ZodType> {
   readonly name: string;
@@ -36,6 +51,21 @@ const define = <N extends string, I extends z.ZodType>(t: TeammateTool<I> & { re
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optionalText = (max: number) => z.string().trim().min(1).max(max).optional();
 const uuid = z.uuid();
+/** M18: the language the customer writes in, which the teammate answers in. */
+const language = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z]{2,3}$/, 'A language code like en or es.')
+  .describe('The language the customer writes in, as a code like en, es or vi');
+const catalogueItem = z.strictObject({
+  productId: uuid.describe('A product id from the price list in the context'),
+  quantity: z.number().gt(0).max(10_000),
+});
+const zip = z
+  .string()
+  .trim()
+  .regex(/^[0-9]{5}(?:-?[0-9]{4})?$/, 'A 5-digit ZIP code, like 78701.');
 /** The model writes local times with their offset; commands take UTC, so the tool turns one into the other. */
 const when = z.iso
   .datetime({ offset: true })
@@ -117,15 +147,31 @@ export const TEAMMATE_TOOLS = [
       to: dayOrWhen.optional(),
       serviceId: uuid.optional(),
       durationMinutes: z.int().min(5).max(720).optional().describe('Length in minutes'),
+      postalCode: zip
+        .optional()
+        .describe('The customer’s ZIP code, needed on a calendar that goes by ZIP code'),
     }),
+    skill: 'book',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'check_service_area',
+    description:
+      'Whether the business serves a ZIP code, and which of your calendars do. Ask for their ZIP and check it before offering times for a visit at their place.',
+    input: z.strictObject({ postalCode: zip }),
     skill: 'book',
     autonomy: 'auto',
   }),
   define({
     name: 'my_appointments',
     description:
-      'The customer’s upcoming appointments with the business, with ids, to reschedule or cancel one they ask about.',
-    input: z.strictObject({}),
+      'The customer’s appointments with the business: upcoming ones with ids, to reschedule or cancel one they ask about, or (when: past) their last visits and how each went, to answer “when were you last out?”.',
+    input: z.strictObject({
+      when: z
+        .enum(['upcoming', 'past'])
+        .optional()
+        .describe('Upcoming (the default) or past visits'),
+    }),
     skill: 'book',
     autonomy: 'auto',
   }),
@@ -147,6 +193,61 @@ export const TEAMMATE_TOOLS = [
     description:
       'Move one of the customer’s upcoming appointments (from my_appointments) to a time find_times offered.',
     input: z.strictObject({ appointmentId: uuid, startsAt: when }),
+    skill: 'book',
+    autonomy: 'draft',
+  }),
+  define({
+    name: 'book_repeating',
+    description:
+      'Book repeat visits, every week or every month on the same weekday (like the 2nd Tuesday), on a calendar the context says takes repeats. The first visit is a time find_times offered; later ones that don’t fit are skipped, and the team sees which. Only when they ask for regular visits.',
+    input: z.strictObject({
+      calendarId: uuid.describe('One of your calendars that takes repeats'),
+      startsAt: when.describe('The first visit: a time find_times offered'),
+      every: z.enum(REPEAT_EVERY),
+      interval: z
+        .int()
+        .min(1)
+        .max(12)
+        .optional()
+        .describe('Every this many weeks or months; 1 when left out'),
+      times: z.int().min(2).max(52).describe('How many visits, the first included'),
+      serviceId: uuid.optional(),
+      notes: optionalText(1000).describe('What the visits are for, in the customer’s words'),
+    }),
+    skill: 'book',
+    autonomy: 'draft',
+  }),
+  define({
+    name: 'join_waitlist',
+    description:
+      'Put the customer on a calendar’s waitlist when nothing open suits them, on a calendar the context says keeps one: for the days and times they want (from and to), or for a full session. They hear when a spot opens. Never promise them a spot.',
+    input: z
+      .strictObject({
+        calendarId: uuid.describe('One of your calendars that keeps a waitlist'),
+        from: dayOrWhen.optional().describe('The start of the times they want'),
+        to: dayOrWhen.optional().describe('The end of the times they want'),
+        appointmentId: uuid.optional().describe('A full session they want a seat in'),
+      })
+      .refine((v) => !!v.appointmentId || !!v.from, {
+        error: 'Give the times they want, or the session.',
+      }),
+    skill: 'book',
+    autonomy: 'draft',
+  }),
+  define({
+    name: 'add_to_appointment',
+    description:
+      'Add to one of the customer’s upcoming appointments (from my_appointments): another service the calendar offers (it runs that much longer, at the price list’s price, when the team is free for it), more people coming (when seats are left), or a note for the team like a gate code, pets or what’s wrong. Tell them only once it succeeds.',
+    input: z
+      .strictObject({
+        appointmentId: uuid.describe('An upcoming appointment from my_appointments'),
+        serviceId: uuid.optional().describe('Another service from that calendar, in the context'),
+        guests: z.int().min(1).max(10).optional().describe('How many more people are coming'),
+        note: optionalText(1000).describe('For the team, in the customer’s words'),
+      })
+      .refine((v) => !!v.serviceId || !!v.guests || !!v.note, {
+        error: 'Add a service, people or a note.',
+      }),
     skill: 'book',
     autonomy: 'draft',
   }),
@@ -208,6 +309,39 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
 
+  // ---------- deals (M18) ----------
+  define({
+    name: 'open_deal',
+    description:
+      'Open a lead (a deal) for the customer when they have none and want work done, titled with what they want, like “AC replacement”. It starts in the pipeline’s first open stage.',
+    input: z.strictObject({ title: text(200) }),
+    skill: 'deals',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'set_deal_value',
+    description:
+      'Set what the customer’s lead is worth, in dollars, from a price they agreed to or a quote they accepted. Never guess a value.',
+    input: z.strictObject({
+      dollars: z.number().min(0).max(10_000_000).describe('What the deal is worth, in dollars'),
+    }),
+    skill: 'deals',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'close_deal',
+    description:
+      'Mark the customer’s lead won when they commit (they book the work, accept a quote or pay), or lost when they clearly say they don’t want it, with the reason in their words. Never mark it lost just because they went quiet.',
+    input: z.strictObject({
+      outcome: z.enum(['won', 'lost']),
+      reason: optionalText(300).describe(
+        'Why it was lost, in the customer’s words; needed for lost',
+      ),
+    }),
+    skill: 'deals',
+    autonomy: 'auto',
+  }),
+
   // ---------- the customer's record ----------
   define({
     name: 'update_customer',
@@ -252,6 +386,29 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
 
+  // ---------- a website chat visitor proving who they are (M18) ----------
+  define({
+    name: 'send_verification_code',
+    description:
+      'In a website chat linked to a customer, when they want something only the customer may see or change (their bookings, bills, quotes or details): text a six-digit code to the phone on file, or else email it. Tell them where it went (the masked number or address it returns), and ask them to type it here. Never send it anywhere they tell you.',
+    input: z.strictObject({}),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'check_verification_code',
+    description:
+      'Check the six-digit code the chat visitor typed back. When it’s right they count as the customer for this chat, and what they asked for is open to you on your next step.',
+    input: z.strictObject({
+      code: z
+        .string()
+        .trim()
+        .regex(/^\d{6}$/, 'Six digits.'),
+    }),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+
   // ---------- discounts ----------
   define({
     name: 'offer_discount',
@@ -266,12 +423,108 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'approval',
   }),
 
+  // ---------- money (M18): look-ups at once; anything asking for money waits for an owner or admin ----------
+  define({
+    name: 'my_bills',
+    description:
+      'The customer’s bills with the business, newest first: what each was for, its total, what’s still owed, whether it’s paid or overdue, and when it’s due. Use the invoiceId to resend one’s pay link.',
+    input: z.strictObject({}),
+    skill: 'bills',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'send_payment_link',
+    description:
+      'Ask an owner or admin to send the customer the link to pay one of their bills (an invoiceId from my_bills), with a short message to go with it. Don’t write the link yourself: it’s added for you. Tell the customer only that you’ve asked the team to send it.',
+    input: z.strictObject({
+      invoiceId: uuid.describe('A bill from my_bills'),
+      message: text(600).describe('What goes with the link, for the customer'),
+    }),
+    skill: 'bills',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'propose_bill',
+    description:
+      'Ask an owner or admin to bill the customer for things on the price list (product ids and quantities from the context), with a short message. The price list sets the prices. Tell the customer only that the team is getting their bill ready.',
+    input: z.strictObject({
+      title: optionalText(200).describe('What the bill is for'),
+      items: z.array(catalogueItem).min(1).max(20),
+      message: text(600).describe('What goes with the bill, for the customer'),
+    }),
+    skill: 'newBills',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'my_quotes',
+    description:
+      'The customer’s quotes (estimates), newest first: what each is for, its total, and whether it’s waiting on them, accepted, declined or expired. Use the estimateId to resend one or record their answer.',
+    input: z.strictObject({}),
+    skill: 'quotes',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'send_quote',
+    description:
+      'Ask an owner or admin to send the customer one of their quotes (an estimateId from my_quotes), with a short message. Don’t write the link yourself: it’s added for you.',
+    input: z.strictObject({
+      estimateId: uuid.describe('A quote from my_quotes'),
+      message: text(600).describe('What goes with the quote, for the customer'),
+    }),
+    skill: 'quotes',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'propose_quote',
+    description:
+      'Ask an owner or admin to send the customer a quote for things on the price list (product ids and quantities from the context), with a short message. The price list sets the prices. Tell the customer only that the team is getting it ready.',
+    input: z.strictObject({
+      title: optionalText(200).describe('What the quote is for'),
+      items: z.array(catalogueItem).min(1).max(20),
+      message: text(600).describe('What goes with the quote, for the customer'),
+    }),
+    skill: 'buildQuotes',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'record_quote_answer',
+    description:
+      'When the customer clearly says yes or no to one of their quotes (from my_quotes), ask an owner or admin to record it, with the name they gave and their reason for a no. Thank them, and say the team will confirm.',
+    input: z.strictObject({
+      estimateId: uuid.describe('A quote from my_quotes'),
+      accepted: z.boolean(),
+      name: text(120).describe('Who said it, as they gave their name'),
+      reason: optionalText(500).describe('Why not, for a no'),
+      message: text(600).describe('What you’d tell the customer once it’s recorded'),
+    }),
+    skill: 'quotes',
+    autonomy: 'approval',
+  }),
+  define({
+    name: 'offer_plan',
+    description:
+      'When the customer wants one of the business’s maintenance plans (ids in the context), ask an owner or admin to sign them up, with a short message. They then get a link to add a card. Tell them only that the team is setting it up.',
+    input: z.strictObject({
+      planId: uuid.describe('One of the plans in the context'),
+      message: text(600).describe('What goes with the sign-up, for the customer'),
+    }),
+    skill: 'plans',
+    autonomy: 'approval',
+  }),
+
   // ---------- ending the turn ----------
   define({
     name: 'hand_off',
     description:
       'Hand the conversation to a person and stop replying: when they ask for a person, sound frustrated, raise a legal threat, a complaint, a refund or cancelling service, or you can’t help. The note tells the team what’s going on; the customer gets the business’s hand-off message.',
-    input: z.strictObject({ reason: z.enum(HAND_OFF_REASONS), note: text(1000) }),
+    input: z.strictObject({
+      reason: z.enum(HAND_OFF_REASONS),
+      note: text(1000),
+      language: language.optional(),
+      translatedLine: optionalText(600).describe(
+        'When they write in a language other than English: the hand-off line from your context, translated faithfully, with nothing added',
+      ),
+    }),
     skill: 'core',
     autonomy: 'auto',
   }),
@@ -279,7 +532,7 @@ export const TEAMMATE_TOOLS = [
     name: 'reply',
     description:
       'Send your reply to the customer and end your turn. Keep to the channel’s length, and sign it the way your settings say.',
-    input: z.strictObject({ message: text(4000) }),
+    input: z.strictObject({ message: text(4000), language: language.optional() }),
     skill: 'core',
     autonomy: 'draft',
   }),
@@ -318,7 +571,27 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'read_call_transcript',
   'reschedule',
   'cancel',
+  'add_to_appointment',
   'update_customer',
+  // M18: a chat visitor can't open or close a deal for the customer they typed the number of.
+  'open_deal',
+  'set_deal_value',
+  'close_deal',
+  // M18: nor, until a chat can prove who it is, anything to do with their money.
+  'my_bills',
+  'send_payment_link',
+  'propose_bill',
+  'my_quotes',
+  'send_quote',
+  'propose_quote',
+  'record_quote_answer',
+  'offer_plan',
+]);
+
+/** Only for a website chat whose visitor hasn't proved who they are yet (M18). */
+export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
+  'send_verification_code',
+  'check_verification_code',
 ]);
 
 export interface TeammateToolOptions {
@@ -339,11 +612,21 @@ export function teammateTools(
     book: config.book.enabled,
     followUp: config.followUp.enabled,
     discounts: config.money.discounts === 'with_approval',
+    deals: config.deals.enabled,
+    bills: config.money.bills,
+    newBills: config.money.newBills,
+    quotes: config.money.quotes !== 'off',
+    buildQuotes: config.money.quotes === 'build',
+    plans: config.money.plans,
   };
   return TEAMMATE_TOOLS.filter((t) => {
     if (!on[t.skill]) return false;
     if (t.name === 'reschedule' && !config.book.reschedule) return false;
     if (t.name === 'cancel' && !config.book.cancel) return false;
+    if (t.name === 'join_waitlist' && !config.book.waitlist) return false;
+    if (t.name === 'book_repeating' && !config.book.repeats) return false;
+    if (t.name === 'check_service_area' && !config.book.serviceArea) return false;
+    if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
     return !(opts.unverifiedChat && UNVERIFIED_CHAT_HIDDEN.has(t.name));
   }) as TeammateTool[];
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   applyTeammatePatch,
+  type TeammatePatch,
   TEAMMATE_TOOL_NAMES,
   TEAMMATE_TOOLS,
   TEAMMATE_TURN_ENDERS,
@@ -9,6 +10,7 @@ import {
   teammateToolByName,
   teammateTools,
   UNVERIFIED_CHAT_HIDDEN,
+  UNVERIFIED_CHAT_ONLY,
   type TeammateConfig,
   type TeammateTool,
 } from '../src/ai-team/index';
@@ -40,18 +42,35 @@ describe('the registry', () => {
       ['search_knowledge', 'answer', 'auto'],
       ['read_call_transcript', 'core', 'auto'],
       ['find_times', 'book', 'auto'],
+      ['check_service_area', 'book', 'auto'],
       ['my_appointments', 'book', 'auto'],
       ['book', 'book', 'draft'],
       ['reschedule', 'book', 'draft'],
+      ['book_repeating', 'book', 'draft'],
+      ['join_waitlist', 'book', 'draft'],
+      ['add_to_appointment', 'book', 'draft'],
       ['cancel', 'book', 'draft'],
       ['record_answers', 'qualify', 'auto'],
       ['ask_form', 'qualify', 'auto'],
       ['answer_form', 'qualify', 'auto'],
       ['move_stage', 'qualify', 'auto'],
+      ['open_deal', 'deals', 'auto'],
+      ['set_deal_value', 'deals', 'auto'],
+      ['close_deal', 'deals', 'auto'],
       ['update_customer', 'core', 'auto'],
       ['add_note', 'core', 'auto'],
       ['create_task', 'core', 'auto'],
+      ['send_verification_code', 'core', 'auto'],
+      ['check_verification_code', 'core', 'auto'],
       ['offer_discount', 'discounts', 'approval'],
+      ['my_bills', 'bills', 'auto'],
+      ['send_payment_link', 'bills', 'approval'],
+      ['propose_bill', 'newBills', 'approval'],
+      ['my_quotes', 'quotes', 'auto'],
+      ['send_quote', 'quotes', 'approval'],
+      ['propose_quote', 'buildQuotes', 'approval'],
+      ['record_quote_answer', 'quotes', 'approval'],
+      ['offer_plan', 'plans', 'approval'],
       ['hand_off', 'core', 'auto'],
       ['reply', 'core', 'draft'],
       ['no_reply', 'core', 'auto'],
@@ -62,9 +81,23 @@ describe('the registry', () => {
 
   it('holds back only what reaches the customer, and a discount always waits for a person', () => {
     const draft = TEAMMATE_TOOLS.filter((t) => t.autonomy === 'draft').map((t) => t.name);
-    expect(draft).toEqual(['book', 'reschedule', 'cancel', 'reply']);
+    expect(draft).toEqual([
+      'book',
+      'reschedule',
+      'book_repeating',
+      'join_waitlist',
+      'add_to_appointment',
+      'cancel',
+      'reply',
+    ]);
     expect(TEAMMATE_TOOLS.filter((t) => t.autonomy === 'approval').map((t) => t.name)).toEqual([
       'offer_discount',
+      'send_payment_link',
+      'propose_bill',
+      'send_quote',
+      'propose_quote',
+      'record_quote_answer',
+      'offer_plan',
     ]);
     expect(TEAMMATE_TOOLS.map((t) => t.name)).not.toContain('refund');
     for (const t of TEAMMATE_TOOLS) expect(t.name).not.toMatch(/delete|archive|refund/);
@@ -155,9 +188,12 @@ describe('teammateTools', () => {
       'search_knowledge',
       'read_call_transcript',
       'find_times',
+      'check_service_area',
       'my_appointments',
       'book',
       'reschedule',
+      'join_waitlist',
+      'add_to_appointment',
       'cancel',
       'update_customer',
       'add_note',
@@ -187,19 +223,71 @@ describe('teammateTools', () => {
     expect(names(neither)).toContain('book');
   });
 
+  it('turns on the deal tools with Deals, never for an unverified chat visitor (M18)', () => {
+    const deals = ['open_deal', 'set_deal_value', 'close_deal'];
+    for (const t of deals) expect(names(responder)).not.toContain(t);
+    const on = applyTeammatePatch(responder, { deals: { enabled: true } });
+    expect(names(on)).toEqual(expect.arrayContaining(deals));
+    for (const t of deals) expect(names(on, true)).not.toContain(t);
+  });
+
+  it('turns on the money tools with their switches, never for an unverified chat visitor (M18)', () => {
+    const money = (patch: TeammatePatch['money']) =>
+      names(applyTeammatePatch(responder, { money: patch }));
+    expect(money({ bills: true })).toEqual(
+      expect.arrayContaining(['my_bills', 'send_payment_link']),
+    );
+    expect(money({ newBills: true })).toContain('propose_bill');
+    expect(money({ quotes: 'send_only' })).not.toContain('propose_quote');
+    expect(money({ quotes: 'send_only' })).toEqual(
+      expect.arrayContaining(['my_quotes', 'send_quote', 'record_quote_answer']),
+    );
+    expect(money({ quotes: 'build' })).toContain('propose_quote');
+    expect(money({ plans: true })).toContain('offer_plan');
+    const all = applyTeammatePatch(responder, {
+      money: { bills: true, newBills: true, quotes: 'build', plans: true },
+    });
+    for (const t of ['my_bills', 'propose_bill', 'my_quotes', 'offer_plan'])
+      expect(names(all, true)).not.toContain(t);
+  });
+
+  it('follows the waitlist, repeats and service area switches (M18)', () => {
+    expect(names(coordinator)).not.toContain('book_repeating');
+    const all = applyTeammatePatch(coordinator, { book: { repeats: true } });
+    expect(names(all)).toEqual(
+      expect.arrayContaining(['book_repeating', 'join_waitlist', 'check_service_area']),
+    );
+    const none = applyTeammatePatch(all, {
+      book: { repeats: false, waitlist: false, serviceArea: false },
+    });
+    for (const t of ['book_repeating', 'join_waitlist', 'check_service_area'])
+      expect(names(none)).not.toContain(t);
+  });
+
   it('hides a matched customer’s bookings and details from an unverified chat visitor', () => {
     expect(names(coordinator, true)).toEqual([
       'search_knowledge',
       'find_times',
+      'check_service_area',
       'book',
+      'join_waitlist',
       'add_note',
       'create_task',
+      'send_verification_code',
+      'check_verification_code',
       'hand_off',
       'reply',
       'no_reply',
     ]);
     for (const hidden of UNVERIFIED_CHAT_HIDDEN)
       expect(names(coordinator, true)).not.toContain(hidden);
+  });
+
+  it('offers the chat code tools only to an unverified chat visitor', () => {
+    for (const only of UNVERIFIED_CHAT_ONLY) {
+      expect(names(coordinator, true)).toContain(only);
+      expect(names(coordinator)).not.toContain(only);
+    }
   });
 
   it('always lets it end its turn', () => {

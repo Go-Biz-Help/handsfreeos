@@ -219,6 +219,8 @@ import {
   knowledgeSuggestionPropose,
   knowledgeSuggestionReject,
 } from './knowledge';
+import { offerArchive, offerCreate, offerUpdate } from './offer';
+import { chatCheckCodeForCustomer, chatSendCodeForCustomer } from './chat-verify';
 import {
   aiTeammateCreate,
   aiTeammateDecideDraft,
@@ -232,7 +234,16 @@ import {
   appointmentBookForCustomer,
   attendeeCancelForCustomer,
   attendeeRescheduleForCustomer,
+  seriesBookForCustomer,
+  waitlistJoinForCustomer,
+  appointmentAddForCustomer,
 } from './appointment-ai';
+import {
+  estimateAnswerForCustomer,
+  estimateCreateForCustomer,
+  invoiceCreateForCustomer,
+  subscriptionStartForCustomer,
+} from './money-ai';
 import {
   conversationHandOff,
   conversationHandToAi,
@@ -659,6 +670,9 @@ export const commands: readonly CommandDef[] = [
   knowledgeItemUpdate,
   knowledgeItemPublish,
   knowledgeItemArchive,
+  offerCreate,
+  offerUpdate,
+  offerArchive,
   knowledgeItemImportFaqs,
   knowledgeDocumentBeginUpload,
   knowledgeDocumentAdd,
@@ -684,6 +698,15 @@ export const commands: readonly CommandDef[] = [
   appointmentBookForCustomer,
   attendeeRescheduleForCustomer,
   attendeeCancelForCustomer,
+  seriesBookForCustomer,
+  waitlistJoinForCustomer,
+  appointmentAddForCustomer,
+  invoiceCreateForCustomer,
+  estimateCreateForCustomer,
+  estimateAnswerForCustomer,
+  subscriptionStartForCustomer,
+  chatSendCodeForCustomer,
+  chatCheckCodeForCustomer,
   intakeSourceCreate,
   intakeSourceUpdate,
   intakeSourceRotateKey,
@@ -762,6 +785,9 @@ export * from './workflow-template';
 export * from './knowledge';
 export * from './ai-team';
 export * from './appointment-ai';
+export * from './money-ai';
+export * from './offer';
+export * from './chat-verify';
 export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';

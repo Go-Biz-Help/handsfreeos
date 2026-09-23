@@ -17,14 +17,22 @@ import {
 } from '@hfos/core';
 import {
   CalendarCheck,
+  CalendarPlus,
   CalendarClock,
   CalendarX,
   Check,
+  CheckCheck,
+  ClipboardList,
   Clock,
+  CreditCard,
+  Link2,
+  ListPlus,
   Loader2,
   Minus,
   Pencil,
   Percent,
+  Receipt,
+  Repeat,
   RotateCw,
   Send,
   Sparkles,
@@ -53,6 +61,14 @@ const ACTION_ICON: Record<DraftAction['kind'], LucideIcon> = {
   book: CalendarCheck,
   reschedule: CalendarClock,
   cancel: CalendarX,
+  book_series: Repeat,
+  waitlist: ListPlus,
+  add_to_visit: CalendarPlus,
+  share_link: Link2,
+  create_invoice: Receipt,
+  create_estimate: ClipboardList,
+  estimate_answer: CheckCheck,
+  start_plan: CreditCard,
 };
 
 /** What approving did, for the toast: "Approved. Ava makes the change and texts Mike now. 18 of 20 approved." */

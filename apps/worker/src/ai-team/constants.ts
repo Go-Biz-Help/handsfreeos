@@ -14,6 +14,10 @@ export const TEAMMATE_JOBS = {
   handoffLine: 'ai_teammate.handoff_line',
   /** One business's drafts nobody decided in time: expired, and their conversations go to a person. */
   expireDrafts: 'ai_teammate.expire_drafts',
+  /** A hand-off's text to one person's verified cell (M18). */
+  handoffText: 'ai_teammate.handoff_text',
+  /** The business's fixed words (hand-off line, emergency steps) in a customer's language (M18). */
+  translate: 'ai_teammate.translate',
 } as const;
 
 export const replyJobKey = (conversationId: string): string => `ai-reply:${conversationId}`;
@@ -79,3 +83,14 @@ export const RECENT_CONTACT_MS = 24 * 3_600_000;
  */
 export const FIRST_NUDGE_MS = 4 * 3_600_000;
 export const LATER_NUDGE_MS = 24 * 3_600_000;
+
+/** The most plans and price-list items a run's context lists (M18). */
+export const PLANS_MAX = 10;
+export const OFFERS_MAX = 10;
+export const CATALOGUE_MAX = 60;
+/** The most bills or quotes my_bills and my_quotes return, newest first. */
+export const MONEY_LIST_MAX = 10;
+
+/** One hand-off's text to one person: once, however often the hand-off's event is delivered. */
+export const handoffTextJobKey = (eventId: string, userId: string): string =>
+  `handoff-text:${eventId}:${userId}`;

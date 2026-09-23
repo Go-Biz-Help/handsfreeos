@@ -14,7 +14,12 @@ import {
   type TelephonySettings as TelephonySettingsType,
 } from '../schemas/telephony';
 import type { InboxBoxKey, ConversationStatus, RowFacts } from './list';
-import type { DraftActionFacts, DraftFacts } from './teammate';
+import {
+  MONEY_ACTION_KINDS,
+  type DraftActionFacts,
+  type DraftFacts,
+  type MoneyDraftActionKind,
+} from './teammate';
 import type { ThreadItemFacts } from './thread';
 
 type Text = string | null;
@@ -547,9 +552,15 @@ export function teammateDraftOf(
   for (const a of Array.isArray(preview.actions) ? preview.actions : []) {
     const action = a as { kind?: unknown; startsAt?: unknown; summary?: unknown };
     const summary = typeof action.summary === 'string' ? action.summary : '';
-    if (action.kind === 'cancel') actions.push({ kind: 'cancel', summary });
+    if (action.kind === 'cancel' || action.kind === 'waitlist' || action.kind === 'add_to_visit')
+      actions.push({ kind: action.kind, summary });
     else if (
-      (action.kind === 'book' || action.kind === 'reschedule') &&
+      typeof action.kind === 'string' &&
+      (MONEY_ACTION_KINDS as readonly string[]).includes(action.kind)
+    )
+      actions.push({ kind: action.kind as MoneyDraftActionKind, summary });
+    else if (
+      (action.kind === 'book' || action.kind === 'reschedule' || action.kind === 'book_series') &&
       typeof action.startsAt === 'string'
     )
       actions.push({ kind: action.kind, startsAt: action.startsAt, summary });

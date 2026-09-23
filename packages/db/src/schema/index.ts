@@ -901,6 +901,9 @@ export const conversations = app.table('conversations', {
    * and everyone with the inbox sees everything. Kept by triggers; a value sent by a caller is replaced.
    */
   memberViewerIds: memberViewerIds(),
+  // Milestone 18
+  /** The language the customer writes in, as the AI teammate last said ("es"); null until it knows. */
+  language: text('language'),
 });
 
 export const messages = app.table('messages', {
@@ -1771,6 +1774,25 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   syncWindow: syncWindow(),
 });
 
+/** M18: more services on one visit, each with its time and price as they read when added. */
+export const appointmentServices = app.table('appointment_services', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  appointmentId: uuid('appointment_id')
+    .notNull()
+    .references(() => appointments.id, { onDelete: 'cascade' }),
+  serviceId: uuid('service_id')
+    .notNull()
+    .references(() => services.id),
+  name: text('name').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
+  priceCents: integer('price_cents'),
+  /** staff, ai_teammate. */
+  source: text('source').notNull().default('staff'),
+  createdBy: userRef('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const waitlistEntries = app.table('waitlist_entries', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -2285,6 +2307,35 @@ export const knowledgeItems = app.table('knowledge_items', {
   ),
 });
 
+/** What the business is running right now (M18): the AI teammate shares the ones live today. */
+export const offers = app.table('offers', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  details: text('details').notNull().default(''),
+  /** Local dates in the business's zone, both inclusive; null is open-ended. */
+  startsOn: date('starts_on'),
+  endsOn: date('ends_on'),
+  archivedAt: ts('archived_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
+ * Fixed words HandsFreeOS sends (a hand-off line, the emergency safety steps) in another language (M18), once
+ * per English text and language. The worker's only.
+ */
+export const fixedTextTranslations = app.table(
+  'fixed_text_translations',
+  {
+    sourceHash: text('source_hash').notNull(),
+    language: text('language').notNull(),
+    translated: text('translated').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.sourceHash, t.language] })],
+);
+
 /** The business's website (one per workspace for now). */
 export const knowledgeSources = app.table('knowledge_sources', {
   id: id(),
@@ -2545,6 +2596,29 @@ export const chatVisitors = app.table('chat_visitors', {
   blockedAt: ts('blocked_at'),
   networkBlockedUntil: ts('network_blocked_until'),
   ...timestamps(),
+  // Milestone 18: typed back the code sent to this customer's phone or email; twelve hours from verifiedAt.
+  verifiedPersonId: uuid('verified_person_id').references(() => people.id, {
+    onDelete: 'set null',
+  }),
+  verifiedAt: ts('verified_at'),
+});
+
+/** A code sent to prove a chat visitor is the customer the chat matched (M18); only its hash is kept. */
+export const chatVerificationCodes = app.table('chat_verification_codes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  visitorId: uuid('visitor_id')
+    .notNull()
+    .references(() => chatVisitors.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  codeHash: bytea('code_hash').notNull(),
+  channel: text('channel').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: ts('expires_at').notNull(),
+  usedAt: ts('used_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 /** "Typing", for a few seconds; the worker's alone. */
@@ -2679,6 +2753,8 @@ export const moneyOrigin = app.enum('money_origin', [
   'assistant',
   // Milestone 15: a form asked for it.
   'form',
+  // Milestone 18: the AI teammate put it together, and an owner or admin approved it.
+  'ai_teammate',
 ]);
 export const paymentProvider = app.enum('payment_provider', [
   'stripe',

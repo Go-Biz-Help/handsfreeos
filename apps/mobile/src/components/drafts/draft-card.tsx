@@ -12,13 +12,21 @@ import { TextInput, View } from 'react-native';
 
 import {
   CalendarCheck,
+  CalendarPlus,
   CalendarClock,
   CalendarX,
   Check,
+  CheckCheck,
+  ClipboardList,
   Clock,
+  CreditCard,
+  Link2,
+  ListPlus,
   Minus,
   Pencil,
   Percent,
+  Receipt,
+  Repeat,
   Send,
   Sparkles,
 } from '@/components/icons';
@@ -36,6 +44,14 @@ const ACTION_ICON: Record<DraftActionFacts['kind'], LucideIcon> = {
   book: CalendarCheck,
   reschedule: CalendarClock,
   cancel: CalendarX,
+  book_series: Repeat,
+  waitlist: ListPlus,
+  add_to_visit: CalendarPlus,
+  share_link: Link2,
+  create_invoice: Receipt,
+  create_estimate: ClipboardList,
+  estimate_answer: CheckCheck,
+  start_plan: CreditCard,
 };
 
 /** "Will book …", "Will move …", "Will cancel …", with the first two words in bold. */

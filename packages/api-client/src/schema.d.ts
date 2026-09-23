@@ -3637,6 +3637,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/offer.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an offer off the list. The AI teammate stops mentioning it at once.
+         * @description Risk level 1. Requires knowledge.manage. Emits offer.archived.
+         */
+        post: operations["command_offer_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/offer.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an offer the business is running, with when it starts and ends. The AI teammate tells customers about it while it runs.
+         * @description Risk level 1. Requires knowledge.manage. Emits offer.created.
+         */
+        post: operations["command_offer_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/offer.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change an offer’s name, details or dates.
+         * @description Risk level 1. Requires knowledge.manage. Emits offer.updated.
+         */
+        post: operations["command_offer_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.add_owner": {
         parameters: {
             query?: never;
@@ -7811,6 +7871,26 @@ export interface paths {
          * @description Requires channels.manage.
          */
         post: operations["query_number_port_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/offer.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s offers, newest first, and whether each is running today.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_offer_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14255,7 +14335,7 @@ export interface operations {
                      * @default staff
                      * @enum {string}
                      */
-                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                    origin?: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                     /** Format: uuid */
                     personId: string;
                     /**
@@ -16877,6 +16957,112 @@ export interface operations {
                         portId: string;
                         /** @enum {string} */
                         status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_offer_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    offerId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_offer_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default  */
+                    details?: string;
+                    /** @default null */
+                    endsOn?: string | null;
+                    name: string;
+                    /** @default null */
+                    startsOn?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_offer_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    details?: string;
+                    endsOn?: string | null;
+                    name?: string;
+                    /** Format: uuid */
+                    offerId: string;
+                    startsOn?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                        updated: string[];
                     };
                 };
             };
@@ -22886,6 +23072,8 @@ export interface operations {
                                     /** @default null */
                                     notes: string | null;
                                     /** @default null */
+                                    postalCode: string | null;
+                                    /** @default null */
                                     serviceId: string | null;
                                     /** @default null */
                                     sessionId: string | null;
@@ -22893,6 +23081,92 @@ export interface operations {
                                     startsAt: string;
                                     /** @default  */
                                     summary: string;
+                                } | {
+                                    /** Format: uuid */
+                                    calendarId: string;
+                                    /** @default null */
+                                    durationMinutes: number | null;
+                                    /** @enum {string} */
+                                    every: "week" | "month";
+                                    /** @default 1 */
+                                    interval: number;
+                                    /** @enum {string} */
+                                    kind: "book_series";
+                                    /** @default null */
+                                    notes: string | null;
+                                    /** @default null */
+                                    postalCode: string | null;
+                                    /** @default null */
+                                    serviceId: string | null;
+                                    /** Format: date-time */
+                                    startsAt: string;
+                                    /** @default  */
+                                    summary: string;
+                                    times: number;
+                                } | {
+                                    /** @enum {string} */
+                                    document: "invoice" | "estimate";
+                                    /** Format: uuid */
+                                    documentId: string;
+                                    /** @enum {string} */
+                                    kind: "share_link";
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "create_invoice";
+                                    lines: {
+                                        /** Format: uuid */
+                                        productId: string;
+                                        quantity: number;
+                                    }[];
+                                    /** @default  */
+                                    summary: string;
+                                    /** @default null */
+                                    title: string | null;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "create_estimate";
+                                    lines: {
+                                        /** Format: uuid */
+                                        productId: string;
+                                        quantity: number;
+                                    }[];
+                                    /** @default  */
+                                    summary: string;
+                                    /** @default null */
+                                    title: string | null;
+                                } | {
+                                    accepted: boolean;
+                                    /** Format: uuid */
+                                    estimateId: string;
+                                    /** @enum {string} */
+                                    kind: "estimate_answer";
+                                    name: string;
+                                    /** @default null */
+                                    reason: string | null;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** @enum {string} */
+                                    kind: "start_plan";
+                                    /** Format: uuid */
+                                    planId: string;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** @default null */
+                                    appointmentId: string | null;
+                                    /** Format: uuid */
+                                    calendarId: string;
+                                    /** @enum {string} */
+                                    kind: "waitlist";
+                                    /** @default  */
+                                    summary: string;
+                                    /** @default null */
+                                    wantedFrom: string | null;
+                                    /** @default null */
+                                    wantedTo: string | null;
                                 } | {
                                     /** Format: uuid */
                                     appointmentId: string;
@@ -22911,6 +23185,19 @@ export interface operations {
                                     kind: "cancel";
                                     /** @default null */
                                     reason: string | null;
+                                    /** @default  */
+                                    summary: string;
+                                } | {
+                                    /** Format: uuid */
+                                    appointmentId: string;
+                                    /** @default null */
+                                    guests: number | null;
+                                    /** @enum {string} */
+                                    kind: "add_to_visit";
+                                    /** @default null */
+                                    note: string | null;
+                                    /** @default null */
+                                    serviceId: string | null;
                                     /** @default  */
                                     summary: string;
                                 })[];
@@ -23210,6 +23497,12 @@ export interface operations {
                             } | null;
                             /** Format: date-time */
                             endsAt: string;
+                            extraServices: {
+                                durationMinutes: number;
+                                name: string;
+                                priceCents: number | null;
+                                source: string;
+                            }[];
                             heldUntil: string | null;
                             /** Format: uuid */
                             id: string;
@@ -27160,7 +27453,7 @@ export interface operations {
                             notes: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -27308,7 +27601,7 @@ export interface operations {
                             leadId: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -28694,7 +28987,7 @@ export interface operations {
                             leadId: string | null;
                             number: string | null;
                             /** @enum {string} */
-                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form";
+                            origin: "staff" | "estimate" | "booking" | "subscription" | "workflow" | "assistant" | "form" | "ai_teammate";
                             paidAt: string | null;
                             person: {
                                 email: string | null;
@@ -28970,6 +29263,46 @@ export interface operations {
                             /** @enum {string} */
                             status: "draft" | "submitted" | "carrier_review" | "scheduled" | "complete" | "rejected" | "cancelled" | "failed";
                             submittedAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_offer_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            details: string;
+                            endsOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            startsOn: string | null;
+                            /** @enum {string} */
+                            state: "live" | "upcoming" | "ended";
+                            /** Format: date-time */
+                            updatedAt: string;
                         }[];
                     };
                 };

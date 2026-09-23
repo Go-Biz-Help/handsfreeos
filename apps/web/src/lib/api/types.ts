@@ -153,6 +153,9 @@ export type WorkflowProposal = Ok<'/v1/queries/workflow.proposal_get'>['proposal
 
 // Milestone 6: the knowledge base
 export type KnowledgeProfileGet = Ok<'/v1/queries/knowledge.profile'>;
+// Milestone 18: the offers the AI teammate shares
+export type OfferList = Ok<'/v1/queries/offer.list'>;
+export type Offer = OfferList['offers'][number];
 export type KnowledgeProfileValue = KnowledgeProfileGet['profile'];
 export type KnowledgeItemList = Ok<'/v1/queries/knowledge_item.list'>;
 export type KnowledgeItem = KnowledgeItemList['items'][number];

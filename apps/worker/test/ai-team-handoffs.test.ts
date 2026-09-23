@@ -25,6 +25,7 @@ import {
   newCustomer,
   post,
   replyNow,
+  saveTeammate,
   run,
   runDue,
   setQuietHours,
@@ -88,6 +89,22 @@ afterAll(async () => {
 });
 
 describe('the team’s email', () => {
+  // A new teammate reaches the team on their phones; the email is theirs to turn on (M18).
+  beforeAll(() => saveTeammate(w, { handOff: { alerts: { email: true } } }));
+
+  it('is off for a new teammate until it is turned on (M18)', async () => {
+    await saveTeammate(w, { handOff: { alerts: { email: false } } });
+    try {
+      const c = await newCustomer(w, 'Sal');
+      const m = await textIn(w, c.phone, 'Can I talk to a real person?');
+      await replyNow(w, m.conversationId);
+      expect(await conversationOf(m.conversationId)).toMatchObject({ handled_by: 'person' });
+      await noMail(w.owner.email, 'Sal Customer needs a person');
+    } finally {
+      await saveTeammate(w, { handOff: { alerts: { email: true } } });
+    }
+  });
+
   it('goes to the assignee, with the teammate’s note and the customer’s last message', async () => {
     const c = await newCustomer(w, 'Tom');
     await run(w, leadCreate, {

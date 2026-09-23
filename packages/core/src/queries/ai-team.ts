@@ -250,6 +250,13 @@ type ToolFacts = {
   stage?: string;
   /** read_call_transcript: true when the call had words, false when it had none yet. */
   callWords?: boolean;
+  /** check_service_area: the ZIP it checked, and whether the business serves it (null: no ZIPs listed). */
+  zip?: string;
+  served?: boolean | null;
+  /** set_deal_value: what it set, in words. */
+  value?: string;
+  /** A money tool: what it asked an owner or admin for (M18). */
+  asked?: string;
 };
 type ToolCallRow = {
   tool: string;
@@ -291,7 +298,12 @@ const TOOL_FACTS = sql`jsonb_strip_nulls(jsonb_build_object(
   'stage', (select s.name from app.pipeline_stages s
     where s.workspace_id = tc.workspace_id and s.id::text = tc.arguments ->> 'stageId'),
   'callWords', case when jsonb_typeof(tc.result #> '{content,words}') = 'string' then true
-    when tc.result #> '{content,words}' is not null then false end
+    when tc.result #> '{content,words}' is not null then false end,
+  'zip', left(tc.arguments ->> 'postalCode', 12),
+  'value', left(tc.result #>> '{content,value}', 40),
+  'asked', left(tc.result #>> '{effect,moneyAsk,summary}', 300),
+  'served', case when jsonb_typeof(tc.result #> '{content,served}') = 'boolean'
+    then tc.result #> '{content,served}' end
 ))`;
 
 type RunRow = {
@@ -380,7 +392,15 @@ function toolCallSummary(c: ToolCallRow): string | null {
     case 'book':
     case 'reschedule':
     case 'cancel':
+    case 'book_repeating':
+    case 'join_waitlist':
       return f.held ? clip(f.held, 160) : null;
+    case 'check_service_area':
+      return f.served === true
+        ? `${f.zip ?? 'That ZIP'} is in the service area`
+        : f.served === false
+          ? `${f.zip ?? 'That ZIP'} isn’t in the service area`
+          : 'No ZIP codes listed to check against';
     case 'record_answers': {
       const recorded = f.answers
         ? `${countOf(f.answers, 'answer', 'answers')} recorded`
@@ -397,6 +417,16 @@ function toolCallSummary(c: ToolCallRow): string | null {
     }
     case 'move_stage':
       return f.stage ? `To ${f.stage}` : null;
+    case 'open_deal':
+      return f.title ? `Opened “${clip(f.title, 100)}”` : null;
+    case 'set_deal_value':
+      return f.value ? `Worth ${f.value}` : null;
+    case 'close_deal':
+      return f.outcome === 'won'
+        ? 'Marked won'
+        : f.outcome === 'lost'
+          ? `Marked lost${f.reason ? `: ${clip(f.reason, 100)}` : ''}`
+          : null;
     case 'update_customer': {
       const fields = (f.updated ?? [])
         .filter((x): x is string => typeof x === 'string')
@@ -409,6 +439,13 @@ function toolCallSummary(c: ToolCallRow): string | null {
       return f.title ? clip(f.title, 120) : null;
     case 'offer_discount':
       return typeof f.percent === 'number' ? `${f.percent}% off, waiting for an OK` : null;
+    case 'send_payment_link':
+    case 'propose_bill':
+    case 'send_quote':
+    case 'propose_quote':
+    case 'record_quote_answer':
+    case 'offer_plan':
+      return f.asked ? `${clip(f.asked, 150)}, waiting for an OK` : null;
     case 'hand_off':
       return f.note ? clip(f.note, 160) : null;
     case 'no_reply':

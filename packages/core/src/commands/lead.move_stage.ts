@@ -1,9 +1,10 @@
 import { and, eq } from 'drizzle-orm';
 import { leads, pipelineStages } from '@hfos/db/schema';
-import { assertAiReach } from '../ai-team/reach';
+import { assertAiReach, teammateDealsOn } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { placeInStage } from '../crm/positions';
 import { HfosError } from '../errors';
+import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { changedSince, logLaterChange, whoChangedIt } from '../kernel/later-change';
 import { LeadMoveStageInput, LeadMoveStageOutput } from '../schemas/lead';
@@ -44,9 +45,11 @@ export const leadMoveStage = defineCommand({
         ),
       );
     if (!from || !to) throw HfosError.notFound('Stage not found.');
-    // The AI teammate moves its customer's open lead between open stages; winning or losing it is a person's call.
-    if (ctx.actor.type === 'ai_employee') {
-      if (to.kind !== 'open' || current.status !== 'open')
+    // The AI teammate moves its customer's open lead between open stages. Winning or losing it is a person's call,
+    // unless the teammate's settings let it handle deals (M18); reopening one always is.
+    const ai = aiEmployeeOf(ctx.actor);
+    if (ai) {
+      if (current.status !== 'open' || (to.kind !== 'open' && !(await teammateDealsOn(ctx.tx, ai))))
         throw HfosError.rule(
           'stage_not_open',
           409,

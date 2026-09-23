@@ -76,6 +76,26 @@ export const DraftMessage = z.object({
 });
 export type DraftMessage = z.infer<typeof DraftMessage>;
 
+/** One line of a bill or a quote the teammate puts together: a product on the price list and how many. */
+export const CatalogueLine = z.object({
+  productId: uuid,
+  quantity: z.number().gt(0).max(10_000),
+});
+export type CatalogueLine = z.infer<typeof CatalogueLine>;
+
+/** The held changes that ask for money: only ever in an approval draft (M18). */
+export const MONEY_DRAFT_ACTIONS = [
+  'share_link',
+  'create_invoice',
+  'create_estimate',
+  'estimate_answer',
+  'start_plan',
+] as const;
+
+/** How often repeat visits come round: every week, or every month on the same weekday ("2nd Tuesday"). */
+export const REPEAT_EVERY = ['week', 'month'] as const;
+export const repeatEvery = z.enum(REPEAT_EVERY);
+
 /** A customer-facing change held in a draft until a person approves it. `summary` is what the card shows. */
 export const DraftAction = z.discriminatedUnion('kind', [
   z.object({
@@ -86,6 +106,70 @@ export const DraftAction = z.discriminatedUnion('kind', [
     durationMinutes: z.int().min(5).max(720).nullable().default(null),
     sessionId: uuid.nullable().default(null),
     notes: z.string().trim().max(1000).nullable().default(null),
+    /** The ZIP the times were found for, on a calendar that routes by ZIP (M18). */
+    postalCode: z.string().trim().max(20).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /** M18: repeat visits, the first at a time find_times offered. */
+  z.object({
+    kind: z.literal('book_series'),
+    calendarId: uuid,
+    startsAt: isoDateTime,
+    serviceId: uuid.nullable().default(null),
+    durationMinutes: z.int().min(5).max(720).nullable().default(null),
+    every: repeatEvery,
+    interval: z.int().min(1).max(12).default(1),
+    times: z.int().min(2).max(52),
+    notes: z.string().trim().max(1000).nullable().default(null),
+    postalCode: z.string().trim().max(20).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /**
+   * M18, money: these only ever sit in an **approval** draft, which an owner or admin decides in every mode. A bill
+   * or a quote is priced from the catalogue when it goes out, never by the model.
+   */
+  /**
+   * The link to pay a bill or answer a quote already sent: the draft's message carries it, so approving sends
+   * that and changes nothing else. It is here so the card says what the message is for.
+   */
+  z.object({
+    kind: z.literal('share_link'),
+    document: z.enum(['invoice', 'estimate']),
+    documentId: uuid,
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('create_invoice'),
+    title: z.string().trim().max(200).nullable().default(null),
+    lines: z.array(CatalogueLine).min(1).max(20),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('create_estimate'),
+    title: z.string().trim().max(200).nullable().default(null),
+    lines: z.array(CatalogueLine).min(1).max(20),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('estimate_answer'),
+    estimateId: uuid,
+    accepted: z.boolean(),
+    name: z.string().trim().min(1).max(120),
+    reason: z.string().trim().max(1000).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  z.object({
+    kind: z.literal('start_plan'),
+    planId: uuid,
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /** M18: a place on a calendar's waitlist, for a full session or a window of time. */
+  z.object({
+    kind: z.literal('waitlist'),
+    calendarId: uuid,
+    appointmentId: uuid.nullable().default(null),
+    wantedFrom: isoDateTime.nullable().default(null),
+    wantedTo: isoDateTime.nullable().default(null),
     summary: z.string().trim().max(300).default(''),
   }),
   z.object({
@@ -99,6 +183,15 @@ export const DraftAction = z.discriminatedUnion('kind', [
     kind: z.literal('cancel'),
     appointmentId: uuid,
     reason: z.string().trim().max(300).nullable().default(null),
+    summary: z.string().trim().max(300).default(''),
+  }),
+  /** M18: more on one of their visits: another service, more people coming, or a note for the team. */
+  z.object({
+    kind: z.literal('add_to_visit'),
+    appointmentId: uuid,
+    serviceId: uuid.nullable().default(null),
+    guests: z.int().min(1).max(10).nullable().default(null),
+    note: z.string().trim().max(1000).nullable().default(null),
     summary: z.string().trim().max(300).default(''),
   }),
 ]);
@@ -234,7 +327,19 @@ export const AiTeammateSendDraftOutput = z.object({
   conversationId: uuid.nullable(),
   messageId: uuid.nullable(),
   actions: z.array(
-    z.object({ kind: z.enum(['book', 'reschedule', 'cancel']), appointmentId: uuid }),
+    z.object({
+      kind: z.enum([
+        'book',
+        'reschedule',
+        'cancel',
+        'book_series',
+        'waitlist',
+        'add_to_visit',
+        ...MONEY_DRAFT_ACTIONS,
+      ]),
+      /** The visit it made or changed (the first of a series); null for a waitlist place or money. */
+      appointmentId: uuid.nullable(),
+    }),
   ),
   /** It had gone out already (a retry). */
   duplicate: z.boolean(),
@@ -299,10 +404,101 @@ export const AppointmentBookForCustomerInput = z.object({
   durationMinutes: z.int().min(5).max(720).optional(),
   sessionId: uuid.nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
+  /** The customer's ZIP, for a calendar that routes by ZIP. */
+  postalCode: z.string().trim().max(20).nullable().optional(),
   /** Its idempotency key: a retry books once. */
   clientId,
 });
 export const AppointmentBookForCustomerOutput = AppointmentBookOnlineOutput;
+export const SeriesBookForCustomerInput = z.object({
+  workspaceId: uuid,
+  calendarId: uuid,
+  /** The first visit: a time the calendar offers. The rest follow the repeat and are skipped when they don't fit. */
+  startsAt: isoDateTime,
+  serviceId: uuid.nullable().optional(),
+  durationMinutes: z.int().min(5).max(720).optional(),
+  every: repeatEvery,
+  interval: z.int().min(1).max(12).default(1),
+  /** How many visits, the first included (the calendar's own limit caps it). */
+  times: z.int().min(2).max(52),
+  notes: z.string().trim().max(2000).nullable().optional(),
+  postalCode: z.string().trim().max(20).nullable().optional(),
+  clientId,
+});
+export const SeriesBookForCustomerOutput = z.object({
+  seriesId: uuid,
+  appointmentIds: z.array(uuid),
+  skipped: z.array(z.object({ date: z.string(), startsAt: isoDateTime, reason: z.string() })),
+  duplicate: z.boolean(),
+});
+// ---------- a chat visitor proves who they are (M18) ----------
+
+export const ChatSendCodeForCustomerInput = z.object({
+  workspaceId: uuid,
+  /** The worker can text right now (a number and balance); when not, the code goes to the email on file. */
+  canText: z.boolean().default(true),
+});
+export const ChatSendCodeForCustomerOutput = z.object({
+  codeId: uuid,
+  channel: z.enum(['sms', 'email']),
+  /** Where it went, masked for the chat ("•••• 42", "d•••@example.com"). */
+  sentTo: z.string(),
+  /** The code, for the worker to send and nothing else: never stored, never logged. */
+  code: z.string().regex(/^\d{6}$/),
+  /** What it goes to: the phone or email on file. */
+  to: z.string(),
+});
+export const ChatCheckCodeForCustomerInput = z.object({
+  workspaceId: uuid,
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Six digits.'),
+});
+/** A wrong code isn't an error: the try it used has to be kept, so it answers `verified: false`. */
+export const ChatCheckCodeForCustomerOutput = z.object({
+  verified: z.boolean(),
+  /** Tries left on this code; 0 means send a new one. */
+  triesLeft: z.int().min(0),
+});
+
+// ---------- money the teammate asks for (M18) ----------
+
+export const InvoiceCreateForCustomerInput = z.object({
+  workspaceId: uuid,
+  title: z.string().trim().min(1).max(200).nullable().default(null),
+  lines: z.array(CatalogueLine).min(1).max(20),
+});
+export const EstimateCreateForCustomerInput = InvoiceCreateForCustomerInput;
+export const EstimateAnswerForCustomerInput = z.object({
+  workspaceId: uuid,
+  estimateId: uuid,
+  accepted: z.boolean(),
+  /** Who said it, as they gave their name. */
+  name: z.string().trim().min(1).max(120),
+  reason: z.string().trim().max(1000).nullable().optional(),
+});
+export const SubscriptionStartForCustomerInput = z.object({ workspaceId: uuid, planId: uuid });
+
+export const WaitlistJoinForCustomerInput = z
+  .object({
+    workspaceId: uuid,
+    calendarId: uuid,
+    /** A full session; or leave it out and give the window they want. */
+    appointmentId: uuid.nullable().optional(),
+    wantedFrom: isoDateTime.nullable().optional(),
+    wantedTo: isoDateTime.nullable().optional(),
+  })
+  .refine((v) => !!v.appointmentId || (!!v.wantedFrom && !!v.wantedTo), {
+    path: ['appointmentId'],
+    error: 'Pick a session, or the times they want.',
+  });
+export const WaitlistJoinForCustomerOutput = z.object({
+  entryId: uuid,
+  position: z.int(),
+  /** They were already waiting for this; nothing new was added. */
+  alreadyWaiting: z.boolean(),
+});
 export const AttendeeRescheduleForCustomerInput = z.object({
   workspaceId: uuid,
   appointmentId: uuid,
@@ -316,6 +512,32 @@ export const AttendeeCancelForCustomerInput = z.object({
   reason: z.string().trim().max(300).nullable().optional(),
 });
 export const AttendeeCancelForCustomerOutput = AttendeeCancelOnlineOutput;
+
+/** M18: more on one of the customer's visits. At least one of the three. */
+export const AppointmentAddForCustomerInput = z
+  .object({
+    workspaceId: uuid,
+    appointmentId: uuid,
+    /** Another service on the calendar: the visit runs its length longer, at its price today. */
+    serviceId: uuid.nullable().optional(),
+    /** More people coming, on a visit with seats left. */
+    guests: z.int().min(1).max(10).nullable().optional(),
+    /** For the team: a gate code, pets, what's wrong, who's coming. */
+    note: z.string().trim().min(1).max(1000).nullable().optional(),
+  })
+  .refine((v) => !!v.serviceId || !!v.guests || !!v.note, {
+    error: 'Add a service, people or a note.',
+  });
+export const AppointmentAddForCustomerOutput = z.object({
+  appointmentId: uuid,
+  endsAt: isoDateTime,
+  /** The services added to this visit so far. */
+  services: z.array(
+    z.object({ name: z.string(), durationMinutes: z.int(), priceCents: z.int().nullable() }),
+  ),
+  seats: z.int(),
+  noteAdded: z.boolean(),
+});
 
 // ---------- queries ----------
 

@@ -906,3 +906,25 @@ export function walletCardDeclinedEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** M18: the code a website chat visitor types back to prove they're the customer (sent to the email on file). */
+export function chatCodeEmail(input: {
+  business: string;
+  code: string;
+  minutes: number;
+}): EmailContent {
+  const subject = `Your ${input.business} code: ${input.code}`;
+  const text = `Your code for the ${input.business} chat is ${input.code}. It expires in ${input.minutes} minutes.\n\nIf you didn’t ask for it, ignore this email: nobody can see your details without it.`;
+  const html = shell(
+    preheader(`Your code is ${input.code}`) +
+      para(`Your code for the <strong>${escapeHtml(input.business)}</strong> chat is:`) +
+      `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
+      para(`It expires in ${input.minutes} minutes.`) +
+      small('If you didn’t ask for it, ignore this email: nobody can see your details without it.'),
+  );
+  return { subject, text, html };
+}
+
+/** The same code by text. */
+export const chatCodeText = (business: string, code: string, minutes: number): string =>
+  `${business}: your chat code is ${code}. It expires in ${minutes} minutes. If you didn’t ask for it, ignore this text.`;

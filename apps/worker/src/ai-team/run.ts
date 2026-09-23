@@ -26,11 +26,9 @@ import { eq } from 'drizzle-orm';
 import type { AiContent, AiMessage, AiUsage } from '@hfos/ai';
 import {
   AI_TEAMMATE_GOALS,
-  appointmentBookForCustomer,
   asksForPerson,
   asksIfHuman,
-  attendeeCancelForCustomer,
-  attendeeRescheduleForCustomer,
+  runHeldAction,
   briefFromProfile,
   checkTeammateReply,
   conversationPickUp,
@@ -54,7 +52,6 @@ import {
   type AiEmployeeActor,
   type AiEmployeeOrigin,
   type ConversationHandoffReason,
-  type DraftAction,
   type EmergencyKind,
   type ReplyCheck,
   type RequestMeta,
@@ -92,14 +89,8 @@ import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
 import { scheduleFollowUp, type OfferedSlot } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
-import {
-  createExecutor,
-  newRunState,
-  toolDefinition,
-  type Discount,
-  type RunEnd,
-  type RunState,
-} from './tools';
+import { chatCodeSender } from './chat-code';
+import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
 import {
   firstMessageTurn,
   handoverLines,
@@ -496,6 +487,10 @@ async function startFirstRun(
 
 // ---- One run ----
 
+const VERIFIED_LINES = [
+  'They just typed back the right code, so this chat is theirs now: their bookings, bills and quotes are open to you. Answer what they asked before the code.',
+];
+
 /** Tools a first message (no conversation yet) and a nudge may use: look things up, then write. */
 const FIRST_TOOLS: ReadonlySet<TeammateToolName> = new Set<TeammateToolName>([
   'search_knowledge',
@@ -523,7 +518,11 @@ function turnOf(run: StartedRun, rc: RunContext): string {
   return firstMessageTurn(rc, run.trigger === 'lead.created' ? 'new_lead' : 'workflow');
 }
 
-async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
+/**
+ * `verified`: this is the second pass of a run whose chat visitor typed back the right code in the first (M18).
+ * It starts over as theirs, with their bookings, bills and quotes, and answers what they asked.
+ */
+async function answer(ctx: JobContext, run: StartedRun, verified = false): Promise<JobResult> {
   const { scope } = run;
   const rc = await asWorker(ctx.db, scope, (tx) =>
     loadRunContext(tx, {
@@ -595,6 +594,9 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
     state,
     tools,
     training: run.teammate.status === 'training',
+    moneyLinks: ctx.moneyLinks,
+    chatCodes: chatCodeSender(ctx),
+    ...(verified ? { callPrefix: 'verified:' } : {}),
     log: ctx.log,
   });
   const onTurnUsage = (usage: AiUsage) =>
@@ -612,6 +614,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
       contextText(rc),
       ...(run.handover ? handoverLines(run.handover) : []),
       ...(run.retry ? retryLines(run.retry) : []),
+      ...(verified ? VERIFIED_LINES : []),
     ].join('\n'),
     maxTokens: MAX_TOKENS,
     execute,
@@ -680,6 +683,7 @@ async function answer(ctx: JobContext, run: StartedRun): Promise<JobResult> {
   steps += loop.rounds;
   const first = await settle(loop, [], null);
   if (first) return first.value;
+  if (state.verified && !verified) return answer(ctx, run, true);
   if (state.end?.kind === 'no_reply') return finish(ctx, run, rc, ai, meta, state, null, [], steps);
   let text = state.end?.kind === 'reply' ? state.end.message : finalText(loop.messages);
   if (!text.trim())
@@ -775,7 +779,7 @@ export function checkReply(rc: RunContext, state: RunState, text: string): Reply
       ...[...state.found.values()].map((f) => `${f.title}\n${f.body}`),
     ],
     done: {
-      booked: state.held.some((a) => a.kind === 'book'),
+      booked: state.held.some((a) => a.kind === 'book' || a.kind === 'book_series'),
       rescheduled: state.held.some((a) => a.kind === 'reschedule'),
       cancelled: state.held.some((a) => a.kind === 'cancel'),
     },
@@ -1038,49 +1042,6 @@ async function supersededWhy(
   return null;
 }
 
-async function runHeld(
-  tx: Tx,
-  ai: AiEmployeeActor,
-  meta: RequestMeta,
-  a: DraftAction,
-  clientId: string,
-): Promise<void> {
-  const workspaceId = ai.workspaceId;
-  if (a.kind === 'book')
-    await executeCommandIn(
-      tx,
-      appointmentBookForCustomer,
-      {
-        workspaceId,
-        calendarId: a.calendarId,
-        startsAt: a.startsAt,
-        serviceId: a.serviceId,
-        ...(a.durationMinutes ? { durationMinutes: a.durationMinutes } : {}),
-        sessionId: a.sessionId,
-        notes: a.notes,
-        clientId,
-      },
-      ai,
-      meta,
-    );
-  else if (a.kind === 'reschedule')
-    await executeCommandIn(
-      tx,
-      attendeeRescheduleForCustomer,
-      { workspaceId, appointmentId: a.appointmentId, startsAt: a.startsAt, sessionId: a.sessionId },
-      ai,
-      meta,
-    );
-  else
-    await executeCommandIn(
-      tx,
-      attendeeCancelForCustomer,
-      { workspaceId, appointmentId: a.appointmentId, reason: a.reason },
-      ai,
-      meta,
-    );
-}
-
 /** Replaces the conversation's pending reply draft with this run's. */
 async function makeDraft(
   tx: Tx,
@@ -1113,22 +1074,40 @@ async function makeDraft(
   await insertDraft(tx, ctx, run, rc, 'reply', preview, `ai:${run.id}`, message?.body ?? null);
 }
 
-/** A discount waits for a manager in any mode: its own approval draft. */
-async function makeApproval(
+/**
+ * What waits for a manager in any mode, each in its own approval draft: a discount, and (M18) a request with
+ * money in it — a bill, a quote, an answer to a quote, a plan, or the link to pay or answer one already sent.
+ */
+async function makeApprovals(
   tx: Tx,
   ctx: JobContext,
   run: StartedRun,
   rc: RunContext,
-  discount: Discount,
+  state: RunState,
 ): Promise<void> {
   const channel = rc.conversation.channel;
-  const body = channel === 'sms' ? plainSmsText(discount.message) : discount.message.trim();
-  const preview = TeammateDraftPreview.parse({
-    message: { channel, body, subject: null, inReplyToMessageId: null },
-    actions: [],
-    discount: { percent: discount.percent, reason: discount.reason.slice(0, 300) },
-  });
-  await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:d`, body);
+  const bodyOf = (text: string) => (channel === 'sms' ? plainSmsText(text) : text.trim());
+  if (state.discount) {
+    const body = bodyOf(state.discount.message);
+    const preview = TeammateDraftPreview.parse({
+      message: { channel, body, subject: null, inReplyToMessageId: null },
+      actions: [],
+      discount: {
+        percent: state.discount.percent,
+        reason: state.discount.reason.slice(0, 300),
+      },
+    });
+    await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:d`, body);
+  }
+  if (state.moneyAsk) {
+    const body = bodyOf(state.moneyAsk.message);
+    const preview = TeammateDraftPreview.parse({
+      message: { channel, body, subject: null, inReplyToMessageId: null },
+      actions: state.moneyAsk.actions,
+      discount: null,
+    });
+    await insertDraft(tx, ctx, run, rc, 'approval', preview, `ai:${run.id}:m`, body);
+  }
 }
 
 async function insertDraft(
@@ -1263,7 +1242,7 @@ async function finish(
           body === null ? null : { body, subject: null },
           latest,
         );
-      if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
+      await makeApprovals(tx, ctx, run, rc, state);
       await markAnswered(tx, conversationId, through, false);
       const outcome = drafted ? 'drafted' : 'no_reply';
       await closeRun(tx, run.id, {
@@ -1278,7 +1257,7 @@ async function finish(
       // The held changes and the message are one unit: a refusal of either undoes both.
       await tx.transaction(async (sp) => {
         for (const [i, a] of state.held.entries())
-          await runHeld(sp, ai, meta, a, `ai:${run.id}:${i + 1}`);
+          await runHeldAction(sp, ai, meta, a, `ai:${run.id}:${i + 1}`);
         if (body !== null)
           await executeCommandIn(
             sp,
@@ -1334,7 +1313,7 @@ async function finish(
       return none;
     }
     await markAnswered(tx, conversationId, through, body !== null && disclosesAi(body));
-    if (state.discount) await makeApproval(tx, ctx, run, rc, state.discount);
+    await makeApprovals(tx, ctx, run, rc, state);
     const outcome = body !== null ? 'replied' : 'no_reply';
     await closeRun(tx, run.id, {
       ...common,

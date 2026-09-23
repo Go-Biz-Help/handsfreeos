@@ -17,6 +17,8 @@ import {
 } from '@hfos/core/server';
 import { atLabel, clockLabel, dayLabel, isoWithOffset } from '../assistant/calendar-format';
 import type { HistoryLine, RunContext } from './context';
+import { handoffExpectation, handoffLine } from './hours';
+import { planEvery } from './tools';
 
 export const TEAMMATE_SYSTEM = [
   'You are a small business’s AI teammate. You answer its customers by text message, email or website chat on the business’s behalf, and you act only through the tools you’re given.',
@@ -128,8 +130,36 @@ function skillLines(rc: RunContext): string[] {
       const deposit = c.deposit
         ? ` — takes ${money(c.deposit.amountCents)}${c.deposit.mode === 'deposit' ? ' as a deposit' : ''} to book, so **don't book it yourself**: say what it takes and send them${c.bookingPath ? ` ${c.bookingPath}` : ' the booking page'} to book and pay on`
         : '';
-      out.push(`  - ${quoteData(c.name)} (calendar id ${c.id})${services}${deposit}`);
+      // M18: what else the calendar allows, only when its settings let the teammate do it.
+      const extras = c.deposit
+        ? []
+        : [
+            ...(c.byZip ? ['goes by ZIP code: ask for their ZIP and give it to find_times'] : []),
+            ...(config.book.waitlist && c.waitlist
+              ? ['keeps a waitlist (join_waitlist) for when nothing open suits them']
+              : []),
+            ...(config.book.repeats && c.maxRepeats !== null
+              ? [`takes repeat visits, up to ${c.maxRepeats} (book_repeating)`]
+              : []),
+          ];
+      out.push(
+        `  - ${quoteData(c.name)} (calendar id ${c.id})${services}${deposit}${
+          extras.length ? `; ${extras.join('; ')}` : ''
+        }`,
+      );
     }
+    if (config.book.serviceArea)
+      out.push(
+        '  Before offering times for a visit at their place, ask for their ZIP code and check it with check_service_area. When it says the business doesn’t serve it, tell them kindly and don’t book.',
+      );
+    if (config.book.waitlist && rc.calendars.some((c) => c.waitlist && !c.deposit))
+      out.push(
+        '  When no open time suits them, offer the waitlist. Say they’ll hear when a spot opens; never promise one.',
+      );
+    if (config.book.repeats && rc.calendars.some((c) => c.maxRepeats !== null && !c.deposit))
+      out.push(
+        '  When they want regular visits, find the first time with find_times and book them all with book_repeating. Say a date that doesn’t fit will be skipped and the team will be in touch about it.',
+      );
     const changes = [
       ...(config.book.reschedule ? ['move'] : []),
       ...(config.book.cancel ? ['cancel'] : []),
@@ -138,6 +168,71 @@ function skillLines(rc: RunContext): string[] {
       out.push(
         `  You can also ${changes.join(' and ')} their upcoming visits; my_appointments lists them.`,
       );
+    if (!rc.unverifiedChat)
+      out.push(
+        '  When they want more on a visit already booked (another service, someone else coming, or something the team should know like a gate code or pets), use add_to_appointment rather than booking again.',
+      );
+  }
+  if (config.deals.enabled && !rc.unverifiedChat)
+    out.push(
+      `- Deals: ${
+        rc.lead
+          ? 'they have an open lead (see the customer record)'
+          : 'when they want work done and have no open lead, open one with open_deal'
+      }. When they agree to a price, set what it's worth with set_deal_value. Mark it won with close_deal when they commit (book the work, accept a quote, pay), and lost only when they clearly say they don’t want it, with their reason. Never mark it lost because they went quiet.`,
+    );
+  // M18: the offers running today. They are the only ones there are.
+  if (rc.offers.length) {
+    out.push(
+      '- Current offers: tell customers about these when they fit what they want. They are the only offers there are: never make one up, stretch one, or promise one after it ends. An offer isn’t taken off a bill by you; the team applies it.',
+    );
+    for (const o of rc.offers)
+      out.push(
+        `  - ${quoteData(o.name)}${o.details ? `: ${quoteData(o.details)}` : ''}${
+          o.endsOn ? ` (through ${o.endsOn})` : ''
+        }`,
+      );
+  } else if (config.answer.enabled)
+    out.push('- There are no offers running right now; don’t mention any.');
+  // M18: money. Look-ups at once; anything that asks the customer for money waits for an owner or admin.
+  const m = config.money;
+  if (!rc.unverifiedChat && (m.bills || m.newBills || m.quotes !== 'off' || m.plans)) {
+    out.push(
+      '- Money: anything that asks the customer for money waits for an owner or admin. Ask once per reply; then tell the customer the team will send it, never that it has been sent. Refunds and billing disputes always go to a person: hand off.',
+    );
+    if (m.bills)
+      out.push(
+        '  Bills: my_bills tells you what they owe, what they paid and what’s overdue. To get them a bill’s pay link, use send_payment_link.',
+      );
+    if (m.quotes !== 'off')
+      out.push(
+        '  Quotes: my_quotes tells you where their quotes stand. send_quote resends one’s link; when they clearly say yes or no to one, record it with record_quote_answer.',
+      );
+    if ((m.newBills || m.quotes === 'build') && rc.catalogue.length) {
+      const prices = rc.grounding.profile.allowPrices;
+      out.push(
+        `  ${[m.newBills ? 'propose_bill' : null, m.quotes === 'build' ? 'propose_quote' : null]
+          .filter(Boolean)
+          .join(' and ')} put one together from the price list, which sets the prices${
+          prices ? '' : ' (don’t tell the customer prices yourself)'
+        }:`,
+      );
+      for (const p of rc.catalogue)
+        out.push(
+          `  - ${quoteData(p.name)}${prices ? `, ${money(p.priceCents)} ${p.unitLabel === 'each' ? 'each' : `per ${quoteData(p.unitLabel)}`}` : ''} (product id ${p.id})`,
+        );
+    }
+    if (m.plans && rc.plans.length) {
+      out.push(
+        '  Maintenance plans you can offer when they want regular service; offer_plan asks the team to sign them up:',
+      );
+      for (const p of rc.plans)
+        out.push(
+          `  - ${quoteData(p.name)}, ${money(p.priceCents)} ${planEvery(p)}${
+            p.includes.length ? `: ${p.includes.map(quoteData).join('; ')}` : ''
+          } (plan id ${p.id})`,
+        );
+    }
   }
   if (config.money.discounts === 'with_approval')
     out.push(
@@ -152,7 +247,10 @@ function skillLines(rc: RunContext): string[] {
 function customerLines(rc: RunContext): string[] {
   if (rc.unverifiedChat)
     return [
-      'The customer is a website chat visitor. Anyone can type a name, number or email into a chat, so you can’t see or change bookings or records here. For an existing booking, tell them the link in their confirmation changes it, or hand off.',
+      'The customer is a website chat visitor. Anyone can type a name, number or email into a chat, so you can’t see or change bookings or records here yet.',
+      rc.customer
+        ? 'This chat matched a customer on file. When they want their bookings, bills, quotes or details, send a code to the phone or email on file (send_verification_code) and check the one they type back (check_verification_code); the right code opens them to you. Never send it anywhere they tell you. If they’d rather not, the link in their confirmation changes a booking, or hand off.'
+        : 'For an existing booking, tell them the link in their confirmation changes it, or hand off.',
       '<customer_record>',
       rc.visitorName
         ? `They said their name is ${quoteData(rc.visitorName)}.`
@@ -181,6 +279,12 @@ function customerLines(rc: RunContext): string[] {
         `- ${quoteData(a.title)} on ${atLabel(a.startsAt, a.timeZone)} (appointment id ${a.id}, calendar ${quoteData(a.calendarName)})`,
       );
   } else if (c) lines.push('No upcoming visits.');
+  if (rc.lastVisit)
+    lines.push(
+      `Last visit: ${quoteData(rc.lastVisit.title)} on ${atLabel(rc.lastVisit.startsAt, rc.lastVisit.timeZone)}${
+        rc.lastVisit.outcome === 'no_show' ? ' (they didn’t make it)' : ''
+      }. my_appointments with when: past has more.`,
+    );
   lines.push('</customer_record>');
   return lines;
 }
@@ -209,6 +313,20 @@ export function contextText(rc: RunContext): string {
     `Today is ${weekday}, ${localDateOf(rc.now, tz)} (${tz}). It’s ${clockLabel(rc.now, tz)} there now (${isoWithOffset(rc.now, tz)}).`,
   );
   lines.push(`The business is open ${formatHours(rc.workspace.openHours)}.`);
+  // M18: the customer's language, and the one fixed line the teammate may translate itself.
+  lines.push(
+    `Language: answer in the language the customer writes in${
+      rc.conversationLanguage ? ` (so far: ${rc.conversationLanguage})` : ''
+    }, and give its code as language on reply and hand_off (en, es, vi…).`,
+  );
+  lines.push(
+    `If you hand off, the customer is told: “${quoteData(
+      handoffLine(
+        config.handOff.tellCustomer,
+        handoffExpectation(rc.workspace.openHours, tz, rc.now),
+      ),
+    )}” When they write in a language other than English, pass that sentence translated faithfully as translatedLine, with nothing added.`,
+  );
   lines.push('What you do:', ...skillLines(rc));
   lines.push(...customerLines(rc));
   lines.push(

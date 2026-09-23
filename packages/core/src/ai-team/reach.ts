@@ -2,9 +2,9 @@
  * Server-side: keeps the AI teammate to the customer it's talking to. The worker fills in every person, lead
  * and conversation id from the run (no tool takes one), and these checks make sure nothing else gets through.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gt } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
-import { aiTeammateRuns, bookingSites, conversations, leads } from '@hfos/db/schema';
+import { aiTeammateRuns, bookingSites, chatVisitors, conversations, leads } from '@hfos/db/schema';
 import { calendarCharge } from '../calendar/deposit-load';
 import { loadCalendar } from '../calendar/load';
 import { HfosError } from '../errors';
@@ -32,27 +32,61 @@ export const notHandledByAi = (): HfosError =>
   );
 
 /**
- * A website chat's identity is never verified (anyone can type someone else's number), so in a chat the AI
- * teammate never changes an existing customer or their bookings. New bookings are fine: their confirmation
- * goes to the contact on file.
+ * Anyone can type someone else's number into a website chat, so until its visitor proves who they are with a
+ * code (M18) the AI teammate never changes an existing customer or their bookings there. New bookings are
+ * fine: their confirmation goes to the contact on file.
  */
 export const chatIdentityUnverified = (): HfosError =>
   HfosError.forbidden(
-    'A website chat can’t change a customer’s details or bookings. Someone on the team can.',
+    'A website chat can’t change a customer’s details or bookings until the visitor proves who they are with a code. Someone on the team can.',
     'chat_identity_unverified',
   );
 
-/** For the AI teammate only (anyone else passes): refuses when the conversation it's answering is a chat. */
+/** How long a chat visitor who typed back their code counts as the customer (M18). */
+export const CHAT_VERIFIED_HOURS = 12;
+
+/**
+ * M18: a chat whose visitor typed back the code sent to the linked customer's phone or email, in the last
+ * twelve hours, is that customer's like a text is. Anything else about a chat stays unverified.
+ */
+export async function chatVerified(
+  tx: Tx,
+  conv: { readonly id: string; readonly channel: string; readonly personId: string | null },
+): Promise<boolean> {
+  if (conv.channel !== 'chat') return true;
+  if (!conv.personId) return false;
+  const [v] = await tx
+    .select({ id: chatVisitors.id })
+    .from(chatVisitors)
+    .where(
+      and(
+        eq(chatVisitors.conversationId, conv.id),
+        eq(chatVisitors.verifiedPersonId, conv.personId),
+        gt(chatVisitors.verifiedAt, new Date(Date.now() - CHAT_VERIFIED_HOURS * 3_600_000)),
+      ),
+    )
+    .limit(1);
+  return !!v;
+}
+
+/**
+ * For the AI teammate only (anyone else passes): refuses when the conversation it's answering is a chat whose
+ * visitor hasn't proved they're the customer (M18: a verified chat passes).
+ */
 export async function refuseInChat(ctx: CommandContext): Promise<void> {
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai?.conversationId) return;
   const [c] = await ctx.tx
-    .select({ channel: conversations.channel })
+    .select({
+      id: conversations.id,
+      channel: conversations.channel,
+      personId: conversations.personId,
+    })
     .from(conversations)
     .where(
       and(eq(conversations.id, ai.conversationId), eq(conversations.workspaceId, ai.workspaceId)),
     );
-  if (c?.channel === 'chat') throw chatIdentityUnverified();
+  if (c && !(await chatVerified(ctx.tx, c))) throw chatIdentityUnverified();
 }
 
 /** The customer the AI teammate is serving: its conversation's, or for a first message its run's new lead. */
@@ -178,4 +212,10 @@ export async function requireAiConversation(ctx: CommandContext, ai: AiEmployeeA
   const conv = await loadConversation(ctx, ai.conversationId);
   if (conv.handledBy !== 'ai' || conv.aiTeammateId !== ai.teammateId) throw notHandledByAi();
   return conv;
+}
+
+/** M18: the teammate's settings let it open and close deals and set what they're worth. */
+export async function teammateDealsOn(tx: Tx, ai: AiEmployeeActor): Promise<boolean> {
+  const row = await loadTeammate(tx, ai.workspaceId, { teammateId: ai.teammateId });
+  return !!row && teammateConfigOf(row).deals.enabled;
 }

@@ -881,6 +881,15 @@ export const AppointmentGetOutput = z.object({
      * nothing has a price.
      */
     priceCents: z.int().nullable(),
+    /** M18: services added to this visit after it was booked, each with its time and price as added. */
+    extraServices: z.array(
+      z.object({
+        name: z.string(),
+        durationMinutes: z.int(),
+        priceCents: z.int().nullable(),
+        source: z.string(),
+      }),
+    ),
     attendees: z.array(
       AppointmentAttendeeOut.extend({
         contactPhone: z.string().nullable(),

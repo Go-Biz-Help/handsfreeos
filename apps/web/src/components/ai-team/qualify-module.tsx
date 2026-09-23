@@ -156,6 +156,18 @@ export function QualifyModule({ draft, patch, catalogs }: ModuleProps) {
       )}
       <WhenQualified draft={draft} patch={patch} catalogs={catalogs} />
       <WhenNotAFit draft={draft} patch={patch} />
+      <SetRow
+        center
+        title={`${name} opens and closes deals`}
+        description="Opens a lead for a customer who has none, sets what it’s worth, and marks it won or lost. Works with Qualify on or off."
+      >
+        <Switch
+          checked={draft.deals.enabled}
+          label="Deals"
+          testId="deals-enabled"
+          onChange={(v) => patch({ deals: { enabled: v } }, v ? 'Turn on deals' : 'Turn off deals')}
+        />
+      </SetRow>
     </>
   );
 }

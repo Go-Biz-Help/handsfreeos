@@ -64,11 +64,14 @@ export const WOULD_KINDS = [
   'book',
   'reschedule',
   'cancel',
+  'repeat',
+  'waitlist',
   'note',
   'task',
   'stage',
   'answers',
   'discount',
+  'money',
   'hand_off',
 ] as const;
 export type WouldKind = (typeof WOULD_KINDS)[number];

@@ -161,6 +161,28 @@ describe('diff', () => {
     ]);
   });
 
+  it('describes the M18 skills: waitlist, repeats, service area, deals, money and alerts', () => {
+    const a = emptyTeammateConfig();
+    const b = applyTeammatePatch(a, {
+      book: { waitlist: false, repeats: true, serviceArea: false },
+      deals: { enabled: true },
+      money: { bills: true, newBills: true, quotes: 'build', plans: true },
+      handOff: { alerts: { text: false, email: false } },
+    });
+    expect(diffTeammateConfigs(a, b)).toEqual([
+      'Waitlist: on → off',
+      'Repeat visits: off → on',
+      'Checks the service area: on → off',
+      'Opens and closes deals: off → on',
+      'Bills and payments: off → on',
+      'New bills: off → on',
+      'Quotes: off → builds and sends quotes',
+      'Maintenance plans: off → on',
+      'Hand-off texts: on → off',
+      'Hand-off emails: on → off',
+    ]);
+  });
+
   it('works without names', () => {
     const a = emptyTeammateConfig();
     const b = applyTeammatePatch(a, {

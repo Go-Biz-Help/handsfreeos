@@ -43,3 +43,31 @@ export async function saveProfile(workspaceId: string, profile: KnowledgeProfile
     }),
   );
 }
+
+/** What an offer says and when it runs (M18); dates are local, and null is open-ended. */
+export interface OfferFields {
+  readonly name: string;
+  readonly details: string;
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+}
+
+export async function createOffer(workspaceId: string, offer: OfferFields) {
+  return unwrap(
+    await apiBrowser().POST('/v1/commands/offer.create', { body: { workspaceId, ...offer } }),
+  );
+}
+
+export async function updateOffer(workspaceId: string, offerId: string, offer: OfferFields) {
+  return unwrap(
+    await apiBrowser().POST('/v1/commands/offer.update', {
+      body: { workspaceId, offerId, ...offer },
+    }),
+  );
+}
+
+export async function archiveOffer(workspaceId: string, offerId: string) {
+  return unwrap(
+    await apiBrowser().POST('/v1/commands/offer.archive', { body: { workspaceId, offerId } }),
+  );
+}

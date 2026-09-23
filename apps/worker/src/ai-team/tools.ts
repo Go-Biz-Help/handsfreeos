@@ -29,11 +29,18 @@ import {
   formResponseSave,
   formResponseStart,
   formResponseSubmit,
+  AI_TEAMMATE_SOURCE,
+  appointmentAddForCustomer,
+  chatCheckCodeForCustomer,
+  chatSendCodeForCustomer,
+  leadCreate,
   leadMoveStage,
   leadRecordAnswers,
+  leadUpdate,
   nextQuestion,
   parseStoredForm,
   responseProblems,
+  loadTerritories,
   localDateOf,
   money,
   personUpdate,
@@ -43,6 +50,7 @@ import {
   toolInputSchema,
   type AiEmployeeActor,
   type AnswerSheet,
+  type CatalogueLine,
   type AnswerValue,
   type FormDefinition,
   type Question,
@@ -52,6 +60,7 @@ import {
   type RequestMeta,
   type TeammateTool,
   type TeammateToolName,
+  zip5,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
@@ -59,9 +68,12 @@ import { toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { TenantScope } from '../services';
-import { HELD_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
-import { upcomingAppointments, type RunContext } from './context';
+import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
+import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
+import type { ChatCodeSender } from './chat-code';
+import { pastAppointments, upcomingAppointments, type RunContext } from './context';
 import { emergencyIn, handOffInConversation } from './handoff';
+import { rememberLanguage } from './translations';
 
 // ---- What a run has done so far ----
 
@@ -73,6 +85,8 @@ export interface OfferedTime {
   readonly sessionId: string | null;
   readonly serviceId: string | null;
   readonly durationMinutes: number | null;
+  /** The ZIP it was found for, on a calendar that goes by ZIP. */
+  readonly postalCode: string | null;
   readonly label: string;
 }
 
@@ -100,6 +114,17 @@ export interface Discount {
   readonly message: string;
 }
 
+/**
+ * What the teammate asks an owner or admin for, with money in it (M18): the message the customer would get and
+ * the change it makes. One per reply, in its own approval draft, in every mode.
+ */
+export interface MoneyAsk {
+  readonly actions: readonly DraftAction[];
+  readonly message: string;
+  /** What the card and Activity say it's for. */
+  readonly summary: string;
+}
+
 export interface RunState {
   readonly offered: Map<string, OfferedTime>;
   readonly held: DraftAction[];
@@ -107,6 +132,11 @@ export interface RunState {
   /** A knowledge search ran (whether or not it found anything). */
   searched: boolean;
   discount: Discount | null;
+  moneyAsk: MoneyAsk | null;
+  /** A lead open_deal opened in this run (the context loaded before it had one). */
+  openedLeadId: string | null;
+  /** The chat visitor typed back the right code in this run (M18): the run starts over as theirs. */
+  verified: boolean;
   end: RunEnd | null;
   abort: RunAbort | null;
 }
@@ -118,6 +148,9 @@ export function newRunState(): RunState {
     found: new Map(),
     searched: false,
     discount: null,
+    moneyAsk: null,
+    openedLeadId: null,
+    verified: false,
     end: null,
     abort: null,
   };
@@ -130,6 +163,9 @@ interface Effect {
   readonly searched?: boolean;
   readonly held?: DraftAction;
   readonly discount?: Discount;
+  readonly moneyAsk?: MoneyAsk;
+  readonly openedLeadId?: string;
+  readonly verified?: boolean;
   readonly end?: RunEnd;
   readonly abort?: RunAbort;
 }
@@ -146,6 +182,9 @@ function applyEffect(state: RunState, effect: Effect | undefined): void {
   if (effect.searched) state.searched = true;
   if (effect.held) state.held.push(effect.held);
   if (effect.discount) state.discount = effect.discount;
+  if (effect.moneyAsk) state.moneyAsk = effect.moneyAsk;
+  if (effect.openedLeadId) state.openedLeadId = effect.openedLeadId;
+  if (effect.verified) state.verified = true;
   // A hand-off outranks a reply, which outranks "no reply"; a later reply replaces an earlier one.
   if (effect.end && (!state.end || END_RANK[effect.end.kind] >= END_RANK[state.end.kind]))
     state.end = effect.end;
@@ -167,6 +206,12 @@ export interface ExecutorDeps {
   readonly tools: readonly TeammateTool[];
   /** Training wheels: the held changes go into a draft. */
   readonly training: boolean;
+  /** Signs the pay and quote links a money ask carries (M18). */
+  readonly moneyLinks: MoneyLinks;
+  /** Delivers a website chat visitor's code (M18). */
+  readonly chatCodes: ChatCodeSender;
+  /** Keeps a run's second pass (after a chat code) from meeting its first pass's calls under the same ids. */
+  readonly callPrefix?: string;
   readonly log: Logger;
 }
 
@@ -207,7 +252,7 @@ export function createExecutor(d: ExecutorDeps): (call: AiToolCall) => Promise<T
   const offered = new Map(d.tools.map((t) => [t.name, t]));
   return async (call) => {
     const tool = offered.get(call.name);
-    const callId = (call.id || 'call').slice(0, 200);
+    const callId = `${d.callPrefix ?? ''}${call.id || 'call'}`.slice(0, 200);
     const claim = await claimCall(d, callId, tool?.name ?? safeToolName(call.name), call.arguments);
     if (claim.replay) {
       const stored = isRecord(claim.result) ? claim.result : {};
@@ -344,6 +389,25 @@ function refusalOf(e: HfosError): Outcome {
 }
 
 // ---- The tools ----
+
+/** Thrown at the end of a try so its savepoint rolls back. */
+class RolledBack extends Error {}
+
+/** Runs `fn` in a savepoint that always rolls back: would it work, and what would it give? Nothing is kept. */
+async function rolledBack<T>(tx: Tx, fn: (sp: Tx) => Promise<T>): Promise<T> {
+  const held: { done: boolean; value?: T } = { done: false };
+  try {
+    await tx.transaction(async (sp) => {
+      held.value = await fn(sp as Tx);
+      held.done = true;
+      throw new RolledBack();
+    });
+  } catch (e) {
+    if (!(e instanceof RolledBack)) throw e;
+  }
+  if (!held.done) throw new Error('The try did not finish.');
+  return held.value as T;
+}
 
 type Runner = (d: ExecutorDeps, tx: Tx, args: Record<string, unknown>) => Promise<Outcome>;
 
@@ -484,6 +548,60 @@ function answerFromWords(question: Question, said: string): AnswerValue {
   return text;
 }
 
+/** "a month", "every 3 months", "a year". */
+export function planEvery(p: { interval: string; intervalCount: number }): string {
+  const unit = p.interval === 'quarter' ? 'quarter' : p.interval === 'year' ? 'year' : 'month';
+  return p.intervalCount === 1 ? `a ${unit}` : `every ${p.intervalCount} ${unit}s`;
+}
+
+async function theirQuote(d: ExecutorDeps, tx: Tx, estimateId: string) {
+  const [q] = await rows<{ number: string | null; status: string; total_cents: string }>(
+    tx,
+    sql`select number, status::text as status, total_cents::text as total_cents from app.estimates
+        where id = ${estimateId} and workspace_id = ${d.scope.workspaceId}
+          and person_id = ${d.rc.customer!.id}`,
+  );
+  return q ?? null;
+}
+
+/** A bill's or a quote's lines from the price list in the context, and what they come to before tax. */
+function fromCatalogue(
+  d: ExecutorDeps,
+  args: Record<string, unknown>,
+): { lines: CatalogueLine[]; totalCents: number; words: string } | { error: string } {
+  if (!d.rc.customer || d.rc.unverifiedChat) return { error: NO_CUSTOMER };
+  if (d.state.moneyAsk) return { error: 'One request for money per reply.' };
+  const items = (Array.isArray(args['items']) ? args['items'] : []) as {
+    productId: string;
+    quantity: number;
+  }[];
+  const lines: CatalogueLine[] = [];
+  const names: string[] = [];
+  let totalCents = 0;
+  for (const i of items) {
+    const p = d.rc.catalogue.find((x) => x.id === i.productId);
+    if (!p) return { error: 'Use only product ids from the price list in your context.' };
+    lines.push({ productId: p.id, quantity: i.quantity });
+    names.push(i.quantity === 1 ? p.name : `${i.quantity} × ${p.name}`);
+    totalCents += Math.round(p.priceCents * i.quantity);
+  }
+  return { lines, totalCents, words: names.join(', ') };
+}
+
+function askForMoney(d: ExecutorDeps, ask: MoneyAsk): Outcome {
+  // A first message has no conversation yet for the approved message to go out in.
+  if (!d.rc.conversation.id)
+    return refused({ error: 'Wait until they write back before asking the team about money.' });
+  return {
+    status: 'held',
+    content: {
+      status: 'waiting_for_approval',
+      note: 'An owner or admin decides before the customer gets anything. In your reply, say only that you’ve asked the team and they’ll send it; never say it’s been sent.',
+    },
+    effect: { moneyAsk: ask },
+  };
+}
+
 const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async search_knowledge(d, tx, args) {
     const query = String(args['query']);
@@ -558,6 +676,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       return refused({
         error: 'That isn’t one of your calendars. Use a calendar id from the context.',
       });
+    const postalCode = str(args['postalCode']);
+    if (cal.byZip && !postalCode)
+      return refused({
+        error: `${cal.name} offers times by ZIP code. Ask for their ZIP code, then look again with it.`,
+      });
     const tz = cal.timeZone;
     const from = String(args['from']);
     const to = str(args['to']);
@@ -587,6 +710,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         to: new Date(end).toISOString(),
         serviceId,
         ...(durationMinutes ? { durationMinutes } : {}),
+        ...(postalCode ? { postalCode } : {}),
       },
       d.ai,
       d.meta,
@@ -600,6 +724,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         sessionId: s.sessionId,
         serviceId: out.serviceId,
         durationMinutes: durationMinutes ?? null,
+        postalCode: cal.byZip ? postalCode : null,
         label: atLabel(at, tz),
       };
     });
@@ -614,14 +739,40 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
           label: o.label,
         })),
         ...(out.slots.length > shown.length ? { more: true } : {}),
-        ...(shown.length ? {} : { note: 'No open times then. Try another day.' }),
+        ...(shown.length
+          ? {}
+          : {
+              note: cal.waitlist
+                ? 'No open times then. Try another day, or offer to put them on the waitlist.'
+                : 'No open times then. Try another day.',
+            }),
       },
       effect: { offered },
     };
   },
 
-  async my_appointments(d, tx) {
+  async my_appointments(d, tx, args) {
     if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (args['when'] === 'past') {
+      const past = await pastAppointments(
+        tx,
+        d.scope.workspaceId,
+        d.rc.customer.id,
+        d.rc.workspace.timeZone,
+      );
+      return {
+        status: 'done',
+        content: {
+          visits: past.map((a) => ({
+            what: quoteData(a.title),
+            when: atLabel(a.startsAt, a.timeZone),
+            calendar: quoteData(a.calendarName),
+            ...(a.outcome === 'no_show' ? { note: 'they didn’t make it' } : {}),
+          })),
+          ...(past.length ? {} : { note: 'No visits yet.' }),
+        },
+      };
+    }
     const list = await upcomingAppointments(
       tx,
       d.scope.workspaceId,
@@ -662,6 +813,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       durationMinutes: slot.durationMinutes,
       sessionId: slot.sessionId,
       notes: str(args['notes']),
+      postalCode: slot.postalCode,
       summary: `Book ${slot.label} on ${cal.name}`.slice(0, 300),
     };
     return {
@@ -697,6 +849,68 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     };
   },
 
+  /**
+   * M18: more on one of their visits. Held like a reschedule, but tried first in a savepoint that always rolls
+   * back, so the model hears now whether the extra time fits (and the visit's new end) rather than after it
+   * told the customer.
+   */
+  async add_to_appointment(d, tx, args) {
+    const appt = await customersAppointment(d, tx, String(args['appointmentId']));
+    if (!appt) return refused({ error: NOT_THEIRS });
+    if (d.state.held.length >= HELD_MAX)
+      return refused({ error: 'That’s as many changes as one reply can make.' });
+    const serviceId = str(args['serviceId']);
+    const guests = typeof args['guests'] === 'number' ? args['guests'] : null;
+    const note = str(args['note']);
+    const tried = await rolledBack(tx, (sp) =>
+      executeCommandIn(
+        sp,
+        appointmentAddForCustomer,
+        { workspaceId: d.scope.workspaceId, appointmentId: appt.id, serviceId, guests, note },
+        d.ai,
+        d.meta,
+      ),
+    );
+    const added = serviceId ? tried.output.services.at(-1) : undefined;
+    const what = [
+      added ? added.name : null,
+      guests ? `${guests} more ${guests === 1 ? 'person' : 'people'}` : null,
+      note ? 'a note' : null,
+    ].filter(Boolean);
+    const held: DraftAction = {
+      kind: 'add_to_visit',
+      appointmentId: appt.id,
+      serviceId,
+      guests,
+      note,
+      summary:
+        `Add ${what.join(', ')} to ${appt.title} on ${atLabel(appt.startsAt, appt.timeZone)}`.slice(
+          0,
+          300,
+        ),
+    };
+    const prices = d.rc.grounding.profile.allowPrices;
+    return {
+      status: 'held',
+      content: {
+        status: 'ready',
+        ...(added
+          ? {
+              added: {
+                service: quoteData(added.name),
+                minutes: added.durationMinutes,
+                ...(prices && added.priceCents !== null ? { price: money(added.priceCents) } : {}),
+              },
+              endsAt: atLabel(Date.parse(tried.output.endsAt), appt.timeZone),
+            }
+          : {}),
+        ...(guests ? { peopleComing: tried.output.seats } : {}),
+        note: heldNote(d),
+      },
+      effect: { held },
+    };
+  },
+
   async cancel(d, tx, args) {
     const appt = await customersAppointment(d, tx, String(args['appointmentId']));
     if (!appt) return refused({ error: NOT_THEIRS });
@@ -711,6 +925,145 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return {
       status: 'held',
       content: { status: 'ready', note: heldNote(d) },
+      effect: { held },
+    };
+  },
+
+  /**
+   * M18: whether the business serves a ZIP code, from the ZIP codes of its service areas (territories), and
+   * which of the teammate's calendars do. With no areas listed, the business profile's words are all there is.
+   */
+  async check_service_area(d, tx, args) {
+    const zip = zip5(String(args['postalCode']));
+    const areas = await loadTerritories(tx, d.scope.workspaceId);
+    if (!zip) return refused({ error: 'That isn’t a ZIP code. Ask them for their 5-digit ZIP.' });
+    if (!areas.length)
+      return {
+        status: 'done',
+        content: {
+          served: null,
+          note: 'The business hasn’t listed the ZIP codes it serves. Go by the service area in the business profile; if it doesn’t say, follow your “when unsure” rule.',
+        },
+      };
+    const covering = areas.filter((a) => a.postalCodes.some((p) => zip5(p) === zip));
+    const calendars = d.rc.calendars
+      .filter((c) => c.byZip)
+      .map((c) => ({
+        calendar: quoteData(c.name),
+        served: covering.some((a) => !c.areaIds.length || c.areaIds.includes(a.id)),
+      }));
+    return {
+      status: 'done',
+      content: {
+        served: covering.length > 0,
+        ...(covering.length ? { areas: covering.map((a) => quoteData(a.name)) } : {}),
+        ...(calendars.length ? { calendars } : {}),
+        ...(covering.length
+          ? {}
+          : {
+              note: 'The business doesn’t list this ZIP code. Tell them kindly, and don’t book a visit at their place. Hand off if they want someone to double-check.',
+            }),
+      },
+    };
+  },
+
+  async book_repeating(d, tx, args) {
+    if (!d.rc.customer) return refused({ error: NO_CUSTOMER });
+    const calendarId = String(args['calendarId']);
+    const cal = d.rc.calendars.find((c) => c.id === calendarId);
+    if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
+    if (cal.deposit) return refused({ error: depositInstead(cal) });
+    if (cal.maxRepeats === null)
+      return refused({
+        error: `${cal.name} doesn’t take repeat visits. Book one visit, and leave the team a task if they want regular ones.`,
+      });
+    const slot = d.state.offered.get(timeKey(calendarId, String(args['startsAt'])));
+    if (!slot)
+      return refused({
+        error:
+          'Start the repeats at one of the times find_times gave you in this conversation. Call find_times first.',
+      });
+    if (d.state.held.length >= HELD_MAX)
+      return refused({ error: 'That’s as many changes as one reply can make.' });
+    const every = args['every'] === 'month' ? 'month' : 'week';
+    const interval = typeof args['interval'] === 'number' ? args['interval'] : 1;
+    const times = Math.min(Number(args['times']), cal.maxRepeats);
+    const how =
+      every === 'week'
+        ? interval === 1
+          ? 'weekly'
+          : `every ${interval} weeks`
+        : interval === 1
+          ? 'monthly'
+          : `every ${interval} months`;
+    const held: DraftAction = {
+      kind: 'book_series',
+      calendarId,
+      startsAt: slot.startsAt,
+      serviceId: str(args['serviceId']) ?? slot.serviceId,
+      durationMinutes: slot.durationMinutes,
+      every,
+      interval,
+      times,
+      notes: str(args['notes']),
+      postalCode: slot.postalCode,
+      summary: `Book ${times} ${how} visits from ${slot.label} on ${cal.name}`.slice(0, 300),
+    };
+    return {
+      status: 'held',
+      content: {
+        status: 'ready',
+        visits: times,
+        first: slot.label,
+        note: `${heldNote(d)} If a later date doesn’t fit, it’s skipped and the team sees which, so don’t promise every date.`,
+      },
+      effect: { held },
+    };
+  },
+
+  async join_waitlist(d, _tx, args) {
+    if (!d.rc.customer) return refused({ error: NO_CUSTOMER });
+    const calendarId = String(args['calendarId']);
+    const cal = d.rc.calendars.find((c) => c.id === calendarId);
+    if (!cal) return refused({ error: 'That isn’t one of your calendars.' });
+    if (cal.deposit) return refused({ error: depositInstead(cal) });
+    if (!cal.waitlist) return refused({ error: `${cal.name} doesn’t keep a waitlist.` });
+    if (d.state.held.length >= HELD_MAX)
+      return refused({ error: 'That’s as many changes as one reply can make.' });
+    const tz = cal.timeZone;
+    const appointmentId = str(args['appointmentId']);
+    let wantedFrom: string | null = null;
+    let wantedTo: string | null = null;
+    let when = '';
+    if (!appointmentId) {
+      const from = String(args['from']);
+      const to = str(args['to']);
+      const fromMs = isLocalDate(from) ? startOfLocalDay(from, tz) : Date.parse(from);
+      const toMs = to
+        ? isLocalDate(to)
+          ? startOfLocalDay(addDays(to, 1), tz)
+          : Date.parse(to)
+        : startOfLocalDay(addDays(localDateOf(fromMs, tz), 1), tz);
+      if (!(toMs > Math.max(fromMs, Date.now())))
+        return refused({ error: 'Those times are past. Ask what later times suit them.' });
+      wantedFrom = new Date(Math.max(fromMs, Date.now())).toISOString();
+      wantedTo = new Date(toMs).toISOString();
+      when = ` for ${atLabel(Date.parse(wantedFrom), tz)} to ${atLabel(toMs, tz)}`;
+    }
+    const held: DraftAction = {
+      kind: 'waitlist',
+      calendarId,
+      appointmentId,
+      wantedFrom,
+      wantedTo,
+      summary: `Add them to the ${cal.name} waitlist${when}`.slice(0, 300),
+    };
+    return {
+      status: 'held',
+      content: {
+        status: 'ready',
+        note: `${heldNote(d).replace('it’s done', 'they’re on the waitlist')} They hear from us when a spot opens; never promise one.`,
+      },
       effect: { held },
     };
   },
@@ -855,6 +1208,81 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { status: 'done', command: 'lead.move_stage', content: { moved: true } };
   },
 
+  async open_deal(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.rc.lead || d.state.openedLeadId)
+      return refused({ error: 'They already have an open lead. Use that one.' });
+    const r = await executeCommandIn(
+      tx,
+      leadCreate,
+      {
+        workspaceId: d.scope.workspaceId,
+        title: String(args['title']),
+        personId: d.rc.customer.id,
+        source: AI_TEAMMATE_SOURCE,
+      },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'lead.create',
+      content: { opened: true },
+      effect: { openedLeadId: r.output.leadId },
+    };
+  },
+
+  async set_deal_value(d, tx, args) {
+    const leadId = d.rc.lead?.id ?? d.state.openedLeadId;
+    if (!leadId) return refused({ error: NO_LEAD });
+    const valueCents = Math.round(Number(args['dollars']) * 100);
+    await executeCommandIn(
+      tx,
+      leadUpdate,
+      { workspaceId: d.scope.workspaceId, leadId, valueCents },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'lead.update',
+      content: { value: money(valueCents) },
+    };
+  },
+
+  /** Won or lost goes to the pipeline's first stage of that kind, as a person marking it would. */
+  async close_deal(d, tx, args) {
+    const leadId = d.rc.lead?.id ?? d.state.openedLeadId;
+    if (!leadId) return refused({ error: NO_LEAD });
+    const outcome = args['outcome'] === 'lost' ? 'lost' : 'won';
+    const reason = str(args['reason']);
+    if (outcome === 'lost' && !reason)
+      return refused({ error: 'Say why it was lost, in their words.' });
+    const [stage] = await rows<{ id: string; name: string }>(
+      tx,
+      sql`select s.id, s.name from app.pipeline_stages s join app.leads l on l.pipeline_id = s.pipeline_id
+          where l.id = ${leadId} and s.kind = ${outcome} order by s.position limit 1`,
+    );
+    if (!stage) return refused({ error: `Its pipeline has no ${outcome} stage.` });
+    await executeCommandIn(
+      tx,
+      leadMoveStage,
+      {
+        workspaceId: d.scope.workspaceId,
+        leadId,
+        stageId: stage.id,
+        ...(reason ? { lostReason: reason } : {}),
+      },
+      d.ai,
+      d.meta,
+    );
+    return {
+      status: 'done',
+      command: 'lead.move_stage',
+      content: { status: outcome, stage: quoteData(stage.name) },
+    };
+  },
+
   async update_customer(d, tx, args) {
     if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: CHAT_REFUSAL });
     const r = await executeCommandIn(
@@ -916,6 +1344,270 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { status: 'done', command: 'task.create', content: { created: true } };
   },
 
+  // ---- A website chat visitor proving who they are (M18) ----
+
+  async send_verification_code(d, tx) {
+    if (!d.rc.unverifiedChat || !d.rc.customer)
+      return refused({ error: 'There’s nobody on file for this chat to send a code to.' });
+    const canText = await d.chatCodes.canText(tx, d.scope.workspaceId);
+    const r = await executeCommandIn(
+      tx,
+      chatSendCodeForCustomer,
+      { workspaceId: d.scope.workspaceId, canText },
+      d.ai,
+      d.meta,
+    );
+    const { channel, to, code, sentTo } = r.output;
+    await d.chatCodes.send(tx, d.scope.workspaceId, {
+      channel,
+      to,
+      code,
+      business: d.rc.workspace.name,
+    });
+    // Never the code itself: it goes to the customer's phone or email, not into the conversation.
+    return {
+      status: 'done',
+      command: 'chat.send_code_for_customer',
+      content: {
+        sent: true,
+        by: channel === 'sms' ? 'text' : 'email',
+        to: sentTo,
+        note: 'Ask them to type the six-digit code here. It lasts 10 minutes.',
+      },
+    };
+  },
+
+  async check_verification_code(d, tx, args) {
+    if (!d.rc.unverifiedChat || !d.rc.customer)
+      return refused({ error: 'There’s nobody on file for this chat to check a code for.' });
+    const r = await executeCommandIn(
+      tx,
+      chatCheckCodeForCustomer,
+      { workspaceId: d.scope.workspaceId, code: String(args['code']) },
+      d.ai,
+      d.meta,
+    );
+    if (!r.output.verified)
+      return refused({
+        error:
+          r.output.triesLeft > 0
+            ? `That isn’t the code. ${r.output.triesLeft} tries left: ask them to check it.`
+            : 'That isn’t the code, and it’s used up. Send a new one if they want.',
+      });
+    // Stops the loop: the run starts over with their bookings, bills and quotes open to you.
+    return {
+      status: 'done',
+      command: 'chat.check_code_for_customer',
+      content: { verified: true },
+      effect: { verified: true },
+      stop: true,
+    };
+  },
+
+  // ---- Money (M18): the look-ups run at once; anything asking for money becomes an owner's approval draft ----
+
+  async my_bills(d, tx) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const list = await rows<{
+      id: string;
+      number: string | null;
+      title: string | null;
+      status: string;
+      total_cents: string;
+      balance_cents: string;
+      due_on: string | null;
+      paying: string | null;
+    }>(
+      tx,
+      sql`select i.id, i.number, i.title, i.status::text as status, i.total_cents::text as total_cents,
+            i.balance_cents::text as balance_cents, i.due_on::text as due_on,
+            (select p.status::text from app.payments p where p.invoice_id = i.id
+              order by p.created_at desc limit 1) as paying
+          from app.invoices i
+          where i.workspace_id = ${d.scope.workspaceId} and i.person_id = ${d.rc.customer.id}
+            and i.status not in ('draft', 'void')
+          order by i.created_at desc limit ${MONEY_LIST_MAX}`,
+    );
+    return {
+      status: 'done',
+      content: {
+        bills: list.map((b) => ({
+          invoiceId: b.id,
+          what: quoteData(b.title ?? b.number ?? 'Bill'),
+          number: b.number,
+          total: money(Number(b.total_cents)),
+          owed: money(Number(b.balance_cents)),
+          status: b.paying === 'processing' ? 'payment on its way' : b.status.replace('_', ' '),
+          ...(b.due_on ? { due: b.due_on } : {}),
+          ...(b.paying === 'failed' ? { lastPayment: 'didn’t go through' } : {}),
+        })),
+        ...(list.length ? {} : { note: 'No bills on file for them.' }),
+      },
+    };
+  },
+
+  async send_payment_link(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.state.moneyAsk) return refused({ error: 'One request for money per reply.' });
+    const [bill] = await rows<{ number: string | null; status: string; balance_cents: string }>(
+      tx,
+      sql`select number, status::text as status, balance_cents::text as balance_cents from app.invoices
+          where id = ${String(args['invoiceId'])} and workspace_id = ${d.scope.workspaceId}
+            and person_id = ${d.rc.customer.id}`,
+    );
+    if (!bill)
+      return refused({ error: 'That isn’t one of their bills. Use an invoiceId from my_bills.' });
+    if (
+      !['sent', 'partly_paid', 'overdue'].includes(bill.status) ||
+      Number(bill.balance_cents) <= 0
+    )
+      return refused({ error: 'Nothing is owed on that bill.' });
+    const url = await invoiceUrlFor(tx, d.moneyLinks, String(args['invoiceId']));
+    if (!url) return refused({ error: 'That bill has no link to pay on.' });
+    const what = `${bill.number ?? 'their bill'} (${money(Number(bill.balance_cents))} owed)`;
+    const summary = `Send the link to pay ${what}`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [
+        { kind: 'share_link', document: 'invoice', documentId: String(args['invoiceId']), summary },
+      ],
+      message: `${String(args['message']).trim()} ${url}`,
+      summary,
+    });
+  },
+
+  async propose_bill(d, _tx, args) {
+    const built = fromCatalogue(d, args);
+    if ('error' in built) return refused(built);
+    const title = str(args['title']);
+    const summary = `Bill them ${money(built.totalCents)} for ${built.words}`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [{ kind: 'create_invoice', title, lines: built.lines, summary }],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
+  async my_quotes(d, tx) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const list = await rows<{
+      id: string;
+      number: string | null;
+      title: string | null;
+      status: string;
+      total_cents: string;
+      expires_on: string | null;
+    }>(
+      tx,
+      sql`select id, number, title, status::text as status, total_cents::text as total_cents,
+            expires_on::text as expires_on
+          from app.estimates
+          where workspace_id = ${d.scope.workspaceId} and person_id = ${d.rc.customer.id}
+            and status not in ('draft', 'void')
+          order by created_at desc limit ${MONEY_LIST_MAX}`,
+    );
+    return {
+      status: 'done',
+      content: {
+        quotes: list.map((q) => ({
+          estimateId: q.id,
+          what: quoteData(q.title ?? q.number ?? 'Quote'),
+          number: q.number,
+          total: money(Number(q.total_cents)),
+          status: q.status === 'sent' ? 'waiting on their answer' : q.status,
+          ...(q.expires_on && q.status === 'sent' ? { goodUntil: q.expires_on } : {}),
+        })),
+        ...(list.length ? {} : { note: 'No quotes on file for them.' }),
+      },
+    };
+  },
+
+  async send_quote(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.state.moneyAsk) return refused({ error: 'One request for money per reply.' });
+    const estimateId = String(args['estimateId']);
+    const quote = await theirQuote(d, tx, estimateId);
+    if (!quote)
+      return refused({
+        error: 'That isn’t one of their quotes. Use an estimateId from my_quotes.',
+      });
+    if (quote.status !== 'sent')
+      return refused({
+        error: `That quote is ${quote.status}, so there’s nothing to answer on it.`,
+      });
+    const url = await estimateUrlFor(tx, d.moneyLinks, estimateId);
+    if (!url) return refused({ error: 'That quote has no link.' });
+    const summary =
+      `Send the link to ${quote.number ?? 'their quote'} (${money(Number(quote.total_cents))})`.slice(
+        0,
+        300,
+      );
+    return askForMoney(d, {
+      actions: [{ kind: 'share_link', document: 'estimate', documentId: estimateId, summary }],
+      message: `${String(args['message']).trim()} ${url}`,
+      summary,
+    });
+  },
+
+  async propose_quote(d, _tx, args) {
+    const built = fromCatalogue(d, args);
+    if ('error' in built) return refused(built);
+    const summary = `Quote them ${money(built.totalCents)} for ${built.words}`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [
+        { kind: 'create_estimate', title: str(args['title']), lines: built.lines, summary },
+      ],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
+  async record_quote_answer(d, tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    if (d.state.moneyAsk) return refused({ error: 'One request for money per reply.' });
+    const estimateId = String(args['estimateId']);
+    const quote = await theirQuote(d, tx, estimateId);
+    if (!quote)
+      return refused({
+        error: 'That isn’t one of their quotes. Use an estimateId from my_quotes.',
+      });
+    if (quote.status !== 'sent')
+      return refused({ error: `That quote is already ${quote.status}.` });
+    const accepted = args['accepted'] === true;
+    const reason = str(args['reason']);
+    const summary =
+      `Record that they ${accepted ? 'said yes to' : 'turned down'} ${quote.number ?? 'their quote'} (${money(Number(quote.total_cents))})${!accepted && reason ? `: ${reason}` : ''}`.slice(
+        0,
+        300,
+      );
+    return askForMoney(d, {
+      actions: [
+        {
+          kind: 'estimate_answer',
+          estimateId,
+          accepted,
+          name: String(args['name']),
+          reason,
+          summary,
+        },
+      ],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
+  async offer_plan(d, _tx, args) {
+    if (!d.rc.customer || d.rc.unverifiedChat) return refused({ error: NO_CUSTOMER });
+    const plan = d.rc.plans.find((p) => p.id === String(args['planId']));
+    if (!plan) return refused({ error: 'That isn’t one of the plans in your context.' });
+    const summary =
+      `Sign them up for ${plan.name} (${money(plan.priceCents)} ${planEvery(plan)})`.slice(0, 300);
+    return askForMoney(d, {
+      actions: [{ kind: 'start_plan', planId: plan.id, summary }],
+      message: String(args['message']).trim(),
+      summary,
+    });
+  },
+
   async offer_discount(d, _tx, args) {
     const money = d.rc.config.money;
     const percent = Number(args['percent']);
@@ -941,10 +1633,12 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async hand_off(d, tx, args) {
     const reason = conversationHandoffReasonOf(args['reason'] as HandOffReason);
     const note = String(args['note']).slice(0, 500);
+    await rememberLanguage(tx, d.scope, d.rc.conversation.id, str(args['language']));
     // The customer hears the hand-off line first (the safety text, for an emergency they described).
     const emergency = reason === 'emergency' ? emergencyIn(d.rc.batch.map((b) => b.text)) : null;
     await handOffInConversation(tx, d.ai, d.meta, reason, note, {
       line: emergency ? { emergency } : 'usual',
+      translated: str(args['translatedLine']),
     });
     return {
       status: 'done',
@@ -955,7 +1649,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     };
   },
 
-  async reply(_d, _tx, args) {
+  async reply(d, tx, args) {
+    await rememberLanguage(tx, d.scope, d.rc.conversation.id, str(args['language']));
     return {
       status: 'done',
       content: { status: 'received' },

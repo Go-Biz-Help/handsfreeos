@@ -66,11 +66,7 @@ import {
   TeammateDraftEdits,
   TeammateDraftPreview,
 } from '../schemas/ai-team';
-import {
-  appointmentBookForCustomer,
-  attendeeCancelForCustomer,
-  attendeeRescheduleForCustomer,
-} from './appointment-ai';
+import { runHeldAction, type HeldActionKind } from './appointment-ai';
 import { messageSend } from './message';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -645,52 +641,10 @@ export const aiTeammateSendDraft = defineCommand({
       test: false,
     };
     const meta = { ...ctx.meta, channel: 'ai_employee' as const };
-    const actions: { kind: 'book' | 'reschedule' | 'cancel'; appointmentId: string }[] = [];
-    for (const [i, a] of preview.actions.entries()) {
-      if (a.kind === 'book') {
-        const r = await executeCommandIn(
-          ctx.tx,
-          appointmentBookForCustomer,
-          {
-            workspaceId: ws,
-            calendarId: a.calendarId,
-            startsAt: a.startsAt,
-            serviceId: a.serviceId,
-            ...(a.durationMinutes ? { durationMinutes: a.durationMinutes } : {}),
-            sessionId: a.sessionId,
-            notes: a.notes,
-            // Fixed per draft and action, so a retry books once.
-            clientId: `${d.id}:${i}`,
-          },
-          ai,
-          meta,
-        );
-        actions.push({ kind: 'book', appointmentId: r.output.appointmentId });
-      } else if (a.kind === 'reschedule') {
-        const r = await executeCommandIn(
-          ctx.tx,
-          attendeeRescheduleForCustomer,
-          {
-            workspaceId: ws,
-            appointmentId: a.appointmentId,
-            startsAt: a.startsAt,
-            sessionId: a.sessionId,
-          },
-          ai,
-          meta,
-        );
-        actions.push({ kind: 'reschedule', appointmentId: r.output.appointmentId });
-      } else {
-        const r = await executeCommandIn(
-          ctx.tx,
-          attendeeCancelForCustomer,
-          { workspaceId: ws, appointmentId: a.appointmentId, reason: a.reason },
-          ai,
-          meta,
-        );
-        actions.push({ kind: 'cancel', appointmentId: r.output.appointmentId });
-      }
-    }
+    const actions: { kind: HeldActionKind; appointmentId: string | null }[] = [];
+    // Fixed per draft and action, so a retry does each once.
+    for (const [i, a] of preview.actions.entries())
+      actions.push(await runHeldAction(ctx.tx, ai, meta, a, `${d.id}:${i}`));
     let messageId: string | null = null;
     let conversationId = d.conversationId;
     if (preview.message) {

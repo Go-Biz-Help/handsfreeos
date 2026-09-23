@@ -7269,6 +7269,16 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
 - **The test console** in the rail tries the settings on screen, saved or not. Its look-ups are real, but it changes nothing and sends nothing.
 
+### What else it can do for a customer (M18)
+
+Each of these has its own switch, and all start off unless the list says otherwise. None of them works for a website chat visitor, who hasn't proved who they are, except the service area, the waitlist and repeat visits.
+
+- **Service area** (**Book**, on). It asks for the customer's ZIP code and checks it against the ZIP codes of the business's territories before offering times for a visit at their place. A calendar that goes by ZIP code needs one before it shows times. With no territories set up, it goes by the service area written in the business profile.
+- **Waitlist** (**Book**, on). When nothing open suits them, it puts the customer on the waitlist of a calendar that keeps one, for the times they want or a full session. They hear when a spot opens, the way anyone on the waitlist does.
+- **Repeat visits** (**Book**). Weekly, or monthly on the same weekday, on a calendar that lets customers repeat (**Repeats** → **Customers can repeat**), up to that calendar's limit. The first visit is one it offered; later dates that don't fit are skipped and listed on the series.
+- **Deals** (**Qualify** → **Opens and closes deals**). It opens a lead for a customer who has none, sets what it's worth from a price they agreed to, and marks it won when they commit or lost when they clearly say no, with their reason. Reopening one is always a person's call.
+- **Money** (**Limits** → **Bills, quotes and plans**). **Bills and payments** tells a customer what they owe and what they paid and can resend a bill's pay link; **New bills** puts one together from the price list; **Quotes** is off, sends the team's quotes and records the customer's yes or no, or also builds quotes from the price list; **Maintenance plans** signs a customer up, after which they get the link to add a card. **Every one of these waits for an owner's or admin's OK, even after training wheels**: it's an approval draft on **Approvals**, like a discount. Prices always come from the price list, and a yes to a quote is recorded as staff in the approver's name. Documents it makes say where they came from (`origin` `ai_teammate`).
+
 ### Hand-offs, and the emails they send
 
 The teammate hands a conversation to a person when:
@@ -7278,6 +7288,8 @@ The teammate hands a conversation to a person when:
 - it can't answer from the knowledge base, and **Answer** says to hand those over;
 - a limit is reached, its share of the AI limit is used up, a draft expires, or something goes wrong;
 - someone describes an emergency: a gas smell, a carbon monoxide alarm, fire or smoke, flooding, or someone hurt. The customer gets fixed safety steps at once, never an AI reply.
+
+How the team hears is set in **Hand-off** → **How they hear**: a **phone app alert**, a **text to their cell** (from the business number, to the cell each person confirmed in **Settings** → **Account** → **My cell phone**, counted against the usage balance like any text) and **email**. A new teammate starts with the first two on and email off; one saved before M18 keeps email on. An emergency always goes every way.
 
 The conversation then goes to the inbox's **Needs a person** box with the teammate's note. It's assigned to the conversation's assignee, or else the open lead's assignee, or else the customer's owner, or else nobody. The customer gets the business's hand-off message from **Hand-off** once, with `{expectation}` filled in from the business's open hours (for example "someone from our team will reply shortly"). An emergency gets the safety steps instead. A reply, or **Take over**, clears it.
 
