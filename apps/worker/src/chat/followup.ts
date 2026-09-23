@@ -128,18 +128,23 @@ function unseenReplies(tx: Tx, workspaceId: string, conversationId: string): Pro
   );
 }
 
-/** The customer the chat is linked to agreed to texts at the number the visitor typed, and never said STOP. */
+/**
+ * The customer the chat is linked to agreed to texts, the number the visitor typed is one of theirs (the main one or
+ * another on file), and it never said STOP.
+ */
 async function mayText(tx: Tx, workspaceId: string, v: Visitor): Promise<boolean> {
   if (!v.person_id || !v.phone_e164) return false;
-  const [p] = await rows<{ consent: string; phone: string | null; stopped: boolean }>(
+  const [p] = await rows<{ consent: string; theirs: boolean; stopped: boolean }>(
     tx,
-    sql`select p.sms_consent::text as consent, p.phone_e164 as phone,
+    sql`select p.sms_consent::text as consent,
+          (p.phone_e164 = ${v.phone_e164}
+            or p.other_phones @> ${JSON.stringify([{ phone: v.phone_e164 }])}::jsonb) as theirs,
           exists (select 1 from app.opt_outs o
                   where o.workspace_id = ${workspaceId} and o.counterpart_e164 = ${v.phone_e164}
                     and o.opted_out) as stopped
         from app.people p where p.id = ${v.person_id}`,
   );
-  return !!p && p.consent === 'opted_in' && p.phone === v.phone_e164 && !p.stopped;
+  return !!p && p.consent === 'opted_in' && p.theirs && !p.stopped;
 }
 
 /** Back to the chat: the page they were on, on the widget's site, which opens the chat window (#hfos-chat). */

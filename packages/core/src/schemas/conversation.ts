@@ -208,6 +208,11 @@ export const ConversationOpenInput = z.object({
   workspaceId: uuid,
   personId: uuid,
   channel: messageChannel.default('sms'),
+  /**
+   * Another of the customer's numbers (for a text) or emails (for an email) to use instead of the main one (0100).
+   * It has to be one they have on file.
+   */
+  to: z.string().trim().min(1).max(254).optional(),
 });
 export const ConversationOpenOutput = z.object({ conversationId: uuid, created: z.boolean() });
 export const ConversationRefInput = z.object(conversationRef);

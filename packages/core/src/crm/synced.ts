@@ -13,6 +13,8 @@ import type { FileOut } from '../schemas/file';
 import type { LeadCard } from '../schemas/lead';
 import type { PersonSummary } from '../schemas/person';
 import type { TaskOut } from '../schemas/task';
+import type { OtherAddressOut, OtherEmailOut, OtherPhoneOut } from '../schemas/crm';
+import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from './contact-points';
 import { formatPhone } from './phone';
 import { isImageFile } from './file-words';
 import { taskDueBucket } from './task-words';
@@ -102,6 +104,10 @@ export interface SyncedPersonRow {
   readonly state: Cell;
   readonly postal_code: Cell;
   readonly country: Cell;
+  /** JSON text (0100); a phone that hasn't caught up has none. */
+  readonly other_emails?: Cell;
+  readonly other_phones?: Cell;
+  readonly other_addresses?: Cell;
   readonly notes: Cell;
   readonly source: Cell;
   readonly company_id: Cell;
@@ -127,6 +133,7 @@ export function personOfSynced(
 } {
   const first = words(row.first_name);
   const last = words(row.last_name);
+  const otherPhones = otherPhonesOut(row.other_phones ?? null);
   return {
     id: row.id,
     firstName: first,
@@ -135,7 +142,7 @@ export function personOfSynced(
     email: text(row.email),
     phone: text(row.phone) ?? (text(row.phone_e164) ? formatPhone(words(row.phone_e164)) : null),
     phoneE164: text(row.phone_e164),
-    phoneAlt: text(row.phone_alt),
+    phoneAlt: otherPhones[0]?.phone ?? text(row.phone_alt),
     address: {
       line1: text(row.address_line1),
       line2: text(row.address_line2),
@@ -145,6 +152,9 @@ export function personOfSynced(
       // The column is never empty on a saved record; a phone that hasn't caught up reads it as US, as the table does.
       country: text(row.country) ?? 'US',
     },
+    otherEmails: otherEmailsOut(row.other_emails ?? null),
+    otherPhones,
+    otherAddresses: otherAddressesOut(row.other_addresses ?? null),
     source: text(row.source),
     company: companyRef(row.company_id, names),
     owner: userRef(row.owner_user_id, names),
@@ -172,6 +182,10 @@ export interface SyncedCompanyRow {
   readonly state: Cell;
   readonly postal_code: Cell;
   readonly country: Cell;
+  /** JSON text (0100); a phone that hasn't caught up has none. */
+  readonly other_emails?: Cell;
+  readonly other_phones?: Cell;
+  readonly other_addresses?: Cell;
   readonly notes: Cell;
   readonly source: Cell;
   readonly owner_user_id: Cell;
@@ -195,6 +209,9 @@ export interface SyncedCompany {
     readonly postalCode: string | null;
     readonly country: string | null;
   };
+  readonly otherEmails: readonly OtherEmailOut[];
+  readonly otherPhones: readonly OtherPhoneOut[];
+  readonly otherAddresses: readonly OtherAddressOut[];
   readonly notes: string | null;
   readonly source: string | null;
   readonly owner: { readonly id: string; readonly fullName: string } | null;
@@ -220,6 +237,9 @@ export function companyOfSynced(row: SyncedCompanyRow, names: SyncedNames): Sync
       postalCode: text(row.postal_code),
       country: text(row.country),
     },
+    otherEmails: otherEmailsOut(row.other_emails ?? null),
+    otherPhones: otherPhonesOut(row.other_phones ?? null),
+    otherAddresses: otherAddressesOut(row.other_addresses ?? null),
     notes: text(row.notes),
     source: text(row.source),
     owner: userRef(row.owner_user_id, names),

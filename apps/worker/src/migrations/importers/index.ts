@@ -24,8 +24,11 @@ import {
   isUniqueViolation,
   mergeScalarFields,
   normalizePhone,
+  otherEmailsOf,
+  otherPhonesOf,
   stricterConsent,
-  unionValues,
+  tidyOtherEmails,
+  tidyOtherPhones,
   slugify,
   type CanonicalEnvelope,
   type ExistingContact,
@@ -639,23 +642,34 @@ async function candidatesFor(
     email: string | null;
     phone_e164: string | null;
     phone_alt: string | null;
+    other_emails: unknown;
+    other_phones: unknown;
     postal_code: string | null;
   }>(
     tx,
-    sql`select id::text as id, first_name, last_name, email::text as email, phone_e164, phone_alt, postal_code
+    sql`select id::text as id, first_name, last_name, email::text as email, phone_e164, phone_alt,
+          other_emails, other_phones, postal_code
         from app.people
         where workspace_id = ${scope.workspaceId} and archived_at is null
-          and ((${email}::text is not null and email = ${email}::extensions.citext)
-            or (${phoneE164}::text is not null and (phone_e164 = ${phoneE164} or phone_alt = ${phoneE164})))
+          and ((${email}::text is not null and (email = ${email}::extensions.citext
+                 or other_emails @> ${JSON.stringify([{ email: email ?? '' }])}::jsonb))
+            or (${phoneE164}::text is not null and (phone_e164 = ${phoneE164} or phone_alt = ${phoneE164}
+                 or other_phones @> ${JSON.stringify([{ phone: phoneE164 ?? '' }])}::jsonb)))
         limit 20`,
   );
+  // A customer's other numbers and emails (0100) are theirs as much as the main ones; phone_alt is the column
+  // imports wrote before those lists existed.
   return list.map((p) => ({
     id: p.id,
     firstName: p.first_name,
     lastName: p.last_name,
     email: p.email,
     phoneE164: p.phone_e164,
-    extraPhones: p.phone_alt ? [p.phone_alt] : [],
+    extraEmails: otherEmailsOf(p.other_emails).map((e) => e.email),
+    extraPhones: [
+      ...otherPhonesOf(p.other_phones).map((o) => o.phone),
+      ...(p.phone_alt ? [p.phone_alt] : []),
+    ],
     postalCode: p.postal_code,
   }));
 }
@@ -775,18 +789,32 @@ export const importContact: Importer = async (tx, scope, envelope) => {
     if (held === undefined) homeless.push([key, value]);
     else custom[field.id] = held;
   }
-  // Every address they had over there. One is the email here; the others are kept where a person sees them.
+  // Every address and number they had over there. One of each is the main one here; the others go in their
+  // other emails and numbers (0100), where a person sees them and the next text or email from one finds them. A
+  // number that doesn't read as one is kept in the notes rather than dropped.
   const otherEmails = [
     ...new Set(
       (d.endpoints ?? [])
         .filter((e) => e.kind === 'email' && !e.primary)
         .map((e) => e.value.trim().toLowerCase())
-        .filter((v) => v && v !== email),
+        .filter((v) => v && v !== email && /^[^@\s]+@[^@\s]+$/.test(v)),
     ),
   ];
+  const extraNumbers = (d.endpoints ?? []).filter((e) => e.kind === 'phone' && !e.primary);
+  const otherPhones = [
+    ...new Set(
+      extraNumbers
+        .map((e) => normalizePhone(e.value, scope.defaultCountry as never))
+        .filter((v): v is string => !!v && v !== phoneE164),
+    ),
+  ];
+  const unreadable = extraNumbers
+    .filter((e) => !normalizePhone(e.value, scope.defaultCountry as never))
+    .map((e) => e.value.trim())
+    .filter(Boolean);
   const noteLines = [
     ...homeless.map(([k, v]) => `• ${k}: ${String(v)}`),
-    ...otherEmails.map((v) => `• Another email address: ${v}`),
+    ...unreadable.map((v) => `• Another number: ${v}`),
   ];
   const notes = noteLines.length ? `From the old system:\n${noteLines.join('\n')}` : null;
 
@@ -851,7 +879,6 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       email: string | null;
       phone: string | null;
       phone_e164: string | null;
-      phone_alt: string | null;
       source: string | null;
       notes: string | null;
       address_line1: string | null;
@@ -860,11 +887,13 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       postal_code: string | null;
       sms_consent: SmsConsent;
       custom: Record<string, unknown>;
+      other_emails: object[];
+      other_phones: object[];
     }>(
       tx,
-      sql`select id::text as id, first_name, last_name, email::text as email, phone, phone_e164, phone_alt,
+      sql`select id::text as id, first_name, last_name, email::text as email, phone, phone_e164,
             source, notes, address_line1, city, state, postal_code, sms_consent::text as sms_consent,
-            custom
+            custom, other_emails, other_phones
           from app.people where id = ${decision.targetId}::uuid`,
     );
     if (here) {
@@ -905,30 +934,35 @@ export const importContact: Importer = async (tx, scope, envelope) => {
       );
       // The stricter agreement wins, from either side. Somebody who told either system to stop has told us.
       const consent = stricterConsent(here.sms_consent, smsConsent);
-      // A second number is kept rather than replacing the first.
-      const altPhones = unionValues(
-        [here.phone_alt].filter(Boolean) as string[],
-        phoneE164 && phoneE164 !== here.phone_e164 ? [phoneE164] : [],
-      );
       const changed: Record<string, { before: unknown; after: unknown }> = {};
       for (const [k, v] of Object.entries(merged.updates)) changed[k] = { before: null, after: v };
       if (consent !== here.sms_consent)
         changed['sms_consent'] = { before: here.sms_consent, after: consent };
-      const alt = altPhones[0] ?? here.phone_alt;
-      if (alt !== here.phone_alt) changed['phone_alt'] = { before: here.phone_alt, after: alt };
-      // A third number has no column of its own, and it is still how this customer was reached: it goes in
-      // the notes rather than nowhere. Four old records sharing one email address, each with its own
-      // number, lost two of them before this.
-      const extraNumber =
-        phoneE164 &&
-        ![here.phone_e164, alt].includes(phoneE164) &&
-        !(here.notes ?? '').includes(phoneE164)
-          ? `Another number from the old system: ${phoneE164}`
-          : null;
-      const nextNotes =
-        notes || extraNumber
-          ? [here.notes, notes, extraNumber].filter(Boolean).join('\n\n')
-          : here.notes;
+      // A number or an email that isn't the one kept here is kept beside it rather than replacing it (0100):
+      // the old system's main one when this record already has a different one, and all of its others. Four old
+      // records sharing one email address, each with its own number, lost two of them before there was
+      // anywhere to put them.
+      const mainPhone = (merged.updates['phone'] ? phoneE164 : null) ?? here.phone_e164;
+      const mainEmail = (merged.updates['email'] as string | undefined) ?? here.email;
+      const nextPhones = tidyOtherPhones(
+        [
+          ...here.other_phones,
+          ...[phoneE164, ...otherPhones].filter(Boolean).map((phone) => ({ phone })),
+        ],
+        mainPhone,
+      );
+      const nextEmails = tidyOtherEmails(
+        [
+          ...here.other_emails,
+          ...[email, ...otherEmails].filter(Boolean).map((e) => ({ email: e })),
+        ],
+        mainEmail,
+      );
+      if (JSON.stringify(nextPhones) !== JSON.stringify(otherPhonesOf(here.other_phones)))
+        changed['other_phones'] = { before: here.other_phones, after: nextPhones };
+      if (JSON.stringify(nextEmails) !== JSON.stringify(otherEmailsOf(here.other_emails)))
+        changed['other_emails'] = { before: here.other_emails, after: nextEmails };
+      const nextNotes = notes ? [here.notes, notes].filter(Boolean).join('\n\n') : here.notes;
       if (nextNotes !== here.notes) changed['notes'] = { before: here.notes, after: nextNotes };
       // Custom values merge the way every other field does: what is empty here is filled, what somebody has
       // already answered here is left alone. Two sub-accounts holding the same customer must not fight over
@@ -950,7 +984,8 @@ export const importContact: Importer = async (tx, scope, envelope) => {
             email = coalesce(${(merged.updates['email'] as string) ?? null}::extensions.citext, email),
             phone = coalesce(${(merged.updates['phone'] as string) ?? null}, phone),
             phone_e164 = coalesce(${merged.updates['phone'] ? phoneE164 : null}, phone_e164),
-            phone_alt = ${alt},
+            other_phones = ${JSON.stringify(nextPhones)}::jsonb,
+            other_emails = ${JSON.stringify(nextEmails)}::jsonb,
             source = coalesce(${(merged.updates['source'] as string) ?? null}, source),
             address_line1 = coalesce(${(merged.updates['address_line1'] as string) ?? null}, address_line1),
             city = coalesce(${(merged.updates['city'] as string) ?? null}, city),
@@ -1004,12 +1039,24 @@ export const importContact: Importer = async (tx, scope, envelope) => {
   await tx.execute(sql`
     insert into app.people (id, workspace_id, first_name, last_name, email, phone, phone_e164,
       address_line1, city, state, postal_code, country, source, notes, custom, sms_consent,
-      created_at, updated_at)
+      other_emails, other_phones, created_at, updated_at)
     values (${id}::uuid, ${scope.workspaceId}, ${firstName}, ${lastName},
       ${email}::extensions.citext, ${str(d.phone)}, ${phoneE164},
       ${str(d.address?.line1)}, ${str(d.address?.city)}, ${str(d.address?.state)},
       ${str(d.address?.postalCode)}, coalesce(${str(d.address?.country)}, 'US'),
       ${str(d.source)}, ${notes}, ${JSON.stringify(custom)}::jsonb, ${smsConsent}::app.sms_consent,
+      ${JSON.stringify(
+        tidyOtherEmails(
+          otherEmails.map((e) => ({ email: e })),
+          email,
+        ),
+      )}::jsonb,
+      ${JSON.stringify(
+        tidyOtherPhones(
+          otherPhones.map((phone) => ({ phone })),
+          phoneE164,
+        ),
+      )}::jsonb,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
   await putMapping(tx, scope, {
@@ -2836,10 +2883,12 @@ async function moneyCustomer(
     email
       ? sql`select id::text as id from app.people
             where workspace_id = ${scope.workspaceId} and archived_at is null
-              and email = ${email}::extensions.citext limit 2`
+              and (email = ${email}::extensions.citext
+                or other_emails @> ${JSON.stringify([{ email }])}::jsonb) limit 2`
       : sql`select id::text as id from app.people
             where workspace_id = ${scope.workspaceId} and archived_at is null
-              and phone_e164 = ${phone} limit 2`,
+              and (phone_e164 = ${phone}
+                or other_phones @> ${JSON.stringify([{ phone }])}::jsonb) limit 2`,
   );
   return found.length === 1 ? { targetType: 'person', targetId: found[0]!.id } : null;
 }

@@ -1,6 +1,14 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { leads, people } from '@hfos/db/schema';
 import { assertAiReach, refuseInChat } from '../ai-team/reach';
+import {
+  otherAddressesOf,
+  otherEmailsOf,
+  otherPhonesOf,
+  tidyOtherAddresses,
+  tidyOtherEmails,
+  tidyOtherPhones,
+} from '../crm/contact-points';
 import { formatPhone } from '../crm/phone';
 import { fullName, requireCompany } from '../crm/records';
 import { HfosError } from '../errors';
@@ -38,9 +46,18 @@ export const personUpdate = defineCommand({
     // The AI teammate fills in its own customer's blank names and contact details; what's on file stays.
     const blankOnly = ctx.actor.type === 'ai_employee';
     if (blankOnly) {
-      const other = (['phoneAlt', 'companyId', 'notes', 'source', 'ownerUserId'] as const).filter(
-        (k) => input[k] !== undefined,
-      );
+      const other = (
+        [
+          'phoneAlt',
+          'otherEmails',
+          'otherPhones',
+          'otherAddresses',
+          'companyId',
+          'notes',
+          'source',
+          'ownerUserId',
+        ] as const
+      ).filter((k) => input[k] !== undefined);
       if (other.length)
         throw HfosError.validation(
           other.map((path) => ({
@@ -59,6 +76,25 @@ export const personUpdate = defineCommand({
     const seen: NonNullable<typeof input.base> = input.base ?? {};
     const address: NonNullable<typeof input.address> = input.address ?? {};
     const seenAddress: NonNullable<typeof seen.address> = seen.address ?? {};
+    // The main ones as they will stand, which the other lists never repeat.
+    const then = <T>(value: T | undefined, now: T): T => (value === undefined ? now : value);
+    const main = {
+      email: then(input.email, current.email),
+      phone: then(input.phone, current.phoneE164),
+      address: {
+        line1: then(address.line1, current.addressLine1),
+        line2: then(address.line2, current.addressLine2),
+        city: then(address.city, current.city),
+        state: then(address.state, current.state),
+        postalCode: then(address.postalCode, current.postalCode),
+      },
+    };
+    // An older phone's "other phone" joins the other numbers, first, unless the whole list came with it.
+    const wantedPhones =
+      input.otherPhones ??
+      (input.phoneAlt
+        ? [{ phone: input.phoneAlt, label: 'Other' }, ...otherPhonesOf(current.otherPhones)]
+        : undefined);
     const fields: MergeField[] = [
       {
         key: 'firstName',
@@ -93,17 +129,7 @@ export const personUpdate = defineCommand({
         label: 'phone number',
         also: { phone: input.phone ? formatPhone(input.phone) : null },
       },
-      {
-        key: 'phoneAlt',
-        column: 'phoneAlt',
-        value:
-          input.phoneAlt === undefined
-            ? undefined
-            : edit('phoneAlt', input.phoneAlt ? formatPhone(input.phoneAlt) : null),
-        base: seen.phoneAlt,
-        kind: 'phone',
-        label: 'other phone number',
-      },
+
       {
         key: 'companyId',
         column: 'companyId',
@@ -159,6 +185,33 @@ export const personUpdate = defineCommand({
         base: seenAddress.country,
         kind: 'text',
         label: 'country',
+      },
+      {
+        key: 'otherEmails',
+        column: 'otherEmails',
+        value: input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
+        base: seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+        kind: 'json',
+        label: 'other emails',
+      },
+      {
+        key: 'otherPhones',
+        column: 'otherPhones',
+        value: wantedPhones && tidyOtherPhones(wantedPhones, main.phone),
+        base: seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+        kind: 'json',
+        label: 'other numbers',
+      },
+      {
+        key: 'otherAddresses',
+        column: 'otherAddresses',
+        value: input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
+        base:
+          seen.otherAddresses === undefined
+            ? undefined
+            : otherAddressesOf(seen.otherAddresses ?? []),
+        kind: 'json',
+        label: 'other addresses',
       },
       {
         key: 'notes',

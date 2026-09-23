@@ -6,6 +6,7 @@ export const FIELD_LABELS: Record<string, string> = {
   full_name: 'Full name (split into first and last)',
   name: 'Company name',
   email: 'Email',
+  email_alt: 'Other email',
   phone: 'Phone',
   phone_alt: 'Other phone',
   company: 'Company',

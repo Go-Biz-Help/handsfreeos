@@ -391,7 +391,7 @@ export const companies = app.table('companies', {
   createdBy: userRef('created_by'),
   ...timestamps(),
   searchText: text('search_text').generatedAlwaysAs(
-    sql`lower(coalesce(name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, ''))`,
+    sql`lower(coalesce(name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, '') || ' ' || private.other_contacts_text(other_emails, other_phones, other_addresses))`,
   ),
   // Milestone 10
   fieldTimes: fieldTimes(),
@@ -401,6 +401,10 @@ export const companies = app.table('companies', {
   possibleDuplicateOf: uuid('possible_duplicate_of').references((): AnyPgColumn => companies.id, {
     onDelete: 'set null',
   }),
+  /** The emails, numbers and addresses besides the main ones (0100): see crm/contact-points. */
+  otherEmails: jsonb('other_emails').$type<object[]>().notNull().default([]),
+  otherPhones: jsonb('other_phones').$type<object[]>().notNull().default([]),
+  otherAddresses: jsonb('other_addresses').$type<object[]>().notNull().default([]),
 });
 
 /** Milestone 3: whether a person agreed to texts (declared here because `people` uses it). */
@@ -427,7 +431,7 @@ export const people = app.table('people', {
   createdBy: userRef('created_by'),
   ...timestamps(),
   searchText: text('search_text').generatedAlwaysAs(
-    sql`lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, ''))`,
+    sql`lower(coalesce(first_name, '') || ' ' || coalesce(last_name, '') || ' ' || coalesce(email::text, '') || ' ' || coalesce(phone_e164, '') || ' ' || coalesce(city, '') || ' ' || coalesce(address_line1, '') || ' ' || private.other_contacts_text(other_emails, other_phones, other_addresses))`,
   ),
   // Milestone 3
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
@@ -441,6 +445,10 @@ export const people = app.table('people', {
   }),
   // Milestone 15: the fields this business invented, keyed by custom_fields.id.
   custom: jsonb('custom').$type<Json>().notNull().default({}),
+  /** The emails, numbers and addresses besides the main ones (0100): see crm/contact-points. */
+  otherEmails: jsonb('other_emails').$type<object[]>().notNull().default([]),
+  otherPhones: jsonb('other_phones').$type<object[]>().notNull().default([]),
+  otherAddresses: jsonb('other_addresses').$type<object[]>().notNull().default([]),
 });
 
 export const tags = app.table('tags', {

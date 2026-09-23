@@ -1,5 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import { companies } from '@hfos/db/schema';
+import {
+  otherAddressesOf,
+  otherEmailsOf,
+  otherPhonesOf,
+  tidyOtherAddresses,
+  tidyOtherEmails,
+  tidyOtherPhones,
+} from '../crm/contact-points';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
@@ -44,6 +52,19 @@ export const companyUpdate = defineCommand({
       kind: MergeKind,
       label: string,
     ): MergeField => ({ key, column, value, base, kind, label });
+    // The main ones as they will stand, which the other lists never repeat.
+    const then = <T>(value: T | undefined, now: T): T => (value === undefined ? now : value);
+    const main = {
+      email: then(input.email, current.email),
+      phone: then(input.phone, current.phoneE164),
+      address: {
+        line1: then(address.line1, current.addressLine1),
+        line2: then(address.line2, current.addressLine2),
+        city: then(address.city, current.city),
+        state: then(address.state, current.state),
+        postalCode: then(address.postalCode, current.postalCode),
+      },
+    };
     const fields: MergeField[] = [
       field('name', 'name', input.name, seen.name, 'text', 'name'),
       field('email', 'email', input.email, seen.email, 'email', 'email'),
@@ -72,6 +93,30 @@ export const companyUpdate = defineCommand({
         'ZIP code',
       ),
       field('address.country', 'country', address.country, seenAddress.country, 'text', 'country'),
+      field(
+        'otherEmails',
+        'otherEmails',
+        input.otherEmails && tidyOtherEmails(input.otherEmails, main.email),
+        seen.otherEmails === undefined ? undefined : otherEmailsOf(seen.otherEmails ?? []),
+        'json',
+        'other emails',
+      ),
+      field(
+        'otherPhones',
+        'otherPhones',
+        input.otherPhones && tidyOtherPhones(input.otherPhones, main.phone),
+        seen.otherPhones === undefined ? undefined : otherPhonesOf(seen.otherPhones ?? []),
+        'json',
+        'other numbers',
+      ),
+      field(
+        'otherAddresses',
+        'otherAddresses',
+        input.otherAddresses && tidyOtherAddresses(input.otherAddresses, main.address),
+        seen.otherAddresses === undefined ? undefined : otherAddressesOf(seen.otherAddresses ?? []),
+        'json',
+        'other addresses',
+      ),
       field('notes', 'notes', input.notes, seen.notes, 'text', 'notes'),
       field('source', 'source', input.source, seen.source, 'text', 'source'),
       field('ownerUserId', 'ownerUserId', input.ownerUserId, seen.ownerUserId, 'id', 'owner'),

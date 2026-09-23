@@ -2,6 +2,7 @@ import { people } from '@hfos/db/schema';
 import { AI_TEAMMATE_SOURCE, outsideItsConversation } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { insertWithId, madeBefore } from '../crm/client-ids';
+import { tidyOtherAddresses, tidyOtherEmails, tidyOtherPhones } from '../crm/contact-points';
 import { findMatches } from '../crm/matching';
 import { formatPhone } from '../crm/phone';
 import { addressPatch, fullName, requireCompany, setRecordTags } from '../crm/records';
@@ -57,6 +58,14 @@ export const personCreate = defineCommand({
           'duplicate',
         );
     }
+    // An older phone's "other phone" joins the other numbers, first; the column itself is no longer written.
+    const otherPhones = tidyOtherPhones(
+      [
+        ...(input.phoneAlt ? [{ phone: input.phoneAlt, label: 'Other' }] : []),
+        ...(input.otherPhones ?? []),
+      ],
+      input.phone,
+    );
     const [row] = await insertWithId('people', input.id, () =>
       ctx.tx
         .insert(people)
@@ -71,8 +80,10 @@ export const personCreate = defineCommand({
           email: input.email ?? null,
           phone: input.phone ? formatPhone(input.phone) : null,
           phoneE164: input.phone ?? null,
-          phoneAlt: input.phoneAlt ? formatPhone(input.phoneAlt) : null,
           ...addressPatch(input.address),
+          otherEmails: tidyOtherEmails(input.otherEmails ?? [], input.email),
+          otherPhones,
+          otherAddresses: tidyOtherAddresses(input.otherAddresses ?? [], input.address),
           notes: input.notes ?? null,
           source: input.source ?? (ctx.actor.type === 'ai_employee' ? AI_TEAMMATE_SOURCE : null),
           ownerUserId: input.ownerUserId ?? null,

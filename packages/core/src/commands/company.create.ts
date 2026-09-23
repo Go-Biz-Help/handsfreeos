@@ -1,6 +1,7 @@
 import { companies } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { insertWithId, madeBefore } from '../crm/client-ids';
+import { tidyOtherAddresses, tidyOtherEmails, tidyOtherPhones } from '../crm/contact-points';
 import { findMatches } from '../crm/matching';
 import { formatPhone } from '../crm/phone';
 import { addressPatch, setRecordTags } from '../crm/records';
@@ -61,6 +62,9 @@ export const companyCreate = defineCommand({
           phoneE164: input.phone ?? null,
           website: input.website ?? null,
           ...addressPatch(input.address),
+          otherEmails: tidyOtherEmails(input.otherEmails ?? [], input.email),
+          otherPhones: tidyOtherPhones(input.otherPhones ?? [], input.phone),
+          otherAddresses: tidyOtherAddresses(input.otherAddresses ?? [], input.address),
           notes: input.notes ?? null,
           source: input.source ?? null,
           ownerUserId: input.ownerUserId ?? null,

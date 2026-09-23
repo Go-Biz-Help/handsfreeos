@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { companies, people } from '@hfos/db/schema';
+import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contact-points';
 import { addressOut, phoneOut, tagsByRecord, userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -27,6 +28,9 @@ type Row = {
   state: string | null;
   postal_code: string | null;
   country: string;
+  other_emails: unknown;
+  other_phones: unknown;
+  other_addresses: unknown;
   source: string | null;
   owner_user_id: string | null;
   archived_at: string | Date | null;
@@ -55,6 +59,9 @@ function summary(r: Row, tags: CompanySummary['tags']): CompanySummary {
       postalCode: r.postal_code,
       country: r.country,
     }),
+    otherEmails: otherEmailsOut(r.other_emails),
+    otherPhones: otherPhonesOut(r.other_phones),
+    otherAddresses: otherAddressesOut(r.other_addresses),
     source: r.source,
     owner: r.owner_user_id
       ? { id: r.owner_user_id, fullName: r.owner_name || r.owner_email || 'Former member' }
@@ -151,6 +158,9 @@ export const companyGet = defineQuery({
             state: c.state,
             postal_code: c.postalCode,
             country: c.country,
+            other_emails: c.otherEmails,
+            other_phones: c.otherPhones,
+            other_addresses: c.otherAddresses,
             source: c.source,
             owner_user_id: c.ownerUserId,
             archived_at: c.archivedAt,

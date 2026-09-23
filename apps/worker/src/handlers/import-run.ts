@@ -9,6 +9,8 @@ import {
   mapCompanyRow,
   mapPersonRow,
   normalizePhone,
+  otherEmailsOf,
+  otherPhonesOf,
   personCreate,
   personUpdate,
   companyUpdate,
@@ -149,6 +151,44 @@ export async function runImport(
       return id;
     };
 
+    /**
+     * A matched record's other emails and numbers with the file's added to them (0100): an import that updates a
+     * customer adds what it brings and never drops what the business had. Nothing when the file brings none.
+     */
+    const withOthers = async (
+      table: 'people' | 'companies',
+      id: string,
+      m: { otherEmails: string[]; otherPhones: string[] },
+    ) => {
+      if (!m.otherEmails.length && !m.otherPhones.length) return {};
+      const [had] = await transact((tx) =>
+        rows<{ other_emails: unknown; other_phones: unknown }>(
+          tx,
+          table === 'people'
+            ? sql`select other_emails, other_phones from app.people where id = ${id}`
+            : sql`select other_emails, other_phones from app.companies where id = ${id}`,
+        ),
+      );
+      return {
+        ...(m.otherEmails.length
+          ? {
+              otherEmails: [
+                ...otherEmailsOf(had?.other_emails),
+                ...m.otherEmails.map((email) => ({ email })),
+              ],
+            }
+          : {}),
+        ...(m.otherPhones.length
+          ? {
+              otherPhones: [
+                ...otherPhonesOf(had?.other_phones),
+                ...m.otherPhones.map((phone) => ({ phone })),
+              ],
+            }
+          : {}),
+      };
+    };
+
     const processRow = async (raw: Record<string, string>, importRow: number): Promise<Outcome> => {
       if (job.kind === 'people') {
         const m = mapPersonRow(raw, job.mapping);
@@ -169,7 +209,6 @@ export async function runImport(
           lastName: m.lastName,
           email: m.email,
           phone: m.phone,
-          phoneAlt: m.phoneAlt,
           address: m.address,
           notes: m.notes,
           source: m.source,
@@ -188,6 +227,7 @@ export async function runImport(
               personId: matches[0].id,
               ...patch,
               ...(Object.keys(address).length ? { address } : {}),
+              ...(await withOthers('people', matches[0].id, m)),
               ...(m.company ? { companyId: await resolveCompany(m.company) } : {}),
             },
             actor,
@@ -201,6 +241,8 @@ export async function runImport(
           {
             workspaceId,
             ...fields,
+            otherEmails: m.otherEmails.map((email) => ({ email })),
+            otherPhones: m.otherPhones.map((phone) => ({ phone })),
             companyId: m.company ? await resolveCompany(m.company) : null,
             tagIds: await resolveTags(m.tags),
             ignoreDuplicates: true,
@@ -248,6 +290,7 @@ export async function runImport(
             companyId: matches[0].id,
             ...patch,
             ...(Object.keys(address).length ? { address } : {}),
+            ...(await withOthers('companies', matches[0].id, m)),
           },
           actor,
           meta,
@@ -260,6 +303,8 @@ export async function runImport(
         {
           workspaceId,
           ...fields,
+          otherEmails: m.otherEmails.map((email) => ({ email })),
+          otherPhones: m.otherPhones.map((phone) => ({ phone })),
           tagIds: await resolveTags(m.tags),
           ignoreDuplicates: true,
           importId,

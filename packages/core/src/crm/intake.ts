@@ -10,13 +10,12 @@
  * touched one has no row and takes the defaults. The gates that keep a robocall out of the pipeline are
  * here too, next to the daily cap they belong with.
  */
-import { and, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
+import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { type Tx } from '@hfos/db/client';
 import {
   intakeSources,
   intakeSubmissions,
   leads,
-  people,
   phoneNumbers,
   pipelineStages,
   pipelines,
@@ -27,6 +26,7 @@ import { optOutPhrase } from '../ai-team/guardrails';
 import { localDayOf } from '../calendar/when';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
+import { matchPersonByEmail } from '../messaging/email';
 import { isOptedOut, matchPersonByPhone } from '../messaging/store';
 import { LeadCreateInput } from '../schemas/lead';
 import { PersonCreateInput } from '../schemas/person';
@@ -223,19 +223,8 @@ export async function findOrCreateCustomer(
     if (id) return { personId: id, created: false };
   }
   if (customer.email) {
-    const [p] = await ctx.tx
-      .select({ id: people.id })
-      .from(people)
-      .where(
-        and(
-          eq(people.workspaceId, ws),
-          eq(people.email, customer.email),
-          isNull(people.archivedAt),
-        ),
-      )
-      .orderBy(desc(people.updatedAt))
-      .limit(1);
-    if (p) return { personId: p.id, created: false };
+    const id = await matchPersonByEmail(ctx.tx, ws, customer.email);
+    if (id) return { personId: id, created: false };
   }
   const out = await personCreate.handler(
     ctx,

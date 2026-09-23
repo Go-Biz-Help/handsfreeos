@@ -88,7 +88,10 @@ const scopeOf = (r: Route): TenantScope => ({
   organizationId: r.organization_id,
 });
 
-/** Who is calling, for the ringing card and the forwarded-phone screen: the customer with this number and their open lead. */
+/**
+ * Who is calling, for the ringing card and the forwarded-phone screen: the customer with this number (their main
+ * one or another on file) and their open lead.
+ */
 async function callerCard(deps: HttpDeps, scope: TenantScope, phone: string) {
   const [row] = await asWorker(deps.httpDb, scope, (tx) =>
     rows<{ id: string; name: string; lead_title: string | null }>(
@@ -98,8 +101,9 @@ async function callerCard(deps: HttpDeps, scope: TenantScope, phone: string) {
               where l.person_id = p.id and l.status = 'open' and l.archived_at is null
               order by l.updated_at desc limit 1) as lead_title
           from app.people p
-          where p.workspace_id = ${scope.workspaceId} and p.phone_e164 = ${phone} and p.archived_at is null
-          order by p.updated_at desc limit 1`,
+          where p.workspace_id = ${scope.workspaceId} and p.archived_at is null
+            and (p.phone_e164 = ${phone} or p.other_phones @> ${JSON.stringify([{ phone }])}::jsonb)
+          order by (p.phone_e164 is not distinct from ${phone}) desc, p.updated_at desc limit 1`,
     ),
   );
   return row ? { personId: row.id, name: row.name || null, leadTitle: row.lead_title } : null;
