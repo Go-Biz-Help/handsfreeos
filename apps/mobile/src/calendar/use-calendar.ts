@@ -621,6 +621,9 @@ export function useCustomers(): readonly CustomerChoice[] {
       | 'address_line2'
       | 'state'
       | 'postal_code'
+      | 'other_emails'
+      | 'other_phones'
+      | 'other_addresses'
     >
   >(PEOPLE_SQL, [business.id]);
   return React.useMemo(

@@ -5,6 +5,7 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { saveCompany, type CompanyEdit } from '@/customers/actions';
+import { assignedWords, contactDetails, otherPhoneLines } from '@/customers/contact-lines';
 import { useRecord } from '@/customers/use-record';
 import {
   ACTION_ICONS,
@@ -72,9 +73,11 @@ export default function CompanyScreen() {
   ];
   const contact = [
     company.phone ? { key: 'phone', text: company.phone } : null,
+    // Its other numbers (0100), each a tap from a call.
+    ...otherPhoneLines(company),
     company.email ? { key: 'email-line', text: company.email } : null,
     data.address ? { key: 'address', text: data.address } : null,
-  ].filter((c): c is { key: string; text: string } => c !== null);
+  ].filter((c): c is { key: string; text: string; onPress?: () => void } => c !== null);
 
   const opened: CompanyEdit = {
     name: company.name,
@@ -135,11 +138,13 @@ export default function CompanyScreen() {
         tab={tab}
         onTab={setTab}
         details={[
-          { label: RECORD_WORDS.labels.phone, value: company.phone },
-          { label: RECORD_WORDS.labels.email, value: company.email },
+          ...contactDetails(company, {
+            phone: company.phone,
+            email: company.email,
+            address: data.address,
+          }),
           { label: RECORD_WORDS.labels.website, value: company.website },
-          { label: RECORD_WORDS.labels.address, value: data.address },
-          { label: RECORD_WORDS.labels.owner, value: company.owner?.fullName ?? null },
+          { label: RECORD_WORDS.labels.assignedTo, value: assignedWords(company) },
           { label: RECORD_WORDS.labels.source, value: company.source },
           { label: RECORD_WORDS.labels.created, value: formatDate(company.createdAt) },
           { label: RECORD_WORDS.labels.notes, value: company.notes },
