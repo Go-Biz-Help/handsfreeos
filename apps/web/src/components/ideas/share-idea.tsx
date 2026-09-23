@@ -1,5 +1,5 @@
 'use client';
-import { IDEA_STATUS_WORDS, OPEN_IDEA_STATUSES, type IdeaStatus } from '@hfos/core';
+import { IDEA_STATUS_WORDS, IDEAS_WORDS, OPEN_IDEA_STATUSES, type IdeaStatus } from '@hfos/core';
 import { Lightbulb } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -31,7 +31,7 @@ type Similar = {
 export function ShareIdea({
   workspaceId,
   areas,
-  label = 'Share an idea',
+  label = IDEAS_WORDS.share,
 }: {
   workspaceId: string;
   areas: readonly IdeaArea[];
@@ -71,8 +71,8 @@ export function ShareIdea({
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (title.trim().length < 3) return setError('Give it a title of a few words.');
-    if (!areaId) return setError('Pick what it is about.');
+    if (title.trim().length < 3) return setError(IDEAS_WORDS.needsTitle);
+    if (!areaId) return setError(IDEAS_WORDS.needsArea);
     setBusy(true);
     setError(null);
     try {
@@ -81,7 +81,7 @@ export function ShareIdea({
           body: { workspaceId, title: title.trim(), body: body.trim(), areaId },
         }),
       );
-      toast.success(`Thanks — that’s idea #${out.number}. You’ll hear when it moves.`);
+      toast.success(IDEAS_WORDS.shared(out.number));
       setOpen(false);
       setTitle('');
       setBody('');
@@ -101,17 +101,17 @@ export function ShareIdea({
         {label}
       </Button>
       <DialogContent
-        title="Share an idea"
-        description="What would make HandsFreeOS better for your business? Other businesses can vote for it, and the team reads every one."
+        title={IDEAS_WORDS.share}
+        description={IDEAS_WORDS.shareIntro}
         className="w-[min(560px,calc(100vw-32px))]"
       >
         <form onSubmit={submit} className="mt-4 flex flex-col gap-4">
-          <Field label="Your idea, in a few words" htmlFor="idea-title">
+          <Field label={IDEAS_WORDS.titleLabel} htmlFor="idea-title">
             <Input
               id="idea-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Send invoices by text with a pay link"
+              placeholder={IDEAS_WORDS.titlePlaceholder}
               maxLength={140}
               autoComplete="off"
               data-testid="idea-title"
@@ -122,7 +122,7 @@ export function ShareIdea({
               className="rounded-card border border-border bg-card-2 p-3"
               data-testid="idea-similar"
             >
-              <p className="text-[13px] font-medium">Is it one of these? A vote counts for more.</p>
+              <p className="text-[13px] font-medium">{IDEAS_WORDS.similar}</p>
               <ul className="mt-2 flex flex-col gap-2">
                 {similar.map((s) => (
                   <li key={s.id} className="flex items-center gap-3">
@@ -150,11 +150,7 @@ export function ShareIdea({
               </ul>
             </div>
           ) : null}
-          <Field
-            label="Tell us more"
-            htmlFor="idea-body"
-            hint="What you are trying to do, and what gets in the way today. Examples help."
-          >
+          <Field label={IDEAS_WORDS.bodyLabel} htmlFor="idea-body" hint={IDEAS_WORDS.bodyHint}>
             <Textarea
               id="idea-body"
               rows={5}
@@ -164,14 +160,14 @@ export function ShareIdea({
               data-testid="idea-body"
             />
           </Field>
-          <Field label="What is it about?" htmlFor="idea-area">
+          <Field label={IDEAS_WORDS.areaLabel} htmlFor="idea-area">
             <Select
               id="idea-area"
               value={areaId}
               onChange={(e) => setAreaId(e.target.value)}
               data-testid="idea-area"
             >
-              <option value="">Pick one</option>
+              <option value="">{IDEAS_WORDS.pickArea}</option>
               {choosable.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -182,10 +178,10 @@ export function ShareIdea({
           {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}
           <div className="flex gap-2">
             <Button type="submit" loading={busy} data-testid="idea-submit">
-              Share it
+              {IDEAS_WORDS.shareButton}
             </Button>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+              {IDEAS_WORDS.cancel}
             </Button>
           </div>
         </form>

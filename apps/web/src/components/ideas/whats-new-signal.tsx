@@ -1,4 +1,5 @@
 'use client';
+import { IDEAS_WORDS } from '@hfos/core';
 import { useEffect, useSyncExternalStore } from 'react';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
@@ -57,10 +58,10 @@ export function NewDot({ count, className }: { count: number; className?: string
   return (
     <span
       data-testid="whats-new-dot"
-      title={`${count} new in What’s new`}
+      title={IDEAS_WORDS.newDot(count)}
       className={cn('inline-block h-2 w-2 flex-none rounded-full bg-accent', className)}
     >
-      <span className="sr-only">{count} new in What’s new</span>
+      <span className="sr-only">{IDEAS_WORDS.newDot(count)}</span>
     </span>
   );
 }

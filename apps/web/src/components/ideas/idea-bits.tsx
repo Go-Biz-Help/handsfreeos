@@ -1,5 +1,6 @@
 import {
   IDEA_STATUS_WORDS,
+  ideaDay,
   WHATS_NEW_KIND_WORDS,
   type IdeaStatus,
   type WhatsNewKind,
@@ -84,14 +85,8 @@ export function PlainText({ text, className }: { text: string; className?: strin
   return <div className={cn('flex flex-col gap-3 leading-relaxed', className)}>{out}</div>;
 }
 
-/** "Sep 9, 2026". */
-export function dayWords(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
+/** "Sep 9, 2026", written the way the phone writes it too. */
+export const dayWords = ideaDay;
 
 /** Area ids to their names, for rows that carry only the id. */
 export function areaNames(areas: readonly { id: string; name: string }[]): Map<string, string> {

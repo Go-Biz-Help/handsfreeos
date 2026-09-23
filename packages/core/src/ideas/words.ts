@@ -59,6 +59,155 @@ export const WHATS_NEW_KIND_WORDS: Record<WhatsNewKind, string> = {
 export const IDEAS_PER_DAY = 10;
 export const IDEA_COMMENTS_PER_HOUR = 30;
 
+/** "Only mine" on the board: the ideas somebody shared, voted for, or follows. */
+export const IDEA_MINE = ['shared', 'voted', 'following'] as const;
+export type IdeaMine = (typeof IDEA_MINE)[number];
+
+export const IDEA_MINE_WORDS: Record<IdeaMine, string> = {
+  shared: 'Shared by me',
+  voted: 'My votes',
+  following: 'Following',
+};
+
+/**
+ * The words on Ideas, the Roadmap and What's new, in the web app and the phone app alike, so neither says it
+ * differently. The statuses, the sorts and the kinds have their own maps above.
+ */
+export const IDEAS_WORDS = {
+  title: 'Ideas',
+  intro:
+    'Tell us what would make HandsFreeOS better, vote for what matters to you, and follow it from idea to done.',
+  /** The phone's More row. */
+  moreDetail: 'Share an idea, vote, and see what’s new',
+  tabs: { ideas: 'Ideas', roadmap: 'Roadmap', whatsNew: 'What’s new' },
+
+  // Sharing
+  share: 'Share an idea',
+  shareFirst: 'Share the first one',
+  shareIntro:
+    'What would make HandsFreeOS better for your business? Other businesses can vote for it, and the team reads every one.',
+  titleLabel: 'Your idea, in a few words',
+  titlePlaceholder: 'Send invoices by text with a pay link',
+  similar: 'Is it one of these? A vote counts for more.',
+  bodyLabel: 'Tell us more',
+  bodyHint: 'What you are trying to do, and what gets in the way today. Examples help.',
+  areaLabel: 'What is it about?',
+  pickArea: 'Pick one',
+  needsTitle: 'Give it a title of a few words.',
+  needsArea: 'Pick what it is about.',
+  shareButton: 'Share it',
+  shared: (number: number) => `Thanks — that’s idea #${number}. You’ll hear when it moves.`,
+
+  // The board
+  search: 'Search ideas',
+  sortLabel: 'Sort ideas',
+  openIdeas: 'Open ideas',
+  everyIdea: 'Every idea',
+  everyArea: 'Every part of HandsFreeOS',
+  everybodys: 'Everybody’s',
+  statusLabel: 'Status',
+  areaFilterLabel: 'Area',
+  mineLabel: 'Whose',
+  filters: 'Filters',
+  clearFilters: 'Clear filters',
+  /** The phone's filters sheet: each choice applies as it is pressed. */
+  done: 'Done',
+  noIdeas: 'No ideas yet',
+  noIdeasBody: 'What would make HandsFreeOS better for your business? Be the first to say.',
+  noMatch: 'No ideas match that',
+  noMatchBody: 'Try another word, or clear the filters.',
+  showMore: 'Show more ideas',
+  somethingElse: 'Something else',
+  someone: 'Someone',
+  you: 'You',
+
+  // One idea
+  allIdeas: 'All ideas',
+  sharedBy: (name: string, you: boolean) =>
+    you ? 'Shared by you' : `Shared by ${name || 'someone'}`,
+  votes: (count: number) => (count === 1 ? '1 vote' : `${count} votes`),
+  votesLine: (count: number, voted: boolean) =>
+    `${count === 1 ? '1 vote' : `${count} votes`}${voted ? ', yours among them' : ''}.`,
+  vote: (count: number) => `Vote for this (${count === 1 ? '1 vote' : `${count} votes`})`,
+  unvote: (count: number) => `Take back your vote (${count === 1 ? '1 vote' : `${count} votes`})`,
+  votingClosed: 'Voting has closed on this idea',
+  whereItStands: 'Where it stands',
+  followTitle: 'Email me updates',
+  followDetail: 'When the team moves it along the roadmap, or ships it.',
+  followLabel: 'Email me updates about this idea',
+  followOn: 'You’ll get an email when this moves.',
+  followOff: 'No more emails about this idea.',
+  mergedBefore: 'This idea asks for the same thing as',
+  mergedAfter: 'Its votes and followers went there, so vote and comment there.',
+  hidden: 'The HandsFreeOS team took this idea off the board. Only you can see it.',
+  inWhatsNew: (title: string, day: string) => `In What’s new: ${title} · ${day}`,
+  whatHappened: 'What happened',
+  comments: (count: number) => (count ? `Comments (${count})` : 'Comments'),
+  noComments: 'No comments yet. How would you use it? What does it need to do?',
+  commentLabel: 'Add a comment',
+  commentPlaceholder: 'Add a comment: how you would use it, or what it needs to do',
+  commentButton: 'Comment',
+  deleteComment: 'Delete',
+  commentDeleted: 'Comment deleted.',
+  team: 'HandsFreeOS team',
+  edit: 'Edit your idea',
+  save: 'Save',
+  saved: 'Saved.',
+  cancel: 'Cancel',
+
+  // The roadmap
+  roadmapEmpty: {
+    planned: 'Nothing planned right now. Vote for what you want next.',
+    in_progress: 'Nothing being built right now.',
+    done: 'Nothing shipped in the last ninety days.',
+  } as Readonly<Record<'planned' | 'in_progress' | 'done', string>>,
+  doneLately: 'Done lately',
+
+  // What's new
+  whatsNewEmpty: 'Nothing here yet',
+  whatsNewEmptyBody: 'When something new reaches HandsFreeOS, it shows up here first.',
+  newForYou: 'New for you',
+  /** Beside Ideas in the phone's More while What's new has something they haven't read. */
+  unseenBadge: 'New',
+  answers: 'The ideas this answers',
+  showOlder: 'Show older',
+  newDot: (count: number) => `${count} new in What’s new`,
+
+  // The phone, which is live or says so: none of this is kept on the phone.
+  loading: 'Getting the ideas…',
+  needsSignal: 'Ideas need a signal. Try again when you’re back online.',
+  retry: 'Try again',
+  notFound: 'This idea isn’t on the board. It may have been taken down.',
+} as const;
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "Sep 9, 2026": the day something happened, written the same way on the web and the phone. */
+export function ideaDay(iso: string): string {
+  const at = new Date(iso);
+  return `${MONTHS[at.getMonth()]} ${at.getDate()}, ${at.getFullYear()}`;
+}
+
+/** One line of an idea's story: "Moved to Planned", "Shipped", "Merged into #12". */
+export function ideaUpdateLine(update: {
+  readonly kind: 'status' | 'merged' | 'merged_in';
+  readonly fromStatus: IdeaStatus | null;
+  readonly toStatus: IdeaStatus | null;
+  readonly other: { readonly number: number } | null;
+  readonly whatsNew: unknown;
+}): string {
+  if (update.kind === 'merged') return `Merged into #${update.other?.number ?? '?'}`;
+  if (update.kind === 'merged_in')
+    return `#${update.other?.number ?? '?'} was merged into this idea`;
+  const to = update.toStatus ?? 'under_review';
+  if (to === 'done' && update.whatsNew) return 'Shipped';
+  if (update.fromStatus === to) return `Still ${IDEA_STATUS_WORDS[to].toLowerCase()}`;
+  return `Moved to ${IDEA_STATUS_WORDS[to]}`;
+}
+
+/** Whether people can still vote on an idea in this status. */
+export const votingOpenFor = (status: IdeaStatus): boolean => OPEN_IDEA_STATUSES.includes(status);
+
 /** The first line of the email a follower gets, and its subject. */
 export function ideaUpdateHeadline(status: IdeaStatus): string {
   switch (status) {

@@ -1,10 +1,5 @@
 'use client';
-import {
-  IDEA_STATUS_MEANING,
-  IDEA_STATUS_WORDS,
-  relativeTimeAgo,
-  type IdeaStatus,
-} from '@hfos/core';
+import { IDEA_STATUS_MEANING, IDEAS_WORDS, ideaUpdateLine, relativeTimeAgo } from '@hfos/core';
 import { ArrowLeft, BellRing, EyeOff, GitMerge, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -21,18 +16,6 @@ import type { IdeaArea, IdeaGet } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { areaNames, dayWords, PlainText, StatusPill } from './idea-bits';
 import { VoteButton } from './vote-button';
-
-type Update = IdeaGet['updates'][number];
-
-/** One line of an idea's story, in words. */
-function updateWords(u: Update): string {
-  if (u.kind === 'merged') return `Merged into #${u.other?.number ?? '?'}`;
-  if (u.kind === 'merged_in') return `#${u.other?.number ?? '?'} was merged into this idea`;
-  if (u.toStatus === 'done' && u.whatsNew) return 'Shipped';
-  if (u.fromStatus === u.toStatus)
-    return `Still ${IDEA_STATUS_WORDS[u.toStatus as IdeaStatus].toLowerCase()}`;
-  return `Moved to ${IDEA_STATUS_WORDS[u.toStatus as IdeaStatus]}`;
-}
 
 /**
  * One idea, as everybody who takes part sees it: the vote, where it stands and what that means, what the team
@@ -93,7 +76,7 @@ export function IdeaView({
           throw e;
         }
       },
-      next ? 'You’ll get an email when this moves.' : 'No more emails about this idea.',
+      next ? IDEAS_WORDS.followOn : IDEAS_WORDS.followOff,
     );
   };
 
@@ -107,7 +90,7 @@ export function IdeaView({
             body: { ideaId: idea.id, title: title.trim(), body: body.trim(), areaId },
           }),
         ),
-      'Saved.',
+      IDEAS_WORDS.saved,
     );
     if (ok) setEditing(false);
   };
@@ -135,7 +118,7 @@ export function IdeaView({
             body: { commentId, hidden: true },
           }),
         ),
-      'Comment deleted.',
+      IDEAS_WORDS.commentDeleted,
     );
 
   return (
@@ -146,7 +129,7 @@ export function IdeaView({
           className="mb-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-text-2 hover:text-text"
         >
           <ArrowLeft className="h-4 w-4" strokeWidth={1.5} aria-hidden />
-          All ideas
+          {IDEAS_WORDS.allIdeas}
         </Link>
 
         {idea.mergedInto ? (
@@ -156,25 +139,25 @@ export function IdeaView({
           >
             <GitMerge className="mt-0.5 h-4 w-4 flex-none text-text-3" strokeWidth={1.5} />
             <p>
-              This idea asks for the same thing as{' '}
+              {IDEAS_WORDS.mergedBefore}{' '}
               <Link href={`${base}/${idea.mergedInto.id}`} className="font-medium underline">
                 #{idea.mergedInto.number} {idea.mergedInto.title}
               </Link>
-              . Its votes and followers went there, so vote and comment there.
+              . {IDEAS_WORDS.mergedAfter}
             </p>
           </div>
         ) : null}
         {idea.hidden ? (
           <div className="mb-4 flex items-start gap-2.5 rounded-card border border-border bg-warning-soft px-4 py-3 text-[13px] text-warning-text">
             <EyeOff className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.5} />
-            <p>The HandsFreeOS team took this idea off the board. Only you can see it.</p>
+            <p>{IDEAS_WORDS.hidden}</p>
           </div>
         ) : null}
 
         <Card className="p-5">
           {editing ? (
             <form onSubmit={save} className="flex flex-col gap-4">
-              <Field label="Your idea, in a few words" htmlFor="edit-title">
+              <Field label={IDEAS_WORDS.titleLabel} htmlFor="edit-title">
                 <Input
                   id="edit-title"
                   value={title}
@@ -182,7 +165,7 @@ export function IdeaView({
                   maxLength={140}
                 />
               </Field>
-              <Field label="Tell us more" htmlFor="edit-body">
+              <Field label={IDEAS_WORDS.bodyLabel} htmlFor="edit-body">
                 <Textarea
                   id="edit-body"
                   rows={6}
@@ -191,7 +174,7 @@ export function IdeaView({
                   maxLength={5000}
                 />
               </Field>
-              <Field label="What is it about?" htmlFor="edit-area">
+              <Field label={IDEAS_WORDS.areaLabel} htmlFor="edit-area">
                 <Select id="edit-area" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
                   {areas
                     .filter((a) => !a.archived || a.id === idea.areaId)
@@ -205,7 +188,7 @@ export function IdeaView({
               {error ? <p className="text-[13px] text-danger-text">{error}</p> : null}
               <div className="flex gap-2">
                 <Button type="submit" loading={busy === 'edit'}>
-                  Save
+                  {IDEAS_WORDS.save}
                 </Button>
                 <Button
                   variant="ghost"
@@ -216,7 +199,7 @@ export function IdeaView({
                     setAreaId(idea.areaId);
                   }}
                 >
-                  Cancel
+                  {IDEAS_WORDS.cancel}
                 </Button>
               </div>
             </form>
@@ -239,13 +222,11 @@ export function IdeaView({
                 </h2>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-text-3">
                   <StatusPill status={idea.status} />
-                  <span>{names.get(idea.areaId) ?? 'Something else'}</span>
+                  <span>{names.get(idea.areaId) ?? IDEAS_WORDS.somethingElse}</span>
                   <span>#{idea.number}</span>
                   <span suppressHydrationWarning>
-                    {idea.author.you
-                      ? 'Shared by you'
-                      : `Shared by ${idea.author.name || 'someone'}`}{' '}
-                    · {relativeTimeAgo(idea.createdAt)}
+                    {IDEAS_WORDS.sharedBy(idea.author.name, idea.author.you)} ·{' '}
+                    {relativeTimeAgo(idea.createdAt)}
                   </span>
                 </div>
                 {idea.body ? <PlainText text={idea.body} className="mt-4 text-[14.5px]" /> : null}
@@ -257,7 +238,7 @@ export function IdeaView({
                     onClick={() => setEditing(true)}
                     data-testid="idea-edit"
                   >
-                    Edit your idea
+                    {IDEAS_WORDS.edit}
                   </Button>
                 ) : null}
               </div>
@@ -274,15 +255,15 @@ export function IdeaView({
                 className="flex items-center gap-2.5 rounded-card border border-border bg-success-soft px-4 py-3 text-[13px] text-success-text hover:underline"
               >
                 <PackageCheck className="h-4 w-4 flex-none" strokeWidth={1.5} />
-                In What’s new: {s.title} · {dayWords(s.publishedAt)}
+                {IDEAS_WORDS.inWhatsNew(s.title, dayWords(s.publishedAt))}
               </Link>
             ))}
           </div>
         ) : null}
 
         {updates.length ? (
-          <section className="mt-6" aria-label="What happened">
-            <h3 className="text-sm font-semibold">What happened</h3>
+          <section className="mt-6" aria-label={IDEAS_WORDS.whatHappened}>
+            <h3 className="text-sm font-semibold">{IDEAS_WORDS.whatHappened}</h3>
             <ol
               className="mt-3 flex flex-col gap-3 border-l border-border pl-4"
               data-testid="idea-updates"
@@ -291,7 +272,7 @@ export function IdeaView({
                 <li key={u.id} className="relative">
                   <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-accent" />
                   <p className="text-[13px]">
-                    <span className="font-medium">{updateWords(u)}</span>
+                    <span className="font-medium">{ideaUpdateLine(u)}</span>
                     {u.other && u.kind !== 'status' ? (
                       <>
                         {' '}
@@ -326,9 +307,7 @@ export function IdeaView({
         ) : null}
 
         <section className="mt-6" aria-label="Comments">
-          <h3 className="text-sm font-semibold">
-            Comments{comments.length ? ` (${comments.length})` : ''}
-          </h3>
+          <h3 className="text-sm font-semibold">{IDEAS_WORDS.comments(comments.length)}</h3>
           {comments.length ? (
             <ul className="mt-3 flex flex-col gap-3" data-testid="idea-comments">
               {comments.map((c) => (
@@ -342,11 +321,11 @@ export function IdeaView({
                 >
                   <div className="flex flex-wrap items-center gap-2 text-[13px]">
                     <span className="font-medium">
-                      {c.author.you ? 'You' : c.author.name || 'Someone'}
+                      {c.author.you ? IDEAS_WORDS.you : c.author.name || IDEAS_WORDS.someone}
                     </span>
                     {c.author.team ? (
                       <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-white">
-                        HandsFreeOS team
+                        {IDEAS_WORDS.team}
                       </span>
                     ) : null}
                     <span className="text-text-3" suppressHydrationWarning>
@@ -359,7 +338,7 @@ export function IdeaView({
                         disabled={busy === `hide-${c.id}`}
                         className="ml-auto text-xs text-text-3 hover:text-danger-text"
                       >
-                        Delete
+                        {IDEAS_WORDS.deleteComment}
                       </button>
                     ) : null}
                   </div>
@@ -368,21 +347,19 @@ export function IdeaView({
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-[13px] text-text-3">
-              No comments yet. How would you use it? What does it need to do?
-            </p>
+            <p className="mt-2 text-[13px] text-text-3">{IDEAS_WORDS.noComments}</p>
           )}
           {idea.mergedInto ? null : (
             <form onSubmit={send} className="mt-4 flex flex-col gap-2">
               <label htmlFor="idea-comment" className="sr-only">
-                Add a comment
+                {IDEAS_WORDS.commentLabel}
               </label>
               <Textarea
                 id="idea-comment"
                 rows={3}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Add a comment: how you would use it, or what it needs to do"
+                placeholder={IDEAS_WORDS.commentPlaceholder}
                 maxLength={5000}
                 data-testid="idea-comment-body"
               />
@@ -395,7 +372,7 @@ export function IdeaView({
                   disabled={!comment.trim()}
                   data-testid="idea-comment-send"
                 >
-                  Comment
+                  {IDEAS_WORDS.commentButton}
                 </Button>
               </div>
             </form>
@@ -405,14 +382,15 @@ export function IdeaView({
 
       <aside className="flex flex-col gap-4 md:pt-9">
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-text-3">Where it stands</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-text-3">
+            {IDEAS_WORDS.whereItStands}
+          </p>
           <div className="mt-2">
             <StatusPill status={idea.status} />
           </div>
           <p className="mt-2 text-[13px] text-text-2">{IDEA_STATUS_MEANING[idea.status]}</p>
           <p className="mt-3 text-[13px] text-text-2">
-            {idea.voteCount === 1 ? '1 vote' : `${idea.voteCount} votes`}
-            {idea.voted ? ', yours among them' : ''}.
+            {IDEAS_WORDS.votesLine(idea.voteCount, idea.voted)}
           </p>
         </Card>
         <Card className="p-4">
@@ -420,16 +398,14 @@ export function IdeaView({
             <div>
               <p className="flex items-center gap-1.5 text-sm font-medium">
                 <BellRing className="h-4 w-4 text-text-3" strokeWidth={1.5} aria-hidden />
-                Email me updates
+                {IDEAS_WORDS.followTitle}
               </p>
-              <p className="mt-1 text-[13px] text-text-2">
-                When the team moves it along the roadmap, or ships it.
-              </p>
+              <p className="mt-1 text-[13px] text-text-2">{IDEAS_WORDS.followDetail}</p>
             </div>
             <Switch
               checked={following}
               onChange={follow}
-              label="Email me updates about this idea"
+              label={IDEAS_WORDS.followLabel}
               disabled={busy === 'follow'}
               testId="idea-follow"
             />

@@ -1,4 +1,5 @@
 'use client';
+import { IDEAS_WORDS } from '@hfos/core';
 import { ChevronUp } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -69,7 +70,7 @@ export function VoteButton({
     return (
       <div
         className={cn(box, 'border-border bg-card-2 text-text-2')}
-        title="Voting has closed on this idea"
+        title={IDEAS_WORDS.votingClosed}
         data-testid="idea-votes"
       >
         <ChevronUp className="h-4 w-4 text-text-3" strokeWidth={1.75} aria-hidden />
@@ -82,7 +83,7 @@ export function VoteButton({
       type="button"
       onClick={press}
       aria-pressed={mine}
-      aria-label={mine ? `Take back your vote (${shown} votes)` : `Vote for this (${shown} votes)`}
+      aria-label={mine ? IDEAS_WORDS.unvote(shown) : IDEAS_WORDS.vote(shown)}
       title={mine ? 'You voted for this. Press to take your vote back.' : 'Vote for this'}
       data-testid="idea-vote"
       className={cn(

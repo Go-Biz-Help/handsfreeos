@@ -1,5 +1,5 @@
 'use client';
-import { IDEA_STATUS_WORDS } from '@hfos/core';
+import { IDEA_STATUS_WORDS, IDEAS_WORDS } from '@hfos/core';
 import { ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -59,9 +59,7 @@ export function WhatsNewList({
   if (!all.length)
     return (
       <Card>
-        <EmptyState title="Nothing here yet">
-          When something new reaches HandsFreeOS, it shows up here first.
-        </EmptyState>
+        <EmptyState title={IDEAS_WORDS.whatsNewEmpty}>{IDEAS_WORDS.whatsNewEmptyBody}</EmptyState>
       </Card>
     );
   return (
@@ -74,7 +72,7 @@ export function WhatsNewList({
             {e.areaId ? <span>· {names.get(e.areaId) ?? ''}</span> : null}
             {e.unseen ? (
               <span className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-semibold text-white">
-                New for you
+                {IDEAS_WORDS.newForYou}
               </span>
             ) : null}
           </div>
@@ -82,7 +80,7 @@ export function WhatsNewList({
           {e.body ? <PlainText text={e.body} className="mt-2 text-[14.5px] text-text" /> : null}
           {e.ideas.length ? (
             <div className="mt-4 border-t border-border pt-3">
-              <p className="text-xs font-medium text-text-3">The ideas this answers</p>
+              <p className="text-xs font-medium text-text-3">{IDEAS_WORDS.answers}</p>
               <ul className="mt-1.5 flex flex-col gap-1">
                 {e.ideas.map((i) => (
                   <li key={i.id} className="flex items-center gap-2 text-[13px]">
@@ -109,7 +107,7 @@ export function WhatsNewList({
       {cursor ? (
         <div className="flex justify-center">
           <Button variant="secondary" onClick={showMore} loading={loading}>
-            Show older
+            {IDEAS_WORDS.showOlder}
           </Button>
         </div>
       ) : null}

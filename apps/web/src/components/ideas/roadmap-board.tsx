@@ -1,31 +1,19 @@
-import { IDEA_STATUS_MEANING, type IdeaStatus } from '@hfos/core';
+import { IDEA_STATUS_MEANING, IDEA_STATUS_WORDS, IDEAS_WORDS } from '@hfos/core';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import type { IdeaArea, Roadmap, RoadmapCardRow } from '@/lib/api/types';
 import { areaNames, dayWords, StatusPill } from './idea-bits';
 import { VoteButton } from './vote-button';
 
-const COLUMNS: readonly { key: keyof Roadmap; status: IdeaStatus; title: string; empty: string }[] =
-  [
-    {
-      key: 'planned',
-      status: 'planned',
-      title: 'Planned',
-      empty: 'Nothing planned right now. Vote for what you want next.',
-    },
-    {
-      key: 'inProgress',
-      status: 'in_progress',
-      title: 'In progress',
-      empty: 'Nothing being built right now.',
-    },
-    {
-      key: 'done',
-      status: 'done',
-      title: 'Done lately',
-      empty: 'Nothing shipped in the last ninety days.',
-    },
-  ];
+const COLUMNS: readonly {
+  key: keyof Roadmap;
+  status: 'planned' | 'in_progress' | 'done';
+  title: string;
+}[] = [
+  { key: 'planned', status: 'planned', title: IDEA_STATUS_WORDS.planned },
+  { key: 'inProgress', status: 'in_progress', title: IDEA_STATUS_WORDS.in_progress },
+  { key: 'done', status: 'done', title: IDEAS_WORDS.doneLately },
+];
 
 /**
  * The roadmap: what the team is going to build, what it is building, and what shipped in the last ninety days.
@@ -54,7 +42,7 @@ export function RoadmapBoard({
             <p className="mb-3 text-xs text-text-3">{IDEA_STATUS_MEANING[col.status]}</p>
             {cards.length === 0 ? (
               <p className="rounded-card border border-dashed border-border-strong px-4 py-6 text-center text-[13px] text-text-3">
-                {col.empty}
+                {IDEAS_WORDS.roadmapEmpty[col.status]}
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -76,7 +64,7 @@ export function RoadmapBoard({
                           {c.title}
                         </Link>
                         <p className="mt-1 text-xs text-text-3">
-                          {names.get(c.areaId) ?? 'Something else'}
+                          {names.get(c.areaId) ?? IDEAS_WORDS.somethingElse}
                           {col.status === 'done' && c.statusChangedAt
                             ? ` · ${dayWords(c.statusChangedAt)}`
                             : ''}

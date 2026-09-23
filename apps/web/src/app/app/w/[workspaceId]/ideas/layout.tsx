@@ -1,3 +1,4 @@
+import { IDEAS_WORDS } from '@hfos/core';
 import type { ReactNode } from 'react';
 import { ShareIdea } from '@/components/ideas/share-idea';
 import { IdeasSubnav } from '@/components/ideas/subnav';
@@ -22,8 +23,8 @@ export default async function IdeasLayout({
   return (
     <div className="mx-auto w-full max-w-5xl">
       <PageHeader
-        title="Ideas"
-        description="Tell us what would make HandsFreeOS better, vote for what matters to you, and follow it from idea to done."
+        title={IDEAS_WORDS.title}
+        description={IDEAS_WORDS.intro}
         actions={<ShareIdea workspaceId={workspaceId} areas={areas} />}
       />
       <IdeasSubnav workspaceId={workspaceId} />

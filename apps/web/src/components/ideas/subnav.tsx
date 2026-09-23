@@ -1,4 +1,5 @@
 'use client';
+import { IDEAS_WORDS } from '@hfos/core';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -12,19 +13,19 @@ export function IdeasSubnav({ workspaceId }: { workspaceId: string }) {
   const items = [
     {
       href: base,
-      label: 'Ideas',
+      label: IDEAS_WORDS.tabs.ideas,
       active:
         pathname === base ||
         (pathname.startsWith(`${base}/`) &&
           !pathname.startsWith(`${base}/roadmap`) &&
           !pathname.startsWith(`${base}/whats-new`)),
     },
-    { href: `${base}/roadmap`, label: 'Roadmap' },
-    { href: `${base}/whats-new`, label: 'What’s new', dot: unseen },
+    { href: `${base}/roadmap`, label: IDEAS_WORDS.tabs.roadmap },
+    { href: `${base}/whats-new`, label: IDEAS_WORDS.tabs.whatsNew, dot: unseen },
   ];
   return (
     <nav
-      aria-label="Ideas"
+      aria-label={IDEAS_WORDS.title}
       className="relative mb-5 flex gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none]"
     >
       {items.map((i) => {
