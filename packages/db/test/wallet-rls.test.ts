@@ -26,12 +26,15 @@ import {
 
 let owner: TestUser;
 let outsider: TestUser;
+/** A third business, kept spotless: nothing is ever charged to it, so it never gets a wallet by accident. */
+let newcomer: TestUser;
 interface Business {
   readonly ws: string;
   readonly org: string;
 }
 let A: Business;
 let B: Business;
+let C: Business;
 
 const worker = (b: Business) => asService({ workspaceId: b.ws, organizationId: b.org });
 const detailOf = async (fn: () => Promise<unknown>) => {
@@ -75,14 +78,17 @@ const spend = (b: Business, cents: number, key: string) =>
   );
 
 beforeAll(async () => {
-  [owner, outsider] = await Promise.all([
+  [owner, outsider, newcomer] = await Promise.all([
     createTestUser('wallet-owner'),
     createTestUser('wallet-outsider'),
+    createTestUser('wallet-newcomer'),
   ]);
   const orgA = await bootstrapOrganization(owner, 'Wallet Org A', 'Wallet A');
   A = { ws: orgA.wsId, org: orgA.orgId };
   const orgB = await bootstrapOrganization(outsider, 'Wallet Org B', 'Wallet B');
   B = { ws: orgB.wsId, org: orgB.orgId };
+  const orgC = await bootstrapOrganization(newcomer, 'Wallet Org C', 'Wallet C');
+  C = { ws: orgC.wsId, org: orgC.orgId };
   await worker(A)((tx) =>
     tx.execute(
       sql`insert into app.usage_wallets (workspace_id, organization_id) values (${A.ws}, ${A.org})
@@ -318,6 +324,79 @@ describe('who sees what', () => {
           where workspace_id = ${B.ws} and balance_cents > 0`,
     );
     expect(found?.n).toBe(0);
+  });
+});
+
+/**
+ * Opening one, which is the only write on this table a person's own press makes.
+ *
+ * The table stays shut to them — no insert privilege, no insert policy — because what must stay impossible
+ * is opening a wallet of one's *choosing*: with money on it, a card on it, or `stage` set to `off` so the
+ * business's own spending limit never fires. An empty one for a business they already run is harmless, and
+ * `private.open_usage_wallet` is the one door to it.
+ */
+describe('opening a wallet', () => {
+  const open = (who: TestUser, b: Business) =>
+    as(who)((tx) => tx.execute(sql`select private.open_usage_wallet(${b.ws}::uuid)`));
+  const walletCount = async (b: Business) =>
+    (
+      await rows<{ n: number }>(
+        dbs.admin.db,
+        sql`select count(*)::int as n from app.usage_wallets where workspace_id = ${b.ws}`,
+      )
+    )[0]!.n;
+
+  it('refuses somebody who cannot spend that business’s money', async () => {
+    expect(await detailOf(() => open(owner, C))).toEqual({
+      code: '42501',
+      detail: 'wallet_open_is_money_manage',
+    });
+    expect(await walletCount(C)).toBe(0);
+  });
+
+  it('refuses them the same way for a business that already has one', async () => {
+    // B has spent, so B has a wallet. Asking permission only when the row is missing would make the
+    // refusal itself an answer: quiet here, refused there, and a stranger holding a workspace id would
+    // learn which. The check comes first for that reason.
+    expect(await walletCount(B)).toBe(1);
+    expect(await detailOf(() => open(owner, B))).toEqual({
+      code: '42501',
+      detail: 'wallet_open_is_money_manage',
+    });
+  });
+
+  it('opens an empty one for somebody who can, with the limit still on', async () => {
+    await open(newcomer, C);
+    const [w] = await rows<{
+      org: string;
+      stage: string;
+      balance: number;
+      method_token: string | null;
+    }>(
+      dbs.admin.db,
+      sql`select organization_id as org, stage::text as stage, balance_cents::int as balance, method_token
+          from app.usage_wallets where workspace_id = ${C.ws}`,
+    );
+    // The organisation is read from the workspace, never taken from whoever asked.
+    expect(w).toMatchObject({ org: C.org, stage: 'off', balance: 0 });
+    expect(w?.method_token).toBeNull();
+  });
+
+  it('is one wallet however many times it is asked for', async () => {
+    await open(newcomer, C);
+    expect(await walletCount(C)).toBe(1);
+  });
+
+  it('is still the only way in: a person cannot write the row themselves', async () => {
+    // A's own owner, who may spend A's money and still may not open its wallet by hand.
+    await refused(() =>
+      as(owner)((tx) =>
+        tx.execute(
+          sql`insert into app.usage_wallets (workspace_id, organization_id)
+              values (${A.ws}, ${A.org}) on conflict (workspace_id) do nothing`,
+        ),
+      ),
+    );
   });
 });
 

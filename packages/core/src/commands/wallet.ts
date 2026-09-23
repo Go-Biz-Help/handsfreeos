@@ -55,15 +55,18 @@ type WalletRow = typeof usageWallets.$inferSelect;
 /**
  * The wallet, opened if it has none. A business that has never spent anything has no row, and every one of
  * these commands would otherwise have to say "no wallet" instead of doing the obvious thing.
+ *
+ * Opened through `private.open_usage_wallet` rather than by an insert from here, because a person has no
+ * insert privilege on the table and never will: what that closes off is somebody opening a wallet of their
+ * own choosing, with a balance on it or its stage turned off. The function checks `money.manage` for itself,
+ * reads the organisation from the workspace, and writes defaults and only defaults — so this is the one way
+ * a business's own press opens its wallet, and the four `money.manage` commands below all use it.
  */
 async function wallet(ctx: CommandContext): Promise<WalletRow> {
   const ws = ctx.scope.workspaceId!;
   const [found] = await ctx.tx.select().from(usageWallets).where(eq(usageWallets.workspaceId, ws));
   if (found) return found;
-  await ctx.tx
-    .insert(usageWallets)
-    .values({ workspaceId: ws, organizationId: ctx.scope.organizationId! })
-    .onConflictDoNothing();
+  await ctx.tx.execute(sql`select private.open_usage_wallet(${ws}::uuid)`);
   const [made] = await ctx.tx.select().from(usageWallets).where(eq(usageWallets.workspaceId, ws));
   if (!made) throw HfosError.notFound('This business has no usage wallet.');
   return made;
