@@ -53,7 +53,7 @@ export const pricingFaqs: readonly Faq[] = [
   },
   {
     q: 'Why only one plan?',
-    a: 'Because three plans meant three conversations before anybody could buy: which one am I, what am I missing, will I have to move later. A business with four people and one with twenty need the same software. So there is one price, everything is in it, and there is no per-person charge.',
+    a: 'Because three plans meant three conversations before anybody could buy: which one am I, what am I missing, will I have to move later. A business with four people and one with twenty need the same software. So there is one price, everything is in it, and there is no per-person charge — you are paying for the work it does, not for how many people log in to it.',
   },
   {
     q: 'Do you take a cut of what I get paid?',

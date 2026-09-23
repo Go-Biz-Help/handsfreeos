@@ -21,9 +21,12 @@ import {
 } from '@/lib/founding';
 
 /*
- * Headline variants worth testing against the one below, each on a different angle:
+ * The headline is a small puzzle on purpose: "the CRM that doesn't want you to use it" makes somebody
+ * ask what that means, and the line under it and the section after the hero answer it. Variants worth
+ * testing against it, each on a different angle:
  *   1. "Stop losing jobs to the people who called back first."      (problem removal)
  *   2. "Answer every lead in seconds, even at 7pm on a Sunday."     (quantified speed)
+ *   3. "Your business keeps answering while you're on the job."     (the previous headline)
  * The headline is the highest-leverage line on the page; change one thing at a time.
  */
 
@@ -40,6 +43,7 @@ export default async function HomePage() {
       <SoftwareApplicationJsonLd monthlyOnSale={monthlyOnSale(counts)} />
       <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
       <Hero />
+      <WhatThatMeans />
       <TheProblem />
       <HowItWorks />
       <Features />
@@ -67,12 +71,15 @@ function Hero() {
              */}
             <Eyebrow>HandsFreeOS</Eyebrow>
             <h1 className="text-[2.5rem] leading-[1.06] font-bold sm:text-6xl">
-              Your business keeps answering while you&rsquo;re on the job.
+              The CRM that doesn&rsquo;t want you to use it.
             </h1>
             <p className="text-text-2 mt-6 max-w-xl text-lg sm:text-xl">
-              HandsFreeOS puts your calls, texts, email, calendar, quotes and invoices in one place
-              — with an AI teammate that answers new leads in seconds, books them in, and checks
-              with you first.
+              Other CRMs make you remember, look things up, type it in, update it, follow up and
+              check again. HandsFreeOS spots the new lead, answers it in seconds, books the job,
+              keeps the record current, and brings you in when something actually needs you.
+            </p>
+            <p className="text-text mt-5 max-w-xl text-lg font-semibold sm:text-xl">
+              The less you use it, the better it&rsquo;s working.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -101,6 +108,83 @@ function Hero() {
         </div>
       </Container>
     </div>
+  );
+}
+
+/**
+ * The answer to the headline's question. Two lists side by side rather than a paragraph: what an
+ * ordinary CRM waits for you to do, and what HandsFreeOS does instead. Every line on the right is
+ * something the product does today — keep it that way.
+ */
+function WhatThatMeans() {
+  const youDo = [
+    { verb: 'Remember', body: 'who called, and what they wanted' },
+    { verb: 'Research', body: 'the job, the price, the last visit' },
+    { verb: 'Type', body: 'it all into the system' },
+    { verb: 'Update', body: 'the record every time something changes' },
+    { verb: 'Follow up', body: 'on the quote, then on the invoice' },
+    { verb: 'Check again', body: 'tomorrow, to see if anyone replied' },
+  ];
+  const itDoes = [
+    {
+      verb: 'Detects',
+      body: 'A missed call, a new lead, a quote going stale, an invoice gone late — it notices without you looking.',
+    },
+    {
+      verb: 'Acts',
+      body: 'Texts the missed call back, answers the lead, and books them into your calendar.',
+    },
+    {
+      verb: 'Communicates',
+      body: 'Sends the reminders, chases the quote, and chases the invoice until it is paid.',
+    },
+    {
+      verb: 'Updates',
+      body: 'Every text, call, booking and payment lands on the customer’s record by itself.',
+    },
+    {
+      verb: 'Escalates',
+      body: 'Anything it is unsure of, anything about money, and any upset customer comes straight to you.',
+    },
+  ];
+  return (
+    <Section id="what-that-means" className="border-border border-t">
+      <Eyebrow>What that means</Eyebrow>
+      <SectionHeading sub="A CRM is only as good as the hours you put into it. HandsFreeOS is built the other way round: it does the work, and you only open it when it asks.">
+        Most CRMs need you. This one covers for you.
+      </SectionHeading>
+
+      <div className="mt-12 grid gap-6 md:grid-cols-2">
+        <Card className="h-full">
+          <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
+            A normal CRM waits for you to
+          </p>
+          <ul className="mt-5 space-y-3.5">
+            {youDo.map((item) => (
+              <li key={item.verb} className="text-text-2">
+                <span className="text-text font-semibold">{item.verb}</span> {item.body}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <div className="bg-card border-accent h-full rounded-[var(--radius-card)] border-2 p-6">
+          <p className="text-accent-text text-sm font-semibold tracking-[0.1em] uppercase">
+            HandsFreeOS does it for you
+          </p>
+          <ul className="mt-5 space-y-3.5">
+            {itDoes.map((item) => (
+              <li key={item.verb} className="flex gap-3">
+                <Check className="text-success mt-0.5" />
+                <p className="text-text-2">
+                  <span className="text-text font-semibold">{item.verb}.</span> {item.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </Section>
   );
 }
 

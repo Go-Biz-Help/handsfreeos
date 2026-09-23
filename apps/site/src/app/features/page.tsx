@@ -54,10 +54,10 @@ export default function FeaturesPage() {
     <>
       <Container className="py-16 sm:py-20">
         <SectionHeading
-          sub="Six or seven apps’ worth, in one system that already knows who the customer is. Here is the whole of it, in plain English."
+          sub="Six or seven apps’ worth, in one system that notices what needs doing, does it, and brings you in when it matters. The less of it you end up touching, the better it’s working."
           as="h1"
         >
-          Everything HandsFreeOS does.
+          Everything HandsFreeOS does, so you don&rsquo;t have to.
         </SectionHeading>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -146,16 +146,15 @@ export default function FeaturesPage() {
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold sm:text-4xl">All of that is on one plan.</h2>
           <p className="text-text-2 mt-5 text-lg">
-            Growth is every feature on this page, for one business — nothing is held back for a
-            bigger plan. Starter is the smaller version for a one-person shop, and Pro is for
-            running more than one business.
+            One price, every feature on this page, and as many people as work there. Nothing is held
+            back for a bigger plan, because there is no bigger plan.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button href={urls.signUp} size="lg">
               Start free
             </Button>
             <Button href="/pricing" size="lg" variant="secondary">
-              See what each plan costs
+              See what it costs
             </Button>
           </div>
         </div>

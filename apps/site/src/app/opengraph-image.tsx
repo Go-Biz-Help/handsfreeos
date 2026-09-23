@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
  * Drawn here rather than shipped as a PNG so the wording only lives in one place. It uses the
  * system font on purpose: nothing is fetched at build time, so the build cannot fail for it.
  */
-export const alt = 'HandsFreeOS — your business keeps answering while you are on the job';
+export const alt = 'HandsFreeOS — the CRM that doesn’t want you to use it';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -55,11 +55,11 @@ export default function OpengraphImage() {
             maxWidth: 940,
           }}
         >
-          Your business keeps answering while you’re on the job.
+          The CRM that doesn’t want you to use it.
         </div>
         <div style={{ fontSize: 30, color: '#5b616a', maxWidth: 900, lineHeight: 1.35 }}>
-          Calls, texts, email, calendar, quotes and invoices in one place — with an AI teammate that
-          answers new leads in seconds.
+          It answers the lead, books the job and chases the invoice on its own. The less you use it,
+          the better it’s working.
         </div>
       </div>
 
