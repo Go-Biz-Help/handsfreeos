@@ -65,6 +65,8 @@ export const REASON_CODES = [
   'site_changed',
   /** A question customers keep asking: "“Do you work Sundays?” · asked 4 times". */
   'asked',
+  /** An offer about to end: "Fall tune-up $89 · ends Oct 31". */
+  'offer_ends',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

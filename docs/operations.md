@@ -7717,6 +7717,16 @@ Left out, with the reason shown: no mobile number, no agreement to texts (or sai
 
 Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `campaigns.draft` and `campaigns.send`. Needs `20261004001300_campaigns.sql`. See "Apply new migrations".
 
+**About an offer**: a campaign can be about one of the business's offers (Knowledge → Offers, live or upcoming). Picking one fills in the goal if it's empty, and the AI writes each text from the offer's own words and says when it ends. An archived offer can't be picked.
+
+### Offer ending
+
+| Row              | What it does                                                                                                                                                                                                                                 | On to begin with |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Offer ending** | A card on Home from the start of the day three days before an offer's last day, urgent on the last day. **Open the offers** goes to Knowledge → Offers to extend it; it closes when the offer is extended past that window, archived or over | Yes              |
+
+Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind and `campaigns.offer_id`). See "Apply new migrations".
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.

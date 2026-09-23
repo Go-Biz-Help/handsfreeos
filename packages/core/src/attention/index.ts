@@ -101,4 +101,5 @@ export {
 } from './detectors/ai-unreviewed';
 export { type AiCorrectionsFacts } from './detectors/ai-corrections';
 export { type WebsiteChangedFacts } from './detectors/website-changed';
+export { OFFER_LAPSING_DAYS, type OfferLapsingFacts } from './detectors/offer-lapsing';
 export { FAQ_SUGGESTION_MIN_ASKS, type FaqSuggestionsFacts } from './detectors/faq-suggestions';

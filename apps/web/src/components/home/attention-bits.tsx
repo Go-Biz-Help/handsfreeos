@@ -6,6 +6,7 @@ import {
   CircleHelp,
   EyeOff,
   Globe,
+  Tag,
   GraduationCap,
   Unplug,
   WifiOff,
@@ -76,6 +77,7 @@ const KIND_LOOK: Readonly<
   ai_unreviewed: { icon: EyeOff, tile: cn(AI_SOFT, AI_TEXT) },
   ai_corrections: { icon: GraduationCap, tile: cn(AI_SOFT, AI_TEXT) },
   website_changed: { icon: Globe, tile: 'bg-accent-soft text-accent-text' },
+  offer_lapsing: { icon: Tag, tile: 'bg-warning-soft text-warning-text' },
   faq_suggestions: { icon: CircleHelp, tile: cn(AI_SOFT, AI_TEXT) },
 };
 

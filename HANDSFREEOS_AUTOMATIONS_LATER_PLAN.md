@@ -11,13 +11,13 @@ at a time, and "offers" only means waitlist offers.
 
 | Automation                                  | What it needs first                                                   |
 | ------------------------------------------- | --------------------------------------------------------------------- |
-| Offer lapsing                               | Promotions with start and end dates                                   |
 | Nothing scheduled on social / planner empty | A social planner connected to the business's accounts                 |
 | No email going out                          | Email campaigns (bulk email with an unsubscribe flow)                 |
 | Blog going quiet                            | A blog, or a connection to the business's own                         |
 | Pre-publish content check                   | Any of the above: a daily read of everything due out in the next 24 h |
 
-"Drafts awaiting review" is already live: it covers AI drafts and approvals, and campaigns join it in stage 5.
+"Offer lapsing" shipped as **Offer ending** on top of Knowledge → Offers, which already had start and end dates, and
+campaigns can now be about an offer. "Drafts awaiting review" is already live: it covers AI drafts and approvals, and campaigns join it in stage 5.
 
 ## Ads
 

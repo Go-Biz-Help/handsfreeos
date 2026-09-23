@@ -11,7 +11,7 @@ import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import type { CampaignPreview, PipelineList, Tag } from '@/lib/api/types';
+import type { CampaignPreview, Offer, PipelineList, Tag } from '@/lib/api/types';
 import { people, skipWords } from './words';
 
 /**
@@ -22,10 +22,13 @@ export function NewCampaign({
   workspaceId,
   tags,
   pipelines,
+  offers,
 }: {
   workspaceId: string;
   tags: Tag[];
   pipelines: PipelineList['pipelines'];
+  /** The offers still to run or running (Knowledge → Offers). */
+  offers: Offer[];
 }) {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -33,6 +36,7 @@ export function NewCampaign({
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [stageIds, setStageIds] = useState<string[]>([]);
   const [perHour, setPerHour] = useState(String(CAMPAIGN_PER_HOUR_DEFAULT));
+  const [offerId, setOfferId] = useState('');
   const [preview, setPreview] = useState<CampaignPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const picked = tagIds.length + stageIds.length > 0;
@@ -75,6 +79,7 @@ export function NewCampaign({
             goal: goal.trim(),
             audience: { tagIds, stageIds },
             perHour: pace,
+            offerId: offerId || null,
           },
         }),
       );
@@ -102,6 +107,34 @@ export function NewCampaign({
           maxLength={120}
         />
       </Field>
+      {offers.length ? (
+        <Field
+          label="About an offer?"
+          htmlFor="campaign-offer"
+          hint="The AI uses the offer’s own words and says when it ends."
+        >
+          <select
+            id="campaign-offer"
+            value={offerId}
+            onChange={(e) => {
+              const picked = offers.find((o) => o.id === e.target.value);
+              setOfferId(e.target.value);
+              if (picked && !goal.trim())
+                setGoal([picked.name, picked.details].filter(Boolean).join(': ').slice(0, 500));
+            }}
+            className="h-10 w-full rounded-control border border-border-strong bg-card px-3 text-[15px] max-md:text-base"
+            data-testid="campaign-offer"
+          >
+            <option value="">No offer</option>
+            {offers.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+                {o.endsOn ? ` (ends ${o.endsOn})` : ''}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
       <Field
         label="What’s it for?"
         htmlFor="campaign-goal"

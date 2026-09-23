@@ -70,6 +70,13 @@ export const campaignCreate = defineCommand({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
+    if (input.offerId) {
+      const [offer] = await rows(
+        ctx.tx,
+        sql`select 1 from app.offers where id = ${input.offerId} and workspace_id = ${ws} and archived_at is null`,
+      );
+      if (!offer) throw HfosError.notFound('That offer isn’t running any more.');
+    }
     const people = await campaignAudience(ctx.tx, ws, input.audience, new Date());
     const recipients = people.filter((p) => p.skipReason === null).length;
     if (recipients === 0)
@@ -87,6 +94,7 @@ export const campaignCreate = defineCommand({
         goal: input.goal,
         audience: { tagIds: input.audience.tagIds, stageIds: input.audience.stageIds },
         perHour: input.perHour,
+        offerId: input.offerId,
         createdBy: me,
       })
       .returning({ id: campaigns.id });

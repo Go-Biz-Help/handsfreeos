@@ -12,6 +12,7 @@ import {
   CircleHelp,
   EyeOff,
   Globe,
+  Tag,
   GraduationCap,
   Unplug,
   WifiOff,
@@ -86,6 +87,7 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   ai_unreviewed: { icon: EyeOff, tone: `${AI_SOFT} ${AI_TEXT}` },
   ai_corrections: { icon: GraduationCap, tone: `${AI_SOFT} ${AI_TEXT}` },
   website_changed: { icon: Globe, tone: 'bg-accent-soft text-accent-text' },
+  offer_lapsing: { icon: Tag, tone: 'bg-warning-soft text-warning-text' },
   faq_suggestions: { icon: CircleHelp, tone: `${AI_SOFT} ${AI_TEXT}` },
 };
 
@@ -121,6 +123,7 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   ai_unreviewed: 'AI not reviewed',
   ai_corrections: 'AI keeps being corrected',
   website_changed: 'Website changed',
+  offer_lapsing: 'Offer ending',
   faq_suggestions: 'Question to answer',
 };
 

@@ -34,6 +34,8 @@ interface SummaryRow extends Record<string, unknown> {
   approved_at: Date | null;
   finished_at: Date | null;
   next_send_at: Date | null;
+  offer_id: string | null;
+  offer_name: string | null;
   total: number;
   drafting: number;
   ready: number;
@@ -48,6 +50,7 @@ async function summaries(tx: Tx, workspaceId: string, campaignId: string | null)
   const list = await rows<SummaryRow>(
     tx,
     sql`select c.id, c.name, c.goal, c.status, c.per_hour, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
+          c.offer_id, (select o.name from app.offers o where o.id = c.offer_id) as offer_name,
           count(r.id)::int as total,
           count(r.id) filter (where r.status = 'drafting')::int as drafting,
           count(r.id) filter (where r.status = 'ready')::int as ready,
@@ -80,6 +83,7 @@ async function summaries(tx: Tx, workspaceId: string, campaignId: string | null)
       removed: c.removed,
       failed: c.failed,
     },
+    offer: c.offer_id && c.offer_name ? { id: c.offer_id, name: c.offer_name } : null,
     createdAt: iso(c.created_at)!,
     approvedAt: iso(c.approved_at),
     finishedAt: iso(c.finished_at),
