@@ -96,6 +96,7 @@ export const ROUTES: readonly Rule[] = [
   // The desk work the phone leaves to the web.
   { web: 'settings', phone: 'web', deeper: true },
   { web: 'workflows', phone: 'web', deeper: true },
+  { web: 'campaigns', phone: 'web', deeper: true },
   { web: 'ai-team', phone: 'web', deeper: true },
   { web: 'knowledge', phone: 'web', deeper: true },
   { web: 'imports', phone: 'web', deeper: true },

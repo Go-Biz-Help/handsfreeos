@@ -1,5 +1,11 @@
 /** Automations' own jobs (Settings → Automations): the ones that aren't the Action Center's or the AI teammate's. */
 import type { JobMap } from '../jobs';
+import {
+  CAMPAIGN_DRAFT_JOB,
+  CAMPAIGN_SEND_JOB,
+  campaignDraftJob,
+  campaignSendJob,
+} from './campaigns';
 import { EVENING_JOB, eveningBriefJob } from './evening';
 import { INTAKE_JOB, intakeJob } from './intake';
 import { EXPIRING_JOB, expiringJob } from './expiring';
@@ -74,6 +80,19 @@ export {
   websiteRescanKey,
 } from './health';
 
+export {
+  CAMPAIGN_ASK,
+  CAMPAIGN_DRAFT_JOB,
+  CAMPAIGN_SEND_JOB,
+  campaignDraftKey,
+  campaignSendKey,
+  DRAFTS_PER_RUN,
+  nextSendMoment,
+  onCampaignCreated,
+  onCampaignPace,
+  onCampaignSending,
+} from './campaigns';
+
 export const automationJobs: JobMap = {
   [REENGAGE_JOB]: reengageJob,
   [INTAKE_JOB]: intakeJob,
@@ -87,4 +106,6 @@ export const automationJobs: JobMap = {
   [EXPIRING_JOB]: expiringJob,
   [LESSON_JOB]: lessonJob,
   [WEBSITE_RESCAN_JOB]: websiteRescanJob,
+  [CAMPAIGN_DRAFT_JOB]: campaignDraftJob,
+  [CAMPAIGN_SEND_JOB]: campaignSendJob,
 };
