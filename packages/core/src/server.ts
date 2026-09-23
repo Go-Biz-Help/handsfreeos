@@ -28,6 +28,7 @@ export * from './automations/maintenance-load';
 export * from './automations/pipeline-load';
 export { mondayOf } from './attention/load-service';
 export { loadConnections } from './attention/load-health';
+export * from './campaigns/audience';
 export * from './attention/items';
 export * from './attention/auto-plan';
 export * from './attention/hints';

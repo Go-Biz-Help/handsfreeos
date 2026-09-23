@@ -977,6 +977,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/campaign.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve every draft in an outreach campaign and start sending, a few an hour in open hours.
+         * @description Risk level 3. Requires workflows.manage. Emits campaign.approved.
+         */
+        post: operations["command_campaign_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an outreach campaign for good. Texts already sent stay sent; nobody else gets one.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.cancelled.
+         */
+        post: operations["command_campaign_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal. Nothing is sent until someone approves the drafts.
+         * @description Risk level 2. Requires workflows.manage. Emits campaign.created.
+         */
+        post: operations["command_campaign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop an outreach campaign sending for now; what’s left waits until it’s resumed.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.paused.
+         */
+        post: operations["command_campaign_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.remove_recipient": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take one person out of an outreach campaign before it’s approved.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.recipient_removed.
+         */
+        post: operations["command_campaign_remove_recipient"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a paused outreach campaign sending again, at its pace.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.resumed.
+         */
+        post: operations["command_campaign_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.set_pace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change how many texts an hour an outreach campaign sends.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.pace_changed.
+         */
+        post: operations["command_campaign_set_pace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.update_draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the text one person in an outreach campaign will get, before it’s approved.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.draft_edited.
+         */
+        post: operations["command_campaign_update_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/chat_widget.create": {
         parameters: {
             query?: never;
@@ -7357,6 +7517,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/campaign.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One outreach campaign: everyone it picked, each person’s text, and what became of it.
+         * @description Requires records.read.
+         */
+        post: operations["query_campaign_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/campaign.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s outreach campaigns, newest first, with how far each has got.
+         * @description Requires records.read.
+         */
+        post: operations["query_campaign_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/campaign.preview_audience": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who a new outreach campaign would text, and how many are left out and why, before it’s made.
+         * @description Requires records.read.
+         */
+        post: operations["query_campaign_preview_audience"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/chat_widget.get": {
         parameters: {
             query?: never;
@@ -12245,6 +12465,288 @@ export interface operations {
                             [key: string]: string;
                         };
                         to: string;
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    audience: {
+                        /** @default [] */
+                        stageIds?: string[];
+                        /** @default [] */
+                        tagIds?: string[];
+                    };
+                    goal: string;
+                    name: string;
+                    /** @default 20 */
+                    perHour?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        recipients: number;
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_remove_recipient: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    recipientId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        recipientId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_set_pace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    perHour: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_update_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    draft: string;
+                    /** Format: uuid */
+                    recipientId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        recipientId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
                     };
                 };
             };
@@ -27392,6 +27894,168 @@ export interface operations {
                             who: string;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_campaign_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        campaign: {
+                            approvedAt: string | null;
+                            audience: {
+                                stageIds: string[];
+                                tagIds: string[];
+                            };
+                            counts: {
+                                approved: number;
+                                drafting: number;
+                                failed: number;
+                                ready: number;
+                                removed: number;
+                                sent: number;
+                                skipped: number;
+                                total: number;
+                            };
+                            /** Format: date-time */
+                            createdAt: string;
+                            finishedAt: string | null;
+                            goal: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            perHour: number;
+                            /** @enum {string} */
+                            status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                        };
+                        nextSendAt: string | null;
+                        recipients: {
+                            draft: string | null;
+                            edited: boolean;
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            phone: string | null;
+                            sentAt: string | null;
+                            skipReason: string | null;
+                            /** @enum {string} */
+                            status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_campaign_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            approvedAt: string | null;
+                            counts: {
+                                approved: number;
+                                drafting: number;
+                                failed: number;
+                                ready: number;
+                                removed: number;
+                                sent: number;
+                                skipped: number;
+                                total: number;
+                            };
+                            /** Format: date-time */
+                            createdAt: string;
+                            finishedAt: string | null;
+                            goal: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            perHour: number;
+                            /** @enum {string} */
+                            status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_campaign_preview_audience: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    audience: {
+                        /** @default [] */
+                        stageIds?: string[];
+                        /** @default [] */
+                        tagIds?: string[];
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        recipients: number;
+                        skipped: {
+                            [key: string]: number;
+                        };
                     };
                 };
             };

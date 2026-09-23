@@ -504,11 +504,23 @@ export const importCustomField: Importer = async (tx, scope, envelope) => {
   const id = randomUUID();
   // A key is unique per business and thing, and two fields over there can reduce to the same key here, so a
   // clash falls back to a key nobody can collide with rather than failing the import.
+  // A label holds 60 characters, and a field over there is often the whole question a form asked — seven on
+  // the first real account ran longer. The label is cut at a word, and the question stays whole in the help.
+  const short =
+    label.length <= 60
+      ? label
+      : `${
+          label
+            .slice(0, 59)
+            .replace(/\s+\S*$/, '')
+            .trim() || label.slice(0, 59)
+        }…`;
+  const help = label.length > 60 ? label.slice(0, 200) : '';
   await tx.execute(sql`
-    insert into app.custom_fields (id, workspace_id, entity, key, label, type, options, position,
+    insert into app.custom_fields (id, workspace_id, entity, key, label, help, type, options, position,
       created_at, updated_at)
     values (${id}::uuid, ${scope.workspaceId}, ${entity}::app.custom_field_entity,
-      ${key}, ${label.slice(0, 60)}, ${finalType}::app.custom_field_type,
+      ${key}, ${short}, ${help}, ${finalType}::app.custom_field_type,
       ${JSON.stringify(options)}::jsonb, ${Math.max(0, Math.min(1000, Number(d.position ?? 0) || 0))},
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))
@@ -971,6 +983,16 @@ export const importContact: Importer = async (tx, scope, envelope) => {
           changedFields: changed,
         });
       }
+      // First known on the earliest day any of the contacts that are them was, when this person is the
+      // import's own: the four that became one on the first real account were dated by the newest. Somebody
+      // who was here already keeps the date the business has for them.
+      if (createdAt)
+        await tx.execute(sql`
+          update app.people set created_at = least(created_at, ${createdAt.toISOString()}::timestamptz)
+          where id = ${here.id}::uuid
+            and exists (select 1 from app.migration_change_journal j
+                        where j.migration_id = ${scope.migrationId} and j.action = 'create'
+                          and j.target_type = 'person' and j.target_id = ${here.id}::uuid)`);
       // What the old system said and we did not take, kept so somebody can see the difference and choose.
       if (Object.keys(merged.kept).length > 0)
         await finding(tx, scope, {
@@ -2555,6 +2577,8 @@ export const importInvoice: Importer = async (tx, scope, envelope) => {
       unitPriceCents: number;
       taxable: boolean;
     }[];
+    purpose?: 'standard' | 'quick' | 'subscription';
+    planRef?: string | null;
   };
   const already = await existingMapping(
     tx,
@@ -2614,26 +2638,39 @@ export const importInvoice: Importer = async (tx, scope, envelope) => {
   const sentAt = number ? (issuedAt ?? new Date().toISOString()) : null;
   const total = Math.max(0, Math.round(Number(d.totalCents ?? 0)));
   const paid = Math.min(Math.max(0, Math.round(Number(d.paidCents ?? 0))), total);
+  const purpose = d.purpose ?? 'standard';
+  const planRef = str(d.planRef)?.slice(0, 200) ?? null;
+  // A plan's charge sits on its plan when the plan is here already; a plan that comes later finds its charges
+  // by this reference (importSubscription).
+  const [plan] = planRef
+    ? await rows<{ id: string }>(
+        tx,
+        sql`select id::text as id from app.subscriptions
+            where workspace_id = ${scope.workspaceId} and external_subscription_id = ${planRef} limit 1`,
+      )
+    : [];
   const id = randomUUID();
   await tx.execute(sql`
     insert into app.invoices (id, workspace_id, number, status, person_id, title, notes, purpose, origin,
       subtotal_cents, discount_cents, taxable_base_cents, tax_cents, total_cents, currency, due_on, terms,
-      sent_at, paid_at, reminder_state, voided_at, created_at, updated_at)
+      sent_at, paid_at, reminder_state, voided_at, created_at, updated_at, subscription_id)
     values (${id}::uuid, ${scope.workspaceId}, ${number},
       -- Paid and partly-paid are the roll-up's to decide from the payment below; this is where it starts.
       ${status === 'draft' ? 'draft' : status === 'void' ? 'void' : 'sent'}::app.invoice_status,
       ${person.targetId}::uuid, ${str(d.title)}, ${str(d.notes)},
-      'standard'::app.invoice_purpose, 'staff'::app.money_origin,
+      ${purpose}::app.invoice_purpose,
+      ${purpose === 'subscription' ? 'subscription' : 'staff'}::app.money_origin,
       ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
       ${Math.max(0, Math.round(Number(d.discountCents ?? 0)))},
       ${Math.max(0, Math.round(Number(d.subtotalCents ?? 0)))},
       ${Math.max(0, Math.round(Number(d.taxCents ?? 0)))}, ${total}, 'USD',
       ${str(d.dueOn)}::date, ${str(d.terms)}, ${sentAt}::timestamptz,
       ${status === 'paid' && paid >= total && total > 0 ? (d.paidAt ?? updatedAt?.toISOString() ?? null) : null}::timestamptz,
-      ${JSON.stringify({ imported: 'quiet', from: scope.sourceSystem })}::jsonb,
+      ${JSON.stringify({ imported: 'quiet', from: scope.sourceSystem, ...(planRef ? { plan: planRef } : {}) })}::jsonb,
       ${status === 'void' ? (updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
-      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+      coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()),
+      ${plan?.id ?? null}::uuid)`);
 
   for (const [i, line] of (d.lines ?? []).slice(0, 200).entries()) {
     const unit = Math.max(0, Math.round(Number(line.unitPriceCents ?? 0)));
@@ -2841,7 +2878,25 @@ async function moneyCustomer(
             where workspace_id = ${scope.workspaceId} and archived_at is null
               and phone_e164 = ${phone} limit 2`,
   );
-  return found.length === 1 ? { targetType: 'person', targetId: found[0]!.id } : null;
+  if (found.length === 1) return { targetType: 'person', targetId: found[0]!.id };
+  if (found.length > 1 || !email) return null;
+  /**
+   * An address that was theirs but not their main one. A customer merged in the old system keeps the other
+   * contact's email among its extra addresses, and the plan and its charges keep naming it: on the first real
+   * account a plan and five payments were for "hello@phicco.net", which lived on the survivor that way. The
+   * import writes those addresses into the customer's notes, and exactly one customer holding it is who it is.
+   */
+  const line = `• Another email address: ${email}`;
+  const other = (
+    await rows<{ id: string; notes: string }>(
+      tx,
+      sql`select id::text as id, notes from app.people
+          where workspace_id = ${scope.workspaceId} and archived_at is null
+            and strpos(lower(notes), ${line.toLowerCase()}) > 0
+          limit 5`,
+    )
+  ).filter((p) => p.notes.split('\n').some((l) => l.trim().toLowerCase() === line.toLowerCase()));
+  return other.length === 1 ? { targetType: 'person', targetId: other[0]!.id } : null;
 }
 
 /**
@@ -2919,6 +2974,12 @@ export const importSubscription: Importer = async (tx, scope, envelope) => {
       ${cancelled ? (d.cancelledAt ?? updatedAt?.toISOString() ?? new Date().toISOString()) : null}::timestamptz,
       coalesce(${createdAt?.toISOString() ?? null}::timestamptz, now()),
       coalesce(${updatedAt?.toISOString() ?? null}::timestamptz, now()))`);
+  // Its charges, when they came across first: each is a paid invoice that says which plan it was.
+  if (str(d.externalId))
+    await tx.execute(sql`
+      update app.invoices set subscription_id = ${id}::uuid
+      where workspace_id = ${scope.workspaceId} and subscription_id is null
+        and reminder_state ->> 'plan' = ${str(d.externalId)}`);
   if (!cancelled)
     await finding(tx, scope, {
       code: 'subscriptions.billed_elsewhere',

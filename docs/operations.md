@@ -7701,6 +7701,19 @@ The promises found are kept in `app.promises`; dismissing the card is enough to 
 
 The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons`, and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql`. See "Apply new migrations".
 
+### Outreach campaigns
+
+**Campaigns** in the side menu (and linked from Settings → Automations, under Marketing): one text to a list of customers. Owners and admins make and approve them; everyone can see them.
+
+1. **Pick who**: anyone with one of the chosen tags, or an open deal in one of the chosen pipeline stages (500 people at most). Texts only, and only to people who agreed to texts.
+2. **Say what it's for** in a line ("Fall tune-up special, $89 through October"). The AI writes each person's text from that, the business's own knowledge, and the person's last visit and last few messages. No links, prices or offers the goal and the knowledge don't give.
+3. **Read and approve**: every text shows on one screen, each one editable; **Remove** takes someone out. **Approve all and send** starts it.
+4. **Sending**: 20 texts an hour to begin with (1 to 200, changeable while it sends), only in open hours and never in quiet hours. **Pause**, **Resume** and **Stop** are on the same screen. The first text to a number carries the STOP wording.
+
+Left out, with the reason shown: no mobile number, no agreement to texts (or said STOP), texted by the business in the last 14 days, waiting on a reply or with an open card on Home, or booked in the next 30 days. The same checks run again just before each text goes. If texting stops working for the business, the campaign pauses itself. Replies land in the inbox like any other text, where the AI teammate answers if it's on. Whoever made the campaign gets a push when the texts are ready to read.
+
+Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `campaigns.draft` and `campaigns.send`. Needs `20261004001300_campaigns.sql`. See "Apply new migrations".
+
 ## Money: Stripe and Square
 
 HandsFreeOS takes money for a business, not from it. **Each business signs into its own Stripe or Square account** in **Settings** → **Payments**. Their customers' payments land in that business's own balance. They are the merchant of record: the payouts are theirs, the fees are theirs, the chargebacks and the refunds are theirs, and they can revoke our access from their own dashboard at any time without asking us. HandsFreeOS never holds their money and never sees a card number — the customer's card details go from the customer's own browser straight to the provider, and only a token comes back.

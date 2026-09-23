@@ -788,10 +788,33 @@ function describeAction(e: AuditEntry): string {
         : 'added a line to what the AI knows';
     case 'attention.record_auto':
       return recordAutoSentence(e);
+    case 'campaign.create':
+      return `started the campaign ${campaignOf(e)} for ${countOf(e.after?.recipients)} ${countOf(e.after?.recipients) === 1 ? 'person' : 'people'}`;
+    case 'campaign.update_draft':
+      return `changed a text in a campaign`;
+    case 'campaign.remove_recipient':
+      return `took someone out of a campaign`;
+    case 'campaign.approve':
+      return `approved the campaign ${campaignOf(e)}: ${countOf(e.after?.approved)} texts, ${countOf(e.after?.perHour)} an hour`;
+    case 'campaign.pause':
+      return `paused the campaign ${campaignOf(e)}`;
+    case 'campaign.resume':
+      return `resumed the campaign ${campaignOf(e)}`;
+    case 'campaign.cancel':
+      return `stopped the campaign ${campaignOf(e)}`;
+    case 'campaign.set_pace':
+      return `set the campaign ${campaignOf(e)} to ${countOf(e.after?.perHour)} texts an hour`;
     default:
       return detectionSentence(e) ?? e.action;
   }
 }
+
+/** “Fall tune-up”: a campaign's name, as its entries carry it. */
+const campaignOf = (e: AuditEntry) => {
+  const t = s(e.after?.name) || e.entityName;
+  return t ? `“${t}”` : '';
+};
+const countOf = (v: unknown): number => (typeof v === 'number' ? v : 0);
 
 // ---- Milestone 8: the Action Center helpers ----
 
