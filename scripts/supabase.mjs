@@ -64,27 +64,33 @@ function runReading(args) {
 
 /**
  * `supabase start` downloads every image the stack needs before it starts any of them, and a registry can refuse
- * downloads for minutes at a time: on 2026-09-23 ghcr.io answered `toomanyrequests` to every CI run for at least
- * five minutes, and the CLI's own three tries came microseconds apart, so the job failed before lint or a single
- * test had run. So when the CLI fails saying an image didn't download, stop whatever did start and try again after
- * 1, then 2, then 4 minutes. Any other failure, a broken migration or a port in use, ends it at once as before.
+ * downloads for a long time: on 2026-09-23 ghcr.io answered `toomanyrequests` to every CI run for over an hour, and
+ * the CLI's own three tries, 4 and 8 seconds apart, all fell inside it, so the job failed before lint or a single test
+ * had run. So when the CLI fails saying an image didn't download, stop whatever did start and try again a minute
+ * later, up to ten times. Any other failure, a broken migration or a port in use, ends it at once as before.
  *
- * Telling the two apart means reading the CLI's output, which happens in CI and wherever else it is piped. In a
- * terminal nothing is read and nothing is retried: the person watching sees the download fail and runs it again.
+ * Many short tries beat a few long waits. ghcr.io counts its limit per minute, and every image that finished
+ * downloading stays for the next try, so each try asks only for what is left. That day, four tries 1, 2 and 4 minutes
+ * apart finished six of the eight images; the 2- and 4-minute waits got no further than the 1-minute one. An image
+ * that fails part-way starts over, though, so against a registry that keeps refusing, the big ones never arrive
+ * whole: ci.yml lets the CLI try other registries for that.
+ *
+ * Telling a download failure from the rest means reading the CLI's output, which happens in CI and wherever else it
+ * is piped. In a terminal nothing is read and nothing is retried: the person watching sees it fail and runs it again.
  */
 const PULL_FAILED = /failed to pull docker image/i;
-const PAUSES_SECONDS = [60, 120, 240];
+const TRIES = 10;
+const PAUSE_SECONDS = 60;
 
 async function start(args) {
   for (let attempt = 1; ; attempt++) {
     const { status, tail } = await runReading(args);
-    const pause = PAUSES_SECONDS[attempt - 1];
-    if (status === 0 || pause === undefined || !PULL_FAILED.test(tail)) return status;
-    const message = `A Supabase image didn't download (try ${attempt} of ${PAUSES_SECONDS.length + 1}), so trying again in ${pause / 60} min.`;
+    if (status === 0 || attempt === TRIES || !PULL_FAILED.test(tail)) return status;
+    const message = `A Supabase image didn't download (try ${attempt} of ${TRIES}), so trying again in ${PAUSE_SECONDS} s.`;
     console.log(process.env.GITHUB_ACTIONS ? `::warning::${message}` : message);
     // A runner is thrown away afterwards, so it starts again from nothing; a laptop keeps its local database.
     run(process.env.CI ? ['stop', '--no-backup'] : ['stop']);
-    await sleep(pause * 1000);
+    await sleep(PAUSE_SECONDS * 1000);
   }
 }
 

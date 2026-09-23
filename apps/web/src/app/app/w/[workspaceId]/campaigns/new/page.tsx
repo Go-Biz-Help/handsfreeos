@@ -12,9 +12,10 @@ export default async function NewCampaignPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [tags, pipelines] = await Promise.all([
+  const [tags, pipelines, offers] = await Promise.all([
     api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/offer.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <>
@@ -22,7 +23,12 @@ export default async function NewCampaignPage({
         title="New campaign"
         description="Pick who, say what it’s for, and the AI writes each text for you to read first."
       />
-      <NewCampaign workspaceId={workspaceId} tags={tags.tags} pipelines={pipelines.pipelines} />
+      <NewCampaign
+        workspaceId={workspaceId}
+        tags={tags.tags}
+        pipelines={pipelines.pipelines}
+        offers={offers.offers.filter((o) => o.state !== 'ended')}
+      />
     </>
   );
 }

@@ -880,7 +880,7 @@ export function scriptedLesson(message: string): Record<string, unknown> {
 }
 
 /**
- * The stand-in's campaign text: "Hi <first>, <goal>. Just reply here." A goal that says "skip" makes it answer
+ * The stand-in's campaign text: "Hi <first>, <goal>. [Ends <offer's end>.] Just reply here." A goal that says "skip" makes it answer
  * null (a person it won't write to), and a customer named "Nodraft" too.
  */
 export function scriptedCampaign(message: string): Record<string, unknown> {
@@ -890,8 +890,10 @@ export function scriptedCampaign(message: string): Record<string, unknown> {
   if (!goal || /\bskip\b/i.test(goal) || name === 'Nodraft') return { text: null };
   const visit = /^Last visit: (.+?) \(/m.exec(message)?.[1];
   const since = visit ? ` Thanks again for having us for the ${unquote(visit).toLowerCase()}.` : '';
+  const ends = /^Ends: (.+)$/m.exec(quotedBlock(message, 'offer') ?? '')?.[1];
+  const until = ends ? ` Ends ${ends}.` : '';
   return {
-    text: `Hi ${name ?? 'there'}, ${goal.replace(/[.!]+$/, '')}.${since} Just reply here.`,
+    text: `Hi ${name ?? 'there'}, ${goal.replace(/[.!]+$/, '')}.${until}${since} Just reply here.`,
   };
 }
 

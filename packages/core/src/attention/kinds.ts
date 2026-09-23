@@ -45,6 +45,8 @@ export const ATTENTION_KINDS = [
   'ai_corrections',
   'website_changed',
   'faq_suggestions',
+  // Promotions (Automations, after stage 5): an offer about to end.
+  'offer_lapsing',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -83,6 +85,7 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'AI keeps being corrected',
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
+  offer_lapsing: 'Offer ending',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -119,6 +122,7 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   ai_corrections: 'Things to teach the AI',
   website_changed: 'Website changes',
   faq_suggestions: 'Questions to answer',
+  offer_lapsing: 'Offers ending',
 };
 
 /**
@@ -174,6 +178,8 @@ export const ATTENTION_SUBJECT_OF = {
   website_changed: 'scan',
   // A row of app.knowledge_suggestions: a question the AI couldn't answer, asked again and again.
   faq_suggestions: 'suggestion',
+  // A row of app.offers whose end date is close.
+  offer_lapsing: 'offer',
 } as const satisfies Record<AttentionKind, string>;
 /** What a quiet channel's or a connection's card is stored as: the page that fixes it. */
 export const HEALTH_SUBJECT_TYPES = [
@@ -474,6 +480,14 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Extending an offer is a knowledge edit, like making it.
+  offer_lapsing: {
+    handle: [ITEM, 'knowledge.manage'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -533,6 +547,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   ai_corrections: 'Add to what the AI knows',
   website_changed: 'Review updates',
   faq_suggestions: 'Answer',
+  offer_lapsing: 'Open the offer',
 };
 
 // ---- What runs on its own ----
@@ -617,6 +632,7 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   ai_corrections: 'What the AI learns is yours to decide.',
   website_changed: 'What the AI learns is yours to decide.',
   faq_suggestions: 'Only you know the answer.',
+  offer_lapsing: 'Whether an offer runs longer is your call.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

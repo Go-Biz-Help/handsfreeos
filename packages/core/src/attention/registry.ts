@@ -28,6 +28,7 @@ import * as revenueMoved from './detectors/revenue-moved';
 import * as staleOpportunity from './detectors/stale-opportunity';
 import * as unansweredLead from './detectors/unanswered-lead';
 import * as unconfirmedAppointment from './detectors/unconfirmed-appointment';
+import * as offerLapsing from './detectors/offer-lapsing';
 import * as websiteChanged from './detectors/website-changed';
 import { walletCardDeclined, walletEmpty, walletLow } from './detectors/wallet';
 import type { AttentionKind } from './kinds';
@@ -73,6 +74,7 @@ export const DETECTORS = {
   ai_corrections: aiCorrections,
   website_changed: websiteChanged,
   faq_suggestions: faqSuggestions,
+  offer_lapsing: offerLapsing,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

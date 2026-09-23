@@ -24729,6 +24729,10 @@
                           "faq_suggestions": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "offer_lapsing": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -25057,6 +25061,10 @@
                             "faq_suggestions": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "offer_lapsing": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -25090,7 +25098,8 @@
                             "ai_unreviewed",
                             "ai_corrections",
                             "website_changed",
-                            "faq_suggestions"
+                            "faq_suggestions",
+                            "offer_lapsing"
                           ],
                           "additionalProperties": false
                         },
@@ -26075,6 +26084,19 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 200
+                  },
+                  "offerId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -59173,7 +59195,8 @@
                                               "ai_unreviewed",
                                               "ai_corrections",
                                               "website_changed",
-                                              "faq_suggestions"
+                                              "faq_suggestions",
+                                              "offer_lapsing"
                                             ]
                                           },
                                           "chips": {
@@ -72959,7 +72982,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 31,
+                    "maxItems": 32,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -72994,7 +73017,8 @@
                         "ai_unreviewed",
                         "ai_corrections",
                         "website_changed",
-                        "faq_suggestions"
+                        "faq_suggestions",
+                        "offer_lapsing"
                       ]
                     }
                   },
@@ -73073,7 +73097,8 @@
                               "ai_unreviewed",
                               "ai_corrections",
                               "website_changed",
-                              "faq_suggestions"
+                              "faq_suggestions",
+                              "offer_lapsing"
                             ]
                           },
                           "state": {
@@ -73245,7 +73270,8 @@
                                     "unreviewed",
                                     "corrected",
                                     "site_changed",
-                                    "asked"
+                                    "asked",
+                                    "offer_ends"
                                   ]
                                 },
                                 "label": {
@@ -73627,7 +73653,8 @@
                               "ai_unreviewed",
                               "ai_corrections",
                               "website_changed",
-                              "faq_suggestions"
+                              "faq_suggestions",
+                              "offer_lapsing"
                             ]
                           },
                           "state": {
@@ -73799,7 +73826,8 @@
                                     "unreviewed",
                                     "corrected",
                                     "site_changed",
-                                    "asked"
+                                    "asked",
+                                    "offer_ends"
                                   ]
                                 },
                                 "label": {
@@ -74181,7 +74209,8 @@
                               "ai_unreviewed",
                               "ai_corrections",
                               "website_changed",
-                              "faq_suggestions"
+                              "faq_suggestions",
+                              "offer_lapsing"
                             ]
                           },
                           "title": {
@@ -74480,7 +74509,8 @@
                               "ai_unreviewed",
                               "ai_corrections",
                               "website_changed",
-                              "faq_suggestions"
+                              "faq_suggestions",
+                              "offer_lapsing"
                             ]
                           },
                           "state": {
@@ -74652,7 +74682,8 @@
                                     "unreviewed",
                                     "corrected",
                                     "site_changed",
-                                    "asked"
+                                    "asked",
+                                    "offer_ends"
                                   ]
                                 },
                                 "label": {
@@ -75083,7 +75114,8 @@
                         "ai_unreviewed",
                         "ai_corrections",
                         "website_changed",
-                        "faq_suggestions"
+                        "faq_suggestions",
+                        "offer_lapsing"
                       ]
                     },
                     "mode": {
@@ -75573,6 +75605,10 @@
                             "faq_suggestions": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "offer_lapsing": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -75606,7 +75642,8 @@
                             "ai_unreviewed",
                             "ai_corrections",
                             "website_changed",
-                            "faq_suggestions"
+                            "faq_suggestions",
+                            "offer_lapsing"
                           ],
                           "additionalProperties": false
                         },
@@ -83340,6 +83377,31 @@
                             ],
                             "additionalProperties": false
                           },
+                          "offer": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -83377,6 +83439,7 @@
                           "status",
                           "perHour",
                           "counts",
+                          "offer",
                           "createdAt",
                           "approvedAt",
                           "finishedAt"
@@ -83524,6 +83587,31 @@
                           ],
                           "additionalProperties": false
                         },
+                        "offer": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "name": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "name"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time",
@@ -83587,6 +83675,7 @@
                         "status",
                         "perHour",
                         "counts",
+                        "offer",
                         "createdAt",
                         "approvedAt",
                         "finishedAt",

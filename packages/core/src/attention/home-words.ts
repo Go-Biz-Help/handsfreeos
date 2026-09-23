@@ -47,6 +47,7 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   ai_corrections: ['lesson', 'lessons'],
   website_changed: ['scan', 'scans'],
   faq_suggestions: ['question', 'questions'],
+  offer_lapsing: ['offer', 'offers'],
 };
 
 /** The settings page that checks a channel or fixes a connection, by the card's stored subject type. */
@@ -514,6 +515,8 @@ export function attentionTargetOf(
       return { href: `${base}/knowledge/suggestions?reason=scan`, label: 'Open the updates' };
     case 'faq_suggestions':
       return { href: `${base}/knowledge/suggestions?reason=gap`, label: 'Open the questions' };
+    case 'offer_lapsing':
+      return { href: `${base}/knowledge/offers`, label: 'Open the offers' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -650,6 +653,8 @@ export function handleButtonOf(
       return { label: 'Review updates', icon: 'file-text' };
     case 'faq_suggestions':
       return { label: 'Answer', icon: 'message' };
+    case 'offer_lapsing':
+      return { label: 'Open the offer', icon: 'file-text' };
   }
 }
 
@@ -680,6 +685,7 @@ export function letHandleOffReason(
     item.kind === 'faq_suggestions'
   )
     return 'What the AI learns is yours to decide';
+  if (item.kind === 'offer_lapsing') return 'Whether an offer runs longer is your call';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

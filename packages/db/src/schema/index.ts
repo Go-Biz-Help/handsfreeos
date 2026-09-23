@@ -5292,6 +5292,8 @@ export const campaigns = app.table('campaigns', {
   startedAt: ts('started_at'),
   finishedAt: ts('finished_at'),
   nextSendAt: ts('next_send_at'),
+  /** Promotions: the offer (Knowledge → Offers) this campaign is about, if any. */
+  offerId: uuid('offer_id').references(() => offers.id, { onDelete: 'set null' }),
   ...timestamps(),
 });
 

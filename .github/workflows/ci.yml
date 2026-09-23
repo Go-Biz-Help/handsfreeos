@@ -8,10 +8,11 @@ on:
 # One run per branch, and a newer push cancels the one before it — on a pull request, where the only thing
 # lost is a result nobody was going to read.
 #
-# **Never on `main`.** Deploy runs `on: workflow_run` and only when the CI run it follows concluded `success`,
-# so a cancelled run on main is a merge that silently never ships. Merges arrive in bursts, each one cancelling
-# the last, and the deploy that matters is the one that never happened — nothing fails, nothing is red, and the
-# hosted apps quietly fall behind `main`. Three merges went out undeployed before anybody noticed.
+# **Never on `main`.** The phone release (mobile-release.yml) runs `on: workflow_run` and only when the CI run it
+# follows concluded `success`, so a cancelled run on main is a merge that silently never ships to phones. Merges
+# arrive in bursts, each one cancelling the last, and the release that matters is the one that never happened —
+# nothing fails, nothing is red, and the phones quietly fall behind `main`. Three merges went out undeployed before
+# anybody noticed, back when the API and the worker waited for CI too (they now ship when Vercel's build is ready).
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -57,25 +58,19 @@ jobs:
           version: 2.117.0
 
       # Signed out, the stack's image downloads from ghcr.io share one limit with everything else on the runner's
-      # network address, and on 2026-09-23 that limit refused them for most of an hour. Signed in with this job's
-      # token they count against the token instead. The images are public, so `packages: read` is all it needs. A
-      # login that fails leaves the downloads anonymous, as they were, rather than failing the job.
-      - name: Log in to ghcr.io, so image downloads get the higher limit
-        continue-on-error: true
+      # network address, and on 2026-09-23 that limit refused them for over an hour. Signed in with this job's token,
+      # twice as many layers got through as signed out. The images are public, so `packages: read` is all it needs.
+      - name: Sign Docker in to ghcr.io
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         env:
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again after 1, 2 and then 4
-      # minutes instead of failing the job before a single test has run. On a bad day that is 7 minutes of waiting,
-      # which the 75-minute limit above has room for.
-      #
-      # setup-cli points every later step at ghcr.io alone, and on 2026-09-23 ghcr.io refused this repository's runs
-      # for over an hour, signed in or not, through all four tries. Without that setting the CLI tries each image at
-      # public.ecr.aws, its own default, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't
-      # stop the stack.
+      # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again a minute later, up to
+      # ten times, instead of failing the job before a single test has run. On a bad day that is 9 minutes of
+      # waiting, which the 75-minute limit above has room for.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
+        # supabase/setup-cli points the CLI at ghcr.io alone. Without it, the CLI tries each image at
+        # public.ecr.aws, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't stop the stack.
         run: env -u SUPABASE_INTERNAL_IMAGE_REGISTRY node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
       - name: Write local env files
