@@ -175,6 +175,10 @@ export function diffTeammateConfigs(
   // Deals
   change('Opens and closes deals', a.deals.enabled, b.deals.enabled, onOff);
 
+  // Photos
+  change('Looks at photos', a.photos.enabled, b.photos.enabled, onOff);
+  change('Rough price ranges from photos', a.photos.priceRanges, b.photos.priceRanges, onOff);
+
   // Follow up and hours
   change('Follows up', a.followUp.enabled, b.followUp.enabled, onOff);
   change(

@@ -62,6 +62,7 @@ describe('the registry', () => {
       ['create_task', 'core', 'auto'],
       ['send_verification_code', 'core', 'auto'],
       ['check_verification_code', 'core', 'auto'],
+      ['note_photos', 'photos', 'auto'],
       ['offer_discount', 'discounts', 'approval'],
       ['my_bills', 'bills', 'auto'],
       ['send_payment_link', 'bills', 'approval'],
@@ -180,6 +181,7 @@ describe('teammateTools', () => {
       'update_customer',
       'add_note',
       'create_task',
+      'note_photos',
       'hand_off',
       'reply',
       'no_reply',
@@ -198,6 +200,7 @@ describe('teammateTools', () => {
       'update_customer',
       'add_note',
       'create_task',
+      'note_photos',
       'hand_off',
       'reply',
       'no_reply',
@@ -275,12 +278,20 @@ describe('teammateTools', () => {
       'create_task',
       'send_verification_code',
       'check_verification_code',
+      'note_photos',
       'hand_off',
       'reply',
       'no_reply',
     ]);
     for (const hidden of UNVERIFIED_CHAT_HIDDEN)
       expect(names(coordinator, true)).not.toContain(hidden);
+  });
+
+  it('offers note_photos while the teammate looks at photos (M18)', () => {
+    expect(names(coordinator)).toContain('note_photos');
+    expect(names(applyTeammatePatch(coordinator, { photos: { enabled: false } }))).not.toContain(
+      'note_photos',
+    );
   });
 
   it('offers the chat code tools only to an unverified chat visitor', () => {

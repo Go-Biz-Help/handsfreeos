@@ -1,5 +1,6 @@
 import {
   AiProviderError,
+  messagesLength,
   type AiContent,
   type AiMessage,
   type AiProvider,
@@ -51,9 +52,7 @@ export class ScriptedProvider implements AiProvider {
     const last = request.messages[request.messages.length - 1];
     const answering =
       !!last && Array.isArray(last.content) && last.content.some((c) => c.type === 'tool_result');
-    const inputTokens = Math.ceil(
-      (request.system.length + JSON.stringify(request.messages).length) / 4,
-    );
+    const inputTokens = Math.ceil((request.system.length + messagesLength(request.messages)) / 4);
 
     const context = request.context ?? '';
     const calls = rule?.calls && !answering && !structured ? rule.calls(question, context) : [];

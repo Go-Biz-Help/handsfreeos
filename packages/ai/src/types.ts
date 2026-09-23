@@ -16,7 +16,34 @@ export type AiContent =
       readonly callId: string;
       readonly content: string;
       readonly isError?: boolean;
+    }
+  /** A picture the model looks at (M18: a customer's photo), as base64 bytes. */
+  | {
+      readonly type: 'image';
+      readonly mediaType: AiImageType;
+      readonly data: string;
     };
+
+/** The image types models take. */
+export const AI_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+export type AiImageType = (typeof AI_IMAGE_TYPES)[number];
+/** The largest image a model takes, before base64. */
+export const AI_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** Roughly what a picture costs a model, for stand-ins that guess token counts. */
+export const AI_IMAGE_TOKENS = 1600;
+
+/** The messages' length in characters for a guessed token count, a picture counted as its tokens, not its bytes. */
+export function messagesLength(messages: readonly AiMessage[]): number {
+  let images = 0;
+  const text = JSON.stringify(messages, (key, value: unknown) => {
+    if (value && typeof value === 'object' && (value as { type?: unknown }).type === 'image') {
+      images++;
+      return { type: 'image' };
+    }
+    return value;
+  });
+  return text.length + images * AI_IMAGE_TOKENS * 4;
+}
 
 export interface AiMessage {
   readonly role: 'user' | 'assistant';

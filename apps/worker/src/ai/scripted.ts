@@ -6,6 +6,7 @@ import {
   type AiStreamOptions,
   type AiTurn,
   type ScriptRule,
+  messagesLength,
 } from '@hfos/ai';
 import { addDays, weekdayOf } from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
@@ -461,6 +462,8 @@ export interface TeammateTurn {
   readonly feedback: string | null;
   /** The tools this call offers. */
   readonly tools: ReadonlySet<string>;
+  /** The customer's photos it was shown (M18). */
+  readonly images: number;
 }
 
 export interface TeammateRule {
@@ -702,7 +705,8 @@ export function scriptedTeammateTurn(
       if (c.type === 'tool_call') names.set(c.id, c.name);
       else if (c.type === 'tool_result')
         (results[names.get(c.callId) ?? 'unknown'] ??= []).push(parseObject(c.content));
-      else if (m.role === 'user' && c.text.startsWith(REWRITE_MARKER)) feedback = c.text;
+      else if (c.type === 'text' && m.role === 'user' && c.text.startsWith(REWRITE_MARKER))
+        feedback = c.text;
     }
   }
   const turn: TeammateTurn = {
@@ -711,6 +715,12 @@ export function scriptedTeammateTurn(
     results,
     feedback,
     tools: new Set((request.tools ?? []).map((t) => t.name)),
+    images: (() => {
+      const first = request.messages[0]?.content;
+      return typeof first === 'string' || !first
+        ? 0
+        : first.filter((c) => c.type === 'image').length;
+    })(),
   };
   // A first message and a nudge have no new words to answer: their turns end with their own line.
   const asked = textsOf(request.messages[0]).join('\n');
@@ -723,7 +733,7 @@ export function scriptedTeammateTurn(
         : (rules.find((r) => r.when.test(words)) ?? TEAMMATE_FALLBACK).step(turn);
   const usage = {
     inputTokens: Math.ceil(
-      (request.system.length + turn.context.length + JSON.stringify(request.messages).length) / 4,
+      (request.system.length + turn.context.length + messagesLength(request.messages)) / 4,
     ),
     outputTokens: 30,
     cacheReadTokens: 0,

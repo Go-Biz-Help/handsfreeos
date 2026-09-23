@@ -30,6 +30,7 @@ export type TeammateToolSkill =
   | 'core'
   | 'discounts'
   | 'deals'
+  | 'photos'
   | 'bills'
   | 'newBills'
   | 'quotes'
@@ -417,6 +418,20 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
 
+  // ---------- photos (M18) ----------
+  define({
+    name: 'note_photos',
+    description:
+      'After looking at the customer’s photos, leave the team a note: what they show (the equipment, the problem, how big, anything worn or damaged), whether it looks like work the business does, and what photo would help if you asked for another.',
+    input: z.strictObject({
+      shows: text(1000).describe('What the photos show, plainly'),
+      fit: z.enum(['yes', 'no', 'unsure']).describe('Whether it looks like work the business does'),
+      askedFor: optionalText(300).describe('The better photo you asked them for, if you did'),
+    }),
+    skill: 'photos',
+    autonomy: 'auto',
+  }),
+
   // ---------- discounts ----------
   define({
     name: 'offer_discount',
@@ -621,6 +636,7 @@ export function teammateTools(
     followUp: config.followUp.enabled,
     discounts: config.money.discounts === 'with_approval',
     deals: config.deals.enabled,
+    photos: config.photos.enabled,
     bills: config.money.bills,
     newBills: config.money.newBills,
     quotes: config.money.quotes !== 'off',

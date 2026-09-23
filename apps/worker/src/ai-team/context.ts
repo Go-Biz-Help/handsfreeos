@@ -54,7 +54,36 @@ export interface BatchMessage {
   readonly subject: string | null;
   /** When they sent it, in epoch milliseconds. */
   readonly at: number;
+  /** The pictures it came with (M18), as stored; the run decides which it can show the model. */
+  readonly photos: readonly PhotoRef[];
 }
+
+/** A picture a customer sent, where it is kept. */
+export interface PhotoRef {
+  readonly bucket: string;
+  readonly objectPath: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+}
+
+const photosIn = (media: unknown): PhotoRef[] =>
+  (Array.isArray(media) ? media : []).flatMap((m: unknown) => {
+    const r = m as Partial<PhotoRef> | null;
+    return r &&
+      typeof r.bucket === 'string' &&
+      typeof r.objectPath === 'string' &&
+      typeof r.contentType === 'string' &&
+      r.contentType.startsWith('image/')
+      ? [
+          {
+            bucket: r.bucket,
+            objectPath: r.objectPath,
+            contentType: r.contentType,
+            sizeBytes: Number(r.sizeBytes) || 0,
+          },
+        ]
+      : [];
+  });
 
 type MessageRow = {
   id: string;
@@ -68,8 +97,9 @@ type MessageRow = {
 function textOf(r: Pick<MessageRow, 'channel' | 'body_text' | 'media'>): string {
   const body = r.channel === 'email' ? stripQuoted(r.body_text ?? '') : (r.body_text ?? '').trim();
   const photos = Array.isArray(r.media) ? r.media.length : 0;
-  const text =
-    body || (photos === 1 ? '(sent a photo)' : photos > 1 ? `(sent ${photos} photos)` : '');
+  const sent = photos === 1 ? 'a photo' : `${photos} photos`;
+  // M18: a photo with words says so too, so the model knows there is one to look at.
+  const text = !photos ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
   return text.slice(0, 2000);
 }
 
@@ -79,6 +109,7 @@ const batchOf = (r: MessageRow): BatchMessage => ({
   text: textOf(r),
   subject: r.subject,
   at: ms(r.occurred_at),
+  photos: photosIn(r.media),
 });
 
 /**

@@ -129,6 +129,7 @@ describe('defaults', () => {
       'identity',
       'limits',
       'money',
+      'photos',
       'qualify',
       'respond',
       'version',

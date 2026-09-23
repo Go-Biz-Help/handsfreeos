@@ -85,7 +85,17 @@ export class AnthropicProvider implements AiProvider {
 
 function toAnthropic(m: AiMessage): Anthropic.MessageParam {
   if (typeof m.content === 'string') return { role: m.role, content: m.content };
-  return { role: m.role, content: m.content.map(toBlock) };
+  // A picture is the bulk of a turn, and the conversation is sent again every round: the last one is cached.
+  const lastImage = m.content.map((c) => c.type).lastIndexOf('image');
+  return {
+    role: m.role,
+    content: m.content.map((c, i) => {
+      const block = toBlock(c);
+      return i === lastImage && block.type === 'image'
+        ? { ...block, cache_control: { type: 'ephemeral' as const } }
+        : block;
+    }),
+  };
 }
 
 function toBlock(c: AiContent): Anthropic.ContentBlockParam {
@@ -101,6 +111,8 @@ function toBlock(c: AiContent): Anthropic.ContentBlockParam {
         content: c.content,
         ...(c.isError ? { is_error: true } : {}),
       };
+    case 'image':
+      return { type: 'image', source: { type: 'base64', media_type: c.mediaType, data: c.data } };
   }
 }
 

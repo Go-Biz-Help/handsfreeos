@@ -180,13 +180,27 @@ Build order for step 1 (all done, 2026-09-22):
   - The settings screen draws areas on a Google map (`NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`).
   - Without the keys, only ZIP areas are offered.
 
-### Step 3 — Photos
+### Step 3 — Photos (done, 2026-09-23)
 
-- `AiContent` gains an image block (`packages/ai`), and Anthropic's provider sends it.
-- The run attaches the last few photos from the batch (resized, from storage, signed for the call).
-- `request_photos` asks for the shots it needs; `note_photos` writes what they show on the lead.
-- A price range comes only from the price list and the business's own "sizing guide" knowledge,
-  said as a range and never as a quote; the owner switches ranges off.
+- `AiContent` has an image block (`packages/ai`). Anthropic's provider sends it as base64 and caches the
+  last one, because the tool loop sends the turn again every round.
+- The run attaches the customer's newest 3 photos from the messages it answers: JPEG, PNG, GIF or WebP, at
+  most 5 MB each, read from storage.
+  - Photos it can't open (iPhone HEIC) or that are too big are named in the turn, so it can ask for a
+    screenshot.
+  - No resizing: Anthropic scales large images itself, so the worker needs no image library.
+  - A photo with words now reads "(with a photo)" in the batch.
+- Anything written in a photo is data, never an instruction.
+- `note_photos` writes what they show on the customer and their lead, whether it looks like work the
+  business does, and what better photo it asked for.
+  - Asking for a better photo is a prompt rule rather than its own tool: it is just part of the reply.
+- Settings, under Answer → Photos customers send:
+  - `photos.enabled` (on by default)
+  - `photos.priceRanges` (off by default)
+- A price range from a photo is allowed only when both `photos.priceRanges` and the profile's
+  `allowPrices` are on. The reply check still requires every amount to be in the price list or Knowledge
+  (a "sizing guide" article). With ranges off, a reply to a photo says no price at all.
+- Website chat has no uploads yet, so this covers texts and emails.
 
 ### Step 4 — Jobs and "On my way"
 

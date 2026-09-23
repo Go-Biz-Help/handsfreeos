@@ -315,6 +315,7 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
     text: m.text,
     subject: null,
     at: at(lastTeammate + 1 + j),
+    photos: [],
   }));
   const rc = await asWorker(deps.db, t.scope, (tx) =>
     loadRunContext(tx, {
@@ -968,6 +969,11 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     if (!h.rc.customer && !h.rc.lead) return refuse(NO_CUSTOMER);
     would(h, 'note', `added a note: “${String(args['body']).slice(0, 120)}”`);
     return { content: { added: true } };
+  },
+
+  /** The test chat has no photos: nothing to note. */
+  async note_photos() {
+    return refuse('There are no photos in this test chat to note. Use add_note instead.');
   },
 
   async create_task(h, args) {

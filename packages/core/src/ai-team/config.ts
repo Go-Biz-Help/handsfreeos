@@ -200,6 +200,17 @@ const Deals = z.object({
 });
 
 /**
+ * M18: the customer's photos. It looks at the ones they send (a few a reply), says what they show in a note
+ * for the team, whether it looks like work the business does, and asks for a better one when it can't tell.
+ * `priceRanges`: it may say a rough range from what it sees, only from the price list and Knowledge, and only
+ * where prices are allowed; never a quote.
+ */
+const Photos = z.object({
+  enabled: z.boolean().default(true),
+  priceRanges: z.boolean().default(false),
+});
+
+/**
  * When follow-ups go, in hours after the message they didn't answer: 4 hours, then days 1, 2, 4, 7, 10, 14, 21
  * and 30 (Chris's ladder). Then once a month for `monthlyForMonths` more.
  */
@@ -349,6 +360,7 @@ export const TeammateConfig = z.object({
   qualify: Qualify.prefault({}),
   book: Book.prefault({}),
   deals: Deals.prefault({}),
+  photos: Photos.prefault({}),
   followUp: FollowUp.prefault({}),
   hours: Hours.prefault({}),
   autonomy: Autonomy.prefault({}),

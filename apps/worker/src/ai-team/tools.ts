@@ -140,6 +140,8 @@ export interface RunState {
   openedLeadId: string | null;
   /** The chat visitor typed back the right code in this run (M18): the run starts over as theirs. */
   verified: boolean;
+  /** How many of the customer's photos it looked at in this run (M18). */
+  photos: number;
   end: RunEnd | null;
   abort: RunAbort | null;
 }
@@ -154,6 +156,7 @@ export function newRunState(): RunState {
     moneyAsk: null,
     openedLeadId: null,
     verified: false,
+    photos: 0,
     end: null,
     abort: null,
   };
@@ -1316,6 +1319,37 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
         body: String(args['body']),
         personId: d.rc.customer?.id ?? null,
         leadId: d.rc.lead?.id ?? null,
+      },
+      d.ai,
+      d.meta,
+    );
+    return { status: 'done', command: 'activity.log', content: { added: true } };
+  },
+
+  /** M18: what the customer's photos show, as a note on the customer and their lead. */
+  async note_photos(d, tx, args) {
+    if (!d.state.photos)
+      return refused({ error: 'There are no photos in this reply to note. Use add_note instead.' });
+    if (!d.rc.customer && !d.rc.lead) return refused({ error: NO_CUSTOMER });
+    const fit = {
+      yes: 'Looks like work we do',
+      no: 'Doesn’t look like work we do',
+      unsure: 'Not sure it’s work we do',
+    }[String(args['fit']) as 'yes' | 'no' | 'unsure'];
+    const asked = str(args['askedFor']);
+    await executeCommandIn(
+      tx,
+      activityLog,
+      {
+        workspaceId: d.scope.workspaceId,
+        kind: 'note',
+        body: [
+          `What their ${d.state.photos === 1 ? 'photo shows' : `${d.state.photos} photos show`}: ${String(args['shows'])}`,
+          `${fit}.`,
+          ...(asked ? [`Asked them for: ${asked}`] : []),
+        ].join('\n'),
+        personId: d.rc.customer?.id ?? null,
+        leadId: d.rc.lead?.id ?? d.state.openedLeadId ?? null,
       },
       d.ai,
       d.meta,
