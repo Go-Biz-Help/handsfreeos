@@ -67,8 +67,14 @@ jobs:
       # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again after 1, 2 and then 4
       # minutes instead of failing the job before a single test has run. On a bad day that is 7 minutes of waiting,
       # which the 75-minute limit above has room for.
+      #
+      # The images come from public.ecr.aws, the CLI's own default. setup-cli points every later step at ghcr.io,
+      # and on 2026-09-23 ghcr.io refused this repository's runs for over an hour, signed in or not, through all four
+      # tries. Outside Actions the same CLI version pulls this exact set from public.ecr.aws.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
         run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+        env:
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
 
       - name: Write local env files
         run: pnpm env:local
