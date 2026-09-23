@@ -38,6 +38,7 @@ import {
   ServiceCreateOutput,
   ServiceUpdateInput,
   ServiceUpdateOutput,
+  type AreaShape,
   TerritoryCreateInput,
   TerritoryCreateOutput,
   TerritoryDeleteInput,
@@ -454,6 +455,29 @@ export const resourceArchive = defineCommand({
 
 // ---- Territories ----
 
+/** The columns a shape sets, every other kind's cleared (M18). */
+function shapeColumns(shape: AreaShape, postalCodes: string[]) {
+  return {
+    kind: shape.kind,
+    postalCodes: shape.kind === 'zip' ? postalCodes : [],
+    centerAddress: shape.kind === 'radius' ? shape.address : null,
+    centerLat: shape.kind === 'radius' ? shape.lat : null,
+    centerLng: shape.kind === 'radius' ? shape.lng : null,
+    radiusMiles: shape.kind === 'radius' ? shape.miles.toFixed(2) : null,
+    polygon:
+      shape.kind === 'polygon' ? shape.corners.map(([a, b]) => [a, b] as [number, number]) : null,
+  };
+}
+
+/** "12 ZIP codes", "10 miles from 1 Main St", "a drawn area": what the audit log says an area covers. */
+function coverage(shape: AreaShape, zipCodes: number) {
+  return shape.kind === 'zip'
+    ? { zipCodes }
+    : shape.kind === 'radius'
+      ? { miles: shape.miles, from: shape.address }
+      : { drawn: shape.corners.length };
+}
+
 async function setTerritoryMembers(
   tx: Tx,
   workspaceId: string,
@@ -470,7 +494,8 @@ async function setTerritoryMembers(
 
 export const territoryCreate = defineCommand({
   name: 'territory.create',
-  description: 'Add a territory: a list of ZIP codes and the people who cover them.',
+  description:
+    'Add a service area (territory) and the people who cover it: a list of ZIP codes, so many miles from an address, or a shape drawn on the map.',
   risk: 1,
   input: TerritoryCreateInput,
   output: TerritoryCreateOutput,
@@ -485,7 +510,12 @@ export const territoryCreate = defineCommand({
     try {
       [row] = await ctx.tx
         .insert(territories)
-        .values({ workspaceId: ws, name: input.name, postalCodes, createdBy: me })
+        .values({
+          workspaceId: ws,
+          name: input.name,
+          ...shapeColumns(input.shape, postalCodes),
+          createdBy: me,
+        })
         .returning({ id: territories.id });
     } catch (e) {
       if (isUniqueViolation(e)) throw nameTaken('territory');
@@ -500,7 +530,8 @@ export const territoryCreate = defineCommand({
       payload: { name: input.name },
       after: {
         name: input.name,
-        zipCodes: postalCodes.length,
+        kind: input.shape.kind,
+        ...coverage(input.shape, input.shape.kind === 'zip' ? postalCodes.length : 0),
         people: unique(input.userIds).length,
       },
     });
@@ -510,7 +541,8 @@ export const territoryCreate = defineCommand({
 
 export const territoryUpdate = defineCommand({
   name: 'territory.update',
-  description: 'Rename a territory or change its ZIP codes or people.',
+  description:
+    'Rename a service area (territory) or change what it covers (its ZIP codes, distance or drawn shape) or its people.',
   risk: 1,
   input: TerritoryUpdateInput,
   output: TerritoryUpdateOutput,
@@ -527,7 +559,16 @@ export const territoryUpdate = defineCommand({
     const patch: Partial<typeof territories.$inferInsert> = {};
     if (input.name !== undefined && input.name !== current.name) patch.name = input.name;
     const postalCodes = input.postalCodes ? unique(input.postalCodes).sort() : undefined;
-    if (postalCodes && JSON.stringify(postalCodes) !== JSON.stringify(current.postalCodes))
+    if (input.shape) {
+      const next = shapeColumns(input.shape, postalCodes ?? current.postalCodes);
+      for (const [k, v] of Object.entries(next) as [keyof typeof next, unknown][])
+        if (JSON.stringify(v) !== JSON.stringify(current[k]))
+          (patch as Record<string, unknown>)[k] = v;
+    } else if (
+      postalCodes &&
+      current.kind === 'zip' &&
+      JSON.stringify(postalCodes) !== JSON.stringify(current.postalCodes)
+    )
       patch.postalCodes = postalCodes;
     const updated = [...Object.keys(patch), ...(input.userIds !== undefined ? ['userIds'] : [])];
     if (!updated.length) return { territoryId: current.id, updated };

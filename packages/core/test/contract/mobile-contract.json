@@ -4347,6 +4347,29 @@
               }
             ]
           },
+          "point": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "lat": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "lng": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  }
+                },
+                "required": ["lat", "lng"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "chosenUserId": {
             "anyOf": [
               {

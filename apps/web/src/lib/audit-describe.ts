@@ -403,7 +403,11 @@ function describeAction(e: AuditEntry): string {
     case 'resource.archive':
       return `archived the resource ${name(e)}`;
     case 'territory.create':
-      return `added the territory ${name(e)} with ${count(e.after?.zipCodes, 'ZIP code', 'ZIP codes')}`;
+      return s(e.after?.kind) === 'radius'
+        ? `added the territory ${name(e)}: ${String(e.after?.miles ?? '')} miles from ${s(e.after?.from) || 'a point on the map'}`
+        : s(e.after?.kind) === 'polygon'
+          ? `added the territory ${name(e)}, drawn on the map`
+          : `added the territory ${name(e)} with ${count(e.after?.zipCodes, 'ZIP code', 'ZIP codes')}`;
     case 'territory.update':
       return `updated the territory ${name(e)}`;
     case 'territory.delete':

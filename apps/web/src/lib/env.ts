@@ -21,4 +21,9 @@ export const publicEnv = {
   passkeysEnabled: process.env.NEXT_PUBLIC_PASSKEYS_ENABLED !== 'false',
   /** Connect Gmail opens up once Google finishes its security review of HandsFreeOS. */
   gmailEnabled: process.env.NEXT_PUBLIC_GMAIL_ENABLED === 'true',
+  /**
+   * M18: the browser key for Google Maps (restricted to our domains), for service areas by distance or drawn on
+   * a map. Without it only ZIP areas are offered.
+   */
+  googleMapsBrowserKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || null,
 };

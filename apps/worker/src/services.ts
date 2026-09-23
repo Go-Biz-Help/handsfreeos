@@ -19,6 +19,7 @@ import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
 import type { TelephonyProvider } from './telephony/provider';
+import type { Geocoder } from './geo/geocoder';
 import type { Transcriber } from './telephony/transcriber';
 
 /** HandsFreeOS's own support desk (M13): where its mail arrives and who it comes from. */
@@ -44,6 +45,8 @@ export interface WorkerServices {
   readonly telephony: TelephonyProvider;
   /** Turns a call recording into words. Separate from the carrier: it reads our own copy of the audio. */
   readonly transcriber: Transcriber;
+  /** Where an address is, for distance and drawn service areas (M18); `off` without a key. */
+  readonly geocoder: Geocoder;
   /**
    * Where a business's own domain is served from (M17). **Null when nobody has turned it on**, which every
    * handler checks: the feature is absent rather than present and failing.

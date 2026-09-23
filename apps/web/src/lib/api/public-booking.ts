@@ -74,8 +74,14 @@ export interface BookingInfo {
       readonly maxTimes: number;
     };
   };
-  /** The ZIP codes it comes to, when it routes by ZIP. */
-  readonly zipRouting: { readonly postalCodes: readonly string[] } | null;
+  /**
+   * The ZIP codes it comes to, when it routes by service area. `byAddress` (M18): some areas go by distance or
+   * a drawn map area, so the page asks for the street address instead and the times show whether it's served.
+   */
+  readonly zipRouting: {
+    readonly postalCodes: readonly string[];
+    readonly byAddress?: boolean;
+  } | null;
   readonly mode: 'hours' | 'sessions';
   readonly capacity: {
     readonly seats: number;
@@ -416,6 +422,7 @@ export function getOpenTimes(
     durationMinutes?: number;
     partySize?: number;
     postalCode?: string | null;
+    address?: string | null;
     chosenUserId?: string | null;
     locationKind?: LocationKind | null;
   },
@@ -425,6 +432,7 @@ export function getOpenTimes(
   if (q.durationMinutes) params.set('durationMinutes', String(q.durationMinutes));
   if (q.partySize && q.partySize > 1) params.set('partySize', String(q.partySize));
   if (q.postalCode) params.set('postalCode', q.postalCode);
+  if (q.address) params.set('address', q.address);
   if (q.chosenUserId) params.set('chosenUserId', q.chosenUserId);
   if (q.locationKind) params.set('locationKind', q.locationKind);
   return call<OpenTimes>(`${bookPath(site, calendar)}/slots?${params}`, FRESH);

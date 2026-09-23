@@ -497,6 +497,40 @@ function AnswerModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
           testId="unsure-take_message"
         />
       </div>
+      <GroupLabel id="answer-photos">Photos customers send</GroupLabel>
+      <SetRow
+        first
+        center
+        title={`${draft.identity.name} looks at photos`}
+        description="Says what they show in a note for your team, whether it looks like work you do, and asks for a better one when it can’t tell. Texts and emails; up to 3 photos a reply."
+      >
+        <Switch
+          checked={draft.photos.enabled}
+          label="Photos"
+          testId="photos-enabled"
+          onChange={(v) => patch({ photos: { enabled: v } }, onOff(v, 'Photos'))}
+        />
+      </SetRow>
+      {draft.photos.enabled ? (
+        <SetRow
+          center
+          title="Rough price ranges"
+          description={
+            catalogs.pricesAllowed
+              ? 'It may say a rough range from what it sees, only from your price list and Knowledge (a “sizing guide” article helps). Always a range, never a quote.'
+              : 'Turn on prices in your business profile first. Until then it never says a price.'
+          }
+        >
+          <Switch
+            checked={draft.photos.priceRanges}
+            label="Price ranges from photos"
+            testId="photos-price-ranges"
+            onChange={(v) =>
+              patch({ photos: { priceRanges: v } }, onOff(v, 'Price ranges from photos'))
+            }
+          />
+        </SetRow>
+      ) : null}
     </>
   );
 }

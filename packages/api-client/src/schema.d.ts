@@ -5607,7 +5607,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add a territory: a list of ZIP codes and the people who cover them.
+         * Add a service area (territory) and the people who cover it: a list of ZIP codes, so many miles from an address, or a shape drawn on the map.
          * @description Risk level 1. Requires calendars.manage. Emits territory.created.
          */
         post: operations["command_territory_create"];
@@ -5647,7 +5647,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Rename a territory or change its ZIP codes or people.
+         * Rename a service area (territory) or change what it covers (its ZIP codes, distance or drawn shape) or its people.
          * @description Risk level 1. Requires calendars.manage. Emits territory.updated.
          */
         post: operations["command_territory_update"];
@@ -21005,6 +21005,29 @@ export interface operations {
                     name: string;
                     /** @default [] */
                     postalCodes?: string[];
+                    /**
+                     * @default {
+                     *       "kind": "zip"
+                     *     }
+                     */
+                    shape?: {
+                        /** @enum {string} */
+                        kind: "zip";
+                    } | {
+                        address: string;
+                        /** @enum {string} */
+                        kind: "radius";
+                        lat: number;
+                        lng: number;
+                        miles: number;
+                    } | {
+                        corners: [
+                            number,
+                            number
+                        ][];
+                        /** @enum {string} */
+                        kind: "polygon";
+                    };
                     /** @default [] */
                     userIds?: string[];
                     /** Format: uuid */
@@ -21071,6 +21094,24 @@ export interface operations {
                 "application/json": {
                     name?: string;
                     postalCodes?: string[];
+                    shape?: {
+                        /** @enum {string} */
+                        kind: "zip";
+                    } | {
+                        address: string;
+                        /** @enum {string} */
+                        kind: "radius";
+                        lat: number;
+                        lng: number;
+                        miles: number;
+                    } | {
+                        corners: [
+                            number,
+                            number
+                        ][];
+                        /** @enum {string} */
+                        kind: "polygon";
+                    };
                     /** Format: uuid */
                     territoryId: string;
                     userIds?: string[];
@@ -23405,6 +23446,11 @@ export interface operations {
                                     /** @default null */
                                     notes: string | null;
                                     /** @default null */
+                                    point: {
+                                        lat: number;
+                                        lng: number;
+                                    } | null;
+                                    /** @default null */
                                     postalCode: string | null;
                                     /** @default null */
                                     serviceId: string | null;
@@ -23427,6 +23473,11 @@ export interface operations {
                                     kind: "book_series";
                                     /** @default null */
                                     notes: string | null;
+                                    /** @default null */
+                                    point: {
+                                        lat: number;
+                                        lng: number;
+                                    } | null;
                                     /** @default null */
                                     postalCode: string | null;
                                     /** @default null */
@@ -25146,6 +25197,10 @@ export interface operations {
                     locationKind?: ("customer_address" | "business" | "virtual" | "phone") | null;
                     /** @default 1 */
                     partySize?: number;
+                    point?: {
+                        lat: number;
+                        lng: number;
+                    } | null;
                     postalCode?: string | null;
                     serviceId?: string | null;
                     /** Format: date-time */
@@ -31784,10 +31839,19 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            center: {
+                                lat: number;
+                                lng: number;
+                            } | null;
+                            centerAddress: string | null;
                             /** Format: uuid */
                             id: string;
+                            /** @enum {string} */
+                            kind: "zip" | "radius" | "polygon";
                             name: string;
+                            polygon: number[][] | null;
                             postalCodes: string[];
+                            radiusMiles: number | null;
                             userIds: string[];
                         }[];
                     };

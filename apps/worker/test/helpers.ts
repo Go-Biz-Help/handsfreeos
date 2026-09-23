@@ -23,6 +23,7 @@ import type { WorkerServices } from '../src/services';
 import { createSupabaseStore, type ObjectStore } from '../src/storage';
 import { createFakeHost } from '../src/hosting';
 import { createFakeTelephony, type FakeTelephony } from '../src/telephony/fake';
+import { createFakeGeocoder } from '../src/geo/geocoder';
 import { createFakeTranscriber, type FakeTranscriber } from '../src/telephony/fake-transcriber';
 
 /** Signatures are computed against this base; tests call the server with inject(), never a real port. */
@@ -79,6 +80,7 @@ export function testServices(
     publicUrl: TEST_PUBLIC_URL,
     telephony: createFakeTelephony({ approvalMs: 0, callbacks: false, log }),
     transcriber: createFakeTranscriber({ log }),
+    geocoder: createFakeGeocoder(),
     // The in-memory host: a branded domain can be driven end to end with no Vercel account (M17).
     siteHost: createFakeHost(),
     support: {

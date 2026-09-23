@@ -129,6 +129,43 @@ function recording(response: () => Response) {
 }
 
 describe('AnthropicProvider', () => {
+  it('sends a customer’s photos as images, the last one cached (M18)', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    });
+    await provider.stream({
+      system: 'You look at photos.',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'What is this?' },
+            { type: 'image', mediaType: 'image/png', data: 'AAAA' },
+            { type: 'image', mediaType: 'image/jpeg', data: 'BBBB' },
+          ],
+        },
+      ],
+    });
+    expect(sent[0]!.body['messages']).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'What is this?' },
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAAA' } },
+          {
+            type: 'image',
+            source: { type: 'base64', media_type: 'image/jpeg', data: 'BBBB' },
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('streams the text, collects tool calls and reports usage including the cache', async () => {
     const { sent, fetch } = recording(() => sse(TOOL_TURN));
     const provider = new AnthropicProvider({
