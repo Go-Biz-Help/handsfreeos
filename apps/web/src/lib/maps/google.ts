@@ -33,9 +33,9 @@ export interface GoogleMaps {
   Polygon: new (opts: Record<string, unknown>) => GShape;
   Marker: new (opts: Record<string, unknown>) => GShape;
   Geocoder: new () => {
-    geocode(
-      req: { address: string },
-    ): Promise<{ results: { geometry: { location: LatLng }; formatted_address: string }[] }>;
+    geocode(req: {
+      address: string;
+    }): Promise<{ results: { geometry: { location: LatLng }; formatted_address: string }[] }>;
   };
 }
 

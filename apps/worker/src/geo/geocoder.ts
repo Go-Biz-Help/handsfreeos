@@ -29,7 +29,10 @@ interface GoogleAnswer {
   readonly error_message?: string;
   readonly results?: readonly {
     readonly geometry?: { readonly location?: { readonly lat: number; readonly lng: number } };
-    readonly address_components?: readonly { readonly short_name: string; readonly types: readonly string[] }[];
+    readonly address_components?: readonly {
+      readonly short_name: string;
+      readonly types: readonly string[];
+    }[];
   }[];
 }
 
