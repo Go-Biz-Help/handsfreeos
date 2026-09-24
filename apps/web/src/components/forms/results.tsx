@@ -77,7 +77,8 @@ export function FormResults({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5">
+      {/* Wraps on a phone, so Export to CSV drops under the two views rather than off the edge. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         {(
           [
             ['summary', 'All together'],
