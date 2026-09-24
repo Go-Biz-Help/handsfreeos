@@ -6,6 +6,7 @@ import {
   attentionViewerOfSynced,
   hintFactsOfSynced,
   inAttentionList,
+  isAttentionKind,
   itemHintsOf,
   namesOfSynced,
   visibleTo,
@@ -184,7 +185,12 @@ export interface HomeList extends Omit<Overlaid, 'rows'> {
 /** Home's list, worked out as the server's `attention.list` with today's handled items. */
 export function buildHome(o: HomeInput): HomeList {
   const today = attentionToday(o.now, o.timeZone);
-  const over = overlay(o.items.map(attentionRowOfSynced), homeChangesOf(o.outbox), o.now);
+  // Only the kinds this copy of the app knows. The API ships within minutes of a merge and the phones' update an hour
+  // or more later, after CI, and a phone that hasn't fetched it yet runs older code still. A card of a newer kind has
+  // no icon, ranking or permissions here, and drawing one threw and closed the app (build 8, 23 September, on three
+  // kinds the server began that evening). It shows once the phone has the update that knows its kind.
+  const known = o.items.filter((r) => isAttentionKind(r.kind));
+  const over = overlay(known.map(attentionRowOfSynced), homeChangesOf(o.outbox), o.now);
   const viewer = attentionViewerOfSynced(
     o.userId,
     { role: o.role, permissions: o.permissions ?? null },
