@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { CampaignSummary } from '@/lib/api/types';
-import { CAMPAIGN_STATUS_BADGE, CAMPAIGN_STATUS_WORDS } from './words';
+import { CAMPAIGN_STATUS_BADGE, statusWords } from './words';
 
 /** Every campaign, newest first, with how far each has got. */
 export function CampaignList({
@@ -17,7 +17,7 @@ export function CampaignList({
     return (
       <EmptyState title="No campaigns yet" dashed>
         Pick customers by tag or pipeline stage, say in a line what it’s for, and the AI writes each
-        of them a text for you to read before anything goes.
+        of them a text, or one email to them all, for you to read before anything goes.
       </EmptyState>
     );
   return (
@@ -32,7 +32,10 @@ export function CampaignList({
             data-testid={`campaign-${c.id}`}
           >
             <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-[13.5px] font-medium">{c.name}</span>
+              <span className="flex items-center gap-2 truncate text-[13.5px] font-medium">
+                {c.name}
+                <Badge variant="gray">{c.channel === 'email' ? 'Email' : 'Texts'}</Badge>
+              </span>
               <span className="truncate text-[12.5px] text-text-2">{c.goal}</span>
             </div>
             <div className="flex flex-none items-center gap-3">
@@ -42,7 +45,7 @@ export function CampaignList({
                 </span>
               ) : null}
               <Badge variant={CAMPAIGN_STATUS_BADGE[c.status] ?? 'gray'}>
-                {CAMPAIGN_STATUS_WORDS[c.status] ?? c.status}
+                {statusWords(c.status, c.channel)}
               </Badge>
             </div>
           </Link>

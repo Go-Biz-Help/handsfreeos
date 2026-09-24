@@ -53,6 +53,11 @@ export const MessageSendInput = z
      */
     keepConversationStatus: z.boolean().default(false),
     /**
+     * Email campaigns: the campaign email this is, so it goes with an unsubscribe link in its headers and on the
+     * bulk stream. HandsFreeOS itself only.
+     */
+    campaignRecipientId: uuid.optional(),
+    /**
      * The customer's message this answers. In quiet hours the AI teammate may text only a direct reply to the
      * latest text in the conversation, soon after it arrived.
      */

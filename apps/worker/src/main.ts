@@ -18,6 +18,7 @@ import { handlers } from './handlers/index';
 import { createCalendars } from './calendar/index';
 import { createReviews } from './reviews/index';
 import { createMailboxes } from './mailbox/index';
+import { createUnsubscribeLinks } from './email/unsubscribe';
 import { createMoneyLinks } from './money/links';
 import { createMigrationAdapters } from './migrations/adapters/registry';
 import { processMigrationJobs } from './migrations/engine/run';
@@ -92,6 +93,12 @@ const services: EngineServices = {
   }),
   moneyLinks: createMoneyLinks({
     webUrl: env.webUrl,
+    key: env.encryptionKey,
+    previousKeys: env.encryptionKeysPrevious,
+  }),
+  unsubscribeLinks: createUnsubscribeLinks({
+    webUrl: env.webUrl,
+    publicUrl: env.publicUrl,
     key: env.encryptionKey,
     previousKeys: env.encryptionKeysPrevious,
   }),

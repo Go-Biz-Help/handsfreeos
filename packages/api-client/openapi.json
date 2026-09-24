@@ -8721,6 +8721,11 @@
                     "default": false,
                     "type": "boolean"
                   },
+                  "campaignRecipientId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
                   "inReplyToMessageId": {
                     "type": "string",
                     "format": "uuid",
@@ -27204,7 +27209,7 @@
     "/v1/commands/campaign.create": {
       "post": {
         "operationId": "command_campaign_create",
-        "summary": "Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal. Nothing is sent until someone approves the drafts.",
+        "summary": "Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, or one email to them all. Nothing is sent until someone approves the drafts.",
         "tags": [
           "commands"
         ],
@@ -27273,6 +27278,14 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "channel": {
+                    "default": "sms",
+                    "type": "string",
+                    "enum": [
+                      "sms",
+                      "email"
                     ]
                   }
                 },
@@ -27391,6 +27404,89 @@
                   },
                   "required": [
                     "recipientId",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/campaign.update_email": {
+      "post": {
+        "operationId": "command_campaign_update_email",
+        "summary": "Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workflows.manage. Emits campaign.email_edited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "campaignId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "campaignId",
+                  "subject",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "campaignId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "review",
+                        "sending",
+                        "paused",
+                        "done",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "campaignId",
                     "status"
                   ],
                   "additionalProperties": false
@@ -85331,6 +85427,13 @@
                           "goal": {
                             "type": "string"
                           },
+                          "channel": {
+                            "type": "string",
+                            "enum": [
+                              "sms",
+                              "email"
+                            ]
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -85340,6 +85443,12 @@
                               "paused",
                               "done",
                               "cancelled"
+                            ]
+                          },
+                          "pausedReason": {
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "perHour": {
@@ -85462,7 +85571,9 @@
                           "id",
                           "name",
                           "goal",
+                          "channel",
                           "status",
+                          "pausedReason",
                           "perHour",
                           "counts",
                           "offer",
@@ -85541,6 +85652,13 @@
                         "goal": {
                           "type": "string"
                         },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "sms",
+                            "email"
+                          ]
+                        },
                         "status": {
                           "type": "string",
                           "enum": [
@@ -85550,6 +85668,12 @@
                             "paused",
                             "done",
                             "cancelled"
+                          ]
+                        },
+                        "pausedReason": {
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         },
                         "perHour": {
@@ -85692,20 +85816,63 @@
                             "stageIds"
                           ],
                           "additionalProperties": false
+                        },
+                        "email": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "subject": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "body": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "edited": {
+                                  "type": "boolean"
+                                },
+                                "postalAddress": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "subject",
+                                "body",
+                                "edited",
+                                "postalAddress"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
                         "id",
                         "name",
                         "goal",
+                        "channel",
                         "status",
+                        "pausedReason",
                         "perHour",
                         "counts",
                         "offer",
                         "createdAt",
                         "approvedAt",
                         "finishedAt",
-                        "audience"
+                        "audience",
+                        "email"
                       ],
                       "additionalProperties": false
                     },
@@ -85728,6 +85895,12 @@
                             "type": "string"
                           },
                           "phone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "email": {
                             "type": [
                               "string",
                               "null"
@@ -85784,6 +85957,7 @@
                           "personId",
                           "name",
                           "phone",
+                          "email",
                           "status",
                           "skipReason",
                           "draft",
@@ -85823,7 +85997,7 @@
     "/v1/queries/campaign.preview_audience": {
       "post": {
         "operationId": "query_campaign_preview_audience",
-        "summary": "Who a new outreach campaign would text, and how many are left out and why, before it’s made.",
+        "summary": "Who a new outreach campaign would text or email, and how many are left out and why, before it’s made.",
         "tags": [
           "queries"
         ],
@@ -85864,6 +86038,14 @@
                         }
                       }
                     }
+                  },
+                  "channel": {
+                    "default": "sms",
+                    "type": "string",
+                    "enum": [
+                      "sms",
+                      "email"
+                    ]
                   }
                 },
                 "required": [
@@ -85897,11 +86079,18 @@
                         "minimum": -9007199254740991,
                         "maximum": 9007199254740991
                       }
+                    },
+                    "postalAddress": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "recipients",
-                    "skipped"
+                    "skipped",
+                    "postalAddress"
                   ],
                   "additionalProperties": false
                 }

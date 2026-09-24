@@ -11,6 +11,7 @@ import type { EmailServices } from './email/index';
 import type { SafeFetch } from './http/safe-fetch';
 import type { MailboxServices } from './mailbox/index';
 import type { Mailer } from './mailer';
+import type { UnsubscribeLinks } from './email/unsubscribe';
 import type { MoneyLinks } from './money/links';
 import type { WalletDeps } from './money/wallet';
 import type { PaymentServices } from './payments/index';
@@ -84,6 +85,8 @@ export interface WorkerServices {
   readonly bookingLinks: BookingLinks;
   /** Signs and checks customers' estimate and invoice links, `/e/…` and `/i/…` (money/links.ts). */
   readonly moneyLinks: MoneyLinks;
+  /** Signs and checks the unsubscribe link every campaign email carries (email/unsubscribe.ts). */
+  readonly unsubscribeLinks: UnsubscribeLinks;
   /**
    * Fetches addresses businesses typed in (website scans, outgoing workflow webhooks): https only, never a
    * private address, every redirect checked again (http/safe-fetch.ts).
