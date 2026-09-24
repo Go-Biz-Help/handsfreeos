@@ -80,7 +80,7 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
     canChange: [],
     handovers: [
       {
-        what: 'use your own domain for your forms, payment links and booking page',
+        what: 'use your own domain for your forms, payment links, estimates, invoices and booking page',
         why: 'the records go in with whoever you bought the domain from, which only you can sign in to',
         steps: [
           'Open Settings → Workspace and type the address you want, like go.yourbusiness.com.',
