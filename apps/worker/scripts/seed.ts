@@ -517,8 +517,8 @@ async function main(): Promise<void> {
 
   // Forms (M15, M17): one live survey on Lone Star with anonymous answers, last, so nothing counted above moves.
   const forms = await seedForms(
-    { api: api.db, actor, meta, step },
-    { workspaceId: lonestar, dale },
+    { api: api.db, worker: worker.db, actor, meta, step },
+    { workspaceId: lonestar, organizationId: org.organizationId, dale },
   );
   await drainOutbox(deps, admin.db, since);
 

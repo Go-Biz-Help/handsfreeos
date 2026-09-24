@@ -4,8 +4,9 @@
  * (apps/mobile/maestro/forms.yaml).
  *
  * Anonymous on purpose: the answers match and make no customer, so nothing else the seed counts — customers, leads,
- * the Action Center — moves because of them. Every change goes through the commands, the answers the way the phone
- * records one (`form_response.record`).
+ * the Action Center — moves because of them. Every change goes through the commands: Dale builds and publishes the
+ * form, and the answers arrive the way a customer's do on its link — started, then sent, by HandsFreeOS itself, as the
+ * worker's /public/form routes run them.
  */
 import {
   executeCommand,
@@ -13,7 +14,8 @@ import {
   formCreate,
   formGet,
   formPublish,
-  formResponseRecord,
+  formResponseStart,
+  formResponseSubmit,
   formSaveDraft,
   type CommandDef,
   type HumanActor,
@@ -22,9 +24,12 @@ import {
 import type { Db } from '@hfos/db/client';
 import type { TestUser } from '@hfos/db/testing';
 import type { z } from 'zod';
+import { systemActor, workerMeta } from '../src/services';
 
 export interface SeedFormsDeps {
   readonly api: Db;
+  /** The worker's connection, for what a customer's own link does. */
+  readonly worker: Db;
   readonly actor: (u: TestUser) => HumanActor;
   readonly meta: () => RequestMeta;
   readonly step: (msg: string) => void;
@@ -45,9 +50,13 @@ export const JOB_FEEDBACK_ANSWERS = [
 
 export async function seedForms(
   deps: SeedFormsDeps,
-  lonestar: { readonly workspaceId: string; readonly dale: TestUser },
+  lonestar: {
+    readonly workspaceId: string;
+    readonly organizationId: string;
+    readonly dale: TestUser;
+  },
 ): Promise<SeededForms> {
-  const { workspaceId, dale } = lonestar;
+  const { workspaceId, organizationId, dale } = lonestar;
   const run = async <I extends z.ZodType, O extends z.ZodType>(
     cmd: CommandDef<I, O>,
     input: unknown,
@@ -102,11 +111,34 @@ export async function seedForms(
     formId: created.formId,
     baseRevision: saved.revision,
   });
-  for (const a of JOB_FEEDBACK_ANSWERS)
-    await run(formResponseRecord, {
+  // As the customer's link does it (apps/worker/src/http/forms.ts): a sheet started, then sent with its key.
+  const customer = async <I extends z.ZodType, O extends z.ZodType>(
+    cmd: CommandDef<I, O>,
+    input: unknown,
+  ): Promise<z.output<O>> =>
+    (
+      await executeCommand(
+        deps.worker,
+        cmd,
+        input,
+        systemActor({ workspaceId, organizationId }),
+        workerMeta(),
+      )
+    ).output;
+  for (const a of JOB_FEEDBACK_ANSWERS) {
+    const sheet = await customer(formResponseStart, {
       workspaceId,
       formId: created.formId,
-      answers: { q_rating00: a.rating, q_again000: a.again, q_notes000: a.notes },
+      source: 'link',
+      visitorHash: null,
     });
+    await customer(formResponseSubmit, {
+      workspaceId,
+      responseId: sheet.responseId,
+      token: sheet.token,
+      answers: { q_rating00: a.rating, q_again000: a.again, q_notes000: a.notes },
+      smsConsent: false,
+    });
+  }
   return { name: 'Job feedback', slug: created.slug, answers: JOB_FEEDBACK_ANSWERS.length };
 }

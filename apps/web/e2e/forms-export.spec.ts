@@ -31,9 +31,9 @@ test('exports every answer to a CSV the browser downloads', async ({ page }) => 
   expect(lines[3]).toBe('');
   const rows = lines.slice(1, 3);
   for (const row of rows) expect(row).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2},/);
-  // Filled in the way the phone fills one in, so each says it came from the phone app.
+  // Answered on the form's link, so each says it came from the link.
   const rosa = rows.find((r) => r.includes(',Rosa,'))!;
-  expect(rosa).toContain(',Phone app,Rosa,');
+  expect(rosa).toContain(',Link,Rosa,');
   expect(rosa).toMatch(/,5,"Late, but fixed it"$/);
   const tom = rows.find((r) => r.includes(',Tom,'))!;
   expect(tom).toMatch(/,4,'=1\+1$/);
