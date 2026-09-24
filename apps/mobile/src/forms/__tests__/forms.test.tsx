@@ -1,4 +1,5 @@
 import { useQuery } from '@powersync/react-native';
+import QRCode from 'qrcode';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -6,6 +7,7 @@ import { Share } from 'react-native';
 
 import FormAnswer from '@/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId]';
 import FormPage from '@/app/app/w/[workspaceId]/forms/[formId]';
+import { qrPath } from '@/components/forms/qr-code';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
 import type { PhoneForm } from '@/forms/use-forms';
@@ -17,7 +19,7 @@ import { setTestOffline } from '@/lib/network';
 /**
  * A form on the phone (M17): who answered it and what they said, live from HandsFreeOS or saying it needs a signal;
  * the ones filled in on this phone counted until they arrive; and its public link, on the business's own domain once
- * that is serving, handed to the phone's share sheet.
+ * that is serving, shown as a QR code to scan off the phone and handed to the phone's share sheet.
  */
 
 let mockParams: Record<string, string> = {};
@@ -325,6 +327,8 @@ describe('sharing a form', () => {
     await fireEvent.press(screen.getByTestId('form-share'));
     const url = 'https://book.lonestarhvac.com/f/lone-star-hvac/quote';
     expect(await screen.findByTestId('form-link-url')).toHaveTextContent(url);
+    expect(screen.getByTestId('form-link-qr')).toBeTruthy();
+    expect(screen.getByLabelText('QR code for Get a quote')).toBeTruthy();
     expect(share).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('form-link-share'));
     expect(share).toHaveBeenCalledWith({ message: url, url });
@@ -350,6 +354,34 @@ describe('sharing a form', () => {
   it('says the link needs signal when there is none', async () => {
     setTestOffline(true);
     await show(<FormPage />);
-    expect(screen.getByText('Share the link — needs signal')).toBeTruthy();
+    expect(screen.getByText(FORM_WORDS.shareNeedsSignal)).toBeTruthy();
+  });
+});
+
+describe('the QR code', () => {
+  /** Every dark square the path draws, read back off its `M x y h n v1 h-n z` runs. */
+  function drawn(d: string): Set<string> {
+    const squares = new Set<string>();
+    for (const [, x, y, n] of d.matchAll(/M(\d+) (\d+)h(\d+)v1h-\d+z/g))
+      for (let i = 0; i < Number(n); i++) squares.add(`${Number(x) + i},${y}`);
+    return squares;
+  }
+
+  it('draws exactly the dark squares of the link’s code, and nothing else', () => {
+    const url = 'https://book.lonestarhvac.com/f/lone-star-hvac/quote';
+    const { size, data } = QRCode.create(url, { errorCorrectionLevel: 'M' }).modules;
+    const dark = new Set<string>();
+    for (let y = 0; y < size; y++)
+      for (let x = 0; x < size; x++) if (data[y * size + x]) dark.add(`${x},${y}`);
+
+    const code = qrPath(url);
+    expect(code.size).toBe(size);
+    expect(drawn(code.d)).toEqual(dark);
+  });
+
+  it('changes when the link does', () => {
+    expect(qrPath('https://app.handsfreeos.com/f/a/quote').d).not.toBe(
+      qrPath('https://app.handsfreeos.com/f/a/survey').d,
+    );
   });
 });

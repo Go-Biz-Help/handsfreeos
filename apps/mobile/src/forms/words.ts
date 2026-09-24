@@ -14,7 +14,10 @@ export const FORM_WORDS = {
   linkNeedsSignal: 'The link needs a signal. Try again when you’re back online.',
   noSite:
     'This business has no link name yet, so the form has no address. Pick one on the web under Settings → Calendars → Booking site.',
-  linkWhat: 'Text it, email it, put it in a signature. It keeps working if you rename the form.',
+  share: 'Share the link or QR code',
+  shareNeedsSignal: 'Share the link or QR code — needs signal',
+  linkWhat:
+    'Hold up the QR code for them to scan, or send the link: text it, email it, put it in a signature. Both keep working if you rename the form.',
 } as const;
 
 /** Where an answer sheet came from, as the line under it says it. */

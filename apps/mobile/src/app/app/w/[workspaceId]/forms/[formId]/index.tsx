@@ -3,6 +3,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Share, View } from 'react-native';
 
+import { QrCode } from '@/components/forms/qr-code';
 import { ClipboardPen, CloudOff, CloudUpload, Link2, UserRound } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
@@ -19,7 +20,7 @@ import { FORM_WORDS, responseLine } from '@/forms/words';
 import { useNetwork } from '@/lib/network';
 
 /**
- * One form on the phone (M17): fill it in, send its link to somebody, and see who answered.
+ * One form on the phone (M17): fill it in, send its link or hold up its QR code, and see who answered.
  *
  * Filling in works with no signal (the form is in the phone's copy). The link and the answers don't: the business's
  * link name and what customers said aren't kept on the phone, so they're asked for live, and say so when they can't
@@ -63,7 +64,8 @@ export default function FormPage() {
   /**
    * The link is shown first and sent second, as an invoice's payment link is: the phone's share sheet is another
    * app's screen over this one, and opening it straight away leaves nobody sure what was sent. From the sheet, Send
-   * it hands the link to Messages, Mail or Copy — whichever the person wants.
+   * it hands the link to Messages, Mail or Copy — whichever the person wants. The QR code sits over the link, for a
+   * customer standing right there to scan off this phone: the same link, so it lands on the same page.
    */
   const shareLink = async () => {
     setLinking(true);
@@ -98,7 +100,7 @@ export default function FormPage() {
           onPress={() => void shareLink()}
           testID="form-share"
         >
-          {online ? 'Share the link' : 'Share the link — needs signal'}
+          {online ? FORM_WORDS.share : FORM_WORDS.shareNeedsSignal}
         </Button>
       </View>
 
@@ -175,12 +177,16 @@ export default function FormPage() {
       <Sheet
         open={link !== null}
         onClose={() => setLink(null)}
-        title="The form’s link"
+        title="The form’s link and QR code"
         description={FORM_WORDS.linkWhat}
+        scroll
         testID="form-link"
       >
+        {link ? (
+          <QrCode value={link} label={`QR code for ${form.name}`} testID="form-link-qr" />
+        ) : null}
         <Text
-          className="rounded-menu bg-card-2 px-3 py-2.5 text-[12.5px] text-text-2"
+          className="mt-3 rounded-menu bg-card-2 px-3 py-2.5 text-[12.5px] text-text-2"
           selectable
           testID="form-link-url"
         >
