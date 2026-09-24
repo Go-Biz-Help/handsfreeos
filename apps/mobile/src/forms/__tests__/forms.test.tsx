@@ -1,5 +1,7 @@
 import { useQuery } from '@powersync/react-native';
+import * as Sharing from 'expo-sharing';
 import QRCode from 'qrcode';
+import { crc32, inflateSync } from 'zlib';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as React from 'react';
@@ -7,9 +9,9 @@ import { Share } from 'react-native';
 
 import FormAnswer from '@/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId]';
 import FormPage from '@/app/app/w/[workspaceId]/forms/[formId]';
-import { qrPath } from '@/components/forms/qr-code';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
+import { QUIET, qrPath, qrPng } from '@/forms/qr';
 import type { PhoneForm } from '@/forms/use-forms';
 import { answerWords, FORM_WORDS, formLink, responseLine } from '@/forms/words';
 import { api } from '@/lib/api';
@@ -19,7 +21,8 @@ import { setTestOffline } from '@/lib/network';
 /**
  * A form on the phone (M17): who answered it and what they said, live from HandsFreeOS or saying it needs a signal;
  * the ones filled in on this phone counted until they arrive; and its public link, on the business's own domain once
- * that is serving, shown as a QR code to scan off the phone and handed to the phone's share sheet.
+ * that is serving, shown as a QR code to scan off the phone and handed to the phone's share sheet, and the QR code
+ * saved as a picture.
  */
 
 let mockParams: Record<string, string> = {};
@@ -34,6 +37,13 @@ jest.mock('@powersync/react-native', () => ({
   useQuery: jest.fn(() => ({ data: [], isLoading: false, isFetching: false })),
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: jest.fn(async () => true),
+  shareAsync: jest.fn(async () => undefined),
+}));
+/** What the stand-in file system holds, by address (jest.setup.ts). */
+const savedFiles = (jest.requireMock('expo-file-system') as { __files: Map<string, unknown> })
+  .__files;
 jest.mock('@/lib/api', () => ({
   api: { POST: jest.fn() },
   errorMessage: (e: unknown) =>
@@ -351,6 +361,35 @@ describe('sharing a form', () => {
     expect(screen.queryByTestId('form-link-url')).toBeNull();
   });
 
+  it('saves the QR code as a picture through the share sheet', async () => {
+    await show(<FormPage />);
+    await fireEvent.press(screen.getByTestId('form-share'));
+    await fireEvent.press(await screen.findByTestId('form-link-save-qr'));
+    await waitFor(() =>
+      expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///cache/quote-qr.png', {
+        mimeType: 'image/png',
+        UTI: 'public.png',
+        dialogTitle: 'Save the QR code',
+      }),
+    );
+    const saved = savedFiles.get('file:///cache/quote-qr.png') as Uint8Array;
+    expect(Array.from(saved.subarray(0, 8))).toEqual([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    expect(saved).toEqual(qrPng(screen.getByTestId('form-link-url').props.children as string));
+  });
+
+  it('says so when the phone can’t save or share a file', async () => {
+    (Sharing.isAvailableAsync as jest.Mock).mockResolvedValueOnce(false);
+    await show(<FormPage />);
+    await fireEvent.press(screen.getByTestId('form-share'));
+    await fireEvent.press(await screen.findByTestId('form-link-save-qr'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('This phone can’t save or share files.'),
+    );
+    expect(Sharing.shareAsync).not.toHaveBeenCalled();
+  });
+
   it('says the link needs signal when there is none', async () => {
     setTestOffline(true);
     await show(<FormPage />);
@@ -377,6 +416,64 @@ describe('the QR code', () => {
     const code = qrPath(url);
     expect(code.size).toBe(size);
     expect(drawn(code.d)).toEqual(dark);
+  });
+
+  /** A PNG read back: its chunks with their checksums checked, and the one-bit pixels inflated. */
+  function readPng(png: Uint8Array) {
+    const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+    const chunks: { type: string; data: Uint8Array }[] = [];
+    for (let o = 8; o < png.length;) {
+      const length = view.getUint32(o);
+      const type = String.fromCharCode(...png.subarray(o + 4, o + 8));
+      const data = png.subarray(o + 8, o + 8 + length);
+      const crc = view.getUint32(o + 8 + length);
+      // zlib's own crc32 is what every PNG reader checks against.
+      expect(crc).toBe(crc32(png.subarray(o + 4, o + 8 + length)));
+      chunks.push({ type, data });
+      o += 12 + length;
+    }
+    const header = new DataView(chunks[0]!.data.buffer, chunks[0]!.data.byteOffset);
+    const width = header.getUint32(0);
+    const pixels = inflateSync(
+      Buffer.concat(chunks.filter((c) => c.type === 'IDAT').map((c) => c.data)),
+    );
+    const stride = Math.ceil(width / 8) + 1;
+    return {
+      types: chunks.map((c) => c.type),
+      width,
+      height: header.getUint32(4),
+      depth: chunks[0]!.data[8],
+      colour: chunks[0]!.data[9],
+      filters: new Set(Array.from({ length: width }, (_, y) => pixels[y * stride])),
+      /** Whether the pixel at (x, y) is black. */
+      black: (x: number, y: number) =>
+        (pixels[y * stride + 1 + (x >> 3)]! & (0x80 >> (x & 7))) === 0,
+    };
+  }
+
+  it('saves a picture of exactly the same code, sharp and big enough to print', () => {
+    const url = 'https://book.lonestarhvac.com/f/lone-star-hvac/quote';
+    const { size, data } = QRCode.create(url, { errorCorrectionLevel: 'M' }).modules;
+    const png = readPng(qrPng(url));
+    const box = size + QUIET * 2;
+    const scale = png.width / box;
+
+    expect(png.types).toEqual(['IHDR', 'IDAT', 'IEND']);
+    expect(png.width).toBe(png.height);
+    expect(Number.isInteger(scale)).toBe(true);
+    expect(png.width).toBeGreaterThan(900);
+    expect(png.width).toBeLessThanOrEqual(1024);
+    expect([png.depth, png.colour]).toEqual([1, 0]);
+    expect(png.filters).toEqual(new Set([0]));
+
+    // Every pixel of every square, the quiet border included, is the colour its square should be.
+    for (let py = 0; py < png.width; py++)
+      for (let px = 0; px < png.width; px++) {
+        const x = Math.floor(px / scale) - QUIET;
+        const y = Math.floor(py / scale) - QUIET;
+        const dark = x >= 0 && y >= 0 && x < size && y < size && Boolean(data[y * size + x]);
+        if (png.black(px, py) !== dark) throw new Error(`pixel ${px},${py} is the wrong colour`);
+      }
   });
 
   it('changes when the link does', () => {

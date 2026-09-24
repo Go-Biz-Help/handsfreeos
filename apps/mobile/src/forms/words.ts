@@ -17,7 +17,8 @@ export const FORM_WORDS = {
   share: 'Share the link or QR code',
   shareNeedsSignal: 'Share the link or QR code — needs signal',
   linkWhat:
-    'Hold up the QR code for them to scan, or send the link: text it, email it, put it in a signature. Both keep working if you rename the form.',
+    'Hold up the QR code for them to scan, or send the link: text it, email it, put it in a signature. Save the QR code for a flyer, a truck door or the counter. They keep working if you rename the form.',
+  saveQr: 'Save the QR code',
 } as const;
 
 /** Where an answer sheet came from, as the line under it says it. */

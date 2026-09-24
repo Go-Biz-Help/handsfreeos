@@ -4,7 +4,14 @@ import * as React from 'react';
 import { Share, View } from 'react-native';
 
 import { QrCode } from '@/components/forms/qr-code';
-import { ClipboardPen, CloudOff, CloudUpload, Link2, UserRound } from '@/components/icons';
+import {
+  ClipboardPen,
+  CloudOff,
+  CloudUpload,
+  Download,
+  Link2,
+  UserRound,
+} from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
@@ -14,6 +21,7 @@ import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { saveQrImage } from '@/forms/qr-image';
 import { fetchFormLink, useAnswersOnThisPhone, useFormAnswers } from '@/forms/use-answers';
 import { usePhoneForm } from '@/forms/use-forms';
 import { FORM_WORDS, responseLine } from '@/forms/words';
@@ -37,6 +45,7 @@ export default function FormPage() {
   const { online } = useNetwork();
   const [link, setLink] = React.useState<string | null>(null);
   const [linking, setLinking] = React.useState(false);
+  const [savingQr, setSavingQr] = React.useState(false);
 
   // Coming back from filling one in, or from an answer sheet, asks again: somebody may have answered meanwhile.
   const { reload } = answers;
@@ -75,6 +84,17 @@ export default function FormPage() {
       toast.error(error instanceof Error ? error.message : 'That didn’t work.');
     }
     setLinking(false);
+  };
+
+  /** The QR code as a picture, for a flyer, a truck door or the counter: see `saveQrImage`. */
+  const saveQr = async (url: string) => {
+    setSavingQr(true);
+    try {
+      await saveQrImage(url, form.slug);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'That didn’t work.');
+    }
+    setSavingQr(false);
   };
 
   return (
@@ -198,6 +218,16 @@ export default function FormPage() {
           testID="form-link-share"
         >
           Send it
+        </Button>
+        <Button
+          variant="secondary"
+          className="mt-2"
+          icon={Download}
+          loading={savingQr}
+          onPress={() => link && void saveQr(link)}
+          testID="form-link-save-qr"
+        >
+          {FORM_WORDS.saveQr}
         </Button>
         <Button variant="ghost" className="mt-2" onPress={() => setLink(null)}>
           Done
