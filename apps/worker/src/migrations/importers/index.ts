@@ -1493,20 +1493,27 @@ async function parentConversation(
   tx: Tx,
   scope: ImportScope,
   envelope: CanonicalEnvelope,
-): Promise<{ id: string; personId: string | null; channel: string; sourceId: string } | null> {
+): Promise<{
+  id: string;
+  personId: string | null;
+  channel: string;
+  status: string;
+  sourceId: string;
+} | null> {
   const ref = envelope.relationships.find((r) => r.role === 'conversation');
   if (!ref) return null;
   const mapped = await existingMapping(tx, scope, ref.objectType, ref.objectId);
   if (!mapped || mapped.targetType !== 'conversation') return null;
-  const [row] = await rows<{ person_id: string | null; channel: string }>(
+  const [row] = await rows<{ person_id: string | null; channel: string; status: string }>(
     tx,
-    sql`select person_id::text as person_id, channel::text as channel from app.conversations
-        where id = ${mapped.targetId}::uuid`,
+    sql`select person_id::text as person_id, channel::text as channel, status::text as status
+        from app.conversations where id = ${mapped.targetId}::uuid`,
   );
   return {
     id: mapped.targetId,
     personId: row?.person_id ?? null,
     channel: row?.channel ?? 'chat',
+    status: row?.status ?? 'open',
     sourceId: ref.objectId,
   };
 }
@@ -1529,7 +1536,13 @@ async function threadFor(
   tx: Tx,
   scope: ImportScope,
   envelope: CanonicalEnvelope,
-  parent: { id: string; personId: string | null; channel: string; sourceId: string },
+  parent: {
+    id: string;
+    personId: string | null;
+    channel: string;
+    status: string;
+    sourceId: string;
+  },
   want: {
     readonly channel: 'sms' | 'email' | 'chat';
     readonly channelName?: string | null;
@@ -1580,6 +1593,9 @@ async function threadFor(
     return { id: here.id, channel };
   }
   const id = randomUUID();
+  // The thread it was split from decides whether it is in the inbox. Starting every one closed hid a
+  // customer's emails from the list while their texts were in it — the same conversation, half of it missing.
+  const status = parent.status === 'closed' ? 'closed' : 'open';
   try {
     // Behind its own savepoint: the messages and the calls are read by different batches, which can run
     // side by side, and both can reach for the same new thread. The one that loses uses the winner's.
@@ -1588,7 +1604,7 @@ async function threadFor(
         insert into app.conversations (id, workspace_id, channel, counterpart, person_id, status,
           unread_count, last_message_at, created_at, updated_at)
         values (${id}::uuid, ${scope.workspaceId}, ${channel}::app.channel, ${counterpart.slice(0, 320)},
-          ${parent.personId}::uuid, 'closed'::app.conversation_status, 0, ${want.occurredAt}::timestamptz,
+          ${parent.personId}::uuid, ${status}::app.conversation_status, 0, ${want.occurredAt}::timestamptz,
           coalesce(${want.occurredAt}::timestamptz, now()), coalesce(${want.occurredAt}::timestamptz, now()))`);
       await journal(one, scope, {
         action: 'create',

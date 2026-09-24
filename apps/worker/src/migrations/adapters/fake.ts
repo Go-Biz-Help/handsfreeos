@@ -1749,7 +1749,8 @@ export function createFakeSourceAdapter(): FakeSource {
                 phone: str(p['phone']),
                 email: str(p['email']),
                 subject: null,
-                status: 'closed',
+                // As the real adapter says it: GoHighLevel has no closed thread, so none arrives closed.
+                status: 'open',
                 startedAt: record.sourceCreatedAt?.toISOString() ?? null,
                 lastMessageAt: str(p['lastMessageDate']),
               },
