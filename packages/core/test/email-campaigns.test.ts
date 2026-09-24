@@ -119,7 +119,9 @@ describe('email campaigns', () => {
   it('needs the business’s address first, which every email shows', async () => {
     await expectHfos(() => run(campaignCreate, input(), t.owner), 'no_postal_address', 409);
     await setAddress('12 Main St\nHouston, TX 77002');
-    expect(await businessPostalAddress(admin(), t.wsId)).toBe('12 Main St\nHouston, TX 77002');
+    expect(await admin().transaction((tx) => businessPostalAddress(tx, t.wsId))).toBe(
+      '12 Main St\nHouston, TX 77002',
+    );
   });
 
   it('keeps one email, changed before approval and never per person', async () => {
