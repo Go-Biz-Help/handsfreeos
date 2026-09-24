@@ -12,9 +12,7 @@
             "maxLength": 254
           }
         },
-        "required": [
-          "confirmEmail"
-        ]
+        "required": ["confirmEmail"]
       }
     },
     "activity.log": {
@@ -32,11 +30,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "note",
-              "call",
-              "visit"
-            ]
+            "enum": ["note", "call", "visit"]
           },
           "body": {
             "type": "string",
@@ -92,11 +86,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "kind",
-          "body"
-        ]
+        "required": ["workspaceId", "kind", "body"]
       }
     },
     "ai_teammate.decide_draft": {
@@ -116,10 +106,7 @@
           },
           "decision": {
             "type": "string",
-            "enum": [
-              "approve",
-              "reject"
-            ]
+            "enum": ["approve", "reject"]
           },
           "edits": {
             "type": "object",
@@ -141,11 +128,7 @@
             "maxLength": 1000
           }
         },
-        "required": [
-          "workspaceId",
-          "draftId",
-          "decision"
-        ]
+        "required": ["workspaceId", "draftId", "decision"]
       }
     },
     "appointment.cancel": {
@@ -179,10 +162,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "appointmentId"
-        ]
+        "required": ["workspaceId", "appointmentId"]
       }
     },
     "appointment.create": {
@@ -270,12 +250,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": [
-                      "customer_address",
-                      "business",
-                      "virtual",
-                      "phone"
-                    ]
+                    "enum": ["customer_address", "business", "virtual", "phone"]
                   },
                   {
                     "type": "null"
@@ -357,11 +332,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "calendarId",
-          "startsAt"
-        ]
+        "required": ["workspaceId", "calendarId", "startsAt"]
       }
     },
     "appointment.reschedule": {
@@ -397,11 +368,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "appointmentId",
-          "startsAt"
-        ]
+        "required": ["workspaceId", "appointmentId", "startsAt"]
       }
     },
     "appointment.set_status": {
@@ -419,17 +386,10 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "completed",
-              "no_show"
-            ]
+            "enum": ["completed", "no_show"]
           }
         },
-        "required": [
-          "workspaceId",
-          "appointmentId",
-          "status"
-        ]
+        "required": ["workspaceId", "appointmentId", "status"]
       }
     },
     "appointment.still_going": {
@@ -446,10 +406,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "appointmentId"
-        ]
+        "required": ["workspaceId", "appointmentId"]
       }
     },
     "appointment.update": {
@@ -489,12 +446,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": [
-                      "customer_address",
-                      "business",
-                      "virtual",
-                      "phone"
-                    ]
+                    "enum": ["customer_address", "business", "virtual", "phone"]
                   },
                   {
                     "type": "null"
@@ -626,10 +578,7 @@
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "appointmentId"
-        ]
+        "required": ["workspaceId", "appointmentId"]
       }
     },
     "assistant.consent": {
@@ -643,9 +592,7 @@
             "maximum": 1000
           }
         },
-        "required": [
-          "version"
-        ]
+        "required": ["version"]
       }
     },
     "attendee.confirm": {
@@ -666,10 +613,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "attendeeId"
-        ]
+        "required": ["workspaceId", "attendeeId"]
       }
     },
     "attention.assign": {
@@ -697,11 +641,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId",
-          "assigneeUserId"
-        ]
+        "required": ["workspaceId", "itemId", "assigneeUserId"]
       }
     },
     "attention.cancel_auto": {
@@ -718,10 +658,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId"
-        ]
+        "required": ["workspaceId", "itemId"]
       }
     },
     "attention.dismiss": {
@@ -749,10 +686,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId"
-        ]
+        "required": ["workspaceId", "itemId"]
       }
     },
     "attention.let_handle": {
@@ -772,11 +706,7 @@
           },
           "action": {
             "type": "string",
-            "enum": [
-              "hand_to_ai",
-              "reply",
-              "set_next_action"
-            ]
+            "enum": ["hand_to_ai", "reply", "set_next_action"]
           },
           "body": {
             "type": "string",
@@ -785,11 +715,7 @@
           },
           "channel": {
             "type": "string",
-            "enum": [
-              "sms",
-              "email",
-              "chat"
-            ]
+            "enum": ["sms", "email", "chat"]
           },
           "subject": {
             "type": "string",
@@ -816,10 +742,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId"
-        ]
+        "required": ["workspaceId", "itemId"]
       }
     },
     "attention.restore": {
@@ -836,10 +759,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId"
-        ]
+        "required": ["workspaceId", "itemId"]
       }
     },
     "attention.snooze": {
@@ -860,11 +780,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId",
-          "until"
-        ]
+        "required": ["workspaceId", "itemId", "until"]
       }
     },
     "attention.unsnooze": {
@@ -881,10 +797,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId"
-        ]
+        "required": ["workspaceId", "itemId"]
       }
     },
     "call.cancel_connect": {
@@ -901,10 +814,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "callId"
-        ]
+        "required": ["workspaceId", "callId"]
       }
     },
     "call.connect_me": {
@@ -930,9 +840,7 @@
             "maxLength": 40
           }
         },
-        "required": [
-          "workspaceId"
-        ]
+        "required": ["workspaceId"]
       }
     },
     "company.archive": {
@@ -953,10 +861,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "companyId"
-        ]
+        "required": ["workspaceId", "companyId"]
       }
     },
     "company.create": {
@@ -1097,9 +1002,7 @@
                   ]
                 }
               },
-              "required": [
-                "email"
-              ]
+              "required": ["email"]
             }
           },
           "otherPhones": {
@@ -1124,9 +1027,7 @@
                   ]
                 }
               },
-              "required": [
-                "phone"
-              ]
+              "required": ["phone"]
             }
           },
           "otherAddresses": {
@@ -1264,10 +1165,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "workspaceId",
-          "name"
-        ]
+        "required": ["workspaceId", "name"]
       }
     },
     "company.restore": {
@@ -1284,10 +1182,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "companyId"
-        ]
+        "required": ["workspaceId", "companyId"]
       }
     },
     "company.update": {
@@ -1428,9 +1323,7 @@
                   ]
                 }
               },
-              "required": [
-                "email"
-              ]
+              "required": ["email"]
             }
           },
           "otherPhones": {
@@ -1455,9 +1348,7 @@
                   ]
                 }
               },
-              "required": [
-                "phone"
-              ]
+              "required": ["phone"]
             }
           },
           "otherAddresses": {
@@ -1781,10 +1672,7 @@
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "companyId"
-        ]
+        "required": ["workspaceId", "companyId"]
       }
     },
     "conversation.archive": {
@@ -1801,10 +1689,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.assign": {
@@ -1832,11 +1717,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId",
-          "assigneeUserId"
-        ]
+        "required": ["workspaceId", "conversationId", "assigneeUserId"]
       }
     },
     "conversation.close": {
@@ -1853,10 +1734,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.close_all": {
@@ -1873,10 +1751,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.hand_to_ai": {
@@ -1895,10 +1770,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.link_person": {
@@ -1919,11 +1791,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId",
-          "personId"
-        ]
+        "required": ["workspaceId", "conversationId", "personId"]
       }
     },
     "conversation.mark_read": {
@@ -1940,10 +1808,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.mark_unread": {
@@ -1960,10 +1825,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.open": {
@@ -1982,10 +1844,7 @@
           "channel": {
             "default": "sms",
             "type": "string",
-            "enum": [
-              "sms",
-              "email"
-            ]
+            "enum": ["sms", "email"]
           },
           "to": {
             "type": "string",
@@ -1993,10 +1852,7 @@
             "maxLength": 254
           }
         },
-        "required": [
-          "workspaceId",
-          "personId"
-        ]
+        "required": ["workspaceId", "personId"]
       }
     },
     "conversation.reopen": {
@@ -2013,10 +1869,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.restore": {
@@ -2033,10 +1886,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "conversation.snooze": {
@@ -2057,11 +1907,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId",
-          "until"
-        ]
+        "required": ["workspaceId", "conversationId", "until"]
       }
     },
     "conversation.take_over": {
@@ -2078,10 +1924,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "conversationId"
-        ]
+        "required": ["workspaceId", "conversationId"]
       }
     },
     "estimate.create": {
@@ -2205,11 +2048,7 @@
                   "maximum": 100000000000
                 }
               },
-              "required": [
-                "name",
-                "quantity",
-                "unitPriceCents"
-              ]
+              "required": ["name", "quantity", "unitPriceCents"]
             }
           },
           "discount": {
@@ -2218,11 +2057,7 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": [
-                  "none",
-                  "percent",
-                  "amount"
-                ]
+                "enum": ["none", "percent", "amount"]
               },
               "percentBp": {
                 "type": "integer",
@@ -2242,11 +2077,7 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": [
-                  "none",
-                  "percent",
-                  "amount"
-                ]
+                "enum": ["none", "percent", "amount"]
               },
               "percentBp": {
                 "type": "integer",
@@ -2272,10 +2103,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "personId"
-        ]
+        "required": ["workspaceId", "personId"]
       }
     },
     "estimate.send": {
@@ -2294,17 +2122,12 @@
             "format": "uuid"
           },
           "channels": {
-            "default": [
-              "email"
-            ],
+            "default": ["email"],
             "maxItems": 2,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "sms",
-                "email"
-              ]
+              "enum": ["sms", "email"]
             }
           },
           "message": {
@@ -2320,10 +2143,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "estimateId"
-        ]
+        "required": ["workspaceId", "estimateId"]
       }
     },
     "estimate.update": {
@@ -2451,11 +2271,7 @@
                   "maximum": 100000000000
                 }
               },
-              "required": [
-                "name",
-                "quantity",
-                "unitPriceCents"
-              ]
+              "required": ["name", "quantity", "unitPriceCents"]
             }
           },
           "discount": {
@@ -2464,11 +2280,7 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": [
-                  "none",
-                  "percent",
-                  "amount"
-                ]
+                "enum": ["none", "percent", "amount"]
               },
               "percentBp": {
                 "type": "integer",
@@ -2488,11 +2300,7 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": [
-                  "none",
-                  "percent",
-                  "amount"
-                ]
+                "enum": ["none", "percent", "amount"]
               },
               "percentBp": {
                 "type": "integer",
@@ -2523,12 +2331,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "workspaceId",
-          "estimateId",
-          "personId",
-          "baseRevision"
-        ]
+        "required": ["workspaceId", "estimateId", "personId", "baseRevision"]
       }
     },
     "file.begin_upload": {
@@ -2546,12 +2349,7 @@
           },
           "recordType": {
             "type": "string",
-            "enum": [
-              "person",
-              "company",
-              "lead",
-              "custom_record"
-            ]
+            "enum": ["person", "company", "lead", "custom_record"]
           },
           "recordId": {
             "type": "string",
@@ -2584,14 +2382,7 @@
             "maximum": 26214400
           }
         },
-        "required": [
-          "workspaceId",
-          "recordType",
-          "recordId",
-          "name",
-          "mimeType",
-          "sizeBytes"
-        ]
+        "required": ["workspaceId", "recordType", "recordId", "name", "mimeType", "sizeBytes"]
       }
     },
     "file.confirm": {
@@ -2608,10 +2399,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "fileId"
-        ]
+        "required": ["workspaceId", "fileId"]
       }
     },
     "form_response.record": {
@@ -2644,11 +2432,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "formId",
-          "answers"
-        ]
+        "required": ["workspaceId", "formId", "answers"]
       }
     },
     "invoice.create": {
@@ -2772,11 +2556,7 @@
                   "maximum": 100000000000
                 }
               },
-              "required": [
-                "name",
-                "quantity",
-                "unitPriceCents"
-              ]
+              "required": ["name", "quantity", "unitPriceCents"]
             }
           },
           "discount": {
@@ -2785,11 +2565,7 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": [
-                  "none",
-                  "percent",
-                  "amount"
-                ]
+                "enum": ["none", "percent", "amount"]
               },
               "percentBp": {
                 "type": "integer",
@@ -2806,14 +2582,7 @@
           "purpose": {
             "default": "standard",
             "type": "string",
-            "enum": [
-              "standard",
-              "deposit",
-              "balance",
-              "setup_fee",
-              "subscription",
-              "quick"
-            ]
+            "enum": ["standard", "deposit", "balance", "setup_fee", "subscription", "quick"]
           },
           "origin": {
             "default": "staff",
@@ -2896,10 +2665,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "personId"
-        ]
+        "required": ["workspaceId", "personId"]
       }
     },
     "invoice.record_cash_payment": {
@@ -2923,11 +2689,7 @@
           "method": {
             "default": "cash",
             "type": "string",
-            "enum": [
-              "cash",
-              "check",
-              "other"
-            ]
+            "enum": ["cash", "check", "other"]
           },
           "receivedAt": {
             "type": "string",
@@ -2945,11 +2707,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "invoiceId",
-          "amountCents"
-        ]
+        "required": ["workspaceId", "invoiceId", "amountCents"]
       }
     },
     "invoice.send": {
@@ -2968,17 +2726,12 @@
             "format": "uuid"
           },
           "channels": {
-            "default": [
-              "email"
-            ],
+            "default": ["email"],
             "maxItems": 2,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "sms",
-                "email"
-              ]
+              "enum": ["sms", "email"]
             }
           },
           "message": {
@@ -2994,10 +2747,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "invoiceId"
-        ]
+        "required": ["workspaceId", "invoiceId"]
       }
     },
     "invoice.update": {
@@ -3125,11 +2875,7 @@
                   "maximum": 100000000000
                 }
               },
-              "required": [
-                "name",
-                "quantity",
-                "unitPriceCents"
-              ]
+              "required": ["name", "quantity", "unitPriceCents"]
             }
           },
           "discount": {
@@ -3138,11 +2884,7 @@
               "kind": {
                 "default": "none",
                 "type": "string",
-                "enum": [
-                  "none",
-                  "percent",
-                  "amount"
-                ]
+                "enum": ["none", "percent", "amount"]
               },
               "percentBp": {
                 "type": "integer",
@@ -3195,12 +2937,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "workspaceId",
-          "invoiceId",
-          "personId",
-          "baseRevision"
-        ]
+        "required": ["workspaceId", "invoiceId", "personId", "baseRevision"]
       }
     },
     "job.set_status": {
@@ -3220,13 +2957,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "scheduled",
-              "on_the_way",
-              "in_progress",
-              "waiting_on_parts",
-              "done"
-            ]
+            "enum": ["scheduled", "on_the_way", "in_progress", "waiting_on_parts", "done"]
           },
           "customerNote": {
             "anyOf": [
@@ -3255,10 +2986,7 @@
                     "maximum": 180
                   }
                 },
-                "required": [
-                  "lat",
-                  "lng"
-                ]
+                "required": ["lat", "lng"]
               },
               {
                 "type": "null"
@@ -3270,11 +2998,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "appointmentId",
-          "status"
-        ]
+        "required": ["workspaceId", "appointmentId", "status"]
       }
     },
     "lead.archive": {
@@ -3291,10 +3015,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "leadId"
-        ]
+        "required": ["workspaceId", "leadId"]
       }
     },
     "lead.create": {
@@ -3415,10 +3136,7 @@
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "title"
-        ]
+        "required": ["workspaceId", "title"]
       }
     },
     "lead.move_stage": {
@@ -3460,11 +3178,7 @@
             "maxLength": 200
           }
         },
-        "required": [
-          "workspaceId",
-          "leadId",
-          "stageId"
-        ]
+        "required": ["workspaceId", "leadId", "stageId"]
       }
     },
     "lead.record_answers": {
@@ -3498,18 +3212,11 @@
                   "maxLength": 500
                 }
               },
-              "required": [
-                "questionId",
-                "answer"
-              ]
+              "required": ["questionId", "answer"]
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "leadId",
-          "answers"
-        ]
+        "required": ["workspaceId", "leadId", "answers"]
       }
     },
     "lead.restore": {
@@ -3526,10 +3233,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "leadId"
-        ]
+        "required": ["workspaceId", "leadId"]
       }
     },
     "lead.set_next_action": {
@@ -3569,11 +3273,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "leadId",
-          "text"
-        ]
+        "required": ["workspaceId", "leadId", "text"]
       }
     },
     "lead.update": {
@@ -3713,10 +3413,7 @@
                 ]
               },
               "valueCents": {
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "type": ["number", "null"]
               },
               "source": {
                 "anyOf": [
@@ -3776,10 +3473,7 @@
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "leadId"
-        ]
+        "required": ["workspaceId", "leadId"]
       }
     },
     "message.cancel_scheduled": {
@@ -3796,10 +3490,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "messageId"
-        ]
+        "required": ["workspaceId", "messageId"]
       }
     },
     "message.send": {
@@ -3833,11 +3524,7 @@
           "channel": {
             "default": "sms",
             "type": "string",
-            "enum": [
-              "sms",
-              "email",
-              "chat"
-            ]
+            "enum": ["sms", "email", "chat"]
           },
           "body": {
             "type": "string",
@@ -3927,10 +3614,7 @@
                               "maxLength": 20
                             }
                           },
-                          "required": [
-                            "type",
-                            "title"
-                          ],
+                          "required": ["type", "title"],
                           "additionalProperties": false
                         },
                         {
@@ -3950,11 +3634,7 @@
                               "maxLength": 1000
                             }
                           },
-                          "required": [
-                            "type",
-                            "title",
-                            "url"
-                          ],
+                          "required": ["type", "title", "url"],
                           "additionalProperties": false
                         },
                         {
@@ -3975,21 +3655,14 @@
                               "maxLength": 40
                             }
                           },
-                          "required": [
-                            "type",
-                            "title",
-                            "phone"
-                          ],
+                          "required": ["type", "title", "phone"],
                           "additionalProperties": false
                         }
                       ]
                     }
                   }
                 },
-                "required": [
-                  "kind",
-                  "buttons"
-                ],
+                "required": ["kind", "buttons"],
                 "additionalProperties": false
               },
               {
@@ -4022,10 +3695,7 @@
                               "maxLength": 20
                             }
                           },
-                          "required": [
-                            "type",
-                            "title"
-                          ],
+                          "required": ["type", "title"],
                           "additionalProperties": false
                         },
                         {
@@ -4045,11 +3715,7 @@
                               "maxLength": 1000
                             }
                           },
-                          "required": [
-                            "type",
-                            "title",
-                            "url"
-                          ],
+                          "required": ["type", "title", "url"],
                           "additionalProperties": false
                         },
                         {
@@ -4070,21 +3736,14 @@
                               "maxLength": 40
                             }
                           },
-                          "required": [
-                            "type",
-                            "title",
-                            "phone"
-                          ],
+                          "required": ["type", "title", "phone"],
                           "additionalProperties": false
                         }
                       ]
                     }
                   }
                 },
-                "required": [
-                  "kind",
-                  "title"
-                ],
+                "required": ["kind", "title"],
                 "additionalProperties": false
               },
               {
@@ -4133,10 +3792,7 @@
                                     "maxLength": 20
                                   }
                                 },
-                                "required": [
-                                  "type",
-                                  "title"
-                                ],
+                                "required": ["type", "title"],
                                 "additionalProperties": false
                               },
                               {
@@ -4156,11 +3812,7 @@
                                     "maxLength": 1000
                                   }
                                 },
-                                "required": [
-                                  "type",
-                                  "title",
-                                  "url"
-                                ],
+                                "required": ["type", "title", "url"],
                                 "additionalProperties": false
                               },
                               {
@@ -4181,39 +3833,25 @@
                                     "maxLength": 40
                                   }
                                 },
-                                "required": [
-                                  "type",
-                                  "title",
-                                  "phone"
-                                ],
+                                "required": ["type", "title", "phone"],
                                 "additionalProperties": false
                               }
                             ]
                           }
                         }
                       },
-                      "required": [
-                        "body",
-                        "mediaFileId",
-                        "buttons"
-                      ],
+                      "required": ["body", "mediaFileId", "buttons"],
                       "additionalProperties": false
                     }
                   }
                 },
-                "required": [
-                  "kind",
-                  "cards"
-                ],
+                "required": ["kind", "cards"],
                 "additionalProperties": false
               }
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "body"
-        ]
+        "required": ["workspaceId", "body"]
       }
     },
     "person.archive": {
@@ -4234,10 +3872,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "workspaceId",
-          "personId"
-        ]
+        "required": ["workspaceId", "personId"]
       }
     },
     "person.create": {
@@ -4394,9 +4029,7 @@
                   ]
                 }
               },
-              "required": [
-                "email"
-              ]
+              "required": ["email"]
             }
           },
           "otherPhones": {
@@ -4421,9 +4054,7 @@
                   ]
                 }
               },
-              "required": [
-                "phone"
-              ]
+              "required": ["phone"]
             }
           },
           "otherAddresses": {
@@ -4561,9 +4192,7 @@
             "maximum": 9007199254740991
           }
         },
-        "required": [
-          "workspaceId"
-        ]
+        "required": ["workspaceId"]
       }
     },
     "person.restore": {
@@ -4580,10 +4209,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "personId"
-        ]
+        "required": ["workspaceId", "personId"]
       }
     },
     "person.update": {
@@ -4738,9 +4364,7 @@
                   ]
                 }
               },
-              "required": [
-                "email"
-              ]
+              "required": ["email"]
             }
           },
           "otherPhones": {
@@ -4765,9 +4389,7 @@
                   ]
                 }
               },
-              "required": [
-                "phone"
-              ]
+              "required": ["phone"]
             }
           },
           "otherAddresses": {
@@ -5113,10 +4735,7 @@
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "personId"
-        ]
+        "required": ["workspaceId", "personId"]
       }
     },
     "push_device.register": {
@@ -5126,10 +4745,7 @@
         "properties": {
           "platform": {
             "type": "string",
-            "enum": [
-              "ios",
-              "android"
-            ]
+            "enum": ["ios", "android"]
           },
           "token": {
             "type": "string",
@@ -5153,11 +4769,7 @@
             ]
           }
         },
-        "required": [
-          "platform",
-          "token",
-          "appVersion"
-        ]
+        "required": ["platform", "token", "appVersion"]
       }
     },
     "push_device.remove": {
@@ -5176,10 +4788,7 @@
           "reason": {
             "default": "signed_out",
             "type": "string",
-            "enum": [
-              "signed_out",
-              "turned_off"
-            ]
+            "enum": ["signed_out", "turned_off"]
           }
         }
       }
@@ -5195,11 +4804,7 @@
           },
           "recordType": {
             "type": "string",
-            "enum": [
-              "person",
-              "company",
-              "lead"
-            ]
+            "enum": ["person", "company", "lead"]
           },
           "recordId": {
             "type": "string",
@@ -5210,12 +4815,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "recordType",
-          "recordId",
-          "tagId"
-        ]
+        "required": ["workspaceId", "recordType", "recordId", "tagId"]
       }
     },
     "record.remove_tag": {
@@ -5229,11 +4829,7 @@
           },
           "recordType": {
             "type": "string",
-            "enum": [
-              "person",
-              "company",
-              "lead"
-            ]
+            "enum": ["person", "company", "lead"]
           },
           "recordId": {
             "type": "string",
@@ -5244,12 +4840,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "recordType",
-          "recordId",
-          "tagId"
-        ]
+        "required": ["workspaceId", "recordType", "recordId", "tagId"]
       }
     },
     "subscription.request_card": {
@@ -5273,10 +4864,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "sms",
-                "email"
-              ]
+              "enum": ["sms", "email"]
             }
           },
           "message": {
@@ -5292,10 +4880,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "subscriptionId"
-        ]
+        "required": ["workspaceId", "subscriptionId"]
       }
     },
     "task.complete": {
@@ -5312,10 +4897,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "taskId"
-        ]
+        "required": ["workspaceId", "taskId"]
       }
     },
     "task.create": {
@@ -5418,10 +5000,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "title"
-        ]
+        "required": ["workspaceId", "title"]
       }
     },
     "task.delete": {
@@ -5438,10 +5017,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "taskId"
-        ]
+        "required": ["workspaceId", "taskId"]
       }
     },
     "task.reopen": {
@@ -5458,10 +5034,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "taskId"
-        ]
+        "required": ["workspaceId", "taskId"]
       }
     },
     "task.update": {
@@ -5659,10 +5232,7 @@
             }
           }
         },
-        "required": [
-          "workspaceId",
-          "taskId"
-        ]
+        "required": ["workspaceId", "taskId"]
       }
     },
     "user_phone.start_verification": {
@@ -5680,10 +5250,7 @@
             "maxLength": 40
           }
         },
-        "required": [
-          "workspaceId",
-          "phone"
-        ]
+        "required": ["workspaceId", "phone"]
       }
     },
     "user.update_profile": {
@@ -5735,10 +5302,7 @@
           },
           "decision": {
             "type": "string",
-            "enum": [
-              "approve",
-              "reject"
-            ]
+            "enum": ["approve", "reject"]
           },
           "edits": {
             "type": "object",
@@ -5764,11 +5328,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "approvalId",
-          "decision"
-        ]
+        "required": ["workspaceId", "approvalId", "decision"]
       }
     }
   },
@@ -5792,10 +5352,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "itemId"
-        ]
+        "required": ["workspaceId", "itemId"]
       }
     },
     "calendar.availability": {
@@ -5867,10 +5424,7 @@
                     "maximum": 180
                   }
                 },
-                "required": [
-                  "lat",
-                  "lng"
-                ]
+                "required": ["lat", "lng"]
               },
               {
                 "type": "null"
@@ -5892,12 +5446,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [
-                  "customer_address",
-                  "business",
-                  "virtual",
-                  "phone"
-                ]
+                "enum": ["customer_address", "business", "virtual", "phone"]
               },
               {
                 "type": "null"
@@ -5905,12 +5454,7 @@
             ]
           }
         },
-        "required": [
-          "workspaceId",
-          "calendarId",
-          "from",
-          "to"
-        ]
+        "required": ["workspaceId", "calendarId", "from", "to"]
       }
     },
     "crm.find_matches": {
@@ -5923,10 +5467,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "person",
-              "company"
-            ]
+            "enum": ["person", "company"]
           },
           "email": {
             "anyOf": [
@@ -5966,10 +5507,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId",
-          "kind"
-        ]
+        "required": ["workspaceId", "kind"]
       }
     },
     "email.compose_options": {
@@ -5989,9 +5527,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "workspaceId"
-        ]
+        "required": ["workspaceId"]
       }
     }
   },
