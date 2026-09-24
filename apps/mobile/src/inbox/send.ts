@@ -1,3 +1,5 @@
+import type { RichInput } from '@hfos/core';
+
 import { change, changes, newId } from '@/changes';
 import { removePhoto, takePhoto, type KeptPhoto, type PhotoSource } from '@/changes/photo-device';
 
@@ -45,17 +47,26 @@ export interface Reply {
   readonly quiet: Exclude<QuietChoice, 'ask'> | null;
   /** Email: the business's address it goes from, when the person picked one. */
   readonly emailAddressId?: string | null;
+  /** A text's buttons, card or carousel (RCS, 0103): core's `checkRich` value, as message.send takes it. */
+  readonly rich?: RichInput | null;
+  /**
+   * A carousel's pictures, one per card. They go to the customer's files first, like photos, but ride on their
+   * cards (`mediaFileId`) rather than on the message.
+   */
+  readonly cardPhotos?: readonly TrayPhoto[];
 }
 
 /**
- * Sends a reply: its photos to the customer's files first, then the message, waiting for them. Returns the reply's
- * change id and its client id (what the server's copy of the message carries, so the thread can match it).
+ * Sends a reply: its photos (and a carousel's pictures) to the customer's files first, then the message, waiting for
+ * them. Returns the reply's change id and its client id (what the server's copy of the message carries, so the
+ * thread can match it).
  */
 export async function sendReply(reply: Reply): Promise<{ id: string; clientId: string }> {
   const photoChanges: string[] = [];
-  if (reply.photos.length > 0) {
+  const uploads = [...reply.photos, ...(reply.cardPhotos ?? [])];
+  if (uploads.length > 0) {
     if (!reply.personId) throw new Error('Add them as a customer to send photos.');
-    for (const photo of reply.photos) {
+    for (const photo of uploads) {
       const added = await changes.addPhoto(
         { workspaceId: reply.workspaceId, recordType: 'person', recordId: reply.personId },
         photo,
@@ -80,6 +91,7 @@ export async function sendReply(reply: Reply): Promise<{ id: string; clientId: s
         ? { emailAddressId: reply.emailAddressId }
         : {}),
       attachmentFileIds: reply.photos.map((p) => p.fileId),
+      ...(reply.channel === 'sms' && reply.rich ? { rich: reply.rich } : {}),
       clientId,
       ...(reply.quiet === 'later'
         ? { sendAfterQuietHours: true }

@@ -7,7 +7,7 @@ import type { ButtonReply, RichText } from '@hfos/db/schema';
 import { smsKeyword } from '../messaging/sms';
 import { firstName } from './list';
 import { teammateLabel, teammateMessageOf, type TeammateMessage } from './teammate';
-import { callClock, heldWhen } from './time';
+import { callClock, heldWhen, weekdayClock } from './time';
 
 type UserRef = { readonly id: string; readonly fullName: string };
 
@@ -42,7 +42,8 @@ export interface ThreadItemFacts {
   readonly handoffLine: boolean;
   /**
    * Texts (0103): which way it went — SMS, MMS or RCS — and when an RCS message was read, what it carried and
-   * which button a customer's reply came from. Optional because the phone's copy doesn't hold them yet.
+   * which button a customer's reply came from. The web's thread and the phone's copy both carry them; optional so
+   * a thread item made without them (a fixture, a reply still on the phone) needn't say.
    */
   readonly transport?: 'sms' | 'mms' | 'rcs' | null;
   readonly readAt?: string | null;
@@ -174,7 +175,14 @@ export const THREAD_WORDS = {
   noWords: 'This one couldn’t be transcribed. The recording still plays.',
   noWordsNoRecording: 'Nothing was recorded, so there’s nothing to play or read.',
   noSubject: '(no subject)',
+  /** Under a rich text that went to a phone without RCS (0103): it opens to the plain text that phone got. */
+  wentAsText: 'Went as a text, with the choices listed',
 } as const;
+
+/** When an RCS message was read, beside "Read": "Read Tue 2:14 PM". */
+export function readLine(readAt: string | null | undefined): string {
+  return readAt ? `Read ${weekdayClock(readAt)}` : 'Read';
+}
 
 /** Why an email didn't arrive, after its card: "Bounced: …", "Marked as spam", "Not sent: …". */
 export function emailProblem(item: Pick<ThreadItemFacts, 'status' | 'errorMessage'>): string {

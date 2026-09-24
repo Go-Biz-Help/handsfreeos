@@ -8,6 +8,7 @@ export * from './list';
 export * from './thread';
 export * from './teammate';
 export * from './composer';
+export * from './rich-draft';
 export * from './conversation';
 export * from './rows';
 export * from './calls';

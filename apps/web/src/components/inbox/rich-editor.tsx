@@ -1,17 +1,20 @@
 'use client';
 /**
- * Buttons, a card or a carousel to go with a text (RCS, 0103), as the composer builds them.
- *
- * **Nobody picks RCS or SMS.** What is built here goes as RCS to a phone that can show it, and as the same
- * words with the choices written out to one that can't — so the editor always shows that plain face too,
- * worked out by core exactly as the server will write it.
+ * Buttons, a card or a carousel to go with a text (RCS, 0103): the web's editor. The draft, its checks, the plain
+ * face and the words are core's (`packages/core/src/inbox/rich-draft.ts`), shared with the phone's editor.
  */
 import {
+  checkRich,
+  emptyRichDraft,
+  newDraftButton,
+  newDraftCard,
   RCS_LIMITS,
-  RichInput,
-  richSmsText,
-  type RichButtonDraft,
-  type RichInput as RichInputValue,
+  RICH_WORDS,
+  richButtonLimit,
+  type DraftButton,
+  type DraftCard,
+  type RichButtonType,
+  type RichDraft,
 } from '@hfos/core';
 import { ImagePlus, Info, Plus, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
@@ -23,170 +26,11 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { errorMessage } from '@/lib/api/client';
 
-type ButtonType = RichButtonDraft['type'];
+/** The keys the web's editor tells its rows apart by. */
+const webKey = () => crypto.randomUUID();
 
-export interface DraftButton {
-  readonly key: string;
-  readonly type: ButtonType;
-  readonly title: string;
-  /** A link's address, or the number a call button rings. */
-  readonly target: string;
-}
-
-export interface DraftCard {
-  readonly key: string;
-  readonly title: string;
-  readonly body: string;
-  readonly fileId: string | null;
-  readonly preview: string | null;
-  readonly buttons: readonly DraftButton[];
-}
-
-export interface RichDraft {
-  readonly kind: RichInputValue['kind'];
-  /** A card's title. */
-  readonly title: string;
-  /** Buttons under the words, or on the card. */
-  readonly buttons: readonly DraftButton[];
-  readonly cards: readonly DraftCard[];
-}
-
-const key = () => crypto.randomUUID();
-const newButton = (type: ButtonType = 'reply'): DraftButton => ({
-  key: key(),
-  type,
-  title: '',
-  target: '',
-});
-const newCard = (): DraftCard => ({
-  key: key(),
-  title: '',
-  body: '',
-  fileId: null,
-  preview: null,
-  buttons: [newButton()],
-});
-
-export const emptyRichDraft = (): RichDraft => ({
-  kind: 'buttons',
-  title: '',
-  buttons: [newButton()],
-  cards: [newCard(), newCard()],
-});
-
-/** Buttons with anything typed in them, as message.send takes them. */
-function buttonsOf(list: readonly DraftButton[]): unknown[] {
-  return list
-    .filter((b) => b.title.trim() || b.target.trim())
-    .map((b) =>
-      b.type === 'reply'
-        ? { type: 'reply', title: b.title }
-        : b.type === 'link'
-          ? { type: 'link', title: b.title, url: b.target }
-          : { type: 'call', title: b.title, phone: b.target },
-    );
-}
-
-/** The draft as message.send takes it, or the first thing wrong with it in the words core uses. */
-export function richInputOf(
-  draft: RichDraft,
-): { ok: true; value: RichInputValue } | { ok: false; error: string } {
-  const raw =
-    draft.kind === 'buttons'
-      ? { kind: 'buttons', buttons: buttonsOf(draft.buttons) }
-      : draft.kind === 'card'
-        ? { kind: 'card', title: draft.title, buttons: buttonsOf(draft.buttons) }
-        : {
-            kind: 'carousel',
-            cards: draft.cards.map((c) => ({
-              ...(c.title.trim() ? { title: c.title } : {}),
-              body: c.body,
-              mediaFileId: c.fileId ?? '',
-              buttons: buttonsOf(c.buttons),
-            })),
-          };
-  const parsed = RichInput.safeParse(raw);
-  if (parsed.success) return { ok: true, value: parsed.data };
-  const issue = parsed.error.issues[0];
-  const where = issue?.path[0] === 'cards' ? `Card ${Number(issue.path[1] ?? 0) + 1}: ` : '';
-  return {
-    ok: false,
-    error:
-      issue?.path.includes('mediaFileId') === true
-        ? `${where}Add a picture.`
-        : `${where}${issue?.message ?? 'Check the buttons.'}`,
-  };
-}
-
-const NO_MEDIA = { bucket: '', objectPath: '', contentType: '', sizeBytes: 0, name: '' };
-
-export type RichCheck =
-  { ok: true; value: RichInputValue; plain: string | null } | { ok: false; error: string };
-
-/**
- * The draft with the text it goes with: ready to send (and what a phone without RCS gets), or the first thing
- * wrong. The photo rules are message.send's own — a carousel's pictures ride on its cards, and buttons go with
- * one photo — checked here so the person hears about them before pressing Send.
- */
-export function checkRich(draft: RichDraft, body: string, photos: number): RichCheck {
-  const checked = richInputOf(draft);
-  if (!checked.ok) return checked;
-  const value = checked.value;
-  if (value.kind === 'carousel' && photos > 0)
-    return {
-      ok: false,
-      error: 'A carousel carries its pictures on its cards. Take the attached photo off.',
-    };
-  if (value.kind !== 'carousel' && photos > 1)
-    return { ok: false, error: 'A message with buttons carries one photo.' };
-  if (value.kind !== 'carousel' && photos === 1 && value.buttons.length > RCS_LIMITS.cardButtons)
-    return {
-      ok: false,
-      error: `With a photo, a message holds ${RCS_LIMITS.cardButtons} buttons at most.`,
-    };
-  const plain = body.trim() ? plainFaceOf(body.trim(), value) : null;
-  if (plain && plain.length > RCS_LIMITS.smsText)
-    return {
-      ok: false,
-      error:
-        'With the choices written out for phones without RCS, this is over 1,600 characters. Shorten the words or take a button off.',
-    };
-  return { ok: true, value, plain };
-}
-
-/** What a phone without RCS gets, before anything is sent: core's own words, as the server will write them. */
-export function plainFaceOf(body: string, value: RichInputValue): string {
-  const ids = (list: readonly RichButtonDraft[]) =>
-    list.map((b, i) => ({ ...b, id: `preview.${i}` }));
-  if (value.kind === 'carousel')
-    return richSmsText(body, {
-      kind: 'carousel',
-      title: null,
-      buttons: [],
-      cards: value.cards.map((c) => ({
-        title: c.title ?? null,
-        body: c.body,
-        media: NO_MEDIA,
-        buttons: ids(c.buttons),
-      })),
-    });
-  return richSmsText(body, {
-    kind: value.kind,
-    title: value.kind === 'card' ? value.title : null,
-    buttons: ids(value.buttons),
-    cards: [],
-  });
-}
-
-const TYPE_LABEL: Record<ButtonType, string> = {
-  reply: 'Reply',
-  link: 'Link',
-  call: 'Call',
-};
-const TARGET_PLACEHOLDER: Record<Exclude<ButtonType, 'reply'>, string> = {
-  link: 'https://…',
-  call: '(713) 555-0142',
-};
+/** A fresh draft for the composer: one empty button, and two empty cards should it become a carousel. */
+export const newRichDraft = (): RichDraft => emptyRichDraft(webKey);
 
 function ButtonsField({
   buttons,
@@ -215,7 +59,7 @@ function ButtonsField({
             aria-label={`${label} ${i + 1}: kind`}
             value={b.type}
             onChange={(e) => {
-              const type = e.target.value as ButtonType;
+              const type = e.target.value as RichButtonType;
               set(b.key, {
                 type,
                 target: type === 'call' && !b.target ? (callNumber ?? '') : b.target,
@@ -224,18 +68,16 @@ function ButtonsField({
             className="w-[88px] flex-none"
             data-testid="rich-button-type"
           >
-            {(Object.keys(TYPE_LABEL) as ButtonType[]).map((t) => (
+            {(Object.keys(RICH_WORDS.buttonKind) as RichButtonType[]).map((t) => (
               <option key={t} value={t}>
-                {TYPE_LABEL[t]}
+                {RICH_WORDS.buttonKind[t]}
               </option>
             ))}
           </Select>
           <Input
             inputSize="sm"
             aria-label={`${label} ${i + 1}: name`}
-            placeholder={
-              b.type === 'reply' ? 'Confirm' : b.type === 'link' ? 'Book online' : 'Call us'
-            }
+            placeholder={RICH_WORDS.buttonTitle[b.type]}
             maxLength={RCS_LIMITS.buttonTitle}
             value={b.title}
             onChange={(e) => set(b.key, { title: e.target.value })}
@@ -246,7 +88,7 @@ function ButtonsField({
             <Input
               inputSize="sm"
               aria-label={`${label} ${i + 1}: ${b.type === 'link' ? 'web address' : 'number'}`}
-              placeholder={TARGET_PLACEHOLDER[b.type]}
+              placeholder={RICH_WORDS.buttonTarget[b.type]}
               value={b.target}
               onChange={(e) => set(b.key, { target: e.target.value })}
               className="min-w-[140px] flex-[1.4]"
@@ -267,11 +109,11 @@ function ButtonsField({
         <button
           type="button"
           className="inline-flex w-fit items-center gap-1 text-xs font-medium text-accent-text hover:underline"
-          onClick={() => onChange([...buttons, newButton()])}
+          onClick={() => onChange([...buttons, newDraftButton(webKey)])}
           data-testid="rich-add-button"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-          Add a button
+          {RICH_WORDS.addButton}
         </button>
       ) : null}
     </div>
@@ -339,7 +181,7 @@ function CardField({
         ) : (
           <span className="inline-flex items-center gap-1">
             <ImagePlus className="h-4 w-4" strokeWidth={1.5} />
-            {uploading ? 'Adding…' : 'Add a picture'}
+            {uploading ? RICH_WORDS.addingPicture : RICH_WORDS.addPicture}
           </span>
         )}
       </button>
@@ -349,7 +191,7 @@ function CardField({
       <Input
         id={titleId}
         inputSize="sm"
-        placeholder="Title (optional)"
+        placeholder={RICH_WORDS.cardTitleOptional}
         maxLength={RCS_LIMITS.carouselCardTitle}
         value={card.title}
         onChange={(e) => onChange({ ...card, title: e.target.value })}
@@ -357,7 +199,7 @@ function CardField({
       <Input
         inputSize="sm"
         aria-label={`Card ${index + 1}: words`}
-        placeholder="A few words"
+        placeholder={RICH_WORDS.cardWords}
         maxLength={RCS_LIMITS.carouselCardText}
         value={card.body}
         onChange={(e) => onChange({ ...card, body: e.target.value })}
@@ -378,7 +220,7 @@ function CardField({
           className="inline-flex w-fit items-center gap-1 text-xs text-text-3 hover:text-danger-text"
         >
           <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Remove card
+          {RICH_WORDS.removeCard}
         </button>
       ) : null}
     </div>
@@ -412,8 +254,7 @@ export function RichEditor({
   callNumber: string | null;
 }) {
   const checked = checkRich(draft, body, photos);
-  const maxButtons =
-    draft.kind === 'card' || photos > 0 ? RCS_LIMITS.cardButtons : RCS_LIMITS.chips;
+  const maxButtons = richButtonLimit(draft, photos);
   const titleId = useId();
   return (
     <div
@@ -424,40 +265,38 @@ export function RichEditor({
         <Segmented
           value={draft.kind}
           onChange={(kind) => onChange({ ...draft, kind })}
-          ariaLabel="What goes with the text"
+          ariaLabel={RICH_WORDS.whatGoes}
           options={[
-            { value: 'buttons', label: 'Buttons', testId: 'rich-kind-buttons' },
-            { value: 'card', label: 'Card', testId: 'rich-kind-card' },
+            { value: 'buttons', label: RICH_WORDS.kind.buttons, testId: 'rich-kind-buttons' },
+            { value: 'card', label: RICH_WORDS.kind.card, testId: 'rich-kind-card' },
             {
               value: 'carousel',
-              label: 'Carousel',
+              label: RICH_WORDS.kind.carousel,
               testId: 'rich-kind-carousel',
               disabled: !personId,
-              title: personId ? undefined : 'Link this conversation to a customer to add pictures.',
+              title: personId ? undefined : RICH_WORDS.carouselNeedsCustomer,
             },
           ]}
         />
-        <Button variant="ghost" size="icon" aria-label="Take the buttons off" onClick={onClose}>
+        <Button variant="ghost" size="icon" aria-label={RICH_WORDS.takeOff} onClick={onClose}>
           <X className="h-4 w-4" strokeWidth={1.75} />
         </Button>
       </div>
       {draft.kind === 'card' ? (
         <div className="flex flex-col gap-1">
           <label htmlFor={titleId} className="text-xs font-medium text-text-2">
-            Card title
+            {RICH_WORDS.cardTitle}
           </label>
           <Input
             id={titleId}
             inputSize="sm"
-            placeholder="Spring tune-up: $89"
+            placeholder={RICH_WORDS.cardTitlePlaceholder}
             maxLength={RCS_LIMITS.cardTitle}
             value={draft.title}
             onChange={(e) => onChange({ ...draft, title: e.target.value })}
             data-testid="rich-card-title"
           />
-          <span className="text-xs text-text-3">
-            The text below becomes the card’s words; a photo you attach goes on top.
-          </span>
+          <span className="text-xs text-text-3">{RICH_WORDS.cardNote}</span>
         </div>
       ) : null}
       {draft.kind === 'carousel' ? (
@@ -483,12 +322,12 @@ export function RichEditor({
           {draft.cards.length < RCS_LIMITS.carouselCards.max ? (
             <button
               type="button"
-              onClick={() => onChange({ ...draft, cards: [...draft.cards, newCard()] })}
+              onClick={() => onChange({ ...draft, cards: [...draft.cards, newDraftCard(webKey)] })}
               className="flex w-[120px] flex-none flex-col items-center justify-center gap-1 rounded-[12px] border border-dashed border-border-strong text-xs font-medium text-accent-text"
               data-testid="rich-add-card"
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
-              Add a card
+              {RICH_WORDS.addCard}
             </button>
           ) : null}
         </div>
@@ -507,15 +346,15 @@ export function RichEditor({
         <div className="flex min-w-0 flex-col gap-1">
           <span>
             {rcs ? (
-              'Goes as RCS where the customer’s phone can show it. Other phones get it as a text with the choices listed:'
+              RICH_WORDS.rcsOn
             ) : (
               <>
-                RCS isn’t on for this business, so this goes as a text with the choices listed.{' '}
+                {RICH_WORDS.rcsOff}{' '}
                 <Link
                   href={`/app/w/${workspaceId}/settings/texting#rcs`}
                   className="font-medium text-accent-text hover:underline"
                 >
-                  Set up RCS
+                  {RICH_WORDS.setUpRcs}
                 </Link>
               </>
             )}
@@ -529,7 +368,7 @@ export function RichEditor({
                 {checked.plain}
               </span>
             ) : (
-              <span className="text-text-3">Write the message to see it.</span>
+              <span className="text-text-3">{RICH_WORDS.writeToSee}</span>
             )
           ) : (
             <span className="text-danger-text" data-testid="rich-problem">

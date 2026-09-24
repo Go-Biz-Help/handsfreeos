@@ -209,6 +209,47 @@ describe('replies written on this phone', () => {
     expect(shown[1]!.fileIds).toEqual(['f1', 'f2']);
   });
 
+  it('says in a few words what goes with a text: its buttons, card or carousel (RCS)', () => {
+    const shown = pendingReplies(
+      [
+        reply(
+          {},
+          {
+            clientId: 'r-1',
+            rich: {
+              kind: 'buttons',
+              buttons: [
+                { type: 'reply', title: 'Confirm' },
+                { type: 'reply', title: 'Reschedule' },
+              ],
+            },
+          },
+        ),
+        reply({}, { clientId: 'r-2', rich: { kind: 'card', title: 'Tune-up: $89', buttons: [] } }),
+        reply(
+          {},
+          { clientId: 'r-3', rich: { kind: 'carousel', cards: [{ body: 'A' }, { body: 'B' }] } },
+        ),
+        // Buttons go with texts only.
+        reply({}, { clientId: 'r-4', channel: 'email', rich: { kind: 'buttons', buttons: [] } }),
+        reply({}, { clientId: 'r-5', rich: { kind: 'hologram' } }),
+        reply({}, { clientId: 'r-6' }),
+      ],
+      CONV,
+      new Set(),
+      false,
+      T0,
+    );
+    expect(shown.map((p) => p.extras)).toEqual([
+      '2 buttons',
+      'Card',
+      'Carousel of 2',
+      null,
+      null,
+      null,
+    ]);
+  });
+
   it('words the line under each as the canvas does', () => {
     const [waiting] = pendingReplies([reply()], CONV, new Set(), false, T0);
     expect(pendingLine(waiting!, 'Mike').text).toMatch(

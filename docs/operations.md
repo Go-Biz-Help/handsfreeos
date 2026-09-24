@@ -4432,6 +4432,8 @@ RCS is the newer kind of text message. On a phone that supports it, a business's
 
 Replies come back to the same conversation. A tap on a reply button arrives as a normal incoming message that says which button it was, and so does a customer texting back "2" to a text with the choices written out. The AI teammate sees the choice, and workflows can check it: **Button they chose** on a "Message received" trigger, and **Button they chose in their reply** after "Wait for a reply". A workflow's **Send a text** step can add up to four reply buttons.
 
+**On the phone app** it works the same way. The thread shows the buttons, cards and carousels as the customer saw them, the **RCS**, **SMS** or **MMS** tag, when an RCS message was read, the plain text a phone without RCS got, and which button a customer's reply came from. The composer's **Add buttons or a card** builds buttons, a card or a carousel, with the same rules and the same plain-text preview as the web, and it works with no signal like any reply. A carousel's pictures are taken like a reply's photos. The phone doesn't know whether RCS is on for the business, so it doesn't say; connecting and managing the sender is on the web. The phone gets these four message fields through its sync streams, added to the existing ones in place (see `apps/sync/sync-config.yaml`), so a phone build from before them keeps working and just doesn't show them.
+
 #### Setting up a business's RCS sender
 
 Twilio makes RCS senders only in its own console: the carriers review the brand (its name, logo, colors, contact details, privacy policy and terms), and that happens there. So each business's sender is made by hand, once, in that business's own subaccount.

@@ -1,5 +1,6 @@
 import {
   assigneeShort,
+  checkRich,
   COMPOSER_WORDS,
   CONTACT_EDIT_WORDS,
   CONVERSATION_ACTIONS,
@@ -22,6 +23,7 @@ import {
   threadChannelLine,
   whoOf,
   type ComposerNote,
+  type RichDraft,
   type StageRef,
 } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
@@ -131,6 +133,9 @@ export default function Conversation() {
   const [body, setBody] = React.useState('');
   const [subject, setSubject] = React.useState('');
   const [photos, setPhotos] = React.useState<TrayPhoto[]>([]);
+  // A text's buttons, card or carousel (RCS, 0103), and the pictures taken for a carousel's cards, by card.
+  const [rich, setRich] = React.useState<RichDraft | null>(null);
+  const [cardPhotos, setCardPhotos] = React.useState<Readonly<Record<string, TrayPhoto>>>({});
   const [sending, setSending] = React.useState(false);
   const [boxKey, setBoxKey] = React.useState(0);
   const [editing, setEditing] = React.useState<OutboxRow | null>(null);
@@ -159,6 +164,9 @@ export default function Conversation() {
 
   const channel = c?.channel ?? 'sms';
   const current: ComposerMode = mode ?? channel;
+  // Buttons go with a text, as on the web; a waiting reply being edited keeps what it had.
+  const canRich = current === 'sms' && !editing;
+  const richCheck = rich && canRich ? checkRich(rich, body, photos.length) : null;
   const first = data?.first ?? null;
   const who = whoOf(first, channel);
   const phoneDisplay = person?.phone ?? (channel === 'sms' ? (c?.counterpartDisplay ?? '') : '');
@@ -307,9 +315,57 @@ export default function Conversation() {
     }
   };
 
+  /** A new draft, or none: the pictures of any card it no longer has go from the phone. */
+  const changeRich = (next: RichDraft | null) => {
+    const kept = new Set(next?.cards.map((card) => card.key) ?? []);
+    const gone = Object.entries(cardPhotos).filter(([key]) => !kept.has(key));
+    for (const [, photo] of gone) dropReplyPhoto(userId, photo);
+    if (gone.length > 0)
+      setCardPhotos((prev) =>
+        Object.fromEntries(Object.entries(prev).filter(([key]) => kept.has(key))),
+      );
+    setRich(next);
+  };
+
+  /** A carousel card's picture: taken like a reply's photo and kept on the phone until the text goes. */
+  const addCardPhoto = async (cardKey: string, source: 'camera' | 'library') => {
+    if (!person) {
+      toast.error(COMPOSER_WORDS.addCustomerForPhotos);
+      return;
+    }
+    try {
+      const taken = await takeReplyPhoto(userId, source);
+      if (taken.kind === 'kept') {
+        const replaced = cardPhotos[cardKey];
+        if (replaced) dropReplyPhoto(userId, replaced);
+        setCardPhotos((prev) => ({ ...prev, [cardKey]: taken.photo }));
+        setRich((draft) =>
+          draft
+            ? {
+                ...draft,
+                cards: draft.cards.map((card) =>
+                  card.key === cardKey
+                    ? { ...card, fileId: taken.photo.fileId, preview: taken.photo.localName }
+                    : card,
+                ),
+              }
+            : draft,
+        );
+      } else if (taken.kind === 'no-camera-permission')
+        toast.error('Allow HandsFreeOS to use the camera in Settings to take photos.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const send = async () => {
     const text = body.trim();
     if (!text) return;
+    // The draft's first problem, before anything goes (as on the web).
+    if (richCheck && !richCheck.ok) {
+      toast.error(richCheck.error);
+      return;
+    }
     setSending(true);
     try {
       if (editing) {
@@ -332,6 +388,8 @@ export default function Conversation() {
               emailSubjectOf(subject, { businessName: business.name }))
             : emailSubjectOf(subject, { businessName: business.name })
           : null;
+      const extras = richCheck?.ok ? richCheck.value : null;
+      const carousel = extras?.kind === 'carousel';
       const result = await sendReply({
         workspaceId: business.id,
         conversationId: sameChannel ? conversationId : null,
@@ -342,12 +400,25 @@ export default function Conversation() {
         photos,
         quiet: null,
         emailAddressId: current === 'email' ? email.fromAddressId : null,
+        rich: extras,
+        cardPhotos: carousel
+          ? (rich?.cards ?? []).flatMap((card) => {
+              const photo = cardPhotos[card.key];
+              return photo ? [photo] : [];
+            })
+          : [],
       });
       sentHere.current.add(result.id);
       setBody('');
       setBoxKey((k) => k + 1);
       setSubject('');
       setPhotos([]);
+      if (extras) {
+        // A carousel's pictures went with it; any taken for cards of a draft that became something else go.
+        if (!carousel) for (const photo of Object.values(cardPhotos)) dropReplyPhoto(userId, photo);
+        setCardPhotos({});
+        setRich(null);
+      }
       if (!sameChannel)
         toast.show(
           current === 'email'
@@ -676,6 +747,12 @@ export default function Conversation() {
             busy={sending}
             onSend={() => void send()}
             boxKey={boxKey}
+            rich={rich}
+            onRich={changeRich}
+            richCheck={richCheck}
+            canRich={canRich}
+            canCarousel={!!person}
+            onCardPhoto={(key, source) => void addCardPhoto(key, source)}
           />
         </View>
       </View>

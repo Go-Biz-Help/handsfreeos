@@ -10,6 +10,8 @@ import {
   textFromLine,
   THREAD_WORDS,
   type ComposerNote,
+  type RichCheck,
+  type RichDraft,
   type WordPart,
 } from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
@@ -25,6 +27,7 @@ import {
   MessageCircle,
   Paperclip,
   Phone,
+  RectangleEllipsis,
   Send,
   Sparkles,
   X,
@@ -37,6 +40,8 @@ import type { TrayPhoto } from '@/inbox/send';
 import { cn } from '@/lib/utils';
 import { photosFolderUri } from '@/sync/device-files';
 import { useColors } from '@/theme';
+
+import { newRichDraft, RichEditor } from './rich-editor';
 
 export type ComposerMode = 'sms' | 'email' | 'chat';
 
@@ -128,6 +133,12 @@ export function Composer({
   busy,
   onSend,
   boxKey = 0,
+  rich = null,
+  onRich,
+  richCheck = null,
+  canRich = false,
+  canCarousel = false,
+  onCardPhoto,
 }: {
   userId: string;
   mode: ComposerMode;
@@ -160,6 +171,15 @@ export function Composer({
   onSend: () => void;
   /** Changes after a send, so an iPhone's box shrinks back to one line (it keeps a cleared box's height). */
   boxKey?: number;
+  /** A text's buttons, card or carousel being written (RCS, 0103), and core's check of it with the words. */
+  rich?: RichDraft | null;
+  onRich?: (next: RichDraft | null) => void;
+  richCheck?: RichCheck | null;
+  /** Buttons go with texts, not emails or website chats, and not while a waiting reply is being edited. */
+  canRich?: boolean;
+  /** A carousel's pictures go to the customer's files, so it needs a customer. */
+  canCarousel?: boolean;
+  onCardPhoto?: (cardKey: string, source: 'camera' | 'library') => void;
 }) {
   const colors = useColors();
   const [choosing, setChoosing] = React.useState(false);
@@ -180,6 +200,7 @@ export function Composer({
         ? textFromLine(fromNumber)
         : null;
   const ready = !off && !busy && body.trim().length > 0;
+  const richOn = !!rich && canRich && !off;
   return (
     <View className="gap-2 border-t border-border bg-card px-3 pb-2 pt-2.5" testID="composer">
       {!online && !off ? (
@@ -261,6 +282,19 @@ export function Composer({
         </Text>
       ) : null}
       {note ? <NoteBox note={note} /> : null}
+      {richOn && rich && richCheck && onRich ? (
+        <RichEditor
+          draft={rich}
+          onChange={onRich}
+          onClose={() => onRich(null)}
+          check={richCheck}
+          photos={photos.length}
+          canCarousel={canCarousel}
+          callNumber={fromNumber}
+          photoUri={(localName) => localPhotoUri(userId, localName)}
+          onCardPhoto={(key, source) => onCardPhoto?.(key, source)}
+        />
+      ) : null}
       {photos.length > 0 ? (
         <View className="flex-row items-center gap-2.5" testID="composer-photos">
           <View className="flex-row gap-2">
@@ -311,6 +345,24 @@ export function Composer({
             testID="composer-attach"
           >
             <Icon as={Paperclip} className="size-5 text-text-2" />
+          </Pressable>
+        ) : null}
+        {canRich && !off && onRich ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={COMPOSER_WORDS.addButtons}
+            accessibilityState={{ selected: richOn }}
+            onPress={() => onRich(rich ? null : newRichDraft())}
+            className={cn(
+              'size-11 items-center justify-center rounded-full active:bg-card-2',
+              richOn && 'bg-accent-soft',
+            )}
+            testID="composer-rich"
+          >
+            <Icon
+              as={RectangleEllipsis}
+              className={cn('size-5', richOn ? 'text-accent-text' : 'text-text-2')}
+            />
           </Pressable>
         ) : null}
         <View

@@ -304,6 +304,82 @@ describe('a thread from the copy', () => {
       media: [{ name: 'photo.jpg', bucket: 'attachments' }],
     });
   });
+
+  it('reads RCS from the copy: how a text went, when it was read, what it carried, and the button a reply came from', () => {
+    const picture = {
+      bucket: 'attachments',
+      objectPath: 'ws/p/tune-up.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 900,
+      name: 'tune-up.jpg',
+    };
+    const [sent, tapped, odd] = threadItemsOf(
+      [
+        message({
+          status: 'read',
+          transport: 'rcs',
+          read_at: '2026-09-17 12:14:00.000Z',
+          rich: JSON.stringify({
+            kind: 'carousel',
+            title: null,
+            buttons: [],
+            cards: [
+              {
+                title: 'Tune-up',
+                body: '$89 this week',
+                media: picture,
+                buttons: [{ type: 'reply', title: 'Book it', id: 'm1.c0.b0' }],
+              },
+            ],
+            smsText: 'Marco can be there at 9:00.\n\nReply 1 for Book it.',
+          }),
+        }),
+        message({
+          id: 'm5',
+          direction: 'inbound',
+          sent_by: null,
+          sent_by_name: null,
+          body_text: 'Book it',
+          transport: 'rcs',
+          button_reply: JSON.stringify({
+            type: 'reply',
+            title: 'Book it',
+            id: 'm1.c0.b0',
+            messageId: 'm1',
+            via: 'tap',
+          }),
+          occurred_at: '2026-09-17T12:15:00Z',
+        }),
+        // Not what the server writes: an ordinary text rather than a thread that won't open.
+        message({
+          id: 'm6',
+          transport: 'fax',
+          rich: '{"kind":"hologram"}',
+          button_reply: 'not json',
+          occurred_at: '2026-09-17T12:16:00Z',
+        }),
+      ],
+      [],
+    );
+    expect(sent).toMatchObject({
+      transport: 'rcs',
+      readAt: '2026-09-17T12:14:00.000Z',
+      rich: {
+        kind: 'carousel',
+        title: null,
+        buttons: [],
+        cards: [{ title: 'Tune-up', media: picture, buttons: [{ title: 'Book it' }] }],
+        smsText: 'Marco can be there at 9:00.\n\nReply 1 for Book it.',
+      },
+      buttonReply: null,
+    });
+    expect(tapped).toMatchObject({
+      direction: 'inbound',
+      rich: null,
+      buttonReply: { type: 'reply', title: 'Book it', via: 'tap' },
+    });
+    expect(odd).toMatchObject({ transport: null, readAt: null, rich: null, buttonReply: null });
+  });
 });
 
 describe('drafts from the copy', () => {
