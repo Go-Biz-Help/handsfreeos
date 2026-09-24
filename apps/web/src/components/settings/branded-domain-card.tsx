@@ -173,8 +173,9 @@ export function BrandedDomainCard({
 
           {serving ? (
             <p className="mt-1.5 max-w-[560px] text-[13px] text-text-2">
-              New links are handed out on this address. Anything you sent before still opens on
-              handsfreeos.com, so nothing you have already texted or printed has stopped working.
+              Your forms, payment links, estimates, invoices and booking page now go out on this
+              address. Anything you sent before still opens on handsfreeos.com, so nothing you have
+              already texted or printed has stopped working.
             </p>
           ) : null}
 
@@ -200,7 +201,8 @@ export function BrandedDomainCard({
               <p className="text-[13px] text-text-2">
                 {domain.records.length === 1 ? 'Add this record' : 'Add these records'} where your
                 domain lives — your registrar, or whoever runs your website. DNS often takes a few
-                hours, and we keep checking.
+                hours, and we keep checking. Until then, your forms, payment links and booking page
+                stay on handsfreeos.com.
               </p>
               <div className="mt-2 flex flex-col gap-2">
                 {domain.records.map((r) => (
