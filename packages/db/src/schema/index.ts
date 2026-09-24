@@ -5401,7 +5401,7 @@ export const campaignRecipients = app.table('campaign_recipients', {
   ...timestamps(),
 });
 
-/** Automations 4b: one line of guidance the worker made of repeated corrections to the AI teammate. */
+/** Automations 4b: one line of guidance the worker made of corrections to the AI teammate. */
 export const teammateLessons = app.table('teammate_lessons', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -5416,6 +5416,8 @@ export const teammateLessons = app.table('teammate_lessons', {
     .default(sql`'{}'`),
   /** open, applied or dismissed. */
   status: text('status').notNull().default('open'),
+  /** Where it goes against what the AI knows: the words there now and what they'd become (core's LessonConflict). */
+  conflict: jsonb('conflict').$type<Json>(),
   decidedBy: userRef('decided_by'),
   decidedAt: ts('decided_at'),
   ...timestamps(),

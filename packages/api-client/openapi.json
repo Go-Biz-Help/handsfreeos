@@ -27136,11 +27136,11 @@
     "/v1/commands/teammate_lesson.apply": {
       "post": {
         "operationId": "command_teammate_lesson_apply",
-        "summary": "Add the line of guidance made of repeated corrections to the AI teammate to the business’s policies, which the AI reads on every reply.",
+        "summary": "Add the line of guidance made of corrections to the AI teammate to the business’s policies, which the AI reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated.",
+        "description": "Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated, knowledge_item.updated.",
         "requestBody": {
           "required": true,
           "content": {
@@ -27162,6 +27162,9 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 300
+                  },
+                  "replace": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -27187,11 +27190,39 @@
                     },
                     "line": {
                       "type": "string"
+                    },
+                    "replaced": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "where": {
+                              "type": "string"
+                            },
+                            "before": {
+                              "type": "string"
+                            },
+                            "after": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "where",
+                            "before",
+                            "after"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "lessonId",
-                    "line"
+                    "line",
+                    "replaced"
                   ],
                   "additionalProperties": false
                 }
@@ -75237,6 +75268,7 @@
                                     "broken",
                                     "unreviewed",
                                     "corrected",
+                                    "knows_otherwise",
                                     "site_changed",
                                     "asked",
                                     "offer_ends"
@@ -75793,6 +75825,7 @@
                                     "broken",
                                     "unreviewed",
                                     "corrected",
+                                    "knows_otherwise",
                                     "site_changed",
                                     "asked",
                                     "offer_ends"
@@ -76649,6 +76682,7 @@
                                     "broken",
                                     "unreviewed",
                                     "corrected",
+                                    "knows_otherwise",
                                     "site_changed",
                                     "asked",
                                     "offer_ends"

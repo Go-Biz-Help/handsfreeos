@@ -668,9 +668,9 @@ export const AUTOMATIONS = [
   {
     id: 'ai_corrections',
     group: 'health',
-    label: 'Repeated corrections',
+    label: 'Learn from corrections',
     oneLiner:
-      'When you fix the AI for the same thing 3 times, suggests one line to teach it. One tap adds it.',
+      'When you fix the AI, suggests a line to teach it at once, and asks if it clashes with what it knows.',
     effect: 'alerts',
     defaultOn: true,
     binding: { store: 'attention_kind', kinds: ['ai_corrections'] },

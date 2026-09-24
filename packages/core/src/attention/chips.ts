@@ -130,6 +130,7 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'quiet_channel',
   'silent',
   'unreviewed',
+  'knows_otherwise',
   'corrected',
   'site_changed',
   'asked',
