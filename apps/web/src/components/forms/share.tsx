@@ -118,22 +118,26 @@ export function FormShare({
           <div>
             <h3 className="text-[14px] font-medium text-text">QR code</h3>
             <p className="mt-0.5 text-[12.5px] text-text-3">
-              For a truck door, a yard sign or the counter.
+              For a truck door, a yard sign or the counter, or hold your screen up for them to scan.
             </p>
           </div>
         </div>
         {qr ? (
-          <div className="flex items-center gap-4">
+          // On a phone the code is big, over its Download, for somebody standing there to scan straight off the
+          // screen (as the phone app shows it); on a wider screen it sits small beside it.
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
             {/* A data: URL made in this browser: no loader, no request. */}
             <img
               src={qr}
               alt="QR code for the form"
-              className="h-28 w-28 rounded-card border border-border"
+              className="h-56 w-56 rounded-card border border-border sm:h-28 sm:w-28"
+              data-testid="form-share-qr"
             />
             <a
               href={qr}
               download={`${form.slug}-qr.png`}
               className="inline-flex h-9 items-center gap-2 rounded-control border border-border-strong bg-card px-3.5 text-sm font-medium text-text shadow-1 hover:bg-card-2"
+              data-testid="form-share-qr-download"
             >
               <Download className="h-4 w-4" strokeWidth={1.75} />
               Download
