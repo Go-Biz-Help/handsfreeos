@@ -7782,7 +7782,7 @@ What it will never do, whatever the AI answers (the rules are in code, `packages
 
 **The Assistant, when asked.** Beside the pass, the Assistant can list many customers at once with their tags (`list_customers`, also "without this tag"), put tags on or take them off up to 200 customers in one card (`tag_customers`, making a new tag on the way), and change, add or take off any detail of one customer, the business's own fields included (`update_customer`). Each waits for Confirm, runs as the person ("via Assistant"), and keeps the reason they gave on every audit row.
 
-Needs `20261007000100_the_ai_keeps_customers_tidy.sql`. See "Apply new migrations". Locally, `ASSISTANT_PROVIDER=scripted` makes the stand-in put on any listed tag a customer's history names, take off one they say they're "no longer" into, and take "my new email is …", "my new number is …" and "we moved to …" as details.
+Needs `20261007000600_the_ai_keeps_customers_tidy.sql`. See "Apply new migrations". Locally, `ASSISTANT_PROVIDER=scripted` makes the stand-in put on any listed tag a customer's history names, take off one they say they're "no longer" into, and take "my new email is …", "my new number is …" and "we moved to …" as details.
 
 ## Who can do what: roles and permissions
 
