@@ -52,8 +52,12 @@ export const AttentionItemOut = z.object({
   id: uuid,
   kind: attentionKind,
   state: attentionState,
-  /** What it is about: lead, attendee, approval, conversation or task, and that row's id. */
-  subject: z.object({ type: z.string(), id: uuid }),
+  /**
+   * What it is about: lead, attendee, approval, conversation or task, and that row's id. A subject with no row of
+   * its own has an id made from a hash (a quiet channel's is `md5(...)::uuid`), which Postgres takes but a strict
+   * UUID check refuses, so any UUID-shaped id passes here: one such card must not take the whole list down.
+   */
+  subject: z.object({ type: z.string(), id: z.guid() }),
   personId: uuid.nullable(),
   leadId: uuid.nullable(),
   conversationId: uuid.nullable(),
