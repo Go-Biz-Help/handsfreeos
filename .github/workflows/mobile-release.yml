@@ -17,6 +17,13 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rebuild:
+        type: boolean
+        default: false
+        description: >-
+          Build and submit both phones even if a build for this fingerprint exists on EAS: for a build that never
+          reached TestFlight or Play.
 
 concurrency:
   group: mobile-release
@@ -29,6 +36,10 @@ jobs:
     runs-on: ubuntu-latest
     # A production build for both phones, plus both submissions, runs about forty minutes on a busy queue.
     timeout-minutes: 60
+    permissions:
+      contents: read
+      # To read how the last release ended.
+      actions: read
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       # app.json → expo.extra.eas.projectId. EAS identifies the project by this and nothing else.
@@ -49,16 +60,66 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # EAS decides between a build and an update by asking whether a build with this fingerprint exists, and a build
+      # can exist without ever reaching a phone: a run that built and then failed (its submission, or anything after)
+      # leaves it on EAS, and every run after takes it as shipped and sends updates to it. TestFlight build 9 got none
+      # of them for a day that way (23–24 September), and kept closing on a bug fixed the night before. So when the
+      # last release didn't finish, this one builds and submits again. A release that outlived the wait below counts
+      # as finished; if EAS failed it later, run this workflow by hand with `rebuild`.
+      - name: Did the last release finish?
+        id: last
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASKED: ${{ inputs.rebuild == true }}
+        run: |
+          set -euo pipefail
+          if [ "$ASKED" = "true" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            echo "Rebuilding: asked for by hand."
+            exit 0
+          fi
+          # Newest first. A release that never asked EAS for anything (skipped, cancelled while it waited its turn, no
+          # EXPO_TOKEN yet) says nothing about what reached the phones, so the newest one that did ask decides. The
+          # step it looks for is the one below, by name.
+          # GitHub not answering is no reason to hold a release back: it goes as an ordinary one.
+          unsure() {
+            echo "::warning::Couldn't read how the last release ended, so this is an ordinary release. If it didn't finish, run this workflow by hand with rebuild."
+            echo "rebuild=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/mobile-release.yml/runs?branch=main&status=completed&per_page=30" \
+            --jq ".workflow_runs[] | select(.id != $GITHUB_RUN_ID) | .id") || unsure
+          for id in $runs; do
+            job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs" \
+              --jq '[.jobs[] | select(any(.steps[]?; .name == "Ask EAS to ship this commit" and .conclusion == "success"))][0] // empty | "\(.conclusion) \(.html_url)"') || unsure
+            [ -n "$job" ] || continue
+            conclusion=${job%% *}
+            if [ "$conclusion" = "success" ]; then
+              echo "rebuild=false" >> "$GITHUB_OUTPUT"
+              echo "The last release finished: ${job#* }"
+            else
+              echo "rebuild=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::The last release asked EAS to ship and then ended as $conclusion (${job#* }), so this one builds and submits again."
+            fi
+            exit 0
+          done
+          echo "rebuild=false" >> "$GITHUB_OUTPUT"
+          echo "No earlier release asked EAS for anything."
+
       - name: Ask EAS to ship this commit
         id: dispatch
         if: steps.check.outputs.ready == 'true'
+        env:
+          REBUILD: ${{ steps.last.outputs.rebuild }}
         run: |
           set -euo pipefail
           body=$(jq -nc \
             --arg appId "$EAS_PROJECT_ID" \
             --arg gitRef "$GIT_REF" \
             --argjson submitAndroid "$SUBMIT_ANDROID" \
-            '{appId: $appId, gitRef: $gitRef, fileName: "deploy-production.yml", inputs: {submit_android: $submitAndroid}}')
+            --argjson rebuild "$REBUILD" \
+            '{appId: $appId, gitRef: $gitRef, fileName: "deploy-production.yml", inputs: {submit_android: $submitAndroid, rebuild: $rebuild}}')
           response=$(curl -fsS -X POST "https://api.expo.dev/v2/workflows/dispatch" \
             -H "Authorization: Bearer $EXPO_TOKEN" \
             -H "Content-Type: application/json" \
