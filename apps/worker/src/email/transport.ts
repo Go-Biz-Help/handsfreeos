@@ -26,6 +26,13 @@ export interface OutboundEmail {
   readonly attachments: readonly EmailAttachment[];
   /** Comes back on the delivery, bounce and complaint events (strings, 10 fields at most). */
   readonly metadata: Readonly<Record<string, string>>;
+  /** More headers: a campaign email's `List-Unsubscribe` and `List-Unsubscribe-Post`. */
+  readonly headers?: readonly { readonly name: string; readonly value: string }[];
+  /**
+   * A campaign email, one of many: Postmark's broadcast stream, never the one-to-one stream (whose approval
+   * says "no bulk sends").
+   */
+  readonly bulk?: boolean;
 }
 
 export interface SentEmail {

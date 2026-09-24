@@ -3578,6 +3578,10 @@
             "default": false,
             "type": "boolean"
           },
+          "campaignRecipientId": {
+            "type": "string",
+            "format": "uuid"
+          },
           "inReplyToMessageId": {
             "type": "string",
             "format": "uuid"

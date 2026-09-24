@@ -9,14 +9,16 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CampaignPreview, Offer, PipelineList, Tag } from '@/lib/api/types';
 import { people, skipWords } from './words';
 
 /**
- * A new outreach campaign: who (tags or pipeline stages), what it's for in a line, and how fast. Nothing is sent
- * from here: the AI writes each text first, and a person reads and approves them all on the next screen.
+ * A new outreach campaign: texts or one email, who (tags or pipeline stages), what it's for in a line, and how
+ * fast. Nothing is sent from here: the AI writes each text (or the one email) first, and a person reads and
+ * approves it on the next screen.
  */
 export function NewCampaign({
   workspaceId,
@@ -37,6 +39,9 @@ export function NewCampaign({
   const [stageIds, setStageIds] = useState<string[]>([]);
   const [perHour, setPerHour] = useState(String(CAMPAIGN_PER_HOUR_DEFAULT));
   const [offerId, setOfferId] = useState('');
+  const [channel, setChannel] = useState<'sms' | 'email'>('sms');
+  const email = channel === 'email';
+  const noun = email ? 'Emails' : 'Texts';
   const [preview, setPreview] = useState<CampaignPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const picked = tagIds.length + stageIds.length > 0;
@@ -54,7 +59,7 @@ export function NewCampaign({
       try {
         const out = unwrap(
           await apiBrowser().POST('/v1/queries/campaign.preview_audience', {
-            body: { workspaceId, audience: { tagIds, stageIds } },
+            body: { workspaceId, audience: { tagIds, stageIds }, channel },
           }),
         );
         if (!stale) setPreview(out);
@@ -66,7 +71,7 @@ export function NewCampaign({
       stale = true;
       clearTimeout(t);
     };
-  }, [workspaceId, tagIds, stageIds, picked]);
+  }, [workspaceId, tagIds, stageIds, picked, channel]);
 
   async function create() {
     setBusy(true);
@@ -80,6 +85,7 @@ export function NewCampaign({
             audience: { tagIds, stageIds },
             perHour: pace,
             offerId: offerId || null,
+            channel,
           },
         }),
       );
@@ -98,6 +104,23 @@ export function NewCampaign({
 
   return (
     <Card className="flex max-w-2xl flex-col gap-5 p-[18px]" data-testid="campaign-new">
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[13px] font-medium text-text">Send as</span>
+        <Segmented<'sms' | 'email'>
+          value={channel}
+          onChange={setChannel}
+          ariaLabel="Send as"
+          options={[
+            { value: 'sms', label: 'Texts', testId: 'campaign-channel-sms' },
+            { value: 'email', label: 'Email', testId: 'campaign-channel-email' },
+          ]}
+        />
+        <span className="text-[12.5px] text-text-2">
+          {email
+            ? 'One email to everyone, with their first name. It goes to anyone with an email who hasn’t unsubscribed.'
+            : 'A text for each person, written from what they’ve had done. Only to people who agreed to texts.'}
+        </span>
+      </div>
       <Field label="Name" htmlFor="campaign-name">
         <Input
           id="campaign-name"
@@ -138,7 +161,11 @@ export function NewCampaign({
       <Field
         label="What’s it for?"
         htmlFor="campaign-goal"
-        hint="One line. The AI writes each person’s text from this and what they’ve had done before."
+        hint={
+          email
+            ? 'One line. The AI writes the email from this; you can change every word before it goes.'
+            : 'One line. The AI writes each person’s text from this and what they’ve had done before.'
+        }
       >
         <Textarea
           id="campaign-goal"
@@ -183,7 +210,9 @@ export function NewCampaign({
             className="rounded-control bg-card-2 px-3 py-2 text-[13px]"
             data-testid="campaign-preview"
           >
-            <span className="font-medium">It would text {people(preview.recipients)}.</span>
+            <span className="font-medium">
+              It would {email ? 'email' : 'text'} {people(preview.recipients)}.
+            </span>
             {skipped.length ? (
               <ul className="mt-1 text-[12.5px] text-text-2">
                 {skipped.map(([why, n]) => (
@@ -193,12 +222,18 @@ export function NewCampaign({
                 ))}
               </ul>
             ) : null}
+            {email && !preview.postalAddress ? (
+              <p className="mt-1 text-[12.5px] text-warning-text" data-testid="campaign-no-address">
+                Add your business address in Settings → Payments first. Every campaign email has to
+                show it.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
 
       <Field
-        label="Texts an hour"
+        label={`${noun} an hour`}
         htmlFor="campaign-pace"
         hint="Only while you’re open, never in quiet hours. You can change it while it sends."
         error={paceOk ? null : `Between 1 and ${CAMPAIGN_PER_HOUR_MAX}.`}
@@ -217,15 +252,24 @@ export function NewCampaign({
 
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <span className="text-[12.5px] text-text-2">
-          Texts only, to people who agreed to them. Nothing goes until you approve.
+          {email
+            ? 'Every email has an unsubscribe link and your address. Nothing goes until you approve.'
+            : 'Texts only, to people who agreed to them. Nothing goes until you approve.'}
         </span>
         <Button
           onClick={create}
           loading={busy}
-          disabled={!name.trim() || !goal.trim() || !picked || !paceOk || preview?.recipients === 0}
+          disabled={
+            !name.trim() ||
+            !goal.trim() ||
+            !picked ||
+            !paceOk ||
+            preview?.recipients === 0 ||
+            (email && preview !== null && !preview.postalAddress)
+          }
           data-testid="campaign-create"
         >
-          Write the texts
+          {email ? 'Write the email' : 'Write the texts'}
         </Button>
       </div>
     </Card>

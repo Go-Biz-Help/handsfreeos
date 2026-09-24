@@ -21,6 +21,8 @@ const PUBLIC_PREFIXES = [
   '/p/',
   '/w/',
   '/hold/',
+  // A campaign email's unsubscribe page.
+  '/u/',
   '/chat/',
   // The chat loader the business pastes into its own site, so the snippet reads as theirs too.
   '/embed/',

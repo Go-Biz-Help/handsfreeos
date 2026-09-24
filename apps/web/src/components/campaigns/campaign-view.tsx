@@ -1,5 +1,10 @@
 'use client';
-import { CAMPAIGN_DRAFT_MAX, CAMPAIGN_PER_HOUR_MAX } from '@hfos/core';
+import {
+  CAMPAIGN_DRAFT_MAX,
+  CAMPAIGN_EMAIL_BODY_MAX,
+  CAMPAIGN_EMAIL_SUBJECT_MAX,
+  CAMPAIGN_PER_HOUR_MAX,
+} from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -10,7 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CampaignGet, CampaignRecipient } from '@/lib/api/types';
-import { CAMPAIGN_STATUS_BADGE, CAMPAIGN_STATUS_WORDS, people, skipWords } from './words';
+import {
+  CAMPAIGN_STATUS_BADGE,
+  PAUSED_REASON_WORDS,
+  people,
+  skipWords,
+  statusWords,
+} from './words';
 
 const REFRESH_MS = 5000;
 
@@ -24,6 +35,8 @@ const timeOf = (iso: string) =>
 /**
  * One campaign. While the AI writes, it shows how far it has got; then every text, each one editable, and
  * "Approve all and send"; once sending, how many went, when the next one goes, the pace, and pause or stop.
+ * An email campaign shows its one email instead (subject and words, editable, with the footer every email
+ * gets), and the people it goes to.
  */
 export function CampaignView({
   workspaceId,
@@ -38,6 +51,8 @@ export function CampaignView({
   const { campaign: c, recipients } = data;
   const [busy, setBusy] = useState<string | null>(null);
   const live = c.status === 'drafting' || c.status === 'sending';
+  const email = c.channel === 'email';
+  const noun = email ? 'email' : 'text';
 
   // Keeps up with the worker while it writes or sends.
   useEffect(() => {
@@ -81,13 +96,15 @@ export function CampaignView({
               variant={CAMPAIGN_STATUS_BADGE[c.status] ?? 'gray'}
               data-testid="campaign-status"
             >
-              {CAMPAIGN_STATUS_WORDS[c.status] ?? c.status}
+              {statusWords(c.status, c.channel)}
             </Badge>
             <span className="text-[13px] text-text-2">
               {c.status === 'drafting'
-                ? `${c.counts.total - c.counts.drafting - c.counts.skipped} of ${c.counts.total - c.counts.skipped} written`
+                ? email
+                  ? `To ${people(c.counts.total - c.counts.skipped)}`
+                  : `${c.counts.total - c.counts.drafting - c.counts.skipped} of ${c.counts.total - c.counts.skipped} written`
                 : c.status === 'review'
-                  ? `${people(c.counts.ready)} to text`
+                  ? `${people(c.counts.ready)} to ${noun}`
                   : `${c.counts.sent} of ${c.counts.sent + c.counts.approved + c.counts.failed} sent`}
             </span>
           </div>
@@ -98,7 +115,9 @@ export function CampaignView({
                   onClick={() =>
                     act(
                       'approve',
-                      `Send ${people(c.counts.ready)} these texts, ${c.perHour} an hour while you’re open?`,
+                      email
+                        ? `Send this email to ${people(c.counts.ready)}, ${c.perHour} an hour while you’re open?`
+                        : `Send ${people(c.counts.ready)} these texts, ${c.perHour} an hour while you’re open?`,
                     )
                   }
                   loading={busy === 'approve'}
@@ -130,7 +149,12 @@ export function CampaignView({
               {stoppable ? (
                 <Button
                   variant="ghost"
-                  onClick={() => act('cancel', 'Stop this campaign? Texts not sent yet won’t go.')}
+                  onClick={() =>
+                    act(
+                      'cancel',
+                      `Stop this campaign? ${email ? 'Emails' : 'Texts'} not sent yet won’t go.`,
+                    )
+                  }
                   loading={busy === 'cancel'}
                   data-testid="campaign-cancel"
                 >
@@ -140,6 +164,15 @@ export function CampaignView({
             </div>
           ) : null}
         </div>
+        {c.status === 'paused' && c.pausedReason ? (
+          <p
+            className="rounded-control bg-warning-soft px-3 py-2 text-[13px] text-warning-text"
+            data-testid="campaign-paused-reason"
+          >
+            {PAUSED_REASON_WORDS[c.pausedReason] ??
+              'Paused: something stopped it sending. Resume to try again.'}
+          </p>
+        ) : null}
         <p className="text-[13.5px]">{c.goal}</p>
         {c.offer ? (
           <p className="text-[12.5px] text-text-2" data-testid="campaign-offer-name">
@@ -149,7 +182,39 @@ export function CampaignView({
         <PaceLine workspaceId={workspaceId} data={data} canManage={canManage} />
       </Card>
 
-      {going.length ? (
+      {email && c.email ? (
+        <EmailCard
+          workspaceId={workspaceId}
+          campaignId={c.id}
+          email={c.email}
+          editable={canManage && c.status === 'review'}
+        />
+      ) : email && c.status === 'drafting' ? (
+        <p className="text-[13px] text-text-2">
+          The AI is writing the email. This page updates on its own.
+        </p>
+      ) : null}
+
+      {email && going.length ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+            Who gets it
+          </h2>
+          <Card className="divide-y divide-border">
+            {going.map((r) => (
+              <RecipientRow
+                key={r.id}
+                workspaceId={workspaceId}
+                r={r}
+                editable={canManage && c.status === 'review' && r.status === 'ready'}
+                email
+              />
+            ))}
+          </Card>
+        </section>
+      ) : null}
+
+      {email ? null : going.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
             {c.status === 'review' ? 'Read each text' : 'Texts'}
@@ -207,6 +272,7 @@ function PaceLine({
   const [value, setValue] = useState(String(c.perHour));
   const [busy, setBusy] = useState(false);
   const changeable = canManage && ['review', 'sending', 'paused'].includes(c.status);
+  const noun = c.channel === 'email' ? 'emails' : 'texts';
 
   async function save() {
     const n = Number(value);
@@ -242,10 +308,10 @@ function PaceLine({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="h-8 w-20"
-            aria-label="Texts an hour"
+            aria-label={`${noun === 'emails' ? 'Emails' : 'Texts'} an hour`}
             data-testid="campaign-pace-input"
           />
-          <span>texts an hour</span>
+          <span>{noun} an hour</span>
           <Button size="sm" onClick={save} loading={busy} data-testid="campaign-pace-save">
             Save
           </Button>
@@ -256,7 +322,7 @@ function PaceLine({
       ) : (
         <>
           <span data-testid="campaign-pace">
-            {c.perHour} texts an hour, while you’re open and never in quiet hours.
+            {c.perHour} {noun} an hour, while you’re open and never in quiet hours.
           </span>
           {changeable ? (
             <button
@@ -274,7 +340,9 @@ function PaceLine({
         </>
       )}
       {c.status === 'sending' && data.nextSendAt ? (
-        <span className="basis-full">Next text: {timeOf(data.nextSendAt)}</span>
+        <span className="basis-full">
+          Next {noun === 'emails' ? 'email' : 'text'}: {timeOf(data.nextSendAt)}
+        </span>
       ) : null}
     </div>
   );
@@ -284,10 +352,13 @@ function RecipientRow({
   workspaceId,
   r,
   editable,
+  email = false,
 }: {
   workspaceId: string;
   r: CampaignRecipient;
   editable: boolean;
+  /** An email campaign's row: who and where, no words of their own. */
+  email?: boolean;
 }) {
   const router = useRouter();
   const [text, setText] = useState(r.draft ?? '');
@@ -332,7 +403,13 @@ function RecipientRow({
       <div className="flex items-center justify-between gap-3">
         <span className="text-[13.5px] font-medium">
           {r.name}
-          {r.phone ? <span className="ml-2 font-normal text-text-3">{r.phone}</span> : null}
+          {email ? (
+            r.email ? (
+              <span className="ml-2 font-normal text-text-3">{r.email}</span>
+            ) : null
+          ) : r.phone ? (
+            <span className="ml-2 font-normal text-text-3">{r.phone}</span>
+          ) : null}
         </span>
         <span className="flex items-center gap-2 text-[12.5px] text-text-2">
           {r.edited ? <span>Edited</span> : null}
@@ -354,7 +431,7 @@ function RecipientRow({
           ) : null}
         </span>
       </div>
-      {editable ? (
+      {email ? null : editable ? (
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -369,5 +446,96 @@ function RecipientRow({
         <p className="whitespace-pre-wrap text-[13px] text-text-2">{r.draft}</p>
       )}
     </div>
+  );
+}
+
+/** An email campaign's one email: subject and words (saved when a box is left), and the footer it always gets. */
+function EmailCard({
+  workspaceId,
+  campaignId,
+  email,
+  editable,
+}: {
+  workspaceId: string;
+  campaignId: string;
+  email: NonNullable<CampaignGet['campaign']['email']>;
+  editable: boolean;
+}) {
+  const router = useRouter();
+  const [subject, setSubject] = useState(email.subject ?? '');
+  const [body, setBody] = useState(email.body ?? '');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setSubject(email.subject ?? ''), [email.subject]);
+  useEffect(() => setBody(email.body ?? ''), [email.body]);
+
+  async function save() {
+    const s = subject.trim();
+    const b = body.trim();
+    if (!s || !b || (s === (email.subject ?? '') && b === (email.body ?? ''))) return;
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/campaign.update_email', {
+          body: { workspaceId, campaignId, subject: s, body: b },
+        }),
+      );
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2" data-testid="campaign-email">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+          {editable ? 'Read the email' : 'The email'}
+        </h2>
+        {email.edited ? <span className="text-[12.5px] text-text-2">Edited</span> : null}
+      </div>
+      <Card className="flex flex-col gap-3 p-[18px]">
+        {editable ? (
+          <>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              onBlur={save}
+              maxLength={CAMPAIGN_EMAIL_SUBJECT_MAX}
+              disabled={busy}
+              aria-label="Subject"
+              data-testid="campaign-email-subject"
+            />
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onBlur={save}
+              maxLength={CAMPAIGN_EMAIL_BODY_MAX}
+              disabled={busy}
+              className="min-h-[200px] text-[13.5px]"
+              aria-label="Email"
+              data-testid="campaign-email-body"
+            />
+            <span className="text-[12px] text-text-3">
+              {'{first_name}'} becomes each person’s first name (“there” when you don’t have it).
+            </span>
+          </>
+        ) : (
+          <>
+            <p className="text-[13.5px] font-medium">{email.subject}</p>
+            <p className="whitespace-pre-wrap text-[13px] text-text-2">{email.body}</p>
+          </>
+        )}
+        <div
+          className="whitespace-pre-wrap border-t border-border pt-3 text-[12px] text-text-3"
+          data-testid="campaign-email-footer"
+        >
+          {`Every email ends with: why they get it, an unsubscribe link, and your address.\n${
+            email.postalAddress ?? 'No address yet: add it in Settings → Payments.'
+          }`}
+        </div>
+      </Card>
+    </section>
   );
 }

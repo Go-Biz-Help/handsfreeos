@@ -1027,7 +1027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal. Nothing is sent until someone approves the drafts.
+         * Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, or one email to them all. Nothing is sent until someone approves the drafts.
          * @description Risk level 2. Requires workflows.manage. Emits campaign.created.
          */
         post: operations["command_campaign_create"];
@@ -1131,6 +1131,26 @@ export interface paths {
          * @description Risk level 1. Requires workflows.manage. Emits campaign.draft_edited.
          */
         post: operations["command_campaign_update_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.update_email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.email_edited.
+         */
+        post: operations["command_campaign_update_email"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8127,7 +8147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who a new outreach campaign would text, and how many are left out and why, before it’s made.
+         * Who a new outreach campaign would text or email, and how many are left out and why, before it’s made.
          * @description Requires records.read.
          */
         post: operations["query_campaign_preview_audience"];
@@ -13395,6 +13415,11 @@ export interface operations {
                         /** @default [] */
                         tagIds?: string[];
                     };
+                    /**
+                     * @default sms
+                     * @enum {string}
+                     */
+                    channel?: "sms" | "email";
                     goal: string;
                     name: string;
                     /** @default null */
@@ -13590,6 +13615,42 @@ export interface operations {
                         recipientId: string;
                         /** @enum {string} */
                         status: "drafting" | "ready" | "skipped" | "removed" | "approved" | "sent" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_update_email: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                    /** Format: uuid */
+                    campaignId: string;
+                    subject: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
                     };
                 };
             };
@@ -19254,6 +19315,8 @@ export interface operations {
                     /** @default [] */
                     attachmentFileIds?: string[];
                     body: string;
+                    /** Format: uuid */
+                    campaignRecipientId?: string;
                     /** @default [] */
                     cc?: string[];
                     /**
@@ -29910,6 +29973,8 @@ export interface operations {
                                 stageIds: string[];
                                 tagIds: string[];
                             };
+                            /** @enum {string} */
+                            channel: "sms" | "email";
                             counts: {
                                 approved: number;
                                 drafting: number;
@@ -29922,6 +29987,12 @@ export interface operations {
                             };
                             /** Format: date-time */
                             createdAt: string;
+                            email: {
+                                body: string | null;
+                                edited: boolean;
+                                postalAddress: string | null;
+                                subject: string | null;
+                            } | null;
                             finishedAt: string | null;
                             goal: string;
                             /** Format: uuid */
@@ -29932,6 +30003,7 @@ export interface operations {
                                 id: string;
                                 name: string;
                             } | null;
+                            pausedReason: string | null;
                             perHour: number;
                             /** @enum {string} */
                             status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
@@ -29940,6 +30012,7 @@ export interface operations {
                         recipients: {
                             draft: string | null;
                             edited: boolean;
+                            email: string | null;
                             error: string | null;
                             /** Format: uuid */
                             id: string;
@@ -29982,6 +30055,8 @@ export interface operations {
                     "application/json": {
                         items: {
                             approvedAt: string | null;
+                            /** @enum {string} */
+                            channel: "sms" | "email";
                             counts: {
                                 approved: number;
                                 drafting: number;
@@ -30004,6 +30079,7 @@ export interface operations {
                                 id: string;
                                 name: string;
                             } | null;
+                            pausedReason: string | null;
                             perHour: number;
                             /** @enum {string} */
                             status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
@@ -30029,6 +30105,11 @@ export interface operations {
                         /** @default [] */
                         tagIds?: string[];
                     };
+                    /**
+                     * @default sms
+                     * @enum {string}
+                     */
+                    channel?: "sms" | "email";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -30042,6 +30123,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        postalAddress: string | null;
                         recipients: number;
                         skipped: {
                             [key: string]: number;

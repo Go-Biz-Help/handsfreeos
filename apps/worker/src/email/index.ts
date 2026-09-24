@@ -12,6 +12,11 @@ export interface EmailServices {
   /** The basic auth Postmark sends with its webhooks (it signs nothing). */
   readonly webhookUser: string;
   readonly webhookPassword: string;
+  /**
+   * Campaign email can go: Postmark has a Broadcasts stream (POSTMARK_BROADCAST_STREAM), or it's the local
+   * stand-in. False pauses an email campaign rather than sending bulk mail on the one-to-one stream.
+   */
+  readonly bulkReady: boolean;
 }
 
 export function createEmail(env: WorkerEnv, log: Logger): EmailServices {
@@ -23,14 +28,17 @@ export function createEmail(env: WorkerEnv, log: Logger): EmailServices {
   if (env.emailTransport === 'postmark')
     return {
       ...base,
+      bulkReady: !!env.postmarkBroadcastStream,
       ...createPostmark({
         serverToken: env.postmarkServerToken!,
         accountToken: env.postmarkAccountToken,
         stream: env.postmarkMessageStream,
+        broadcastStream: env.postmarkBroadcastStream,
       }),
     };
   return {
     ...base,
+    bulkReady: true,
     ...createLocalEmail({
       smtpUrl: env.smtpUrl,
       eventsUrl: `${env.publicUrl}/webhooks/postmark/events`,
