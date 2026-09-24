@@ -18,11 +18,12 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { followUpJobKey, outreachJobKey } from '../src/ai-team/index';
-import { REENGAGE_JOB, reengageJobKey } from '../src/automations/index';
+import { nextReengageAt, REENGAGE_JOB, reengageJobKey } from '../src/automations/index';
 import { systemActor } from '../src/services';
 import {
   admin,
   aiMessages,
+  CHI,
   drain,
   hh,
   hourNow,
@@ -156,7 +157,6 @@ describe('follow-ups when a lead never replied', () => {
 });
 
 describe('re-engage dead leads', () => {
-  const H = 3_600_000;
   // Whatever the hour the tests run at.
   beforeAll(() => setQuietHours(w, null));
 
@@ -225,6 +225,7 @@ describe('re-engage dead leads', () => {
       const c = await coldLead('Uma', { daysCold: 130 });
       const noConsent = await coldLead('Vik', { consent: false });
       const warm = await coldLead('Wes', { daysCold: 10 });
+      const ranAt = Date.now();
       await runReengage();
       // The cap: two today, the most recently cold first.
       expect([a, b, c].map((x) => textsTo(w, x.phone).length)).toEqual([1, 1, 0]);
@@ -234,7 +235,8 @@ describe('re-engage dead leads', () => {
       expect(body).toContain('Reply STOP to opt out.');
       expect(textsTo(w, noConsent.phone)).toHaveLength(0);
       expect(textsTo(w, warm.phone)).toHaveLength(0);
-      // Each one is recorded on its lead, and the job waits for tomorrow's 10 AM.
+      // Each one is recorded on its lead, and the job waits for the next 10 AM: tomorrow's, or today's when this ran
+      // before it (a run between 9 and 10 AM Chicago is less than an hour from it).
       const [n] = await rows<{ n: number }>(
         admin(),
         sql`select count(*)::int as n from app.events
@@ -242,7 +244,9 @@ describe('re-engage dead leads', () => {
       );
       expect(n!.n).toBe(2);
       const next = await jobRow(reengageJobKey(w.workspaceId));
-      expect(new Date(next!.run_at).getTime()).toBeGreaterThan(Date.now() + H);
+      expect([nextReengageAt(ranAt, CHI), nextReengageAt(Date.now(), CHI)]).toContain(
+        new Date(next!.run_at).getTime(),
+      );
 
       // Again: the cap is spent for the day, and nobody gets a second.
       await runReengage();

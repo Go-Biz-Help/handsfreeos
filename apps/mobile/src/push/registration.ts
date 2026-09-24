@@ -70,8 +70,11 @@ export interface PushRegistrationDeps {
     getPermissions(): Promise<{ status: PushPermission; canAskAgain: boolean }>;
     requestPermissions(): Promise<{ status: PushPermission; canAskAgain: boolean }>;
     expoPushToken(projectId: string): Promise<string>;
-    /** Calls back when the phone's push token changes. */
-    onTokenChange(listener: () => void): () => void;
+    /**
+     * Calls back with the phone's own push token when the phone announces it: when it changes, and on iOS also every
+     * time the app asks for one (`expoPushToken` asks).
+     */
+    onTokenChange(listener: (deviceToken: string) => void): () => void;
   };
   /** Sends an online-only command; throws with the words to show when it can't. */
   readonly register: (input: {
@@ -118,6 +121,10 @@ export class PushRegistration {
   private prepared: Promise<void> | null = null;
   /** A sync asked for that hasn't started yet: asking again (the app starting, signing in, coming to the front) joins it. */
   private waiting: Promise<void> | null = null;
+  /** A sync is under way. */
+  private syncing = false;
+  /** The phone's own push token, as it last announced it. */
+  private deviceToken: string | null = null;
   private readonly now: () => number;
 
   constructor(private readonly deps: PushRegistrationDeps) {
@@ -176,8 +183,22 @@ export class PushRegistration {
       online = next;
     });
     this.deps.appActive.subscribe(() => void this.sync());
-    this.deps.notifications.onTokenChange(() => void this.sync());
+    this.deps.notifications.onTokenChange((deviceToken) => this.tokenAnnounced(deviceToken));
     if (this.deps.appActive.isActive()) void this.sync();
+  }
+
+  /**
+   * iOS announces the phone's push token every time the app asks for one, not only when it changes, and every
+   * registration asks. Taken for a new token, that registered again, which asked again, which announced it again: one
+   * simulator registered about 9,700 times an hour on 24 September, and every phone of that person had to download
+   * each of those receipts before its copy could finish (Getting … onto this phone sat at 99%). A token announced
+   * during a sync is that sync's own; one announced after counts only when it differs from the last.
+   */
+  private tokenAnnounced(deviceToken: string) {
+    const known = this.deviceToken;
+    this.deviceToken = deviceToken;
+    if (this.syncing || deviceToken === known) return;
+    void this.sync();
   }
 
   private userId(): string | null {
@@ -216,64 +237,73 @@ export class PushRegistration {
     if (this.waiting) return this.waiting;
     const next = this.run(async () => {
       this.waiting = null;
-      const userId = this.userId();
-      if (!userId || this.signingOut) {
-        this.update({ status: 'signed-out', token: null, registeredAt: null, message: null });
-        return;
-      }
-      await this.prepare();
-      const permission = await this.deps.notifications.getPermissions();
-      this.update({ permission: permission.status, canAskAgain: permission.canAskAgain });
-      const earlier = this.registered();
-
-      if (permission.status !== 'granted') {
-        // Turned off in the phone's settings: off the list, until it's turned back on.
-        if (earlier?.userId === userId) await this.removeRegistration(earlier, 'turned_off');
-        this.update({ status: 'no-permission', registeredAt: null, message: null });
-        return;
-      }
-
-      const token = await this.token();
-      if (!token) {
-        this.update({ status: 'no-project', token: null, registeredAt: null, message: null });
-        return;
-      }
-      if (!this.deps.network.online()) {
-        this.update({ status: 'waiting-for-signal', token, message: null });
-        return;
-      }
-      // A new token for this person: the old one comes off the list first.
-      if (earlier && earlier.userId === userId && earlier.token !== token)
-        await this.removeRegistration(earlier, 'turned_off').catch(() => undefined);
-      // Registering again over an unchanged registration — which happens every time the app comes to the front —
-      // keeps saying "On". Without this, Settings flips 'On' → 'Setting up' → 'On' on every foreground, too fast to
-      // read (step 1, finding: the notifications text glitches). A first registration, or a new token, still says so.
-      const alreadyOn =
-        this.snapshot.status === 'registered' &&
-        earlier?.userId === userId &&
-        earlier.token === token;
-      if (!alreadyOn) this.update({ status: 'registering', token, message: null });
+      this.syncing = true;
       try {
-        await this.deps.register({
-          platform: this.deps.platform,
-          token,
-          appVersion: this.deps.appVersion(),
-          ...(this.deps.deviceName() ? { deviceName: this.deps.deviceName() } : {}),
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.update({
-          status: this.deps.network.online() ? 'failed' : 'waiting-for-signal',
-          message,
-        });
-        return;
+        await this.syncNow();
+      } finally {
+        this.syncing = false;
       }
-      const at = this.now();
-      this.deps.store.set(REGISTERED_KEY, { userId, token, at } satisfies Registered);
-      this.update({ status: 'registered', token, registeredAt: at, message: null });
     });
     this.waiting = next;
     return next;
+  }
+
+  private async syncNow(): Promise<void> {
+    const userId = this.userId();
+    if (!userId || this.signingOut) {
+      this.update({ status: 'signed-out', token: null, registeredAt: null, message: null });
+      return;
+    }
+    await this.prepare();
+    const permission = await this.deps.notifications.getPermissions();
+    this.update({ permission: permission.status, canAskAgain: permission.canAskAgain });
+    const earlier = this.registered();
+
+    if (permission.status !== 'granted') {
+      // Turned off in the phone's settings: off the list, until it's turned back on.
+      if (earlier?.userId === userId) await this.removeRegistration(earlier, 'turned_off');
+      this.update({ status: 'no-permission', registeredAt: null, message: null });
+      return;
+    }
+
+    const token = await this.token();
+    if (!token) {
+      this.update({ status: 'no-project', token: null, registeredAt: null, message: null });
+      return;
+    }
+    if (!this.deps.network.online()) {
+      this.update({ status: 'waiting-for-signal', token, message: null });
+      return;
+    }
+    // A new token for this person: the old one comes off the list first.
+    if (earlier && earlier.userId === userId && earlier.token !== token)
+      await this.removeRegistration(earlier, 'turned_off').catch(() => undefined);
+    // Registering again over an unchanged registration — which happens every time the app comes to the front —
+    // keeps saying "On". Without this, Settings flips 'On' → 'Setting up' → 'On' on every foreground, too fast to
+    // read (step 1, finding: the notifications text glitches). A first registration, or a new token, still says so.
+    const alreadyOn =
+      this.snapshot.status === 'registered' &&
+      earlier?.userId === userId &&
+      earlier.token === token;
+    if (!alreadyOn) this.update({ status: 'registering', token, message: null });
+    try {
+      await this.deps.register({
+        platform: this.deps.platform,
+        token,
+        appVersion: this.deps.appVersion(),
+        ...(this.deps.deviceName() ? { deviceName: this.deps.deviceName() } : {}),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.update({
+        status: this.deps.network.online() ? 'failed' : 'waiting-for-signal',
+        message,
+      });
+      return;
+    }
+    const at = this.now();
+    this.deps.store.set(REGISTERED_KEY, { userId, token, at } satisfies Registered);
+    this.update({ status: 'registered', token, registeredAt: at, message: null });
   }
 
   private async removeRegistration(

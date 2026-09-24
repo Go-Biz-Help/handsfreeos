@@ -13,6 +13,11 @@ name: Ship to TestFlight and Play
 #   - A matching build exists, so the change is JavaScript only. It publishes an over-the-air update to the
 #     production channel instead, and the phones already holding that build pick it up on their next launch. About a
 #     minute, and no store review.
+#   - `rebuild` builds and submits even though a matching build exists (and still publishes the update). A build on
+#     EAS isn't a build on the phones: when a run builds and then fails, at the submission or anywhere after, its build
+#     stays on EAS and every later run takes it as shipped, publishing updates for a build no tester has. That is how
+#     TestFlight build 9 ran its own day-old JavaScript through a day of fixes (23–24 September). mobile-release.yml
+#     sets `rebuild` when the release before it didn't finish.
 #
 # The two platforms are decided separately: iOS can take an update on the same commit that makes Android build.
 #
@@ -30,6 +35,13 @@ on:
           Upload the Android build to Play's internal testing track. Leave this off until the Play Console app record
           and the Google service-account key in EAS both exist (release-checklist.md, items 3 and 4); until then the
           .aab is built and waits in EAS for an upload by hand.
+      rebuild:
+        type: boolean
+        required: false
+        default: false
+        description: >-
+          Build and submit both phones even when a build for this fingerprint already exists. For when the last
+          release didn't finish, so its build may be on EAS but not on TestFlight or Play.
 
 jobs:
   fingerprint:
@@ -57,12 +69,12 @@ jobs:
       profile: production
       fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
 
-  # --- The native side changed: build, then send it to the store. ---
+  # --- The native side changed, or the last release didn't finish: build, then send it to the store. ---
 
   build_ios:
     name: Build iOS
     needs: [get_ios_build]
-    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    if: ${{ inputs.rebuild || !needs.get_ios_build.outputs.build_id }}
     type: build
     params:
       platform: ios
@@ -71,7 +83,7 @@ jobs:
   build_android:
     name: Build Android
     needs: [get_android_build]
-    if: ${{ !needs.get_android_build.outputs.build_id }}
+    if: ${{ inputs.rebuild || !needs.get_android_build.outputs.build_id }}
     type: build
     params:
       platform: android
@@ -95,6 +107,7 @@ jobs:
       profile: production
 
   # --- JavaScript only: the build on the phone is still the right one, so just replace what it runs. ---
+  # On a rebuild it goes too, for any phone that does hold the build EAS found.
 
   update_ios:
     name: Update the iPhones

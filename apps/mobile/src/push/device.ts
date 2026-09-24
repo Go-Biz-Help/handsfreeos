@@ -105,7 +105,9 @@ export const pushRegistration = new PushRegistration({
     expoPushToken: async (projectId) =>
       (await Notifications.getExpoPushTokenAsync({ projectId })).data,
     onTokenChange: (listener) => {
-      const subscription = Notifications.addPushTokenListener(() => listener());
+      const subscription = Notifications.addPushTokenListener(({ data }) =>
+        listener(typeof data === 'string' ? data : JSON.stringify(data)),
+      );
       return () => subscription.remove();
     },
   },
