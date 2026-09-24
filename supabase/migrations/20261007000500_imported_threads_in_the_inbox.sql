@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0107 · The threads a move from GoHighLevel brought, back in the inbox.
+-- 0108 · The threads a move from GoHighLevel brought, back in the inbox.
 --
 --        The GoHighLevel adapter brought every thread with no unread message
 --        across closed, and every thread split off by channel closed too. The
