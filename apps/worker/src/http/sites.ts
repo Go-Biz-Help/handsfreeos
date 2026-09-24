@@ -3,8 +3,8 @@
  *
  * One route, read by the web app's proxy on every request that arrives on a name that is not ours. It runs
  * as the system actor and answers only for a domain that is actually working — verified, with a certificate
- * issued, on a booking site that is switched on — because a name still waiting on DNS must not start serving
- * a half-configured business.
+ * issued — because a name still waiting on DNS must not start serving a half-configured business. Whether
+ * booking is switched on does not matter here: the forms and payment links on that name still work.
  *
  * It is here rather than in the web app for the reason the form's frame rule is: the web app holds no
  * database credentials, and Next middleware cannot open a Postgres connection anyway.
