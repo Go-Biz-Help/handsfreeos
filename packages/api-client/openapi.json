@@ -40689,7 +40689,7 @@
     "/v1/commands/branded_domain.remove": {
       "post": {
         "operationId": "command_branded_domain_remove",
-        "summary": "Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.",
+        "summary": "Take the business off its own domain. Its forms, payment links, estimates, invoices and booking page go back to handsfreeos.com at once; links already sent on the old domain stop working.",
         "tags": [
           "commands"
         ],

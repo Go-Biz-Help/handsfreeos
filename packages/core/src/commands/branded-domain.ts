@@ -145,7 +145,7 @@ export const brandedDomainVerify = defineCommand({
 export const brandedDomainRemove = defineCommand({
   name: 'branded_domain.remove',
   description:
-    'Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.',
+    'Take the business off its own domain. Its forms, payment links, estimates, invoices and booking page go back to handsfreeos.com at once; links already sent on the old domain stop working.',
   // A three, not a two: every QR code, flyer and text already carrying that address stops working the moment
   // this runs, and there is nothing we can do about the ones already printed.
   risk: 3,

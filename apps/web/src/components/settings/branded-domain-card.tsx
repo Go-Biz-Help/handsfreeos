@@ -264,14 +264,14 @@ export function BrandedDomainCard({
                 onClick={() => {
                   if (
                     !confirm(
-                      `Take your pages off ${domain.domain}? Every link, QR code and flyer already carrying that address stops working straight away, and we can’t undo the printed ones.`,
+                      `Stop using ${domain.domain}? Your forms, payment links, estimates, invoices and booking page go back to handsfreeos.com. Every link, QR code and flyer already carrying ${domain.domain} stops working straight away, and we can’t undo the printed ones.`,
                     )
                   )
                     return;
                   void call(
                     '/v1/commands/branded_domain.remove',
                     { workspaceId, domainId: domain.id },
-                    'Removed. Your links are back on handsfreeos.com.',
+                    'Removed. Your forms, payment links and booking page are back on handsfreeos.com.',
                   );
                 }}
                 data-testid="branded-domain-remove"
