@@ -12,12 +12,14 @@ at a time, and "offers" only means waitlist offers.
 | Automation                                  | What it needs first                                                   |
 | ------------------------------------------- | --------------------------------------------------------------------- |
 | Nothing scheduled on social / planner empty | A social planner connected to the business's accounts                 |
-| No email going out                          | Email campaigns (bulk email with an unsubscribe flow)                 |
+| No email going out                          | Nothing now: email campaigns are live; only the nudge itself is left  |
 | Blog going quiet                            | A blog, or a connection to the business's own                         |
 | Pre-publish content check                   | Any of the above: a daily read of everything due out in the next 24 h |
 
 "Offer lapsing" shipped as **Offer ending** on top of Knowledge → Offers, which already had start and end dates, and
-campaigns can now be about an offer. "Drafts awaiting review" is already live: it covers AI drafts and approvals, and campaigns join it in stage 5.
+campaigns can now be about an offer. Email campaigns shipped too: a campaign can be one email (AI-drafted, edited
+once, `{first_name}` per person) to anyone who hasn't unsubscribed, with an unsubscribe link, the List-Unsubscribe
+headers and the business's address. "Drafts awaiting review" is already live: it covers AI drafts and approvals, and campaigns join it in stage 5.
 
 ## Ads
 

@@ -37,6 +37,7 @@ import { createLocalEmail, LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
 import { createSafeFetch } from '../src/http/safe-fetch';
 import { createSmtpMailer } from '../src/mailer';
+import { createUnsubscribeLinks } from '../src/email/unsubscribe';
 import { createMoneyLinks } from '../src/money/links';
 import { processOnce, type OutboxDeps } from '../src/outbox';
 import { createSupabaseStore, unconfiguredStore } from '../src/storage';
@@ -221,6 +222,7 @@ async function main(): Promise<void> {
       mailDomain: 'mail.handsfreeos.com',
       webhookUser: 'postmark',
       webhookPassword: LOCAL_WEBHOOK_PASSWORD,
+      bulkReady: true,
     },
     mailboxes: fakeMailboxServices(
       (process.env.WORKER_PUBLIC_URL ?? 'http://127.0.0.1:4100').replace(/\/+$/, ''),
@@ -245,6 +247,11 @@ async function main(): Promise<void> {
     }),
     moneyLinks: createMoneyLinks({
       webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+      key,
+    }),
+    unsubscribeLinks: createUnsubscribeLinks({
+      webUrl: (process.env.WEB_URL ?? 'http://localhost:3000').replace(/\/+$/, ''),
+      publicUrl: process.env.WORKER_PUBLIC_URL ?? 'http://localhost:8788',
       key,
     }),
     fetchUrl: createSafeFetch(),

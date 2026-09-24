@@ -740,6 +740,7 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     clientId: input.clientId ?? null,
     occurredAt: now,
     activityId,
+    campaignRecipientId: input.campaignRecipientId ?? null,
   });
   await ctx.tx
     .update(conversations)
@@ -860,6 +861,14 @@ export const messageSend = defineCommand({
         {
           path: 'keepConversationStatus',
           message: 'Only HandsFreeOS itself sends without reopening the conversation.',
+        },
+      ]);
+    // Only HandsFreeOS's own campaign sender marks an email as a campaign email.
+    if (input.campaignRecipientId && (ctx.actor.type !== 'system' || input.channel !== 'email'))
+      throw HfosError.validation([
+        {
+          path: 'campaignRecipientId',
+          message: 'Only HandsFreeOS itself sends a campaign email.',
         },
       ]);
     // Only a person chooses to send when quiet hours end; HandsFreeOS's own texts wait for them on their own.

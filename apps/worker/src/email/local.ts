@@ -62,6 +62,9 @@ export function createLocalEmail(opts: {
           messageId: email.messageIdHeader,
           ...(email.inReplyTo ? { inReplyTo: email.inReplyTo } : {}),
           ...(email.references.length > 0 ? { references: [...email.references] } : {}),
+          ...(email.headers?.length
+            ? { headers: email.headers.map((h) => ({ key: h.name, value: h.value })) }
+            : {}),
           attachments: email.attachments.map((a) => ({
             filename: a.name,
             content: a.content,

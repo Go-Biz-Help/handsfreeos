@@ -97,6 +97,8 @@ export interface WorkerEnv {
   /** The Domains API (workspaces' own domains) needs the account token. */
   readonly postmarkAccountToken: string | null;
   readonly postmarkMessageStream: string;
+  /** The Broadcasts stream campaign email goes on (Postmark → the server → Message Streams); null until set. */
+  readonly postmarkBroadcastStream: string | null;
   /** Basic auth on Postmark's webhooks (Postmark signs nothing). */
   readonly postmarkWebhookUser: string;
   readonly postmarkWebhookPassword: string;
@@ -528,6 +530,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     postmarkServerToken,
     postmarkAccountToken,
     postmarkMessageStream: env.POSTMARK_MESSAGE_STREAM || 'outbound',
+    postmarkBroadcastStream: env.POSTMARK_BROADCAST_STREAM?.trim() || null,
     postmarkWebhookUser: env.POSTMARK_WEBHOOK_USER || 'postmark',
     postmarkWebhookPassword: postmarkWebhookPassword || LOCAL_WEBHOOK_PASSWORD,
     mailDomain,

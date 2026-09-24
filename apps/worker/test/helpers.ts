@@ -11,6 +11,7 @@ import { createSafeFetch } from '../src/http/safe-fetch';
 import type { FakeMailboxes } from '../src/mailbox/fake';
 import { fakeMailboxServices, type MailboxServices } from '../src/mailbox/index';
 import { createSmtpMailer } from '../src/mailer';
+import { createUnsubscribeLinks } from '../src/email/unsubscribe';
 import { createMoneyLinks } from '../src/money/links';
 import type { FakePayments } from '../src/payments/fake';
 import { fakePaymentServices, type PaymentServices } from '../src/payments/index';
@@ -110,6 +111,7 @@ export function testServices(
       mailDomain: 'mail.handsfreeos.com',
       webhookUser: 'postmark',
       webhookPassword: LOCAL_WEBHOOK_PASSWORD,
+      bulkReady: true,
     },
     // Syncs run when a test asks (the job's next run is a minute out).
     mailboxes: fakeMailboxServices(TEST_PUBLIC_URL, 60_000),
@@ -126,6 +128,11 @@ export function testServices(
     }),
     moneyLinks: createMoneyLinks({
       webUrl: 'http://localhost:3000',
+      key: randomBytes(32).toString('base64'),
+    }),
+    unsubscribeLinks: createUnsubscribeLinks({
+      webUrl: 'http://localhost:3000',
+      publicUrl: TEST_PUBLIC_URL,
       key: randomBytes(32).toString('base64'),
     }),
     fetchUrl: createSafeFetch({ testOrigins: opts.fetchOrigins ?? [] }),

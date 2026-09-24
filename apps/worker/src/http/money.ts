@@ -39,6 +39,7 @@ import rateLimit from '@fastify/rate-limit';
 import {
   acceptanceWording,
   APPROVE_LABEL,
+  businessPostalAddress,
   DECLINE_LABEL,
   estimateAcceptOnline,
   estimateDeclineOnline,
@@ -248,23 +249,11 @@ async function businessOf(tx: Tx, workspaceId: string): Promise<PublicMoneyBusin
     .from(phoneNumbers)
     .where(and(eq(phoneNumbers.workspaceId, workspaceId), eq(phoneNumbers.status, 'active')))
     .limit(1);
-  const settings = await loadMoneySettings(tx, workspaceId);
-  // Failing a real one, the first calendar that says where "at our place" is.
-  const [place] = await rows<{ address: string | null }>(
-    tx,
-    sql`select opt ->> 'address' as address
-        from app.calendars c,
-          lateral jsonb_array_elements(coalesce(c.config -> 'locations' -> 'options', '[]'::jsonb)) as opt
-        where c.workspace_id = ${workspaceId} and c.status <> 'archived'
-          and opt ->> 'kind' = 'business' and length(btrim(coalesce(opt ->> 'address', ''))) > 0
-        order by c.created_at, c.id
-        limit 1`,
-  );
   return {
     name: w?.name ?? 'The business',
     phone: phone?.e164 ?? null,
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
-    address: settings.businessAddress.trim() || place?.address?.trim() || null,
+    address: await businessPostalAddress(tx, workspaceId),
   };
 }
 
