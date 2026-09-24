@@ -5231,6 +5231,31 @@
         "required": ["workspaceId", "taskId"]
       }
     },
+    "teammate_lesson.apply": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lessonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "replace": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "lessonId"]
+      }
+    },
     "user_phone.start_verification": {
       "offline": "online",
       "input": {
