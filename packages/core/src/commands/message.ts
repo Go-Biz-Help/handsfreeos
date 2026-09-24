@@ -1115,6 +1115,9 @@ export const messageRetry = defineCommand({
         personId: conv.personId,
         channel: m.channel,
         retry: true,
+        // The attempt that failed may have reached the carrier and left its provider id behind. The worker sends
+        // this message again despite that id, and the new send's id replaces it (message.update_status).
+        replacesProviderMessageId: m.providerMessageId,
       },
       before: { status: m.status, errorCode: m.errorCode },
       after: {
@@ -1723,7 +1726,30 @@ export const messageUpdateStatus = defineCommand({
         'Received messages keep their status.',
       );
     const now = new Date();
-    const patch: Partial<typeof messages.$inferInsert> = { status: input.status };
+    /*
+     * A retry's send (message.retry) is a new attempt. The one that failed left its provider id behind; the new
+     * id takes its place, so the carrier's reports on the new attempt find this message, and the failed
+     * attempt's times, template and way it went are forgotten with it. Only while the message still carries
+     * that exact id, so a late record of an earlier attempt never undoes a later one.
+     */
+    const retried =
+      !!input.messageId &&
+      !!input.providerMessageId &&
+      !!input.replacesProviderMessageId &&
+      input.replacesProviderMessageId === m.providerMessageId;
+    const fresh = {
+      providerMessageId: null,
+      contentSid: null,
+      transport: null,
+      sentAt: null,
+      deliveredAt: null,
+      readAt: null,
+    };
+    const attempt = retried ? fresh : m;
+    const patch: Partial<typeof messages.$inferInsert> = {
+      status: input.status,
+      ...(retried ? fresh : {}),
+    };
     if (input.errorCode !== undefined) patch.errorCode = input.errorCode;
     if (input.errorMessage !== undefined) patch.errorMessage = input.errorMessage;
     if (input.segments !== undefined) patch.segments = input.segments;
@@ -1731,16 +1757,16 @@ export const messageUpdateStatus = defineCommand({
       patch.messageIdHeader = input.messageIdHeader;
       patch.dedupeKey = emailDedupeKey(input.messageIdHeader);
     }
-    if (input.messageId && input.providerMessageId && !m.providerMessageId) {
+    if (input.messageId && input.providerMessageId && !attempt.providerMessageId) {
       patch.providerMessageId = input.providerMessageId;
       if (!m.dedupeKey) patch.dedupeKey = input.providerMessageId;
     }
-    if (input.contentSid && m.channel === 'sms' && !m.contentSid)
+    if (input.contentSid && m.channel === 'sms' && !attempt.contentSid)
       patch.contentSid = input.contentSid;
     const reached = input.status === 'delivered' || input.status === 'read';
-    if ((input.status === 'sent' || reached) && !m.sentAt) patch.sentAt = now;
-    if (reached && !m.deliveredAt) patch.deliveredAt = now;
-    if (input.status === 'read' && !m.readAt) patch.readAt = now;
+    if ((input.status === 'sent' || reached) && !attempt.sentAt) patch.sentAt = now;
+    if (reached && !attempt.deliveredAt) patch.deliveredAt = now;
+    if (input.status === 'read' && !attempt.readAt) patch.readAt = now;
     /*
      * Which way it went (0103). An RCS-first text learns it from its callbacks: `rcs:` in their `From` when it
      * went over RCS, the thread's number when Twilio fell back to SMS or MMS. Callbacks arrive out of order, so a
@@ -1750,8 +1776,8 @@ export const messageUpdateStatus = defineCommand({
     if (
       m.channel === 'sms' &&
       input.transport &&
-      input.transport !== m.transport &&
-      (!m.transport || statusRank(input.status) >= statusRank(m.status))
+      input.transport !== attempt.transport &&
+      (!attempt.transport || statusRank(input.status) >= statusRank(m.status))
     )
       patch.transport = input.transport;
     const [after] = await ctx.tx
