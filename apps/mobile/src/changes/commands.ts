@@ -64,6 +64,8 @@ import {
   FileConfirmInput,
   FileConfirmOutput,
   FormRecordInput,
+  FormResponseDeleteInput,
+  FormResponseDeleteOutput,
   FormSubmitOutput,
   FRESH_MINUTES,
   InvoiceCreateInput,
@@ -214,6 +216,8 @@ export const PHONE_COMMANDS = {
   'file.confirm': command(ANYTIME, FileConfirmInput, FileConfirmOutput),
   // M17: a form filled in on a job. Made and sent in one go, with an id from this phone, so the queue
   // retrying it is the same answer sheet rather than a second one.
+  // Deleting an answer sheet (a test, or a customer asking to be forgotten): online only, never left waiting.
+  'form_response.delete': command(ONLINE, FormResponseDeleteInput, FormResponseDeleteOutput),
   'form_response.record': command(ANYTIME, FormRecordInput, FormSubmitOutput),
   'invoice.create': command(ONLINE, InvoiceCreateInput, InvoiceStateOutput),
   'invoice.record_cash_payment': command(

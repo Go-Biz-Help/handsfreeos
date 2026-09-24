@@ -33,7 +33,8 @@ const RECORD = new URL('./contract/mobile-contract.json', import.meta.url);
 /**
  * Online commands the phone also sends: a draft estimate or invoice saved on it (a stale save keeps a new draft);
  * calling a customer through the person's own cell, cancelling that call, and verifying that cell; deleting the
- * account; the Assistant's consent; and registering the phone for push notifications, or removing it.
+ * account; the Assistant's consent; registering the phone for push notifications, or removing it; and deleting a
+ * form's answer sheet.
  */
 const ONLINE_COMMANDS = [
   'estimate.create',
@@ -48,14 +49,22 @@ const ONLINE_COMMANDS = [
   'push_device.register',
   'push_device.remove',
   'user.update_profile',
+  'form_response.delete',
 ];
-/** What the phone asks the server for that its own copy can't answer. */
+/**
+ * What the phone asks the server for that its own copy can't answer: among them a form's answers, and the business's
+ * link name and own domain for the form's link and QR code.
+ */
 const QUERIES = [
   'account.me',
   'attention.preview_handle',
+  'booking_site.get',
+  'branded_domain.get',
   'calendar.availability',
   'crm.find_matches',
   'email.compose_options',
+  'form.response_get',
+  'form.response_list',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

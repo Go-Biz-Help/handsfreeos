@@ -2402,6 +2402,23 @@
         "required": ["workspaceId", "fileId"]
       }
     },
+    "form_response.delete": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responseId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "responseId"]
+      }
+    },
     "form_response.record": {
       "offline": "anytime",
       "input": {
@@ -5355,6 +5372,30 @@
         "required": ["workspaceId", "itemId"]
       }
     },
+    "booking_site.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "branded_domain.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "calendar.availability": {
       "input": {
         "type": "object",
@@ -5528,6 +5569,52 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "form.response_get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responseId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "responseId"]
+      }
+    },
+    "form.response_list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "formId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "includeUnfinished": {
+            "default": false,
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 25,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 400
+          }
+        },
+        "required": ["workspaceId", "formId"]
       }
     }
   },

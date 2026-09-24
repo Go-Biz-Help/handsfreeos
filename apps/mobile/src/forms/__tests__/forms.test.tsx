@@ -9,6 +9,7 @@ import { Share } from 'react-native';
 
 import FormAnswer from '@/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId]';
 import FormPage from '@/app/app/w/[workspaceId]/forms/[formId]';
+import { change, ChangeError, NEEDS_SIGNAL } from '@/changes';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
 import { QUIET, qrPath, qrPng } from '@/forms/qr';
@@ -37,6 +38,16 @@ jest.mock('@powersync/react-native', () => ({
   useQuery: jest.fn(() => ({ data: [], isLoading: false, isFetching: false })),
 }));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
+jest.mock('@/changes', () => {
+  const actual = jest.requireActual<{ ChangeError: unknown; NEEDS_SIGNAL: string }>(
+    '@/changes/controller',
+  );
+  return {
+    change: jest.fn(async () => ({ id: 'change-1', queued: false })),
+    ChangeError: actual.ChangeError,
+    NEEDS_SIGNAL: actual.NEEDS_SIGNAL,
+  };
+});
 jest.mock('expo-sharing', () => ({
   isAvailableAsync: jest.fn(async () => true),
   shareAsync: jest.fn(async () => undefined),
@@ -328,23 +339,23 @@ describe('a form’s answers', () => {
 });
 
 describe('deleting an answer sheet', () => {
+  const changed = change as jest.Mock;
+
   beforeEach(() => {
     mockParams = { workspaceId: LONE_STAR, formId: QUOTE, responseId: MARIA_SHEET };
-    answers['/v1/commands/form_response.delete'] = { responseId: MARIA_SHEET, deleted: true };
   });
 
-  it('asks a second time, then deletes it and goes back to the form', async () => {
+  it('asks a second time, then deletes it straight out and goes back to the form', async () => {
     await show(<FormAnswer />);
     await fireEvent.press(await screen.findByTestId('form-answer-delete'));
     expect(screen.getByText(FORM_WORDS.deleteTitle)).toBeTruthy();
-    expect(
-      post.mock.calls.filter((c) => c[0] === '/v1/commands/form_response.delete'),
-    ).toHaveLength(0);
+    expect(changed).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByTestId('form-answer-delete-confirm'));
     await waitFor(() => expect(router.back).toHaveBeenCalled());
-    expect(post).toHaveBeenCalledWith('/v1/commands/form_response.delete', {
-      body: { workspaceId: LONE_STAR, responseId: MARIA_SHEET },
+    expect(changed).toHaveBeenCalledWith('form_response.delete', {
+      workspaceId: LONE_STAR,
+      responseId: MARIA_SHEET,
     });
     expect(toast.show).toHaveBeenCalledWith(FORM_WORDS.deleted);
   });
@@ -353,20 +364,17 @@ describe('deleting an answer sheet', () => {
     await show(<FormAnswer />);
     await fireEvent.press(await screen.findByTestId('form-answer-delete'));
     await fireEvent.press(screen.getByText(FORM_WORDS.keep));
-    expect(
-      post.mock.calls.filter((c) => c[0] === '/v1/commands/form_response.delete'),
-    ).toHaveLength(0);
+    expect(changed).not.toHaveBeenCalled();
     expect(router.back).not.toHaveBeenCalled();
   });
 
-  it('says what went wrong and stays put when it can’t delete', async () => {
-    answers['/v1/commands/form_response.delete'] = null;
+  it('says it needs signal and stays put when there is none', async () => {
+    const Refusal = ChangeError as unknown as new (kind: string, message: string) => Error;
+    changed.mockRejectedValueOnce(new Refusal('needs-signal', NEEDS_SIGNAL));
     await show(<FormAnswer />);
     await fireEvent.press(await screen.findByTestId('form-answer-delete'));
     await fireEvent.press(screen.getByTestId('form-answer-delete-confirm'));
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('No signal. Try again when you’re back online.'),
-    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(NEEDS_SIGNAL));
     expect(router.back).not.toHaveBeenCalled();
   });
 

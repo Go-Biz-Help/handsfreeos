@@ -15,7 +15,6 @@ import { toast } from '@/components/ui/toast';
 import { deleteFormAnswer, useFormAnswer } from '@/forms/use-answers';
 import { usePhoneForm } from '@/forms/use-forms';
 import { answerWords, FORM_WORDS, responseLine } from '@/forms/words';
-import { errorMessage } from '@/lib/api';
 import { useGrants } from '@/lib/grants';
 import { openWeb } from '@/lib/open-web';
 
@@ -46,7 +45,7 @@ export default function FormAnswer() {
       if (router.canGoBack()) router.back();
       else router.replace(back);
     } catch (error) {
-      toast.error(errorMessage(error));
+      toast.error(error instanceof Error ? error.message : 'Something went wrong. Try again.');
     }
     setDeleting(false);
   };

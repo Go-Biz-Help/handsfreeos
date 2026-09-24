@@ -2,6 +2,7 @@ import type { paths } from '@hfos/api-client';
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
+import { change } from '@/changes';
 import type { OutboxRow } from '@/changes/outbox';
 import { inputOf, stillStanding } from '@/inbox/outbox';
 import { api, errorMessage, unwrap } from '@/lib/api';
@@ -162,14 +163,12 @@ export function useFormAnswer(
 
 /**
  * Deletes one answer sheet and its answers (`form_response.delete`): a test of the person's own, or a customer asking
- * to be forgotten. Online only, like the web's, and never queued: a deletion that went out hours later, after
- * somebody had looked again and changed their mind, is not one to leave waiting on a phone. Throws the API's words, or
- * that it needs signal.
+ * to be forgotten. An online command, so `change` sends it straight out and never queues it: a deletion that went out
+ * hours later, after somebody had looked again and changed their mind, is not one to leave waiting on a phone. Throws
+ * a ChangeError with the API's words, or that it needs signal.
  */
 export async function deleteFormAnswer(workspaceId: string, responseId: string): Promise<void> {
-  unwrap(
-    await api.POST('/v1/commands/form_response.delete', { body: { workspaceId, responseId } }),
-  );
+  await change('form_response.delete', { workspaceId, responseId });
 }
 
 /**
