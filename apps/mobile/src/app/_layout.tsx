@@ -18,6 +18,9 @@ import { NAV_THEME, colors, useThemeName } from '@/theme';
 
 void SplashScreen.preventAutoHideAsync();
 
+/** Last resort: anything below the root that can't draw shows why instead of closing the app. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 export default function RootLayout() {
   const theme = useThemeName();
   const state = useSession();

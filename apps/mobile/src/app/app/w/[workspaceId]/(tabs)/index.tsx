@@ -61,6 +61,9 @@ const HIGHLIGHT_MS = 4000;
 /** A sheet's slide away, before another opens. */
 const SHEET_GAP_MS = 260;
 
+/** A Home that can't draw shows why, and the other tabs still work. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 /**
  * Home: the Action Center, as the canvas draws it on the phone and the web draws it at 390 px. The greeting and the quiet
  * "Up to date" line, "$ affected" with the counts, Mine / Everyone, then Urgent, Up next (three or more lower items of

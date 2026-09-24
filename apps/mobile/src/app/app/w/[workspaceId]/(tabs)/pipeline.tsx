@@ -13,6 +13,9 @@ import { Text } from '@/components/ui/text';
 import { useNow } from '@/inbox/use-inbox';
 import { useBoard } from '@/pipeline/use-pipeline';
 
+/** A Pipeline that can't draw shows why, and the other tabs still work. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 /**
  * The Pipeline tab. A board can't fit a phone, so it is one stage at a time with chips along the top that say how many
  * leads each holds (the canvas). Everything is read from the phone's copy, and the list is virtualized so the largest

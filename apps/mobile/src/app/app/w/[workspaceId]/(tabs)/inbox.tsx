@@ -29,6 +29,9 @@ import {
   type InboxItem,
 } from '@/inbox/use-inbox';
 
+/** An Inbox that can't draw shows why, and the other tabs still work. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 /**
  * Inbox (the canvas's "The list"): Mine, Unassigned and All with their counts; Open, Snoozed and Closed; the AI
  * teammate's boxes; and the conversations, newest first, read from the phone's copy with this phone's own changes over

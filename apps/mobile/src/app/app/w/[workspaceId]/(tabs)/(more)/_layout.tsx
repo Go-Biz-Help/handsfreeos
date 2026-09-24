@@ -5,6 +5,9 @@ import { colors, useThemeName } from '@/theme';
 /** More opens the screens that don't fit five tabs, each at the web's own address (/app/w/<business>/customers…). */
 export const unstable_settings = { initialRouteName: 'more' };
 
+/** A More screen that can't draw shows why, and the other tabs still work. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 export default function MoreLayout() {
   const theme = useThemeName();
   return (
