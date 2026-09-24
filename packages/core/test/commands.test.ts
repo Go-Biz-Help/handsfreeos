@@ -581,6 +581,11 @@ describe('registry', () => {
       'whats_new.publish',
       'whats_new.unpublish',
       'whats_new.delete',
+      'rcs_sender.connect',
+      'rcs_sender.update',
+      'rcs_sender.refresh',
+      'rcs_sender.disconnect',
+      'rcs_sender.record_state',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'migration.list',

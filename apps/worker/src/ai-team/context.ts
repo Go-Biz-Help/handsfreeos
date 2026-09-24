@@ -29,7 +29,7 @@ import {
   type WeeklyHours,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { conversations } from '@hfos/db/schema';
+import { conversations, type ButtonReply, type RichText } from '@hfos/db/schema';
 import { atLabel } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { loadGrounding, type Grounding } from '../knowledge/grounding';
@@ -96,14 +96,38 @@ type MessageRow = {
   subject: string | null;
   media: unknown;
   occurred_at: Date | string;
+  /** RCS (0103): the buttons, card or carousel a text offered, and the button a reply came from. */
+  rich?: RichText | null;
+  button_reply?: ButtonReply | null;
 };
 
-function textOf(r: Pick<MessageRow, 'channel' | 'body_text' | 'media'>): string {
+/**
+ * What a text offered besides its words (0103), so the model knows what a customer's "Reschedule" was an answer
+ * to: "(with buttons: Confirm, Reschedule)", "(as a card titled “…” …)", "(with 3 cards: Basic, Plus, Premium)".
+ */
+function offeredLine(rich: RichText): string {
+  const names = (list: readonly { title: string }[]) => list.map((b) => b.title).join(', ');
+  if (rich.kind === 'carousel')
+    return `(with ${rich.cards.length} cards to choose from: ${rich.cards.map((c) => c.title ?? c.body).join(', ')})`;
+  const buttons = rich.buttons.length ? ` with buttons: ${names(rich.buttons)}` : '';
+  return rich.kind === 'card'
+    ? `(as a card titled “${rich.title ?? ''}”${buttons})`
+    : `(${buttons.trim()})`;
+}
+
+function textOf(
+  r: Pick<MessageRow, 'channel' | 'body_text' | 'media' | 'rich' | 'button_reply'>,
+): string {
   const body = r.channel === 'email' ? stripQuoted(r.body_text ?? '') : (r.body_text ?? '').trim();
   const photos = Array.isArray(r.media) ? r.media.length : 0;
   const sent = photos === 1 ? 'a photo' : `${photos} photos`;
   // M18: a photo with words says so too, so the model knows there is one to look at.
-  const text = !photos ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
+  let text = !photos ? body : body ? `${body}\n(with ${sent})` : `(sent ${sent})`;
+  // A tap is the customer's answer, in the button's own words (0103); saying so tells the model it answers the
+  // message that offered it rather than being something they typed out of the blue.
+  if (r.button_reply)
+    text += `\n(chose “${r.button_reply.title}” from the buttons on an earlier message)`;
+  if (r.rich) text += `\n${offeredLine(r.rich)}`;
   return text.slice(0, 2000);
 }
 
@@ -127,7 +151,8 @@ export async function unansweredMessages(
 ): Promise<BatchMessage[]> {
   const list = await rows<MessageRow>(
     tx,
-    sql`select m.id, m.channel::text as channel, m.body_text, m.subject, m.media, m.occurred_at
+    sql`select m.id, m.channel::text as channel, m.body_text, m.subject, m.media, m.occurred_at,
+          m.button_reply
         from app.messages m
         where m.conversation_id = ${conversationId} and m.direction = 'inbound'
           and m.occurred_at > greatest(
@@ -151,7 +176,8 @@ export async function messagesById(
   if (!ids.length) return [];
   const list = await rows<MessageRow>(
     tx,
-    sql`select m.id, m.channel::text as channel, m.body_text, m.subject, m.media, m.occurred_at
+    sql`select m.id, m.channel::text as channel, m.body_text, m.subject, m.media, m.occurred_at,
+          m.button_reply
         from app.messages m
         where m.conversation_id = ${conversationId} and m.id = any(${uuidArray(ids)})
         order by m.occurred_at, m.created_at`,
@@ -857,7 +883,8 @@ async function messageHistory(
   >(
     tx,
     sql`select m.id, m.channel::text as channel, m.direction::text as direction, m.body_text, m.subject,
-          m.media, m.occurred_at, m.sent_by, m.sent_by_teammate_id is not null as ai, u.full_name
+          m.media, m.occurred_at, m.sent_by, m.sent_by_teammate_id is not null as ai, u.full_name,
+          m.rich, m.button_reply
         from app.messages m left join app.users u on u.id = m.sent_by
         where m.conversation_id = ${conversationId}
           and m.occurred_at > now() - make_interval(days => ${HISTORY_DAYS})

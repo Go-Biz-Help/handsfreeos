@@ -62,6 +62,12 @@ import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
 import {
+  onRcsCheckWanted,
+  onRcsConnectRequested,
+  onRcsDisconnectRequested,
+  onRcsStateChanged,
+} from '../telephony/rcs';
+import {
   onBrandedDomainAdded,
   onBrandedDomainCheckRequested,
   onBrandedDomainRemoved,
@@ -105,6 +111,14 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
     'number_port.submitted': onPortSubmitted,
     'number_port.cancelled': onPortCancelled,
+    // A business's RCS sender (0103): connecting it, looking again (or switching RCS on or off, which the look
+    // puts right in the messaging service's pool) and letting it go are jobs (telephony/rcs.ts).
+    'rcs_sender.connect_requested': onRcsConnectRequested,
+    'rcs_sender.refresh_requested': onRcsCheckWanted,
+    'rcs_sender.updated': onRcsCheckWanted,
+    'rcs_sender.disconnect_requested': onRcsDisconnectRequested,
+    // Owners and admins hear when RCS goes live, and when it stops.
+    'rcs_sender.state_changed': onRcsStateChanged,
     // A business's own domain on its booking page, forms and links (hosting/domains.ts).
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,

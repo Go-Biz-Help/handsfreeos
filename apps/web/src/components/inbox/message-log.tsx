@@ -1,5 +1,6 @@
 'use client';
 import {
+  arrived,
   clockTime,
   dayDivider,
   dayKey,
@@ -26,6 +27,7 @@ import type { ThreadItem } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { DayDivider, MediaThumb, SystemEntry } from './bits';
 import { MailCard, PendingMailCard } from './mail-card';
+import { ButtonReplyNote, PlainFace, RichContent, TransportTag } from './rich-message';
 import type { PendingText } from './hooks';
 
 /** The time under an entry; the record page's sheet adds the weekday. */
@@ -293,33 +295,48 @@ function MessageEntry({
         data-testid={`message-${item.id}`}
         data-direction={item.direction}
         data-status={item.status}
+        data-transport={item.transport ?? undefined}
         className={cn(
           'mt-2 flex max-w-[84%] flex-col gap-[3px] md:max-w-[76%]',
           out ? 'items-end self-end' : 'self-start',
         )}
       >
-        {item.media.map((m) => (
-          <MediaThumb
-            key={m.objectPath}
-            bucket={m.bucket}
-            objectPath={m.objectPath}
-            name={m.name}
-            contentType={m.contentType}
-          />
-        ))}
-        {item.body ? (
-          <div
-            className={cn(
-              'whitespace-pre-wrap rounded-2xl px-[13px] py-[9px] text-[15px] leading-[1.45] [overflow-wrap:anywhere] md:text-sm',
-              out
-                ? failed
-                  ? 'rounded-br-[5px] bg-danger-soft text-danger-text'
-                  : 'rounded-br-[5px] bg-accent text-white'
-                : 'rounded-bl-[5px] border border-border bg-card',
-            )}
-          >
-            {item.body}
-          </div>
+        {/* A rich text's buttons, card or carousel go with its words (RCS, 0103). */}
+        <RichContent
+          item={item}
+          bubble={
+            <>
+              {item.media.map((m) => (
+                <MediaThumb
+                  key={m.objectPath}
+                  bucket={m.bucket}
+                  objectPath={m.objectPath}
+                  name={m.name}
+                  contentType={m.contentType}
+                />
+              ))}
+              {item.body ? (
+                <div
+                  className={cn(
+                    'whitespace-pre-wrap rounded-2xl px-[13px] py-[9px] text-[15px] leading-[1.45] [overflow-wrap:anywhere] md:text-sm',
+                    out
+                      ? failed
+                        ? 'rounded-br-[5px] bg-danger-soft text-danger-text'
+                        : 'rounded-br-[5px] bg-accent text-white'
+                      : 'rounded-bl-[5px] border border-border bg-card',
+                  )}
+                >
+                  {item.body}
+                </div>
+              ) : null}
+            </>
+          }
+        />
+        {out && item.rich && (item.transport === 'sms' || item.transport === 'mms') ? (
+          <PlainFace smsText={item.rich.smsText} />
+        ) : null}
+        {!out && item.buttonReply ? (
+          <ButtonReplyNote reply={item.buttonReply} body={item.body} />
         ) : null}
         <div className="flex items-center gap-[5px] whitespace-nowrap px-1 text-[11.5px] text-text-3">
           {out ? (
@@ -340,7 +357,12 @@ function MessageEntry({
                   {sender} · {time}
                 </span>
               )}
-              <DeliveryStatus status={item.status} chat={item.channel === 'chat'} />
+              <TransportTag transport={item.transport} />
+              <DeliveryStatus
+                status={item.status}
+                chat={item.channel === 'chat'}
+                readAt={item.readAt}
+              />
               {failed && onRetry ? (
                 <Button
                   variant="ghost"
@@ -353,7 +375,10 @@ function MessageEntry({
               ) : null}
             </>
           ) : (
-            <span>{mediaOnlyLine(item, time)}</span>
+            <>
+              <span>{mediaOnlyLine(item, time)}</span>
+              <TransportTag transport={item.transport} />
+            </>
           )}
         </div>
         {failed ? (
@@ -371,14 +396,28 @@ function MessageEntry({
   );
 }
 
-/** Where a reply is. A website chat's is "Seen" once the visitor's chat window read it. */
-function DeliveryStatus({ status, chat }: { status: string; chat?: boolean }) {
+/**
+ * Where a reply is. A website chat's is "Seen" once the visitor's chat window read it; an RCS message's is
+ * "Read" once the customer opened it, with the time on hover.
+ */
+function DeliveryStatus({
+  status,
+  chat,
+  readAt,
+}: {
+  status: string;
+  chat?: boolean;
+  readAt?: string | null;
+}) {
   const state = deliveryStateOf(status);
   const words = deliveryWords(state, chat);
   if (state === 'sending' || state === 'sent') return <span>· {words}</span>;
-  if (state === 'delivered')
+  if (arrived(state))
     return (
-      <span className="inline-flex items-center gap-[3px] text-success-text">
+      <span
+        className="inline-flex items-center gap-[3px] text-success-text"
+        title={state === 'read' && readAt ? `Read ${weekdayClock(readAt)}` : undefined}
+      >
         <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
         {words}
       </span>

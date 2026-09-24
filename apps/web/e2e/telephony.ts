@@ -101,6 +101,43 @@ export async function textFromCustomer(opts: {
 }
 
 /**
+ * A customer taps a reply button on an RCS message (0103): posted to the worker the way Twilio would, signed. An
+ * RCS message arrives at the business's sender, not at one of its numbers, so it names the business's Twilio
+ * account (Settings → Texting & calls shows it) — the fake's stand-in senders have the same id in every account.
+ */
+export async function tapFromCustomer(opts: {
+  accountSid: string;
+  from: string;
+  sender: string;
+  title: string;
+  payload: string;
+}): Promise<string> {
+  const sid = fakeMessageSid();
+  const params: Record<string, string> = {
+    AccountSid: opts.accountSid,
+    MessageSid: sid,
+    From: `rcs:${opts.from}`,
+    To: `rcs:${opts.sender}`,
+    Body: opts.title,
+    ButtonPayload: opts.payload,
+    ButtonText: opts.title,
+    ButtonType: 'QUICK_REPLY',
+    NumMedia: '0',
+  };
+  const url = `${WORKER_URL}/webhooks/twilio/messaging/inbound`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      'x-twilio-signature': sign(url, params),
+    },
+    body: new URLSearchParams(params),
+  });
+  if (res.status !== 200) throw new Error(`the worker refused the button tap (${res.status})`);
+  return sid;
+}
+
+/**
  * Settings → Texting & calls with the fake carrier: buys the first toll-free number offered, sends the
  * business details, and waits for the (fake) carriers to approve. Returns the number in E.164.
  */

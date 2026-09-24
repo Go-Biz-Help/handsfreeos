@@ -6,6 +6,7 @@ import {
   optOuts,
   people,
   phoneNumbers,
+  rcsSenders,
   telephonyRegistrations,
   workspaces,
 } from '@hfos/db/schema';
@@ -521,4 +522,42 @@ export async function isWorkspaceUser(
         limit 1`,
   );
   return Array.from(found as unknown as Iterable<unknown>).length > 0;
+}
+
+/**
+ * The business's RCS sender (0103): the one that is not `disconnected`, of which there is at most one
+ * (`rcs_senders_one_per_workspace`). Null when it has never connected one, or let the last one go.
+ */
+export async function currentRcsSender(tx: Tx, workspaceId: string) {
+  const [s] = await tx
+    .select()
+    .from(rcsSenders)
+    .where(and(eq(rcsSenders.workspaceId, workspaceId), ne(rcsSenders.status, 'disconnected')))
+    .orderBy(desc(rcsSenders.createdAt))
+    .limit(1);
+  return s ?? null;
+}
+
+/**
+ * Whether texts go RCS first right now: the carriers approved the sender, it is on the business's messaging
+ * service, and nobody switched it off. Anything short of all three and every text goes exactly as it did
+ * before there was RCS, which is the property to keep: a sender stuck in review never costs a business a text.
+ */
+export const rcsSending = (
+  s: { status: string; enabled: boolean; inService: boolean } | null | undefined,
+): boolean => !!s && s.status === 'active' && s.enabled && s.inService;
+
+/**
+ * The line a customer's first RCS message starts its thread on (0103). An RCS message arrives at the sender,
+ * not at one of the business's numbers, so the thread needs a line from somewhere: the one the business chose
+ * for its sender, else its default — where a new thread starts everywhere else too. A customer who already has
+ * a thread never gets here; `findOrCreateConversation` puts them wherever they are.
+ */
+export async function rcsLine(tx: Tx, workspaceId: string): Promise<string | null> {
+  const sender = await currentRcsSender(tx, workspaceId);
+  if (sender?.phoneNumberId) {
+    const n = await conversationNumber(tx, workspaceId, sender.phoneNumberId);
+    if (n) return n.id;
+  }
+  return (await defaultNumber(tx, workspaceId))?.id ?? null;
 }

@@ -75,6 +75,28 @@ export function searchNumbers(input: {
   return workerPost('/v1/telephony/available-numbers', input);
 }
 
+/** An RCS sender in the business's own Twilio account (0103), as Settings offers it before connecting. */
+export interface FoundRcsSender {
+  readonly sid: string;
+  /** What Settings connects it by: `lonestar_hvac_agent`. */
+  readonly senderId: string;
+  readonly displayName: string | null;
+  readonly state: 'online' | 'in_review' | 'offline' | 'failed';
+  /** Twilio's own word for it (ONLINE, TWILIO_REVIEW …). */
+  readonly providerStatus: string;
+}
+
+/**
+ * The RCS senders made in the business's own Twilio account (owners and admins; the worker checks), and the
+ * account's id, so the person knows which account in the Twilio console to make one in. `accountSid` is null
+ * before the business has a number: its Twilio account is made with the first one.
+ */
+export function findRcsSenders(
+  workspaceId: string,
+): Promise<{ accountSid: string | null; senders: FoundRcsSender[] }> {
+  return workerPost('/v1/telephony/rcs-senders', { workspaceId });
+}
+
 export interface VoiceToken {
   readonly token: string;
   /** The identity this browser rings as. */

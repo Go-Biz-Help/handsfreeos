@@ -209,7 +209,7 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       // What started this reached HandsFreeOS long after it happened: a text now could say the wrong thing.
       const late = lateSkip(ec, { channel: 'sms', body: r.values['body'] });
       if (late) return late;
-      return sendTextAction(ec, r.values['body']!);
+      return sendTextAction(ec, r.values['body']!, step.config.replyButtons ?? []);
     }
 
     case 'send_email': {

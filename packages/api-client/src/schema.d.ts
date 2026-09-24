@@ -5157,6 +5157,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/rcs_sender.connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Connect the RCS sender made for this business at Twilio, by its id. Once the carriers approve it, texts go as RCS where the customer’s phone can show it and as SMS or MMS where it can’t.
+         * @description Risk level 2. Requires channels.manage. Emits rcs_sender.connect_requested.
+         */
+        post: operations["command_rcs_sender_connect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_sender.disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Let the RCS sender go: it comes off the business’s messaging service and every text goes as SMS or MMS again. The sender itself stays at Twilio.
+         * @description Risk level 2. Requires channels.manage. Emits rcs_sender.disconnect_requested.
+         */
+        post: operations["command_rcs_sender_disconnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_sender.refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Twilio where the RCS sender stands now, instead of waiting for the next check: after the carriers approve it, or after fixing something in the Twilio console.
+         * @description Risk level 1. Requires channels.manage. Emits rcs_sender.refresh_requested.
+         */
+        post: operations["command_rcs_sender_refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/rcs_sender.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch RCS off or back on (off sends every text as SMS or MMS and keeps the sender), or choose the number a customer’s first RCS message starts its thread on.
+         * @description Risk level 2. Requires channels.manage. Emits rcs_sender.updated.
+         */
+        post: operations["command_rcs_sender_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/record.add_tag": {
         parameters: {
             query?: never;
@@ -9487,7 +9567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where texting and calls stand: the business number, the carrier registration, the next step, and the texting rules.
+         * Where texting and calls stand: the business number, the carrier registration, the next step, the texting rules and the RCS sender.
          * @description Requires inbox.use.
          */
         post: operations["query_phone_setup_status"];
@@ -19005,6 +19085,68 @@ export interface operations {
                     mailboxConnectionId?: string;
                     /** Format: uuid */
                     personId?: string;
+                    rich?: {
+                        buttons: ({
+                            title: string;
+                            /** @enum {string} */
+                            type: "reply";
+                        } | {
+                            title: string;
+                            /** @enum {string} */
+                            type: "link";
+                            url: string;
+                        } | {
+                            phone: string;
+                            title: string;
+                            /** @enum {string} */
+                            type: "call";
+                        })[];
+                        /** @enum {string} */
+                        kind: "buttons";
+                    } | {
+                        buttons?: ({
+                            title: string;
+                            /** @enum {string} */
+                            type: "reply";
+                        } | {
+                            title: string;
+                            /** @enum {string} */
+                            type: "link";
+                            url: string;
+                        } | {
+                            phone: string;
+                            title: string;
+                            /** @enum {string} */
+                            type: "call";
+                        })[];
+                        /** @enum {string} */
+                        kind: "card";
+                        title: string;
+                    } | {
+                        cards: {
+                            body: string;
+                            buttons: ({
+                                title: string;
+                                /** @enum {string} */
+                                type: "reply";
+                            } | {
+                                title: string;
+                                /** @enum {string} */
+                                type: "link";
+                                url: string;
+                            } | {
+                                phone: string;
+                                title: string;
+                                /** @enum {string} */
+                                type: "call";
+                            })[];
+                            /** Format: uuid */
+                            mediaFileId: string;
+                            title?: string;
+                        }[];
+                        /** @enum {string} */
+                        kind: "carousel";
+                    };
                     /** @default false */
                     sendAfterQuietHours?: boolean;
                     subject?: string;
@@ -21747,6 +21889,138 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         deviceId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_sender_connect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    phoneNumberId?: string | null;
+                    senderId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        rcsSenderId: string;
+                        /** @enum {string} */
+                        status: "connecting" | "in_review" | "active" | "offline" | "failed" | "disconnecting" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_sender_disconnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        rcsSenderId: string;
+                        /** @enum {string} */
+                        status: "connecting" | "in_review" | "active" | "offline" | "failed" | "disconnecting" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_sender_refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        rcsSenderId: string;
+                        /** @enum {string} */
+                        status: "connecting" | "in_review" | "active" | "offline" | "failed" | "disconnecting" | "disconnected";
+                    };
+                };
+            };
+        };
+    };
+    command_rcs_sender_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled?: boolean;
+                    phoneNumberId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        rcsSenderId: string;
+                        /** @enum {string} */
+                        status: "connecting" | "in_review" | "active" | "offline" | "failed" | "disconnecting" | "disconnected";
                     };
                 };
             };
@@ -30125,6 +30399,7 @@ export interface operations {
                             localTime: string;
                             quiet: boolean;
                         };
+                        rcs: boolean;
                         timezone: string;
                     };
                 };
@@ -30177,6 +30452,15 @@ export interface operations {
                             } | null;
                             body: string | null;
                             bodyHtml: string | null;
+                            buttonReply: {
+                                id: string | null;
+                                messageId: string | null;
+                                title: string;
+                                /** @enum {string} */
+                                type: "reply" | "link" | "call";
+                                /** @enum {string} */
+                                via: "tap" | "text";
+                            } | null;
                             ccAddresses: string[];
                             channel: ("sms" | "email" | "chat") | null;
                             conversationId: string | null;
@@ -30204,8 +30488,44 @@ export interface operations {
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
+                            readAt: string | null;
                             recordingPath: string | null;
                             recordingSeconds: number | null;
+                            rich: {
+                                buttons: {
+                                    id: string;
+                                    phone?: string;
+                                    title: string;
+                                    /** @enum {string} */
+                                    type: "reply" | "link" | "call";
+                                    url?: string;
+                                }[];
+                                cards: {
+                                    body: string;
+                                    buttons: {
+                                        id: string;
+                                        phone?: string;
+                                        title: string;
+                                        /** @enum {string} */
+                                        type: "reply" | "link" | "call";
+                                        url?: string;
+                                    }[];
+                                    media: {
+                                        bucket: string;
+                                        contentType: string;
+                                        /** Format: uuid */
+                                        fileId?: string;
+                                        name: string;
+                                        objectPath: string;
+                                        sizeBytes: number;
+                                    };
+                                    title: string | null;
+                                }[];
+                                /** @enum {string} */
+                                kind: "buttons" | "card" | "carousel";
+                                smsText: string;
+                                title: string | null;
+                            } | null;
                             scheduledFor: string | null;
                             sentBy: {
                                 fullName: string;
@@ -30222,6 +30542,7 @@ export interface operations {
                             toAddresses: string[];
                             transcript: string | null;
                             transcriptStatus: ("pending" | "completed" | "failed") | null;
+                            transport: ("sms" | "mms" | "rcs") | null;
                             /** @enum {string} */
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
@@ -33574,6 +33895,15 @@ export interface operations {
                             } | null;
                             body: string | null;
                             bodyHtml: string | null;
+                            buttonReply: {
+                                id: string | null;
+                                messageId: string | null;
+                                title: string;
+                                /** @enum {string} */
+                                type: "reply" | "link" | "call";
+                                /** @enum {string} */
+                                via: "tap" | "text";
+                            } | null;
                             ccAddresses: string[];
                             channel: ("sms" | "email" | "chat") | null;
                             conversationId: string | null;
@@ -33601,8 +33931,44 @@ export interface operations {
                             }[];
                             /** Format: date-time */
                             occurredAt: string;
+                            readAt: string | null;
                             recordingPath: string | null;
                             recordingSeconds: number | null;
+                            rich: {
+                                buttons: {
+                                    id: string;
+                                    phone?: string;
+                                    title: string;
+                                    /** @enum {string} */
+                                    type: "reply" | "link" | "call";
+                                    url?: string;
+                                }[];
+                                cards: {
+                                    body: string;
+                                    buttons: {
+                                        id: string;
+                                        phone?: string;
+                                        title: string;
+                                        /** @enum {string} */
+                                        type: "reply" | "link" | "call";
+                                        url?: string;
+                                    }[];
+                                    media: {
+                                        bucket: string;
+                                        contentType: string;
+                                        /** Format: uuid */
+                                        fileId?: string;
+                                        name: string;
+                                        objectPath: string;
+                                        sizeBytes: number;
+                                    };
+                                    title: string | null;
+                                }[];
+                                /** @enum {string} */
+                                kind: "buttons" | "card" | "carousel";
+                                smsText: string;
+                                title: string | null;
+                            } | null;
                             scheduledFor: string | null;
                             sentBy: {
                                 fullName: string;
@@ -33619,6 +33985,7 @@ export interface operations {
                             toAddresses: string[];
                             transcript: string | null;
                             transcriptStatus: ("pending" | "completed" | "failed") | null;
+                            transport: ("sms" | "mms" | "rcs") | null;
                             /** @enum {string} */
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
@@ -34920,6 +35287,21 @@ export interface operations {
                             localTime: string;
                             quiet: boolean;
                         };
+                        rcsSender: {
+                            checkedAt: string | null;
+                            connectedAt: string | null;
+                            displayName: string | null;
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            phoneNumberId: string | null;
+                            providerStatus: string | null;
+                            senderId: string;
+                            sending: boolean;
+                            /** @enum {string} */
+                            status: "connecting" | "in_review" | "active" | "offline" | "failed" | "disconnecting" | "disconnected";
+                        } | null;
                         registrations: {
                             approvedAt: string | null;
                             /** Format: uuid */

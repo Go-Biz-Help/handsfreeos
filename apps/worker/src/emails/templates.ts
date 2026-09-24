@@ -508,6 +508,51 @@ export function textingRejectedEmail(input: {
   return { subject, text, html };
 }
 
+/** The carriers approved the business's RCS sender (0103): texts go as RCS where phones can show it. */
+export function rcsLiveEmail(input: {
+  business: string;
+  sender: string;
+  link: string;
+}): EmailContent {
+  const subject = `RCS is on for ${input.business}`;
+  const text = `The carriers approved ${input.sender}. Your texts now go as RCS — with your name, your logo and buttons customers can tap — to every phone that can show it, and as ordinary texts to the phones that can't. Nothing changes in the inbox.
+
+See RCS in Settings: ${input.link}`;
+  const html = shell(
+    para(
+      `The carriers approved <strong>${escapeHtml(input.sender)}</strong>. Your texts now go as RCS — with your name, your logo and buttons customers can tap — to every phone that can show it, and as ordinary texts to the phones that can't.`,
+    ) +
+      para('Nothing changes in the inbox: the thread shows which way each message went.') +
+      button(input.link, 'See RCS in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** The business's RCS sender stopped (0103): texts go as SMS and MMS until it is back. */
+export function rcsStoppedEmail(input: {
+  business: string;
+  sender: string;
+  reason: string | null;
+  link: string;
+}): EmailContent {
+  const subject = `RCS stopped for ${input.business}`;
+  const reason = input.reason ? `Twilio says: “${input.reason}”` : 'Twilio did not say why.';
+  const text = `${input.sender} stopped taking messages. ${reason}
+
+Your texts still go out, as ordinary texts, until it is back.
+
+See RCS in Settings: ${input.link}`;
+  const html = shell(
+    para(`<strong>${escapeHtml(input.sender)}</strong> stopped taking messages.`) +
+      para(escapeHtml(reason)) +
+      para('Your texts still go out, as ordinary texts, until it is back.') +
+      button(input.link, 'See RCS in Settings') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
 /** The business's own domain passed both checks: addresses on it can send. */
 export function emailDomainVerifiedEmail(input: {
   business: string;

@@ -41,8 +41,20 @@ jobs:
         with:
           version: 2.117.0
 
+      # The stack's images come from ghcr.io, where anonymous downloads share a much lower limit across GitHub's
+      # runners (see ci.yml). Downloading as this workflow gets the higher one; a login that fails leaves the
+      # download anonymous, as it was, rather than failing the job.
+      - name: Log in to ghcr.io, so image downloads get the higher limit
+        continue-on-error: true
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+
       - name: Start the local Supabase stack (every migration applied)
-        run: node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+        # supabase/setup-cli points the CLI at ghcr.io alone. Without it, the CLI tries each image at
+        # public.ecr.aws, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't stop the stack.
+        run: env -u SUPABASE_INTERNAL_IMAGE_REGISTRY node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
 
       - name: Write local env files
         run: pnpm env:local

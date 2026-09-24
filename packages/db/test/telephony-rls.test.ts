@@ -982,3 +982,214 @@ describe('one number is the default', () => {
     expect(e.code).toBe('23505');
   });
 });
+
+describe('RCS (0103)', () => {
+  it('a read message stays read, and what a text carried and which button a reply came from never change', async () => {
+    const [msg] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, rich)
+            values (${wsA}, ${conversationA}, 'sms', 'outbound', 'sent', 'Tomorrow at 2?',
+              ${JSON.stringify({ kind: 'buttons', title: null, buttons: [], cards: [], smsText: 'Tomorrow at 2?' })}::jsonb)
+            returning id`,
+      ),
+    );
+    const setStatus = (status: string) =>
+      worker(
+        wsA,
+        orgA,
+      )((tx) =>
+        rows<{ status: string }>(
+          tx,
+          sql`update app.messages set status = ${status}::app.message_status where id = ${msg!.id} returning status::text as status`,
+        ),
+      ).then((r) => r[0]!.status);
+    expect(await setStatus('read')).toBe('read');
+    // A late delivered never undoes read.
+    expect(await setStatus('delivered')).toBe('read');
+    const rich = await expectPgError(() =>
+      worker(
+        wsA,
+        orgA,
+      )((tx) => rows(tx, sql`update app.messages set rich = null where id = ${msg!.id}`)),
+    );
+    expect(rich.code).toBe('23514');
+    // The worker learns the way a text went, and when it was read.
+    const [after] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ transport: string }>(
+        tx,
+        sql`update app.messages set transport = 'rcs', read_at = now() where id = ${msg!.id}
+            returning transport::text as transport`,
+      ),
+    );
+    expect(after?.transport).toBe('rcs');
+  });
+
+  it('people send rich texts, never what the carrier says about them', async () => {
+    const ok = await as(member)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, sent_by, rich)
+            values (${wsA}, ${conversationA}, 'sms', 'outbound', 'queued', 'Pick one', ${member.id},
+              ${JSON.stringify({ kind: 'buttons', title: null, buttons: [], cards: [], smsText: 'Pick one' })}::jsonb)
+            returning id`,
+      ),
+    );
+    expect(ok).toHaveLength(1);
+    const claimed = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, sent_by, transport)
+              values (${wsA}, ${conversationA}, 'sms', 'outbound', 'queued', 'Hi', ${member.id}, 'rcs')`,
+        ),
+      ),
+    );
+    expect(claimed.code).toBe('42501');
+    const read = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, sent_by, read_at)
+              values (${wsA}, ${conversationA}, 'sms', 'outbound', 'queued', 'Hi', ${member.id}, now())`,
+        ),
+      ),
+    );
+    expect(read.code).toBe('42501');
+  });
+
+  it('only texts travel by carrier: email and chat carry no transport, buttons or card', async () => {
+    const [mail] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.conversations (workspace_id, channel, counterpart)
+            values (${wsA}, 'email', ${`rcs-${uniq()}@example.com`}) returning id`,
+      ),
+    );
+    const bad = await expectPgError(() =>
+      worker(
+        wsA,
+        orgA,
+      )((tx) =>
+        rows(
+          tx,
+          sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, transport)
+              values (${wsA}, ${mail!.id}, 'email', 'outbound', 'queued', 'Hi', 'rcs')`,
+        ),
+      ),
+    );
+    expect(bad.code).toBe('23514');
+  });
+
+  it('owners and admins connect a sender; everything Twilio says about it is the worker’s', async () => {
+    const byMember = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.rcs_senders (workspace_id, sender_id, created_by)
+              values (${wsA}, 'lonestar_agent', ${member.id})`,
+        ),
+      ),
+    );
+    expect(byMember.code).toBe('42501');
+    const alreadyLive = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.rcs_senders (workspace_id, sender_id, created_by, status)
+              values (${wsA}, 'lonestar_agent', ${owner.id}, 'active')`,
+        ),
+      ),
+    );
+    expect(alreadyLive.code).toBe('42501');
+    const [s] = await as(admin)((tx) =>
+      rows<{ id: string; status: string }>(
+        tx,
+        sql`insert into app.rcs_senders (workspace_id, sender_id, created_by)
+            values (${wsA}, 'lonestar_agent', ${admin.id}) returning id, status::text as status`,
+      ),
+    );
+    expect(s?.status).toBe('connecting');
+    // One sender at a time.
+    const second = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.rcs_senders (workspace_id, sender_id, created_by)
+              values (${wsA}, 'another_agent', ${owner.id})`,
+        ),
+      ),
+    );
+    expect(second.code).toBe('23505');
+    // What Twilio said is the worker's to write.
+    const approved = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.rcs_senders set status = 'active' where id = ${s!.id}`),
+      ),
+    );
+    expect(approved.detail).toBe('rcs_sender_status_transition');
+    const providerSid = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.rcs_senders set in_service = true where id = ${s!.id}`),
+      ),
+    );
+    expect(providerSid.detail).toBe('rcs_sender_provider_fields');
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(
+        tx,
+        sql`update app.rcs_senders set status = 'active', provider_sid = 'XEfakesender', in_service = true,
+              provider_status = 'ONLINE' where id = ${s!.id}`,
+      ),
+    );
+    // A person switches RCS off, and lets the sender go.
+    const off = await as(owner)((tx) =>
+      rows<{ enabled: boolean }>(
+        tx,
+        sql`update app.rcs_senders set enabled = false where id = ${s!.id} returning enabled`,
+      ),
+    );
+    expect(off).toEqual([{ enabled: false }]);
+    const renamed = await expectPgError(() =>
+      as(owner)((tx) =>
+        rows(tx, sql`update app.rcs_senders set sender_id = 'other_agent' where id = ${s!.id}`),
+      ),
+    );
+    expect(renamed.detail).toBe('rcs_sender_id_fixed');
+    const going = await as(owner)((tx) =>
+      rows<{ status: string }>(
+        tx,
+        sql`update app.rcs_senders set status = 'disconnecting' where id = ${s!.id}
+            returning status::text as status`,
+      ),
+    );
+    expect(going).toEqual([{ status: 'disconnecting' }]);
+    // Another business never sees it.
+    const seen = await as(outsider)((tx) =>
+      rows(tx, sql`select id from app.rcs_senders where id = ${s!.id}`),
+    );
+    expect(seen).toHaveLength(0);
+    // Members see it: the composer says a text will go as RCS.
+    const theirs = await as(member)((tx) =>
+      rows(tx, sql`select id from app.rcs_senders where id = ${s!.id}`),
+    );
+    expect(theirs).toHaveLength(1);
+    await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows(tx, sql`update app.rcs_senders set status = 'disconnected' where id = ${s!.id}`),
+    );
+  });
+});

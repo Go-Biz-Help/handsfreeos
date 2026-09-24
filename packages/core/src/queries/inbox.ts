@@ -15,7 +15,9 @@ import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/qu
 import {
   isOptedOut,
   conversationNumber,
+  currentRcsSender,
   loadRegistrations,
+  rcsSending,
   readiness,
   workspaceMessaging,
 } from '../messaging/store';
@@ -33,6 +35,7 @@ import {
   type ConversationSummary,
 } from '../schemas/conversation';
 import type { ConversationHandoffReason } from '../schemas/ai-team';
+import type { ButtonReplyOut, RichTextOut } from '../schemas/rcs';
 import {
   ConversationThreadInput,
   ConversationThreadOutput,
@@ -604,6 +607,7 @@ export const conversationGet = defineQuery({
       openTasks,
       canText,
       fromNumber: number ? formatPhone(number.e164) : null,
+      rcs: row.channel === 'sms' && rcsSending(await currentRcsSender(ctx.tx, input.workspaceId)),
       quiet: quietHoursState(m.settings.quietHours, m.timezone),
       timezone: m.timezone,
     };
@@ -649,6 +653,11 @@ type ThreadRow = {
   approved_name: string | null;
   ai_draft_id: string | null;
   handoff_line: boolean;
+  /** Texts (0103): how it went, when it was read, what it carried and which button a reply came from. */
+  transport: 'sms' | 'mms' | 'rcs' | null;
+  read_at: Date | null;
+  rich: RichTextOut | null;
+  button_reply: ButtonReplyOut | null;
   sort_key: string;
 };
 
@@ -664,6 +673,7 @@ const messageBranch = (workspaceId: string) => sql`
     coalesce(nullif(ab.full_name, ''), ab.email::text) as approved_name, m.ai_draft_id,
     coalesce(m.client_id, '') like 'handoff:%' as handoff_line,
     case when m.status = 'queued' and m.error_code = ${SCHEDULED_TEXT} then m.occurred_at end as scheduled_for,
+    m.transport::text as transport, m.read_at, m.rich, m.button_reply,
     ${SORT_KEY(sql`m.occurred_at`)} as sort_key
   from app.messages m left join app.users su on su.id = m.sent_by
   left join app.mailbox_connections mc on mc.id = m.mailbox_connection_id
@@ -714,6 +724,10 @@ function threadItem(r: ThreadRow, lines?: ReadonlyMap<string, string>): ThreadIt
     aiDraftId: r.ai_draft_id,
     handoffLine: !!r.handoff_line,
     scheduledFor: iso(r.scheduled_for),
+    transport: r.transport ?? null,
+    readAt: iso(r.read_at),
+    rich: r.rich ?? null,
+    buttonReply: r.button_reply ?? null,
   };
 }
 
@@ -792,6 +806,7 @@ export const conversationThread = defineQuery({
               coalesce(nullif(au.full_name, ''), au.email::text), c.recording_object_path, c.recording_seconds, c.answered_via::text,
               null::text, '{}'::text[], '{}'::text[], null::text,
               null::uuid, null::text, null::uuid, null::text, null::uuid, false, null::timestamptz,
+              null::text, null::timestamptz, null::jsonb, null::jsonb,
               ${SORT_KEY(sql`c.started_at`)}
             from app.calls c
             left join app.users pu on pu.id = c.placed_by

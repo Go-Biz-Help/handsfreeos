@@ -1,8 +1,12 @@
 import {
   executeCommand,
+  isRcsAddress,
   messageAttachMedia,
   messageReceive,
   messageUpdateStatus,
+  phoneOfAddress,
+  RCS_SENDER_ID,
+  rcsSenderIdOf,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
@@ -11,7 +15,7 @@ import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 
 type Params = Readonly<Record<string, string | undefined>>;
-type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'undelivered' | 'failed';
+type DeliveryStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'undelivered' | 'failed';
 
 /** Provider statuses → ours. Anything else (receiving, received) says nothing about an outbound text. */
 export const TEXT_STATUS: Readonly<Record<string, DeliveryStatus>> = {
@@ -21,7 +25,8 @@ export const TEXT_STATUS: Readonly<Record<string, DeliveryStatus>> = {
   sending: 'sending',
   sent: 'sent',
   delivered: 'delivered',
-  read: 'delivered',
+  // RCS says when the customer opened it (0103). It used to be folded into delivered.
+  read: 'read',
   partially_delivered: 'delivered',
   undelivered: 'undelivered',
   failed: 'failed',
@@ -44,21 +49,46 @@ const EXTENSIONS: Readonly<Record<string, string>> = {
   'application/pdf': 'pdf',
 };
 
+/**
+ * Whether a message or a callback came over RCS (0103): Twilio puts `rcs:` in front of the address — the
+ * customer's `rcs:+15551234567` on the way in, the sender's `rcs:<id>` on the way out — and names the channel.
+ */
+const viaRcs = (p: Params): boolean =>
+  isRcsAddress(p.From) || (p.ChannelPrefix ?? '').toLowerCase() === 'rcs';
+
+/** The RCS sender a customer wrote to, as an address message.receive takes. */
+function senderAddress(to: string | undefined): string {
+  const id = rcsSenderIdOf(to ?? '');
+  return `rcs:${RCS_SENDER_ID.test(id) ? id : 'sender'}`;
+}
+
+/** Where a delivery is done with: nothing more will come of it, so its content template can go. */
+const FINISHED = new Set(['delivered', 'read', 'undelivered', 'failed']);
+
 function tenant(ctx: DeliveryContext): TenantScope | null {
   const { workspaceId, organizationId } = ctx.delivery;
   return workspaceId && organizationId ? { workspaceId, organizationId } : null;
 }
 
-/** A customer texted one of our numbers: file it through message.receive, then copy any photos off the provider. */
+/**
+ * A customer texted one of our numbers, or wrote to the business's RCS sender (0103): file it through
+ * message.receive, then copy any photos off the provider. An RCS message is the same message on its way in —
+ * the customer's number with `rcs:` in front of it — and lands in the same thread; a tapped button comes with
+ * its id and its words, which the command matches to the message that offered it.
+ */
 export const onInboundText: DeliveryProcessor = async (ctx) => {
   const scope = tenant(ctx);
   const p = ctx.delivery.params as Params;
   if (!scope || !p.MessageSid) return 'ignored';
-  if (!p.From || !E164.test(p.From) || !p.To || !E164.test(p.To)) {
+  const rcs = viaRcs(p);
+  const from = phoneOfAddress(p.From);
+  const to = rcs ? senderAddress(p.To) : p.To;
+  if (!from || !to || (!rcs && !E164.test(to))) {
     ctx.log.info({ from: p.From }, 'inbound text from a non-phone sender; ignored');
     return 'ignored';
   }
   const mediaCount = Math.min(Math.max(Number(p.NumMedia ?? 0) || 0, 0), 10);
+  const tapped = !!(p.ButtonPayload || p.ButtonText);
   const { output } = await executeCommand(
     ctx.db,
     messageReceive,
@@ -66,9 +96,20 @@ export const onInboundText: DeliveryProcessor = async (ctx) => {
       workspaceId: scope.workspaceId,
       provider: ctx.telephony.name,
       providerMessageId: p.MessageSid,
-      from: p.From,
-      to: p.To,
-      body: p.Body ?? '',
+      from,
+      to,
+      via: rcs ? 'rcs' : 'sms',
+      ...(tapped
+        ? {
+            button: {
+              payload: p.ButtonPayload?.slice(0, 300) || null,
+              text: p.ButtonText?.slice(0, 300) || null,
+              type: p.ButtonType?.slice(0, 40) || null,
+            },
+          }
+        : {}),
+      // A tap comes with the button's words as its body; a phone that leaves it out still says what it chose.
+      body: p.Body || (tapped ? (p.ButtonText ?? '') : ''),
       mediaCount,
       ...(ctx.reminderOverrideMs ? { reminderAfterMs: ctx.reminderOverrideMs } : {}),
     },
@@ -83,7 +124,7 @@ export const onInboundText: DeliveryProcessor = async (ctx) => {
     direction: 'inbound',
     segments: Math.max(1, Number(p.NumSegments ?? 1) || 1),
     mediaCount,
-    counterpart: p.From,
+    counterpart: from,
     messageId: output.messageId,
   });
 };
@@ -139,14 +180,30 @@ async function copyMedia(
       .catch((e: unknown) => ctx.log.warn({ err: e }, 'could not delete provider media copy'));
 }
 
-/** The carrier moved a text along: sent, delivered, failed. Callbacks can arrive out of order or twice. */
+/**
+ * The carrier moved a text along: sent, delivered, read, failed. Callbacks can arrive out of order or twice.
+ *
+ * A text sent RCS first (0103) also learns here which way it went: `rcs:` in the callback's `From` when it went
+ * over RCS, the thread's own number when Twilio fell back to SMS or MMS. And once it is done with — delivered,
+ * read or failed — its content template is deleted at Twilio, where it would otherwise sit for good.
+ */
 export const onTextStatus: DeliveryProcessor = async (ctx) => {
   const scope = tenant(ctx);
   const p = ctx.delivery.params as Params;
-  const status = TEXT_STATUS[(p.MessageStatus ?? '').toLowerCase()];
+  const status =
+    TEXT_STATUS[(p.MessageStatus ?? '').toLowerCase()] ??
+    ((p.EventType ?? '').toUpperCase() === 'READ' ? 'read' : undefined);
   if (!scope || !p.MessageSid || !status) return 'ignored';
+  const sent = await sentMessage(ctx, scope, p.MessageSid);
+  const transport = viaRcs(p)
+    ? ('rcs' as const)
+    : E164.test(p.From ?? '')
+      ? sent && sent.pictures > 0
+        ? ('mms' as const)
+        : ('sms' as const)
+      : undefined;
   // A callback can beat our own record of the provider id; not-found retries with the outbox backoff.
-  await executeCommand(
+  const { output } = await executeCommand(
     ctx.db,
     messageUpdateStatus,
     {
@@ -155,26 +212,45 @@ export const onTextStatus: DeliveryProcessor = async (ctx) => {
       status,
       errorCode: p.ErrorCode || null,
       errorMessage: p.ErrorMessage || null,
+      ...(transport ? { transport } : {}),
     },
     systemActor(scope),
     workerMeta(),
   );
+  if (sent?.content_sid && output.changed && FINISHED.has(output.status))
+    await deleteTemplate(ctx, scope, sent.content_sid);
   // `sent`, `delivered` and `undelivered` all arrive for one message and Twilio bills us once, so all three
   // land on the row the first of them made. An undelivered text is still billed to us, so it is billed on.
-  const sent = await sentMessage(ctx, scope, p.MessageSid);
   if (sent)
     await chargeText(ctx.wallet, scope, {
       messageSid: p.MessageSid,
       direction: 'outbound',
       status: p.MessageStatus ?? null,
       segments: sent.segments ?? 1,
-      mediaCount: sent.media_count,
+      // A carousel is a picture message's worth over RCS, which is how Twilio prices rich media (0103).
+      mediaCount:
+        sent.pictures > 0 || sent.rich_kind === 'carousel' ? Math.max(1, sent.pictures) : 0,
       counterpart: sent.counterpart,
       messageId: sent.id,
     });
 };
 
-/** What our own row says the text was: its segments, its pictures and who it went to. */
+/** A delivered or failed rich text's template, gone from Twilio. Best effort: a leftover costs nothing. */
+async function deleteTemplate(ctx: DeliveryContext, scope: TenantScope, contentSid: string) {
+  try {
+    const account = await asWorker(ctx.db, scope, (tx) =>
+      loadAccount(tx, scope.workspaceId, ctx.sealer),
+    );
+    if (account) await ctx.telephony.deleteContent(account, contentSid);
+  } catch (e) {
+    ctx.log.warn({ err: e, contentSid }, 'could not delete a finished rcs template');
+  }
+}
+
+/**
+ * What our own row says the text was: its segments, its pictures (a carousel's ride on its cards, not here),
+ * what it carried, its content template and who it went to.
+ */
 async function sentMessage(
   ctx: DeliveryContext,
   scope: TenantScope,
@@ -182,14 +258,23 @@ async function sentMessage(
 ): Promise<{
   id: string;
   segments: number | null;
-  media_count: number;
+  pictures: number;
+  rich_kind: string | null;
+  content_sid: string | null;
   counterpart: string;
 } | null> {
   const [m] = await asWorker(ctx.db, scope, (tx) =>
-    rows<{ id: string; segments: number | null; media_count: number; counterpart: string }>(
+    rows<{
+      id: string;
+      segments: number | null;
+      pictures: number;
+      rich_kind: string | null;
+      content_sid: string | null;
+      counterpart: string;
+    }>(
       tx,
-      sql`select m.id, m.segments, coalesce(jsonb_array_length(m.media), 0)::int as media_count,
-            coalesce(c.counterpart, '') as counterpart
+      sql`select m.id, m.segments, coalesce(jsonb_array_length(m.media), 0)::int as pictures,
+            m.rich ->> 'kind' as rich_kind, m.content_sid, coalesce(c.counterpart, '') as counterpart
           from app.messages m left join app.conversations c on c.id = m.conversation_id
           where m.workspace_id = ${scope.workspaceId} and m.provider_message_id = ${providerMessageId}`,
     ),

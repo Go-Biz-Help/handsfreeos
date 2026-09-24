@@ -104,6 +104,7 @@ import { customRecordCommands } from './custom-record';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
+import { rcsCommands } from './rcs';
 import {
   emailAddressCreate,
   emailAddressUpdate,
@@ -805,6 +806,8 @@ export const commands: readonly CommandDef[] = [
   ...relationshipCommands,
   // Ideas, the roadmap and What's new (0102).
   ...ideaCommands,
+  // A business's RCS sender: connected, paused, looked at again and let go (0103).
+  ...rcsCommands,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -853,6 +856,7 @@ export * from './migration';
 export * from './support';
 export * from './support-staff';
 export * from './port';
+export * from './rcs';
 export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';

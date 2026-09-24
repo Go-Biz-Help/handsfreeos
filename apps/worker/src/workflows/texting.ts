@@ -206,9 +206,16 @@ function quiet(
   return emailInstead(ec, body, decisions, 'quiet_hours', input);
 }
 
-/** A send_text step, its body already rendered. */
-export async function sendTextAction(ec: ExecCtx, body: string): Promise<Outcome> {
-  const input: Json = { channel: 'sms', body };
+/**
+ * A send_text step, its body already rendered. Its reply buttons (0103) go with it: over RCS as buttons to tap,
+ * and to a phone without RCS as the same text with the choices numbered.
+ */
+export async function sendTextAction(
+  ec: ExecCtx,
+  body: string,
+  replyButtons: readonly string[] = [],
+): Promise<Outcome> {
+  const input: Json = { channel: 'sms', body, ...(replyButtons.length ? { replyButtons } : {}) };
   if (ec.testMode === 'send_to_me') return toTester(ec, 'sms', null, body, input);
   const p = await ec.data.person();
   if (!p) return { kind: 'skipped', reason: 'no_person', input };
@@ -237,8 +244,20 @@ export async function sendTextAction(ec: ExecCtx, body: string): Promise<Outcome
   decisions.push({ check: 'quiet_hours', result: 'ok' });
   const text = plainSms(reach.firstText ? `${body} ${STOP_WORDING}` : body);
   const to = formatPhone(p.phone_e164);
+  const rich = replyButtons.length
+    ? {
+        kind: 'buttons' as const,
+        buttons: replyButtons.map((title) => ({ type: 'reply' as const, title })),
+      }
+    : undefined;
   if (ec.testMode === 'simulate')
-    return simulated(input, { would: 'text', to, body: text, decisions });
+    return simulated(input, {
+      would: 'text',
+      to,
+      body: text,
+      ...(replyButtons.length ? { replyButtons } : {}),
+      decisions,
+    });
   try {
     const r = await executeCommandIn(
       ec.tx,
@@ -250,6 +269,7 @@ export async function sendTextAction(ec: ExecCtx, body: string): Promise<Outcome
         body: text,
         clientId: clientIdFor('wf', ec.run.id, ec.stepKey),
         keepConversationStatus: true,
+        ...(rich ? { rich } : {}),
       },
       ec.actor,
       ec.meta,

@@ -3,6 +3,7 @@
  * message and where it is (Delivered, Not delivered and why), an email's subject and problems, a call or a voicemail,
  * a text held until quiet hours end, and a customer texting STOP or START. Browser-safe.
  */
+import type { ButtonReply, RichText } from '@hfos/db/schema';
 import { smsKeyword } from '../messaging/sms';
 import { firstName } from './list';
 import { teammateLabel, teammateMessageOf, type TeammateMessage } from './teammate';
@@ -39,6 +40,14 @@ export interface ThreadItemFacts {
   readonly approvedBy: UserRef | null;
   readonly aiDraftId: string | null;
   readonly handoffLine: boolean;
+  /**
+   * Texts (0103): which way it went — SMS, MMS or RCS — and when an RCS message was read, what it carried and
+   * which button a customer's reply came from. Optional because the phone's copy doesn't hold them yet.
+   */
+  readonly transport?: 'sms' | 'mms' | 'rcs' | null;
+  readonly readAt?: string | null;
+  readonly rich?: Pick<RichText, 'kind' | 'title' | 'buttons' | 'cards' | 'smsText'> | null;
+  readonly buttonReply?: Pick<ButtonReply, 'type' | 'title' | 'via'> | null;
 }
 
 /** Statuses of a text or email that didn't arrive. */
@@ -65,16 +74,23 @@ export function textFailureHelp(item: Pick<ThreadItemFacts, 'errorCode' | 'error
   }
 }
 
-/** Where a reply is: "Sending…", "Sent", "Delivered" (or "Seen" in a website chat), "Not delivered". */
-export type DeliveryState = 'sending' | 'sent' | 'delivered' | 'failed' | null;
+/**
+ * Where a reply is: "Sending…", "Sent", "Delivered" (or "Seen" in a website chat), "Read" (an RCS message the
+ * customer opened), "Not delivered".
+ */
+export type DeliveryState = 'sending' | 'sent' | 'delivered' | 'read' | 'failed' | null;
 
 export function deliveryStateOf(status: string): DeliveryState {
   if (status === 'queued' || status === 'sending') return 'sending';
   if (status === 'sent') return 'sent';
   if (status === 'delivered') return 'delivered';
+  if (status === 'read') return 'read';
   if (FAILED_STATUSES.has(status)) return 'failed';
   return null;
 }
+
+/** Whether it got there: delivered, or read, which only ever follows delivered. */
+export const arrived = (state: DeliveryState): boolean => state === 'delivered' || state === 'read';
 
 export function deliveryWords(state: DeliveryState, chat = false): string | null {
   switch (state) {
@@ -84,6 +100,8 @@ export function deliveryWords(state: DeliveryState, chat = false): string | null
       return 'Sent';
     case 'delivered':
       return chat ? 'Seen' : 'Delivered';
+    case 'read':
+      return 'Read';
     case 'failed':
       return 'Not delivered';
     default:

@@ -205,6 +205,7 @@ function SheetThread({
           canText: data.canText,
           quiet: data.quiet,
           fromNumber: data.fromNumber,
+          rcs: data.rcs,
         }}
         onPending={t.addPending}
         onSettled={t.settlePending}

@@ -42,12 +42,16 @@ export function fieldsFor(def: WorkflowDefinition, place: ConditionPlace): Field
   const records = triggerRecords(def) as Set<string>;
   const before = place.kind === 'step' ? stepsBefore(def, place.stepId) : [];
   let waitedForEvent = false;
+  let waitedForReply = false;
   const aiKeys: string[] = [];
   for (const s of before) {
     if (s.type === 'action' && s.action === 'create_lead') records.add('lead');
     if (s.type === 'wait' && s.until.kind === 'event') {
       waitedForEvent = true;
-      if (s.until.events.includes('message.received')) records.add('conversation');
+      if (s.until.events.includes('message.received')) {
+        records.add('conversation');
+        waitedForReply = true;
+      }
     }
     if (s.type === 'ai') aiKeys.push(aiOutputKey(s));
   }
@@ -60,7 +64,12 @@ export function fieldsFor(def: WorkflowDefinition, place: ConditionPlace): Field
       if (waitedForEvent) out.push(f);
       continue;
     }
-    if (f.key === 'trigger.channel') {
+    // The button a reply came from (RCS, or a number texted back to the list): only where there was a reply.
+    if (f.key === 'wait.button') {
+      if (waitedForReply) out.push(f);
+      continue;
+    }
+    if (f.key === 'trigger.channel' || f.key === 'trigger.button') {
       if (event === 'message.received') out.push(f);
       continue;
     }

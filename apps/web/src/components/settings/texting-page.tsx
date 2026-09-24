@@ -52,6 +52,7 @@ import { searchNumbers, type AvailableNumber } from '@/lib/api/worker';
 import { formatDate } from '@/lib/format';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { RcsCard } from './rcs-card';
 import { ReleaseNumberDialog } from './release-number-dialog';
 import { SetRow } from './set-row';
 import { TestTextDialog } from './test-text-dialog';
@@ -111,7 +112,7 @@ export function TextingPage({
    */
   surfaces: HostedSurfaces;
 }) {
-  useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace']);
+  useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace', 'rcs_sender']);
   const router = useRouter();
   // Buying and releasing take seconds: check again every few, in case the live channel is down.
   const busy = status.nextStep === 'provisioning' || status.nextStep === 'releasing';
@@ -1187,6 +1188,11 @@ function Configured({
               Texting approved
             </Badge>
             <Badge variant="gray">Photos and picture texts</Badge>
+            {status.rcsSender?.sending ? (
+              <Badge variant="accent" data-testid="rcs-on-badge">
+                RCS
+              </Badge>
+            ) : null}
           </div>
           <div className="mt-[18px] flex flex-wrap gap-2">
             <Button
@@ -1232,6 +1238,14 @@ function Configured({
             View what we sent
           </Button>
         </Card>
+
+        <RcsCard
+          workspaceId={workspaceId}
+          businessName={businessName}
+          sender={status.rcsSender}
+          numbers={status.numbers}
+          canManage={status.canManage}
+        />
 
         <Card className="p-6">
           <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>

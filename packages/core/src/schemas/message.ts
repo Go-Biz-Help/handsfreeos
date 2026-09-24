@@ -2,18 +2,12 @@ import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
 import { ListInput, UserRef } from './crm';
 import { conversationChannel, messageDirection, smsConsent } from './conversation';
+import { MediaRefSchema } from './media';
+import { ButtonReplyOut, RichInput, RichTextOut, textTransport } from './rcs';
 import { e164Phone, phoneRequired } from './telephony';
 
-/** A stored photo, recording or attachment (telephony bucket) or a customer file sent as an attachment. */
-export const MediaRefSchema = z.object({
-  bucket: z.string().min(1).max(63),
-  objectPath: z.string().min(3).max(500),
-  contentType: z.string().max(120),
-  sizeBytes: z.number().int().min(0),
-  name: z.string().max(200),
-  fileId: uuid.optional(),
-});
-export type MediaRefOut = z.infer<typeof MediaRefSchema>;
+// Lives in its own module so the RCS schemas (rich texts carry pictures) can use it without importing this one.
+export { MediaRefSchema, type MediaRefOut } from './media';
 
 /** A required email address, trimmed and lower-cased. */
 export const requiredEmail = z
@@ -63,6 +57,11 @@ export const MessageSendInput = z
      * latest text in the conversation, soon after it arrived.
      */
     inReplyToMessageId: uuid.optional(),
+    /**
+     * Texts: buttons, a card or a carousel to go with the words (0103). It goes as RCS where the customer's
+     * phone can show it and as a text with the choices written out where it can't; nobody picks which.
+     */
+    rich: RichInput.optional(),
   })
   .refine(
     (v) => [v.conversationId, v.personId, v.toPhone, v.toEmail].filter(Boolean).length === 1,
@@ -96,6 +95,10 @@ export const MessageSendInput = z
   .refine((v) => v.channel === 'sms' || !v.sendAfterQuietHours, {
     path: ['sendAfterQuietHours'],
     error: 'Only texts wait for quiet hours to end.',
+  })
+  .refine((v) => v.channel === 'sms' || !v.rich, {
+    path: ['rich'],
+    error: 'Buttons, cards and carousels go in texts.',
   });
 export const MessageSendOutput = z.object({
   messageId: uuid,
@@ -120,8 +123,29 @@ export const MessageReceiveInput = z.object({
   workspaceId: uuid,
   provider: z.enum(['twilio', 'fake']),
   providerMessageId: z.string().trim().min(2).max(200),
+  /** The customer's number, without the `rcs:` an RCS message carries in front of it. */
   from: e164Phone,
-  to: e164Phone,
+  /** The business's number it came in on, or the RCS sender's address (`rcs:<id>`) for an RCS message. */
+  to: z.union([
+    e164Phone,
+    z
+      .string()
+      .trim()
+      .regex(/^rcs:[A-Za-z0-9][A-Za-z0-9_.-]{1,99}$/),
+  ]),
+  /** How it came in (0103): as an ordinary text, or over RCS. */
+  via: z.enum(['sms', 'rcs']).default('sms'),
+  /**
+   * A button the customer tapped on RCS (0103): Twilio's `ButtonPayload` (the id we gave it), `ButtonText` and
+   * `ButtonType`. The body is the button's name either way.
+   */
+  button: z
+    .object({
+      payload: z.string().trim().max(300).nullable(),
+      text: z.string().trim().max(300).nullable(),
+      type: z.string().trim().max(40).nullable(),
+    })
+    .optional(),
   body: z.string().max(10000).default(''),
   media: z.array(MediaRefSchema).max(10).default([]),
   /** Photos the provider still holds; the worker copies them and calls message.attach_media. */
@@ -143,6 +167,8 @@ export const deliveryStatusUpdate = z.enum([
   'sending',
   'sent',
   'delivered',
+  /** RCS: the customer opened it (0103). */
+  'read',
   'undelivered',
   'failed',
   'bounced',
@@ -159,6 +185,10 @@ export const MessageUpdateStatusInput = z
     segments: z.number().int().min(0).max(50).optional(),
     /** Email: the Message-ID the provider actually used (Outlook assigns its own). */
     messageIdHeader: z.string().trim().min(3).max(998).optional(),
+    /** Texts: which way it actually went, when the carrier says (an RCS-first text learns it here). */
+    transport: textTransport.optional(),
+    /** A rich text's content template at the carrier, recorded with its provider id when it is sent (0103). */
+    contentSid: z.string().trim().min(2).max(64).optional(),
   })
   .refine((v) => !!v.messageId || !!v.providerMessageId, {
     path: ['messageId'],
@@ -236,6 +266,14 @@ export const ThreadItem = z.object({
   aiDraftId: uuid.nullable(),
   /** The business's hand-off line ("someone from our team will reply"), sent when the teammate handed it over. */
   handoffLine: z.boolean(),
+  /** Texts: how it went or came in — sms, mms or rcs — once the carrier has said (0103). */
+  transport: textTransport.nullable(),
+  /** Texts sent over RCS: when the customer opened it. */
+  readAt: isoDateTime.nullable(),
+  /** The buttons, card or carousel it carried, and the words a phone without RCS got instead. */
+  rich: RichTextOut.nullable(),
+  /** A customer's reply that came from one of those buttons. */
+  buttonReply: ButtonReplyOut.nullable(),
 });
 export type ThreadItem = z.infer<typeof ThreadItem>;
 export const ConversationThreadInput = ListInput.extend({
