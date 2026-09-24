@@ -52,7 +52,7 @@ async function loadDomain(ctx: CommandContext, domainId: string): Promise<Domain
 export const brandedDomainAdd = defineCommand({
   name: 'branded_domain.add',
   description:
-    'Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.',
+    'Put the business’s forms, payment links, estimates, invoices and booking page on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.',
   risk: 2,
   input: BrandedDomainAddInput,
   output: BrandedDomainRefOutput,

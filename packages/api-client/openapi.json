@@ -40550,7 +40550,7 @@
     "/v1/commands/branded_domain.add": {
       "post": {
         "operationId": "command_branded_domain_add",
-        "summary": "Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.",
+        "summary": "Put the business’s forms, payment links, estimates, invoices and booking page on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.",
         "tags": [
           "commands"
         ],
