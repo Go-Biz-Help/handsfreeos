@@ -1,7 +1,7 @@
 /**
  * What a business's own domain serves, and what it does not (M17).
  *
- * `booking.lonestarhvac.com/` is their booking page, `booking.lonestarhvac.com/quote` is their form called
+ * `go.lonestarhvac.com/` is their booking page, `go.lonestarhvac.com/quote` is their form called
  * `quote`, and every link we have ever sent a customer keeps the shape it was sent in — only the origin
  * moves — so a text from last month still works on either name.
  *
@@ -34,7 +34,7 @@ const BARE_NAME = /^\/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/i;
  *
  * `booking_sites` already refuses these as slugs (`private.booking_slug_reserved`, mirrored in
  * `siteSlugFrom`), and the same names have to mean the same thing one level down or somebody typing
- * `booking.lonestarhvac.com/app` gets a 404 instead of the app they were looking for. The sign-in names are
+ * `go.lonestarhvac.com/app` gets a 404 instead of the app they were looking for. The sign-in names are
  * here for a second reason: whatever we do with them, it is never "render something on a business's domain
  * that looks like the start of signing in to HandsFreeOS".
  */

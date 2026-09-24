@@ -1647,8 +1647,9 @@ export const brandedDomainStatus = app.enum('branded_domain_status', [
 export type BrandedDomainStatus = (typeof brandedDomainStatus.enumValues)[number];
 
 /**
- * A business's own domain on the pages its customers see (0087): `booking.lonestarhvac.com` rather than
- * `handsfreeos.com/book/lonestar`. One per booking site, which is already the business's public identity.
+ * A business's own domain on the pages its customers see (0087): `go.lonestarhvac.com` rather than
+ * `handsfreeos.com` for its forms, payment links, estimates, invoices and booking page. One per booking site,
+ * which is already the business's public identity, and made switched off when there is none yet (0107).
  * Everything the host said about it is the worker's — `private.guard_branded_domain_update()`.
  */
 export const brandedDomains = app.table('branded_domains', {

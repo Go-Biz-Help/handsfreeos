@@ -1,14 +1,14 @@
 /**
  * The address a business's customers see (M17).
  *
- * Every public link we hand out — the booking page, a form, an estimate, an invoice, a plan, a
+ * Every public link we hand out — a form, a payment link, an estimate, an invoice, a plan, the booking page, a
  * change-or-cancel link, a waitlist offer, the chat widget — has to be on the business's own domain once one
- * is working, or they get a branded booking page full of unbranded links, which reads as a broken setup
+ * is working, or they get a branded page full of unbranded links, which reads as a broken setup
  * rather than a half-finished feature.
  *
  * **The path never changes, only the origin.** `brandedHostProxy` serves every one of those paths on a
  * branded domain unaltered, which is what makes this a one-line swap at each call site instead of a second
- * set of link builders: `https://booking.lonestarhvac.com/i/AbCd1234…` is the same link as
+ * set of link builders: `https://go.lonestarhvac.com/i/AbCd1234…` is the same link as
  * `https://handsfreeos.com/i/AbCd1234…`, and a link already sent on either name keeps working.
  *
  * **Not the app.** `/app/…` links go to the business's own team and stay on our address; the proxy redirects
@@ -45,7 +45,7 @@ export function forgetPublicOrigin(workspaceId?: string): void {
 }
 
 /**
- * `https://booking.lonestarhvac.com` when this workspace's domain is verified and its certificate is issued,
+ * `https://go.lonestarhvac.com` when this workspace's domain is verified and its certificate is issued,
  * and null otherwise. `tx` must already be scoped to the workspace — RLS is what makes the row the right
  * one, so this never takes a workspace id it could get wrong.
  */

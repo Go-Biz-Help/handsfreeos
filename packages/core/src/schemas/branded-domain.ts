@@ -1,7 +1,8 @@
 /**
  * A business's own domain on the pages its customers see (M17).
  *
- * `booking.lonestarhvac.com`, rather than `handsfreeos.com/book/lonestar`. Shaped like the email sending
+ * `go.lonestarhvac.com` rather than `handsfreeos.com`, for the forms, payment links, estimates, invoices and
+ * booking page alike. Shaped like the email sending
  * domain's schemas on purpose (`schemas/email.ts`): same statuses, same "here are the records to add", same
  * split between what a person may write and what only the worker may.
  */
