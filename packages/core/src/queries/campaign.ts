@@ -4,6 +4,7 @@
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { campaignAudience } from '../campaigns/audience';
+import { businessPostalAddress } from '../campaigns/postal-address';
 import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -14,6 +15,7 @@ import {
   CampaignPreviewInput,
   CampaignPreviewOutput,
   CampaignRef,
+  type CampaignChannel,
   type CampaignStatus,
 } from '../schemas/campaign';
 
@@ -27,8 +29,13 @@ interface SummaryRow extends Record<string, unknown> {
   id: string;
   name: string;
   goal: string;
+  channel: CampaignChannel;
   status: CampaignStatus;
   per_hour: number;
+  email_subject: string | null;
+  email_body: string | null;
+  email_edited: boolean;
+  paused_reason: string | null;
   audience: { tagIds?: string[]; stageIds?: string[] } | null;
   created_at: Date;
   approved_at: Date | null;
@@ -49,7 +56,7 @@ interface SummaryRow extends Record<string, unknown> {
 async function summaries(tx: Tx, workspaceId: string, campaignId: string | null) {
   const list = await rows<SummaryRow>(
     tx,
-    sql`select c.id, c.name, c.goal, c.status, c.per_hour, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
+    sql`select c.id, c.name, c.goal, c.channel, c.status, c.per_hour, c.email_subject, c.email_body, c.email_edited, c.paused_reason, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
           c.offer_id, (select o.name from app.offers o where o.id = c.offer_id) as offer_name,
           count(r.id)::int as total,
           count(r.id) filter (where r.status = 'drafting')::int as drafting,
@@ -70,8 +77,14 @@ async function summaries(tx: Tx, workspaceId: string, campaignId: string | null)
     id: c.id,
     name: c.name,
     goal: c.goal,
+    channel: c.channel,
     status: c.status,
+    pausedReason: c.status === 'paused' ? c.paused_reason : null,
     perHour: c.per_hour,
+    email:
+      c.channel === 'email'
+        ? { subject: c.email_subject, body: c.email_body, edited: c.email_edited }
+        : null,
     audience: { tagIds: c.audience?.tagIds ?? [], stageIds: c.audience?.stageIds ?? [] },
     counts: {
       total: c.total,
@@ -100,7 +113,7 @@ export const campaignList = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const list = await summaries(ctx.tx, input.workspaceId, null);
-    return { items: list.map(({ audience: _a, nextSendAt: _n, ...rest }) => rest) };
+    return { items: list.map(({ audience: _a, nextSendAt: _n, email: _e, ...rest }) => rest) };
   },
 });
 
@@ -115,13 +128,20 @@ export const campaignGet = defineQuery({
   async handler(ctx, input) {
     const [found] = await summaries(ctx.tx, input.workspaceId, input.campaignId);
     if (!found) throw HfosError.notFound('That campaign isn’t here any more.');
-    const { nextSendAt, ...campaign } = found;
+    const { nextSendAt, email, ...rest } = found;
+    const campaign = {
+      ...rest,
+      email: email
+        ? { ...email, postalAddress: await businessPostalAddress(ctx.tx, input.workspaceId) }
+        : null,
+    };
     const list = await rows<{
       id: string;
       person_id: string;
       first_name: string | null;
       last_name: string | null;
       phone_e164: string | null;
+      email: string | null;
       status: string;
       skip_reason: string | null;
       draft: string | null;
@@ -130,7 +150,7 @@ export const campaignGet = defineQuery({
       error: string | null;
     }>(
       ctx.tx,
-      sql`select r.id, r.person_id, p.first_name, p.last_name, p.phone_e164, r.status, r.skip_reason, r.draft,
+      sql`select r.id, r.person_id, p.first_name, p.last_name, p.phone_e164, p.email::text as email, r.status, r.skip_reason, r.draft,
             r.edited, r.sent_at, r.error
           from app.campaign_recipients r join app.people p on p.id = r.person_id
           where r.campaign_id = ${input.campaignId}
@@ -144,6 +164,7 @@ export const campaignGet = defineQuery({
         personId: r.person_id,
         name: `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || 'Customer',
         phone: r.phone_e164 ? formatPhone(r.phone_e164) : null,
+        email: r.email,
         status: r.status as 'drafting',
         skipReason: r.skip_reason,
         draft: r.draft,
@@ -159,17 +180,28 @@ export const campaignGet = defineQuery({
 export const campaignPreviewAudience = defineQuery({
   name: 'campaign.preview_audience',
   description:
-    'Who a new outreach campaign would text, and how many are left out and why, before it’s made.',
+    'Who a new outreach campaign would text or email, and how many are left out and why, before it’s made.',
   input: CampaignPreviewInput,
   output: CampaignPreviewOutput,
   permission: 'records.read',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const people = await campaignAudience(ctx.tx, input.workspaceId, input.audience, new Date());
+    const people = await campaignAudience(
+      ctx.tx,
+      input.workspaceId,
+      input.audience,
+      new Date(),
+      input.channel,
+    );
     const skipped: Record<string, number> = {};
     for (const p of people)
       if (p.skipReason) skipped[p.skipReason] = (skipped[p.skipReason] ?? 0) + 1;
-    return { recipients: people.filter((p) => !p.skipReason).length, skipped };
+    return {
+      recipients: people.filter((p) => !p.skipReason).length,
+      skipped,
+      postalAddress:
+        input.channel === 'email' ? await businessPostalAddress(ctx.tx, input.workspaceId) : null,
+    };
   },
 });
 

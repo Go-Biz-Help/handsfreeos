@@ -3658,8 +3658,15 @@ function conversationEnvelope(record: SourceRecord, context: MappingContext): Ca
       phone: phone?.slice(0, 40) ?? null,
       email: email?.slice(0, 320) ?? null,
       subject: asString(p['lastMessageBody'])?.slice(0, 400) ?? null,
-      // A thread nobody is waiting on arrives closed: history should not look like a queue of work.
-      status: p['unreadCount'] && Number(p['unreadCount']) > 0 ? 'open' : 'closed',
+      /*
+       * Open, every one of them. GoHighLevel has no closed thread: its inbox lists every conversation a
+       * business has ever had. Arriving closed took them out of the inbox here, which lists open ones, so a
+       * business opened its inbox after the move and found most of its customers missing — there on the
+       * customer's page, nowhere in the list. History still does not become work: the importer writes no
+       * unread count and no waiting clock, so an open thread from 2019 sits in the list by its date and asks
+       * nobody for anything.
+       */
+      status: 'open',
       startedAt: record.sourceCreatedAt?.toISOString() ?? null,
       lastMessageAt:
         asDate(p['lastMessageDate'])?.toISOString() ??

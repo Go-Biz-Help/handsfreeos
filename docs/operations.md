@@ -1476,6 +1476,7 @@ The defaults are right in production. Setting some of these changes real behavio
 | `MAILBOX_PROVIDER`                         | `real` in production                                                       | Production refuses `fake`.                                                                                                                                                    |
 | `POSTMARK_WEBHOOK_USER`                    | `postmark`                                                                 | The user name in Postmark's webhook addresses.                                                                                                                                |
 | `POSTMARK_MESSAGE_STREAM`                  | `outbound`                                                                 | Postmark's default stream for customer email.                                                                                                                                 |
+| `POSTMARK_BROADCAST_STREAM`                | unset                                                                      | The Broadcasts stream campaign email goes on (`broadcast`). Unset in production, email campaigns pause instead of sending. Locally, Mailpit takes them either way.            |
 | `MAIL_DOMAIN`                              | `mail.handsfreeos.com`                                                     | Must match the shared mail domain the database uses.                                                                                                                          |
 | `SUPPORT_MAIL_DOMAIN`                      | `handsfreeos.com`                                                          | Where HandsFreeOS's own support mail arrives (M13). The bare domain, kept apart from the businesses' subdomain above. Changing it means changing the MX record to match.      |
 | `SUPPORT_ADDRESSES`                        | `support,help`                                                             | The local parts that open a ticket. The first one is also the address replies are sent from. Anything else sent to the bare domain is accepted and dropped.                   |
@@ -4558,7 +4559,7 @@ Know this before you apply. Postmark's guide for platforms that send for their c
 1. Go to `https://account.postmarkapp.com/sign_up`.
 2. Sign up with your work email address. Postmark refuses Gmail, Yahoo and other public addresses.
 3. Save the Postmark password in your password manager as "Postmark login".
-4. Answer Postmark's sign-up questions. Describe HandsFreeOS as one-to-one email between small businesses and their own customers, with no marketing or bulk lists.
+4. Answer Postmark's sign-up questions. Describe HandsFreeOS as email between small businesses and their own customers: mostly one to one, plus occasional campaign emails to a business's own customers on a separate Broadcasts stream, each with an unsubscribe link. No purchased or rented lists.
 5. Open `https://account.postmarkapp.com/account/subscription`, the **Plan & add-ons** page in your account.
 6. Choose a plan. Customer replies need inbound processing (Postmark receiving mail and passing it on to HandsFreeOS), which only the **Pro** and **Platform** plans include. Free and Basic don't.
    - Every sending domain counts toward the plan's limit: `mail.handsfreeos.com`, `handsfreeos.com`, and each business's own domain. Pro allows 10 in total. Platform has no limit.
@@ -4569,7 +4570,11 @@ Know this before you apply. Postmark's guide for platforms that send for their c
    ```text
    HandsFreeOS is a CRM for small service businesses. Each business uses it to email its own
    customers one to one: replies, quotes and appointment follow-ups written by the business's
-   staff. There are no newsletters, no bulk sends and no purchased lists.
+   staff. A business can also send an occasional campaign email (a seasonal offer, say) to its
+   own existing customers. Those go on a separate Broadcasts stream, a few an hour, only after a
+   person at the business approves them. Every one has an unsubscribe link, the List-Unsubscribe
+   and List-Unsubscribe-Post headers, and the business's postal address. Unsubscribed, bounced
+   and complained addresses are left out. There are no purchased or rented lists.
 
    Each business sends from its own address on our subdomain, <business>@mail.handsfreeos.com,
    under the business's name, or from its own domain once that domain passes DKIM and
@@ -4584,7 +4589,9 @@ Know this before you apply. Postmark's guide for platforms that send for their c
 
 You should see an email from Postmark with the result. Review usually takes less than 24 hours on weekdays and a little longer at weekends. If Postmark turns you down and you think that's a mistake, email `support@postmarkapp.com` with examples of the email businesses will send.
 
-Be ready for follow-up questions. The same Postmark guide covers vetting those customers, so be ready to explain how a business gets a HandsFreeOS workspace. If Postmark asks for a change such as a separate stream or server per business, talk to the developer before agreeing. HandsFreeOS sends every business's mail through one server and one stream, so that would mean code changes.
+Be ready for follow-up questions. The same Postmark guide covers vetting those customers, so be ready to explain how a business gets a HandsFreeOS workspace. If Postmark asks for a change such as a separate server per business, talk to the developer before agreeing. HandsFreeOS sends every business's mail through one server (one-to-one mail on `outbound`, campaign email on `broadcast`), so that would mean code changes.
+
+If your account was approved before campaign email existed, tell Postmark about it before you do "Postmark Part L". Send the approval text above to `support@postmarkapp.com` and say you are adding a Broadcasts stream for it.
 
 While you wait, do Postmark Parts B to H. Leave Postmark Part I until Postmark approves the account. Invitations and alerts from `alerts@handsfreeos.com` won't reach anyone outside `handsfreeos.com` before approval either.
 
@@ -4604,7 +4611,7 @@ A server holds one app's mail, with its own tokens and settings. Inside it, a me
 
 You should see the new server with two message streams: **Default Transactional Stream** (Stream ID `outbound`) and the inbound stream (Stream ID `inbound`). A stream's page shows its Stream ID in the top-right corner.
 
-Don't add any streams. Business email uses `outbound`, which is what the worker expects. Every server already has exactly one inbound stream, and Postmark doesn't allow a second. Leave the server Postmark made at sign-up unused.
+Don't add any other streams here. Business email uses `outbound`, which is what the worker expects. Campaign email gets its own Broadcasts stream in "Postmark Part L", after Postmark approves the account. Every server already has exactly one inbound stream, and Postmark doesn't allow a second. Leave the server Postmark made at sign-up unused.
 
 6. Open the server's **Settings** tab.
 7. Check that SMTP is turned on. It is normally on already. If the switch isn't on this tab, look on the **Default Transactional Stream**'s **Settings** tab. Invitations, alerts and Supabase's sign-in emails go out over SMTP, and Postmark only receives customers' replies on `mail.handsfreeos.com` while SMTP is on, so never turn it off.
@@ -4794,6 +4801,7 @@ The worker is the only part of HandsFreeOS that holds Postmark secrets. Fly Part
 | `EMAIL_TRANSPORT`               | Leave it unset. On Fly.io it is already `postmark`, because `apps/worker/fly.toml` sets `NODE_ENV = "production"`. The only other value, `smtp`, is for local development and tests: it fakes delivery reports and lets any business domain verify. |
 | `POSTMARK_WEBHOOK_USER`         | Leave it unset. It defaults to `postmark`, the username in both webhooks.                                                                                                                                                                           |
 | `POSTMARK_MESSAGE_STREAM`       | Leave it unset. It defaults to `outbound`.                                                                                                                                                                                                          |
+| `POSTMARK_BROADCAST_STREAM`     | `broadcast`, once "Postmark Part L" is done. Not a secret. Until it's set, an email campaign pauses instead of sending ("Email campaigns aren't set up yet").                                                                                       |
 | `MAIL_DOMAIN`                   | Leave it unset. It defaults to `mail.handsfreeos.com`, which the database and the app also have built in, so it can't be changed here.                                                                                                              |
 | `MAIL_FROM`                     | Nothing to do. It is already `HandsFreeOS <alerts@handsfreeos.com>` in `apps/worker/fly.toml`, and it isn't a secret.                                                                                                                               |
 
@@ -5054,6 +5062,25 @@ Worth knowing:
   Nothing here ever answers something that answers back.
 - **Bounces of support mail do not show against a business**, because the ticket belongs to no business. They
   show in Postmark's own activity for the production server.
+
+### Postmark Part L: Campaign email (the Broadcasts stream)
+
+Email campaigns (Campaigns → New campaign → **Send as: Email**) never go on `outbound`. They go on a separate Broadcasts stream, so bulk mail can't hurt the reputation of the one-to-one stream. Do this after Postmark approves the account, and after telling Postmark about campaign email (see "Postmark Part A").
+
+1. Open the **HandsFreeOS Production** server in Postmark.
+2. Click **Create message stream** (or **Add stream**). If you can't find it, search Postmark's help for "message streams".
+3. Choose **Broadcasts**. Name it `Campaigns` and set the Stream ID to `broadcast`.
+4. In the stream's **Settings**, find the unsubscribe setting. Choose the option where you add your own unsubscribe link, not the one where Postmark adds its link. HandsFreeOS adds its own link, footer and List-Unsubscribe headers to every campaign email. If you can't find the setting, search Postmark's help for "unsubscribe handling".
+5. Open the stream's **Webhooks** and add the same events webhook as "Postmark Part H": `https://postmark:<webhook password>@hooks.handsfreeos.com/webhooks/postmark/events`. Tick **Delivery**, **Bounce**, **Spam Complaint** and **Subscription Change**. Webhooks belong to one stream, so the one on `outbound` doesn't cover this one.
+6. On the worker, set `POSTMARK_BROADCAST_STREAM` to `broadcast`:
+
+   ```bash
+   fly secrets set POSTMARK_BROADCAST_STREAM=broadcast --app handsfreeos-worker
+   ```
+
+You should see the `broadcast` stream beside `outbound` and `inbound`. To test, make an email campaign to yourself (a tag with only your own customer record), approve it, and check the email shows your first name, the unsubscribe link and the business's address. Then press **Unsubscribe** in your mail app. The address should appear in the database's `app.email_unsubscribes`, and the next campaign should leave it out as "Unsubscribed from your emails".
+
+A campaign paused with "Email campaigns aren't set up on HandsFreeOS yet" means the worker has no `POSTMARK_BROADCAST_STREAM`. Set it, then press **Resume** on the campaign.
 
 ### Where to look in Postmark
 
@@ -7745,6 +7772,16 @@ The push has its own switch, **A connection stops working** (`connections`), und
 Left out, with the reason shown: no mobile number, no agreement to texts (or said STOP), texted by the business in the last 14 days, waiting on a reply or with an open card on Home, or booked in the next 30 days. The same checks run again just before each text goes. If texting stops working for the business, the campaign pauses itself. Replies land in the inbox like any other text, where the AI teammate answers if it's on. Whoever made the campaign gets a push when the texts are ready to read.
 
 Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `campaigns.draft` and `campaigns.send`. Needs `20261004001300_campaigns.sql`. See "Apply new migrations".
+
+**Email campaigns** (**Send as: Email** on the new campaign form): one email to everyone picked, instead of a text each. It goes to anyone with an email address who hasn't unsubscribed, bounced or complained. Nobody has to agree first, because that is the CAN-SPAM rule for a business emailing its own customers. People sent another campaign email in the last 14 days are left out too.
+
+- The AI writes one subject and body from the goal (and the offer, if any). The owner changes it on the review screen. `{first_name}` becomes each person's first name ("there" when it isn't known), and nothing else changes per person.
+- Every email ends with why they get it, an unsubscribe link (`/u/…`, a page with one button, because mail scanners open links) and the business's address. It also carries the `List-Unsubscribe` and `List-Unsubscribe-Post` headers, so mail apps show their own **Unsubscribe** button.
+- An email campaign can't be made until the business has an address: the one in Settings → Payments, or failing that the "at our place" address on a calendar.
+- Unsubscribing stops that business's campaign email only. Visit confirmations, receipts and one-to-one replies still reach them. Unsubscribes are kept in `app.email_unsubscribes`, by address. Nobody at the business can add or remove one.
+- The same pace, open hours, quiet hours, **Pause**, **Resume** and **Stop** as texts. It pauses itself, saying why, if Postmark has no Broadcasts stream (`POSTMARK_BROADCAST_STREAM`, "Postmark Part L"), if the business's address is gone, or if the business can't send email.
+
+Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 
 **About an offer**: a campaign can be about one of the business's offers (Knowledge → Offers, live or upcoming). Picking one fills in the goal if it's empty, and the AI writes each text from the offer's own words and says when it ends. An archived offer can't be picked.
 

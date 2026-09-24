@@ -16,6 +16,7 @@ import {
   type messages,
 } from '@hfos/db/schema';
 import { renderEmailHtml } from '../email/render';
+import { oneClickUrl, unsubscribeToken } from '../email/unsubscribe';
 import { emailDomainLapsedEmail, emailDomainVerifiedEmail } from '../emails/templates';
 import { sendThroughMailbox } from '../mailbox/send';
 import {
@@ -92,6 +93,13 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
       contentType: media.contentType,
       content: await ctx.store.download(media.bucket, media.objectPath),
     });
+  // A campaign email: the mail app's own unsubscribe button (RFC 8058), on the broadcast stream.
+  const unsubscribe = m.campaignRecipientId
+    ? oneClickUrl(
+        ctx.unsubscribeLinks,
+        unsubscribeToken(ctx.unsubscribeLinks, m.campaignRecipientId),
+      )
+    : null;
   try {
     const sent = await ctx.email.transport.send({
       from: { address: from.address, name: from.displayName },
@@ -110,6 +118,15 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
         workspaceId: scope.workspaceId,
         organizationId: scope.organizationId,
       },
+      ...(unsubscribe
+        ? {
+            bulk: true,
+            headers: [
+              { name: 'List-Unsubscribe', value: `<${unsubscribe}>` },
+              { name: 'List-Unsubscribe-Post', value: 'List-Unsubscribe=One-Click' },
+            ],
+          }
+        : {}),
     });
     await update({
       providerMessageId: sent.providerMessageId,

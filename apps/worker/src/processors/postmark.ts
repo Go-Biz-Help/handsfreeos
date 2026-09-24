@@ -1,9 +1,11 @@
 import {
   emailReceive,
   emailSuppressionRecord,
+  emailUnsubscribeRecord,
   executeCommand,
   messageUpdateStatus,
 } from '@hfos/core/server';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import type { DeliveryContext, DeliveryProcessor } from '../deliveries';
 import {
   headerOf,
@@ -141,6 +143,9 @@ export const onEmailEvent: DeliveryProcessor = async (ctx) => {
     Email?: string;
     Inactive?: boolean;
     ID?: number;
+    Recipient?: string;
+    SuppressSending?: boolean;
+    SuppressionReason?: string;
   };
   if (!scope || !p.MessageID) return 'ignored';
   const update = (input: Record<string, unknown>) =>
@@ -190,6 +195,33 @@ export const onEmailEvent: DeliveryProcessor = async (ctx) => {
         errorMessage: 'the customer marked it as spam',
       });
       await suppress('spam_complaint', output.messageId);
+      return;
+    }
+    case 'SubscriptionChange': {
+      // Someone unsubscribed through Postmark's own link on the broadcast stream: the same as ours. Bounces and
+      // complaints come as their own events above.
+      if (!p.SuppressSending || p.SuppressionReason !== 'ManualSuppression' || !p.Recipient)
+        return 'ignored';
+      const [sent] = await asWorker(ctx.db, scope, (tx) =>
+        rows<{ campaign_id: string | null }>(
+          tx,
+          sql`select r.campaign_id from app.messages m
+              join app.campaign_recipients r on r.id = m.campaign_recipient_id
+              where m.workspace_id = ${scope.workspaceId} and m.provider_message_id = ${p.MessageID}`,
+        ),
+      );
+      await executeCommand(
+        ctx.db,
+        emailUnsubscribeRecord,
+        {
+          workspaceId: scope.workspaceId,
+          address: p.Recipient.trim().toLowerCase(),
+          campaignId: sent?.campaign_id ?? null,
+          source: 'postmark',
+        },
+        systemActor(scope),
+        workerMeta(),
+      );
       return;
     }
     default:

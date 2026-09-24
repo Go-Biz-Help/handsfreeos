@@ -943,7 +943,23 @@ export function scriptedCampaign(message: string): Record<string, unknown> {
   };
 }
 
+/** An email campaign's one email: the goal as the subject, and a short body greeting {first_name}. */
+export function scriptedEmailCampaign(message: string): Record<string, unknown> {
+  const goal = unquote(quotedBlock(message, 'campaign_goal') ?? '').trim();
+  if (!goal || /\bskip\b/i.test(goal)) return { subject: null, body: null };
+  const ends = /^Ends: (.+)$/m.exec(quotedBlock(message, 'offer') ?? '')?.[1];
+  const line = goal.replace(/[.!]+$/, '');
+  return {
+    subject: line.slice(0, 80),
+    body: `Hi {first_name},\n\n${line}.${ends ? ` It ends ${ends}.` : ''}\n\nJust reply to this email to book.`,
+  };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write the one email for the campaign above, or nulls if it can’t be written\.$/,
+    json: (message) => scriptedEmailCampaign(message),
+  },
   {
     when: /Write this customer’s text for the campaign above, or null if it doesn’t fit them\.$/,
     json: (message) => scriptedCampaign(message),

@@ -5,11 +5,15 @@
  *
  * Making it picks its people and writes down who's left out and why; the worker then drafts each text
  * (`campaign.created`) and, once approved, sends them a few an hour (`campaign.approved`, `campaign.resumed`).
+ *
+ * An email campaign is one email: the worker drafts its subject and body once, and a person changes it with
+ * `campaign.update_email`. It needs the business's postal address, which every email shows (CAN-SPAM).
  */
 import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { campaignRecipients, campaigns } from '@hfos/db/schema';
 import { campaignAudience } from '../campaigns/audience';
+import { businessPostalAddress } from '../campaigns/postal-address';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -22,6 +26,9 @@ import {
   CampaignSetPaceInput,
   CampaignStateOutput,
   CampaignUpdateDraftInput,
+  CampaignUpdateEmailInput,
+  EmailUnsubscribeRecordInput,
+  EmailUnsubscribeRecordOutput,
   type CampaignStatus,
 } from '../schemas/campaign';
 
@@ -60,7 +67,7 @@ async function lockCampaign(tx: Tx, ws: string, id: string): Promise<CampaignRow
 export const campaignCreate = defineCommand({
   name: 'campaign.create',
   description:
-    'Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal. Nothing is sent until someone approves the drafts.',
+    'Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, or one email to them all. Nothing is sent until someone approves the drafts.',
   risk: 2,
   input: CampaignCreateInput,
   output: CampaignCreateOutput,
@@ -77,13 +84,22 @@ export const campaignCreate = defineCommand({
       );
       if (!offer) throw HfosError.notFound('That offer isn’t running any more.');
     }
-    const people = await campaignAudience(ctx.tx, ws, input.audience, new Date());
+    const email = input.channel === 'email';
+    if (email && !(await businessPostalAddress(ctx.tx, ws)))
+      throw HfosError.rule(
+        'no_postal_address',
+        409,
+        'Add your business address in Settings → Payments first. Every campaign email has to show it.',
+      );
+    const people = await campaignAudience(ctx.tx, ws, input.audience, new Date(), input.channel);
     const recipients = people.filter((p) => p.skipReason === null).length;
     if (recipients === 0)
       throw HfosError.conflict(
-        people.length
-          ? 'Everyone it picks is left out: no texting consent, texted lately, mid-conversation or booked.'
-          : 'Nobody has those tags or stages.',
+        !people.length
+          ? 'Nobody has those tags or stages.'
+          : email
+            ? 'Everyone it picks is left out: no email, unsubscribed, bounced or emailed lately.'
+            : 'Everyone it picks is left out: no texting consent, texted lately, mid-conversation or booked.',
         'campaign_empty',
       );
     const [c] = await ctx.tx
@@ -95,6 +111,7 @@ export const campaignCreate = defineCommand({
         audience: { tagIds: input.audience.tagIds, stageIds: input.audience.stageIds },
         perHour: input.perHour,
         offerId: input.offerId,
+        channel: input.channel,
         createdBy: me,
       })
       .returning({ id: campaigns.id });
@@ -117,8 +134,8 @@ export const campaignCreate = defineCommand({
       type: 'campaign.created',
       entityType: 'campaign',
       entityId: c.id,
-      payload: { campaignId: c.id, recipients, skipped },
-      after: { name: input.name, recipients, skipped },
+      payload: { campaignId: c.id, recipients, skipped, channel: input.channel },
+      after: { name: input.name, channel: input.channel, recipients, skipped },
     });
     return { campaignId: c.id, recipients, skipped };
   },
@@ -132,6 +149,7 @@ async function openRecipient(tx: Tx, ws: string, recipientId: string) {
       status: campaignRecipients.status,
       campaignId: campaignRecipients.campaignId,
       campaignStatus: campaigns.status,
+      channel: campaigns.channel,
     })
     .from(campaignRecipients)
     .innerJoin(campaigns, eq(campaigns.id, campaignRecipients.campaignId))
@@ -156,6 +174,11 @@ export const campaignUpdateDraft = defineCommand({
     requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;
     const r = await openRecipient(ctx.tx, ws, input.recipientId);
+    if (r.channel === 'email')
+      throw HfosError.conflict(
+        'An email campaign sends one email to everyone. Change that instead.',
+        'campaign_channel',
+      );
     if (r.status !== 'ready' && r.status !== 'drafting')
       throw HfosError.conflict(
         'That person isn’t getting a text in this campaign.',
@@ -172,6 +195,38 @@ export const campaignUpdateDraft = defineCommand({
       payload: { campaignId: r.campaignId, recipientId: r.id, _broadcast: false },
     });
     return { recipientId: r.id, status: 'ready' as const };
+  },
+});
+
+export const campaignUpdateEmail = defineCommand({
+  name: 'campaign.update_email',
+  description:
+    'Change the one email an email campaign sends (its subject and words), before it’s approved. {first_name} becomes each person’s first name.',
+  risk: 1,
+  input: CampaignUpdateEmailInput,
+  output: CampaignStateOutput,
+  permission: 'workflows.manage',
+  scope: inWorkspace,
+  emits: ['campaign.email_edited'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const c = await lockCampaign(ctx.tx, ws, input.campaignId);
+    if (c.channel !== 'email')
+      throw HfosError.conflict('This campaign sends texts, not an email.', 'campaign_channel');
+    if (c.status !== 'review' && c.status !== 'drafting') throw wrongState(c.status, 'changed');
+    await ctx.tx
+      .update(campaigns)
+      .set({ emailSubject: input.subject, emailBody: input.body, emailEdited: true })
+      .where(eq(campaigns.id, c.id));
+    await ctx.emit({
+      type: 'campaign.email_edited',
+      entityType: 'campaign',
+      entityId: c.id,
+      payload: { campaignId: c.id, _broadcast: false },
+      after: { name: c.name, subject: input.subject },
+    });
+    return { campaignId: c.id, status: c.status as CampaignStatus };
   },
 });
 
@@ -218,6 +273,8 @@ export const campaignApprove = defineCommand({
     const c = await lockCampaign(ctx.tx, ws, input.campaignId);
     if (c.status === 'sending') return { campaignId: c.id, status: 'sending' as const };
     if (c.status !== 'review') throw wrongState(c.status, 'approved');
+    if (c.channel === 'email' && !(c.emailSubject?.trim() && c.emailBody?.trim()))
+      throw HfosError.conflict('Write the email first.', 'campaign_no_email');
     const approved = await ctx.tx
       .update(campaignRecipients)
       .set({ status: 'approved' })
@@ -235,7 +292,7 @@ export const campaignApprove = defineCommand({
       entityType: 'campaign',
       entityId: c.id,
       payload: { campaignId: c.id, approved: approved.length },
-      after: { name: c.name, approved: approved.length, perHour: c.perHour },
+      after: { name: c.name, approved: approved.length, perHour: c.perHour, channel: c.channel },
     });
     return { campaignId: c.id, status: 'sending' as const };
   },
@@ -267,7 +324,11 @@ function stateCommand(o: {
       if (!o.from.includes(c.status as CampaignStatus)) throw wrongState(c.status, o.what);
       await ctx.tx
         .update(campaigns)
-        .set({ status: o.to, ...(o.to === 'cancelled' ? { finishedAt: new Date() } : {}) })
+        .set({
+          status: o.to,
+          pausedReason: null,
+          ...(o.to === 'cancelled' ? { finishedAt: new Date() } : {}),
+        })
         .where(eq(campaigns.id, c.id));
       if (o.to === 'cancelled')
         await ctx.tx
@@ -343,19 +404,53 @@ export const campaignSetPace = defineCommand({
       entityId: c.id,
       payload: { campaignId: c.id, perHour: input.perHour },
       before: { perHour: c.perHour },
-      after: { name: c.name, perHour: input.perHour },
+      after: { name: c.name, perHour: input.perHour, channel: c.channel },
     });
     return { campaignId: c.id, status: c.status as CampaignStatus };
+  },
+});
+
+export const emailUnsubscribeRecord = defineCommand({
+  name: 'email_unsubscribe.record',
+  description:
+    'Worker: someone unsubscribed from this business’s campaign email. No campaign emails them again; their other email (confirmations, receipts, replies) still goes.',
+  risk: 1,
+  input: EmailUnsubscribeRecordInput,
+  output: EmailUnsubscribeRecordOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['email.unsubscribed'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [made] = await rows<{ id: string }>(
+      ctx.tx,
+      sql`insert into app.email_unsubscribes (workspace_id, address, campaign_id, source)
+          values (${ws}, ${input.address}, ${input.campaignId}, ${input.source})
+          on conflict (workspace_id, address) do nothing
+          returning id`,
+    );
+    if (!made) return { created: false };
+    await ctx.emit({
+      type: 'email.unsubscribed',
+      entityType: 'email_unsubscribe',
+      entityId: made.id,
+      payload: { campaignId: input.campaignId, source: input.source },
+      after: { address: input.address, source: input.source },
+    });
+    return { created: true };
   },
 });
 
 export const campaignCommands = [
   campaignCreate,
   campaignUpdateDraft,
+  campaignUpdateEmail,
   campaignRemoveRecipient,
   campaignApprove,
   campaignPause,
   campaignResume,
   campaignCancel,
   campaignSetPace,
+  emailUnsubscribeRecord,
 ] as const;
