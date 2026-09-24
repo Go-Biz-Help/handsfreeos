@@ -396,11 +396,22 @@ export async function workspaceManagers(
   );
 }
 
+/**
+ * The provider id a queued message may carry without having gone: a retry (message.retry) names the attempt
+ * that failed. Any other provider id means this send already happened, and a repeated event must not send it
+ * twice.
+ */
+export function retryReplaces(ctx: HandlerContext): string | null {
+  const p = ctx.event.payload as { replacesProviderMessageId?: string | null };
+  return p.replacesProviderMessageId ?? null;
+}
+
 /** Hands a queued text to the carrier; the status callbacks take it from there. */
 export const onMessageQueued: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const [m] = await ctx.tx.select().from(messages).where(eq(messages.id, ctx.event.entityId!));
-  if (!m || m.direction !== 'outbound' || m.providerMessageId) return;
+  if (!m || m.direction !== 'outbound') return;
+  if (m.providerMessageId && m.providerMessageId !== retryReplaces(ctx)) return;
   if (m.status !== 'queued' && m.status !== 'sending') return;
   if (m.channel === 'email') {
     await sendQueuedEmail(ctx, m);
@@ -526,6 +537,7 @@ export const onMessageQueued: EventHandler = async (ctx) => {
       workspaceId: scope.workspaceId,
       messageId: m.id,
       providerMessageId: sent.sid,
+      ...(m.providerMessageId ? { replacesProviderMessageId: m.providerMessageId } : {}),
       status: TEXT_STATUS[sent.status] ?? 'sending',
       // Without RCS the way is known now; RCS first learns it from the callbacks.
       ...(rcsFirst ? {} : { transport: pictures.length > 0 ? 'mms' : 'sms' }),

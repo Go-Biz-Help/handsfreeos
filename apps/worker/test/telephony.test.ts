@@ -5,6 +5,7 @@ import {
   conversationSnooze,
   createTokenVerifier,
   executeCommand,
+  messageRetry,
   messageSend,
   organizationCreate,
   personCreate,
@@ -559,6 +560,72 @@ describe('texting', () => {
     const [m] = await admin().select().from(messages).where(eq(messages.id, sentMessageId));
     expect(m?.status).toBe('delivered');
     expect(m?.deliveredAt).toBeInstanceOf(Date);
+  });
+
+  it('sends a text the carrier could not deliver again when it is retried, as a new attempt', async () => {
+    const body = 'Your estimate is ready to look over.';
+    const { output } = await executeCommand(
+      api(),
+      messageSend,
+      { workspaceId, personId: mikeId, body },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    const sends = () => s.telephony.sent.filter((x) => x.to === MIKE && x.body === body);
+    const load = async () =>
+      (await admin().select().from(messages).where(eq(messages.id, output.messageId)))[0]!;
+    const first = sends()[0]!;
+    const base = { AccountSid: accountSid, From: businessNumber, To: MIKE };
+    await postTwilio(STATUS, { ...base, MessageSid: first.sid, MessageStatus: 'sent' });
+    await postTwilio(STATUS, {
+      ...base,
+      MessageSid: first.sid,
+      MessageStatus: 'undelivered',
+      ErrorCode: '30003',
+    });
+    await drain();
+    const failed = await load();
+    expect(failed).toMatchObject({ status: 'undelivered', providerMessageId: first.sid });
+    expect(failed.sentAt).toBeInstanceOf(Date);
+
+    // The carrier took the first attempt, so its provider id is still on the message. It goes again anyway.
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: output.messageId },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    expect(sends()).toHaveLength(2);
+    const second = sends()[1]!;
+    expect(second.sid).not.toBe(first.sid);
+    expect(await load()).toMatchObject({
+      status: 'sending',
+      providerMessageId: second.sid,
+      errorCode: null,
+      sentAt: null,
+      deliveredAt: null,
+    });
+
+    // The carrier's reports on the new attempt find it.
+    await postTwilio(STATUS, { ...base, MessageSid: second.sid, MessageStatus: 'delivered' });
+    await drain();
+    const delivered = await load();
+    expect(delivered.status).toBe('delivered');
+    expect(delivered.deliveredAt).toBeInstanceOf(Date);
+
+    // The retry's event arriving a second time sends nothing more.
+    await rows(
+      admin(),
+      sql`update app.outbox set status = 'pending', next_attempt_at = now()
+          where event_id in (select id from app.events where entity_id = ${output.messageId}
+            and event_type = 'message.queued' and payload->>'retry' = 'true')`,
+    );
+    await drain();
+    expect(sends()).toHaveLength(2);
+    expect((await load()).status).toBe('delivered');
   });
 
   it('refuses unsigned, mis-signed and unknown-account webhooks without storing them', async () => {

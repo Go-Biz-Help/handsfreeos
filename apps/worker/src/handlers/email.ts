@@ -42,7 +42,15 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
     executeCommand(
       ctx.db,
       messageUpdateStatus,
-      { workspaceId: scope.workspaceId, messageId: m.id, ...input },
+      {
+        workspaceId: scope.workspaceId,
+        messageId: m.id,
+        // A retry's send takes the place of the provider id the failed attempt left (message.retry).
+        ...(input.providerMessageId && m.providerMessageId
+          ? { replacesProviderMessageId: m.providerMessageId }
+          : {}),
+        ...input,
+      },
       systemActor(scope),
       metaOf(ctx),
     );

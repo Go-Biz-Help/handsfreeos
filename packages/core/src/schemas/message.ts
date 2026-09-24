@@ -189,6 +189,11 @@ export const MessageUpdateStatusInput = z
     transport: textTransport.optional(),
     /** A rich text's content template at the carrier, recorded with its provider id when it is sent (0103). */
     contentSid: z.string().trim().min(2).max(64).optional(),
+    /**
+     * A retry's send (message.retry): the provider id of the attempt that failed. The new provider id takes its
+     * place, and that attempt's times, template and way it went are forgotten with it.
+     */
+    replacesProviderMessageId: z.string().trim().min(2).max(200).optional(),
   })
   .refine((v) => !!v.messageId || !!v.providerMessageId, {
     path: ['messageId'],
