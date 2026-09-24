@@ -1,3 +1,4 @@
+import { formAnswersCsv } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import * as Sharing from 'expo-sharing';
 import QRCode from 'qrcode';
@@ -170,7 +171,7 @@ function mockApi() {
     const answer = answers[path];
     if (answer === undefined) return { data: {} };
     if (answer === null) throw new Error('No signal. Try again when you’re back online.');
-    return { data: answer };
+    return { data: typeof answer === 'function' ? (answer as () => unknown)() : answer };
   });
 }
 
@@ -389,6 +390,84 @@ describe('deleting an answer sheet', () => {
     expect(await screen.findByText('What needs doing?')).toBeTruthy();
     expect(screen.queryByTestId('form-answer-delete')).toBeNull();
     (useQuery as jest.Mock).mockReturnValue({ data: [], isLoading: false, isFetching: false });
+  });
+});
+
+describe('exporting the answers', () => {
+  const sheetRow = (id: string, over: Record<string, unknown> = {}) => ({
+    responseId: id,
+    personName: 'Maria Lopez',
+    source: 'link',
+    completedAt: '2026-09-17T15:02:00.000Z',
+    scorePercent: null,
+    passed: null,
+    answers: { q_aaaaaaaa: 'AC repair', q_bbbbbbbb: 'The upstairs unit rattles, badly.' },
+    ...over,
+  });
+  const columns = [
+    { questionId: 'q_aaaaaaaa', title: 'What needs doing?' },
+    { questionId: 'q_bbbbbbbb', title: 'Anything else?' },
+  ];
+
+  it('asks for every page, makes one spreadsheet and hands it to the share sheet', async () => {
+    const pages = [
+      { formName: 'Get a quote', columns, rows: [sheetRow(MARIA_SHEET)], nextCursor: 'p2' },
+      {
+        formName: 'Get a quote',
+        columns,
+        rows: [sheetRow(ANON_SHEET, { personName: null, source: 'qr', answers: {} })],
+        nextCursor: null,
+      },
+    ];
+    let asked = 0;
+    answers['/v1/queries/form.response_export'] = () => pages[asked++];
+    const shared = Sharing.shareAsync as jest.Mock;
+    shared.mockClear();
+
+    await show(<FormPage />);
+    await fireEvent.press(await screen.findByTestId('form-answers-export'));
+    await waitFor(() => expect(shared).toHaveBeenCalled());
+
+    const exports = post.mock.calls.filter((c) => c[0] === '/v1/queries/form.response_export');
+    expect(exports.map((c) => c[1].body)).toEqual([
+      { workspaceId: LONE_STAR, formId: QUOTE, limit: 500 },
+      { workspaceId: LONE_STAR, formId: QUOTE, limit: 500, cursor: 'p2' },
+    ]);
+    const [uri, options] = shared.mock.calls[0] as [string, Record<string, string>];
+    expect(uri).toMatch(/^file:\/\/\/cache\/quote-answers-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(options).toEqual({
+      mimeType: 'text/csv',
+      UTI: 'public.comma-separated-values-text',
+      dialogTitle: FORM_WORDS.exportTitle,
+    });
+    expect(savedFiles.get(uri)).toBe(
+      formAnswersCsv({ columns, rows: [...pages[0]!.rows, ...pages[1]!.rows] }, TZ),
+    );
+  });
+
+  it('says it needs signal when there is none', async () => {
+    answers['/v1/queries/form.response_export'] = null;
+    await show(<FormPage />);
+    await fireEvent.press(await screen.findByTestId('form-answers-export'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('No signal. Try again when you’re back online.'),
+    );
+  });
+
+  it('isn’t offered to somebody who can’t look after forms', async () => {
+    (useQuery as jest.Mock).mockImplementation((sql: string) =>
+      sql.includes('workspace_access')
+        ? { data: [{ role: 'member', permissions: null }], isLoading: false, isFetching: false }
+        : { data: [], isLoading: false, isFetching: false },
+    );
+    await show(<FormPage />);
+    expect(await screen.findByText('Maria Lopez')).toBeTruthy();
+    expect(screen.queryByTestId('form-answers-export')).toBeNull();
+    (useQuery as jest.Mock).mockImplementation(() => ({
+      data: [],
+      isLoading: false,
+      isFetching: false,
+    }));
   });
 });
 

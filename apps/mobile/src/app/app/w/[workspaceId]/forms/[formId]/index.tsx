@@ -1,4 +1,4 @@
-import { FORM_MODE_LABELS } from '@hfos/core';
+import { FORM_MODE_LABELS, holds } from '@hfos/core';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Share, View } from 'react-native';
@@ -9,6 +9,7 @@ import {
   CloudOff,
   CloudUpload,
   Download,
+  FileText,
   Link2,
   UserRound,
 } from '@/components/icons';
@@ -21,10 +22,12 @@ import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { EXPORT_MOST, exportFormAnswers } from '@/forms/export-answers';
 import { saveQrImage } from '@/forms/qr-image';
 import { fetchFormLink, useAnswersOnThisPhone, useFormAnswers } from '@/forms/use-answers';
 import { usePhoneForm } from '@/forms/use-forms';
 import { FORM_WORDS, responseLine } from '@/forms/words';
+import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 
 /**
@@ -46,6 +49,9 @@ export default function FormPage() {
   const [link, setLink] = React.useState<string | null>(null);
   const [linking, setLinking] = React.useState(false);
   const [savingQr, setSavingQr] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  // Taking every answer away in a file is looking after the form (forms.manage), as the server holds it.
+  const canExport = holds(useGrants(), 'forms.manage');
 
   // Coming back from filling one in, or from an answer sheet, asks again: somebody may have answered meanwhile.
   const { reload } = answers;
@@ -84,6 +90,23 @@ export default function FormPage() {
       toast.error(error instanceof Error ? error.message : 'That didn’t work.');
     }
     setLinking(false);
+  };
+
+  /** Every answer sheet as a spreadsheet, handed to the share sheet: see `exportFormAnswers`. */
+  const exportAnswers = async () => {
+    setExporting(true);
+    try {
+      const done = await exportFormAnswers({
+        workspaceId: business.id,
+        formId: form.id,
+        slug: form.slug,
+        timeZone: business.timezone,
+      });
+      if (done.capped) toast.show(FORM_WORDS.exportCapped(EXPORT_MOST));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'That didn’t work.');
+    }
+    setExporting(false);
   };
 
   /** The QR code as a picture, for a flyer, a truck door or the counter: see `saveQrImage`. */
@@ -167,6 +190,17 @@ export default function FormPage() {
           ) : null}
           {answers.error ? (
             <Text className="px-1 text-[13px] text-text-3">{answers.error}</Text>
+          ) : null}
+          {canExport ? (
+            <Button
+              variant="secondary"
+              icon={FileText}
+              loading={exporting}
+              onPress={() => void exportAnswers()}
+              testID="form-answers-export"
+            >
+              {online ? FORM_WORDS.export : FORM_WORDS.exportNeedsSignalButton}
+            </Button>
           ) : null}
         </>
       ) : answers.loading ? (

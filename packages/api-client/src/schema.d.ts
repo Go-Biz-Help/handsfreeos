@@ -8577,6 +8577,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/form.response_export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every finished answer sheet on a form with each answer in words, newest first and a page at a time, for a spreadsheet.
+         * @description Requires forms.manage.
+         */
+        post: operations["query_form_response_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/form.response_get": {
         parameters: {
             query?: never;
@@ -31649,6 +31669,59 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                             version: number | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_form_response_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** Format: uuid */
+                    formId: string;
+                    /** @default 200 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        columns: {
+                            questionId: string;
+                            title: string;
+                        }[];
+                        formName: string;
+                        nextCursor: string | null;
+                        rows: {
+                            answers: {
+                                [key: string]: string;
+                            };
+                            /** Format: date-time */
+                            completedAt: string;
+                            passed: boolean | null;
+                            personName: string | null;
+                            /** Format: uuid */
+                            responseId: string;
+                            scorePercent: number | null;
+                            /** @enum {string} */
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
                         }[];
                     };
                 };

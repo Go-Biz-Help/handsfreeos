@@ -26,6 +26,12 @@ export const FORM_WORDS = {
   deleteConfirm: 'Delete',
   keep: 'Keep them',
   deleted: 'Deleted.',
+  export: 'Export to CSV',
+  exportNeedsSignalButton: 'Export to CSV — needs signal',
+  exportTitle: 'Export the answers',
+  exportNeedsSignal: 'Exporting needs a signal. Try again when you’re back online.',
+  exportCapped: (most: number) =>
+    `The newest ${most.toLocaleString('en-US')} answer sheets are in the file.`,
 } as const;
 
 /** Where an answer sheet came from, as the line under it says it. */

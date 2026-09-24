@@ -5571,6 +5571,32 @@
         "required": ["workspaceId"]
       }
     },
+    "form.response_export": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "formId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "limit": {
+            "default": 200,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 400
+          }
+        },
+        "required": ["workspaceId", "formId"]
+      }
+    },
     "form.response_get": {
       "input": {
         "type": "object",

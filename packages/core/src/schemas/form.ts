@@ -355,6 +355,35 @@ export const FormResponseGetOutput = z.object({
   calculations: z.record(z.string(), z.number()),
 });
 
+/** A page of finished answer sheets for a spreadsheet: every answer in words, under stable columns. */
+export const FormResponseExportInput = z.object({
+  workspaceId: uuid,
+  formId: uuid,
+  limit: z.int().min(1).max(500).default(200),
+  cursor,
+});
+export const FormResponseExportOutput = z.object({
+  formName: z.string(),
+  /**
+   * One per question: the live version's in order, then any older question somebody answered, with the words it
+   * last had. The same on every page, so the pages stack into one sheet.
+   */
+  columns: z.array(z.object({ questionId: z.string(), title: z.string() })),
+  rows: z.array(
+    z.object({
+      responseId: uuid,
+      personName: z.string().nullable(),
+      source: FormSourceValue,
+      completedAt: isoDateTime,
+      scorePercent: z.int().nullable(),
+      passed: z.boolean().nullable(),
+      /** By question id; a question they weren't asked is left out. */
+      answers: z.record(z.string(), z.string()),
+    }),
+  ),
+  nextCursor: z.string().nullable(),
+});
+
 /** One question's answers, summed up the way that question deserves. */
 export const FormQuestionSummaryOut = z.object({
   questionId: z.string(),

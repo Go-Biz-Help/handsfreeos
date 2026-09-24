@@ -721,6 +721,7 @@ describe('registry', () => {
       'form.response_list',
       'form.response_get',
       'form.results',
+      'form.response_export',
       'campaign.list',
       'campaign.get',
       'campaign.preview_audience',

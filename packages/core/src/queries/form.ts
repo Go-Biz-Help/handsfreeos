@@ -23,6 +23,8 @@ import {
   FormGetOutput,
   FormListInput,
   FormListOutput,
+  FormResponseExportInput,
+  FormResponseExportOutput,
   FormResponseGetInput,
   FormResponseGetOutput,
   FormResponseListInput,
@@ -372,6 +374,112 @@ export const formResponseGet = defineQuery({
   },
 });
 
+/** An answer in words for a spreadsheet cell: the choices picked, else the words kept for it, else its plain value. */
+function answerCell(a: {
+  value: unknown;
+  text_value: string | null;
+  choice_labels: string[] | null;
+}): string {
+  if (a.choice_labels?.length) return a.choice_labels.join(', ');
+  if (a.text_value) return a.text_value;
+  if (typeof a.value === 'boolean') return a.value ? 'Yes' : 'No';
+  if (typeof a.value === 'number' || typeof a.value === 'string') return String(a.value);
+  return '';
+}
+
+export const formResponseExport = defineQuery({
+  name: 'form.response_export',
+  description:
+    'Every finished answer sheet on a form with each answer in words, newest first and a page at a time, for a spreadsheet.',
+  input: FormResponseExportInput,
+  output: FormResponseExportOutput,
+  // Everyone may read one answer sheet at a time; taking all of them away in a file is looking after the form.
+  permission: 'forms.manage',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const ws = input.workspaceId;
+    const { row, definition } = await loadForm(ctx.tx, ws, input.formId);
+    const live = row.activeVersionId
+      ? await ctx.tx.select().from(formVersions).where(eq(formVersions.id, row.activeVersionId))
+      : [];
+    // The questions people are answering now, in order, as the results page reads them.
+    const asking = live[0] ? parseStoredForm(live[0].definition) : definition;
+    const columns = allQuestions(asking)
+      .filter((q) => q.type !== 'content')
+      .map((q) => ({ questionId: q.id, title: q.title }));
+    // Then anything an older version asked that somebody answered, worded as it last was, in the order it first came.
+    const answered = await rows<{ question_id: string; title: string }>(
+      ctx.tx,
+      sql`select question_id, (array_agg(question_title order by answered_at desc))[1] as title
+          from app.form_answers where form_id = ${row.id}
+          group by question_id order by min(answered_at), question_id`,
+    );
+    const known = new Set(columns.map((c) => c.questionId));
+    for (const a of answered)
+      if (!known.has(a.question_id)) columns.push({ questionId: a.question_id, title: a.title });
+
+    const after = decodeCursor(input.cursor);
+    const list = await rows<{
+      id: string;
+      source: string;
+      person_name: string | null;
+      score_percent: number | null;
+      passed: boolean | null;
+      answered_at: string | Date;
+      sort: string;
+    }>(
+      ctx.tx,
+      sql`select r.id, r.source, r.score_percent, r.passed,
+            btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) as person_name,
+            coalesce(r.completed_at, r.started_at) as answered_at,
+            to_char(coalesce(r.completed_at, r.started_at), 'YYYY-MM-DD"T"HH24:MI:SS.USOF') as sort
+          from app.form_responses r
+          left join app.people p on p.id = r.person_id
+          where r.form_id = ${row.id} and r.workspace_id = ${ws} and r.status = 'completed'
+            and (${after?.sort ?? null}::text is null or
+              (coalesce(r.completed_at, r.started_at), r.id) <
+                (${after?.sort ?? null}::timestamptz, ${after?.id ?? null}::uuid))
+          order by coalesce(r.completed_at, r.started_at) desc, r.id desc
+          limit ${input.limit + 1}`,
+    );
+    const paged = page(list, input.limit, (r) => ({ sort: r.sort, id: r.id }));
+    const ids = paged.items.map((r) => r.id);
+    const cells = ids.length
+      ? await rows<{
+          response_id: string;
+          question_id: string;
+          value: unknown;
+          text_value: string | null;
+          choice_labels: string[] | null;
+        }>(
+          ctx.tx,
+          sql`select response_id, question_id, value, text_value, choice_labels
+              from app.form_answers where response_id = any(${uuidArray(ids)})`,
+        )
+      : [];
+    const byResponse = new Map<string, Record<string, string>>();
+    for (const c of cells) {
+      const sheet = byResponse.get(c.response_id) ?? {};
+      sheet[c.question_id] = answerCell(c);
+      byResponse.set(c.response_id, sheet);
+    }
+    return {
+      formName: row.name,
+      columns,
+      rows: paged.items.map((r) => ({
+        responseId: r.id,
+        personName: r.person_name?.trim() || null,
+        source: r.source as 'link',
+        completedAt: new Date(r.answered_at).toISOString(),
+        scorePercent: r.score_percent === null ? null : Number(r.score_percent),
+        passed: r.passed,
+        answers: byResponse.get(r.id) ?? {},
+      })),
+      nextCursor: paged.nextCursor,
+    };
+  },
+});
+
 export const formResults = defineQuery({
   name: 'form.results',
   description:
@@ -483,4 +591,5 @@ export const formQueries = [
   formResponseList,
   formResponseGet,
   formResults,
+  formResponseExport,
 ] as const;

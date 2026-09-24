@@ -11,6 +11,7 @@ import {
   formGet,
   formList,
   formPublish,
+  formResponseExport,
   formResponseGet,
   formResponseList,
   formResponseStart,
@@ -19,7 +20,7 @@ import {
   formSaveDraft,
   organizationCreate,
 } from '../src/server';
-import { admin, ask, run, runSystem, type Scope } from './calendar-helpers';
+import { admin, ask, expectHfos, run, runSystem, type Scope } from './calendar-helpers';
 
 let owner: TestUser;
 let wsId: string;
@@ -207,6 +208,60 @@ describe('the responses', () => {
     const again = got.answers.find((a) => a.questionId === qid('again'))!;
     expect(again.labels.length).toBe(1);
     expect(again.questionTitle).toBe('Would you use us again?');
+  });
+});
+
+describe('the spreadsheet', () => {
+  it('has a column per question in the form’s order, and every answer in words, newest first', async () => {
+    const out = await ask(formResponseExport, { workspaceId: wsId, formId }, owner);
+    expect(out.formName).toBe('Job feedback');
+    expect(out.columns.map((c) => c.title)).toEqual([
+      'Your name',
+      'Your phone',
+      'How did we do?',
+      'Would you use us again?',
+      'Anything else?',
+    ]);
+    expect(out.rows).toHaveLength(3);
+    expect(out.nextCursor).toBeNull();
+    const newest = out.rows[0]!;
+    expect(newest.source).toBe('link');
+    expect(newest.completedAt).toBeTruthy();
+    expect(newest.answers[qid('notes')]).toBe('Late, but fixed it');
+    expect(newest.answers[qid('again')]).toBe('Maybe');
+    expect(newest.answers[qid('rating')]).toBe('2');
+    expect(out.rows.map((r) => r.answers[qid('rating')])).toEqual(['2', '4', '5']);
+  });
+
+  it('comes a page at a time, and the pages don’t overlap', async () => {
+    const first = await ask(formResponseExport, { workspaceId: wsId, formId, limit: 2 }, owner);
+    expect(first.rows).toHaveLength(2);
+    expect(first.nextCursor).toBeTruthy();
+    const second = await ask(
+      formResponseExport,
+      { workspaceId: wsId, formId, limit: 2, cursor: first.nextCursor },
+      owner,
+    );
+    expect(second.rows).toHaveLength(1);
+    expect(second.nextCursor).toBeNull();
+    expect(second.columns).toEqual(first.columns);
+    const ids = [...first.rows, ...second.rows].map((r) => r.responseId);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('is for whoever looks after forms, not everyone who can read an answer', async () => {
+    const member = await createTestUser('form-query-member', { fullName: 'Mike Member' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${wsId}, ${member.id}, 'member')`,
+    );
+    const { items } = await ask(formResponseList, { workspaceId: wsId, formId }, member);
+    expect(items).toHaveLength(3);
+    await expectHfos(
+      () => ask(formResponseExport, { workspaceId: wsId, formId }, member),
+      'forbidden',
+      403,
+    );
   });
 });
 

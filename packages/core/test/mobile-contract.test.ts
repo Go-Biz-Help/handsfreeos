@@ -52,8 +52,8 @@ const ONLINE_COMMANDS = [
   'form_response.delete',
 ];
 /**
- * What the phone asks the server for that its own copy can't answer: among them a form's answers, and the business's
- * link name and own domain for the form's link and QR code.
+ * What the phone asks the server for that its own copy can't answer: among them a form's answers (one at a time, and
+ * all of them for a spreadsheet), and the business's link name and own domain for the form's link and QR code.
  */
 const QUERIES = [
   'account.me',
@@ -63,6 +63,7 @@ const QUERIES = [
   'calendar.availability',
   'crm.find_matches',
   'email.compose_options',
+  'form.response_export',
   'form.response_get',
   'form.response_list',
 ];
