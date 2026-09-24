@@ -38,15 +38,16 @@ export default async function BookingSiteSettingsPage({
       {/* The domain itself is set up under Workspace, because it carries the forms and the payment
           links as well. Said here anyway: this is the page people are on when they first want it. */}
       <p className="mt-4 max-w-[820px] text-[13px] text-text-2">
-        Want this on your own address, like{' '}
-        <span className="font-mono">booking.yourbusiness.com</span>? Set it up under{' '}
+        Want your own web address, like <span className="font-mono">go.yourbusiness.com</span>? One
+        domain carries your forms, payment links, estimates and invoices, and this booking page too.
+        Set it up under{' '}
         <Link
           href={`/app/w/${workspaceId}/settings/workspace`}
           className="text-accent-text underline underline-offset-2"
         >
           Settings → Workspace
         </Link>
-        . The same domain carries your forms, estimates and payment links too.
+        .
       </p>
     </>
   );
