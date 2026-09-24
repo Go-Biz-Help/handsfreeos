@@ -550,7 +550,10 @@ export type HandleIcon =
  * A lesson from correcting the AI that goes against what it already knows: its card asks which is right, and its
  * main button puts the new words in place of the old ones (teammate_lesson.apply with `replace`).
  */
-export function lessonKnowsOtherwise(item: Pick<Item, 'kind' | 'reasons'>): boolean {
+export function lessonKnowsOtherwise(item: {
+  readonly kind: Item['kind'];
+  readonly reasons: readonly { readonly code: string }[];
+}): boolean {
   return item.kind === 'ai_corrections' && item.reasons.some((r) => r.code === 'knows_otherwise');
 }
 
