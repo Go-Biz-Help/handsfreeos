@@ -120,10 +120,10 @@ export function BrandedDomainCard({
         Your own web address
       </h2>
       <p className="mt-1 max-w-[560px] text-[13px] text-text-2">
-        One domain you own — like <span className="font-mono">booking.yourbusiness.com</span> —
-        carries everything a customer sees: your booking page and calendar links, your forms, your
-        estimates and invoices, your payment links, and your website chat. Set it once here and they
-        all move together.
+        One domain you own — like <span className="font-mono">go.yourbusiness.com</span> — carries
+        everything a customer sees: your forms, your payment links, your estimates and invoices,
+        your website chat, and your booking page if you use one. Set it once here and they all move
+        together.
       </p>
 
       {!domain ? (
@@ -143,7 +143,7 @@ export function BrandedDomainCard({
               id="branded-domain"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              placeholder="booking.yourbusiness.com"
+              placeholder="go.yourbusiness.com"
               className="w-[320px]"
               disabled={!canManage}
               data-testid="branded-domain-input"
@@ -173,8 +173,9 @@ export function BrandedDomainCard({
 
           {serving ? (
             <p className="mt-1.5 max-w-[560px] text-[13px] text-text-2">
-              New links are handed out on this address. Anything you sent before still opens on
-              handsfreeos.com, so nothing you have already texted or printed has stopped working.
+              Your forms, payment links, estimates, invoices and booking page now go out on this
+              address. Anything you sent before still opens on handsfreeos.com, so nothing you have
+              already texted or printed has stopped working.
             </p>
           ) : null}
 
@@ -200,7 +201,8 @@ export function BrandedDomainCard({
               <p className="text-[13px] text-text-2">
                 {domain.records.length === 1 ? 'Add this record' : 'Add these records'} where your
                 domain lives — your registrar, or whoever runs your website. DNS often takes a few
-                hours, and we keep checking.
+                hours, and we keep checking. Until then, your forms, payment links and booking page
+                stay on handsfreeos.com.
               </p>
               <div className="mt-2 flex flex-col gap-2">
                 {domain.records.map((r) => (
@@ -264,14 +266,14 @@ export function BrandedDomainCard({
                 onClick={() => {
                   if (
                     !confirm(
-                      `Take your pages off ${domain.domain}? Every link, QR code and flyer already carrying that address stops working straight away, and we can’t undo the printed ones.`,
+                      `Stop using ${domain.domain}? Your forms, payment links, estimates, invoices and booking page go back to handsfreeos.com. Every link, QR code and flyer already carrying ${domain.domain} stops working straight away, and we can’t undo the printed ones.`,
                     )
                   )
                     return;
                   void call(
                     '/v1/commands/branded_domain.remove',
                     { workspaceId, domainId: domain.id },
-                    'Removed. Your links are back on handsfreeos.com.',
+                    'Removed. Your forms, payment links and booking page are back on handsfreeos.com.',
                   );
                 }}
                 data-testid="branded-domain-remove"

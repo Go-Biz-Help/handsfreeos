@@ -1,7 +1,8 @@
 /**
  * A business's own domain on the pages its customers see (M17).
  *
- * `booking.lonestarhvac.com`, rather than `handsfreeos.com/book/lonestar`. Shaped like the email sending
+ * `go.lonestarhvac.com` rather than `handsfreeos.com`, for the forms, payment links, estimates, invoices and
+ * booking page alike. Shaped like the email sending
  * domain's schemas on purpose (`schemas/email.ts`): same statuses, same "here are the records to add", same
  * split between what a person may write and what only the worker may.
  */
@@ -31,7 +32,7 @@ export const hostname = z
   .max(253)
   .regex(
     /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
-    'Enter a domain like booking.yourbusiness.com — no https:// and no slash.',
+    'Enter a domain like go.yourbusiness.com — no https:// and no slash.',
   );
 
 export const BrandedDomainAddInput = z.object({ workspaceId: uuid, domain: hostname });

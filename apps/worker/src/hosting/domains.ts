@@ -167,7 +167,7 @@ export const removeBrandedDomain: JobHandler = async (ctx) => {
  * Daily: look at every branded domain that is working, in case it has stopped.
  *
  * A business moves its DNS, lets a domain lapse, or has a registrar do something on its behalf, and the
- * first anybody would otherwise know is a customer saying the booking link is broken. Every domain, not only
+ * first anybody would otherwise know is a customer saying their link is broken. Every domain, not only
  * the unsettled ones — a settled one has `next_check_at` null precisely because the close watch is over.
  */
 export const sweepBrandedDomains: JobHandler = async (ctx) => {

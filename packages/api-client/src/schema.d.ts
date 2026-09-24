@@ -707,7 +707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.
+         * Put the business’s forms, payment links, estimates, invoices and booking page on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.
          * @description Risk level 2. Requires channels.manage. Emits branded_domain.added.
          */
         post: operations["command_branded_domain_add"];
@@ -727,7 +727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.
+         * Take the business off its own domain. Its forms, payment links, estimates, invoices and booking page go back to handsfreeos.com at once; links already sent on the old domain stop working.
          * @description Risk level 3. Requires channels.manage. Emits branded_domain.removed.
          */
         post: operations["command_branded_domain_remove"];

@@ -40646,7 +40646,7 @@
     "/v1/commands/branded_domain.add": {
       "post": {
         "operationId": "command_branded_domain_add",
-        "summary": "Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.",
+        "summary": "Put the business’s forms, payment links, estimates, invoices and booking page on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.",
         "tags": [
           "commands"
         ],
@@ -40785,7 +40785,7 @@
     "/v1/commands/branded_domain.remove": {
       "post": {
         "operationId": "command_branded_domain_remove",
-        "summary": "Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.",
+        "summary": "Take the business off its own domain. Its forms, payment links, estimates, invoices and booking page go back to handsfreeos.com at once; links already sent on the old domain stop working.",
         "tags": [
           "commands"
         ],

@@ -62,7 +62,7 @@ describe('a branded domain name', () => {
 
   it('says something a person can act on rather than naming a regular expression', () => {
     const issue = ok('https://booking.lonestarhvac.com').error?.issues[0]?.message ?? '';
-    expect(issue).toMatch(/booking\.yourbusiness\.com/);
+    expect(issue).toMatch(/go\.yourbusiness\.com/);
     expect(issue).toMatch(/no https/i);
   });
 

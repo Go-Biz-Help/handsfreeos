@@ -119,7 +119,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'rcs_sender.disconnect_requested': onRcsDisconnectRequested,
     // Owners and admins hear when RCS goes live, and when it stops.
     'rcs_sender.state_changed': onRcsStateChanged,
-    // A business's own domain on its booking page, forms and links (hosting/domains.ts).
+    // A business's own domain on its forms, payment links and booking page (hosting/domains.ts).
     'branded_domain.added': onBrandedDomainAdded,
     'branded_domain.check_requested': onBrandedDomainCheckRequested,
     'branded_domain.removed': onBrandedDomainRemoved,

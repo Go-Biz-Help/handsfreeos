@@ -8368,17 +8368,21 @@ webhook for our own account`. A wrong secret is fixed by setting the right one; 
 ## A business's own web address
 
 A business that has been going a while asks for this before it asks for anything else on this page: it wants
-the booking link on the van to read `booking.lonestarhvac.com`, not `app.handsfreeos.com/book/lonestar`.
-**Branded domains** (M17) is that — one domain per business, on the pages its customers see and nowhere else.
+the links it sends and prints to read `go.lonestarhvac.com`, not `app.handsfreeos.com`. **Branded domains**
+(M17) is that — one domain per business, on the pages its customers see and nowhere else.
 
-What moves onto it: the booking page, the public forms, estimate, invoice and plan links, change-or-cancel
-and waitlist links, the deposit-hold page, the chat window and the snippet that loads it. What deliberately
+What moves onto it: the public forms, payment links, estimate, invoice and plan links, the booking page,
+change-or-cancel and waitlist links, the deposit-hold page, the chat window and the snippet that loads it.
+**It is not a booking feature.** A business that takes no online bookings can have one: adding a domain names
+the business's pages if nothing has yet (the same switched-off booking site row publishing a form makes), and
+the domain keeps serving whether booking is on or off. With booking off, `/` on the domain says online booking
+is off; everything else on it works as usual. What deliberately
 does not: the app, sign-in, and the admin side. A HandsFreeOS sign-in form served on a customer's domain is a
 phishing page built out of a feature, so `brandedRoute` (`packages/core/src/hosting/branded-paths.ts`)
 redirects every one of those back to `app.handsfreeos.com`, and the names we reserve as booking-site slugs
 (`app`, `admin`, `api`, `sign-in`, …) are reserved one level down too.
 
-**Only the origin moves.** `https://booking.lonestarhvac.com/i/AbCd1234EfGh567890` and
+**Only the origin moves.** `https://go.lonestarhvac.com/i/AbCd1234EfGh567890` and
 `https://app.handsfreeos.com/i/AbCd1234EfGh567890` are the same link, signed by the same key. So a text sent
 last month keeps working after a domain is added, and keeps working after one is removed.
 
@@ -8419,11 +8423,11 @@ them.
 ### What a business does
 
 **Settings** → **Workspace** → **Your own web address**. It sits beside the business's name rather than
-under Calendars, because one domain carries the forms, the estimates and the payment links as well as the
-booking page; the booking site page links across to it.
+under Calendars, because one domain carries the forms, the payment links, the estimates and the invoices as
+well as the booking page; the booking site page links across to it. No booking page has to be set up first.
 
 1. They type the domain they want, usually a subdomain of one they already own
-   (`booking.lonestarhvac.com`). Ours is refused: nobody can point `handsfreeos.com` at themselves.
+   (`go.lonestarhvac.com`). Ours is refused: nobody can point `handsfreeos.com` at themselves.
 2. HandsFreeOS claims the name with Vercel and shows the records to add wherever their domain lives —
    their registrar, or whoever runs their website: a **CNAME**, which is what actually points the name
    here, and, when Vercel asks for one, a **TXT** that proves they hold the name before a certificate is
@@ -8449,9 +8453,10 @@ browser warning, which is worse than serving nothing — so `certificate_ready` 
 status, and `private.site_for_domain` answers for neither until both are true. If you ever change this,
 change nothing else first.
 
-**Removing one is loud.** `branded_domain.remove` is risk 3, and the confirmation says why: every QR code,
-flyer and text already carrying that address stops working the moment it runs, and nobody can un-print the
-flyers. Links go back to `app.handsfreeos.com` at once.
+**Removing one is loud.** `branded_domain.remove` is risk 3, and the confirmation says why: the forms,
+payment links, estimates, invoices and booking page go back to `app.handsfreeos.com` at once, and every QR
+code, flyer and text already carrying that address stops working the moment it runs. Nobody can un-print the
+flyers.
 
 ### Check one by hand
 
@@ -8461,14 +8466,14 @@ psql "$DATABASE_URL" -c "select domain, status, certificate_ready, last_error, n
                          from app.branded_domains order by created_at desc limit 20;"
 
 # The records really there, from outside our network.
-dig +short TXT   _handsfreeos.booking.lonestarhvac.com
-dig +short CNAME booking.lonestarhvac.com
+dig +short TXT   _handsfreeos.go.lonestarhvac.com
+dig +short CNAME go.lonestarhvac.com
 
 # Which business a host is, exactly as the web app asks.
-curl -s https://hooks.handsfreeos.com/public/site-for-host/booking.lonestarhvac.com
+curl -s https://hooks.handsfreeos.com/public/site-for-host/go.lonestarhvac.com
 
-# End to end: the booking page on their own name.
-curl -sI https://booking.lonestarhvac.com/ | head -3
+# End to end: their pages on their own name. `/` answers even with booking switched off.
+curl -sI https://go.lonestarhvac.com/ | head -3
 ```
 
 The last one is the check that matters, because it is the only one a customer would do.

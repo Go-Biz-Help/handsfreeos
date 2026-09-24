@@ -72,7 +72,7 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
   },
   branded_domain: {
     label: 'Your own web address',
-    what: 'the domain the customer-facing links are served on — the booking page and calendar links, forms, estimates, invoices, payment links and website chat — instead of handsfreeos.com',
+    what: 'the domain the customer-facing links are served on — forms, payment links, estimates, invoices, website chat, and the booking page and calendar links — instead of handsfreeos.com',
     // The same screen as the business itself: one domain covers every public link, so it does not belong
     // under any one of them.
     path: '/settings/workspace',
@@ -80,10 +80,10 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
     canChange: [],
     handovers: [
       {
-        what: 'use your own domain for your booking page, forms and payment links',
+        what: 'use your own domain for your forms, payment links, estimates, invoices and booking page',
         why: 'the records go in with whoever you bought the domain from, which only you can sign in to',
         steps: [
-          'Open Settings → Workspace and type the address you want, like booking.yourbusiness.com.',
+          'Open Settings → Workspace and type the address you want, like go.yourbusiness.com.',
           'Give it a moment — it works out what your DNS needs and shows the records on that same card.',
           'Put the records it shows you — usually one, sometimes two — in with whoever you bought the domain from (GoDaddy, Namecheap, wherever it is).',
           'DNS often takes a few hours. The card says when it is working, and it keeps checking on its own.',
