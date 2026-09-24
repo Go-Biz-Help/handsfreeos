@@ -19,6 +19,13 @@ export const FORM_WORDS = {
   linkWhat:
     'Hold up the QR code for them to scan, or send the link: text it, email it, put it in a signature. Save the QR code for a flyer, a truck door or the counter. They keep working if you rename the form.',
   saveQr: 'Save the QR code',
+  delete: 'Delete these answers',
+  deleteTitle: 'Delete these answers?',
+  deleteWhat:
+    'For a test of your own, or a customer asking to be forgotten. Every answer on this sheet goes, for good. Anything the form already did, like adding them as a customer, stays.',
+  deleteConfirm: 'Delete',
+  keep: 'Keep them',
+  deleted: 'Deleted.',
 } as const;
 
 /** Where an answer sheet came from, as the line under it says it. */

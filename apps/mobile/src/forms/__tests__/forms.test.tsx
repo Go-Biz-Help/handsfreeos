@@ -327,6 +327,63 @@ describe('a form’s answers', () => {
   });
 });
 
+describe('deleting an answer sheet', () => {
+  beforeEach(() => {
+    mockParams = { workspaceId: LONE_STAR, formId: QUOTE, responseId: MARIA_SHEET };
+    answers['/v1/commands/form_response.delete'] = { responseId: MARIA_SHEET, deleted: true };
+  });
+
+  it('asks a second time, then deletes it and goes back to the form', async () => {
+    await show(<FormAnswer />);
+    await fireEvent.press(await screen.findByTestId('form-answer-delete'));
+    expect(screen.getByText(FORM_WORDS.deleteTitle)).toBeTruthy();
+    expect(
+      post.mock.calls.filter((c) => c[0] === '/v1/commands/form_response.delete'),
+    ).toHaveLength(0);
+
+    await fireEvent.press(screen.getByTestId('form-answer-delete-confirm'));
+    await waitFor(() => expect(router.back).toHaveBeenCalled());
+    expect(post).toHaveBeenCalledWith('/v1/commands/form_response.delete', {
+      body: { workspaceId: LONE_STAR, responseId: MARIA_SHEET },
+    });
+    expect(toast.show).toHaveBeenCalledWith(FORM_WORDS.deleted);
+  });
+
+  it('keeps it when they say keep them', async () => {
+    await show(<FormAnswer />);
+    await fireEvent.press(await screen.findByTestId('form-answer-delete'));
+    await fireEvent.press(screen.getByText(FORM_WORDS.keep));
+    expect(
+      post.mock.calls.filter((c) => c[0] === '/v1/commands/form_response.delete'),
+    ).toHaveLength(0);
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('says what went wrong and stays put when it can’t delete', async () => {
+    answers['/v1/commands/form_response.delete'] = null;
+    await show(<FormAnswer />);
+    await fireEvent.press(await screen.findByTestId('form-answer-delete'));
+    await fireEvent.press(screen.getByTestId('form-answer-delete-confirm'));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('No signal. Try again when you’re back online.'),
+    );
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('isn’t offered to somebody who can’t look after forms', async () => {
+    // Their own access row on the phone (me_v1): a member, who may read answers but not delete them.
+    (useQuery as jest.Mock).mockReturnValue({
+      data: [{ role: 'member', permissions: null }],
+      isLoading: false,
+      isFetching: false,
+    });
+    await show(<FormAnswer />);
+    expect(await screen.findByText('What needs doing?')).toBeTruthy();
+    expect(screen.queryByTestId('form-answer-delete')).toBeNull();
+    (useQuery as jest.Mock).mockReturnValue({ data: [], isLoading: false, isFetching: false });
+  });
+});
+
 describe('sharing a form', () => {
   it('shows the link first, then hands it to the share sheet', async () => {
     const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });

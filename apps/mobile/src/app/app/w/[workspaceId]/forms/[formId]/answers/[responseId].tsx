@@ -1,24 +1,30 @@
-import { useLocalSearchParams, router } from 'expo-router';
+import { holds } from '@hfos/core';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { CloudOff } from '@/components/icons';
+import { CloudOff, Trash } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
-import { useFormAnswer } from '@/forms/use-answers';
+import { toast } from '@/components/ui/toast';
+import { deleteFormAnswer, useFormAnswer } from '@/forms/use-answers';
 import { usePhoneForm } from '@/forms/use-forms';
 import { answerWords, FORM_WORDS, responseLine } from '@/forms/words';
+import { errorMessage } from '@/lib/api';
+import { useGrants } from '@/lib/grants';
 import { openWeb } from '@/lib/open-web';
 
 /**
  * What one person said on a form (M17): each question worded as it read when they answered it, who they are (a tap
  * opens them), and when. Live, as the list is; a file or a signature says to open it on the web, where it can be seen.
  *
- * Deleting an answer sheet stays on the web, with the rest of looking after a form.
+ * Whoever may look after forms (`forms.manage`, as on the web) can delete the sheet here, after saying so a second
+ * time: it can't be undone. It goes straight out, needs signal, and says so when there is none.
  */
 export default function FormAnswer() {
   const { business } = useBusiness();
@@ -26,6 +32,24 @@ export default function FormAnswer() {
   const form = usePhoneForm(String(formId));
   const { data, loading, error, reload } = useFormAnswer(business.id, String(responseId));
   const back = businessHref(business.id, `forms/${String(formId)}`);
+  const canDelete = holds(useGrants(), 'forms.manage');
+  const [asking, setAsking] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const remove = async () => {
+    setDeleting(true);
+    try {
+      await deleteFormAnswer(business.id, String(responseId));
+      setAsking(false);
+      toast.show(FORM_WORDS.deleted);
+      // Back to the form, whose list asks again when it comes into view, so the sheet is gone from it.
+      if (router.canGoBack()) router.back();
+      else router.replace(back);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+    setDeleting(false);
+  };
 
   return (
     <Screen
@@ -93,6 +117,17 @@ export default function FormAnswer() {
           >
             Open this form on the web
           </Button>
+
+          {canDelete ? (
+            <Button
+              variant="ghostDanger"
+              icon={Trash}
+              onPress={() => setAsking(true)}
+              testID="form-answer-delete"
+            >
+              {FORM_WORDS.delete}
+            </Button>
+          ) : null}
         </>
       ) : loading ? (
         <Card className="px-5 py-8">
@@ -109,6 +144,28 @@ export default function FormAnswer() {
           </Button>
         </Card>
       )}
+
+      <Sheet
+        open={asking}
+        onClose={() => setAsking(false)}
+        title={FORM_WORDS.deleteTitle}
+        description={FORM_WORDS.deleteWhat}
+        testID="form-answer-delete-sheet"
+      >
+        <View className="gap-2">
+          <Button
+            variant="danger"
+            loading={deleting}
+            onPress={() => void remove()}
+            testID="form-answer-delete-confirm"
+          >
+            {FORM_WORDS.deleteConfirm}
+          </Button>
+          <Button variant="ghost" onPress={() => setAsking(false)}>
+            {FORM_WORDS.keep}
+          </Button>
+        </View>
+      </Sheet>
     </Screen>
   );
 }
