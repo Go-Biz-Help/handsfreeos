@@ -34,6 +34,7 @@ export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
 export * from './campaign';
+export * from './contact-ai';
 export * from './maintenance';
 export * from './money';
 export * from './push';

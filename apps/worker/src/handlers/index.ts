@@ -2,6 +2,7 @@ import { onAccountDeletionRequested } from '../account/delete';
 import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
+import { onSweepStarted, withContactAi } from '../contact-ai/index';
 import { onChatReplySent } from '../chat/followup';
 import { onKnowledgeDocumentAdded } from '../knowledge/document';
 import { onKnowledgeScanRequested } from '../knowledge/scan';
@@ -259,6 +260,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // The agency's pushes (organization-level events): one install job per business (workflows/templates.ts).
     'workflow_template.pushed': onTemplatePushed,
     'knowledge_pack.pushed': onPackPushed,
+    // The AI's pass over the whole customer list: its job starts at once (contact-ai/sweep.ts).
+    'contact_ai.sweep_started': onSweepStarted,
   }),
 );
 
@@ -268,7 +271,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
 // The support desk's own events (M13) are added afterwards, outside all of that: they belong to no business,
 // so there is no teammate to wake, no workflow to start and nothing to put on anyone's Home.
 export const handlers: HandlerMap = {
-  ...withPush(withAttention(ownTeammateAndWorkflows)),
+  // withContactAi appends the AI's look at a customer's tags and details to what happened with them (contact-ai/).
+  ...withPush(withAttention(withContactAi(ownTeammateAndWorkflows))),
   ...supportHandlers,
   // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
   ...ideaHandlers,

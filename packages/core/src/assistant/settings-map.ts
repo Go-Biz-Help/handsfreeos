@@ -183,10 +183,13 @@ const AREAS: Record<SettingsArea, Omit<SettingsAreaInfo, 'area'>> = {
   },
   tags: {
     label: 'Tags',
-    what: 'the labels you put on customers and leads',
-    path: '/settings/workspace',
+    what: 'the labels you put on customers and leads, and the AI putting them on',
+    path: '/settings/tags',
     permission: 'tags.manage',
-    canChange: ['add, rename, recolour or delete a tag'],
+    canChange: [
+      'add, rename, recolour or delete a tag',
+      'have the AI go through every customer and put tags on, or stop it',
+    ],
     handovers: [],
   },
   texting: {

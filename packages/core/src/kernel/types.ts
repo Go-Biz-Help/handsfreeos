@@ -10,7 +10,7 @@ export type { OfflineClass } from '../mobile';
 export type RiskLevel = 0 | 1 | 2 | 3 | 4;
 /**
  * 'web' | 'api' | 'worker' | 'cli' | 'sms' | 'assistant' | 'booking_page' | 'workflow' | 'ai_employee' |
- * 'chat_widget' | 'mobile' | 'test' (one list, shared with the audit filter).
+ * 'chat_widget' | 'mobile' | 'contact_ai' | 'test' (one list, shared with the audit filter).
  */
 export type Channel = z.infer<typeof requestChannel>;
 
@@ -32,6 +32,16 @@ export interface ActionCenterVia {
   readonly itemKind: string;
 }
 /**
+ * The AI keeping a customer's tags and details up to date (0107): after something happened with them
+ * (`activity`), or on a pass over the whole list (`sweep`). Recorded as `payload._contactAi` on every event, beside
+ * channel `contact_ai` and the AI's reason on the audit row, so the log reads "HandsFreeOS AI" with its why.
+ */
+export interface ContactAiVia {
+  readonly trigger: 'activity' | 'sweep';
+  /** The pass, on a sweep. */
+  readonly sweepId: string | null;
+}
+/**
  * A non-human actor (the worker today; the assistant and AI employees later). Runs inside the worker's
  * tenant scope with the `service_actor` policies, so it is root within one workspace and nothing outside it.
  */
@@ -43,6 +53,8 @@ export interface SystemActor {
   readonly onBehalfOf?: string | null;
   /** The part of HandsFreeOS doing it (the Action Center), when it acts on its own. */
   readonly via?: ActionCenterVia | null;
+  /** The AI keeping customers' tags and details up to date, when it's the one acting. */
+  readonly contactAi?: ContactAiVia | null;
 }
 /**
  * A workflow step (M6). Runs exactly like the system (no permission check, `service_actor` bound to its

@@ -55,6 +55,10 @@ const Switches = z.object({
   handoffFollowUp: on(),
   /** An approval or AI draft turns urgent two hours before it expires, with a push. */
   approvalExpiry: on(),
+  /** The AI keeps each customer's tags right after a message, a call, a booking, a deal, a payment or a form. */
+  aiTags: on(),
+  /** …and fills in or corrects their name, email, number and address when they said so (0107). */
+  aiDetails: on(),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];
@@ -132,6 +136,21 @@ const Briefings = z.object({
     .default('18:00'),
 });
 
+/** Longest "how we tag" guide the AI reads. */
+export const CONTACT_AI_GUIDE_MAX = 2000;
+
+const ContactAi = z.object({
+  /**
+   * How the business tags customers, in its own words ("VIP: has spent over $2,000 with us"). The AI reads it
+   * whenever it looks at a customer's tags, on its own or on a pass over the whole list.
+   */
+  guide: z
+    .string()
+    .trim()
+    .max(CONTACT_AI_GUIDE_MAX, `Keep it under ${CONTACT_AI_GUIDE_MAX} characters.`)
+    .default(''),
+});
+
 const Pipeline = z.object({
   /**
    * Each open stage's role where the business chose one (`none`: never move a deal there). A stage left out
@@ -148,6 +167,7 @@ export const AutomationSettings = z
     maintenance: Maintenance.prefault({}),
     briefings: Briefings.prefault({}),
     pipeline: Pipeline.prefault({}),
+    contactAi: ContactAi.prefault({}),
   })
   .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
     error: 'Read the message and choose “Looks good, turn on” first.',

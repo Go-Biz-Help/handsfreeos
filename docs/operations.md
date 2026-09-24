@@ -7756,6 +7756,34 @@ Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `ca
 
 Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind and `campaigns.offer_id`). See "Apply new migrations".
 
+### Tags and contact details, kept up to date by the AI
+
+Two rows under **Pipeline and records**, and **Settings** → **Tags** for the whole list:
+
+| Row                                 | What it does                                                                                                                                                                                                                                                                                                                                                                                         | On to begin with |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Tag customers for you**           | Three minutes after a customer's message (either way), call transcript, visit booked, done or cancelled, deal opened, won or lost, quote answered, bill paid, plan started or form filled in, the AI reads everything the business knows about them and puts on the business's tags that fit, or takes off ones HandsFreeOS put on that no longer do. At most one look per customer every 30 minutes | Yes              |
+| **Keep contact details up to date** | In the same look, fills in or fixes their name, email, number and address when they said so ("my new email is…", "we moved to…")                                                                                                                                                                                                                                                                     | Yes              |
+
+What it will never do, whatever the AI answers (the rules are in code, `packages/core/src/contact-ai/rules.ts`, not only in the prompt):
+
+- **Make up a tag.** Only the business's own tags, matched by name, and on a pass only the ones it was given.
+- **Take off a tag a person put on.** It takes off only tags HandsFreeOS put on (itself, a workflow, the AI teammate).
+- **Write a detail nobody gave.** A new email, number, name or address must appear in what the customer or the team actually wrote or said: texts, emails, call transcripts, form answers, notes. Never a website chat whose visitor didn't prove who they are (a code, M18), never the AI teammate's own words.
+- **Lose what was on file.** A main email or number it replaces moves to the other emails or numbers, labelled **Previous**.
+
+**Adjust** holds **How you tag customers**: a few lines in the business's words ("VIP: has spent over $2,000 with us") the AI reads every time (`workspaces.settings.automations.contactAi.guide`).
+
+**Going through everyone you already have.** **Settings** → **Tags** → **Let the AI tag your customers** (owners and admins: `tags.manage`), or ask the Assistant ("tag everyone who asked about solar as Solar interest"). Say what to look for, which tags it may use (all of them by default), only the customers with one tag if you like, and whether it also fixes contact details. It goes through them in the background, 10 at a time, with its progress on the page and a **Stop**. When today's AI limit or the balance runs out it waits and carries on by itself an hour later. One pass runs at a time. A big list uses the AI for every customer, so it can take more than a day's allowance.
+
+**Workflows that start on tag changes** (**Tags change on a customer or lead**) start for every customer the AI tags. The Assistant's card says which ones before anyone agrees; check with the client before a pass over a big list.
+
+**Everything is written down twice.** Each change is a command like a person's (`record.set_tags` for each tag, `person.update` for details) with its event and audit row: the audit log shows **HandsFreeOS AI** (actor `system`, channel `contact_ai`, `_contactAi` on the event) with the AI's reason under **Reason**. And every look it takes, changed or not, is a row of `app.contact_ai_reviews`: what the AI said, what was done, and what was left alone and why. **Settings** → **Tags** shows the latest changes with their reasons; the Assistant's `ai_tagging_status` reads the same log. Passes are rows of `app.contact_ai_sweeps`; the worker's jobs are `contact_ai.review` and `contact_ai.sweep`. The AI's tokens count as `automations` in `app.ai_usage`, inside the daily limit.
+
+**The Assistant, when asked.** Beside the pass, the Assistant can list many customers at once with their tags (`list_customers`, also "without this tag"), put tags on or take them off up to 200 customers in one card (`tag_customers`, making a new tag on the way), and change, add or take off any detail of one customer, the business's own fields included (`update_customer`). Each waits for Confirm, runs as the person ("via Assistant"), and keeps the reason they gave on every audit row.
+
+Needs `20261007000100_the_ai_keeps_customers_tidy.sql`. See "Apply new migrations". Locally, `ASSISTANT_PROVIDER=scripted` makes the stand-in put on any listed tag a customer's history names, take off one they say they're "no longer" into, and take "my new email is …", "my new number is …" and "we moved to …" as details.
+
 ## Who can do what: roles and permissions
 
 Everyone in a business has a role: **Owner**, **Admin** or **Member**. Each role comes with a set of things it can

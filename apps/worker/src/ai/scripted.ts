@@ -897,7 +897,78 @@ export function scriptedCampaign(message: string): Record<string, unknown> {
   };
 }
 
+/**
+ * The AI's look at a customer's tags and details (contact-ai/): a listed tag their history or conversation names
+ * goes on (“Mentioned …”), one they say they're "no longer" into comes off, and, when it may change details, "my new
+ * email is …", "my new number is …" and "we moved to …" from anyone but an unverified website visitor or the AI
+ * teammate change those. Nothing else changes.
+ */
+export function scriptedContactAi(message: string): Record<string, unknown> {
+  const block = (tag: string) => unquote(quotedBlock(message, tag) ?? '');
+  const tags = block('tags_you_may_use')
+    .split('\n')
+    .map((l) => /^- (.+)$/.exec(l.trim())?.[1]?.trim())
+    .filter((t): t is string => !!t);
+  const customer = block('customer');
+  const has = new Set(
+    [
+      ...(/^Tags now: (.+)$/m.exec(customer)?.[1] ?? '').matchAll(
+        /(?:^|, )(.+?) \(put on by [^)]*\)/g,
+      ),
+    ].map((m) => m[1]!.trim().toLowerCase()),
+  );
+  const cameFrom = /^Came from: (.+)$/m.exec(customer)?.[1] ?? '';
+  const lines = block('conversation').split('\n');
+  const trusted = lines.filter(
+    (l) => !/from (?:a website visitor \(not verified\)|the AI teammate)\]/.test(l),
+  );
+  const evidence = [cameFrom, block('history'), block('notes'), ...lines].join('\n');
+  const addTags: { tag: string; reason: string }[] = [];
+  const removeTags: { tag: string; reason: string }[] = [];
+  for (const tag of tags) {
+    const off = new RegExp(
+      `no longer[^.!?\\n]{0,40}${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      'i',
+    );
+    if (off.test(evidence)) {
+      if (has.has(tag.toLowerCase()))
+        removeTags.push({ tag, reason: `Said they’re no longer into “${tag}”` });
+      continue;
+    }
+    if (!has.has(tag.toLowerCase()) && mentions(evidence, tag))
+      addTags.push({ tag, reason: `Mentioned “${tag}”` });
+  }
+  const details: { field: string; action: 'set'; value: string; reason: string }[] = [];
+  if (/You may change contact details/.test(message)) {
+    const said = trusted.join('\n');
+    const email = /my new email is ([^\s,;!]+@[^\s,;!]+?)[.,;!]?(?:\s|$)/i.exec(said)?.[1];
+    if (email)
+      details.push({ field: 'email', action: 'set', value: email, reason: 'Gave a new email' });
+    const phone = /my new (?:phone |cell )?number is (\+?[\d()\s.-]{7,}\d)/i.exec(said)?.[1];
+    if (phone)
+      details.push({
+        field: 'phone',
+        action: 'set',
+        value: phone.trim(),
+        reason: 'Gave a new number',
+      });
+    const street = /we moved to ([^.!?\n,]+)/i.exec(said)?.[1];
+    if (street)
+      details.push({
+        field: 'addressLine1',
+        action: 'set',
+        value: street.trim(),
+        reason: 'Said they moved',
+      });
+  }
+  return { addTags: addTags.slice(0, 10), removeTags: removeTags.slice(0, 10), details };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Say which of the listed tags this customer should gain or lose, and which of their contact details changed\.$/,
+    json: (message) => scriptedContactAi(message),
+  },
   {
     when: /Write this customer’s text for the campaign above, or null if it doesn’t fit them\.$/,
     json: (message) => scriptedCampaign(message),

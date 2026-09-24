@@ -1357,6 +1357,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contact_ai.cancel_sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the AI’s pass over the customer list. What it already changed stays, each change in the audit log.
+         * @description Risk level 1. Requires tags.manage. Emits contact_ai.sweep_cancelled.
+         */
+        post: operations["command_contact_ai_cancel_sweep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contact_ai.start_sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Have the AI go through every customer (or the ones with one tag) and put on or take off tags from what it knows about them: their details, conversations, calls, visits, deals and payments. Optionally it also fills in and corrects contact details. Each change is logged with its reason.
+         * @description Risk level 2. Requires tags.manage. Emits contact_ai.sweep_started.
+         */
+        post: operations["command_contact_ai_start_sweep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.archive": {
         parameters: {
             query?: never;
@@ -8177,6 +8217,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contact_ai.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Before a pass over the list: how many customers it would look at, the tags it may use, and the workflows that start when a customer’s tags change.
+         * @description Requires records.read.
+         */
+        post: operations["query_contact_ai_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contact_ai.reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The log of the AI’s looks at customers’ tags and details, newest first: what it put on, took off and changed, each with its reason, and what it left alone and why. For one customer, one pass, or everyone.
+         * @description Requires records.read.
+         */
+        post: operations["query_contact_ai_reviews"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contact_ai.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How the AI’s upkeep of customers’ tags and details is going: the pass over the list going now and the last few, whether it tags and fixes details on its own, and its last week.
+         * @description Requires records.read.
+         */
+        post: operations["query_contact_ai_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/conversation.get": {
         parameters: {
             query?: never;
@@ -12123,6 +12223,11 @@ export interface operations {
                             eveningAt?: string;
                         };
                         /** @default {} */
+                        contactAi?: {
+                            /** @default  */
+                            guide?: string;
+                        };
+                        /** @default {} */
                         intake?: {
                             /** @default null */
                             formId?: string | null;
@@ -12164,6 +12269,10 @@ export interface operations {
                         };
                         /** @default {} */
                         switches?: {
+                            /** @default true */
+                            aiDetails?: boolean;
+                            /** @default true */
+                            aiTags?: boolean;
                             /** @default true */
                             approvalExpiry?: boolean;
                             /** @default true */
@@ -12213,6 +12322,10 @@ export interface operations {
                                 /** @default 18:00 */
                                 eveningAt: string;
                             };
+                            contactAi: {
+                                /** @default  */
+                                guide: string;
+                            };
                             intake: {
                                 /** @default null */
                                 formId: string | null;
@@ -12250,6 +12363,10 @@ export interface operations {
                                 template: string;
                             };
                             switches: {
+                                /** @default true */
+                                aiDetails: boolean;
+                                /** @default true */
+                                aiTags: boolean;
                                 /** @default true */
                                 approvalExpiry: boolean;
                                 /** @default true */
@@ -13982,6 +14099,78 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_contact_ai_cancel_sweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sweepId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reviewed: number;
+                        /** Format: uuid */
+                        sweepId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contact_ai_start_sweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    fixDetails?: boolean;
+                    /** @default  */
+                    instructions?: string;
+                    /** @default null */
+                    onlyTagId?: string | null;
+                    /** @default [] */
+                    tagIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        sweepId: string;
+                        total: number;
                     };
                 };
             };
@@ -28977,7 +29166,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */
@@ -30218,6 +30407,228 @@ export interface operations {
                             website: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_contact_ai_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    onlyTagId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        customers: number;
+                        tags: {
+                            color: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        tagWorkflows: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contact_ai_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    /** @default false */
+                    changedOnly?: boolean;
+                    /** @default 20 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    sweepId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            addedTags: {
+                                name: string;
+                                reason: string;
+                            }[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            details: {
+                                field: string;
+                                from: string | null;
+                                reason: string;
+                                to: string | null;
+                            }[];
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            /** @enum {string} */
+                            outcome: "changed" | "unchanged" | "skipped" | "failed";
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            };
+                            removedTags: {
+                                name: string;
+                                reason: string;
+                            }[];
+                            skipped: {
+                                what: string;
+                                why: string;
+                            }[];
+                            sweepId: string | null;
+                            /** @enum {string} */
+                            trigger: "activity" | "sweep";
+                        }[];
+                        nextBefore: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_contact_ai_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lastWeek: {
+                            changed: number;
+                            reviewed: number;
+                        };
+                        recent: {
+                            changed: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detailsChanged: number;
+                            finishedAt: string | null;
+                            fixDetails: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            instructions: string;
+                            note: string | null;
+                            onlyTag: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reviewed: number;
+                            /** @enum {string} */
+                            status: "running" | "done" | "cancelled" | "failed";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            tagsAdded: number;
+                            tagsRemoved: number;
+                            total: number;
+                        }[];
+                        running: {
+                            changed: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detailsChanged: number;
+                            finishedAt: string | null;
+                            fixDetails: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            instructions: string;
+                            note: string | null;
+                            onlyTag: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reviewed: number;
+                            /** @enum {string} */
+                            status: "running" | "done" | "cancelled" | "failed";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            tagsAdded: number;
+                            tagsRemoved: number;
+                            total: number;
+                        } | null;
+                        switches: {
+                            details: boolean;
+                            tags: boolean;
+                        };
                     };
                 };
             };
@@ -35114,6 +35525,8 @@ export interface operations {
                     sort?: "name" | "recent";
                     /** Format: uuid */
                     tagId?: string;
+                    /** Format: uuid */
+                    withoutTagId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };

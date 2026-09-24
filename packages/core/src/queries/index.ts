@@ -1,6 +1,7 @@
 import type { QueryDef } from '../kernel/types';
 import { formQueries } from './form';
 import { campaignQueries } from './campaign';
+import { contactAiQueries } from './contact-ai';
 import { maintenanceForPerson } from './maintenance';
 import { reviewQueries } from './review';
 import { relationshipQueries } from './relationship';
@@ -273,6 +274,7 @@ export const queries: readonly QueryDef[] = [
   ...walletQueries,
   ...formQueries,
   ...campaignQueries,
+  ...contactAiQueries,
   ...templateQueries,
   ...reviewQueries,
   ...relationshipQueries,
@@ -326,6 +328,7 @@ export {
 
 export * from './form';
 export * from './campaign';
+export * from './contact-ai';
 export * from './maintenance';
 export * from './template';
 export * from './review';
