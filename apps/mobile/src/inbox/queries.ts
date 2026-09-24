@@ -55,12 +55,15 @@ export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL
 /** One conversation, archived or not: this is how an archived one is opened to be brought back. */
 export const CONVERSATION_SQL = `${CONVERSATION_BASE} AND c.id = ?`;
 
-/** A conversation's messages from the last 12 months on the phone, with who sent and approved them. */
+/**
+ * A conversation's messages from the last 12 months on the phone, with who sent and approved them, and for texts
+ * how each went, when an RCS one was read, what it carried and which button a reply came from (0103).
+ */
 export const MESSAGES_SQL = `
   SELECT m.id, m.conversation_id, m.channel, m.direction, m.status, m.from_address, m.to_addresses, m.cc_addresses,
     m.subject, m.body_text, m.media, m.error_code, m.error_message, m.sent_by, ${userName('su')} AS sent_by_name,
     m.sent_by_teammate_id, t.name AS teammate_name, m.approved_by, ${userName('ab')} AS approved_name,
-    m.client_id, m.occurred_at, m.delivered_at
+    m.client_id, m.occurred_at, m.delivered_at, m.transport, m.read_at, m.rich, m.button_reply
   FROM messages m
   LEFT JOIN users su ON su.id = m.sent_by
   LEFT JOIN ai_teammates t ON t.id = m.sent_by_teammate_id

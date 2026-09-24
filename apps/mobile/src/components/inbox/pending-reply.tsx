@@ -3,7 +3,14 @@ import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 import { Image, Pressable, View } from 'react-native';
 
-import { CircleAlert, Clock, LoaderCircle, Moon, RefreshCw } from '@/components/icons';
+import {
+  CircleAlert,
+  Clock,
+  LoaderCircle,
+  Moon,
+  RectangleEllipsis,
+  RefreshCw,
+} from '@/components/icons';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { refusalOf } from '@/changes/rules';
@@ -163,6 +170,13 @@ export function PendingReplyBubble({
           <Text selectable className="text-[15px] leading-[22px]">
             {reply.body}
           </Text>
+        </View>
+      ) : null}
+      {reply.extras ? (
+        // Its buttons, card or carousel (RCS, 0103): they show as the customer sees them once HandsFreeOS has it.
+        <View className="flex-row items-center gap-1 px-1" testID="pending-extras">
+          <Icon as={RectangleEllipsis} className="size-3.5 text-text-3" strokeWidth={1.75} />
+          <Text className="text-xs text-text-3">{reply.extras}</Text>
         </View>
       ) : null}
       <View className="flex-row flex-wrap items-center justify-end gap-x-[5px] gap-y-1 px-1">

@@ -1,4 +1,4 @@
-import type { ConversationShape } from '@hfos/core';
+import { richSummary, type ConversationShape } from '@hfos/core';
 
 import type { OutboxRow } from '@/changes/outbox';
 import { isStale } from '@/changes/rules';
@@ -26,6 +26,20 @@ export const stillStanding = (row: Pick<OutboxRow, 'state'>): boolean =>
   row.state !== 'sent' && row.state !== 'refused';
 
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+
+type RichParts = Parameters<typeof richSummary>[0];
+
+/** A text's buttons, card or carousel (RCS, 0103) in a few words — "3 buttons", "Card", "Carousel of 2" — from what the change sends. */
+function extrasOf(rich: unknown): string | null {
+  if (!rich || typeof rich !== 'object') return null;
+  const r = rich as { kind?: unknown; buttons?: unknown; cards?: unknown };
+  if (r.kind !== 'buttons' && r.kind !== 'card' && r.kind !== 'carousel') return null;
+  return richSummary({
+    kind: r.kind,
+    buttons: (Array.isArray(r.buttons) ? r.buttons : []) as RichParts['buttons'],
+    cards: (Array.isArray(r.cards) ? r.cards : []) as RichParts['cards'],
+  });
+}
 
 /**
  * A conversation as this phone's own changes leave it, in the order they were made: closed, snoozed, reopened,
@@ -127,6 +141,8 @@ export interface PendingReply {
   readonly subject: string | null;
   /** The photos it carries, by file id. */
   readonly fileIds: readonly string[];
+  /** What goes with the words, in a few words ("3 buttons"), for a text with buttons, a card or a carousel. */
+  readonly extras: string | null;
   readonly clientId: string | null;
   /** When a fresh reply stops going on its own ("sends by 10:42 AM"). */
   readonly goesBy: number;
@@ -199,6 +215,7 @@ export function pendingReplies(
       fileIds: Array.isArray(input.attachmentFileIds)
         ? input.attachmentFileIds.filter((id): id is string => typeof id === 'string')
         : [],
+      extras: channel === 'sms' ? extrasOf(input.rich) : null,
       clientId,
       goesBy: Date.parse(row.made_at) + FRESH_MS,
     });

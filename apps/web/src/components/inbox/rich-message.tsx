@@ -4,7 +4,13 @@
  * Here they only show — the business reads what its customer could tap — and under a rich text that went to a
  * phone without RCS, the plain text that phone got instead is one click away.
  */
-import { buttonReplyLine, transportWord, type ButtonReplyOut, type RichTextOut } from '@hfos/core';
+import {
+  buttonReplyLine,
+  THREAD_WORDS,
+  transportWord,
+  type ButtonReplyOut,
+  type RichTextOut,
+} from '@hfos/core';
 import {
   ExternalLink,
   Hash,
@@ -176,7 +182,7 @@ export function PlainFace({ smsText }: { smsText: string }) {
       <summary className="cursor-pointer list-none">
         <span className="inline-flex items-center gap-1">
           <MessageSquareText className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Went as a text, with the choices listed
+          {THREAD_WORDS.wentAsText}
         </span>
       </summary>
       <div className="mt-1 whitespace-pre-wrap rounded-[10px] bg-card-2 px-3 py-2 text-left text-[12.5px] text-text-2 [overflow-wrap:anywhere]">

@@ -7,6 +7,7 @@
 import { CHAT_VISITOR_NAME } from '../chat/limits';
 import { formatPhone } from '../crm/phone';
 import { CANCELLED_TEXT, scheduledForOf } from '../messaging/quiet-hours';
+import type { ButtonReply, RichText } from '@hfos/db/schema';
 import type { ConversationHandoffReason } from '../schemas/ai-team';
 import {
   DEFAULT_TELEPHONY_SETTINGS,
@@ -300,6 +301,11 @@ export interface MessageThreadRow {
   readonly client_id: Text;
   readonly occurred_at: string;
   readonly delivered_at: Text;
+  /** Texts (0103): which way it went, when an RCS message was read, what it carried and which button a reply came from. */
+  readonly transport?: Text;
+  readonly read_at?: Text;
+  readonly rich?: Text;
+  readonly button_reply?: Text;
 }
 
 /** A synced call, with who placed it and who answered it. */
@@ -379,6 +385,31 @@ export function hiddenCall(
 
 const HANDOFF_PREFIX = 'handoff:';
 
+/** How a text went (0103), from the copy: sms, mms or rcs, or null before the carrier said. */
+function transportOf(value: Text | undefined): ThreadItemFacts['transport'] {
+  return value === 'sms' || value === 'mms' || value === 'rcs' ? value : null;
+}
+
+/** What a rich text carried (0103), from the JSON the copy holds; null for an ordinary text. */
+function richOf(value: Text | undefined): ThreadItemFacts['rich'] {
+  const r = json<Partial<RichText> | null>(value, null);
+  if (!r || (r.kind !== 'buttons' && r.kind !== 'card' && r.kind !== 'carousel')) return null;
+  return {
+    kind: r.kind,
+    title: r.title ?? null,
+    buttons: Array.isArray(r.buttons) ? r.buttons : [],
+    cards: Array.isArray(r.cards) ? r.cards : [],
+    smsText: r.smsText ?? '',
+  };
+}
+
+/** Which button a customer's reply came from (0103), from the JSON the copy holds. */
+function replyOf(value: Text | undefined): ThreadItemFacts['buttonReply'] {
+  const b = json<Partial<ButtonReply> | null>(value, null);
+  if (!b || !b.title || (b.type !== 'reply' && b.type !== 'link' && b.type !== 'call')) return null;
+  return { type: b.type, title: b.title, via: b.via === 'text' ? 'text' : 'tap' };
+}
+
 export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
   const channel =
     r.channel === 'sms' || r.channel === 'email' || r.channel === 'chat' ? r.channel : null;
@@ -398,6 +429,10 @@ export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
     errorCode: r.error_code,
     errorMessage: r.error_message,
     deliveredAt: iso(r.delivered_at),
+    transport: transportOf(r.transport),
+    readAt: iso(r.read_at),
+    rich: richOf(r.rich),
+    buttonReply: replyOf(r.button_reply),
     durationSeconds: null,
     isVoicemail: false,
     hasRecording: false,

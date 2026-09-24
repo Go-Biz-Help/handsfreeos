@@ -10,6 +10,7 @@ import {
   heldLine,
   keywordLine,
   mediaOnlyLine,
+  readLine,
   senderOf,
   textFailureHelp,
   THREAD_WORDS,
@@ -40,6 +41,7 @@ import { Text } from '@/components/ui/text';
 import { signedUrl, useSignedUrl } from '@/inbox/storage';
 import { cn } from '@/lib/utils';
 
+import { ButtonReplyNote, PlainFace, RichContent, TransportTag } from './rich-message';
 import { VoicemailPlayer } from './voicemail-player';
 
 /** "Today", "Yesterday", "Monday": between days in the thread. */
@@ -127,14 +129,25 @@ function Bubble({
   );
 }
 
-/** Where a reply the business sent is: Sending…, Sent, Delivered (or Seen in a chat), Read, Not delivered. */
-function Delivery({ status, chat }: { status: string; chat: boolean }) {
+/**
+ * Where a reply the business sent is: Sending…, Sent, Delivered (or Seen in a chat), Read, Not delivered. An RCS
+ * message the customer opened says when, since a phone has nowhere to hover for it: "Read Tue 2:14 PM".
+ */
+function Delivery({
+  status,
+  chat,
+  readAt,
+}: {
+  status: string;
+  chat: boolean;
+  readAt?: string | null;
+}) {
   const state = deliveryStateOf(status);
-  const words = deliveryWords(state, chat);
+  const words = state === 'read' ? readLine(readAt) : deliveryWords(state, chat);
   if (!words) return null;
   if (arrived(state))
     return (
-      <View className="flex-row items-center gap-[3px]">
+      <View className="flex-row items-center gap-[3px]" testID="delivery">
         <Text className="text-xs text-text-3">·</Text>
         <Icon as={CheckCheck} className="size-3.5 text-success-text" strokeWidth={1.75} />
         <Text className="text-xs text-success-text">{words}</Text>
@@ -205,13 +218,27 @@ export function MessageBubble({
         className={cn('mt-2 max-w-[84%] gap-[3px]', out ? 'items-end self-end' : 'self-start')}
         testID={`message-${item.id}`}
       >
-        {item.media.map((m) => (
-          <MediaThumb key={m.objectPath} media={m} />
-        ))}
-        {item.body ? (
-          <Bubble out={out} tone={failed ? 'failed' : 'plain'}>
-            {item.body}
-          </Bubble>
+        {/* A rich text's buttons, card or carousel go with its words (RCS, 0103). */}
+        <RichContent
+          item={item}
+          bubble={
+            <>
+              {item.media.map((m) => (
+                <MediaThumb key={m.objectPath} media={m} />
+              ))}
+              {item.body ? (
+                <Bubble out={out} tone={failed ? 'failed' : 'plain'}>
+                  {item.body}
+                </Bubble>
+              ) : null}
+            </>
+          }
+        />
+        {out && item.rich && (item.transport === 'sms' || item.transport === 'mms') ? (
+          <PlainFace smsText={item.rich.smsText} />
+        ) : null}
+        {!out && item.buttonReply ? (
+          <ButtonReplyNote reply={item.buttonReply} body={item.body} />
         ) : null}
         <View className="flex-row flex-wrap items-center gap-[5px] px-1">
           {out ? (
@@ -227,10 +254,14 @@ export function MessageBubble({
                 <Text className="text-xs text-text-3">{`${sender.label} · ${time}`}</Text>
               )}
               {sender.ai ? <Text className="text-xs text-text-3">{`· ${time}`}</Text> : null}
-              <Delivery status={item.status} chat={item.channel === 'chat'} />
+              <TransportTag transport={item.transport} />
+              <Delivery status={item.status} chat={item.channel === 'chat'} readAt={item.readAt} />
             </>
           ) : (
-            <Text className="text-xs text-text-3">{mediaOnlyLine(item, time)}</Text>
+            <>
+              <Text className="text-xs text-text-3">{mediaOnlyLine(item, time)}</Text>
+              <TransportTag transport={item.transport} />
+            </>
           )}
         </View>
         {failed ? (

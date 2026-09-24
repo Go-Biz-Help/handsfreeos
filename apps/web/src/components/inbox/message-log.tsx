@@ -11,6 +11,7 @@ import {
   keywordLine,
   mediaOnlyLine,
   noteLine,
+  readLine,
   senderOf,
   textFailureHelp,
   THREAD_WORDS,
@@ -416,7 +417,7 @@ function DeliveryStatus({
     return (
       <span
         className="inline-flex items-center gap-[3px] text-success-text"
-        title={state === 'read' && readAt ? `Read ${weekdayClock(readAt)}` : undefined}
+        title={state === 'read' && readAt ? readLine(readAt) : undefined}
       >
         <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.75} />
         {words}

@@ -601,6 +601,10 @@ export const syncedTables = {
       occurred_at: column.text,
       sent_at: column.text,
       delivered_at: column.text,
+      transport: column.text,
+      read_at: column.text,
+      rich: column.text,
+      button_reply: column.text,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -1928,6 +1932,14 @@ export interface MessagesRow {
   readonly sent_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly delivered_at: string | null;
+  /** app.text_transport */
+  readonly transport: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly read_at: string | null;
+  /** jsonb: JSON text here */
+  readonly rich: string | null;
+  /** jsonb: JSON text here */
+  readonly button_reply: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */

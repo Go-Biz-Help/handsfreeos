@@ -1,6 +1,7 @@
 'use client';
 import {
   CHAT_BLOCKED_NOTE,
+  checkRich,
   COMPOSER_WORDS,
   composerPlaceholder,
   crossChannelCanText,
@@ -18,6 +19,7 @@ import {
   textFromLine,
   textNote as textNoteWords,
   type ComposerNote,
+  type RichDraft,
 } from '@hfos/core';
 import {
   AlertTriangle,
@@ -53,7 +55,7 @@ import { cn } from '@/lib/utils';
 import { AttachmentChip } from './attachment-chip';
 import { ChannelIcon, QuietStrip, SegmentCounter, Words } from './bits';
 import type { PendingText } from './hooks';
-import { checkRich, emptyRichDraft, RichEditor, type RichDraft } from './rich-editor';
+import { newRichDraft, RichEditor } from './rich-editor';
 
 /** A text in quiet hours: ask first, send now anyway, or hold it until quiet hours end. */
 type QuietChoice = 'ask' | 'now' | 'later';
@@ -961,7 +963,7 @@ export function Composer({
               aria-label={COMPOSER_WORDS.addButtons}
               aria-pressed={richOn}
               disabled={off}
-              onClick={() => setRich(rich ? null : emptyRichDraft())}
+              onClick={() => setRich(rich ? null : newRichDraft())}
               className={cn(richOn && 'bg-accent-soft text-accent-text')}
               data-testid="composer-rich"
             >
