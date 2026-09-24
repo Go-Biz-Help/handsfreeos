@@ -154,6 +154,14 @@ describe('Home from the copy', () => {
     expect(home.list.affectedCents).toBe(1_900_000);
   });
 
+  it('leaves out a kind this copy of the app doesn’t know yet, instead of failing on it', () => {
+    const home = buildHome(
+      input({ items: [item(1), item(2, { kind: 'a_kind_from_a_newer_server' })] }),
+    );
+    expect(ids(home)).toEqual([id(1)]);
+    expect(home.list.counts).toMatchObject({ total: 1 });
+  });
+
   it('shows Mine to members: theirs and unassigned', () => {
     const home = buildHome(
       input({
