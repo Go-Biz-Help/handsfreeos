@@ -90,7 +90,11 @@ export default function FormAnswer() {
               data.answers.map((answer) => (
                 <View key={answer.questionId} className="gap-0.5">
                   <Text className="text-[12.5px] text-text-3">{answer.questionTitle}</Text>
-                  <Text className="text-[14.5px] leading-[21px]" selectable>
+                  <Text
+                    className="text-[14.5px] leading-[21px]"
+                    selectable
+                    testID={`form-answer-value-${answer.questionId}`}
+                  >
                     {answerWords(answer)}
                   </Text>
                 </View>

@@ -31,6 +31,17 @@ export type ResponseRow = Ok<'/v1/queries/form.response_list'>['items'][number];
 export type ResponseFull = Ok<'/v1/queries/form.response_get'>;
 export type ResponseAnswer = ResponseFull['answers'][number];
 
+/**
+ * Answer sheets deleted from this phone since the app opened. The list leaves them out at once, so going back to the
+ * form after deleting one never shows it for the moment the list takes to ask again.
+ */
+const deletedHere = new Set<string>();
+
+/** Tests: start again with nothing deleted. */
+export function forgetDeletedAnswers(): void {
+  deletedHere.clear();
+}
+
 /** How many answer sheets come down at a time. The web asks for 50 on a page with room for them. */
 const PAGE = 25;
 
@@ -106,7 +117,7 @@ export function useFormAnswers(workspaceId: string, formId: string): AnswerList 
   }, [formId, loadingMore, online, state.cursor, workspaceId]);
 
   return {
-    items: state.items,
+    items: state.items.filter((r) => !deletedHere.has(r.responseId)),
     loading: loading && !state.loaded,
     error,
     hasMore: state.cursor !== null,
@@ -169,6 +180,7 @@ export function useFormAnswer(
  */
 export async function deleteFormAnswer(workspaceId: string, responseId: string): Promise<void> {
   await change('form_response.delete', { workspaceId, responseId });
+  deletedHere.add(responseId);
 }
 
 /**

@@ -14,6 +14,7 @@ import { change, ChangeError, NEEDS_SIGNAL } from '@/changes';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
 import { QUIET, qrPath, qrPng } from '@/forms/qr';
+import { deleteFormAnswer, forgetDeletedAnswers } from '@/forms/use-answers';
 import type { PhoneForm } from '@/forms/use-forms';
 import { answerWords, FORM_WORDS, formLink, responseLine } from '@/forms/words';
 import { api } from '@/lib/api';
@@ -186,6 +187,7 @@ async function show(element: React.ReactElement) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  forgetDeletedAnswers();
   jest.spyOn(toast, 'show').mockImplementation(() => 1);
   jest.spyOn(toast, 'error').mockImplementation(() => 1);
   setTestOffline(false);
@@ -359,6 +361,14 @@ describe('deleting an answer sheet', () => {
       responseId: MARIA_SHEET,
     });
     expect(toast.show).toHaveBeenCalledWith(FORM_WORDS.deleted);
+  });
+
+  it('leaves the deleted sheet out of the form’s list at once, before the list asks again', async () => {
+    await deleteFormAnswer(LONE_STAR, ANON_SHEET);
+    // The server still sends it on this answer (it hasn't caught up); the list leaves it out anyway.
+    await show(<FormPage />);
+    expect(await screen.findByText('Maria Lopez')).toBeTruthy();
+    expect(screen.queryByTestId(`form-answer-${ANON_SHEET}`)).toBeNull();
   });
 
   it('keeps it when they say keep them', async () => {

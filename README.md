@@ -59,7 +59,8 @@ pnpm db:seed          # demo data: the Go Biz Help agency, three client workspac
                       # lead waiting 11 minutes, a lead nobody answered, visits to confirm and the rest of the list;
                       # its money runs on a stand-in Stripe account and a Square one, with a catalogue, a paid
                       # invoice and its receipt, one ten days overdue, estimates waiting, declined and unsent, a
-                      # deposit paid to hold a duct clean, a time still held while a customer pays, and two plans
+                      # deposit paid to hold a duct clean, a time still held while a customer pays, and two plans;
+                      # and a live "Job feedback" survey with three anonymous answers
 ```
 
 ```bash
