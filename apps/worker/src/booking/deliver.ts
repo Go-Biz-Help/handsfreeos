@@ -166,6 +166,8 @@ export async function sendEmail(
   meta: RequestMeta,
   /** Who it goes out as: the system, or the system tagged as the Action Center (M8's automatic messages). */
   actor: SystemActor = systemActor(scope),
+  /** Email campaigns: the campaign email this is (the unsubscribe headers, the broadcast stream). */
+  opts: { readonly campaignRecipientId?: string } = {},
 ): Promise<Sent> {
   try {
     const { output } = await executeCommand(
@@ -179,6 +181,7 @@ export async function sendEmail(
         body: content.body,
         clientId,
         keepConversationStatus: true,
+        ...(opts.campaignRecipientId ? { campaignRecipientId: opts.campaignRecipientId } : {}),
       },
       actor,
       meta,

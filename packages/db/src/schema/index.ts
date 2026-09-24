@@ -1115,6 +1115,11 @@ export const messages = app.table('messages', {
   rich: jsonb('rich').$type<RichText>(),
   buttonReply: jsonb('button_reply').$type<ButtonReply>(),
   contentSid: text('content_sid'),
+  /** Email campaigns: the campaign email this is, so the sender adds the unsubscribe headers. */
+  campaignRecipientId: uuid('campaign_recipient_id').references(
+    (): AnyPgColumn => campaignRecipients.id,
+    { onDelete: 'set null' },
+  ),
 });
 
 export const calls = app.table('calls', {
@@ -5376,6 +5381,13 @@ export const campaigns = app.table('campaigns', {
   nextSendAt: ts('next_send_at'),
   /** Promotions: the offer (Knowledge → Offers) this campaign is about, if any. */
   offerId: uuid('offer_id').references(() => offers.id, { onDelete: 'set null' }),
+  /** Email campaigns: sms or email (never changes); an email campaign's one subject and body. */
+  channel: text('channel').notNull().default('sms'),
+  emailSubject: text('email_subject'),
+  emailBody: text('email_body'),
+  emailEdited: boolean('email_edited').notNull().default(false),
+  /** Why the worker paused it; null when a person did. */
+  pausedReason: text('paused_reason'),
   ...timestamps(),
 });
 
@@ -5399,6 +5411,17 @@ export const campaignRecipients = app.table('campaign_recipients', {
   sentAt: ts('sent_at'),
   error: text('error'),
   ...timestamps(),
+});
+
+/** Email campaigns: an address that asked for no more campaign email from this business. */
+export const emailUnsubscribes = app.table('email_unsubscribes', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  address: text('address').notNull(),
+  campaignId: uuid('campaign_id').references(() => campaigns.id, { onDelete: 'set null' }),
+  /** link, one_click or postmark. */
+  source: text('source').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 /** Automations 4b: one line of guidance the worker made of repeated corrections to the AI teammate. */
@@ -5654,6 +5677,7 @@ export const tables = {
   teammateLessons,
   campaigns,
   campaignRecipients,
+  emailUnsubscribes,
   foundingOffers,
   foundingGrants,
   foundingApplications,

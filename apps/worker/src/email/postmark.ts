@@ -98,6 +98,8 @@ export function createPostmark(opts: {
   serverToken: string;
   accountToken: string | null;
   stream: string;
+  /** The Broadcasts stream campaign email goes on; null until one is set up in Postmark. */
+  broadcastStream?: string | null;
   /** DNS lookups for the domain checks (the system resolver unless a test passes its own). */
   dns?: DnsLookup;
 }): { transport: EmailTransport; domains: EmailDomains } {
@@ -115,6 +117,8 @@ export function createPostmark(opts: {
     transport: {
       name: 'postmark',
       async send(email) {
+        if (email.bulk && !opts.broadcastStream)
+          throw new EmailError('POSTMARK_BROADCAST_STREAM is not set', 'broadcast_not_ready', true);
         const res = await call<{ MessageID: string }>(server, 'POST', '/email', {
           From: mailbox(email.from.name, email.from.address),
           To: email.to.join(', '),
@@ -130,9 +134,10 @@ export function createPostmark(opts: {
             ...(email.references.length > 0
               ? [{ Name: 'References', Value: email.references.join(' ') }]
               : []),
+            ...(email.headers ?? []).map((h) => ({ Name: h.name, Value: h.value })),
           ],
           Metadata: email.metadata,
-          MessageStream: opts.stream,
+          MessageStream: email.bulk ? opts.broadcastStream : opts.stream,
           TrackOpens: false,
           TrackLinks: 'None',
           ...(email.attachments.length > 0
