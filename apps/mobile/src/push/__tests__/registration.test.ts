@@ -29,8 +29,28 @@ class Watch {
   }
 }
 
+/** The phone announcing its own push token (`addPushTokenListener`). */
+class TokenWatch {
+  private readonly listeners = new Set<(deviceToken: string) => void>();
+  subscribe = (listener: (deviceToken: string) => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+  fire(deviceToken: string) {
+    for (const listener of this.listeners) listener(deviceToken);
+  }
+}
+
+/** The phone's own token behind an Expo token, as the fake phone announces it. */
+const deviceTokenOf = (expoToken: string) => `device:${expoToken}`;
+
 function setup(
-  options: Partial<PushRegistrationDeps> & { permission?: PushPermission; online?: boolean } = {},
+  options: Partial<PushRegistrationDeps> & {
+    permission?: PushPermission;
+    online?: boolean;
+    /** As iOS does: asking for the token announces it, changed or not. */
+    announcesWhenAsked?: boolean;
+  } = {},
 ) {
   const calls: { command: 'register' | 'remove'; input: unknown }[] = [];
   const values = new Map<string, unknown>();
@@ -47,7 +67,8 @@ function setup(
   const sessionWatch = new Watch();
   const network = new Watch();
   const active = new Watch();
-  const tokenWatch = new Watch();
+  const tokenWatch = new TokenWatch();
+  let announced = 0;
   const requests: string[] = [];
   const failures: string[] = [];
 
@@ -65,7 +86,15 @@ function setup(
         permission = 'granted';
         return { status: permission, canAskAgain };
       },
-      expoPushToken: async () => token,
+      expoPushToken: async () => {
+        // Twenty at most, so a registration loop fails its test rather than spinning forever.
+        if (options.announcesWhenAsked && announced++ < 20) {
+          // The phone answers from native code, a turn of the event loop later, as the real one does.
+          await new Promise((resolve) => setImmediate(resolve));
+          tokenWatch.fire(deviceTokenOf(token));
+        }
+        return token;
+      },
       onTokenChange: (listener) => tokenWatch.subscribe(listener),
     },
     register: async (input) => {
@@ -111,8 +140,10 @@ function setup(
     },
     setToken(next: string) {
       token = next;
-      tokenWatch.fire();
+      tokenWatch.fire(deviceTokenOf(next));
     },
+    /** The phone announcing the token it already has. */
+    announceToken: () => tokenWatch.fire(deviceTokenOf(token)),
     setOnline(next: boolean) {
       online = next;
       network.fire();
@@ -195,6 +226,27 @@ describe('registering this phone', () => {
         input: expect.objectContaining({ token: 'ExponentPushToken[real-2]' }),
       },
     ]);
+  });
+
+  it('registers once when the phone announces the token it was just asked for, as iOS does every time', async () => {
+    const t = setup({ announcesWhenAsked: true });
+    t.registration.start();
+    // Each announcement used to register again, which asked again: about 9,700 registrations an hour.
+    for (let i = 0; i < 5; i++) await t.registration.settled();
+    expect(t.calls.map((c) => c.command)).toEqual(['register']);
+
+    t.returnToApp();
+    for (let i = 0; i < 5; i++) await t.registration.settled();
+    expect(t.calls.map((c) => c.command)).toEqual(['register', 'register']);
+  });
+
+  it('registers nothing when the phone announces the same token again', async () => {
+    const t = setup({ announcesWhenAsked: true });
+    t.registration.start();
+    await t.registration.settled();
+    t.announceToken();
+    await t.registration.settled();
+    expect(t.calls.map((c) => c.command)).toEqual(['register']);
   });
 
   it('waits for signal to register, then registers', async () => {
