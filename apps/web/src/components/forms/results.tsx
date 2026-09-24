@@ -1,25 +1,48 @@
 'use client';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Download } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { errorMessage } from '@/lib/api/client';
 import type { FormQuestionSummary, FormResultsOut, FormSummary } from '@/lib/api/types';
+import { downloadFormAnswers } from '@/lib/forms/export';
 import { cn } from '@/lib/utils';
 import { FormResponses } from './responses';
 
 /**
  * What everybody said. A bar per choice, an average for ratings and numbers, and the most recent written
  * answers to read — the three shapes an answer comes in, and nothing else pretending to be a chart.
+ *
+ * Whoever looks after forms can take every answer away as a spreadsheet (`form.response_export` needs
+ * `forms.manage`): the same file the phone makes, in the business's time zone.
  */
 export function FormResults({
   workspaceId,
   form,
   results,
+  canManage,
+  timeZone,
 }: {
   workspaceId: string;
   form: FormSummary;
   results: FormResultsOut;
+  canManage: boolean;
+  timeZone: string;
 }) {
   const [tab, setTab] = useState<'summary' | 'each'>('summary');
+  const [exporting, setExporting] = useState(false);
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      await downloadFormAnswers({ workspaceId, formId: form.formId, slug: form.slug, timeZone });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setExporting(false);
+    }
+  }
   if (!results.completions)
     return (
       <Card className="px-6 py-12 text-center">
@@ -54,7 +77,7 @@ export function FormResults({
         )}
       </div>
 
-      <div className="flex gap-1.5">
+      <div className="flex items-center gap-1.5">
         {(
           [
             ['summary', 'All together'],
@@ -73,6 +96,19 @@ export function FormResults({
             {label}
           </button>
         ))}
+        {canManage ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="ml-auto"
+            loading={exporting}
+            onClick={() => void exportCsv()}
+            data-testid="form-export-csv"
+          >
+            <Download className="h-4 w-4" strokeWidth={1.75} />
+            Export to CSV
+          </Button>
+        ) : null}
       </div>
 
       {tab === 'summary' ? (
