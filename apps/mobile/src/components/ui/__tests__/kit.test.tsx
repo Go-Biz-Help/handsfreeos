@@ -259,4 +259,20 @@ describe('Input and Badge', () => {
     );
     expect(screen.getByText('Verified')).toBeOnTheScreen();
   });
+
+  it('puts words handed to it straight in a Text, never loose in its View', async () => {
+    const pending: boolean = true;
+    await render(
+      <View>
+        <Badge variant="gray">Archived</Badge>
+        <Badge>
+          {'On the way'}
+          {pending ? ' · waiting for signal' : ''}
+        </Badge>
+      </View>,
+    );
+    // getByText only finds words inside a Text: loose words in a View aren't found.
+    expect(screen.getByText('Archived')).toBeOnTheScreen();
+    expect(screen.getByText('On the way · waiting for signal')).toBeOnTheScreen();
+  });
 });

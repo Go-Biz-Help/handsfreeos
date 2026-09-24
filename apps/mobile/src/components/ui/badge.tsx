@@ -2,7 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { TextClassContext } from '@/components/ui/text';
+import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
 /** The web's badges (apps/web/src/components/ui/badge.tsx). */
@@ -41,10 +41,23 @@ const badgeTextVariants = cva('font-sans text-xs font-medium', {
 
 type BadgeProps = React.ComponentProps<typeof View> & VariantProps<typeof badgeVariants>;
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+/** Only words: a string or a number, or several strung together (`{status}{pending ? ' · waiting' : ''}`). */
+function isWords(children: React.ReactNode): boolean {
+  const parts = React.Children.toArray(children);
+  return parts.length > 0 && parts.every((c) => typeof c === 'string' || typeof c === 'number');
+}
+
+/**
+ * Words handed straight to a badge go in a Text, as a Button's do. Raw words in a View are React Native's "Text strings
+ * must be rendered within a <Text> component": an error in development, and in a store build the words may not show.
+ * The visit's job status on an appointment and a customer's Archived badge were handed that way.
+ */
+function Badge({ className, variant, children, ...props }: BadgeProps) {
   return (
     <TextClassContext.Provider value={badgeTextVariants({ variant })}>
-      <View className={cn(badgeVariants({ variant }), className)} {...props} />
+      <View className={cn(badgeVariants({ variant }), className)} {...props}>
+        {isWords(children) ? <Text>{children}</Text> : children}
+      </View>
     </TextClassContext.Provider>
   );
 }

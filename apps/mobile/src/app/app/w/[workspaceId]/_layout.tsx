@@ -10,6 +10,9 @@ import { useSession } from '@/lib/auth';
 import { rememberOpened, useMe } from '@/lib/businesses';
 import { colors, useThemeName } from '@/theme';
 
+/** A business screen that can't draw shows why instead of closing the app. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 /**
  * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Changes on this phone, and (test builds)
  * This phone's copy. The call sheet sits over all of them (`startCall`).

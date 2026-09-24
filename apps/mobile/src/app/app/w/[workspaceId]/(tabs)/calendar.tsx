@@ -39,6 +39,9 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 
+/** A Calendar that can't draw shows why, and the other tabs still work. */
+export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
+
 /**
  * **Your day, your week and your month** (the canvas's Calendar): the week's date strip over the chosen day as a
  * list, Everyone or Just me, and the red line at the current time — the same three views the web shows at 390 px,
