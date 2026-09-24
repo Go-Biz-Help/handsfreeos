@@ -31,7 +31,7 @@ export const hostname = z
   .max(253)
   .regex(
     /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
-    'Enter a domain like booking.yourbusiness.com — no https:// and no slash.',
+    'Enter a domain like go.yourbusiness.com — no https:// and no slash.',
   );
 
 export const BrandedDomainAddInput = z.object({ workspaceId: uuid, domain: hostname });

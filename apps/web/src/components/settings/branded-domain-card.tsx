@@ -120,10 +120,10 @@ export function BrandedDomainCard({
         Your own web address
       </h2>
       <p className="mt-1 max-w-[560px] text-[13px] text-text-2">
-        One domain you own — like <span className="font-mono">booking.yourbusiness.com</span> —
-        carries everything a customer sees: your booking page and calendar links, your forms, your
-        estimates and invoices, your payment links, and your website chat. Set it once here and they
-        all move together.
+        One domain you own — like <span className="font-mono">go.yourbusiness.com</span> — carries
+        everything a customer sees: your forms, your payment links, your estimates and invoices,
+        your website chat, and your booking page if you use one. Set it once here and they all move
+        together.
       </p>
 
       {!domain ? (
@@ -143,7 +143,7 @@ export function BrandedDomainCard({
               id="branded-domain"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              placeholder="booking.yourbusiness.com"
+              placeholder="go.yourbusiness.com"
               className="w-[320px]"
               disabled={!canManage}
               data-testid="branded-domain-input"
