@@ -21,6 +21,7 @@ import {
   type HintFacts,
   type SyncedAttentionRow,
 } from '../src/attention/index';
+import { AttentionListOutput } from '../src/schemas/attention';
 import { DALE, HOUR, MIN, NOW, TZ, uid } from './attention-fixtures';
 
 const PRIYA = uid(901);
@@ -188,6 +189,31 @@ describe('attention list', () => {
     });
     expect(out.handledToday).toBe(2);
     expect(out.handled).toEqual([]);
+  });
+
+  it('answers with a quiet channel, whose id is a hash and not a strict UUID', () => {
+    // As `loadChannels` makes it: md5(workspace || ':channel:' || kind)::uuid, version and variant bits and all.
+    const quiet = row({
+      id: uid(10),
+      kind: 'channel_quiet',
+      subjectType: 'channel_call',
+      subjectId: 'e4913ac6-0b0c-df1a-d68d-22301a238108',
+      reasons: [{ code: 'quiet_channel', label: 'Calls usually every 34 h' }],
+      title: 'Calls have gone quiet',
+    });
+    const view = attentionListView([...visible, quiet], { me: DALE, role: 'owner', now: at });
+    const out = attentionListOut(view, {
+      viewer: v,
+      names: new Map(),
+      hints: new Map(),
+      now: at,
+      includeHandled: true,
+    });
+    const parsed = AttentionListOutput.parse(out);
+    expect(parsed.items.find((i) => i.id === uid(10))?.subject).toEqual({
+      type: 'channel_call',
+      id: 'e4913ac6-0b0c-df1a-d68d-22301a238108',
+    });
   });
 });
 
