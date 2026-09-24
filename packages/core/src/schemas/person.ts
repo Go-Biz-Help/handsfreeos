@@ -164,5 +164,10 @@ export const PersonGetOutput = z.object({
     notes: z.string().nullable(),
     /** The fields this business invented, by field id (M15, 0076). */
     custom: z.record(z.string(), z.unknown()),
+    /** AI outbound calls: whether they agreed in writing to calls, and where that's written. */
+    callConsent: z.object({
+      consent: z.enum(['unknown', 'opted_in', 'opted_out']),
+      source: z.string().nullable(),
+    }),
   }),
 });

@@ -93,7 +93,7 @@ describe('the automations catalog', () => {
       // Unless, like the thank-you, it does something else without one (and says what).
       if (a.customerFacing === 'ai' && !a.withoutTeammate)
         expect(a.needs, a.id).toContain('teammate_on');
-      if (a.customerFacing !== null) expect(a.effect, a.id).toBe('texts');
+      if (a.customerFacing !== null) expect(['texts', 'calls'], a.id).toContain(a.effect);
     }
   });
 });
@@ -101,6 +101,8 @@ describe('the automations catalog', () => {
 describe('automation settings', () => {
   it('turns on every switch for what a business already had, and leaves re-engaging off', () => {
     expect(defaultAutomationSettings().switches).toEqual({
+      callBackMissed: false,
+      callConfirmVisits: false,
       dayBefore: true,
       dayOf: true,
       waitlist: true,
@@ -237,18 +239,19 @@ describe('automation rows', () => {
   });
 
   it('counts what is working, and what is on but waiting to be set up', () => {
-    // Everything works but re-engaging, which starts off, and intake questions, which waits for a form.
+    // Everything works but re-engaging and the two AI calls, which start off, and intake questions, which waits
+    // for a form.
     const rows = automationRows(ctx({ teammate: teammate('automatic') }));
     expect(automationCounts(rows)).toEqual({
-      working: rows.length - 2,
+      working: rows.length - 4,
       needsSetup: 1,
       total: rows.length,
     });
     // No teammate: its four rows read as a new one starts (all on), and none works yet, nor the three health
-    // rows about its work. The thank-you still works: a card asks a person instead.
+    // rows about its work. The thank-you still works: a card asks a person instead. The two AI calls start off.
     const none = automationRows(ctx());
     expect(automationCounts(none)).toEqual({
-      working: none.length - 9,
+      working: none.length - 11,
       needsSetup: 8,
       total: none.length,
     });

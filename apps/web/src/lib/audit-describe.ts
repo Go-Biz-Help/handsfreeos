@@ -443,6 +443,12 @@ function describeAction(e: AuditEntry): string {
       return `stopped emailing ${s(e.after?.address)}`;
     case 'email_suppression.release':
       return `unblocked ${s(e.after?.address)}`;
+    case 'person.set_call_consent':
+      return e.after?.callConsent === 'opted_out'
+        ? `recorded that ${s(e.after?.name)} doesn’t want calls`
+        : `recorded that ${s(e.after?.name)} agreed in writing to calls${s(e.after?.source) ? ` (${s(e.after?.source)})` : ''}`;
+    case 'attendee.confirm_by_call':
+      return `recorded that the customer confirmed ${apptTitle(e)} on a call from the AI`;
     case 'person.set_sms_consent':
       return e.after?.smsConsent === 'opted_out'
         ? `marked ${s(e.after?.name)} as not wanting texts`
@@ -977,6 +983,8 @@ const SWITCH_WORDS: Readonly<Record<string, string>> = {
   intake: 'intake questions',
   thankYou: 'thank-yous after the job',
   maintenance: 'maintenance reminders',
+  callConfirmVisits: 'AI calls to confirm tomorrow’s visits',
+  callBackMissed: 'AI calls back for missed calls',
 };
 
 function automationsSettingsSentence(e: AuditEntry): string {

@@ -1043,6 +1043,15 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { status: 'received' }, stop: true };
   },
 
+  // Only on a call the teammate placed: the practice console never is one.
+  async confirm_visit() {
+    return { content: { error: 'Only on a call you placed.' } };
+  },
+
+  async no_more_calls() {
+    return { content: { error: 'Only on a call you placed.' } };
+  },
+
   async no_reply(h, args) {
     h.state.end = { kind: 'no_reply', reason: String(args['reason']) };
     return { content: { status: 'received' }, stop: true };

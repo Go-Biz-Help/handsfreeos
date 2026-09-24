@@ -16,8 +16,10 @@ export interface StreamTicket {
   readonly callSid: string;
   /** The business number they called. */
   readonly line: string;
-  /** Who is calling. */
+  /** Who is calling (on a call the teammate placed: who it called). */
   readonly from: string;
+  /** AI outbound calls: the call the teammate placed (app.ai_calls), or absent when it's answering one. */
+  readonly aiCallId?: string;
   /** Epoch milliseconds. */
   readonly expiresAt: number;
 }
@@ -30,6 +32,7 @@ export function sealTicket(sealer: Sealer, t: Omit<StreamTicket, 'expiresAt'>, n
       c: t.callSid,
       l: t.line,
       f: t.from,
+      ...(t.aiCallId ? { a: t.aiCallId } : {}),
       e: now + TICKET_TTL_MS,
     }),
   );
@@ -48,7 +51,16 @@ export function openTicket(
     const [w, o, c, l, f] = [str('w'), str('o'), str('c'), str('l'), str('f')];
     const e = typeof v['e'] === 'number' ? v['e'] : 0;
     if (!w || !o || !c || !l || !f || e < now) return null;
-    return { workspaceId: w, organizationId: o, callSid: c, line: l, from: f, expiresAt: e };
+    const a = str('a');
+    return {
+      workspaceId: w,
+      organizationId: o,
+      callSid: c,
+      line: l,
+      from: f,
+      ...(a ? { aiCallId: a } : {}),
+      expiresAt: e,
+    };
   } catch {
     return null;
   }

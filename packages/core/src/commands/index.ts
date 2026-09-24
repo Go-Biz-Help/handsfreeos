@@ -303,7 +303,8 @@ import { automationsSaveSettings } from './automations';
 import { referralCreateLead } from './referral';
 import { teammateLessonApply } from './teammate-lesson';
 import { maintenanceSetSchedule } from './maintenance';
-import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
+import { attendeeConfirm, attendeeConfirmByCall, attendeeConfirmOnline } from './attendee-confirm';
+import { aiCallCommands } from './ai-call';
 import { paymentConnectionCommands } from './payment-connection';
 import { campaignCommands } from './campaign';
 import {
@@ -770,10 +771,12 @@ export const commands: readonly CommandDef[] = [
   referralCreateLead,
   teammateLessonApply,
   ...campaignCommands,
+  ...aiCallCommands,
   maintenanceSetSchedule,
   leadCatchUp,
   attendeeConfirm,
   attendeeConfirmOnline,
+  attendeeConfirmByCall,
   productCreate,
   productUpdate,
   productArchive,
@@ -841,6 +844,7 @@ export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
 export * from './campaign';
+export * from './ai-call';
 export * from './maintenance';
 export * from './attendee-confirm';
 export * from './payment-connection';

@@ -205,11 +205,14 @@ export async function draftPushOf(
   const message = preview.success ? (preview.data.message?.body ?? null) : null;
   const discount = preview.success ? preview.data.discount : null;
   const customer = await personName(tx, d.person_id);
-  const body = discount
-    ? `${d.name} wants to take ${discount.percent}% off${message ? `: ${quoted(message)}` : '.'}`
-    : message
-      ? `${d.name} wrote: ${quoted(message)}`
-      : `${d.name} is waiting for your OK.`;
+  const call = preview.success ? preview.data.call : null;
+  const body = call
+    ? `${d.name} wants to call ${customer ?? 'them'} ${CALL_WHY[call.purpose] ?? ''}`.trim() + '.'
+    : discount
+      ? `${d.name} wants to take ${discount.percent}% off${message ? `: ${quoted(message)}` : '.'}`
+      : message
+        ? `${d.name} wrote: ${quoted(message)}`
+        : `${d.name} is waiting for your OK.`;
   return {
     key: `draft:${draftId}`,
     category: 'approval',
@@ -226,6 +229,14 @@ export async function draftPushOf(
     },
   };
 }
+
+/** Why an AI call waiting for approval would be made, for the team's push. */
+const CALL_WHY: Readonly<Record<string, string>> = {
+  confirm_visit: 'to confirm their visit',
+  missed_call: 'back about a missed call',
+  quote: 'about their quote',
+  campaign: 'for a campaign',
+};
 
 /** ai_teammate.drafted: the AI teammate wrote something that waits for a person's OK. */
 export const onDraftPush = pushMoment('approval', async (ctx, scope) => {

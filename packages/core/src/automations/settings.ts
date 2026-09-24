@@ -55,6 +55,10 @@ const Switches = z.object({
   handoffFollowUp: on(),
   /** An approval or AI draft turns urgent two hours before it expires, with a push. */
   approvalExpiry: on(),
+  /** AI outbound calls: the AI teammate rings to confirm tomorrow's visit a text didn't confirm. New: off. */
+  callConfirmVisits: z.boolean().default(false),
+  /** AI outbound calls: the AI teammate rings back a missed call nobody answered. New: off. */
+  callBackMissed: z.boolean().default(false),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];
@@ -140,6 +144,17 @@ const Pipeline = z.object({
   roles: z.record(z.uuid(), z.enum([...STAGE_ROLES, 'none'])).default({}),
 });
 
+/** What the AI does when a voicemail box answers its call: the business decides (Chris, 2026-09-24). */
+export const CALL_VOICEMAIL_CHOICES = ['text', 'message', 'hang_up'] as const;
+export type CallVoicemailChoice = (typeof CALL_VOICEMAIL_CHOICES)[number];
+const Calls = z.object({
+  /**
+   * text: hang up and send the usual text instead (when they agreed to texts); message: leave a short message
+   * saying who called and why; hang_up: nothing more.
+   */
+  voicemail: z.enum(CALL_VOICEMAIL_CHOICES).default('text'),
+});
+
 export const AutomationSettings = z
   .object({
     switches: Switches.prefault({}),
@@ -148,6 +163,7 @@ export const AutomationSettings = z
     maintenance: Maintenance.prefault({}),
     briefings: Briefings.prefault({}),
     pipeline: Pipeline.prefault({}),
+    calls: Calls.prefault({}),
   })
   .refine((s) => !s.switches.reengage || s.reengage.reviewedAt !== null, {
     error: 'Read the message and choose “Looks good, turn on” first.',

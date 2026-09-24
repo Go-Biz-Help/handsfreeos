@@ -52,11 +52,12 @@ export const AUTOMATION_GROUP_TITLES: Readonly<Record<AutomationGroup, string>> 
 };
 
 /** What an automation does to the world, as the row's tag says it. */
-export const AUTOMATION_EFFECTS = ['texts', 'alerts', 'records'] as const;
+export const AUTOMATION_EFFECTS = ['texts', 'calls', 'alerts', 'records'] as const;
 export type AutomationEffect = (typeof AUTOMATION_EFFECTS)[number];
 
 export const AUTOMATION_EFFECT_LABELS: Readonly<Record<AutomationEffect, string>> = {
   texts: 'Texts customers',
+  calls: 'Calls customers',
   alerts: 'Just alerts you',
   records: 'Updates records',
 };
@@ -88,6 +89,8 @@ export const AUTOMATION_REQUIREMENTS = [
   'teammate_on',
   'intake_form',
   'maintenance_schedule',
+  // AI outbound calls: the AI teammate answers the phone (its phone settings are on).
+  'voice_on',
 ] as const;
 export type AutomationRequirement = (typeof AUTOMATION_REQUIREMENTS)[number];
 
@@ -113,6 +116,7 @@ export const ADJUST_PANELS = [
   'estimates',
   'balance',
   'stages',
+  'ai_calls',
 ] as const;
 export type AdjustPanel = (typeof ADJUST_PANELS)[number];
 
@@ -158,6 +162,18 @@ export const AUTOMATIONS = [
     customerFacing: 'ai',
     needs: ['teammate_on'],
     adjust: 'new_lead',
+  },
+  {
+    id: 'call_back_missed',
+    group: 'leads',
+    label: 'Call back a missed call',
+    oneLiner: 'The AI calls back a customer whose call nobody answered, and says it’s an AI.',
+    effect: 'calls',
+    defaultOn: false,
+    binding: { store: 'automations', key: 'callBackMissed' },
+    customerFacing: 'ai',
+    needs: ['teammate_on', 'voice_on'],
+    adjust: 'ai_calls',
   },
   {
     id: 'hot_lead_alert',
@@ -257,6 +273,18 @@ export const AUTOMATIONS = [
     customerFacing: 'owner_wording',
     needs: [],
     adjust: 'day_before',
+  },
+  {
+    id: 'call_confirm_visits',
+    group: 'appointments',
+    label: 'Call to confirm tomorrow’s visit',
+    oneLiner: 'The AI calls a customer who hasn’t confirmed tomorrow’s visit by text.',
+    effect: 'calls',
+    defaultOn: false,
+    binding: { store: 'automations', key: 'callConfirmVisits' },
+    customerFacing: 'ai',
+    needs: ['teammate_on', 'voice_on'],
+    adjust: 'ai_calls',
   },
   {
     id: 'unconfirmed_alert',

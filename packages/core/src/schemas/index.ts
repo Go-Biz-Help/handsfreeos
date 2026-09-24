@@ -52,3 +52,4 @@ export * from './founding';
 export * from './job';
 export * from './custom-field';
 export * from './relationship';
+export * from './ai-call';

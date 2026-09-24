@@ -15,6 +15,7 @@ import {
   AttendeeRescheduleOnlineOutput,
   GeoPointInput,
 } from './calendar';
+import { DraftCall } from './ai-call';
 import { isoDateTime, uuid, workspaceRole } from './common';
 import { ListInput, notApplied, UserRef } from './crm';
 
@@ -216,6 +217,8 @@ export const TeammateDraftPreview = z.object({
     .object({ percent: z.int().min(1).max(50), reason: z.string().trim().max(300) })
     .nullable()
     .default(null),
+  /** A call draft: the call the AI means to place once someone approves it. */
+  call: DraftCall.nullable().default(null),
 });
 export type TeammateDraftPreview = z.infer<typeof TeammateDraftPreview>;
 
@@ -639,7 +642,7 @@ export const AiTeammateGetOutput = z.object({
 export const draftStatus = z.enum(['pending', 'approved', 'rejected', 'expired', 'cancelled']);
 export const TeammateDraftOut = z.object({
   id: uuid,
-  kind: z.enum(['reply', 'approval']),
+  kind: z.enum(['reply', 'approval', 'call']),
   status: draftStatus,
   teammate: z.object({ id: uuid, name: z.string() }),
   runId: uuid.nullable(),
@@ -665,7 +668,7 @@ export const AiTeammateDraftListInput = ListInput.extend({
   workspaceId: uuid,
   /** pending: waiting for someone, oldest first; decided or all: newest first. */
   status: z.enum(['pending', 'decided', 'all']).default('pending'),
-  kind: z.enum(['reply', 'approval']).optional(),
+  kind: z.enum(['reply', 'approval', 'call']).optional(),
   conversationId: uuid.optional(),
 });
 export const AiTeammateDraftListOutput = z.object({
