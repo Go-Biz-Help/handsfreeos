@@ -335,7 +335,7 @@ describe('a number that moves', () => {
     expect(landed?.providerSid).toBeNull();
   });
 
-  it('ticks off the migration’s step for the number once it lands, and only that one', async () => {
+  it('keeps the migration’s step for each number in step with its port', async () => {
     const e164 = aNumber('0125');
     const other = aNumber('0126');
     const [ws] = await rows<{ organization_id: string }>(
@@ -363,29 +363,46 @@ describe('a number that moves', () => {
             values (${migration!.id}, ${org}, ${workspaceId}, 'messaging', 'carrier', ${n}, 'Move it here.',
               '/settings/texting', ${JSON.stringify({ number: n })}::jsonb, true)`,
       );
+    const step = async (n: string) =>
+      (
+        await rows<{ state: string; completed_at: Date | null; completed_by: string | null }>(
+          admin(),
+          sql`select state::text as state, completed_at, completed_by
+              from app.migration_reconnect_tasks where migration_id = ${migration!.id} and label = ${n}`,
+        )
+      )[0]!;
 
+    // Sent, then called off: in progress while it is with the carrier, and back to do once it is not.
+    const offId = await readyPort(other);
+    await executeCommand(
+      api(),
+      numberPortSubmit,
+      { workspaceId, portId: offId },
+      actor(owner),
+      meta(),
+    );
+    expect((await step(other)).state).toBe('in_progress');
+    await executeCommand(
+      api(),
+      numberPortCancel,
+      { workspaceId, portId: offId },
+      actor(owner),
+      meta(),
+    );
+    expect((await step(other)).state).toBe('todo');
+
+    // Sent, then landed: done, by nobody — HandsFreeOS saw the carrier finish it.
     const portId = await readyPort(e164);
     await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    expect((await step(e164)).state).toBe('in_progress');
     await drain();
     expect((await portRow(portId)).status).toBe('complete');
-
-    const tasks = await rows<{
-      label: string;
-      state: string;
-      completed_at: Date | null;
-      completed_by: string | null;
-    }>(
-      admin(),
-      sql`select label, state::text as state, completed_at, completed_by
-          from app.migration_reconnect_tasks where migration_id = ${migration!.id}`,
-    );
-    const step = new Map(tasks.map((t) => [t.label, t]));
-    expect(step.get(e164)?.state).toBe('done');
-    expect(step.get(e164)?.completed_at).not.toBeNull();
-    // HandsFreeOS saw the carrier finish it; no person claimed it.
-    expect(step.get(e164)?.completed_by).toBeNull();
-    // The number that has not moved is still on the list.
-    expect(step.get(other)?.state).toBe('todo');
+    const landed = await step(e164);
+    expect(landed.state).toBe('done');
+    expect(landed.completed_at).not.toBeNull();
+    expect(landed.completed_by).toBeNull();
+    // The number that never moved is still on the list.
+    expect((await step(other)).state).toBe('todo');
   });
 
   it('gives the number back when the old carrier says no', async () => {

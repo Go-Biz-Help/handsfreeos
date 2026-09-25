@@ -298,7 +298,7 @@ export const numberPortSubmit = defineCommand({
   output: NumberPortRefOutput,
   permission: 'channels.manage',
   scope: inWorkspace,
-  emits: ['number_port.submitted'],
+  emits: ['number_port.submitted', 'migration.task_changed'],
   async handler(ctx, input) {
     const p = await loadPort(ctx, input.portId);
     assertEditable(p);
@@ -349,6 +349,7 @@ export const numberPortSubmit = defineCommand({
       before: { status: p.status },
       after: { status: 'submitted', number: formatPhone(p.e164), kind: p.kind },
     });
+    await moveMigratedNumberStep(ctx, p.e164, ['todo', 'blocked'], 'in_progress');
     return { portId: p.id, status: 'submitted' as const };
   },
 });
@@ -362,7 +363,7 @@ export const numberPortCancel = defineCommand({
   output: NumberPortRefOutput,
   permission: 'channels.manage',
   scope: inWorkspace,
-  emits: ['number_port.cancelled'],
+  emits: ['number_port.cancelled', 'migration.task_changed'],
   async handler(ctx, input) {
     const p = await loadPort(ctx, input.portId);
     if (p.status === 'complete')
@@ -378,6 +379,7 @@ export const numberPortCancel = defineCommand({
       before: { status: p.status },
       after: { status: 'cancelled' },
     });
+    await moveMigratedNumberStep(ctx, p.e164, ['in_progress'], 'todo');
     return { portId: p.id, status: 'cancelled' as const };
   },
 });
@@ -391,7 +393,7 @@ export const numberPortRecordState = defineCommand({
   output: NumberPortRefOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['number_port.state_changed'],
+  emits: ['number_port.state_changed', 'migration.task_changed'],
   actors: ['system'],
   async handler(ctx, input) {
     const p = await loadPort(ctx, input.portId);
@@ -400,7 +402,10 @@ export const numberPortRecordState = defineCommand({
     if (p.status === 'cancelled' || p.status === 'complete') return refOf(p);
     // The carrier said no, or it broke. The number goes back on the market: somebody else may want it, and
     // this business should not keep paying a ceiling slot for a number it never got.
-    if (input.status === 'rejected' || input.status === 'failed') await releaseClaim(ctx, p);
+    if (input.status === 'rejected' || input.status === 'failed') {
+      await releaseClaim(ctx, p);
+      await moveMigratedNumberStep(ctx, p.e164, ['in_progress'], 'todo');
+    }
     await ctx.tx
       .update(numberPorts)
       .set({
@@ -496,23 +501,33 @@ export const numberPortComplete = defineCommand({
       payload: { e164: p.e164, kind: p.kind },
       after: { number: formatPhone(p.e164) },
     });
-    await tickOffMigratedNumber(ctx, p.e164);
+    await moveMigratedNumberStep(ctx, p.e164, ['todo', 'in_progress', 'blocked'], 'done');
     return { portId: p.id, phoneNumberId: numberId };
   },
 });
 
+type StepState = (typeof migrationReconnectTasks.$inferSelect)['state'];
+
 /**
- * A migration that found this number asked for it to be moved (M11), and now it has been.
+ * Where a migration's "move this number" step stands, kept in step with the port that moves it (M11).
  *
- * The migration writes each number it finds as a setup step — "your customers know this number, so it moves" —
- * and those steps hold `migration.finalize` back until they are done. Moving the number is the step, so the
- * moment the carrier finishes, it is ticked off here rather than left for somebody to come back and tick off
- * by hand. By nobody (`completed_by` stays empty): HandsFreeOS saw it happen, no person claimed it.
+ * A migration writes each number it finds as a setup step — "your customers know this number, so it moves" —
+ * and those steps hold `migration.finalize` back until they are done. The port *is* that step, so the list
+ * follows it rather than waiting for somebody to come back and tick it by hand: sent is in progress, landed is
+ * done, and called off, turned down or failed is back to do. By nobody (`completed_by` stays empty) —
+ * HandsFreeOS saw it happen, no person claimed it.
  *
- * Only this business's own steps, and only open ones: a step somebody marked not needed stays that way.
+ * Only this business's own steps for this number, and only from the states named: a step somebody marked not
+ * needed stays that way whatever the port does. As a person, RLS shows only the steps they may change; one
+ * who can move numbers but not change the workspace simply moves nothing on the list.
  */
-async function tickOffMigratedNumber(ctx: CommandContext, e164: string): Promise<void> {
-  const open = await ctx.tx
+async function moveMigratedNumberStep(
+  ctx: CommandContext,
+  e164: string,
+  from: readonly StepState[],
+  to: StepState,
+): Promise<void> {
+  const steps = await ctx.tx
     .select({
       id: migrationReconnectTasks.id,
       migrationId: migrationReconnectTasks.migrationId,
@@ -525,33 +540,33 @@ async function tickOffMigratedNumber(ctx: CommandContext, e164: string): Promise
       and(
         eq(migrationReconnectTasks.workspaceId, ctx.scope.workspaceId!),
         eq(migrationReconnectTasks.kind, 'messaging'),
-        inArray(migrationReconnectTasks.state, ['todo', 'in_progress', 'blocked']),
+        inArray(migrationReconnectTasks.state, [...from]),
         or(
           eq(migrationReconnectTasks.label, e164),
           sql`${migrationReconnectTasks.descriptor} ->> 'number' = ${e164}`,
         ),
       ),
     );
-  if (!open.length) return;
+  if (!steps.length) return;
   await ctx.tx
     .update(migrationReconnectTasks)
-    .set({ state: 'done', completedAt: new Date(), completedBy: null })
+    .set({ state: to, completedAt: to === 'done' ? new Date() : null, completedBy: null })
     .where(
       inArray(
         migrationReconnectTasks.id,
-        open.map((t) => t.id),
+        steps.map((t) => t.id),
       ),
     );
   // The same event a person ticking it off writes, so the migration's history reads the same either way.
-  for (const t of open)
+  for (const t of steps)
     await ctx.emit({
       type: 'migration.task_changed',
       entityType: 'migration',
       entityId: t.migrationId,
       workspaceId: t.workspaceId,
-      payload: { taskId: t.id, state: 'done' },
+      payload: { taskId: t.id, state: to },
       before: { state: t.state },
-      after: { step: t.label, state: 'done' },
+      after: { step: t.label, state: to },
       broadcast: false,
     });
 }
