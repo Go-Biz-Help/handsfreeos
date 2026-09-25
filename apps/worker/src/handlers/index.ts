@@ -28,6 +28,7 @@ import {
   onCalendarRefreshWanted,
 } from './calendar';
 import { onCampaignCreated, onCampaignPace, onCampaignSending } from '../automations/campaigns';
+import { onAiCallEnded, onMissedCallForAi } from '../ai-calls/index';
 import { onExpiringArm } from '../automations/expiring';
 import { onHandoffNudge } from '../automations/handoff';
 import { onConnectionBroke, onCorrection } from '../automations/health';
@@ -238,7 +239,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'campaign.approved': onCampaignSending,
     'campaign.resumed': onCampaignSending,
     'campaign.pace_changed': onCampaignPace,
-    'call.completed': [onPipelineEvidence, onEngaged],
+    'call.completed': [onPipelineEvidence, onEngaged, onAiCallEnded],
+    // AI outbound calls: a missed call rung back, and how a call the AI placed ended (ai-calls/index.ts).
+    'call.missed': [onMissedCallForAi, onAiCallEnded],
     // Automations' "Thank-you after the job": two hours on (automations/thank-you.ts).
     'appointment.completed': [onAppointmentChanged, onCompletedThankYou, onPipelineEvidence],
     'appointment.no_show': onAppointmentChanged,

@@ -25,7 +25,15 @@ import {
   type NudgeCheckContext,
   type TeammateStatus,
 } from '@hfos/core';
-import { Bell, ChevronRight, ClipboardList, Lock, MessageSquare, Sparkles } from 'lucide-react';
+import {
+  Bell,
+  ChevronRight,
+  ClipboardList,
+  Lock,
+  MessageSquare,
+  Phone,
+  Sparkles,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
@@ -49,6 +57,7 @@ export interface TeammateOnPage {
 
 const EFFECT_ICONS: Readonly<Record<AutomationEffect, ComponentType<{ className?: string }>>> = {
   texts: MessageSquare,
+  calls: Phone,
   alerts: Bell,
   records: ClipboardList,
 };

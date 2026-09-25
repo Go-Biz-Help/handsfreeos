@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Fragment, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
+import { CallConsentRow } from '@/components/crm/call-consent';
 import { can } from '@hfos/core';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
@@ -780,6 +781,20 @@ export function RecordPage(props: RecordPageProps) {
                     .map((p) => p.fullName)
                     .join(', ') || RECORD_WORDS.none}
                 </dd>
+                {person ? (
+                  <>
+                    <dt className="text-text-2">Calls from us</dt>
+                    <dd className="font-medium">
+                      <CallConsentRow
+                        workspaceId={workspaceId}
+                        personId={person.id}
+                        consent={person.callConsent.consent}
+                        source={person.callConsent.source}
+                        canEdit={!archived && can(permissions, 'inbox.use')}
+                      />
+                    </dd>
+                  </>
+                ) : null}
                 <dt className="text-text-2">{RECORD_WORDS.labels.source}</dt>
                 <dd className="font-medium">{(person ?? company)!.source ?? RECORD_WORDS.none}</dd>
                 <dt className="text-text-2">{RECORD_WORDS.labels.created}</dt>

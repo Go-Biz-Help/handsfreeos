@@ -133,6 +133,13 @@ export interface PlaceCallRequest {
   readonly statusCallbackUrl: string;
   /** How long the phone rings before the provider gives up. */
   readonly timeoutSeconds: number;
+  /** AI outbound calls: record the whole call, both sides, reporting to this address when it's saved. */
+  readonly record?: { readonly statusCallbackUrl: string } | null;
+  /**
+   * AI outbound calls: tell a person from a voicemail box before the answer URL is asked (`AnsweredBy`).
+   * `answer` decides on the first words; `beep` waits for a voicemail's beep, to leave a message after it.
+   */
+  readonly machineDetection?: 'answer' | 'beep' | null;
 }
 
 /** Where a call recording's words are. Sentences carry the recording's channel: 1 the business's side, 2 the customer's. */

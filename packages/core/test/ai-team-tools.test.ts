@@ -76,6 +76,8 @@ describe('the registry', () => {
       ['hand_off', 'core', 'auto'],
       ['reply', 'core', 'draft'],
       ['end_call', 'core', 'auto'],
+      ['confirm_visit', 'core', 'auto'],
+      ['no_more_calls', 'core', 'auto'],
       ['no_reply', 'core', 'auto'],
     ]);
     expect(TEAMMATE_TOOL_NAMES).toEqual(TEAMMATE_TOOLS.map((t) => t.name));

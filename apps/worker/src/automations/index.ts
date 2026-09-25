@@ -1,4 +1,5 @@
 /** Automations' own jobs (Settings → Automations): the ones that aren't the Action Center's or the AI teammate's. */
+import { aiCallJobs } from '../ai-calls/index';
 import type { JobMap } from '../jobs';
 import {
   CAMPAIGN_DRAFT_JOB,
@@ -108,4 +109,6 @@ export const automationJobs: JobMap = {
   [WEBSITE_RESCAN_JOB]: websiteRescanJob,
   [CAMPAIGN_DRAFT_JOB]: campaignDraftJob,
   [CAMPAIGN_SEND_JOB]: campaignSendJob,
+  // AI outbound calls (ai-calls/index.ts).
+  ...aiCallJobs,
 };

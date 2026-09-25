@@ -1074,6 +1074,20 @@ export function createTwilioTelephony(master: {
           StatusCallbackMethod: 'POST',
           StatusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
           Timeout: String(r.timeoutSeconds),
+          ...(r.record
+            ? {
+                Record: 'true',
+                RecordingChannels: 'dual',
+                RecordingStatusCallback: r.record.statusCallbackUrl,
+                RecordingStatusCallbackMethod: 'POST',
+                RecordingStatusCallbackEvent: ['completed', 'absent'],
+              }
+            : {}),
+          ...(r.machineDetection
+            ? {
+                MachineDetection: r.machineDetection === 'beep' ? 'DetectMessageEnd' : 'Enable',
+              }
+            : {}),
         },
       );
       return { sid: res.sid };

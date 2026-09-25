@@ -33,6 +33,7 @@ import {
   type AttentionKind,
   type AttentionSettings,
   type AutomationSettings,
+  type CallVoicemailChoice,
   type NudgeCheckContext,
   type NudgePlaceholder,
   type NudgeProblemCode,
@@ -1655,6 +1656,61 @@ function ReengagePanel({ env }: { env: PanelEnv }) {
   );
 }
 
+const VOICEMAIL_CHOICES: readonly { value: CallVoicemailChoice; label: string }[] = [
+  { value: 'text', label: 'Hang up and send a text instead' },
+  { value: 'message', label: 'Leave a short message' },
+  { value: 'hang_up', label: 'Just hang up' },
+];
+
+/** AI outbound calls: how its calls go, and what it does when a voicemail box answers. */
+function AiCallsPanel({ env }: { env: PanelEnv }) {
+  const ai = env.teammateName ?? 'Your AI teammate';
+  const choice = env.automations.calls.voicemail;
+  return (
+    <>
+      <Block>
+        <Note>
+          {ai} calls from your business number, in open hours only and never in quiet hours. Every
+          call starts with who it is, that it’s an AI and that the call is recorded. While it’s
+          training, each call waits for someone to approve it on the Approvals page. Anyone who asks
+          not to be called again isn’t.
+        </Note>
+      </Block>
+      <Block title="When a voicemail box answers">
+        <SetRow
+          first
+          title="What it does"
+          description="The carrier tells a person from a voicemail box."
+        >
+          <Select
+            selectSize="sm"
+            aria-label="When a voicemail box answers"
+            value={choice}
+            data-testid="ai-calls-voicemail"
+            onChange={(e) => {
+              const voicemail = e.target.value as CallVoicemailChoice;
+              void env.saveAutomations(
+                (s) => ({ ...s, calls: { ...s.calls, voicemail } }),
+                voicemail === 'text'
+                  ? 'It hangs up and texts them instead.'
+                  : voicemail === 'message'
+                    ? 'It leaves a short message after the beep.'
+                    : 'It just hangs up.',
+              );
+            }}
+          >
+            {VOICEMAIL_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      </Block>
+    </>
+  );
+}
+
 // ---- The AI's tags and details (0107) ----
 
 function AiTagsPanel({ env }: { env: PanelEnv }) {
@@ -1752,6 +1808,7 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   stale: StalePanel,
   estimates: EstimatesPanel,
   balance: BalancePanel,
+  ai_calls: AiCallsPanel,
   ai_tags: AiTagsPanel,
 };
 

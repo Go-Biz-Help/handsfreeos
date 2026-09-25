@@ -17,6 +17,7 @@
  * to confirm.", the email carries a Confirm link to the manage page's button. A sent one records the ask (attendee.record_reminder's
  * askedToConfirm), which a reply of C, or YES, then answers.
  */
+import { armConfirmCall } from '../ai-calls/index';
 import { eq } from 'drizzle-orm';
 import {
   attentionSettingsOf,
@@ -209,6 +210,7 @@ export const appointmentReminder: JobHandler = async (ctx) => {
           messageId: sent.messageId,
           askedToConfirm: opensAsk,
         });
+        if (askToConfirm) await armConfirmCallFor(ctx, scope, attendeeId, now);
         return again(ctx, scope, b.appt.id, start);
       }
       textWhy = sent.refused;
@@ -235,6 +237,7 @@ export const appointmentReminder: JobHandler = async (ctx) => {
       messageId: sent.messageId,
       askedToConfirm: opensAsk && !!b.manageUrl,
     });
+    if (askToConfirm) await armConfirmCallFor(ctx, scope, attendeeId, now);
     return again(ctx, scope, b.appt.id, start);
   }
   return note({
@@ -242,3 +245,16 @@ export const appointmentReminder: JobHandler = async (ctx) => {
     reason: textWhy === 'quiet_hours' || textWhy === 'opted_out' ? textWhy : 'no_contact',
   });
 };
+
+/**
+ * AI outbound calls: the day-before reminder asked them to confirm, so a call three hours on, if the visit still
+ * isn't confirmed and "Call to confirm tomorrow's visit" is on then (ai-calls/index.ts decides when it runs).
+ */
+async function armConfirmCallFor(
+  ctx: Parameters<JobHandler>[0],
+  scope: TenantScope,
+  attendeeId: string,
+  now: number,
+): Promise<void> {
+  await asWorker(ctx.db, scope, (tx) => armConfirmCall(tx, scope, attendeeId, now));
+}

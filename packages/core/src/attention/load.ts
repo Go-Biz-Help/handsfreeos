@@ -945,7 +945,7 @@ async function loadApprovals(
   const list = await rows<{
     id: string;
     source: 'workflow' | 'teammate';
-    draft_kind: 'reply' | 'approval' | null;
+    draft_kind: 'reply' | 'approval' | 'call' | null;
     status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
     created_at: Date;
     expires_at: Date | null;
@@ -988,7 +988,11 @@ async function loadApprovals(
           id: r.id,
           source: r.source,
           draftKind:
-            r.source === 'teammate' ? (r.draft_kind === 'approval' ? 'approval' : 'reply') : null,
+            r.source === 'teammate'
+              ? r.draft_kind === 'approval' || r.draft_kind === 'call'
+                ? r.draft_kind
+                : 'reply'
+              : null,
           status: r.status,
           createdAt: iso(r.created_at)!,
           expiresAt: iso(r.expires_at),
@@ -2235,7 +2239,9 @@ export async function reconcile(
         ? `Workflow: ${a.label}`
         : a.approval.draftKind === 'approval'
           ? `${a.label} asks to approve`
-          : `${a.label}’s reply`;
+          : a.approval.draftKind === 'call'
+            ? `${a.label} asks to make a call`
+            : `${a.label}’s reply`;
     run(
       'ai_approval',
       {
