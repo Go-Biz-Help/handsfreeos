@@ -10,6 +10,7 @@ import {
   Trash2,
   Undo2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -853,7 +854,18 @@ function Finished({
           <ul className="mt-2 flex flex-col gap-1.5">
             {open.map((t) => (
               <li key={t.id} className="text-[13px] text-text-2">
-                {t.label}
+                {/* The place it is done, when the task names one: a list of chores with no way to them is
+                    the treasure hunt `settings_path` exists to prevent. */}
+                {t.workspaceId && t.settingsPath?.startsWith('/') ? (
+                  <Link
+                    href={`/app/w/${t.workspaceId}${t.settingsPath}`}
+                    className="font-medium text-accent-text hover:underline"
+                  >
+                    {t.label}
+                  </Link>
+                ) : (
+                  t.label
+                )}
                 {t.instructions ? <span className="text-text-3"> — {t.instructions}</span> : null}
               </li>
             ))}

@@ -34812,6 +34812,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        fromMigration: {
+                            display: string;
+                            e164: string;
+                        }[];
                         ports: {
                             completedAt: string | null;
                             /** Format: date-time */

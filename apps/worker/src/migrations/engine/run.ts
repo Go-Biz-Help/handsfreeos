@@ -1221,7 +1221,7 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
             'Your customers know this number, so it moves rather than being replaced: the carrier ports it, ' +
             'with your say-so and a form. Nothing happens to it until you start that, and your old system keeps ' +
             'working on it until the day it moves. Texts and calls only arrive here once it has.',
-          settingsPath: '/settings/phone',
+          settingsPath: '/settings/texting',
           blocksLiveUse: true,
           descriptor: { number },
         });
@@ -1317,7 +1317,7 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
             'Your email history is here. What is not is the mailbox itself: when a customer hits reply, it ' +
             'goes wherever it always went. Connect that inbox and replies join the conversation here instead ' +
             'of sitting where nobody sees them beside the rest of the thread.',
-          settingsPath: '/settings/mailboxes',
+          settingsPath: '/settings/email',
           blocksLiveUse: false,
         });
 
@@ -1371,7 +1371,7 @@ async function findReconnectTasks(deps: MigrationDeps, job: JobRow): Promise<voi
             'old one, and it still sends what people fill in to the old system. Publish this one, then put ' +
             'its link or its embed on your site in place of the old one. Until you do, new enquiries go to ' +
             'the account you are leaving.',
-          settingsPath: '/settings/forms',
+          settingsPath: '/forms',
           blocksLiveUse: false,
           descriptor: { slug },
         });

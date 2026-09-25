@@ -23,7 +23,8 @@ import { Callout } from '@/components/crm/chips';
 import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card';
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
 import { A2pWizard, type HostedSurfaces } from '@/components/settings/a2p-wizard';
-import { PortStep, type PortInfo } from '@/components/settings/port-step';
+import type { LetterProfile } from '@/components/settings/port-letter';
+import { PortStep, type MigratedNumber, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -90,6 +91,7 @@ export function TextingPage({
   team,
   people,
   ports,
+  portsFromMigration,
   inboxPerPerson,
   surfaces,
 }: {
@@ -103,6 +105,8 @@ export function TextingPage({
   people: Ringable[];
   /** Numbers being brought from another carrier, newest first (M17). */
   ports: readonly PortInfo[];
+  /** Numbers a migration found the business using that are not on their way here yet (M11). */
+  portsFromMigration: readonly MigratedNumber[];
   /** Whether each person sees only their own threads (M17). Shown beside "who this number rings". */
   inboxPerPerson: boolean;
   /**
@@ -127,6 +131,10 @@ export function TextingPage({
   // about getting a first number working — so it is local state that drops back into the same buy screen.
   const [adding, setAdding] = useState(false);
   const submission = latestSubmission(status.registrations);
+  const porting: Porting = {
+    fromMigration: portsFromMigration,
+    profile: letterProfileOf(businessName, submission, me),
+  };
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
@@ -172,15 +180,45 @@ export function TextingPage({
             ← Back to your numbers
           </button>
           <div className="mt-3">
-            <NumberStep workspaceId={workspaceId} failed={null} ports={ports} />
+            <NumberStep workspaceId={workspaceId} failed={null} ports={ports} porting={porting} />
           </div>
         </Card>
       </div>
     );
 
+  // Numbers a migration found that nothing here has picked up yet. Mid-setup the port screen offers them
+  // itself; once a business is set up the port screen is behind "Add a number", so it is said out loud here.
+  const migratedCallout = portsFromMigration.length ? (
+    <Callout
+      tone="info"
+      icon={Phone}
+      className="max-w-[820px]"
+      action={
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => setAdding(true)}
+          data-testid="migrated-bring"
+        >
+          Bring {portsFromMigration.length === 1 ? 'it' : 'them'} here
+        </Button>
+      }
+      data-testid="migrated-numbers"
+    >
+      Your migration found customers texting and calling{' '}
+      {portsFromMigration.length === 1
+        ? portsFromMigration[0]!.display
+        : `${portsFromMigration.length} numbers`}{' '}
+      that {portsFromMigration.length === 1 ? 'is' : 'are'} not here yet. Move{' '}
+      {portsFromMigration.length === 1 ? 'it' : 'them'} over and customers keep dialing what they
+      always have.
+    </Callout>
+  ) : null;
+
   if (status.nextStep === 'ready' && status.number)
     return (
       <div className="flex flex-col gap-5">
+        {migratedCallout}
         {numbersCard}
         {visibilityCard}
         <Configured
@@ -227,12 +265,18 @@ export function TextingPage({
           workspaceId={workspaceId}
           failed={status.number?.status === 'failed' ? status.number : null}
           ports={ports}
+          porting={porting}
         />
       ) : step === 'porting' ? (
         // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
         // `provisioning` gets: there is a status, a moving day and a way out, and a business checking back
         // every few days needs all three.
-        <PortStep workspaceId={workspaceId} ports={ports} onBack={() => setAdding(true)} />
+        <PortStep
+          workspaceId={workspaceId}
+          ports={ports}
+          {...porting}
+          onBack={() => setAdding(true)}
+        />
       ) : step === 'provisioning' || step === 'releasing' ? (
         <div className="flex items-center gap-3 py-6 text-[13.5px] text-text-2" role="status">
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -265,6 +309,50 @@ export function TextingPage({
       {sentSheet}
     </Card>
   );
+}
+
+/** What the port screen needs besides the ports themselves. */
+interface Porting {
+  readonly fromMigration: readonly MigratedNumber[];
+  readonly profile: LetterProfile;
+}
+
+const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+
+/**
+ * The letter of authorisation, filled in from the carrier registration: the one place a business has already
+ * written its legal name, EIN, address and contact down for a carrier. The person signed in stands in for the
+ * contact until there is a registration.
+ */
+function letterProfileOf(
+  businessName: string,
+  submission: Record<string, unknown> | null,
+  me: { fullName: string; email: string },
+): LetterProfile {
+  const s = submission ?? {};
+  const address = (s['address'] ?? {}) as Record<string, unknown>;
+  const contact = (s['contact'] ?? {}) as Record<string, unknown>;
+  const street = text(address['line1']);
+  const cityLine = [
+    text(address['city']),
+    [text(address['state']), text(address['postalCode'])].filter(Boolean).join(' '),
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const contactName = [text(contact['firstName']), text(contact['lastName'])]
+    .filter(Boolean)
+    .join(' ');
+  return {
+    businessName: text(s['legalName']) || businessName,
+    registrationNumber: text(s['ein']),
+    address: [street, cityLine].filter(Boolean).join(', '),
+    website: text(s['website'])
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, ''),
+    contactName: contactName || me.fullName,
+    contactEmail: text(contact['email']) || me.email,
+    contactPhone: formatPhone(text(contact['phone'])),
+  };
 }
 
 function latestSubmission(regs: RegistrationInfo[]): Record<string, unknown> | null {
@@ -319,10 +407,12 @@ function NumberStep({
   workspaceId,
   failed,
   ports,
+  porting,
 }: {
   workspaceId: string;
   failed: PhoneNumberInfo | null;
   ports: readonly PortInfo[];
+  porting: Porting;
 }) {
   const router = useRouter();
   /**
@@ -334,7 +424,10 @@ function NumberStep({
    * choice again.
    */
   const [source, setSource] = useState<'new' | 'bring'>(
-    ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ? 'bring' : 'new',
+    ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ||
+      porting.fromMigration.length > 0
+      ? 'bring'
+      : 'new',
   );
   const [type, setType] = useState<NumberType>('toll_free');
   const [area, setArea] = useState('');
@@ -424,7 +517,14 @@ function NumberStep({
   }
 
   if (source === 'bring')
-    return <PortStep workspaceId={workspaceId} ports={ports} onBack={() => setSource('new')} />;
+    return (
+      <PortStep
+        workspaceId={workspaceId}
+        ports={ports}
+        {...porting}
+        onBack={() => setSource('new')}
+      />
+    );
 
   return (
     <div data-testid="number-step">

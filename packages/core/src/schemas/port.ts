@@ -147,4 +147,8 @@ export const NumberPortListInput = z.object({
   /** Ports that already landed are history; off by default so the screen is about what is in flight. */
   includeFinished: z.boolean().optional().default(false),
 });
-export const NumberPortListOutput = z.object({ ports: z.array(NumberPortOut) });
+export const NumberPortListOutput = z.object({
+  ports: z.array(NumberPortOut),
+  /** Numbers a migration found this business using that are not on their way here yet (M11). */
+  fromMigration: z.array(z.object({ e164: z.string(), display: z.string() })),
+});

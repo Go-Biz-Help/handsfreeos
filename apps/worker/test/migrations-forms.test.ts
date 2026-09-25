@@ -341,7 +341,7 @@ describe('forms and what people put in them', () => {
     const quote = tasks.find((t) => t.label === 'Get a quote')!;
     // The quiet failure this exists to prevent: the old form keeps working, and keeps feeding the dead system.
     expect(quote.instructions).toContain('new enquiries go to the account you are leaving');
-    expect(quote.settings_path).toBe('/settings/forms');
+    expect(quote.settings_path).toBe('/forms');
   }, 60_000);
 
   it('turns none of it into work', async () => {

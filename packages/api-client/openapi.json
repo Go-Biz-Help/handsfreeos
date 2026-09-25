@@ -56316,10 +56316,30 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "fromMigration": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "e164": {
+                            "type": "string"
+                          },
+                          "display": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "e164",
+                          "display"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "ports"
+                    "ports",
+                    "fromMigration"
                   ],
                   "additionalProperties": false
                 }
