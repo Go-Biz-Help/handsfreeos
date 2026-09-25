@@ -45,6 +45,16 @@ type FormRow = typeof forms.$inferSelect;
 const asked = (definition: FormDefinition): number =>
   allQuestions(definition).filter((q) => q.type !== 'content').length;
 
+/**
+ * An answer sheet's score as a percentage, or null when nothing on it was worth points. Every finished sheet stores a
+ * percentage, 0 when there was nothing to score, so a survey's or a plain form's would otherwise read "0%".
+ */
+const percentOf = (
+  percent: number | string | null,
+  possible: number | string | null,
+): number | null =>
+  percent === null || possible === null || Number(possible) <= 0 ? null : Number(percent);
+
 function summaryOf(
   row: FormRow,
   definition: FormDefinition,
@@ -251,6 +261,7 @@ export const formResponseList = defineQuery({
       person_name: string | null;
       lead_id: string | null;
       score_percent: number | null;
+      score_possible: string | null;
       passed: boolean | null;
       result_id: string | null;
       started_at: string | Date;
@@ -259,7 +270,7 @@ export const formResponseList = defineQuery({
     }>(
       ctx.tx,
       sql`select r.id, r.form_id, r.version_id, r.status, r.source, r.person_id, r.lead_id,
-            r.score_percent, r.passed, r.result_id, r.started_at, r.completed_at,
+            r.score_percent, r.score_possible, r.passed, r.result_id, r.started_at, r.completed_at,
             btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) as person_name,
             to_char(coalesce(r.completed_at, r.started_at), 'YYYY-MM-DD"T"HH24:MI:SS.USOF') as sort
           from app.form_responses r
@@ -283,7 +294,7 @@ export const formResponseList = defineQuery({
         personId: r.person_id,
         personName: r.person_name?.trim() || null,
         leadId: r.lead_id,
-        scorePercent: r.score_percent === null ? null : Number(r.score_percent),
+        scorePercent: percentOf(r.score_percent, r.score_possible),
         passed: r.passed,
         resultId: r.result_id,
         startedAt: new Date(r.started_at).toISOString(),
@@ -312,6 +323,7 @@ export const formResponseGet = defineQuery({
         personId: formResponses.personId,
         leadId: formResponses.leadId,
         scorePercent: formResponses.scorePercent,
+        scorePossible: formResponses.scorePossible,
         passed: formResponses.passed,
         resultId: formResponses.resultId,
         startedAt: formResponses.startedAt,
@@ -355,7 +367,7 @@ export const formResponseGet = defineQuery({
         personId: response.personId,
         personName: person[0]?.name.trim() || null,
         leadId: response.leadId,
-        scorePercent: response.scorePercent === null ? null : Number(response.scorePercent),
+        scorePercent: percentOf(response.scorePercent, response.scorePossible),
         passed: response.passed,
         resultId: response.resultId,
         startedAt: response.startedAt.toISOString(),
@@ -424,12 +436,13 @@ export const formResponseExport = defineQuery({
       source: string;
       person_name: string | null;
       score_percent: number | null;
+      score_possible: string | null;
       passed: boolean | null;
       answered_at: string | Date;
       sort: string;
     }>(
       ctx.tx,
-      sql`select r.id, r.source, r.score_percent, r.passed,
+      sql`select r.id, r.source, r.score_percent, r.score_possible, r.passed,
             btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) as person_name,
             coalesce(r.completed_at, r.started_at) as answered_at,
             to_char(coalesce(r.completed_at, r.started_at), 'YYYY-MM-DD"T"HH24:MI:SS.USOF') as sort
@@ -471,7 +484,7 @@ export const formResponseExport = defineQuery({
         personName: r.person_name?.trim() || null,
         source: r.source as 'link',
         completedAt: new Date(r.answered_at).toISOString(),
-        scorePercent: r.score_percent === null ? null : Number(r.score_percent),
+        scorePercent: percentOf(r.score_percent, r.score_possible),
         passed: r.passed,
         answers: byResponse.get(r.id) ?? {},
       })),

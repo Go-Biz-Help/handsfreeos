@@ -195,6 +195,8 @@ describe('the responses', () => {
     expect(items).toHaveLength(3);
     expect(items[0]!.personName).toBeTruthy();
     expect(items[0]!.completedAt).toBeTruthy();
+    // A survey has nothing to score, so no answer sheet on it says "0%".
+    expect(items.map((r) => r.scorePercent)).toEqual([null, null, null]);
   });
 
   it('reads one in full, with the questions as they were worded', async () => {
@@ -208,6 +210,7 @@ describe('the responses', () => {
     const again = got.answers.find((a) => a.questionId === qid('again'))!;
     expect(again.labels.length).toBe(1);
     expect(again.questionTitle).toBe('Would you use us again?');
+    expect(got.response.scorePercent).toBeNull();
   });
 });
 
@@ -231,6 +234,8 @@ describe('the spreadsheet', () => {
     expect(newest.answers[qid('again')]).toBe('Maybe');
     expect(newest.answers[qid('rating')]).toBe('2');
     expect(out.rows.map((r) => r.answers[qid('rating')])).toEqual(['2', '4', '5']);
+    // Nothing scored, so the file gets no score columns.
+    expect(out.rows.map((r) => r.scorePercent)).toEqual([null, null, null]);
   });
 
   it('comes a page at a time, and the pages don’t overlap', async () => {

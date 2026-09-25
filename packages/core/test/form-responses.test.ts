@@ -14,11 +14,13 @@ import {
   formSaveDraft,
   organizationCreate,
   formResponseDelete,
+  formResponseExport,
+  formResponseList,
   formResponseSave,
   formResponseStart,
   formResponseSubmit,
 } from '../src/server';
-import { admin, expectHfos, run, runSystem, type Scope } from './calendar-helpers';
+import { admin, ask, expectHfos, run, runSystem, type Scope } from './calendar-helpers';
 
 let owner: TestUser;
 let wsId: string, orgId: string;
@@ -505,6 +507,18 @@ describe('sending it', () => {
     });
     expect(failed.passed).toBe(false);
     expect(failed.resultId).not.toBe('r_passed00');
+    // Reading them back, a wrong answer is 0%, not "no score": there was a point on offer.
+    const { items } = await ask(
+      formResponseList,
+      { workspaceId: wsId, formId: form.formId },
+      owner,
+    );
+    expect(items.map((r) => r.scorePercent)).toEqual([0, 100]);
+    const sheet = await ask(formResponseExport, { workspaceId: wsId, formId: form.formId }, owner);
+    expect(sheet.rows.map((r) => [r.scorePercent, r.passed])).toEqual([
+      [0, false],
+      [100, true],
+    ]);
   });
 
   it('ticks the texting box only when they ticked it', async () => {

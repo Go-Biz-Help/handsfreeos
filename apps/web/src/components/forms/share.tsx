@@ -101,7 +101,9 @@ export function FormShare({
   const embedSnippet = `<iframe src="${publicUrl}?embed=1" title="${form.name}" width="100%" height="720" style="border:0" loading="lazy"></iframe>`;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    // One column that is the screen's width, not the embed snippet's: an implicit grid column grows to fit its widest
+    // line, and the snippet is one long line, which pushed every card (the QR code with it) off a phone's screen.
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card className="space-y-4 p-4">
         <div>
           <h3 className="text-[14px] font-medium text-text">The link</h3>
