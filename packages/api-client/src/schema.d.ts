@@ -4348,7 +4348,7 @@ export interface paths {
         put?: never;
         /**
          * Call off a port. The carrier may already have moved it, in which case it is too late.
-         * @description Risk level 3. Requires channels.manage. Emits number_port.cancelled.
+         * @description Risk level 3. Requires channels.manage. Emits number_port.cancelled, migration.task_changed.
          */
         post: operations["command_number_port_cancel"];
         delete?: never;
@@ -4408,7 +4408,7 @@ export interface paths {
         put?: never;
         /**
          * Send the port to the carrier. A full port moves calls too, and takes two to four weeks.
-         * @description Risk level 4. Requires channels.manage. Emits number_port.submitted.
+         * @description Risk level 4. Requires channels.manage. Emits number_port.submitted, migration.task_changed.
          */
         post: operations["command_number_port_submit"];
         delete?: never;
@@ -35321,6 +35321,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        fromMigration: {
+                            display: string;
+                            e164: string;
+                        }[];
                         ports: {
                             completedAt: string | null;
                             /** Format: date-time */

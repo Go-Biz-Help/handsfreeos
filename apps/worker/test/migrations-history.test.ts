@@ -749,7 +749,7 @@ describe('the history arrives as history', () => {
     // nothing about where a customer's reply lands.
     const mailbox = byKind('mailbox')[0]!;
     expect(mailbox.instructions).toContain('when a customer hits reply');
-    expect(mailbox.settings_path).toBe('/settings/mailboxes');
+    expect(mailbox.settings_path).toBe('/settings/email');
 
     expect(tasks.every((t) => t.state === 'todo')).toBe(true);
   }, 60_000);

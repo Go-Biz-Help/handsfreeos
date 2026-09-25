@@ -40826,7 +40826,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 4. Requires channels.manage. Emits number_port.submitted.",
+        "description": "Risk level 4. Requires channels.manage. Emits number_port.submitted, migration.task_changed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -40899,7 +40899,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires channels.manage. Emits number_port.cancelled.",
+        "description": "Risk level 3. Requires channels.manage. Emits number_port.cancelled, migration.task_changed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -56730,10 +56730,30 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "fromMigration": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "e164": {
+                            "type": "string"
+                          },
+                          "display": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "e164",
+                          "display"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "ports"
+                    "ports",
+                    "fromMigration"
                   ],
                   "additionalProperties": false
                 }

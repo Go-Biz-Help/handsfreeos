@@ -61,6 +61,7 @@ export default async function TextingSettingsPage({
         team={team}
         people={people}
         ports={ports.ports}
+        portsFromMigration={ports.fromMigration}
         inboxPerPerson={got.workspace.inboxPerPerson}
         surfaces={surfaces}
       />
