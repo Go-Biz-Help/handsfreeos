@@ -7,7 +7,7 @@ name: Phone app on Android
 # person signing in deleting the last one's copy, the queue of changes, a customer's text arriving as a notification
 # whose Reply is pressed in the notification shade, links opening the app's screens, and the notification switches.
 # Its own workflow, so the 45-minute CI job keeps its room.
-# A run takes about 46 minutes of Actions time, so it runs only when started by hand, about once per step:
+# A run takes about 90 minutes of Actions time, so it runs only when started by hand, about once per step:
 # `gh workflow run "Phone app on Android" --repo gobizhelp/handsfreeos --ref main`.
 on:
   workflow_dispatch:
@@ -26,7 +26,10 @@ jobs:
   maestro-android:
     name: Maestro flows on an Android emulator
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # About 25 minutes to build the app, 10 to start everything and boot the emulator, and 55 for the flows: a full
+    # run took 88 minutes, and the next, with a slower build, was stopped at 90 in its last flow. This leaves room
+    # for more flows and a slow runner.
+    timeout-minutes: 110
     steps:
       # The runner's disk is mostly toolchains this job never uses, and the Supabase images, both NDKs, Gradle's
       # native builds and the emulator's system image don't fit beside them: one run stopped mid-build with "No space
