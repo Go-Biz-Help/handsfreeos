@@ -171,3 +171,68 @@ jobs:
             sleep 30
           done
           echo "::notice::Still running after 45 minutes. The run carries on at EAS; this job is not waiting for it."
+
+      # The production builds ask the `production` channel for updates, and deploy-production.yml publishes them to
+      # the `production` branch. The channel is what points at the branch, and nothing here ever set that: on 25
+      # September it pointed at no branch at all, so every phone asking for an update was told "There are no branches
+      # linked to the channel" and kept the JavaScript its build came with. This puts the link back on every release,
+      # so an unlinked channel lasts one release at most.
+      #
+      # It runs whether or not the EAS run succeeded: a failed build is no reason to leave the updates that did go
+      # out unreachable. `continue-on-error`, because this step failing must show without failing the release: the
+      # step above reads a failed release as one that didn't finish, and would rebuild and resubmit both phones for it.
+      - name: Point the production channel at the production branch
+        if: ${{ !cancelled() && steps.check.outputs.ready == 'true' }}
+        continue-on-error: true
+        env:
+          CHANNEL: production
+          BRANCH: production
+        run: |
+          set -euo pipefail
+          gql() {
+            local out
+            # Said on stderr: stdout is the answer, and callers keep it.
+            out=$(curl -fsS https://api.expo.dev/graphql \
+              -H "Authorization: Bearer $EXPO_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -nc --arg q "$1" --argjson v "$2" '{query: $q, variables: $v}')") ||
+              { echo "::error::Couldn't reach Expo's API." >&2; exit 1; }
+            if [ "$(echo "$out" | jq '.errors // [] | length')" != "0" ]; then
+              echo "::error::Expo's API refused the request: $(echo "$out" | jq -c '.errors')" >&2
+              exit 1
+            fi
+            echo "$out"
+          }
+          found=$(gql 'query ($appId: String!, $channel: String!, $branch: String!) {
+              app { byId(appId: $appId) {
+                updateChannelByName(name: $channel) { id branchMapping isPaused }
+                updateBranchByName(name: $branch) { id } } } }' \
+            "$(jq -nc --arg appId "$EAS_PROJECT_ID" --arg channel "$CHANNEL" --arg branch "$BRANCH" \
+              '{appId: $appId, channel: $channel, branch: $branch}')")
+          branch_id=$(echo "$found" | jq -r '.data.app.byId.updateBranchByName.id // empty')
+          channel_id=$(echo "$found" | jq -r '.data.app.byId.updateChannelByName.id // empty')
+          mapping=$(echo "$found" | jq -r '.data.app.byId.updateChannelByName.branchMapping // empty')
+          if [ -z "$branch_id" ]; then
+            echo "::notice::No $BRANCH branch yet: nothing has been published to it, so there is nothing to point at."
+            exit 0
+          fi
+          # How `eas channel:edit --branch` writes it: every request, whatever its runtime or platform, reads the branch.
+          want=$(jq -nc --arg id "$branch_id" '{version: 0, data: [{branchId: $id, branchMappingLogic: "true"}]}')
+          if [ -z "$channel_id" ]; then
+            gql 'mutation ($appId: ID!, $name: String!, $mapping: String!) {
+                updateChannel { createUpdateChannelForApp(appId: $appId, name: $name, branchMapping: $mapping) { id } } }' \
+              "$(jq -nc --arg appId "$EAS_PROJECT_ID" --arg name "$CHANNEL" --arg mapping "$want" \
+                '{appId: $appId, name: $name, mapping: $mapping}')" > /dev/null
+            echo "::warning::There was no $CHANNEL channel, so this made one that reads the $BRANCH branch."
+          elif [ "$(echo "$mapping" | jq -Sc '.data' 2>/dev/null)" = "$(echo "$want" | jq -Sc '.data')" ]; then
+            echo "The $CHANNEL channel already reads the $BRANCH branch."
+          else
+            gql 'mutation ($channelId: ID!, $mapping: String!) {
+                updateChannel { editUpdateChannel(channelId: $channelId, branchMapping: $mapping) { id } } }' \
+              "$(jq -nc --arg channelId "$channel_id" --arg mapping "$want" '{channelId: $channelId, mapping: $mapping}')" > /dev/null
+            echo "::warning::The $CHANNEL channel didn't read the $BRANCH branch (it had $mapping), so phones got no updates. It does now."
+          fi
+          # A pause is somebody's decision to stop updates reaching phones, so it is said out loud and left alone.
+          if [ "$(echo "$found" | jq -r '.data.app.byId.updateChannelByName.isPaused // false')" = "true" ]; then
+            echo "::warning::The $CHANNEL channel is paused, so phones still get no updates until someone resumes it on expo.dev."
+          fi
