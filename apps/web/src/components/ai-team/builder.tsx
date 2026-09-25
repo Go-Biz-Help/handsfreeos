@@ -15,6 +15,7 @@ import {
   Repeat,
   Reply,
   ShieldCheck,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -48,7 +49,7 @@ import { dateOf, fmtMonthDay } from '@/lib/calendar/time';
 import { cn } from '@/lib/utils';
 import { useWide } from '@/lib/workflows/use-wide';
 import { FullScreen } from './full-screen';
-import { TeammateHeader, TeammateSubnav } from './header';
+import { SaveIndicator, TeammateHeader, TeammateSubnav } from './header';
 import { TeammateHistory } from './history';
 import { ModuleForm, type ModuleProps } from './modules';
 import { Note } from './parts';
@@ -100,8 +101,9 @@ export interface TeammateBuilderProps {
 /**
  * The AI teammate builder: the module list, the chosen module's settings, and a right rail with its status
  * and training-wheels progress, how it works (with its labels), things to check with Fix buttons, and
- * Save. The rules the server saves with run here on every change. On phones the rail folds into a card at
- * the top, and each module opens full screen.
+ * Undo. The rules the server saves with run here on every change, and changes save on their own, with
+ * Saved / Saving… at the top right. On phones the rail folds into a card at the top, and each module opens
+ * full screen.
  */
 export function TeammateBuilder(props: TeammateBuilderProps) {
   const { workspaceId, workspaceName, teammate, progress, revisions, catalogs, canManage } = props;
@@ -126,6 +128,8 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
     catalogs,
     readOnly: !canManage,
     adapter,
+    // The new revision and its History row.
+    onSaved: () => router.refresh(),
   });
   const config = draft.config;
   const name = config.identity.name;
@@ -161,13 +165,11 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
       : `Automatic since ${fmtMonthDay(dateOf(teammate.automaticSince, tz))}, after ${savedView.needed} approvals.`
     : null;
 
-  async function save() {
-    if (await draft.save()) router.refresh();
-  }
-
   async function applyStatus(next: TeammateStatus) {
     setStatusBusy(true);
     try {
+      // Turning it on checks the saved settings, so a change still waiting saves first.
+      await draft.flush();
       await actions.setStatus({ teammateId: teammate.id, status: next });
       toast.success(statusToast(status, next, name));
       setAsk(null);
@@ -188,13 +190,14 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
   }
 
   async function restore(revision: number) {
-    if (draft.dirty && !confirm('Restoring drops your unsaved changes. Go ahead?')) return;
     setRestoring(revision);
     try {
+      const settled = await draft.flush();
+      if (!settled.clean && !confirm('Restoring drops your unsaved changes. Go ahead?')) return;
       const out = await actions.restore({
         teammateId: teammate.id,
         revision,
-        baseRevision: draft.revision,
+        baseRevision: settled.revision,
       });
       draft.discard();
       setHistoryOpen(false);
@@ -217,7 +220,11 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
     catalogs,
     progress,
     readOnly: !canManage,
+    flush: draft.flush,
   };
+  const saveIndicator = canManage ? (
+    <SaveIndicator state={draft.saveState} onRetry={() => void draft.save()} />
+  ) : null;
   const openTest = canManage ? () => setTestOpen(true) : undefined;
   const statusCard = (bare: boolean) => (
     <StatusCard
@@ -272,6 +279,7 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
         name={name}
         status={status}
         saved={savedLine(teammate.revision, latest, tz)}
+        saveState={saveIndicator}
         onTest={openTest}
         onHistory={() => setHistoryOpen(true)}
         menu={menu}
@@ -441,14 +449,12 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
               {issueList}
             </Card>
             <SaveCard
-              dirty={draft.dirty}
+              saveState={draft.saveState}
               revision={draft.revision}
-              saving={draft.saving}
               readOnly={!canManage}
               canUndo={draft.canUndo}
               undoLabel={draft.undoLabel}
               onUndo={draft.undo}
-              onSave={() => void save()}
               onHistory={() => setHistoryOpen(true)}
             />
           </aside>
@@ -461,10 +467,20 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
         title={phoneTitle}
         testId="teammate-module-screen"
         action={
-          canManage && draft.dirty ? (
-            <Button size="sm" loading={draft.saving} onClick={() => void save()}>
-              Save
-            </Button>
+          canManage ? (
+            <span className="flex items-center gap-1">
+              {saveIndicator}
+              {draft.canUndo ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={draft.undo}
+                  aria-label={draft.undoLabel ? `Undo: ${draft.undoLabel}` : 'Undo'}
+                >
+                  <Undo2 className="h-4 w-4" strokeWidth={1.75} />
+                </Button>
+              ) : null}
+            </span>
           ) : null
         }
       >
@@ -490,23 +506,6 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
           </div>
         </SheetContent>
       </Sheet>
-
-      {canManage && draft.dirty ? (
-        <div
-          className="fixed inset-x-0 bottom-[66px] z-20 flex items-center gap-2 border-t border-border bg-card px-4 py-2.5 lg:hidden"
-          data-testid="teammate-phone-save"
-        >
-          <span className="flex-1 text-[13px] font-medium">Unsaved changes</span>
-          {draft.canUndo ? (
-            <Button variant="ghost" size="sm" onClick={draft.undo}>
-              Undo
-            </Button>
-          ) : null}
-          <Button size="sm" loading={draft.saving} onClick={() => void save()}>
-            Save
-          </Button>
-        </div>
-      ) : null}
 
       <StatusConfirm
         ask={ask}
