@@ -21,7 +21,7 @@ import { notifyWords, stageOf } from '@/lib/ai-team/describe';
 import type { PatchOptions } from '@/lib/ai-team/use-draft';
 import { cn } from '@/lib/utils';
 import type { ModuleProps } from './modules';
-import { AddChip, Chip, DraftText, ModuleHeading, Note } from './parts';
+import { AddChip, Chip, DraftText, EditableChip, ModuleHeading, Note } from './parts';
 
 const KIND_NAMES: Readonly<Record<QuestionKind, string>> = {
   choice: 'Choice',
@@ -270,10 +270,27 @@ function QuestionCard({
           role="group"
           aria-label={`Choices for question ${n}`}
         >
-          {q.options.map((o) => (
-            <Chip
+          {q.options.map((o, i) => (
+            <EditableChip
               key={o}
+              value={o}
+              maxLength={100}
+              editLabel={`Change the choice ${o}`}
               removeLabel={`Remove the choice ${o}`}
+              testId={`question-${n}-choice-${i + 1}`}
+              onRename={(v) =>
+                onChange(
+                  {
+                    ...q,
+                    options: q.options.map((x) => (x === o ? v : x)),
+                    notAFitIf: {
+                      ...q.notAFitIf,
+                      answers: q.notAFitIf.answers.map((x) => (x === o ? v : x)),
+                    },
+                  },
+                  'Change a choice',
+                ) === null
+              }
               onRemove={() =>
                 onChange(
                   {
@@ -287,9 +304,7 @@ function QuestionCard({
                   'Remove a choice',
                 )
               }
-            >
-              {o}
-            </Chip>
+            />
           ))}
           {q.options.length < MAX_CHOICES ? (
             <AddChip
