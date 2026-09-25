@@ -35,6 +35,8 @@ export const config = {
   passkeysEnabled: process.env.EXPO_PUBLIC_PASSKEYS_ENABLED === 'true',
   /** Builds for the Maestro flows: a stand-in for the Face ID prompt, and the test switches in Settings. */
   e2e: process.env.EXPO_PUBLIC_E2E === '1',
+  /** Matomo's id for the phone app (`src/lib/analytics.ts`). Unset: nothing is counted. */
+  matomoSiteId: process.env.EXPO_PUBLIC_MATOMO_SITE_ID ?? '',
   /** The build's version, sent to the API with every request (`x-hfos-app-version`). */
   appVersion: Constants.expoConfig?.version ?? '0.0.0',
 } as const;

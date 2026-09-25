@@ -18,20 +18,22 @@ What to click in Play Console → App content → Data safety. Same facts as
 Google asks four things per type: collected or shared, required or optional, why, and whether it's processed
 ephemerally. Nothing here is **shared**: it goes to HandsFreeOS's own servers, and from there only to the service
 providers that carry it out on the business's behalf (the carrier that sends a text, the payment provider that takes a
-payment), which Google's own rules exclude from "shared". Nothing is processed ephemerally — the point of the app is
+payment), which Google's own rules exclude from "shared". The screen counts go to Matomo, which runs Go Biz Help's
+analytics for it and is a service provider in the same way. Nothing is processed ephemerally — the point of the app is
 that the business keeps its records.
 
-| Google's category → type                  | Collected | Shared | Required? | Purpose                               | Where in the code                                                              |
-| ----------------------------------------- | --------- | ------ | --------- | ------------------------------------- | ------------------------------------------------------------------------------ |
-| Personal info → Name                      | Yes       | No     | Required  | App functionality, Account management | `app.users`; `app.people`, `app.companies`                                     |
-| Personal info → Email address             | Yes       | No     | Required  | App functionality, Account management | Supabase Auth; `app.people.email`                                              |
-| Personal info → Phone number              | Yes       | No     | Optional  | App functionality                     | Settings → My cell phone; customers' numbers                                   |
-| Personal info → Address                   | Yes       | No     | Optional  | App functionality                     | Customers' and appointments' addresses                                         |
-| Personal info → User IDs                  | Yes       | No     | Required  | App functionality, Account management | The account id every change is credited to                                     |
-| Photos and videos → Photos                | Yes       | No     | Optional  | App functionality                     | `expo-image-picker` → a customer's files, or a reply                           |
-| Messages → Other in-app messages          | Yes       | No     | Required  | App functionality                     | The inbox: texts and emails with customers, notes                              |
-| Financial info → Other financial info     | Yes       | No     | Optional  | App functionality                     | Invoice, estimate, payment and plan amounts                                    |
-| Device or other IDs → Device or other IDs | Yes       | No     | Optional  | App functionality                     | `src/push/device.ts`: the push token for this install, so notifications arrive |
+| Google's category → type                  | Collected | Shared | Required? | Purpose                               | Where in the code                                                                                                                                                  |
+| ----------------------------------------- | --------- | ------ | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Personal info → Name                      | Yes       | No     | Required  | App functionality, Account management | `app.users`; `app.people`, `app.companies`                                                                                                                         |
+| Personal info → Email address             | Yes       | No     | Required  | App functionality, Account management | Supabase Auth; `app.people.email`                                                                                                                                  |
+| Personal info → Phone number              | Yes       | No     | Optional  | App functionality                     | Settings → My cell phone; customers' numbers                                                                                                                       |
+| Personal info → Address                   | Yes       | No     | Optional  | App functionality                     | Customers' and appointments' addresses                                                                                                                             |
+| Personal info → User IDs                  | Yes       | No     | Required  | App functionality, Account management | The account id every change is credited to                                                                                                                         |
+| Photos and videos → Photos                | Yes       | No     | Optional  | App functionality                     | `expo-image-picker` → a customer's files, or a reply                                                                                                               |
+| Messages → Other in-app messages          | Yes       | No     | Required  | App functionality                     | The inbox: texts and emails with customers, notes                                                                                                                  |
+| Financial info → Other financial info     | Yes       | No     | Optional  | App functionality                     | Invoice, estimate, payment and plan amounts                                                                                                                        |
+| Device or other IDs → Device or other IDs | Yes       | No     | Optional  | App functionality, Analytics          | `src/push/device.ts`: the push token for this install, so notifications arrive; `src/lib/analytics.ts`: a random id for this install that Matomo counts screens by |
+| App activity → App interactions           | Yes       | No     | Required  | Analytics                             | `src/lib/analytics.ts`: which screens are opened — the route, never an id, a name or anything typed                                                                |
 
 Voicemails are the row that isn't here, and the reason matters. Google's "collect" means data leaving the phone. A
 voicemail travels the other way: the carrier records it when a customer leaves a message, the app fetches it from
@@ -49,7 +51,7 @@ no microphone permission on either platform, so **Audio files → No**.
 | Health and fitness                                                                  | No     | —                                                                                                                         |
 | Contacts                                                                            | No     | The app never reads the phone's contacts (`src/inbox/contact-card.ts` hands the number to the phone's New Contact screen) |
 | Calendar                                                                            | No     | The business's calendar is HandsFreeOS's own; the phone's calendar is never read                                          |
-| App activity (interactions, searches, installed apps, other actions)                | No     | No analytics SDK                                                                                                          |
+| App activity → In-app search history, installed apps, other actions                 | No     | Only screen names are counted (App interactions, above); searches are worked out on the phone and never sent              |
 | Web browsing                                                                        | No     | No in-app browser                                                                                                         |
 | App info and performance (crash logs, diagnostics, other)                           | No     | No crash reporter. Nothing is sent when the app fails                                                                     |
 | Files and docs                                                                      | No     | Files a person attaches are already the business's records, counted under Photos above                                    |
