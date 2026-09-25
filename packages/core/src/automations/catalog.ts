@@ -113,6 +113,7 @@ export const ADJUST_PANELS = [
   'estimates',
   'balance',
   'stages',
+  'ai_tags',
 ] as const;
 export type AdjustPanel = (typeof ADJUST_PANELS)[number];
 
@@ -433,6 +434,31 @@ export const AUTOMATIONS = [
     customerFacing: null,
     needs: [],
     adjust: null,
+  },
+  {
+    id: 'ai_tags',
+    group: 'pipeline',
+    label: 'Tag customers for you',
+    oneLiner:
+      'The AI reads each new message, call, visit and payment and keeps the customer’s tags right.',
+    effect: 'records',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'aiTags' },
+    customerFacing: null,
+    needs: [],
+    adjust: 'ai_tags',
+  },
+  {
+    id: 'ai_details',
+    group: 'pipeline',
+    label: 'Keep contact details up to date',
+    oneLiner: 'Fills in or fixes a customer’s name, email, number or address when they tell you.',
+    effect: 'records',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'aiDetails' },
+    customerFacing: null,
+    needs: [],
+    adjust: 'ai_tags',
   },
   {
     id: 'pipeline_mismatch',

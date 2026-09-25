@@ -54,6 +54,8 @@ export * from './chat/index';
 export * from './attention/index';
 // Settings → Automations: the catalog and the switches it owns.
 export * from './automations/index';
+// The AI keeps customers' tags and details up to date (0107).
+export * from './contact-ai/index';
 export * from './money/index';
 export * from './inbox/index';
 export * from './migrations/index';

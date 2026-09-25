@@ -146,6 +146,8 @@ export const PersonListInput = ListInput.extend({
   workspaceId: uuid,
   q: z.string().trim().max(120).optional(),
   tagId: uuid.optional(),
+  /** Only the people without this tag (the Assistant tagging everyone who hasn't got it yet, 0107). */
+  withoutTagId: uuid.optional(),
   companyId: uuid.optional(),
   ownerUserId: uuid.optional(),
   /** The customers assigned to this person: the ones they own and the ones they are on (0104). */

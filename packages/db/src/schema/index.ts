@@ -5364,6 +5364,55 @@ export const promises = app.table('promises', {
   ...timestamps(),
 });
 
+/** 0107: a pass the AI takes over the whole customer list (or the ones with a tag), putting tags on and off. */
+export const contactAiSweeps = app.table('contact_ai_sweeps', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  requestedBy: userRef('requested_by'),
+  instructions: text('instructions').notNull().default(''),
+  /** The tags it may use; empty is every tag the business has. */
+  tagIds: uuid('tag_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  onlyTagId: uuid('only_tag_id').references(() => tags.id, { onDelete: 'set null' }),
+  fixDetails: boolean('fix_details').notNull().default(false),
+  /** running, done, cancelled or failed. */
+  status: text('status').notNull().default('running'),
+  total: integer('total').notNull().default(0),
+  reviewed: integer('reviewed').notNull().default(0),
+  changed: integer('changed').notNull().default(0),
+  tagsAdded: integer('tags_added').notNull().default(0),
+  tagsRemoved: integer('tags_removed').notNull().default(0),
+  detailsChanged: integer('details_changed').notNull().default(0),
+  cursorId: uuid('cursor_id'),
+  note: text('note'),
+  cancelledBy: userRef('cancelled_by'),
+  finishedAt: ts('finished_at'),
+  ...timestamps(),
+});
+
+/** 0107: every look the AI took at a customer's tags and details, what it said and what was done with it. */
+export const contactAiReviews = app.table('contact_ai_reviews', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  /** activity or sweep. */
+  trigger: text('trigger').notNull(),
+  sweepId: uuid('sweep_id').references(() => contactAiSweeps.id, { onDelete: 'set null' }),
+  causeEventId: uuid('cause_event_id'),
+  /** changed, unchanged, skipped or failed. */
+  outcome: text('outcome').notNull(),
+  decision: jsonb('decision').$type<Json>().notNull().default({}),
+  applied: jsonb('applied').$type<Json>().notNull().default({}),
+  note: text('note'),
+  model: text('model'),
+  correlationId: uuid('correlation_id'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 /** Automations 5: one text to a list of customers, written per person by the AI and approved by a person. */
 export const campaigns = app.table('campaigns', {
   id: id(),
@@ -5675,6 +5724,8 @@ export const tables = {
   thankYous,
   referrals,
   promises,
+  contactAiSweeps,
+  contactAiReviews,
   teammateLessons,
   campaigns,
   campaignRecipients,
