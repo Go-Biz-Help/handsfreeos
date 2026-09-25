@@ -9,6 +9,9 @@ import { historyBlock } from '../ai-team/prompt';
 import type { RunContext } from '../ai-team/context';
 import type { OfferedTime } from '../ai-team/tools';
 
+/** Tokens per model call on a call: a spoken reply is a sentence or three. */
+export const PHONE_MAX_TOKENS = 600;
+
 export const PHONE_ASK =
   'Answer what the caller just said, out loud. End your turn with reply, end_call or hand_off.';
 

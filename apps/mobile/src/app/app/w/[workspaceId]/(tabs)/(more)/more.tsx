@@ -1,4 +1,5 @@
-import { IDEAS_WORDS, MORE_WORDS } from '@hfos/core';
+import { holds, IDEAS_WORDS, MORE_WORDS } from '@hfos/core';
+import { useQuery } from '@powersync/react-native';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
@@ -7,6 +8,7 @@ import {
   ClipboardList,
   ClipboardPen,
   CloudCheck,
+  FlaskConical,
   Globe,
   LifeBuoy,
   Lightbulb,
@@ -15,6 +17,7 @@ import {
   Users,
 } from '@/components/icons';
 import { ApprovalsCount } from '@/components/home/approvals-count';
+import { TEAMMATE_SQL } from '@/home/queries';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
@@ -26,16 +29,20 @@ import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { useWhatsNewUnseen } from '@/ideas/whats-new-signal';
 import { ROLE_LABELS } from '@/lib/businesses';
+import { useGrants } from '@/lib/grants';
 import { openWeb } from '@/lib/open-web';
 
 /**
- * More: Customers, Tasks, Money, Approvals and Settings, then Ideas and Get help, which are about HandsFreeOS itself,
- * and Open on the web for the desk work.
+ * More: Customers, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
+ * then Ideas and Get help, which are about HandsFreeOS itself, and Open on the web for the desk work.
  */
 export default function More() {
   const { me, business, userId, openSwitcher } = useBusiness();
   const name = me.user.fullName || me.user.email;
   const unseen = useWhatsNewUnseen(userId);
+  const grants = useGrants();
+  const { data: teammates } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
+  const canTest = holds(grants, 'ai_team.manage') && teammates.length > 0;
   const go = (path: string) => router.push(businessHref(business.id, path));
   return (
     <Screen title={MORE_WORDS.title} testID="more">
@@ -94,6 +101,15 @@ export default function More() {
           onPress={() => go('approvals')}
           testID="more-approvals"
         />
+        {canTest ? (
+          <ListRow
+            icon={FlaskConical}
+            label={MORE_WORDS.testTeammate}
+            detail={MORE_WORDS.testTeammateDetail}
+            onPress={() => go('ai-test')}
+            testID="more-test-console"
+          />
+        ) : null}
         <ListRow
           icon={Settings2}
           label={MORE_WORDS.settings}

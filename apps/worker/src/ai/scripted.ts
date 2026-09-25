@@ -625,6 +625,41 @@ export const TEAMMATE_RULES: readonly TeammateRule[] = [
     when: /^\s*(?:thanks|thank you|thx|ty|ok(?:ay)?|great|perfect|cool|sounds good)\b[\s.!]*$/i,
     step: () => toolCall('no_reply', { reason: 'They said thanks; nothing needs an answer.' }),
   },
+  // On a phone call (the tools say so), the test console's lines; anywhere else, what anything else gets.
+  {
+    // A call it placed: "Please don't call me again".
+    when: /\b(?:don[’']?t|do not|stop) call(?:ing)?\b/i,
+    step: (t) =>
+      t.tools.has('no_more_calls')
+        ? {
+            calls: [
+              { name: 'no_more_calls', arguments: {} },
+              { name: 'end_call', arguments: { message: 'Sorry for the trouble. Goodbye.' } },
+            ],
+          }
+        : TEAMMATE_FALLBACK.step(t),
+  },
+  {
+    // A call to confirm a visit: "Yes, that still works".
+    when: /\bstill works\b/i,
+    step: (t) =>
+      t.tools.has('confirm_visit')
+        ? {
+            calls: [
+              { name: 'confirm_visit', arguments: {} },
+              { name: 'end_call', arguments: { message: 'Great, see you then. Bye!' } },
+            ],
+          }
+        : TEAMMATE_FALLBACK.step(t),
+  },
+  {
+    // "That's all, bye!": the goodbye, and it hangs up.
+    when: /\b(?:bye|goodbye|that[’']?s all)\b/i,
+    step: (t) =>
+      t.tools.has('end_call')
+        ? toolCall('end_call', { message: 'Thanks for calling. Bye now!' })
+        : TEAMMATE_FALLBACK.step(t),
+  },
 ];
 
 /** Anything else: it looks it up and answers from the first item, or says someone will follow up. */

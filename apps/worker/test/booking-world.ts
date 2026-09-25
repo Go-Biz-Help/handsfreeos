@@ -15,6 +15,7 @@ import {
   calendarSetStatus,
   executeCommand,
   executeQuery,
+  isUniqueViolation,
   localDateOf,
   localInstant,
   organizationCreate,
@@ -138,6 +139,9 @@ export async function makeWorld(label: string): Promise<World> {
   return w;
 }
 
+/** How many random numbers `readyTexting` tries before giving up. */
+const NUMBER_TRIES = 5;
+
 /** Texting set up: an active toll-free number on the fake carrier, its verification approved. */
 export async function readyTexting(w: World): Promise<string> {
   const [account] = await admin()
@@ -151,18 +155,28 @@ export async function readyTexting(w: World): Promise<string> {
       status: 'active',
     })
     .returning({ id: telephonyAccounts.id });
-  const e164 = `+18335${String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')}`;
-  const [number] = await admin()
-    .insert(phoneNumbers)
-    .values({
-      workspaceId: w.workspaceId,
-      accountId: account!.id,
-      providerSid: fakeSid('PN'),
-      e164,
-      numberType: 'toll_free',
-      status: 'active',
-    })
-    .returning({ id: phoneNumbers.id });
+  // A live number is unique across every business in the shared test database, so a random pick that another world
+  // still holds is drawn again rather than failing whichever test drew it.
+  let e164 = '';
+  let number: { id: string } | undefined;
+  for (let tries = 1; !number; tries++) {
+    e164 = `+18335${String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')}`;
+    try {
+      [number] = await admin()
+        .insert(phoneNumbers)
+        .values({
+          workspaceId: w.workspaceId,
+          accountId: account!.id,
+          providerSid: fakeSid('PN'),
+          e164,
+          numberType: 'toll_free',
+          status: 'active',
+        })
+        .returning({ id: phoneNumbers.id });
+    } catch (e) {
+      if (tries >= NUMBER_TRIES || !isUniqueViolation(e, 'phone_numbers_live_e164')) throw e;
+    }
+  }
   await admin()
     .insert(telephonyRegistrations)
     .values({

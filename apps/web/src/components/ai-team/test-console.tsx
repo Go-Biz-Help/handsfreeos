@@ -1,4 +1,16 @@
 'use client';
+import {
+  AI_CALL_PURPOSES,
+  TEST_CALL_GOAL_MAX,
+  TEST_CALL_REASONS,
+  TEST_CHANNEL_NAMES,
+  testSamples,
+  testVerb,
+  type AiCallPurpose,
+  type TestCall,
+  type TestCallDirection,
+  type TestConsoleChannel,
+} from '@hfos/core';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
   AlertCircle,
@@ -8,7 +20,11 @@ import {
   Hourglass,
   Info,
   MessageSquare,
+  Phone,
   PhoneCall,
+  PhoneIncoming,
+  PhoneOff,
+  PhoneOutgoing,
   RotateCcw,
   Send,
   ShieldCheck,
@@ -24,14 +40,14 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
-import { CHANNEL_NAMES, checkViews, firstName, plural, toolName } from '@/lib/ai-team/describe';
+import { checkViews, firstName, plural, toolName } from '@/lib/ai-team/describe';
 import {
   streamTest,
   testConsoleMissing,
   type TestEvent,
   type TestMessage,
 } from '@/lib/ai-team/test-stream';
-import type { RunOutcome, TeammateChannelKey } from '@/lib/ai-team/types';
+import type { RunOutcome } from '@/lib/ai-team/types';
 import { errorMessage } from '@/lib/api/client';
 import { toLocalInputValue } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -39,16 +55,14 @@ import { clockSeconds } from '@/lib/workflows/run-words';
 import { LogRow, type LogLine, type LogTone } from './log';
 import { AiTile, TeammateMark } from './mark';
 
-const SAMPLES = [
-  'How much does a visit cost?',
-  'Can I book for Thursday morning?',
-  'Are you a real person?',
-  'I want to talk to someone',
-];
+/** A written message and its reply, a turn of a call, or the call's greeting (no words of theirs). */
+type TurnKind = 'written' | 'call' | 'greeting';
 
 /** One message from the manager and how the teammate handled it. */
 interface Turn {
   readonly id: string;
+  readonly kind: TurnKind;
+  /** What they wrote or said; empty for a call's greeting. */
   readonly customer: string;
   /** The reply as it streams in. */
   readonly reply: string;
@@ -56,6 +70,8 @@ interface Turn {
   readonly outcome: RunOutcome | null;
   /** Training wheels would hold it for an OK. */
   readonly draft: boolean;
+  /** A call's end: it said goodbye, or connected them to the team. */
+  readonly ended: boolean;
   /** "Would have: booked Thu 10 AM (simulated)". */
   readonly would: readonly string[];
   readonly log: readonly LogLine[];
@@ -81,6 +97,39 @@ function lineAt(
   extra: Partial<LogLine> = {},
 ): LogLine {
   return { id: crypto.randomUUID(), time: clockSeconds(at, timeZone), tone, icon, title, ...extra };
+}
+
+/** How a turn ended, as its last line. */
+function endLine(t: Turn, e: Extract<TestEvent, { type: 'done' }>, timeZone: string): LogLine {
+  const now = new Date().toISOString();
+  if (t.kind === 'greeting')
+    return lineAt(now, timeZone, 'ok', Phone, 'Said its greeting', {
+      detail: 'On a real call it says this out loud, then listens.',
+    });
+  if (e.outcome === 'handed_off')
+    return t.kind === 'call'
+      ? lineAt(now, timeZone, 'held', Hand, 'Connected them to the team', {
+          detail:
+            'On a real call your team’s phones ring on the same call, and the conversation goes to Needs a person, with a note.',
+        })
+      : lineAt(now, timeZone, 'held', Hand, 'Handed to a person', {
+          detail: 'In a real conversation it goes to Needs a person, with a note.',
+        });
+  if (e.outcome === 'no_reply') return lineAt(now, timeZone, 'wait', Info, 'Decided not to reply');
+  if (t.kind === 'call')
+    return e.ended
+      ? lineAt(now, timeZone, 'ok', PhoneOff, 'Said goodbye and hung up')
+      : lineAt(now, timeZone, 'ok', Phone, 'Would say it now', {
+          detail: 'On a real call it says this out loud, then listens.',
+        });
+  if (e.draft)
+    return lineAt(now, timeZone, 'held', Hourglass, 'Draft (training wheels)', {
+      detail:
+        'In a real conversation this waits in the inbox and on Approvals, with any booking held until someone approves it.',
+    });
+  return lineAt(now, timeZone, 'ok', Send, 'Would send it now', {
+    detail: 'It works on its own, so a real reply goes out straight away.',
+  });
 }
 
 /** A turn after one more event from the worker. */
@@ -159,40 +208,18 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
           ),
         ],
       };
-    case 'done': {
-      const end: LogLine[] = [];
-      if (e.outcome === 'handed_off')
-        end.push(
-          lineAt(now, timeZone, 'held', Hand, 'Handed to a person', {
-            detail: 'In a real conversation it goes to Needs a person, with a note.',
-          }),
-        );
-      else if (e.outcome === 'no_reply')
-        end.push(lineAt(now, timeZone, 'wait', Info, 'Decided not to reply'));
-      else if (e.draft)
-        end.push(
-          lineAt(now, timeZone, 'held', Hourglass, 'Draft (training wheels)', {
-            detail:
-              'In a real conversation this waits in the inbox and on Approvals, with any booking held until someone approves it.',
-          }),
-        );
-      else
-        end.push(
-          lineAt(now, timeZone, 'ok', Send, 'Would send it now', {
-            detail: 'It works on its own, so a real reply goes out straight away.',
-          }),
-        );
+    case 'done':
       return {
         ...t,
         done: true,
         outcome: e.outcome,
         draft: e.draft,
+        ended: e.ended,
         reply: e.reply ?? t.reply,
         toolSteps: e.toolSteps,
         ms: e.ms,
-        log: [...t.log, ...end],
+        log: [...t.log, endLine(t, e, timeZone)],
       };
-    }
     case 'error':
       return {
         ...t,
@@ -208,9 +235,11 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
 
 /**
  * The test console: a manager writes as a customer (someone in Customers, or an unknown visitor) by text,
- * chat or email, at now or a time they pick, and sees the reply stream in, then what the teammate looked
- * up, the knowledge it used, the checks the reply passed, and anything it would have done. Look-ups are
- * real, changes are simulated, and nothing is sent. Full screen on phones.
+ * chat or email, or plays a phone call (they call in, or the teammate calls them to confirm a visit, ring back
+ * a missed call, follow up a quote or for a campaign), at now or a time they pick. They see the reply stream in,
+ * then what the teammate looked up, the knowledge it used, the checks the reply passed, and anything it would
+ * have done. Look-ups are real, changes are simulated, and nothing is sent. Full screen on phones; the phone
+ * app has the same console (apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx).
  */
 export function TestConsole({
   open,
@@ -232,7 +261,10 @@ export function TestConsole({
   unsaved: boolean;
 }) {
   const [person, setPerson] = useState<PickedCustomer | null>(null);
-  const [channel, setChannel] = useState<TeammateChannelKey>('sms');
+  const [channel, setChannel] = useState<TestConsoleChannel>('sms');
+  const [direction, setDirection] = useState<TestCallDirection>('inbound');
+  const [purpose, setPurpose] = useState<AiCallPurpose>('confirm_visit');
+  const [goal, setGoal] = useState('');
   const [at, setAt] = useState('');
   const [text, setText] = useState('');
   const [turns, setTurns] = useState<readonly Turn[]>([]);
@@ -242,7 +274,34 @@ export function TestConsole({
   const abort = useRef<AbortController | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
-  const who = person ? firstName(person.fullName) : channel === 'chat' ? 'a visitor' : 'a customer';
+  const phone = channel === 'phone';
+  const outbound = phone && direction === 'outbound';
+  const call: TestCall | null = phone
+    ? {
+        direction,
+        purpose: outbound ? purpose : null,
+        goal: outbound && purpose === 'campaign' ? goal.trim() || null : null,
+      }
+    : null;
+  const who = person
+    ? firstName(person.fullName)
+    : channel === 'chat'
+      ? 'a visitor'
+      : phone
+        ? 'a caller'
+        : 'a customer';
+  const last = turns[turns.length - 1];
+  /** The call has started: the greeting came back. */
+  const onCall = phone && turns.some((t) => t.kind === 'greeting' && t.done && !t.error);
+  const callOver = phone && !!last?.done && last.ended;
+  /** Why the call can't start yet. */
+  const cantCall = !outbound
+    ? null
+    : !person
+      ? `Pick a customer for ${name} to call.`
+      : purpose === 'campaign' && !goal.trim()
+        ? 'Say what the campaign call is about.'
+        : null;
 
   useEffect(() => () => abort.current?.abort(), []);
   useEffect(() => {
@@ -263,42 +322,56 @@ export function TestConsole({
     setTurns([]);
   }
 
-  async function send(raw: string) {
+  /** Changing who, how or why starts the test over. */
+  function change<T>(set: (v: T) => void): (v: T) => void {
+    return (v) => {
+      set(v);
+      startOver();
+    };
+  }
+
+  /** Sends a message (or, on a call, what they say); with no words on a call, starts it. */
+  async function run(raw: string, restart = false) {
     const message = raw.trim();
-    if (!message || busy) return;
+    const kind: TurnKind = phone ? (message ? 'call' : 'greeting') : 'written';
+    if ((kind !== 'greeting' && !message) || (busy && !restart)) return;
+    if (restart) stop();
     const id = crypto.randomUUID();
-    const history: TestMessage[] = turns.flatMap((t) => [
-      { from: 'customer' as const, text: t.customer },
+    const before = restart ? [] : turns;
+    const history: TestMessage[] = before.flatMap((t) => [
+      ...(t.customer ? [{ from: 'customer' as const, text: t.customer }] : []),
       ...(t.reply.trim() ? [{ from: 'teammate' as const, text: t.reply }] : []),
     ]);
     const nowIso = new Date().toISOString();
-    const verb =
-      channel === 'sms' ? 'texted' : channel === 'email' ? 'emailed' : 'wrote in the chat';
+    const opened =
+      kind === 'greeting'
+        ? outbound
+          ? lineAt(nowIso, timeZone, 'ok', PhoneOutgoing, `${name} called ${who}`)
+          : lineAt(nowIso, timeZone, 'ok', PhoneIncoming, `${person ? who : 'Someone'} called`)
+        : lineAt(
+            nowIso,
+            timeZone,
+            'ok',
+            phone ? Phone : MessageSquare,
+            `${person ? firstName(person.fullName) : 'They'} ${testVerb(channel)}`,
+            { quote: message },
+          );
     const turn: Turn = {
       id,
+      kind,
       customer: message,
       reply: '',
       done: false,
       outcome: null,
       draft: false,
+      ended: false,
       would: [],
-      log: [
-        lineAt(
-          nowIso,
-          timeZone,
-          'ok',
-          MessageSquare,
-          `${person ? firstName(person.fullName) : 'They'} ${verb}`,
-          {
-            quote: message,
-          },
-        ),
-      ],
+      log: [opened],
       toolSteps: 0,
       ms: null,
       error: null,
     };
-    setTurns((xs) => [...xs, turn]);
+    setTurns([...before, turn]);
     setText('');
     setBusy(true);
     const ctrl = new AbortController();
@@ -309,9 +382,13 @@ export function TestConsole({
           workspaceId,
           personId: person?.id ?? null,
           channel,
+          call,
           at: at ? new Date(at).toISOString() : null,
           config,
-          messages: [...history, { from: 'customer' as const, text: message }].slice(-40),
+          messages: [
+            ...history,
+            ...(message ? [{ from: 'customer' as const, text: message }] : []),
+          ].slice(-40),
         },
         (e) => update(id, (t) => step(t, e, timeZone)),
         ctrl.signal,
@@ -330,6 +407,9 @@ export function TestConsole({
     }
   }
 
+  const send = (raw: string) => void run(raw);
+  const startCall = () => void run('', true);
+
   const meta = (t: Turn) =>
     t.done
       ? [
@@ -339,6 +419,13 @@ export function TestConsole({
           .filter(Boolean)
           .join(' · ')
       : 'Working on it…';
+  const heading = (t: Turn, i: number) => {
+    if (t.kind === 'greeting') return outbound ? `${name} calls` : `${name} picks up`;
+    const n = turns.slice(0, i).filter((x) => x.kind !== 'greeting').length;
+    return ORDINALS[n] ? `${ORDINALS[n]} reply` : `Reply ${n + 1}`;
+  };
+  const samples = testSamples(channel, call);
+  const canWrite = !phone || (onCall && !callOver);
 
   return (
     <DialogPrimitive.Root
@@ -361,8 +448,8 @@ export function TestConsole({
                 Test console
               </DialogPrimitive.Title>
               <DialogPrimitive.Description className="text-[13px] text-text-2">
-                Chat with {name} as a customer. Look-ups are real. Bookings and changes are pretend,
-                and nothing is sent.
+                Chat with {name} as a customer, or play a phone call. Look-ups are real. Bookings
+                and changes are pretend, and nothing is sent.
               </DialogPrimitive.Description>
             </div>
             <DialogPrimitive.Close
@@ -383,27 +470,21 @@ export function TestConsole({
                   id="test-as"
                   workspaceId={workspaceId}
                   value={person}
-                  onChange={(p) => {
-                    setPerson(p);
-                    startOver();
-                  }}
+                  onChange={change(setPerson)}
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex max-w-full items-center gap-2 overflow-x-auto">
               <span className="text-[13px] font-semibold">By</span>
               <Segmented
                 value={channel}
                 ariaLabel="Channel"
-                onChange={(c) => {
-                  setChannel(c);
-                  startOver();
-                }}
-                options={[
-                  { value: 'sms', label: 'Text', testId: 'test-channel-sms' },
-                  { value: 'chat', label: 'Website chat', testId: 'test-channel-chat' },
-                  { value: 'email', label: 'Email', testId: 'test-channel-email' },
-                ]}
+                onChange={change(setChannel)}
+                options={(['sms', 'chat', 'email', 'phone'] as const).map((c) => ({
+                  value: c,
+                  label: TEST_CHANNEL_NAMES[c],
+                  testId: `test-channel-${c}`,
+                }))}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -443,6 +524,67 @@ export function TestConsole({
               <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.75} />
               Start over
             </Button>
+            {phone ? (
+              <div
+                className="flex w-full flex-wrap items-center gap-x-3 gap-y-2"
+                data-testid="test-call-options"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-semibold">Call</span>
+                  <Segmented
+                    value={direction}
+                    ariaLabel="Which way the call goes"
+                    onChange={change(setDirection)}
+                    options={[
+                      {
+                        value: 'inbound',
+                        label: 'Incoming',
+                        icon: <PhoneIncoming className="h-3.5 w-3.5" strokeWidth={1.75} />,
+                        testId: 'test-call-inbound',
+                      },
+                      {
+                        value: 'outbound',
+                        label: 'Outgoing',
+                        icon: <PhoneOutgoing className="h-3.5 w-3.5" strokeWidth={1.75} />,
+                        testId: 'test-call-outbound',
+                      },
+                    ]}
+                  />
+                </div>
+                {outbound ? (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="test-call-why" className="text-[13px] font-semibold">
+                      Why
+                    </label>
+                    <Select
+                      id="test-call-why"
+                      selectSize="sm"
+                      className="w-[200px]"
+                      value={purpose}
+                      onChange={(e) => change(setPurpose)(e.target.value as AiCallPurpose)}
+                    >
+                      {AI_CALL_PURPOSES.map((p) => (
+                        <option key={p} value={p}>
+                          {TEST_CALL_REASONS[p]}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                ) : null}
+                {outbound && purpose === 'campaign' ? (
+                  <Input
+                    inputSize="sm"
+                    className="w-full max-w-[320px]"
+                    aria-label="What the campaign call is about"
+                    placeholder="What the calls are about, like our spring tune-up special"
+                    maxLength={TEST_CALL_GOAL_MAX}
+                    value={goal}
+                    onChange={(e) => change(setGoal)(e.target.value)}
+                    data-testid="test-call-goal"
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           {missing ? (
@@ -469,7 +611,7 @@ export function TestConsole({
                   ariaLabel="Show"
                   onChange={setPane}
                   options={[
-                    { value: 'chat', label: 'Chat' },
+                    { value: 'chat', label: phone ? 'Call' : 'Chat' },
                     { value: 'log', label: `What ${name} did` },
                   ]}
                 />
@@ -488,26 +630,31 @@ export function TestConsole({
                     data-testid="test-console-chat"
                   >
                     <div className="self-center text-xs font-medium text-text-3">
-                      Test chat · by {CHANNEL_NAMES[channel].toLowerCase()}
+                      {phone
+                        ? `Test call · ${outbound ? `outgoing, ${TEST_CALL_REASONS[purpose].toLowerCase()}` : 'incoming'}`
+                        : `Test chat · by ${TEST_CHANNEL_NAMES[channel].toLowerCase()}`}
                     </div>
-                    {!turns.length ? (
+                    {!phone && !turns.length ? (
                       <p className="mt-4 text-center text-[13px] text-text-2">
                         Write as {who} to see how {name} answers.
                       </p>
                     ) : null}
                     {turns.map((t) => (
                       <Fragment key={t.id}>
-                        <div className="flex max-w-[86%] flex-col items-end gap-[3px] self-end">
-                          <div className="whitespace-pre-wrap rounded-2xl bg-accent px-[13px] py-[9px] text-sm leading-[1.45] text-white [overflow-wrap:anywhere]">
-                            {t.customer}
+                        {t.customer ? (
+                          <div className="flex max-w-[86%] flex-col items-end gap-[3px] self-end">
+                            <div className="whitespace-pre-wrap rounded-2xl bg-accent px-[13px] py-[9px] text-sm leading-[1.45] text-white [overflow-wrap:anywhere]">
+                              {t.customer}
+                            </div>
+                            <span className="text-xs text-text-3">You, as {who}</span>
                           </div>
-                          <span className="text-xs text-text-3">You, as {who}</span>
-                        </div>
+                        ) : null}
                         {t.error && !t.reply ? null : (
                           <div className="flex max-w-[90%] flex-col gap-[5px] self-start">
                             <span className="flex items-center gap-[5px] text-xs text-text-3">
                               <TeammateMark size="xs" />
                               <strong className="font-semibold text-text-2">{name} (AI)</strong>
+                              {t.kind !== 'written' ? <span>says</span> : null}
                             </span>
                             <div
                               className="whitespace-pre-wrap rounded-2xl border border-border bg-card px-[13px] py-[9px] text-sm leading-[1.45] [overflow-wrap:anywhere]"
@@ -515,7 +662,11 @@ export function TestConsole({
                             >
                               {t.reply || (
                                 <span className="text-text-3">
-                                  {t.done ? 'No reply.' : 'Writing…'}
+                                  {t.done
+                                    ? 'No reply.'
+                                    : t.kind === 'greeting'
+                                      ? 'Ringing…'
+                                      : 'Writing…'}
                                 </span>
                               )}
                             </div>
@@ -531,7 +682,13 @@ export function TestConsole({
                                 ) : null}
                                 {t.outcome === 'handed_off' ? (
                                   <Tag className="bg-warning-soft text-warning-text" icon={Hand}>
-                                    Handed to a person
+                                    {t.kind === 'call'
+                                      ? 'Connected to the team'
+                                      : 'Handed to a person'}
+                                  </Tag>
+                                ) : t.ended ? (
+                                  <Tag className="bg-card text-text-2" icon={PhoneOff}>
+                                    Hung up
                                   </Tag>
                                 ) : null}
                                 {t.would.map((w, i) => (
@@ -550,58 +707,91 @@ export function TestConsole({
                         ) : null}
                       </Fragment>
                     ))}
-                  </div>
-                  <div className="flex-none border-t border-border bg-card px-3.5 pb-3.5 pt-2.5">
-                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs text-text-3">Try:</span>
-                      {SAMPLES.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void send(s)}
-                          className="inline-flex h-7 items-center rounded-full border border-border-strong bg-card px-3 text-[12.5px] font-medium text-text-2 hover:bg-card-2 hover:text-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:opacity-50"
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void send(text);
-                      }}
-                      className="rounded-xl border border-border-strong bg-card transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-ring"
-                    >
-                      <textarea
-                        value={text}
-                        rows={2}
-                        placeholder={`Write as ${who}…`}
-                        aria-label={`Write as ${who}`}
-                        data-testid="test-console-input"
-                        onChange={(e) => setText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            void send(text);
-                          }
-                        }}
-                        className="block w-full resize-none bg-transparent px-3 pb-0.5 pt-2.5 text-base leading-[1.45] text-text outline-none placeholder:text-placeholder lg:text-[14.5px]"
-                      />
-                      <div className="flex items-center justify-end px-1.5 pb-1.5">
+                    {phone && !onCall && !busy ? (
+                      <div className="mt-4 flex flex-col items-center gap-3 text-center">
+                        <p className="text-[13px] text-text-2">
+                          {cantCall ??
+                            (outbound
+                              ? `${name} calls ${who} to ${TEST_CALL_REASONS[purpose].toLowerCase()}. You answer as them.`
+                              : `Call in as ${who} to hear how ${name} picks up.`)}
+                        </p>
                         <Button
-                          type="submit"
                           size="sm"
-                          loading={busy}
-                          disabled={!text.trim()}
-                          data-testid="test-console-send"
+                          disabled={!!cantCall}
+                          onClick={startCall}
+                          data-testid="test-console-start-call"
                         >
-                          <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
-                          Send
+                          <PhoneCall className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          Start the call
                         </Button>
                       </div>
-                    </form>
+                    ) : null}
+                    {callOver ? (
+                      <div
+                        className="flex flex-col items-center gap-2 pt-1 text-center"
+                        data-testid="test-console-call-over"
+                      >
+                        <span className="text-xs font-medium text-text-3">The call ended.</span>
+                        <Button variant="secondary" size="sm" onClick={startCall}>
+                          <PhoneCall className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          Call again
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
+                  {canWrite ? (
+                    <div className="flex-none border-t border-border bg-card px-3.5 pb-3.5 pt-2.5">
+                      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-text-3">Try:</span>
+                        {samples.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => send(s)}
+                            className="inline-flex h-7 items-center rounded-full border border-border-strong bg-card px-3 text-[12.5px] font-medium text-text-2 hover:bg-card-2 hover:text-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:opacity-50"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          send(text);
+                        }}
+                        className="rounded-xl border border-border-strong bg-card transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-ring"
+                      >
+                        <textarea
+                          value={text}
+                          rows={2}
+                          placeholder={phone ? `Say as ${who}…` : `Write as ${who}…`}
+                          aria-label={phone ? `Say as ${who}` : `Write as ${who}`}
+                          data-testid="test-console-input"
+                          onChange={(e) => setText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              send(text);
+                            }
+                          }}
+                          className="block w-full resize-none bg-transparent px-3 pb-0.5 pt-2.5 text-base leading-[1.45] text-text outline-none placeholder:text-placeholder lg:text-[14.5px]"
+                        />
+                        <div className="flex items-center justify-end px-1.5 pb-1.5">
+                          <Button
+                            type="submit"
+                            size="sm"
+                            loading={busy}
+                            disabled={!text.trim()}
+                            data-testid="test-console-send"
+                          >
+                            <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            {phone ? 'Say it' : 'Send'}
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
+                  ) : null}
                 </div>
                 <div
                   ref={logRef}
@@ -624,9 +814,7 @@ export function TestConsole({
                         className={cn('mt-2', i > 0 && 'border-t border-border pt-3')}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[13px] font-semibold">
-                            {ORDINALS[i] ? `${ORDINALS[i]} reply` : `Reply ${i + 1}`}
-                          </span>
+                          <span className="text-[13px] font-semibold">{heading(t, i)}</span>
                           <span className="text-xs text-text-3">{meta(t)}</span>
                         </div>
                         {t.log.map((l, j) => (
@@ -643,9 +831,11 @@ export function TestConsole({
           <p className="flex flex-none items-start gap-2 border-t border-border px-4 py-2.5 text-xs text-text-3 lg:px-[22px]">
             <Info className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
             <span>
-              Test chats don’t count toward training wheels and never reach a customer.
-              {unsaved ? ' It tests your unsaved changes too.' : ''} Pick “Website chat” to test as
-              an unknown visitor.
+              Tests don’t count toward training wheels and never reach a customer.
+              {unsaved ? ' It tests your unsaved changes too.' : ''}{' '}
+              {phone
+                ? 'On a test call nothing rings: you type what they say, and read what it would say out loud.'
+                : 'Pick “Website chat” to test as an unknown visitor.'}
             </span>
           </p>
         </DialogPrimitive.Content>
