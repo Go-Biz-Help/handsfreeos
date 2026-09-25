@@ -363,9 +363,10 @@ describe('the Assistant on the calendar', () => {
 
   it('moves and then cancels his appointment, each after Confirm', async () => {
     const page = { type: 'person', id: mikeId };
-    const was = tomorrowAt(10);
-    const now = tomorrowAt(13);
+    // The 10 AM visit booked above, on whatever day was tomorrow then: past midnight in Chicago, that's today.
+    const was = new Date((await appointments())[0]!.starts_at).getTime();
     const events = await ask(ownerToken, 'Move his appointment to tomorrow at 1 pm', { page });
+    const now = tomorrowAt(13);
     expect(textOf(events)).toBe('Here’s the change. Nothing moves until you OK it.');
     const move = cardOf(events, 'confirm');
     expect(move).toMatchObject({
@@ -413,14 +414,17 @@ describe('the Assistant on the calendar', () => {
   });
 
   it('lists today’s appointments before tasks, and a customer’s upcoming ones', async () => {
-    // A visit going on right now, and a task that is already late.
+    // A visit going on right now (begun half an hour ago, or at midnight when that was later), and a task that is
+    // already late.
     const { appointmentId } = await run(
       appointmentCreate,
       {
         workspaceId,
         calendarId,
         personId: mikeId,
-        startsAt: iso(Date.now() - HOUR / 2),
+        startsAt: iso(
+          Math.max(Date.now() - HOUR / 2, startOfLocalDay(localDateOf(Date.now(), CHI), CHI)),
+        ),
         acknowledgeWarnings: true,
       },
       owner,

@@ -27,12 +27,34 @@ import {
 import { admin, ask, meta, run } from './calendar-helpers';
 
 const HOUR = 3_600_000;
+
+/**
+ * The first of these zones where it's between 2 AM and 10 PM. workflow.stats counts runs since the business's
+ * midnight, and the run a minute old must be one of them: in the first minute of a day it wouldn't be.
+ */
+function awayFromMidnight(...zones: string[]): string {
+  const hour = (timeZone: string) =>
+    Number(
+      new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(
+        Date.now(),
+      ),
+    );
+  return zones.find((z) => hour(z) >= 2 && hour(z) < 22) ?? zones[0]!;
+}
+
 let owner: TestUser;
 let wsId: string, orgId: string, workflowId: string, versionId: string, personId: string;
 
 beforeAll(async () => {
   owner = await createTestUser('wfs-owner', { fullName: 'Dale Owner' });
-  const org = await run(organizationCreate, { businessName: 'Workflow Screens Co' }, owner);
+  const org = await run(
+    organizationCreate,
+    {
+      businessName: 'Workflow Screens Co',
+      timezone: awayFromMidnight('America/Chicago', 'Pacific/Honolulu'),
+    },
+    owner,
+  );
   wsId = org.workspaceId;
   orgId = org.organizationId;
   const created = await run(
@@ -183,7 +205,8 @@ describe('the workflow screens', () => {
       failedWorkflow: { id: workflowId, name: 'Welcome note' },
       runs30d: { all: 4, waiting: 1, awaitingApproval: 0, failed: 1 },
     });
-    // "Today" is the business's day, so only the run a minute old is certainly in it; tests never count.
+    // "Today" is the business's day, so only the run a minute old is certainly in it (the business is somewhere
+    // its day began hours ago); tests never count.
     expect(stats.runsToday).toBeGreaterThanOrEqual(1);
     expect(stats.runsToday).toBeLessThanOrEqual(3);
   });
