@@ -198,7 +198,7 @@ const isMoneyAction = (kind: string): kind is MoneyDraftActionKind =>
 
 /** What a draft holds, for its words. */
 export interface DraftFacts {
-  readonly kind: 'reply' | 'approval';
+  readonly kind: 'reply' | 'approval' | 'call';
   readonly channel: string | null;
   readonly teammate: TeammateRef;
   readonly person: { readonly fullName: string } | null;
@@ -206,6 +206,8 @@ export interface DraftFacts {
     readonly message: { readonly body: string; readonly subject?: string | null } | null;
     readonly actions: readonly DraftActionFacts[];
     readonly discount: { readonly percent: number; readonly reason: string } | null;
+    /** A call draft: the call the AI means to place. */
+    readonly call?: { readonly toDisplay: string; readonly goal: string } | null;
   };
 }
 
@@ -259,6 +261,7 @@ const MONEY_ASKS: Readonly<Record<MoneyDraftActionKind, string>> = {
 /** "Ava’s reply to Mike Johnson, with a booking"; "Ava asks to offer Mike Johnson 10% off". */
 export function draftTitle(d: DraftFacts): string {
   const who = d.person?.fullName ?? 'a customer';
+  if (d.kind === 'call') return `${d.teammate.name} asks to call ${who}`;
   if (d.kind === 'approval') {
     if (d.preview.discount)
       return `${d.teammate.name} asks to offer ${who} ${d.preview.discount.percent}% off`;
@@ -287,6 +290,8 @@ export function draftTitle(d: DraftFacts): string {
 /** One line on a draft for Home: "Ava’s reply and a booking for Thu, Sep 24 at 9:00 AM". */
 export function draftShort(d: DraftFacts): string {
   const name = d.teammate.name;
+  if (d.kind === 'call')
+    return d.preview.call ? `${name} asks to call: ${d.preview.call.goal}` : `${name} asks to call`;
   if (d.kind === 'approval' && d.preview.discount)
     return `${name} asks to offer ${d.preview.discount.percent}% off`;
   const money = d.kind === 'approval' ? d.preview.actions.find((a) => isMoneyAction(a.kind)) : null;
@@ -355,6 +360,8 @@ export function approvedToast(
   who: string,
 ): string {
   const name = d.teammate.name;
+  if (d.kind === 'call')
+    return `Approved. ${name} calls ${who} at the next good time: in open hours, never in quiet hours.`;
   if (progress.becameAutomatic)
     return `Approved. That’s ${progress.approvedCount}: ${name} replies on its own from now on.`;
   const sent = d.preview.message
@@ -373,6 +380,7 @@ export function approvedToast(
 
 /** What rejecting did, for the toast. */
 export function rejectedToast(d: DraftFacts, who: string): string {
+  if (d.kind === 'call') return `Rejected. ${d.teammate.name} won’t call ${who}.`;
   return `Rejected. Nothing went to ${who}${d.preview.actions.length ? ', and nothing changed on the calendar' : ''}.`;
 }
 

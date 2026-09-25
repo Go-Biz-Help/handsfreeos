@@ -57,6 +57,8 @@ import {
   type ConversationHandoffReason,
   type DraftAction,
   type HandOffReason,
+  attendeeConfirmByCall,
+  personSetCallConsent,
   type RequestMeta,
   type TeammateTool,
   type TeammateToolName,
@@ -66,7 +68,7 @@ import type { Logger } from 'pino';
 import { toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
-import type { TenantScope } from '../services';
+import { systemActor, type TenantScope } from '../services';
 import { HELD_MAX, MONEY_LIST_MAX, SEARCH_MATCHES, TIMES_MAX_DAYS, TIMES_SHOWN } from './constants';
 import { estimateUrlFor, invoiceUrlFor, type MoneyLinks } from '../money/links';
 import type { Geocoder } from '../geo/geocoder';
@@ -238,6 +240,12 @@ export interface ExecutorDeps {
    * so the tool only says so.
    */
   readonly phone?: boolean;
+  /** A call the teammate placed itself (AI outbound calls): why, and what it's about. */
+  readonly outboundCall?: {
+    readonly aiCallId: string;
+    readonly personId: string;
+    readonly attendeeId: string | null;
+  } | null;
   readonly log: Logger;
 }
 
@@ -1734,6 +1742,39 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
       effect: { end: { kind: 'end_call', message: String(args['message']) } },
       stop: true,
     };
+  },
+
+  /** AI outbound calls: they said tomorrow's visit still works. */
+  async confirm_visit(d, tx) {
+    const attendeeId = d.outboundCall?.attendeeId;
+    if (!attendeeId) return refused({ error: 'This call isn’t about confirming a visit.' });
+    const { output } = await executeCommandIn(
+      tx,
+      attendeeConfirmByCall,
+      { workspaceId: d.scope.workspaceId, attendeeId },
+      systemActor(d.scope),
+      d.meta,
+    );
+    return { status: 'done', content: { status: 'confirmed', already: !output.changed } };
+  },
+
+  /** AI outbound calls: they asked not to be called again. */
+  async no_more_calls(d, tx) {
+    const personId = d.outboundCall?.personId;
+    if (!personId) return refused({ error: 'Only on a call you placed.' });
+    await executeCommandIn(
+      tx,
+      personSetCallConsent,
+      {
+        workspaceId: d.scope.workspaceId,
+        personId,
+        consent: 'opted_out',
+        source: 'Asked on a call',
+      },
+      systemActor(d.scope),
+      d.meta,
+    );
+    return { status: 'done', content: { status: 'recorded' } };
   },
 
   async no_reply(_d, _tx, args) {

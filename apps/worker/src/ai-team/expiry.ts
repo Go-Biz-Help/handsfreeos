@@ -93,6 +93,14 @@ export async function expireDueDrafts(
         correlationId: meta.correlationId,
         causationId: randomUUID(),
       });
+      // A call nobody approved in time is simply not made (AI outbound calls): nobody is waiting on it.
+      if (d.kind === 'call') {
+        await tx.execute(
+          sql`update app.ai_calls set status = 'cancelled', reason = 'not_approved_in_time'
+              where draft_id = ${d.id} and status = 'awaiting_approval'`,
+        );
+        return true;
+      }
       if (d.conversation_id) {
         const [c] = await rows<{ handled_by: string; ai_teammate_id: string | null }>(
           tx,
