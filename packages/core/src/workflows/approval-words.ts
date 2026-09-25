@@ -237,6 +237,8 @@ export const APPROVALS_WORDS = {
     teammateName
       ? `New drafts from ${teammateName} and workflow approvals show up here, on Home and by email.`
       : 'When a workflow’s approval step needs you, it shows up here, on Home and by email.',
+  teammateEmptyBody: (teammateName: string) =>
+    `New drafts from ${teammateName} show up here, in the inbox, on Home and by email.`,
   decidedEmptyTitle: 'Nothing decided lately',
   decidedEmptyBody: 'Approved, rejected and expired approvals show here.',
   review: 'Review',
