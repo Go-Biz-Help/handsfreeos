@@ -6,11 +6,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
-import { PortLetter, type LetterProfile } from '@/components/settings/port-letter';
+import { PortPaperwork, type LetterProfile } from '@/components/settings/port-letter';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -366,11 +365,6 @@ function PortBatch({
   profile: LetterProfile;
   onDone: () => void;
 }) {
-  const [accountNumber, setAccountNumber] = useState('');
-  const [pin, setPin] = useState('');
-  const [authorizedBy, setAuthorizedBy] = useState('');
-  const [serviceAddress, setServiceAddress] = useState('');
-  const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState<'loa' | 'bill' | null>(null);
   const [adding, setAdding] = useState(false);
@@ -392,36 +386,6 @@ function PortBatch({
       }
     }
     return true;
-  }
-
-  async function save() {
-    setSaving(true);
-    setError(null);
-    const submission = {
-      accountNumber: accountNumber.trim(),
-      pin: pin.trim(),
-      authorizedBy: authorizedBy.trim(),
-      serviceAddress: serviceAddress.trim(),
-    };
-    try {
-      const ok = await eachPort(async (p) =>
-        unwrap(
-          await api.POST('/v1/commands/number_port.save', {
-            body: { workspaceId, portId: p.id, submission },
-          }),
-        ),
-      );
-      if (ok) {
-        // Cleared the moment they are saved. They are the old carrier's credentials, and leaving them
-        // sitting in a form on a shared office screen is the one avoidable way they leak.
-        setAccountNumber('');
-        setPin('');
-        toast.success(many ? `Saved for all ${ports.length} numbers.` : 'Saved.');
-      }
-      onDone();
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function attach(document: 'loa' | 'bill', file: File | null) {
@@ -530,86 +494,15 @@ function PortBatch({
         )}
       </div>
 
-      <p className="mt-3 border-t border-border pt-3 text-[13px] text-text-2">
-        This all has to match your old carrier’s records exactly. It is on your bill, or they will
-        read it to you if you call them.
-        {many
-          ? ' It is saved to every number above, so they all have to be on the same account — send numbers on another account on their own.'
-          : ''}
-      </p>
-
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Account number" htmlFor="port-account">
-          <Input
-            id="port-account"
-            value={accountNumber}
-            onChange={(e) => setAccountNumber(e.target.value)}
-            placeholder="On your bill — not your phone number"
-            data-testid="port-account"
-          />
-        </Field>
-        <Field label="Transfer PIN or passcode" htmlFor="port-pin">
-          <Input
-            id="port-pin"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="Some carriers call it a port-out PIN"
-            data-testid="port-pin"
-          />
-        </Field>
-        <Field label="Who is authorising it" htmlFor="port-authorized">
-          <Input
-            id="port-authorized"
-            value={authorizedBy}
-            onChange={(e) => setAuthorizedBy(e.target.value)}
-            placeholder="The name on the account"
-            data-testid="port-authorized"
-          />
-        </Field>
-        <Field label="Service address" htmlFor="port-address">
-          <Input
-            id="port-address"
-            value={serviceAddress}
-            onChange={(e) => setServiceAddress(e.target.value)}
-            placeholder="As your old carrier has it, with the ZIP"
-            data-testid="port-address"
-          />
-        </Field>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button
-          variant="secondary"
-          loading={saving}
-          onClick={() => void save()}
-          data-testid="port-save"
-        >
-          {many ? `Save for all ${ports.length} numbers` : 'Save these details'}
-        </Button>
-        {detailsReady ? (
-          <span className="flex items-center gap-1.5 text-xs text-success-text">
-            <CircleCheck className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Details are in
-          </span>
-        ) : (
-          <span className="text-xs text-text-3">
-            Nothing is shown back once saved — these are your old carrier’s credentials.
-          </span>
-        )}
+      <div className="mt-3 border-t border-border pt-3">
+        <PortPaperwork workspaceId={workspaceId} ports={ports} profile={profile} onDone={onDone} />
       </div>
 
       <div className="mt-4 border-t border-border pt-3">
-        <PortLetter
-          workspaceId={workspaceId}
-          ports={ports}
-          profile={profile}
-          signerName={authorizedBy.trim()}
-          serviceAddress={serviceAddress.trim()}
-          onAttached={onDone}
-        />
         {loaReady ? null : (
           <DocumentRow
             label="Or attach a letter you signed on paper"
-            hint="A scan or photo of the signed letter, if you would rather sign it by hand."
+            hint="A scan or photo of Twilio’s letter, printed and signed by hand. Save the details above first."
             done={false}
             busy={uploading === 'loa'}
             testId="loa"
