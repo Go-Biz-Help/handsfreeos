@@ -48,7 +48,7 @@ export function phoneChannelLines(o: {
   readonly training: boolean;
   readonly personHasIt: boolean;
   /** AI outbound calls: it placed this call, and why. */
-  readonly outbound?: { readonly purpose: string; readonly goal: string } | null;
+  readonly outbound?: OutboundWhy | null;
 }): string[] {
   return [
     ...(o.outbound ? outboundLines(o.outbound) : []),
@@ -70,8 +70,15 @@ export function phoneChannelLines(o: {
   ];
 }
 
+/** Why it placed a call: the reason, the words that finish "I'm calling …", and a quote's or campaign's facts. */
+export interface OutboundWhy {
+  readonly purpose: string;
+  readonly goal: string;
+  readonly brief?: string | null;
+}
+
 /** What it says about a call it placed (AI outbound calls): why it called, and how to finish. */
-function outboundLines(o: { readonly purpose: string; readonly goal: string }): string[] {
+function outboundLines(o: OutboundWhy): string[] {
   return [
     `You placed this call; they didn’t call you. You already said who you are, that you’re an AI and that the call is recorded, and that you’re calling ${quoteData(o.goal)}. Stay on that, answer what they ask, and keep it short.`,
     ...(o.purpose === 'confirm_visit'
@@ -81,6 +88,17 @@ function outboundLines(o: { readonly purpose: string; readonly goal: string }): 
       : []),
     ...(o.purpose === 'missed_call'
       ? ['Find out what they called about and help, like any call.']
+      : []),
+    ...(o.brief ? ['<call_facts>', quoteData(o.brief), '</call_facts>'] : []),
+    ...(o.purpose === 'quote'
+      ? [
+          'Answer their questions about the quote from the facts above and what the business knows. Never change a price, a discount or the terms, and never promise one. If they want to go ahead, say they can accept it from the link in the text they got, and that the team can text it again. If they want changes, or have questions you can’t answer, say the team will follow up (or hand_off).',
+        ]
+      : []),
+    ...(o.purpose === 'campaign'
+      ? [
+          'This is a marketing call they agreed to in writing. Tell them about it in a sentence or two from the facts above, never more than the facts say, and ask if they’d like to book or hear more. If they’re not interested, thank them and end_call; don’t push.',
+        ]
       : []),
     'If they ask not to be called again, use no_more_calls, say sorry for the trouble and end_call. If it’s a bad time, offer that they can call back or text, and end_call.',
   ];

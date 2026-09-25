@@ -23,6 +23,8 @@ import {
   FormGetOutput,
   FormListInput,
   FormListOutput,
+  FormResponseExportInput,
+  FormResponseExportOutput,
   FormResponseGetInput,
   FormResponseGetOutput,
   FormResponseListInput,
@@ -42,6 +44,16 @@ type FormRow = typeof forms.$inferSelect;
 
 const asked = (definition: FormDefinition): number =>
   allQuestions(definition).filter((q) => q.type !== 'content').length;
+
+/**
+ * An answer sheet's score as a percentage, or null when nothing on it was worth points. Every finished sheet stores a
+ * percentage, 0 when there was nothing to score, so a survey's or a plain form's would otherwise read "0%".
+ */
+const percentOf = (
+  percent: number | string | null,
+  possible: number | string | null,
+): number | null =>
+  percent === null || possible === null || Number(possible) <= 0 ? null : Number(percent);
 
 function summaryOf(
   row: FormRow,
@@ -249,6 +261,7 @@ export const formResponseList = defineQuery({
       person_name: string | null;
       lead_id: string | null;
       score_percent: number | null;
+      score_possible: string | null;
       passed: boolean | null;
       result_id: string | null;
       started_at: string | Date;
@@ -257,7 +270,7 @@ export const formResponseList = defineQuery({
     }>(
       ctx.tx,
       sql`select r.id, r.form_id, r.version_id, r.status, r.source, r.person_id, r.lead_id,
-            r.score_percent, r.passed, r.result_id, r.started_at, r.completed_at,
+            r.score_percent, r.score_possible, r.passed, r.result_id, r.started_at, r.completed_at,
             btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) as person_name,
             to_char(coalesce(r.completed_at, r.started_at), 'YYYY-MM-DD"T"HH24:MI:SS.USOF') as sort
           from app.form_responses r
@@ -281,7 +294,7 @@ export const formResponseList = defineQuery({
         personId: r.person_id,
         personName: r.person_name?.trim() || null,
         leadId: r.lead_id,
-        scorePercent: r.score_percent === null ? null : Number(r.score_percent),
+        scorePercent: percentOf(r.score_percent, r.score_possible),
         passed: r.passed,
         resultId: r.result_id,
         startedAt: new Date(r.started_at).toISOString(),
@@ -310,6 +323,7 @@ export const formResponseGet = defineQuery({
         personId: formResponses.personId,
         leadId: formResponses.leadId,
         scorePercent: formResponses.scorePercent,
+        scorePossible: formResponses.scorePossible,
         passed: formResponses.passed,
         resultId: formResponses.resultId,
         startedAt: formResponses.startedAt,
@@ -353,7 +367,7 @@ export const formResponseGet = defineQuery({
         personId: response.personId,
         personName: person[0]?.name.trim() || null,
         leadId: response.leadId,
-        scorePercent: response.scorePercent === null ? null : Number(response.scorePercent),
+        scorePercent: percentOf(response.scorePercent, response.scorePossible),
         passed: response.passed,
         resultId: response.resultId,
         startedAt: response.startedAt.toISOString(),
@@ -368,6 +382,113 @@ export const formResponseGet = defineQuery({
         labels: a.choice_labels ?? [],
       })),
       calculations: (response.calculations ?? {}) as Record<string, number>,
+    };
+  },
+});
+
+/** An answer in words for a spreadsheet cell: the choices picked, else the words kept for it, else its plain value. */
+function answerCell(a: {
+  value: unknown;
+  text_value: string | null;
+  choice_labels: string[] | null;
+}): string {
+  if (a.choice_labels?.length) return a.choice_labels.join(', ');
+  if (a.text_value) return a.text_value;
+  if (typeof a.value === 'boolean') return a.value ? 'Yes' : 'No';
+  if (typeof a.value === 'number' || typeof a.value === 'string') return String(a.value);
+  return '';
+}
+
+export const formResponseExport = defineQuery({
+  name: 'form.response_export',
+  description:
+    'Every finished answer sheet on a form with each answer in words, newest first and a page at a time, for a spreadsheet.',
+  input: FormResponseExportInput,
+  output: FormResponseExportOutput,
+  // Everyone may read one answer sheet at a time; taking all of them away in a file is looking after the form.
+  permission: 'forms.manage',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const ws = input.workspaceId;
+    const { row, definition } = await loadForm(ctx.tx, ws, input.formId);
+    const live = row.activeVersionId
+      ? await ctx.tx.select().from(formVersions).where(eq(formVersions.id, row.activeVersionId))
+      : [];
+    // The questions people are answering now, in order, as the results page reads them.
+    const asking = live[0] ? parseStoredForm(live[0].definition) : definition;
+    const columns = allQuestions(asking)
+      .filter((q) => q.type !== 'content')
+      .map((q) => ({ questionId: q.id, title: q.title }));
+    // Then anything an older version asked that somebody answered, worded as it last was, in the order it first came.
+    const answered = await rows<{ question_id: string; title: string }>(
+      ctx.tx,
+      sql`select question_id, (array_agg(question_title order by answered_at desc))[1] as title
+          from app.form_answers where form_id = ${row.id}
+          group by question_id order by min(answered_at), question_id`,
+    );
+    const known = new Set(columns.map((c) => c.questionId));
+    for (const a of answered)
+      if (!known.has(a.question_id)) columns.push({ questionId: a.question_id, title: a.title });
+
+    const after = decodeCursor(input.cursor);
+    const list = await rows<{
+      id: string;
+      source: string;
+      person_name: string | null;
+      score_percent: number | null;
+      score_possible: string | null;
+      passed: boolean | null;
+      answered_at: string | Date;
+      sort: string;
+    }>(
+      ctx.tx,
+      sql`select r.id, r.source, r.score_percent, r.score_possible, r.passed,
+            btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) as person_name,
+            coalesce(r.completed_at, r.started_at) as answered_at,
+            to_char(coalesce(r.completed_at, r.started_at), 'YYYY-MM-DD"T"HH24:MI:SS.USOF') as sort
+          from app.form_responses r
+          left join app.people p on p.id = r.person_id
+          where r.form_id = ${row.id} and r.workspace_id = ${ws} and r.status = 'completed'
+            and (${after?.sort ?? null}::text is null or
+              (coalesce(r.completed_at, r.started_at), r.id) <
+                (${after?.sort ?? null}::timestamptz, ${after?.id ?? null}::uuid))
+          order by coalesce(r.completed_at, r.started_at) desc, r.id desc
+          limit ${input.limit + 1}`,
+    );
+    const paged = page(list, input.limit, (r) => ({ sort: r.sort, id: r.id }));
+    const ids = paged.items.map((r) => r.id);
+    const cells = ids.length
+      ? await rows<{
+          response_id: string;
+          question_id: string;
+          value: unknown;
+          text_value: string | null;
+          choice_labels: string[] | null;
+        }>(
+          ctx.tx,
+          sql`select response_id, question_id, value, text_value, choice_labels
+              from app.form_answers where response_id = any(${uuidArray(ids)})`,
+        )
+      : [];
+    const byResponse = new Map<string, Record<string, string>>();
+    for (const c of cells) {
+      const sheet = byResponse.get(c.response_id) ?? {};
+      sheet[c.question_id] = answerCell(c);
+      byResponse.set(c.response_id, sheet);
+    }
+    return {
+      formName: row.name,
+      columns,
+      rows: paged.items.map((r) => ({
+        responseId: r.id,
+        personName: r.person_name?.trim() || null,
+        source: r.source as 'link',
+        completedAt: new Date(r.answered_at).toISOString(),
+        scorePercent: percentOf(r.score_percent, r.score_possible),
+        passed: r.passed,
+        answers: byResponse.get(r.id) ?? {},
+      })),
+      nextCursor: paged.nextCursor,
     };
   },
 });
@@ -483,4 +604,5 @@ export const formQueries = [
   formResponseList,
   formResponseGet,
   formResults,
+  formResponseExport,
 ] as const;

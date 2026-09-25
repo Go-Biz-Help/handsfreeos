@@ -1,10 +1,13 @@
 /**
- * AI outbound calls (Automations, piece 4a): the AI teammate rings a customer itself.
+ * AI outbound calls (Automations, pieces 4a and 4b): the AI teammate rings a customer itself.
  *
- * Why it calls, each with its own switch on Settings → Automations (off to begin with):
+ * Why it calls, the first three with their own switch on Settings → Automations (off to begin with):
  * - `confirm_visit`: the day-before reminder asked them to confirm and three hours on they haven't;
- * - `missed_call`: a customer's call nobody answered, five minutes on, when nobody has been in touch since.
- * (Quote follow-ups and campaign calls come next, on the same path.)
+ * - `missed_call`: a customer's call nobody answered, five minutes on, when nobody has been in touch since;
+ * - `quote`: two days after a quote's reminder text, still no yes or no and no word from them. A person always
+ *   approves these first, whatever the teammate's mode (money never chases itself);
+ * - `campaign`: a call campaign (automations/campaigns.ts) rings each person who agreed to calls in writing. The
+ *   owner approved the whole list, so these don't wait again.
  *
  * The path, the same for every reason:
  * 1. `ai_calls.consider` checks the reason still holds and writes the call down (`app.ai_calls`, once per reason and
@@ -25,6 +28,7 @@ import {
   executeCommand,
   formatPhone,
   loadTeammate,
+  money,
   openHoursOf,
   scheduleJob,
   walletRoom,
@@ -61,6 +65,8 @@ export const CONFIRM_CALL_AFTER_MS = 3 * 60 * 60_000;
 export const MISSED_CALL_AFTER_MS = 5 * 60_000;
 /** It doesn't ring about a visit starting within this long: too late to help. */
 const CONFIRM_CUTOFF_MS = 2 * 60 * 60_000;
+/** How long after a quote's reminder text it asks to call about it. */
+export const QUOTE_CALL_AFTER_MS = 2 * 24 * 60 * 60_000;
 /** It doesn't ring back a missed call older than this. */
 const MISSED_CALL_STALE_MS = 24 * 60 * 60_000;
 /** How long the customer's phone rings. */
@@ -69,7 +75,7 @@ const RING_SECONDS = 25;
 const SWITCH_OF: Readonly<Record<AiCallPurpose, AutomationSwitch | null>> = {
   confirm_visit: 'callConfirmVisits',
   missed_call: 'callBackMissed',
-  quote: null,
+  quote: 'callQuotes',
   campaign: null,
 };
 
@@ -128,6 +134,11 @@ export interface CallToMake {
   readonly dedupeKey: string;
 }
 
+/** A campaign's calls were approved on its review screen, all at once: they don't wait for a person again. */
+export interface QueueOptions {
+  readonly approved?: boolean;
+}
+
 /**
  * Writes a call down, once per reason and subject: a `call` draft for a person to approve while the teammate is
  * training (and always for a quote), else straight to placing it. Null when it was written down before, or there
@@ -138,6 +149,7 @@ export async function queueAiCall(
   scope: TenantScope,
   call: CallToMake,
   causationId: string,
+  opts: QueueOptions = {},
 ): Promise<{ readonly id: string; readonly status: 'awaiting_approval' | 'queued' } | null> {
   const teammate = await loadTeammate(tx, scope.workspaceId);
   if (!teammate || teammate.status === 'off') return null;
@@ -153,7 +165,7 @@ export async function queueAiCall(
   );
   if (!made) return null;
   // Money never chases itself: a quote call waits for a person whatever mode the teammate is in.
-  const approve = teammate.status === 'training' || call.purpose === 'quote';
+  const approve = call.purpose === 'quote' || (teammate.status === 'training' && !opts.approved);
   if (!approve) {
     await schedulePlace(tx, scope, made.id, new Date());
     return { id: made.id, status: 'queued' };
@@ -281,6 +293,24 @@ export const onMissedCallForAi: EventHandler = async (ctx) => {
   );
 };
 
+/** `estimate.nudged`: the quote's reminder went; two days on, still no answer, it asks to call. */
+export const onQuoteNudgedForAi: EventHandler = async (ctx) => {
+  const e = ctx.event;
+  if (!e.entityId || e.entityType !== 'estimate') return;
+  const raw = await rows<{ settings: Record<string, unknown> | null }>(
+    ctx.tx,
+    sql`select settings from app.workspaces where id = ${e.workspaceId}`,
+  );
+  if (!automationOn(raw[0]?.settings ?? null, 'callQuotes')) return;
+  await scheduleConsider(
+    ctx.tx,
+    tenantOf(ctx.scope),
+    'quote',
+    e.entityId,
+    new Date(Date.now() + QUOTE_CALL_AFTER_MS),
+  );
+};
+
 type Considered = { readonly call: CallToMake } | { readonly skip: string };
 
 /** Whether a visit still wants a confirming call, and what to say. */
@@ -370,8 +400,69 @@ async function considerMissed(tx: Tx, callId: string, now: number): Promise<Cons
   };
 }
 
+/** Whether a quote still wants a call: still open and good, and not a word from them since its reminder. */
+async function considerQuote(tx: Tx, estimateId: string, now: number): Promise<Considered> {
+  const [q] = await rows<{
+    person_id: string | null;
+    status: string;
+    voided_at: Date | null;
+    expires_on: string | null;
+    title: string | null;
+    phone: string | null;
+    call_consent: string | null;
+    today: string;
+    nudged_at: Date | null;
+  }>(
+    tx,
+    sql`select e.person_id, e.status::text as status, e.voided_at, e.expires_on::text as expires_on, e.title,
+          p.phone_e164 as phone, p.call_consent::text as call_consent,
+          (${new Date(now).toISOString()}::timestamptz at time zone coalesce(nullif(w.timezone, ''), 'UTC'))::date::text
+            as today,
+          (select max(ev.occurred_at) from app.events ev
+           where ev.workspace_id = e.workspace_id and ev.entity_type = 'estimate' and ev.entity_id = e.id
+             and ev.event_type = 'estimate.nudged') as nudged_at
+        from app.estimates e
+        join app.workspaces w on w.id = e.workspace_id
+        left join app.people p on p.id = e.person_id
+        where e.id = ${estimateId}`,
+  );
+  if (!q || !q.person_id) return { skip: 'gone' };
+  // Answered, expired, voided or reissued: a quote is never chased once it has stopped being open.
+  if (q.status !== 'sent' || q.voided_at) return { skip: 'answered' };
+  if (q.expires_on && q.expires_on < q.today) return { skip: 'expired' };
+  if (!q.phone) return { skip: 'no_phone' };
+  if (q.call_consent === 'opted_out') return { skip: 'no_calls' };
+  const since = q.nudged_at ? new Date(q.nudged_at).toISOString() : null;
+  if (since) {
+    // A word from them since the reminder, by text, email or call: the team takes it from there.
+    const [heard] = await rows(
+      tx,
+      sql`select 1 where exists (
+            select 1 from app.messages m join app.conversations cv on cv.id = m.conversation_id
+            where cv.person_id = ${q.person_id} and m.direction = 'inbound'
+              and m.occurred_at > ${since}::timestamptz)
+          or exists (
+            select 1 from app.calls c
+            where c.person_id = ${q.person_id} and c.direction = 'inbound'
+              and c.started_at > ${since}::timestamptz)`,
+    );
+    if (heard) return { skip: 'in_touch_since' };
+  }
+  const title = q.title?.trim();
+  return {
+    call: {
+      purpose: 'quote',
+      personId: q.person_id,
+      to: q.phone,
+      goal: `about the quote we sent you${title ? ` for ${title}` : ''}.`,
+      estimateId,
+      dedupeKey: `quote:${estimateId}`,
+    },
+  };
+}
+
 /** Ready to make AI calls at all: the teammate is on and answers the phone, and speech is set up. */
-function voiceReady(
+export function voiceReady(
   ctx: Parameters<JobHandler>[0],
   teammate: Awaited<ReturnType<typeof loadTeammate>>,
 ): boolean {
@@ -399,11 +490,62 @@ export const aiCallConsiderJob: JobHandler = async (ctx) => {
         ? await considerVisit(tx, subjectId, ctx.now)
         : purpose === 'missed_call'
           ? await considerMissed(tx, subjectId, ctx.now)
-          : { skip: 'not_yet' };
+          : purpose === 'quote'
+            ? await considerQuote(tx, subjectId, ctx.now)
+            : { skip: 'not_here' };
     if ('skip' in r) return;
     await queueAiCall(tx, scope, r.call, ctx.job.id);
   });
 };
+
+// ---------- what the AI knows on the call ----------
+
+/**
+ * The facts a quote or campaign call is about, for the AI on the call (data, not instructions): the quote's
+ * name, total and last day; or the campaign's goal and its offer. Null for the other reasons.
+ */
+export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null> {
+  const [c] = await rows<{
+    purpose: AiCallPurpose;
+    number: string | null;
+    title: string | null;
+    total_cents: string | number | null;
+    expires_on: string | null;
+    goal: string | null;
+    offer_name: string | null;
+    offer_details: string | null;
+    offer_ends: string | null;
+  }>(
+    tx,
+    sql`select a.purpose, e.number, e.title, e.total_cents, e.expires_on::text as expires_on,
+          k.goal, o.name as offer_name, o.details as offer_details, o.ends_on::text as offer_ends
+        from app.ai_calls a
+        left join app.estimates e on e.id = a.estimate_id
+        left join app.campaign_recipients r on r.id = a.campaign_recipient_id
+        left join app.campaigns k on k.id = r.campaign_id
+        left join app.offers o on o.id = k.offer_id
+        where a.id = ${aiCallId}`,
+  );
+  if (!c) return null;
+  if (c.purpose === 'quote' && c.total_cents !== null) {
+    const lines = [
+      `Quote${c.number ? ` ${c.number}` : ''}${c.title?.trim() ? `: ${c.title.trim()}` : ''}`,
+      `Total: ${money(Number(c.total_cents))}`,
+    ];
+    if (c.expires_on) lines.push(`Good until: ${c.expires_on}`);
+    return lines.join('\n');
+  }
+  if (c.purpose === 'campaign' && c.goal) {
+    const lines = [`What the owner wants from these calls: ${c.goal.trim()}`];
+    if (c.offer_name) {
+      lines.push(`Offer: ${c.offer_name.trim()}`);
+      if (c.offer_details?.trim()) lines.push(`Offer details: ${c.offer_details.trim()}`);
+      if (c.offer_ends) lines.push(`Offer ends: ${c.offer_ends}`);
+    }
+    return lines.join('\n');
+  }
+  return null;
+}
 
 // ---------- approving ----------
 
@@ -434,11 +576,21 @@ interface Placing {
   readonly voicemail: CallVoicemailChoice;
 }
 
-const skip = (tx: Tx, id: string, reason: string) =>
+/** A campaign's call that wasn't made, or failed: its person on the campaign shows why. */
+const recipientFailed = (tx: Tx, aiCallId: string, reason: string) =>
   tx.execute(
+    sql`update app.campaign_recipients set status = 'failed', error = ${reason.slice(0, 500)}
+        where id = (select campaign_recipient_id from app.ai_calls where id = ${aiCallId})
+          and status = 'sent'`,
+  );
+
+const skip = async (tx: Tx, id: string, reason: string) => {
+  await tx.execute(
     sql`update app.ai_calls set status = 'skipped', reason = ${reason.slice(0, 200)}, finished_at = now()
         where id = ${id} and status = 'queued'`,
   );
+  await recipientFailed(tx, id, reason);
+};
 
 /** `ai_calls.place`: checked once more, then rung. */
 export const aiCallPlaceJob: JobHandler = async (ctx) => {
@@ -457,10 +609,14 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         to_e164: string;
         attendee_id: string | null;
         missed_call_id: string | null;
+        estimate_id: string | null;
+        campaign_status: string | null;
         call_consent: string;
       }>(
         tx,
-        sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id,
+        sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id, c.estimate_id,
+              (select k.status from app.campaign_recipients r join app.campaigns k on k.id = r.campaign_id
+               where r.id = c.campaign_recipient_id) as campaign_status,
               p.call_consent::text as call_consent
             from app.ai_calls c join app.people p on p.id = c.person_id
             where c.id = ${aiCallId} and c.workspace_id = ${scope.workspaceId}
@@ -468,13 +624,22 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
       );
       if (!c || c.status !== 'queued') return null;
       if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
+      if (c.purpose === 'campaign') {
+        // Marketing calls need the written yes, still, and a campaign that's still going.
+        if (c.call_consent !== 'opted_in')
+          return skip(tx, c.id, 'no_call_consent').then(() => null);
+        if (c.campaign_status !== 'sending' && c.campaign_status !== 'done')
+          return skip(tx, c.id, 'campaign_stopped').then(() => null);
+      }
       // Still wanted? A reply, a confirmation or a call since the approval leaves it alone.
       const again =
         c.purpose === 'confirm_visit' && c.attendee_id
           ? await considerVisit(tx, c.attendee_id, now)
           : c.purpose === 'missed_call' && c.missed_call_id
             ? await considerMissed(tx, c.missed_call_id, now)
-            : null;
+            : c.purpose === 'quote' && c.estimate_id
+              ? await considerQuote(tx, c.estimate_id, now)
+              : null;
       if (again && 'skip' in again) return skip(tx, c.id, again.skip).then(() => null);
       const m = await workspaceMessaging(tx, scope.workspaceId);
       const key = SWITCH_OF[c.purpose];
@@ -512,13 +677,14 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
   if ('wait' in step) return { rescheduleAt: new Date(step.wait) };
   const p = step.place;
   const failed = (reason: string) =>
-    asWorker(ctx.db, scope, (tx) =>
-      tx.execute(
+    asWorker(ctx.db, scope, async (tx) => {
+      await tx.execute(
         sql`update app.ai_calls set status = 'failed', outcome = 'failed', reason = ${reason.slice(0, 200)},
               finished_at = now()
             where id = ${p.id} and status = 'calling'`,
-      ),
-    );
+      );
+      await recipientFailed(tx, p.id, reason);
+    });
   const account = await asWorker(ctx.db, scope, (tx) =>
     loadAccount(tx, scope.workspaceId, ctx.sealer),
   );

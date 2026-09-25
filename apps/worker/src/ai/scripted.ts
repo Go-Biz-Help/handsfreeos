@@ -1022,7 +1022,19 @@ export function scriptedEmailCampaign(message: string): Record<string, unknown> 
   };
 }
 
+/** A call campaign's opening line: "about <goal>." A goal that says "skip" makes it answer null. */
+export function scriptedCallCampaign(message: string): Record<string, unknown> {
+  const goal = unquote(quotedBlock(message, 'campaign_goal') ?? '').trim();
+  if (!goal || /\bskip\b/i.test(goal)) return { opening: null };
+  const line = goal.replace(/[.!]+$/, '');
+  return { opening: `about ${line.charAt(0).toLowerCase()}${line.slice(1)}.` };
+}
+
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
+  {
+    when: /Write the line that opens every call of the campaign above, or null if it can’t be written\.$/,
+    json: (message) => scriptedCallCampaign(message),
+  },
   {
     when: /Say which of the listed tags this customer should gain or lose, and which of their contact details changed\.$/,
     json: (message) => scriptedContactAi(message),

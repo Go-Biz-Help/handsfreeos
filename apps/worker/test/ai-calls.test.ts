@@ -6,7 +6,11 @@
  * - a missed call, while it trains: a call draft; approved, it's placed, a voicemail box answers and a text goes
  *   instead;
  * - a missed call it rings back where they ask not to be called again: nobody's AI calls them after that;
- * - a visit confirmed meanwhile, or quiet hours, leave the call alone (or waiting).
+ * - a visit confirmed meanwhile, or quiet hours, leave the call alone (or waiting);
+ * - a quote still unanswered two days after its reminder (piece 4b): a call draft even while the teammate is
+ *   automatic, and a word from them since leaves it alone;
+ * - a call campaign (piece 4b): only people who agreed to calls in writing, the AI's opening line, and approved
+ *   once, each call goes without a draft, even while the teammate trains.
  */
 import type { AddressInfo } from 'node:net';
 import {
@@ -15,8 +19,15 @@ import {
   automationsSaveSettings,
   callRecord,
   callUpdateStatus,
+  campaignApprove,
+  campaignCreate,
+  campaignGet,
+  campaignUpdateCall,
   defaultAutomationSettings,
+  estimateCreate,
   executeCommand,
+  personSetCallConsent,
+  tagCreate,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
@@ -27,10 +38,14 @@ import {
   aiCallConsiderKey,
   aiCallPlaceKey,
   armConfirmCall,
+  callBrief,
   CONFIRM_CALL_AFTER_MS,
+  QUOTE_CALL_AFTER_MS,
   spokenWhen,
   voicemailText,
 } from '../src/ai-calls/index';
+import { cleanOpening, fallbackOpening } from '../src/automations/campaigns';
+import { recordSystemEvent } from '../src/system-event';
 import { scriptedAi } from '../src/ai/scripted';
 import { answeredByMachine, voicemailMessage } from '../src/http/ai-calls';
 import { buildHttpServer } from '../src/http/server';
@@ -46,12 +61,14 @@ import {
   drain,
   iso,
   newCustomer,
+  query,
   run,
   runNow,
   saveTeammate,
   setQuietHours,
   setStatus,
   teammateWorld,
+  textIn,
   textsTo,
   useModel,
   type TeammateWorld,
@@ -103,7 +120,7 @@ beforeAll(async () => {
         where id = ${w.workspaceId}`,
   );
   await setQuietHours(w, null);
-  await saveAutomations({ callConfirmVisits: true, callBackMissed: true });
+  await saveAutomations({ callConfirmVisits: true, callBackMissed: true, callQuotes: true });
   const [a] = await rows<{ account_sid: string }>(
     admin(),
     sql`select account_sid from app.telephony_accounts where workspace_id = ${w.workspaceId}`,
@@ -465,6 +482,205 @@ describe('a missed call', () => {
     });
     expect(res.body).toContain('<Hangup/>');
     expect(res.body).not.toContain('<Stream');
+  });
+});
+
+// ---------- quotes (piece 4b) ----------
+
+/** A quote sent to them, its reminder text gone just now. */
+async function nudgedQuote(personId: string, title: string) {
+  const { estimateId } = (await run(w, estimateCreate, {
+    workspaceId: w.workspaceId,
+    personId,
+    title,
+    lines: [{ name: title, quantity: 1, unitPriceCents: 640_000, taxable: false }],
+  })) as { estimateId: string };
+  await rows(
+    admin(),
+    sql`update app.estimates set status = 'sent', number = ${`Q-${estimateId.slice(0, 6)}`},
+          sent_at = now() - interval '4 days'
+        where id = ${estimateId}`,
+  );
+  await asWorker(testDbs().worker.db, scope(), (tx) =>
+    recordSystemEvent(tx, {
+      type: 'estimate.nudged',
+      action: 'estimate.nudge',
+      organizationId: w.organizationId,
+      workspaceId: w.workspaceId,
+      entityType: 'estimate',
+      entityId: estimateId,
+      payload: { estimateId, outcome: 'sent', _broadcast: false },
+      after: {},
+      correlationId: crypto.randomUUID(),
+      causationId: crypto.randomUUID(),
+    }),
+  );
+  await drain(w);
+  return estimateId;
+}
+
+describe('a quote with no answer', () => {
+  it('asks to call two days after its reminder, even while automatic, and a person approves it', async () => {
+    const gus = await newCustomer(w, 'Gus');
+    const estimateId = await nudgedQuote(gus.id, 'AC install');
+    const [job] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs where dedupe_key = ${aiCallConsiderKey('quote', estimateId)}`,
+    );
+    const wait = new Date(job!.run_at).getTime() - Date.now();
+    expect(wait).toBeGreaterThan(QUOTE_CALL_AFTER_MS - 60_000);
+    expect(wait).toBeLessThanOrEqual(QUOTE_CALL_AFTER_MS);
+
+    await runNow(w, [aiCallConsiderKey('quote', estimateId)]);
+    const [waiting] = await aiCallsOf(gus.id);
+    // Money never chases itself: it waits for a person though the teammate is automatic.
+    expect(waiting).toMatchObject({ status: 'awaiting_approval' });
+    expect(placedTo(gus.phone)).toBeUndefined();
+    const [draft] = await rows<{ preview: { call: { purpose: string; goal: string } } }>(
+      admin(),
+      sql`select preview from app.ai_teammate_drafts where id = ${waiting!.draft_id}`,
+    );
+    expect(draft!.preview.call).toMatchObject({
+      purpose: 'quote',
+      goal: 'about the quote we sent you for AC install.',
+    });
+    const brief = await asWorker(testDbs().worker.db, scope(), (tx) => callBrief(tx, waiting!.id));
+    expect(brief).toContain('AC install');
+    expect(brief).toContain('Total: $6,400');
+
+    await run(w, aiTeammateDecideDraft, {
+      workspaceId: w.workspaceId,
+      draftId: waiting!.draft_id!,
+      decision: 'approve',
+    });
+    await drain(w);
+    const placed = placedTo(gus.phone)!;
+    const answered = await post(`${V}/ai-call?aiCall=${waiting!.id}`, {
+      CallSid: placed.sid,
+      From: w.number!,
+      To: gus.phone,
+      AnsweredBy: 'human',
+    });
+    const line = await dial(placed.sid, ticketIn(answered.body)!);
+    await waitFor('the greeting', () => line.said.join(' ').includes('questions about it?'));
+    expect(line.said.join(' ')).toContain(
+      'I’m calling about the quote we sent you for AC install. Do you have any questions about it?',
+    );
+  });
+
+  it('leaves it alone when they wrote back since the reminder, or said no to the quote', async () => {
+    const hal = await newCustomer(w, 'Hal');
+    const first = await nudgedQuote(hal.id, 'Duct cleaning');
+    await textIn(w, hal.phone, 'Still thinking about it, will let you know.');
+    await runNow(w, [aiCallConsiderKey('quote', first)]);
+    expect(await aiCallsOf(hal.id)).toEqual([]);
+
+    const ida = await newCustomer(w, 'Ida');
+    const second = await nudgedQuote(ida.id, 'Furnace');
+    await rows(
+      admin(),
+      sql`update app.estimates set status = 'declined', declined_at = now() where id = ${second}`,
+    );
+    await runNow(w, [aiCallConsiderKey('quote', second)]);
+    expect(await aiCallsOf(ida.id)).toEqual([]);
+  });
+});
+
+// ---------- a call campaign (piece 4b) ----------
+
+describe('a call campaign', () => {
+  it('calls only people who agreed in writing, opens with its line, and doesn’t ask again per call', async () => {
+    const { tagId } = await run(w, tagCreate, { workspaceId: w.workspaceId, name: 'Call list' });
+    const listed = async (first: string, agreed: boolean) => {
+      const c = await newCustomer(w, first);
+      await rows(
+        admin(),
+        sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+            values (${w.workspaceId}, ${tagId}, 'person', ${c.id})`,
+      );
+      if (agreed)
+        await run(w, personSetCallConsent, {
+          workspaceId: w.workspaceId,
+          personId: c.id,
+          consent: 'opted_in',
+          source: 'Signed service agreement',
+        });
+      return c;
+    };
+    const jo = await listed('Jo', true);
+    const kim = await listed('Kim', false);
+
+    const made = await run(w, campaignCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Fall calls',
+      goal: 'Our fall tune-up is $89 this month',
+      audience: { tagIds: [tagId], stageIds: [] },
+      perHour: 200,
+      channel: 'call',
+    });
+    expect(made).toMatchObject({ recipients: 1, skipped: 1 });
+    await drain(w);
+    const got = await query(w, campaignGet, {
+      workspaceId: w.workspaceId,
+      campaignId: made.campaignId,
+    });
+    expect(got.campaign).toMatchObject({
+      status: 'review',
+      call: { opening: 'about our fall tune-up is $89 this month.', edited: false },
+    });
+    expect(got.recipients.find((r) => r.name.startsWith('Kim'))).toMatchObject({
+      status: 'skipped',
+      skipReason: 'no_call_consent',
+    });
+    await run(w, campaignUpdateCall, {
+      workspaceId: w.workspaceId,
+      campaignId: made.campaignId,
+      opening: 'about our fall tune-up, which is $89 this month.',
+    });
+
+    // Approved once on the review screen: the calls don't wait for a person again, even in training.
+    await setStatus(w, 'training');
+    try {
+      await run(w, campaignApprove, { workspaceId: w.workspaceId, campaignId: made.campaignId });
+      await drain(w);
+      const [call] = await aiCallsOf(jo.id);
+      expect(call).toMatchObject({ status: 'calling', draft_id: null });
+      expect(await aiCallsOf(kim.id)).toEqual([]);
+      const placed = placedTo(jo.phone)!;
+      const answered = await post(`${V}/ai-call?aiCall=${call!.id}`, {
+        CallSid: placed.sid,
+        From: w.number!,
+        To: jo.phone,
+        AnsweredBy: 'human',
+      });
+      const line = await dial(placed.sid, ticketIn(answered.body)!);
+      await waitFor('the greeting', () => line.said.join(' ').includes('Is now a good time?'));
+      expect(line.said.join(' ')).toContain(
+        'I’m calling about our fall tune-up, which is $89 this month. Is now a good time?',
+      );
+      const brief = await asWorker(testDbs().worker.db, scope(), (tx) => callBrief(tx, call!.id));
+      expect(brief).toContain('Our fall tune-up is $89 this month');
+
+      const after = await query(w, campaignGet, {
+        workspaceId: w.workspaceId,
+        campaignId: made.campaignId,
+      });
+      expect(after.recipients.find((r) => r.name.startsWith('Jo'))).toMatchObject({
+        status: 'sent',
+        call: { status: 'calling' },
+      });
+    } finally {
+      await setStatus(w, 'automatic');
+    }
+  });
+
+  it('cleans the AI’s opening line, and falls back to the goal', () => {
+    expect(cleanOpening('I’m calling about our spring special.')).toBe('about our spring special.');
+    expect(cleanOpening('Hi there, I’m calling to let you know about X.')).toBe(
+      'to let you know about X.',
+    );
+    expect(cleanOpening('')).toBeNull();
+    expect(fallbackOpening('Spring special: 10% off.')).toBe('about spring special: 10% off.');
   });
 });
 

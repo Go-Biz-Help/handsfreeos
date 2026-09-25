@@ -53,6 +53,7 @@ import { seedAssistant } from './seed-assistant';
 import { seedAttention } from './seed-attention';
 import { seedCalendar } from './seed-calendar';
 import { seedCrm } from './seed-crm';
+import { seedForms } from './seed-forms';
 import { seedGlow } from './seed-glow';
 import { seedIdeas } from './seed-ideas';
 import { seedAi, seedKnowledge } from './seed-knowledge';
@@ -514,6 +515,13 @@ async function main(): Promise<void> {
   );
   await drainOutbox(deps, admin.db, since);
 
+  // Forms (M15, M17): one live survey on Lone Star with anonymous answers, last, so nothing counted above moves.
+  const forms = await seedForms(
+    { api: api.db, worker: worker.db, actor, meta, step },
+    { workspaceId: lonestar, organizationId: org.organizationId, dale },
+  );
+  await drainOutbox(deps, admin.db, since);
+
   console.log(`
 Seeded in ${((Date.now() - started) / 1000).toFixed(1)}s. Sign in at ${deps.webUrl}/sign-in with password ${SEED_PASSWORD}:
 
@@ -565,6 +573,8 @@ under "Handled by HandsFreeOS".
 Ideas (in the menu of every business) holds ${ideas.ideas} ideas from four businesses: one planned, one being built with a
 duplicate merged into it, one shipped in What's new, one not planned and two under review. What's new has
 ${ideas.published} entries published and a draft; Chris runs the roadmap at ${deps.webUrl}/admin/ideas.
+Lone Star's "${forms.name}" survey is live at ${deps.webUrl}/f/${calendar.site}/${forms.slug} with ${forms.answers} anonymous answers:
+see them under Forms → ${forms.name} → Results on the web, or More → Forms on the phone.
 Emails the stack sent, including the pending invitation for ${PENDING_INVITEE}: ${env.mailpitUrl}
 `);
 }

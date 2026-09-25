@@ -34,6 +34,7 @@ export function FormEditor({
   siteSlug,
   canManage,
   brandedOrigin,
+  timeZone,
 }: {
   workspaceId: string;
   initial: FormGet;
@@ -42,6 +43,8 @@ export function FormEditor({
   siteSlug: string | null;
   canManage: boolean;
   brandedOrigin: string | null;
+  /** The business's, for when each answer came in on the exported spreadsheet. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const editor = useFormEditor(workspaceId, initial.form.formId, {
@@ -192,7 +195,13 @@ export function FormEditor({
         </div>
       ) : tab === 'results' ? (
         results ? (
-          <FormResults workspaceId={workspaceId} form={initial.form} results={results} />
+          <FormResults
+            workspaceId={workspaceId}
+            form={initial.form}
+            results={results}
+            canManage={canManage}
+            timeZone={timeZone}
+          />
         ) : null
       ) : (
         <FormShare

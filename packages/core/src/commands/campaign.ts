@@ -8,6 +8,9 @@
  *
  * An email campaign is one email: the worker drafts its subject and body once, and a person changes it with
  * `campaign.update_email`. It needs the business's postal address, which every email shows (CAN-SPAM).
+ *
+ * A call campaign is one opening line: the worker drafts it once, a person changes it with `campaign.update_call`,
+ * and once approved the AI teammate rings each person (only those who agreed to calls in writing).
  */
 import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -25,6 +28,7 @@ import {
   CampaignRef,
   CampaignSetPaceInput,
   CampaignStateOutput,
+  CampaignUpdateCallInput,
   CampaignUpdateDraftInput,
   CampaignUpdateEmailInput,
   EmailUnsubscribeRecordInput,
@@ -67,7 +71,7 @@ async function lockCampaign(tx: Tx, ws: string, id: string): Promise<CampaignRow
 export const campaignCreate = defineCommand({
   name: 'campaign.create',
   description:
-    'Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, or one email to them all. Nothing is sent until someone approves the drafts.',
+    'Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, one email to them all, or an AI call to each who agreed to calls in writing. Nothing goes until someone approves it.',
   risk: 2,
   input: CampaignCreateInput,
   output: CampaignCreateOutput,
@@ -99,7 +103,9 @@ export const campaignCreate = defineCommand({
           ? 'Nobody has those tags or stages.'
           : email
             ? 'Everyone it picks is left out: no email, unsubscribed, bounced or emailed lately.'
-            : 'Everyone it picks is left out: no texting consent, texted lately, mid-conversation or booked.',
+            : input.channel === 'call'
+              ? 'Everyone it picks is left out: no written consent to calls, called lately, mid-conversation or booked.'
+              : 'Everyone it picks is left out: no texting consent, texted lately, mid-conversation or booked.',
         'campaign_empty',
       );
     const [c] = await ctx.tx
@@ -179,6 +185,11 @@ export const campaignUpdateDraft = defineCommand({
         'An email campaign sends one email to everyone. Change that instead.',
         'campaign_channel',
       );
+    if (r.channel === 'call')
+      throw HfosError.conflict(
+        'A call campaign opens every call the same way. Change that instead.',
+        'campaign_channel',
+      );
     if (r.status !== 'ready' && r.status !== 'drafting')
       throw HfosError.conflict(
         'That person isn’t getting a text in this campaign.',
@@ -230,6 +241,38 @@ export const campaignUpdateEmail = defineCommand({
   },
 });
 
+export const campaignUpdateCall = defineCommand({
+  name: 'campaign.update_call',
+  description:
+    'Change what the AI says it’s calling about on every call of a call campaign, before it’s approved. It finishes “I’m calling …”.',
+  risk: 1,
+  input: CampaignUpdateCallInput,
+  output: CampaignStateOutput,
+  permission: 'workflows.manage',
+  scope: inWorkspace,
+  emits: ['campaign.call_edited'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const c = await lockCampaign(ctx.tx, ws, input.campaignId);
+    if (c.channel !== 'call')
+      throw HfosError.conflict('This campaign doesn’t make calls.', 'campaign_channel');
+    if (c.status !== 'review' && c.status !== 'drafting') throw wrongState(c.status, 'changed');
+    await ctx.tx
+      .update(campaigns)
+      .set({ callOpening: input.opening, callEdited: true })
+      .where(eq(campaigns.id, c.id));
+    await ctx.emit({
+      type: 'campaign.call_edited',
+      entityType: 'campaign',
+      entityId: c.id,
+      payload: { campaignId: c.id, _broadcast: false },
+      after: { name: c.name, opening: input.opening },
+    });
+    return { campaignId: c.id, status: c.status as CampaignStatus };
+  },
+});
+
 export const campaignRemoveRecipient = defineCommand({
   name: 'campaign.remove_recipient',
   description: 'Take one person out of an outreach campaign before it’s approved.',
@@ -275,6 +318,8 @@ export const campaignApprove = defineCommand({
     if (c.status !== 'review') throw wrongState(c.status, 'approved');
     if (c.channel === 'email' && !(c.emailSubject?.trim() && c.emailBody?.trim()))
       throw HfosError.conflict('Write the email first.', 'campaign_no_email');
+    if (c.channel === 'call' && !c.callOpening?.trim())
+      throw HfosError.conflict('Say what the calls are about first.', 'campaign_no_opening');
     const approved = await ctx.tx
       .update(campaignRecipients)
       .set({ status: 'approved' })
@@ -446,6 +491,7 @@ export const campaignCommands = [
   campaignCreate,
   campaignUpdateDraft,
   campaignUpdateEmail,
+  campaignUpdateCall,
   campaignRemoveRecipient,
   campaignApprove,
   campaignPause,

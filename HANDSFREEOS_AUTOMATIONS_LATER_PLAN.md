@@ -36,10 +36,11 @@ free-text `source`, with no UTM fields.
 
 ## Outbound calls
 
-Shipping in two pieces. The first is live: the AI teammate calls to confirm tomorrow's visit a text didn't
-confirm, and calls back a missed call (two rows, off to begin with). Every call is in open hours, never quiet hours,
-recorded, and says it's an AI; calls wait for approval while the teammate is training. Still to come: quote
-follow-up calls (always approved first) and campaign calls (only to people who agreed to calls in writing).
+Shipped in two pieces. The AI teammate calls to confirm tomorrow's visit a text didn't confirm, calls back a
+missed call, and asks to call about a quote still unanswered two days after its reminder (three rows, off to begin
+with; quote calls always wait for a person). Campaigns can be calls, only to people who agreed to calls in writing,
+approved once on the review screen. Every call is in open hours, never quiet hours, recorded, and says it's an AI;
+calls wait for approval while the teammate is training.
 
 ## When each one ships
 

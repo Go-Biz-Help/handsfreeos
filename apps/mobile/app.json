@@ -28,7 +28,8 @@
         "com.apple.developer.usernotifications.time-sensitive": true
       },
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "HandsFreeOS saves the QR codes you choose to save to your photos."
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,

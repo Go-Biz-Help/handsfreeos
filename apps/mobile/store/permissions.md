@@ -21,11 +21,18 @@ npx expo prebuild --no-install                  # what the native project says
 Each string is in `app.json` — on the plugin that needs it, not in a list of its own — and says what the app does with
 the thing, in the app's own voice.
 
-| Key                              | Words shown                                                               | Asked when                                                         | Set by                             |
-| -------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
-| `NSCameraUsageDescription`       | "HandsFreeOS uses the camera to take photos for your customers' records." | Taking a photo for a customer's record or a reply                  | `expo-image-picker` plugin         |
-| `NSPhotoLibraryUsageDescription` | "HandsFreeOS adds the photos you choose to your customers' records."      | Choosing a photo already on the phone                              | `expo-image-picker` plugin         |
-| `NSFaceIDUsageDescription`       | "Face ID unlocks HandsFreeOS on this iPhone."                             | Unlocking the app, and confirming anything that reaches a customer | `expo-local-authentication` plugin |
+| Key                                 | Words shown                                                               | Asked when                                                         | Set by                             |
+| ----------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
+| `NSCameraUsageDescription`          | "HandsFreeOS uses the camera to take photos for your customers' records." | Taking a photo for a customer's record or a reply                  | `expo-image-picker` plugin         |
+| `NSPhotoLibraryUsageDescription`    | "HandsFreeOS adds the photos you choose to your customers' records."      | Choosing a photo already on the phone                              | `expo-image-picker` plugin         |
+| `NSFaceIDUsageDescription`          | "Face ID unlocks HandsFreeOS on this iPhone."                             | Unlocking the app, and confirming anything that reaches a customer | `expo-local-authentication` plugin |
+| `NSPhotoLibraryAddUsageDescription` | "HandsFreeOS saves the QR codes you choose to save to your photos."       | Save Image in the share sheet, after Save the QR code on a form    | `app.json`'s `ios.infoPlist`       |
+
+**Saving a form's QR code** (M17, `expo-sharing`) hands a PNG to the phone's own share sheet rather than writing to the
+photo library itself, so the app never asks for the photos. iOS's Save Image in that sheet adds the picture to Photos
+on the app's behalf, and asks first with the words above; without them it would close the app instead. `expo-sharing`
+has no config plugin for it (its plugin is for receiving shares, which the app doesn't, and isn't in `app.json`), so
+the string sits in `ios.infoPlist`.
 
 ### The microphone string, decided
 
@@ -112,10 +119,12 @@ ones are in `app.json`'s `android.blockedPermissions` (from the step that built 
 
 ### Never asked for
 
-No `ACCESS_FINE_LOCATION` or `ACCESS_COARSE_LOCATION`, no `READ_CONTACTS` or `WRITE_CONTACTS`, no `READ_CALENDAR`, no
-`READ_PHONE_STATE` or `CALL_PHONE` (calling goes through the phone's own dialler and the carrier), no
-`com.google.android.gms.permission.AD_ID`, and no `QUERY_ALL_PACKAGES` — the manifest's one `<queries>` block asks only
-which app opens an `https` link, which is what opening the web app needs.
+No `READ_CONTACTS` or `WRITE_CONTACTS`, no `READ_CALENDAR`, no `READ_PHONE_STATE` or `CALL_PHONE` (calling goes
+through the phone's own dialler and the carrier), no `com.google.android.gms.permission.AD_ID`, no `READ_MEDIA_IMAGES`,
+and no `QUERY_ALL_PACKAGES`. The manifest's `<queries>` blocks ask only which app opens an `https` link, which is what
+opening the web app needs, and which apps take a shared file (`ACTION_SEND`, from `expo-sharing`), which is what saving
+a form's QR code through the share sheet needs. `expo-sharing` also adds its own `FileProvider`, not exported, which
+lends the one picture to the app the person picks; it asks for no permission.
 
 ### What `usesCleartextTraffic` is doing there
 
