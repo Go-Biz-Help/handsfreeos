@@ -4,9 +4,9 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 /**
- * Matomo analytics for the web app (site 3 in gobizhelp.matomo.cloud): which screens the people running a business
- * open, and how often. Only on app.handsfreeos.com, so local runs, the Playwright specs, Vercel previews and a
- * business's own domain (M17) count nothing.
+ * Matomo analytics for the web app (site 5 in gobizhelp.matomo.cloud; handsfreeos.com is 3, the phone app 4): which
+ * screens the people running a business open, and how often. Only on app.handsfreeos.com, so local runs, the
+ * Playwright specs, Vercel previews and a business's own domain (M17) count nothing.
  *
  * What it sends is picked on purpose, because the app is full of other people's customers:
  * - **Only our own users' screens** (`TRACKED`). The pages a business's customers open — a booking page, an invoice,
@@ -15,10 +15,13 @@ import { useEffect, useRef } from 'react';
  * - **The route, not the address.** Every id becomes `:id` and the query string is dropped, so a search box's
  *   `?q=Dale Ramsey` stays here and a report reads "customers/people/:id" rather than one line per customer.
  * - **No link tracking.** A download link can be a signed file address, and an outlink a payment page's session.
+ * - **No heatmaps, session recordings, form or media tracking**, whatever the Matomo account has switched on: the
+ *   first two copy what is on the screen, form tracking reports each field, and a voicemail's player carries its file's
+ *   address.
  */
 const MATOMO_URL = 'https://gobizhelp.matomo.cloud/';
 const MATOMO_SCRIPT = 'https://cdn.matomo.cloud/gobizhelp.matomo.cloud/matomo.js';
-const SITE_ID = '3';
+const SITE_ID = '5';
 const HOST = 'app.handsfreeos.com';
 
 const TRACKED = [
@@ -63,6 +66,9 @@ function firstReferrer(): string {
 function load(paq: unknown[][]) {
   paq.push(['setTrackerUrl', `${MATOMO_URL}matomo.php`]);
   paq.push(['setSiteId', SITE_ID]);
+  paq.push(['HeatmapSessionRecording::disable']);
+  paq.push(['FormAnalytics::disableFormAnalytics']);
+  paq.push(['MediaAnalytics::disableMediaAnalytics']);
   const script = document.createElement('script');
   script.async = true;
   script.src = MATOMO_SCRIPT;
