@@ -78,9 +78,9 @@ prompt. Each is absent because nothing in the app calls it — `expo-contacts` i
 number to Contacts hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`).
 
 **Location while in use** (M18, `expo-location`): asked for the first time a tech taps **On my way** on a visit, never
-at launch and never in the background. The one reading goes with that tap (rounded to about 100 m) so the customer's
-text can say when they'll arrive; it is not kept on the job. `NSLocationWhenInUseUsageDescription` says so, and the
-privacy manifest lists coarse location for app functionality. If the tech says no, On my way still works without an
+at launch and never in the background. The one reading goes with that tap, and the server rounds it to about 100 m, so
+the customer's text can say when they'll arrive; it is not kept on the job. `NSLocationWhenInUseUsageDescription` says
+so, and the privacy manifest lists precise and coarse location for app functionality. If the tech says no, On my way still works without an
 arrival time.
 
 ## Android: the merged manifest, permission by permission
