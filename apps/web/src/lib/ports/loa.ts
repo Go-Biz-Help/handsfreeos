@@ -1,324 +1,281 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from 'pdf-lib';
 
 /**
- * The signed letter a port needs, made here rather than printed, signed and scanned (M17).
+ * Twilio's letter of authorisation, filled in (M17).
  *
- * The words are Twilio's own letter-of-authorisation template, filled in: every `{…}` below is one of its
- * `[…]` gaps and nothing else is changed. One thing is added at the end, because the template says
- * "number(s)" without ever saying which: the numbers the letter covers.
+ * The carrier gets Twilio's own form, not something that looks like it: the PDF Twilio publishes for moving
+ * numbers to it (`public/ports/twilio-loa.pdf`) is loaded as it is and the business's answers are written into its
+ * boxes. It has no form fields, so every box is a position on the page, measured from the form itself; the
+ * numbers below are those measurements, top-left origin as the form was laid out, turned into PDF coordinates by
+ * `at`.
  *
- * Built in the browser with the fonts every PDF reader already has, so nothing about the business leaves the
- * page until it is attached — and then it goes up exactly like a letter somebody scanned.
+ * The form has room for four numbers and says to put the rest on an extra page, so a fifth and after go on pages
+ * of their own after it, in the same four columns.
+ *
+ * Built in the browser, so the account number and PIN on it go from the form to the file without passing through
+ * anything of ours on the way.
  */
 
-/** Whatever the business typed into the letter's gaps. */
+/** The path the form is served at. */
+export const LETTER_TEMPLATE_PATH = '/ports/twilio-loa.pdf';
+
+/** The file name the signed letter goes up under. */
+export const LETTER_FILE_NAME = 'twilio-letter-of-authorization.pdf';
+
+/** One number on the letter, with the old carrier's account it is on. */
+export interface LetterNumber {
+  /** As people read it: "(719) 204-8574". */
+  readonly display: string;
+  /** The carrier it is with today. */
+  readonly carrier: string;
+  readonly accountNumber: string;
+  readonly pin: string;
+}
+
+/** Everything the form asks for. */
 export interface LetterDetails {
-  /** `[END USER BUSINESS NAME]` — the business's legal name. */
+  /** The name on the phone bill, exactly as it is there. */
+  readonly firstName: string;
+  readonly lastName: string;
+  /** When the service is in the business's name. */
   readonly businessName: string;
-  /** `[COMPANY REGISTRATION NUMBER]` — the EIN, or the state's registration number. */
-  readonly registrationNumber: string;
-  /** `[DESCRIPTION OF SERVICES]` — finishes the sentence "{business} provides …". */
-  readonly services: string;
-  /** `[COUNTRY]` — "the United States". */
-  readonly country: string;
-  /** `[COUNTRY AND NUMBER TYPE]` — "United States local". */
-  readonly numberType: string;
-  /** The letterhead under the name: the business's address, and a website or phone if it has one. */
-  readonly letterhead: readonly string[];
-  readonly date: Date;
-  readonly signer: {
-    readonly name: string;
-    readonly title: string;
-    readonly phone: string;
-    readonly email: string;
+  /** The service address the old carrier has: a street address, never a PO box. */
+  readonly address: {
+    readonly street: string;
+    readonly city: string;
+    readonly state: string;
+    readonly zip: string;
   };
+  readonly numbers: readonly LetterNumber[];
   /**
-   * A signature drawn on the screen (a PNG data URL), the signer's name set in a signature face, or nothing —
-   * a blank line, for a copy somebody wants to read before they sign.
+   * A signature drawn on the screen (a PNG data URL), the signer's name set in a signature face, or nothing — a
+   * blank line, for a copy somebody wants to read before they sign.
    */
   readonly signature:
     { readonly kind: 'drawn'; readonly png: string } | { readonly kind: 'typed' } | null;
-  /** The numbers the letter covers, as people read them. */
-  readonly numbers: readonly string[];
+  /** The name printed beside the signature. */
+  readonly printName: string;
+  readonly date: Date;
 }
 
-/** The template's body, gap for gap. */
-const BODY: readonly string[] = [
-  '{business}, with company registration number {registration}, provides {services}. By way of this letter, {business} requests to obtain the right to make use of {numberType} number(s).',
-  'To provide support to customers in {country}, {business} requires {numberType} number(s) to facilitate service requests from these customers.',
-  "{business} agrees to use the number(s) exclusively for inbound customer calls made to Customer Support or similar services in connection with {business}'s business and agrees that it will not permit use of the number(s) by third-party users for their own purposes. Further, {business} will not use the number(s) for Callback, Calling Cards, and/or Third Country Calling.",
-  '{business} is aware of the country restrictions with respect to the number(s) and will respect them.',
-];
+const PAGE_HEIGHT = 792;
+const INK = rgb(0.05, 0.1, 0.35);
+const SIZE = 10.5;
+/** Rows of numbers the form itself has room for. */
+const ROWS_ON_FORM = 4;
 
-const PAGE = { width: 612, height: 792 } as const; // US Letter, in points
-const MARGIN = 72;
-const WIDTH = PAGE.width - MARGIN * 2;
-const INK = rgb(0.1, 0.1, 0.1);
-const MUTED = rgb(0.4, 0.4, 0.4);
-const RULE = rgb(0.75, 0.75, 0.75);
-
-/** The file name the letter goes up under. */
-export const LETTER_FILE_NAME = 'letter-of-authorization.pdf';
-
-/** "United States local", "United States toll-free", or both — read off the numbers themselves. */
-export function numberTypeFor(e164s: readonly string[]): string {
-  const tollFree = e164s.filter((n) => /^\+18(00|33|44|55|66|77|88)/.test(n)).length;
-  if (tollFree === 0) return 'United States local';
-  if (tollFree === e164s.length) return 'United States toll-free';
-  return 'United States local and toll-free';
+/** A box on the form: left, right and the baseline its text sits on, in the form's own top-down measurements. */
+interface Box {
+  readonly left: number;
+  readonly right: number;
+  readonly baseline: number;
 }
 
-/** The letter's gaps with what was typed in them. A trailing full stop is the template's, not theirs. */
-export function letterParagraphs(d: LetterDetails): string[] {
-  const fill: Record<string, string> = {
-    business: oneLine(d.businessName),
-    registration: oneLine(d.registrationNumber),
-    services: oneLine(d.services).replace(/[.\s]+$/, ''),
-    country: oneLine(d.country),
-    numberType: oneLine(d.numberType),
-  };
-  return BODY.map((p) => p.replace(/\{(\w+)\}/g, (_, k: string) => fill[k] ?? ''));
-}
+const BOX = {
+  firstName: { left: 36, right: 304, baseline: 185.5 },
+  lastName: { left: 313.5, right: 581, baseline: 185.5 },
+  businessName: { left: 36, right: 581, baseline: 218.5 },
+  street: { left: 36, right: 581, baseline: 313.5 },
+  city: { left: 36, right: 211, baseline: 356 },
+  state: { left: 221, right: 396, baseline: 356 },
+  zip: { left: 406, right: 581, baseline: 356 },
+  printName: { left: 196, right: 412, baseline: 656 },
+  date: { left: 451, right: 553, baseline: 656 },
+} satisfies Record<string, Box>;
+
+/** The number table's four rows, and its columns. */
+const ROW_BASELINES = [480.3, 496.6, 513.2, 529.7] as const;
+const COLUMNS = {
+  /** Inside the printed "(   )": the area code. */
+  areaCode: { left: 41, right: 76 },
+  /** After it: the rest of the number. */
+  local: { left: 85, right: 204 },
+  carrier: { left: 211, right: 330 },
+  accountNumber: { left: 337, right: 478 },
+  pin: { left: 485, right: 582 },
+} as const;
+/** The signature sits on its line, in the band between the paragraph above and the line. */
+const SIGNATURE = { left: 38, right: 186, bottom: 657, maxHeight: 24 } as const;
 
 const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim();
 
-/** Builds the letter. Returns the PDF's bytes. */
-export async function buildLetterPdf(d: LetterDetails): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  pdf.setTitle(`Letter of Authorization — ${oneLine(d.businessName)}`);
-  pdf.setAuthor(oneLine(d.businessName));
-  pdf.setSubject('Letter of Authorization for phone numbers');
+/** "(719) 204-8574" → ["719", "204-8574"]; anything else goes after the brackets whole. */
+export function splitNumber(display: string): [string, string] {
+  const m = /^\s*\((\d{3})\)\s*(.+)$/.exec(display);
+  return m ? [m[1]!, m[2]!.trim()] : ['', display.trim()];
+}
+
+/** Fills Twilio's form in. `template` is the form's bytes, as served at `LETTER_TEMPLATE_PATH`. */
+export async function buildLetterPdf(
+  d: LetterDetails,
+  template: ArrayBuffer | Uint8Array,
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.load(template);
+  const name = oneLine(`${d.firstName} ${d.lastName}`);
+  pdf.setTitle(`Letter of Authorization — ${oneLine(d.businessName) || name}`);
+  pdf.setAuthor(name);
   pdf.setCreator('HandsFreeOS');
   pdf.setCreationDate(d.date);
 
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const script = await pdf.embedFont(StandardFonts.TimesRomanItalic);
-  const w = new Writer(pdf, regular);
+  const form = pdf.getPage(0);
+  const put = writer(regular);
 
-  // Letterhead.
-  w.text(oneLine(d.businessName), { font: bold, size: 16 });
-  for (const line of d.letterhead.map(oneLine).filter(Boolean))
-    w.text(line, { size: 9.5, color: MUTED, gap: 2 });
-  w.space(8);
-  w.rule();
-  w.space(22);
+  put(form, BOX.firstName, d.firstName);
+  put(form, BOX.lastName, d.lastName);
+  put(form, BOX.businessName, d.businessName);
+  put(form, BOX.street, d.address.street);
+  put(form, BOX.city, d.address.city);
+  put(form, BOX.state, d.address.state);
+  put(form, BOX.zip, d.address.zip);
 
-  w.text(new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(d.date), { size: 11 });
-  w.space(18);
-  w.text('To Whom It May Concern:', { size: 11 });
-  w.space(12);
-  for (const p of letterParagraphs(d)) {
-    w.paragraph(p, { size: 11, leading: 15.5 });
-    w.space(10);
-  }
-  w.space(6);
-  w.text('Sincerely,', { size: 11 });
+  const row = (page: PDFPage, baseline: number, n: LetterNumber, withBrackets: boolean) => {
+    const [area, local] = splitNumber(n.display);
+    if (withBrackets) {
+      // Centred in the "(   )" the form prints.
+      const w = regular.widthOfTextAtSize(area, SIZE);
+      const mid = (COLUMNS.areaCode.left + COLUMNS.areaCode.right) / 2;
+      put(page, { left: mid - w / 2, right: COLUMNS.areaCode.right, baseline }, area);
+      put(page, { ...COLUMNS.local, baseline }, local);
+    } else {
+      put(page, { left: COLUMNS.areaCode.left, right: COLUMNS.local.right, baseline }, n.display);
+    }
+    put(page, { ...COLUMNS.carrier, baseline }, n.carrier);
+    put(page, { ...COLUMNS.accountNumber, baseline }, n.accountNumber);
+    put(page, { ...COLUMNS.pin, baseline }, n.pin);
+  };
+  d.numbers.slice(0, ROWS_ON_FORM).forEach((n, i) => row(form, ROW_BASELINES[i]!, n, true));
 
-  // The signature, on its line.
-  w.need(84);
+  // The signature, the name beside it, and the day.
   if (d.signature?.kind === 'drawn') {
     const image = await pdf.embedPng(d.signature.png);
-    const scale = Math.min(200 / image.width, 56 / image.height, 1);
+    const scale = Math.min(
+      (SIGNATURE.right - SIGNATURE.left) / image.width,
+      SIGNATURE.maxHeight / image.height,
+    );
     const h = image.height * scale;
-    w.space(8);
-    w.page.drawImage(image, { x: MARGIN, y: w.y - h, width: image.width * scale, height: h });
-    w.space(h + 4);
+    form.drawImage(image, {
+      x: SIGNATURE.left,
+      y: at(SIGNATURE.bottom),
+      width: image.width * scale,
+      height: h,
+    });
   } else if (d.signature?.kind === 'typed') {
-    w.space(34);
-    w.page.drawText(w.safe(oneLine(d.signer.name), script), {
-      x: MARGIN,
-      y: w.y,
-      size: 24,
+    const size = fitSize(script, name, 20, SIGNATURE.right - SIGNATURE.left);
+    form.drawText(safe(name, script), {
+      x: SIGNATURE.left,
+      y: at(SIGNATURE.bottom - 2),
+      size,
       font: script,
       color: INK,
     });
-    w.space(8);
-  } else {
-    w.space(50);
   }
-  w.page.drawLine({
-    start: { x: MARGIN, y: w.y },
-    end: { x: MARGIN + 240, y: w.y },
-    thickness: 0.75,
-    color: INK,
-  });
-  w.space(12);
-  w.text('Signature of authorized signatory', { size: 8.5, color: MUTED });
-  w.space(22);
+  put(form, BOX.printName, d.printName || name);
+  put(form, BOX.date, formatDate(d.date));
 
-  w.rule();
-  w.space(18);
-  // The stamp beside the signatory's details rather than under them, which keeps a short list of numbers on
-  // the one page.
-  const stamp = { width: 140, height: 64 };
-  const stampX = PAGE.width - MARGIN - stamp.width;
-  w.need(96);
-  const top = w.y;
-  w.page.drawText('Company Stamp:', {
-    x: stampX,
-    y: top - 10.5,
-    size: 10.5,
-    font: bold,
-    color: INK,
-  });
-  w.page.drawRectangle({
-    x: stampX,
-    y: top - 18 - stamp.height,
-    width: stamp.width,
-    height: stamp.height,
-    borderColor: RULE,
-    borderWidth: 0.75,
-  });
-  const rows: [string, string][] = [
-    ['NAME:', d.signer.name],
-    ['TITLE:', d.signer.title],
-    ['PHONE NUMBER:', d.signer.phone],
-    ['EMAIL:', d.signer.email],
-  ];
-  for (const [label, value] of rows)
-    w.labelled(label, oneLine(value), bold, stampX - 16 - (MARGIN + 100));
-  w.y = Math.min(w.y, top - 18 - stamp.height);
-  w.space(28);
-
-  // Which numbers, since the template never says.
-  w.need(40);
-  w.text('Number(s) covered by this letter', { font: bold, size: 10.5 });
-  w.space(4);
-  const columns = 3;
-  const colWidth = WIDTH / columns;
-  for (let i = 0; i < d.numbers.length; i += columns) {
-    w.need(16);
-    d.numbers.slice(i, i + columns).forEach((n, c) =>
-      w.page.drawText(w.safe(n, regular), {
-        x: MARGIN + c * colWidth,
-        y: w.y - 10.5,
-        size: 10.5,
-        font: regular,
-        color: INK,
-      }),
-    );
-    w.space(16);
+  // A fifth number and after: "If you have more than 4 numbers, please list on an extra page".
+  const rest = d.numbers.slice(ROWS_ON_FORM);
+  if (rest.length) {
+    const perPage = 30;
+    for (let start = 0; start < rest.length; start += perPage) {
+      const page = pdf.addPage([612, PAGE_HEIGHT]);
+      let y = 72;
+      const heading = 'Letter of Authorization — additional telephone numbers';
+      page.drawText(heading, { x: 36, y: at(y), size: 13, font: bold, color: rgb(0, 0, 0) });
+      y += 20;
+      const who = [oneLine(d.businessName), name].filter(Boolean).join(' · ');
+      page.drawText(
+        safe(`Continued from page 1 for ${who}, signed ${formatDate(d.date)}.`, regular),
+        {
+          x: 36,
+          y: at(y),
+          size: 9.5,
+          font: regular,
+          color: rgb(0.3, 0.3, 0.3),
+        },
+      );
+      y += 28;
+      const headers: [string, number][] = [
+        ['Phone Number', COLUMNS.areaCode.left],
+        ['Service Provider', COLUMNS.carrier.left],
+        ['Account Number', COLUMNS.accountNumber.left],
+        ['PIN (if applicable)', COLUMNS.pin.left],
+      ];
+      for (const [label, x] of headers)
+        page.drawText(label, { x, y: at(y), size: 10, font: bold, color: rgb(0, 0, 0) });
+      y += 6;
+      page.drawLine({
+        start: { x: 31, y: at(y) },
+        end: { x: 585, y: at(y) },
+        thickness: 0.75,
+        color: rgb(0, 0, 0),
+      });
+      for (const n of rest.slice(start, start + perPage)) {
+        y += 18;
+        row(page, y, n, false);
+        page.drawLine({
+          start: { x: 31, y: at(y + 5) },
+          end: { x: 585, y: at(y + 5) },
+          thickness: 0.4,
+          color: rgb(0.6, 0.6, 0.6),
+        });
+      }
+    }
   }
 
   return pdf.save();
 }
 
-/** Lays text down a page from the top, and starts another when it runs out. */
-class Writer {
-  page: PDFPage;
-  /** The top of the next line. */
-  y: number;
-  private readonly charsets = new Map<PDFFont, Set<number>>();
+/** The form's top-down measurements, as PDF coordinates. */
+const at = (fromTop: number) => PAGE_HEIGHT - fromTop;
 
-  constructor(
-    private readonly pdf: PDFDocument,
-    private readonly font: PDFFont,
-  ) {
-    this.page = pdf.addPage([PAGE.width, PAGE.height]);
-    this.y = PAGE.height - MARGIN;
-  }
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).format(
+    date,
+  );
 
-  need(height: number) {
-    if (this.y - height >= MARGIN) return;
-    this.page = this.pdf.addPage([PAGE.width, PAGE.height]);
-    this.y = PAGE.height - MARGIN;
-  }
+/** The size at which `text` fits `width`, no bigger than `size` and no smaller than 7. */
+function fitSize(font: PDFFont, text: string, size: number, width: number): number {
+  const w = font.widthOfTextAtSize(safe(text, font) || ' ', size);
+  return w <= width ? size : Math.max(7, (size * width) / w);
+}
 
-  space(height: number) {
-    this.y -= height;
-  }
-
-  rule() {
-    this.page.drawLine({
-      start: { x: MARGIN, y: this.y },
-      end: { x: PAGE.width - MARGIN, y: this.y },
-      thickness: 0.5,
-      color: RULE,
+/** Writes into one box: on its baseline, from its left edge, set smaller rather than spill past its right. */
+function writer(font: PDFFont) {
+  return (page: PDFPage, box: Box, value: string) => {
+    const text = safe(oneLine(value), font);
+    if (!text) return;
+    page.drawText(text, {
+      x: box.left,
+      y: at(box.baseline),
+      size: fitSize(font, text, SIZE, box.right - box.left),
+      font,
+      color: INK,
     });
-  }
+  };
+}
 
-  text(
-    s: string,
-    o: { font?: PDFFont; size: number; color?: ReturnType<typeof rgb>; gap?: number },
-  ) {
-    const font = o.font ?? this.font;
-    for (const line of this.wrap(this.safe(s, font), font, o.size)) {
-      this.need(o.size + (o.gap ?? 0));
-      this.y -= o.size;
-      this.page.drawText(line, { x: MARGIN, y: this.y, size: o.size, font, color: o.color ?? INK });
-      this.y -= o.gap ?? 4;
-    }
-  }
+const charsets = new WeakMap<PDFFont, Set<number>>();
 
-  paragraph(s: string, o: { size: number; leading: number }) {
-    for (const line of this.wrap(this.safe(s, this.font), this.font, o.size)) {
-      this.need(o.leading);
-      this.page.drawText(line, {
-        x: MARGIN,
-        y: this.y - o.size,
-        size: o.size,
-        font: this.font,
-        color: INK,
-      });
-      this.y -= o.leading;
-    }
+/**
+ * What the built-in fonts cannot draw, made drawable. They cover Western European text and not much more, and
+ * pdf-lib throws on anything else — so an accent they lack loses the accent, and anything left becomes a question
+ * mark rather than a letter that will not build.
+ */
+function safe(s: string, font: PDFFont): string {
+  let ok = charsets.get(font);
+  if (!ok) {
+    ok = new Set(font.getCharacterSet());
+    charsets.set(font, ok);
   }
-
-  /** A label and its value on one line. A value too long for the room is set smaller, never cut off. */
-  labelled(label: string, value: string, bold: PDFFont, room: number) {
-    const size = 10.5;
-    this.need(20);
-    this.page.drawText(label, { x: MARGIN, y: this.y - size, size, font: bold, color: INK });
-    const text = this.safe(value, this.font);
-    const fit = Math.max(
-      7,
-      Math.min(size, (size * room) / this.font.widthOfTextAtSize(text || ' ', size)),
-    );
-    if (text)
-      this.page.drawText(text, {
-        x: MARGIN + 100,
-        y: this.y - size,
-        size: fit,
-        font: this.font,
-        color: INK,
-      });
-    this.y -= 20;
-  }
-
-  private wrap(s: string, font: PDFFont, size: number): string[] {
-    const lines: string[] = [];
-    let line = '';
-    for (const word of s.split(/\s+/).filter(Boolean)) {
-      const next = line ? `${line} ${word}` : word;
-      if (!line || font.widthOfTextAtSize(next, size) <= WIDTH) line = next;
-      else {
-        lines.push(line);
-        line = word;
-      }
-    }
-    if (line) lines.push(line);
-    return lines;
-  }
-
-  /**
-   * What the built-in fonts cannot draw, made drawable. They cover Western European text and not much more,
-   * and pdf-lib throws on anything else — so an accent they lack loses the accent, and anything left becomes
-   * a question mark rather than a letter that will not build.
-   */
-  safe(s: string, font: PDFFont): string {
-    let set = this.charsets.get(font);
-    if (!set) {
-      set = new Set(font.getCharacterSet());
-      this.charsets.set(font, set);
-    }
-    const ok = set;
-    return Array.from(s.replace(/\s+/g, ' ').normalize('NFC'))
-      .map((ch) => {
-        if (ok.has(ch.codePointAt(0)!)) return ch;
-        const bare = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
-        return bare && Array.from(bare).every((b) => ok.has(b.codePointAt(0)!)) ? bare : '?';
-      })
-      .join('');
-  }
+  const set = ok;
+  return Array.from(s.normalize('NFC'))
+    .map((ch) => {
+      if (set.has(ch.codePointAt(0)!)) return ch;
+      const bare = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return bare && Array.from(bare).every((b) => set.has(b.codePointAt(0)!)) ? bare : '?';
+    })
+    .join('');
 }

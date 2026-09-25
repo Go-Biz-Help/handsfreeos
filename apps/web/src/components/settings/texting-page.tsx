@@ -320,9 +320,9 @@ interface Porting {
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
 /**
- * The letter of authorisation, filled in from the carrier registration: the one place a business has already
- * written its legal name, EIN, address and contact down for a carrier. The person signed in stands in for the
- * contact until there is a registration.
+ * Twilio's letter of authorisation, filled in from the carrier registration: the one place a business has already
+ * written its legal name, its address and who to talk to down for a carrier. The person signed in stands in for
+ * the name until there is a registration. The phone bill may say something else, and the form says to check.
  */
 function letterProfileOf(
   businessName: string,
@@ -332,26 +332,17 @@ function letterProfileOf(
   const s = submission ?? {};
   const address = (s['address'] ?? {}) as Record<string, unknown>;
   const contact = (s['contact'] ?? {}) as Record<string, unknown>;
-  const street = text(address['line1']);
-  const cityLine = [
-    text(address['city']),
-    [text(address['state']), text(address['postalCode'])].filter(Boolean).join(' '),
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const contactName = [text(contact['firstName']), text(contact['lastName'])]
-    .filter(Boolean)
-    .join(' ');
+  const [meFirst = '', ...meRest] = me.fullName.trim().split(/\s+/);
+  const first = text(contact['firstName']);
+  const last = text(contact['lastName']);
   return {
     businessName: text(s['legalName']) || businessName,
-    registrationNumber: text(s['ein']),
-    address: [street, cityLine].filter(Boolean).join(', '),
-    website: text(s['website'])
-      .replace(/^https?:\/\//, '')
-      .replace(/\/$/, ''),
-    contactName: contactName || me.fullName,
-    contactEmail: text(contact['email']) || me.email,
-    contactPhone: formatPhone(text(contact['phone'])),
+    firstName: first || (last ? '' : meFirst),
+    lastName: last || (first ? '' : meRest.join(' ')),
+    street: text(address['line1']),
+    city: text(address['city']),
+    state: text(address['state']),
+    zip: text(address['postalCode']),
   };
 }
 
