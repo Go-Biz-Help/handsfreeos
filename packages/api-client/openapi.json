@@ -40674,7 +40674,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 4. Requires channels.manage. Emits number_port.submitted.",
+        "description": "Risk level 4. Requires channels.manage. Emits number_port.submitted, migration.task_changed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -40747,7 +40747,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 3. Requires channels.manage. Emits number_port.cancelled.",
+        "description": "Risk level 3. Requires channels.manage. Emits number_port.cancelled, migration.task_changed.",
         "requestBody": {
           "required": true,
           "content": {
