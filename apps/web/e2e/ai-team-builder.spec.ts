@@ -111,7 +111,8 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await page.getByTestId('fix-no_qualifying_questions-add_suggested').click();
   await expect(questions).toHaveCount(count);
 
-  // A choice added to a question, one that rules a lead out, and who hears about qualified leads.
+  // A choice added to a question and its typo fixed in place, one that rules a lead out, and who hears
+  // about qualified leads.
   const choice = page.locator('[data-testid^="question-"][data-testid$="-kind"]');
   const choiceIndex = (await choice.evaluateAll((els) =>
     els.findIndex((el) => (el as HTMLSelectElement).value === 'choice'),
@@ -119,10 +120,14 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   expect(choiceIndex).toBeGreaterThanOrEqual(0);
   const n = choiceIndex + 1;
   await page.getByTestId(`question-${n}-add-choice`).click();
-  await page.getByTestId(`question-${n}-add-choice-input`).fill('Next spring');
+  await page.getByTestId(`question-${n}-add-choice-input`).fill('Next sprng');
   await page.getByTestId(`question-${n}-add-choice-input`).press('Enter');
   await page.getByTestId(`question-${n}-add-choice-input`).press('Escape');
+  await page.getByRole('button', { name: 'Change the choice Next sprng' }).click();
+  await page.getByRole('textbox', { name: 'Change the choice Next sprng' }).fill('Next spring');
+  await page.getByRole('textbox', { name: 'Change the choice Next sprng' }).press('Enter');
   await expect(page.getByTestId(`question-${n}`)).toContainText('Next spring');
+  await expect(page.getByTestId(`question-${n}`)).not.toContainText('Next sprng');
   await page.getByTestId(`question-${n}-not-a-fit`).click();
   await page.getByRole('menuitem', { name: 'Next spring' }).click();
   await page.keyboard.press('Escape');

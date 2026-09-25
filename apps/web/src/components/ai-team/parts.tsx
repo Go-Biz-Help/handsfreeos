@@ -251,6 +251,79 @@ export function Chip({
 }
 
 /**
+ * A chip whose words can be changed: clicking them turns it into a box. Enter or leaving the box keeps the
+ * change (on Enter a refused value stays for fixing), Escape puts it back. The × still removes it.
+ */
+export function EditableChip({
+  value,
+  onRename,
+  onRemove,
+  editLabel,
+  removeLabel,
+  maxLength,
+  testId,
+}: {
+  value: string;
+  /** Returns whether it was changed. */
+  onRename: (next: string) => boolean;
+  onRemove?: () => void;
+  editLabel: string;
+  removeLabel?: string;
+  maxLength?: number;
+  testId?: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const closed = useRef(false);
+  const finish = (keep: boolean, stayIfRefused: boolean) => {
+    if (closed.current) return;
+    const v = (text ?? '').trim();
+    if (keep && v && v !== value && !onRename(v) && stayIfRefused) return;
+    closed.current = true;
+    setText(null);
+  };
+  if (text !== null)
+    return (
+      <input
+        autoFocus
+        aria-label={editLabel}
+        value={text}
+        maxLength={maxLength}
+        data-testid={testId ? `${testId}-input` : undefined}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            finish(true, true);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            finish(false, false);
+          }
+        }}
+        onBlur={() => finish(true, false)}
+        className="h-[26px] w-44 rounded-full border border-accent bg-card px-2.5 text-[12.5px] text-text placeholder:text-placeholder focus:outline-none focus:ring-[3px] focus:ring-ring"
+      />
+    );
+  return (
+    <Chip onRemove={onRemove} removeLabel={removeLabel} testId={testId}>
+      <button
+        type="button"
+        aria-label={editLabel}
+        title="Click to change"
+        onClick={() => {
+          closed.current = false;
+          setText(value);
+        }}
+        className="max-w-full cursor-text truncate rounded-sm underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+      >
+        {value}
+      </button>
+    </Chip>
+  );
+}
+
+/**
  * "+ Add a choice": a dashed pill that turns into a box. Enter adds (a refused value stays for fixing),
  * Escape or leaving the box ends it.
  */
