@@ -439,6 +439,19 @@ export const AUTOMATIONS = [
     adjust: 'estimates',
   },
   {
+    id: 'call_quotes',
+    group: 'pipeline',
+    label: 'Call about a quote with no answer',
+    oneLiner:
+      'Two days after a quote’s reminder, the AI asks to call them. A person approves each call.',
+    effect: 'calls',
+    defaultOn: false,
+    binding: { store: 'automations', key: 'callQuotes' },
+    customerFacing: 'ai',
+    needs: ['teammate_on', 'voice_on'],
+    adjust: 'ai_calls',
+  },
+  {
     id: 'pipeline_moves',
     group: 'pipeline',
     label: 'Move deals along for you',
