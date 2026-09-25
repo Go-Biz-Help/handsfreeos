@@ -14,6 +14,7 @@ import {
   cellVerifiedOn,
   CONTACT_CARD_WORDS,
   conversationOf,
+  groupByCustomer,
   hiddenCall,
   hiddenMessage,
   inboxCounts,
@@ -150,24 +151,27 @@ describe('conversations from the copy', () => {
 
   it('counts the boxes as the web’s badges do', () => {
     const now = Date.parse('2026-09-17T12:40:00Z');
+    // Six customers, one conversation each.
     const counts = inboxCounts(
       [
         conv({
           id: 'a',
+          person_id: 'p-a',
           assignee_user_id: ME,
           unread_count: 2,
           awaiting_reply_since: '2026-09-17T12:20:00Z',
         }),
-        conv({ id: 'b', assignee_user_id: 'u-marco' }),
+        conv({ id: 'b', person_id: 'p-b', assignee_user_id: 'u-marco' }),
         conv({
           id: 'c',
+          person_id: 'p-c',
           handled_by: 'ai',
           unread_count: 1,
           awaiting_reply_since: '2026-09-17T12:35:00Z',
         }),
-        conv({ id: 'd', needs_person_since: '2026-09-17T12:00:00Z' }),
-        conv({ id: 'e', status: 'closed', unread_count: 4 }),
-        conv({ id: 'f', last_message_at: null }),
+        conv({ id: 'd', person_id: 'p-d', needs_person_since: '2026-09-17T12:00:00Z' }),
+        conv({ id: 'e', person_id: 'p-e', status: 'closed', unread_count: 4 }),
+        conv({ id: 'f', person_id: 'p-f', last_message_at: null }),
       ].map(conversationOf),
       ME,
       10,
@@ -181,6 +185,75 @@ describe('conversations from the copy', () => {
       needsPerson: 1,
       ai: 1,
     });
+  });
+
+  it('counts a customer once, however many lines they write on, as the web’s badges do (0089)', () => {
+    const counts = inboxCounts(
+      [
+        // Mike texts and emails: one customer.
+        conv({ id: 'm-sms', unread_count: 1, assignee_user_id: ME }),
+        conv({ id: 'm-mail', channel: 'email', counterpart: 'mike@example.com', unread_count: 2 }),
+        // An unknown number and an unknown address: nothing says they are the same person.
+        conv({ id: 'n-sms', person_id: null, counterpart: '+17135550168', unread_count: 1 }),
+        conv({
+          id: 'n-mail',
+          person_id: null,
+          channel: 'email',
+          counterpart: 'someone@example.com',
+        }),
+      ].map(conversationOf),
+      ME,
+      10,
+    );
+    expect(counts.open).toEqual({ mine: 1, unassigned: 3, all: 3 });
+    expect(counts.unread).toEqual({ mine: 1, unassigned: 2, all: 2 });
+  });
+
+  it('lists each customer once, with every line of theirs and the unread across them (0089)', () => {
+    const items = [
+      conv({
+        id: 'm-sms',
+        unread_count: 1,
+        last_message_at: '2026-09-17T12:00:00Z',
+        line_e164: '+17135550100',
+        line_label: 'Front desk',
+      }),
+      conv({
+        id: 'm-mail',
+        channel: 'email',
+        counterpart: 'mike@example.com',
+        unread_count: 2,
+        assignee_user_id: ME,
+        last_message_at: '2026-09-17T12:30:00Z',
+        line_address: 'info@lonestarhvac.com',
+      }),
+      conv({ id: 'm-closed', status: 'closed', last_message_at: '2026-09-10T09:00:00Z' }),
+      conv({
+        id: 'kim',
+        person_id: 'p-kim',
+        first_name: 'Kim',
+        last_name: 'Alvarez',
+        last_message_at: '2026-09-17T11:00:00Z',
+      }),
+    ].map((r) => ({ conversation: conversationOf(r) }));
+    const rows = (box: 'all' | 'mine' | 'unassigned', status: 'open' | 'closed' = 'open') =>
+      groupByCustomer(items, { box, status }, ME).map((i) => i.conversation);
+
+    const [mike, kim] = rows('all');
+    expect(rows('all')).toHaveLength(2);
+    // The newest open lane stands for Mike, carrying every lane of his, closed ones included.
+    expect(mike!.id).toBe('m-mail');
+    expect(mike!.lanes!.map((l) => [l.id, l.lineDisplay])).toEqual([
+      ['m-mail', 'info@lonestarhvac.com'],
+      ['m-sms', 'Front desk · (713) 555-0100'],
+      ['m-closed', 'Text'],
+    ]);
+    expect(mike!.unreadTotal).toBe(3);
+    expect(kim!.lanes).toHaveLength(1);
+    // The filter runs on threads first: "Unassigned" is Mike's text, not his assigned email.
+    expect(rows('unassigned').map((c) => c.id)).toEqual(['m-sms', 'kim']);
+    expect(rows('mine').map((c) => c.id)).toEqual(['m-mail']);
+    expect(rows('all', 'closed').map((c) => c.id)).toEqual(['m-closed']);
   });
 
   it('reads the business’s texting settings, with the defaults for what isn’t set', () => {

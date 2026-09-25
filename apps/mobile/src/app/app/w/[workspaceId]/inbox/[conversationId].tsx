@@ -60,6 +60,7 @@ import {
   SnoozeSheet,
   StatusBanner,
 } from '@/components/inbox/conversation-parts';
+import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
 import { BrandMark } from '@/components/shell/brand';
@@ -85,7 +86,7 @@ import { dropReplyPhoto, sendReply, takeReplyPhoto, type TrayPhoto } from '@/inb
 import { threadEntries, type ThreadEntry } from '@/inbox/thread-entries';
 import { useConversation, useThread } from '@/inbox/use-conversation';
 import { useEmailFacts } from '@/inbox/use-email';
-import { useMembers, useNow } from '@/inbox/use-inbox';
+import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
 import { useNetwork } from '@/lib/network';
 
 type Row =
@@ -97,6 +98,12 @@ type Row =
  * draft waiting for an OK, and the composer. Everything reads from the phone's copy and works with no signal, but Call.
  */
 export default function Conversation() {
+  const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+  // Switching lines lands on this same screen with another thread: what is typed, open or asked belongs to the one left.
+  return <Thread key={conversationId} />;
+}
+
+function Thread() {
   const params = useLocalSearchParams<{ conversationId: string; edit?: string; draft?: string }>();
   const conversationId = params.conversationId;
   const { business, me, userId } = useBusiness();
@@ -107,6 +114,7 @@ export default function Conversation() {
   const c = data?.conversation ?? null;
   const person = data?.person ?? null;
   const thread = useThread(conversationId, c?.person?.id ?? null);
+  const lanes = useLanes(c);
   const drafts = useWaitingDrafts({ conversationId, kind: 'reply' });
   const members = useMembers();
   const names = useNames();
@@ -674,6 +682,11 @@ export default function Conversation() {
             : undefined
         }
       >
+        <LaneSwitcher
+          lanes={lanes}
+          currentId={conversationId}
+          onPick={(id) => router.replace(businessHref(business.id, `inbox/${id}`) as Href)}
+        />
         <HandlingBanner
           view={view}
           c={c}
