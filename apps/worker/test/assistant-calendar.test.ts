@@ -58,24 +58,7 @@ import { testServices } from './helpers';
  * marked "via Assistant"), Cancel and a card that lapses, and nobody offered tools their role lacks.
  */
 
-/**
- * The first of these zones where it's between 2 AM and 10 PM. The suite books "tomorrow" in one test and moves that
- * booking in a later one, and puts a visit and a late task in "today" half an hour and an hour ago, so the business's
- * day must stay put while it runs and have begun over an hour ago.
- */
-function awayFromMidnight(...zones: string[]): string {
-  const hour = (timeZone: string) =>
-    Number(
-      new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hourCycle: 'h23' }).format(
-        Date.now(),
-      ),
-    );
-  return zones.find((z) => hour(z) >= 2 && hour(z) < 22) ?? zones[0]!;
-}
-
-// A Chicago business, unless it's near midnight there; then it's in Honolulu, where it's evening.
-const TZ = awayFromMidnight('America/Chicago', 'Pacific/Honolulu');
-const ZONE = TZ === 'America/Chicago' ? 'Central Time' : 'Hawaii-Aleutian Standard Time';
+const CHI = 'America/Chicago';
 const HOUR = 3_600_000;
 const env = testEnv();
 const actor = (u: TestUser): HumanActor => ({
@@ -94,9 +77,9 @@ const run = async <I extends z.ZodType, O extends z.ZodType>(
   u: TestUser,
 ) => (await executeCommand(api(), cmd, input, actor(u), meta())).output;
 
-const tomorrow = () => addDays(localDateOf(Date.now(), TZ), 1);
+const tomorrow = () => addDays(localDateOf(Date.now(), CHI), 1);
 const tomorrowAt = (hour: number) =>
-  localInstant(tomorrow(), `${String(hour).padStart(2, '0')}:00`, TZ);
+  localInstant(tomorrow(), `${String(hour).padStart(2, '0')}:00`, CHI);
 
 let owner: TestUser;
 let member: TestUser;
@@ -182,7 +165,7 @@ beforeAll(async () => {
   await consentToAssistant(owner, member, priya);
   const org = await run(
     organizationCreate,
-    { businessName: 'Calendar Assistant HVAC', timezone: TZ },
+    { businessName: 'Calendar Assistant HVAC', timezone: CHI },
     owner,
   );
   workspaceId = org.workspaceId;
@@ -268,8 +251,8 @@ describe('the Assistant on the calendar', () => {
       {
         workspaceId,
         calendarId,
-        from: iso(startOfLocalDay(day, TZ)),
-        to: iso(startOfLocalDay(addDays(day, 1), TZ)),
+        from: iso(startOfLocalDay(day, CHI)),
+        to: iso(startOfLocalDay(addDays(day, 1), CHI)),
       },
       actor(owner),
       meta(),
@@ -279,8 +262,8 @@ describe('the Assistant on the calendar', () => {
     expect(starts.length).toBeGreaterThan(8);
     expect(card).toMatchObject({
       title: 'Priya Natarajan',
-      zone: ZONE,
-      timezone: TZ,
+      zone: 'Central Time',
+      timezone: CHI,
       calendar: { id: calendarId, name: 'Tune-ups' },
       service: { id: serviceId, name: 'AC tune-up' },
       person: { userId: priya.id, fullName: 'Priya Natarajan' },
@@ -311,7 +294,7 @@ describe('the Assistant on the calendar', () => {
       fields: [
         { label: 'Customer', value: 'Mike Johnson · (713) 555-0142' },
         { label: 'What', value: 'AC tune-up · 1 hour' },
-        { label: 'When', value: `${rangeLabel(start, start + HOUR, TZ)} ${ZONE}` },
+        { label: 'When', value: `${rangeLabel(start, start + HOUR, CHI)} Central Time` },
         { label: 'With', value: 'Priya Natarajan, next in turn' },
         { label: 'Where', value: '123 Main St, Houston, TX 77002' },
         // No business number yet, so reminders can only go by email.
@@ -329,7 +312,7 @@ describe('the Assistant on the calendar', () => {
     const ok = await decide(card.toolCallId, 'confirm');
     expect(ok.json()).toMatchObject({
       status: 'confirmed',
-      outcome: `Booked for ${atLabel(start, TZ)}.`,
+      outcome: `Booked for ${atLabel(start, CHI)}.`,
       href: expect.stringMatching(
         new RegExp(`^/app/w/${workspaceId}/calendar\\?date=${tomorrow()}&appt=[0-9a-f-]{36}$`),
       ),
@@ -380,17 +363,18 @@ describe('the Assistant on the calendar', () => {
 
   it('moves and then cancels his appointment, each after Confirm', async () => {
     const page = { type: 'person', id: mikeId };
-    const was = tomorrowAt(10);
-    const now = tomorrowAt(13);
+    // The 10 AM visit booked above, on whatever day was tomorrow then: past midnight in Chicago, that's today.
+    const was = new Date((await appointments())[0]!.starts_at).getTime();
     const events = await ask(ownerToken, 'Move his appointment to tomorrow at 1 pm', { page });
+    const now = tomorrowAt(13);
     expect(textOf(events)).toBe('Here’s the change. Nothing moves until you OK it.');
     const move = cardOf(events, 'confirm');
     expect(move).toMatchObject({
       tool: 'reschedule_appointment',
       title: 'Move Mike’s AC tune-up?',
       fields: [
-        { label: 'Was', value: rangeLabel(was, was + HOUR, TZ) },
-        { label: 'Now', value: rangeLabel(now, now + HOUR, TZ) },
+        { label: 'Was', value: rangeLabel(was, was + HOUR, CHI) },
+        { label: 'Now', value: rangeLabel(now, now + HOUR, CHI) },
         { label: 'With', value: 'Priya Natarajan' },
         { label: 'Tell Mike', value: 'An email with the new time' },
       ],
@@ -400,7 +384,7 @@ describe('the Assistant on the calendar', () => {
     expect(new Date((await appointments())[0]!.starts_at).getTime()).toBe(was);
     expect((await decide(move.toolCallId, 'confirm')).json()).toMatchObject({
       status: 'confirmed',
-      outcome: `Moved to ${atLabel(now, TZ)}.`,
+      outcome: `Moved to ${atLabel(now, CHI)}.`,
     });
     expect(new Date((await appointments())[0]!.starts_at).getTime()).toBe(now);
     expect(await audits('appointment.reschedule')).toEqual([
@@ -412,7 +396,7 @@ describe('the Assistant on the calendar', () => {
       tool: 'cancel_appointment',
       title: 'Cancel Mike’s AC tune-up?',
       fields: [
-        { label: 'When', value: rangeLabel(now, now + HOUR, TZ) },
+        { label: 'When', value: rangeLabel(now, now + HOUR, CHI) },
         { label: 'With', value: 'Priya Natarajan' },
         { label: 'Tell Mike', value: 'An email that it’s cancelled' },
       ],
@@ -430,14 +414,17 @@ describe('the Assistant on the calendar', () => {
   });
 
   it('lists today’s appointments before tasks, and a customer’s upcoming ones', async () => {
-    // A visit going on right now, and a task that is already late.
+    // A visit going on right now (begun half an hour ago, or at midnight when that was later), and a task that is
+    // already late.
     const { appointmentId } = await run(
       appointmentCreate,
       {
         workspaceId,
         calendarId,
         personId: mikeId,
-        startsAt: iso(Date.now() - HOUR / 2),
+        startsAt: iso(
+          Math.max(Date.now() - HOUR / 2, startOfLocalDay(localDateOf(Date.now(), CHI), CHI)),
+        ),
         acknowledgeWarnings: true,
       },
       owner,
@@ -477,7 +464,7 @@ describe('the Assistant on the calendar', () => {
         workspaceId,
         organizationId,
         correlationId: randomUUID(),
-        timezone: TZ,
+        timezone: CHI,
       },
     );
     expect(out.result).toMatchObject({ upcomingAppointments: [{ id: appointmentId }] });
@@ -594,7 +581,7 @@ describe('the Assistant on the calendar', () => {
       workspaceId,
       organizationId,
       correlationId: randomUUID(),
-      timezone: TZ,
+      timezone: CHI,
     };
     const db = testDbs().worker.db;
 
