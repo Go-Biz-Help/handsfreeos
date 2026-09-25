@@ -1,7 +1,7 @@
 /**
  * The builder's test console (plan M7, "Other work"): POST /v1/ai-team/test, for people with ai_team.manage
- * (routes.ts). A manager writes as a customer and the teammate answers as it would, streamed back. The event
- * contract is at the top of apps/web/src/lib/ai-team/test-stream.ts, and the two stay in step.
+ * (routes.ts). A manager writes as a customer and the teammate answers as it would, streamed back. The request and
+ * event contract is @hfos/core's ai-team/test-console.ts, which the web's and the phone app's consoles read too.
  *
  * It runs on the settings being tested (the builder's unsaved draft, or the saved ones), for someone in
  * Customers or an unknown visitor, at a pretend time when asked.
@@ -10,6 +10,10 @@
  *   (the kernel refuses a test actor's commands anyway), and nothing is sent.
  * - Nothing is stored but a run marked is_test, with its tokens, so the AI limit counts them. Test runs never
  *   count toward training wheels.
+ * - A phone test plays a call, one caller turn per request, as the voice agent thinks (voice-agent/brain.ts): its
+ *   first request has no messages and gets the greeting (the pick-up, or the opening of a call it places to confirm
+ *   a visit, ring back a missed call, follow up a quote or for a campaign); then each turn has the phone's tools and
+ *   words, and a hand-off connects them to the team, which ends the call, as a goodbye does.
  */
 import type { AiMessage, AiProvider, AiToolCall, AiUsage } from '@hfos/ai';
 import type { Geocoder } from '../geo/geocoder';
@@ -36,24 +40,42 @@ import {
   startOfLocalDay,
   teammateTools,
   TEAMMATE_TURN_ENDERS,
+  TEST_CALL_REASONS,
+  TestConsoleInput,
   uuidArray,
   workspaceMessaging,
+  type AiCallPurpose,
   type DraftAction,
   type ReplyCheck,
   type TeammateConfig,
   type TeammateRow,
   type TeammateTool,
   type TeammateToolName,
+  type TestEvent,
+  type TestOutcome,
+  type WouldKind,
 } from '@hfos/core/server';
-import { asWorker, rows, sql, type Db } from '@hfos/db/client';
+import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
-import { z, ZodError } from 'zod';
+import { ZodError } from 'zod';
+import { campaignFacts, quoteFacts, spokenWhen } from '../ai-calls';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { WalletDeps } from '../money/wallet';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { atLabel, isoWithOffset } from '../assistant/calendar-format';
+import { fallbackOpening } from '../automations/campaigns';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { systemActor, type TenantScope } from '../services';
+import {
+  CANT_GO_ON,
+  CONNECTING,
+  greetingOf,
+  outboundGreetingOf,
+  PHONE_MAX_TOKENS,
+  phoneChannelLines,
+  phoneTurn,
+  type CallLine,
+} from '../voice-agent/prompt';
 import { runtimeConfigOf } from './config';
 import {
   HELD_MAX,
@@ -73,98 +95,16 @@ import {
   type HistoryLine,
   type RunContext,
 } from './context';
-import { workingNow } from './gates';
+import { withinHours, workingNow } from './gates';
 import { handoffExpectation, handoffLine } from './hours';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
 import { checkReply, closeRun, immediateHandOff } from './run';
 import { newRunState, timeKey, toolDefinition, type RunState } from './tools';
 
-/** The request (the web's TestBody). */
-export const TestConsoleInput = z.object({
-  workspaceId: z.uuid(),
-  /** Who to be: someone in Customers, or null for an unknown visitor. */
-  personId: z.uuid().nullable().default(null),
-  channel: z.enum(['sms', 'email', 'chat']),
-  /** Pretend it's this time; null is now. */
-  at: z.iso.datetime({ offset: true }).nullable().default(null),
-  /** The settings to test (the builder's unsaved draft); null tests the saved ones. */
-  config: z.unknown().nullable().default(null),
-  /** The test chat so far, oldest first, ending with the customer's new message. */
-  messages: z
-    .array(
-      z.object({
-        from: z.enum(['customer', 'teammate']),
-        text: z.string().trim().min(1).max(2000),
-      }),
-    )
-    .min(1)
-    .max(40),
-});
-export type TestConsoleInput = z.infer<typeof TestConsoleInput>;
+export { TestConsoleInput };
 
-/** A change it would have made (the web's WOULD_KINDS). */
-type WouldKind =
-  | 'book'
-  | 'reschedule'
-  | 'cancel'
-  | 'repeat'
-  | 'waitlist'
-  | 'note'
-  | 'task'
-  | 'stage'
-  | 'answers'
-  | 'discount'
-  | 'money'
-  | 'form'
-  | 'hand_off';
-type Outcome = 'replied' | 'drafted' | 'handed_off' | 'no_reply';
-
-/** What the console streams (the web's TestEvent). */
-export type ConsoleEvent =
-  | { readonly type: 'started'; readonly runId: string; readonly at: string }
-  | { readonly type: 'delta'; readonly text: string }
-  | {
-      readonly type: 'context' | 'note';
-      readonly title: string;
-      readonly detail: string | null;
-      readonly at: string;
-    }
-  | {
-      readonly type: 'knowledge';
-      readonly query: string | null;
-      readonly items: readonly { readonly id: string; readonly title: string }[];
-      readonly at: string;
-    }
-  | {
-      readonly type: 'tool';
-      readonly name: string;
-      readonly title: string;
-      readonly detail: string | null;
-      readonly at: string;
-    }
-  | {
-      readonly type: 'would';
-      readonly kind: WouldKind;
-      readonly summary: string;
-      readonly at: string;
-    }
-  | {
-      readonly type: 'check';
-      readonly ok: boolean;
-      readonly passed: readonly string[];
-      readonly problems: readonly { readonly rule: string; readonly message: string }[];
-      readonly rewritten: boolean;
-      readonly at: string;
-    }
-  | {
-      readonly type: 'done';
-      readonly outcome: Outcome;
-      readonly reply: string | null;
-      readonly draft: boolean;
-      readonly toolSteps: number;
-      readonly ms: number;
-    }
-  | { readonly type: 'error'; readonly message: string };
+/** What the console streams (@hfos/core's TestEvent). */
+export type ConsoleEvent = TestEvent;
 
 export interface ConsoleDeps {
   readonly db: Db;
@@ -188,6 +128,18 @@ export interface PreparedTest {
   readonly now: number;
   readonly timeZone: string;
   readonly runId: string;
+  /** A phone test: the call, and for one it places, why. Null for a written test. */
+  readonly phone: { readonly outbound: TestOutbound | null } | null;
+}
+
+/** A call the teammate places in a phone test: why, and what it says (as a real one's app.ai_calls row gives). */
+export interface TestOutbound {
+  readonly purpose: AiCallPurpose;
+  /** It finishes "I'm calling …". */
+  readonly goal: string;
+  /** A quote's or a campaign's facts, for the AI (data); null for the other reasons. */
+  readonly brief: string | null;
+  readonly firstName: string | null;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -233,7 +185,8 @@ export async function prepareTest(
   deps: ConsoleDeps,
   input: TestConsoleInput,
 ): Promise<PreparedTest> {
-  if (input.messages[input.messages.length - 1]!.from !== 'customer')
+  const last = input.messages[input.messages.length - 1];
+  if (last && last.from !== 'customer')
     throw HfosError.validation([
       {
         path: `messages.${input.messages.length - 1}`,
@@ -249,6 +202,7 @@ export async function prepareTest(
   if (!ws) throw HfosError.notFound('Workspace not found.');
   const scope: TenantScope = { workspaceId: input.workspaceId, organizationId: ws.organization_id };
   const timeZone = ws.timezone || 'UTC';
+  const now = input.at ? Date.parse(input.at) : Date.now();
   const provider = deps.ai.provider;
   if (!provider)
     throw HfosError.rule(
@@ -256,20 +210,34 @@ export async function prepareTest(
       503,
       'The AI isn’t set up yet, so the test console can’t answer.',
     );
-  const { teammate, config } = await asWorker(deps.db, scope, async (tx) => {
+  const { teammate, config, outbound } = await asWorker(deps.db, scope, async (tx) => {
     const row = await loadTeammate(tx, scope.workspaceId);
     if (!row) throw HfosError.rule('no_teammate', 409, 'Set up your AI teammate first.');
+    let firstName: string | null = null;
     if (input.personId) {
-      const [p] = await rows(
+      const [p] = await rows<{ first_name: string | null }>(
         tx,
-        sql`select 1 from app.people where id = ${input.personId} and workspace_id = ${scope.workspaceId}
+        sql`select first_name from app.people where id = ${input.personId} and workspace_id = ${scope.workspaceId}
               and archived_at is null`,
       );
       if (!p) throw HfosError.notFound('Customer not found.');
+      firstName = p.first_name?.trim() || null;
     }
+    const call = input.channel === 'phone' ? input.call : null;
     return {
       teammate: row,
       config: input.config === null ? runtimeConfigOf(row.config) : draftConfig(input.config),
+      outbound:
+        call?.direction === 'outbound' && call.purpose && input.personId
+          ? await outboundFor(tx, scope, {
+              purpose: call.purpose,
+              goal: call.goal,
+              personId: input.personId,
+              firstName,
+              timeZone,
+              now,
+            })
+          : null,
     };
   });
   const room = await aiBudget.teammateHasRoom(deps.db, scope, {
@@ -300,20 +268,110 @@ export async function prepareTest(
     config,
     provider,
     input,
-    now: input.at ? Date.parse(input.at) : Date.now(),
+    now,
     timeZone,
     runId: made!.id,
+    phone: input.channel === 'phone' ? { outbound } : null,
   };
+}
+
+const nothingToCallAbout = (message: string) =>
+  HfosError.rule('nothing_to_call_about', 409, message);
+
+/**
+ * Why it calls in a phone test, with the words a real call would open with (ai-calls' consider steps): their
+ * next visit, the quote they haven't answered, a missed call, or the campaign the manager describes.
+ */
+async function outboundFor(
+  tx: Tx,
+  scope: TenantScope,
+  o: {
+    readonly purpose: AiCallPurpose;
+    readonly goal: string | null;
+    readonly personId: string;
+    readonly firstName: string | null;
+    readonly timeZone: string;
+    readonly now: number;
+  },
+): Promise<TestOutbound> {
+  const base = { purpose: o.purpose, firstName: o.firstName };
+  switch (o.purpose) {
+    case 'confirm_visit': {
+      const [visit] = await upcomingAppointments(tx, scope.workspaceId, o.personId, o.timeZone);
+      if (!visit)
+        throw nothingToCallAbout(
+          'They have no visit coming up to confirm. Pick someone with one, or another reason.',
+        );
+      return {
+        ...base,
+        goal: `about your ${visit.title} ${spokenWhen(new Date(visit.startsAt), visit.timeZone, o.now)}.`,
+        brief: null,
+      };
+    }
+    case 'quote': {
+      const [q] = await rows<{
+        number: string | null;
+        title: string | null;
+        total_cents: string;
+        expires_on: string | null;
+      }>(
+        tx,
+        sql`select number, title, total_cents::text as total_cents, expires_on::text as expires_on
+            from app.estimates
+            where workspace_id = ${scope.workspaceId} and person_id = ${o.personId}
+              and status = 'sent' and voided_at is null
+            order by created_at desc limit 1`,
+      );
+      if (!q)
+        throw nothingToCallAbout(
+          'They have no open quote to call about. Pick someone with one, or another reason.',
+        );
+      const title = q.title?.trim();
+      return {
+        ...base,
+        goal: `about the quote we sent you${title ? ` for ${title}` : ''}.`,
+        brief: quoteFacts(q),
+      };
+    }
+    case 'campaign': {
+      const goal = o.goal?.trim() || 'our latest offer';
+      return { ...base, goal: fallbackOpening(goal), brief: campaignFacts({ goal }) };
+    }
+    case 'missed_call':
+      return { ...base, goal: 'back, since we missed your call earlier.', brief: null };
+  }
 }
 
 /** The run's context from the test chat: the earlier messages are its history, the customer's latest its batch. */
 async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContext> {
   const msgs = t.input.messages;
+  // The caller's words read like a text's, as the voice agent reads them.
+  const channel = t.input.channel === 'phone' ? 'sms' : t.input.channel;
+  if (t.phone) {
+    // A call: what the caller just said is the batch; the call so far is its own transcript (callLinesOf), and the
+    // greeting already said who it is.
+    const said = msgs[msgs.length - 1];
+    const rc = await asWorker(deps.db, t.scope, (tx) =>
+      loadRunContext(tx, {
+        scope: t.scope,
+        teammate: t.teammate,
+        config: t.config,
+        conversationId: null,
+        target: { personId: t.input.personId, channel },
+        batch: said
+          ? [{ id: 'call', channel, text: said.text, subject: null, at: t.now, photos: [] }]
+          : [],
+        webUrl: deps.webUrl,
+        now: t.now,
+      }),
+    );
+    return { ...rc, history: [], firstAiMessage: false, discloseNow: false };
+  }
   const lastTeammate = msgs.map((m) => m.from).lastIndexOf('teammate');
   const at = (i: number) => t.now - (msgs.length - i) * 60_000;
   const batch: BatchMessage[] = msgs.slice(lastTeammate + 1).map((m, j) => ({
     id: `test-${lastTeammate + 1 + j}`,
-    channel: t.input.channel,
+    channel,
     text: m.text,
     subject: null,
     at: at(lastTeammate + 1 + j),
@@ -325,7 +383,7 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
       teammate: t.teammate,
       config: t.config,
       conversationId: null,
-      target: { personId: t.input.personId, channel: t.input.channel },
+      target: { personId: t.input.personId, channel },
       batch,
       webUrl: deps.webUrl,
       now: t.now,
@@ -346,6 +404,12 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
   };
 }
 
+/** A phone test's call so far, before what the caller just said: the greeting, then each turn. */
+const callLinesOf = (t: PreparedTest): CallLine[] =>
+  t.input.messages
+    .slice(0, -1)
+    .map((m) => ({ who: m.from === 'customer' ? 'caller' : 'teammate', text: m.text }));
+
 // ---- The simulating hands ----
 
 interface Hands {
@@ -360,6 +424,9 @@ type Result = ToolLoopAnswer;
 type Runner = (h: Hands, args: Record<string, unknown>) => Promise<Result>;
 
 const refuse = (error: string): Result => ({ content: { error }, isError: true });
+/** What a hand-off does: on a call, the team's phones ring on the same call. */
+const toPerson = (t: PreparedTest) =>
+  t.phone ? 'connected them to the team on this call' : 'handed it to a person';
 const would = (h: Hands, kind: WouldKind, summary: string) =>
   h.send({ type: 'would', kind, summary: summary.slice(0, 300), at: nowIso() });
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
@@ -1024,7 +1091,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
   async hand_off(h, args) {
     const note = String(args['note']).slice(0, 500);
     h.state.end = { kind: 'hand_off', reason: 'other', note };
-    would(h, 'hand_off', `handed it to a person: ${note}`);
+    would(h, 'hand_off', `${toPerson(h.t)}: ${note}`);
     return { content: { status: 'handed_off' }, stop: true };
   },
 
@@ -1035,7 +1102,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { status: 'received' }, stop: true };
   },
 
-  // Phone only, and the console never plays a call: said like a reply, for completeness.
+  // A phone test: the goodbye, and the call is over.
   async end_call(h, args) {
     const message = String(args['message']);
     h.state.end = { kind: 'end_call', message };
@@ -1043,13 +1110,18 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     return { content: { status: 'received' }, stop: true };
   },
 
-  // Only on a call the teammate placed: the practice console never is one.
-  async confirm_visit() {
-    return { content: { error: 'Only on a call you placed.' } };
+  // Only on a call it placed (a phone test's outgoing call): what it would record, described.
+  async confirm_visit(h) {
+    if (h.t.phone?.outbound?.purpose !== 'confirm_visit')
+      return refuse('This call isn’t about confirming a visit.');
+    would(h, 'confirm', 'marked their visit confirmed');
+    return { content: { status: 'confirmed', already: false } };
   },
 
-  async no_more_calls() {
-    return { content: { error: 'Only on a call you placed.' } };
+  async no_more_calls(h) {
+    if (!h.t.phone?.outbound) return refuse('Only on a call you placed.');
+    would(h, 'no_calls', 'noted they don’t want calls from the business any more');
+    return { content: { status: 'recorded' } };
   },
 
   async no_reply(h, args) {
@@ -1113,24 +1185,18 @@ function checkEvent(verdict: ReplyCheck, rewritten: boolean): ConsoleEvent {
   };
 }
 
-/** What it read before answering, as the console's first lines. */
-async function tellWhatItRead(
-  deps: ConsoleDeps,
-  t: PreparedTest,
-  rc: RunContext,
-  send: Hands['send'],
-) {
-  const at = nowIso();
+/** Who they are, as the log's first line: someone in Customers, or someone it only knows from what they write. */
+function whoLine(t: PreparedTest, rc: RunContext, at: string): ConsoleEvent {
   if (rc.unverifiedChat)
-    send({
+    return {
       type: 'context',
       title: 'A website chat visitor',
       detail:
         'In chat it doesn’t see a customer’s record or visits, even when the details they type match, until they type back a code sent to the phone or email on file.',
       at,
-    });
-  else if (rc.customer)
-    send({
+    };
+  if (rc.customer)
+    return {
       type: 'context',
       title: `Read who ${rc.customer.firstName || 'they are'}${rc.customer.firstName ? ' is' : ''}`,
       detail: [
@@ -1140,14 +1206,110 @@ async function tellWhatItRead(
           : 'No upcoming visits',
       ].join(' · '),
       at,
-    });
-  else
+    };
+  return t.phone
+    ? {
+        type: 'context',
+        title: 'An unknown caller',
+        detail: 'Nobody in Customers has their number: it only knows what they say.',
+        at,
+      }
+    : {
+        type: 'context',
+        title: 'An unknown customer',
+        detail: 'Nobody in Customers: it only knows what they write.',
+        at,
+      };
+}
+
+/** A phone test's first lines, as the call is picked up or placed: who, why, and whether a real call would be. */
+async function tellAboutTheCall(
+  deps: ConsoleDeps,
+  t: PreparedTest,
+  rc: RunContext,
+  send: Hands['send'],
+) {
+  const at = nowIso();
+  const out = t.phone?.outbound ?? null;
+  send(whoLine(t, rc, at));
+  if (out) {
     send({
       type: 'context',
-      title: 'An unknown customer',
-      detail: 'Nobody in Customers: it only knows what they write.',
+      title: `Called ${out.firstName ?? 'them'}: ${TEST_CALL_REASONS[out.purpose].toLowerCase()}`,
+      detail: `It opens by saying it’s an AI, that the call is recorded, and “I’m calling ${out.goal}”`,
       at,
     });
+    if (out.brief)
+      send({
+        type: 'note',
+        title: 'What it knows about the call',
+        detail: out.brief.split('\n').join(' · '),
+        at,
+      });
+  }
+  const { openHours, timeZone } = rc.workspace;
+  const closed = !withinHours(openHours, timeZone, t.now);
+  if (!t.config.phone.enabled)
+    send({
+      type: 'note',
+      title: 'Phone calls are off',
+      detail: out
+        ? 'It only places calls once it answers the phone. Here it calls anyway.'
+        : 'A real call doesn’t reach it until it answers the phone. Here it answers anyway, so you can hear how.',
+      at,
+    });
+  else if (out) {
+    const m = await asWorker(deps.db, t.scope, (tx) => workspaceMessaging(tx, t.scope.workspaceId));
+    const quiet = quietHoursState(
+      m.settings.quietHours,
+      m.timezone || t.timeZone,
+      new Date(t.now),
+    ).quiet;
+    if (closed || quiet)
+      send({
+        type: 'note',
+        title: 'Outside calling hours',
+        detail:
+          'It places real calls in open hours and never in quiet hours, so this one would wait. Here it calls anyway.',
+        at,
+      });
+  } else if (t.config.phone.answer === 'no_answer')
+    send({
+      type: 'note',
+      title: 'Picks up when the team doesn’t',
+      detail: 'A real call rings your team first, and it answers when nobody does.',
+      at,
+    });
+  else if (t.config.phone.answer === 'after_hours' && !closed)
+    send({
+      type: 'note',
+      title: 'You’re open now',
+      detail:
+        'A real call at this time rings your team: it only picks up while you’re closed. Here it answers anyway.',
+      at,
+    });
+}
+
+/** What it read before answering, as the console's first lines. */
+async function tellWhatItRead(
+  deps: ConsoleDeps,
+  t: PreparedTest,
+  rc: RunContext,
+  send: Hands['send'],
+) {
+  if (t.phone) {
+    // Who they are and why it called come with the greeting; each turn after reads the knowledge afresh.
+    if (!t.input.messages.length) return tellAboutTheCall(deps, t, rc, send);
+    send({
+      type: 'knowledge',
+      query: null,
+      items: rc.matches.map((m) => ({ id: m.id, title: m.title })),
+      at: nowIso(),
+    });
+    return;
+  }
+  const at = nowIso();
+  send(whoLine(t, rc, at));
   if (rc.history.length)
     send({
       type: 'context',
@@ -1199,8 +1361,15 @@ export async function runTest(
   let steps = 0;
   const checks: unknown[] = [];
   const state = newRunState();
+  const phone = t.phone;
+  const training = t.teammate.status === 'training';
   let rc: RunContext | null = null;
-  const close = (outcome: Outcome | null, summary: string, reply: string | null, failed = false) =>
+  const close = (
+    outcome: TestOutcome | null,
+    summary: string,
+    reply: string | null,
+    failed = false,
+  ) =>
     asWorker(deps.db, t.scope, (tx) =>
       closeRun(tx, t.runId, {
         status: failed ? 'failed' : 'done',
@@ -1214,35 +1383,58 @@ export async function runTest(
         ...(failed ? { error: summary } : {}),
       }),
     );
-  const finish = async (outcome: Outcome, reply: string | null, summary: string) => {
-    const training = t.teammate.status === 'training' && outcome === 'replied';
-    const final = training ? 'drafted' : outcome;
+  const finish = async (
+    outcome: TestOutcome,
+    reply: string | null,
+    summary: string,
+    ended = false,
+  ) => {
+    // Training wheels hold a written reply for an OK. On a call the words are said, and only its changes wait.
+    const draft = training && !phone && outcome === 'replied';
+    const final = draft ? 'drafted' : outcome;
     await close(final, summary, reply);
     send({
       type: 'done',
       outcome: final,
       reply,
-      draft: training,
+      draft,
+      ended,
       toolSteps: steps,
       ms: Date.now() - began,
     });
   };
+  // A hand-off on a call connects them to the team, and that's the end of the call.
   const handOff = (why: string, line: string | null) =>
-    finish('handed_off', line, `handed to a person: ${why}`);
-  const theLine = () =>
-    handoffLine(
-      t.config.handOff.tellCustomer,
-      handoffExpectation(rc!.workspace.openHours, rc!.workspace.timeZone, t.now),
-    );
+    finish('handed_off', line, `handed to a person: ${why}`, !!phone);
+  /** What they hear as it hands off: on a call, that it's connecting them (or can't go on); in writing, the line. */
+  const theLine = (cantGoOn = false) =>
+    phone
+      ? (cantGoOn ? CANT_GO_ON : CONNECTING).en
+      : handoffLine(
+          t.config.handOff.tellCustomer,
+          handoffExpectation(rc!.workspace.openHours, rc!.workspace.timeZone, t.now),
+        );
   try {
     send({ type: 'started', runId: t.runId, at: nowIso() });
     rc = await contextFor(deps, t);
     await tellWhatItRead(deps, t, rc, send);
 
+    // A phone test's first request: the call is picked up, or placed, and it says its greeting.
+    if (phone && !t.input.messages.length) {
+      const business = rc.grounding.business.name;
+      const out = phone.outbound;
+      const greeting = out
+        ? outboundGreetingOf(t.config, business, out.firstName, out.goal, out.purpose)
+        : greetingOf(t.config, business);
+      send({ type: 'delta', text: greeting });
+      return await finish('replied', greeting, out ? 'placed the call' : 'picked up the call');
+    }
+
     // Straight to a person, before any model call: the customer hears the line (or the safety text).
     const immediate = immediateHandOff(rc);
     if (immediate) {
-      const line = immediate.emergency ? EMERGENCY_SAFETY_TEXT[immediate.emergency] : theLine();
+      const safety = immediate.emergency ? EMERGENCY_SAFETY_TEXT[immediate.emergency] : null;
+      const line = phone ? (safety ? `${safety} ${theLine()}` : theLine()) : (safety ?? theLine());
       send({
         type: 'note',
         title: immediate.emergency ? 'An emergency' : 'Straight to a person',
@@ -1253,14 +1445,21 @@ export async function runTest(
         { deps, t, rc, state, send },
         'hand_off',
         immediate.emergency
-          ? 'sent the safety steps, alerted every owner and admin, and handed it to a person'
-          : `handed it to a person: ${immediate.note}`,
+          ? phone
+            ? 'said the safety steps, alerted every owner and admin, and connected them to the team'
+            : 'sent the safety steps, alerted every owner and admin, and handed it to a person'
+          : `${toPerson(t)}: ${immediate.note}`,
       );
       return await handOff(immediate.note, line);
     }
 
     const hands: Hands = { deps, t, rc, state, send };
-    const tools = teammateTools(t.config, { unverifiedChat: rc.unverifiedChat });
+    const tools = teammateTools(
+      t.config,
+      phone
+        ? { phone: true, outbound: phone.outbound?.purpose ?? null }
+        : { unverifiedChat: rc.unverifiedChat },
+    );
     const enders = tools.filter((x) => TEAMMATE_TURN_ENDERS.has(x.name as TeammateToolName));
     const hasRoom = () =>
       aiBudget.teammateHasRoom(deps.db, t.scope, {
@@ -1272,8 +1471,16 @@ export async function runTest(
     const base = {
       provider: t.provider,
       system: TEAMMATE_SYSTEM,
-      context: contextText(rc),
-      maxTokens: MAX_TOKENS,
+      context: phone
+        ? contextText(rc, {
+            channelLines: phoneChannelLines({
+              training,
+              personHasIt: false,
+              outbound: phone.outbound,
+            }),
+          })
+        : contextText(rc),
+      maxTokens: phone ? PHONE_MAX_TOKENS : MAX_TOKENS,
       execute: simulator(hands, tools),
       onText: (text: string) => send({ type: 'delta', text }),
       onTurnUsage: (usage: AiUsage) =>
@@ -1288,13 +1495,21 @@ export async function runTest(
       signal,
     };
     const budgetOut = () => {
-      would(hands, 'hand_off', 'handed it to a person: it reached its share of today’s AI limit');
-      return handOff('the AI limit was reached', theLine());
+      would(hands, 'hand_off', `${toPerson(t)}: it reached its share of today’s AI limit`);
+      return handOff('the AI limit was reached', theLine(true));
     };
 
+    const said = t.input.messages[t.input.messages.length - 1]!.text;
     const loop = await runToolLoop({
       ...base,
-      messages: [{ role: 'user', content: conversationTurn(rc) }],
+      messages: [
+        {
+          role: 'user',
+          content: phone
+            ? phoneTurn(rc, { lines: callLinesOf(t), offered: [] }, said)
+            : conversationTurn(rc),
+        },
+      ],
       tools: tools.map(toolDefinition),
       maxRounds: t.config.limits.toolRounds,
     });
@@ -1307,17 +1522,24 @@ export async function runTest(
       would(
         hands,
         'hand_off',
-        `handed it to a person: it needed more than ${t.config.limits.toolRounds} tool steps`,
+        `${toPerson(t)}: it needed more than ${t.config.limits.toolRounds} tool steps`,
       );
-      return await handOff('too many tool steps', theLine());
+      return await handOff('too many tool steps', theLine(true));
     }
     if (state.end?.kind === 'no_reply') return await finish('no_reply', null, state.end.reason);
-    let text = state.end?.kind === 'reply' ? state.end.message : finalText(loop.messages);
+    const spoken = (end: RunState['end'], messages: readonly AiMessage[]) =>
+      end?.kind === 'reply' || end?.kind === 'end_call'
+        ? { text: end.message, ending: end.kind === 'end_call' }
+        : { text: finalText(messages), ending: false };
+    let { text, ending } = spoken(state.end, loop.messages);
     if (!text.trim()) {
-      would(hands, 'hand_off', 'handed it to a person: it didn’t come up with a reply');
+      would(hands, 'hand_off', `${toPerson(t)}: it didn’t come up with a reply`);
       return await handOff('no reply', theLine());
     }
-    let verdict = checkReply(rc, state, text);
+    // In training nothing it holds on a call has happened yet, so it may not say it has.
+    const checked = (words: string) =>
+      checkReply(rc!, phone && training ? { ...state, held: [] } : state, words);
+    let verdict = checked(text);
     send(checkEvent(verdict, false));
     checks.push(
       ...verdict.problems.map((p) => ({ rule: p.rule, ok: false, message: p.message, attempt: 1 })),
@@ -1346,8 +1568,8 @@ export async function runTest(
       const again = state.end as RunState['end'];
       if (again?.kind === 'hand_off') return await handOff(again.note, theLine());
       if (again?.kind === 'no_reply') return await finish('no_reply', null, again.reason);
-      text = again?.kind === 'reply' ? again.message : finalText(redo.messages);
-      verdict = checkReply(rc, state, text);
+      ({ text, ending } = spoken(again, redo.messages));
+      verdict = checked(text);
       send(checkEvent(verdict, true));
       checks.push(
         ...REPLY_RULES.map((rule) => {
@@ -1358,13 +1580,26 @@ export async function runTest(
         }),
       );
       if (!verdict.ok) {
-        would(
-          hands,
-          'hand_off',
-          'handed it to a person: its reply didn’t pass the safety check twice',
-        );
-        return await handOff('the safety check failed twice', theLine());
+        would(hands, 'hand_off', `${toPerson(t)}: its reply didn’t pass the safety check twice`);
+        return await handOff('the safety check failed twice', theLine(true));
       }
+    }
+    if (phone) {
+      if (training && state.held.length)
+        send({
+          type: 'note',
+          title: 'Waits for the team’s OK (training wheels)',
+          detail:
+            'On a real call it says the team will confirm by text, and the change waits on Approvals until someone approves it.',
+          at: nowIso(),
+        });
+      const words = text.trim();
+      return await finish(
+        'replied',
+        words,
+        `${ending ? 'said goodbye' : 'said'} “${words.slice(0, 80)}” on a call`,
+        ending,
+      );
     }
     const reply = t.input.channel === 'sms' ? plainSmsText(text) : text.trim();
     return await finish('replied', reply, `replied “${reply.slice(0, 80)}”`);

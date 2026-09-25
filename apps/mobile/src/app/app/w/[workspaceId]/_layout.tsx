@@ -14,8 +14,8 @@ import { colors, useThemeName } from '@/theme';
 export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
 
 /**
- * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Changes on this phone, and (test builds)
- * This phone's copy. The call sheet sits over all of them (`startCall`).
+ * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, the AI teammate's test console, Changes on
+ * this phone, and (test builds) This phone's copy. The call sheet sits over all of them (`startCall`).
  */
 export default function BusinessLayout() {
   const state = useSession();
@@ -50,6 +50,7 @@ function Business({ userId }: { userId: string }) {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="ask" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="ai-test" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="changes" options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="phone-copy" options={{ presentation: 'fullScreenModal' }} />
       </Stack>

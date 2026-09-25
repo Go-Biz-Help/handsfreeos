@@ -7332,7 +7332,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
 - **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
 - **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
-- **The test console** in the rail tries the settings on screen, saved or not. Its look-ups are real, but it changes nothing and sends nothing.
+- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). You type what the caller says and read what it would say out loud; a goodbye or a hand-off ends the call. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
 
 ### What else it can do for a customer (M18)
 
@@ -7424,7 +7424,7 @@ Automatic means nobody sees a message before the customer does. Go through this 
 1. **No issues.** The rail lists what's wrong, each with a fix. Red ones stop it from being turned on at all. Read the yellow ones too, such as a thin knowledge base, hours that overlap quiet hours, or a workflow that also texts new leads.
 2. **Its training record.** In **Activity**, choose **30 days**, and read the runs that were edited, rejected, handed off or failed. If the same edit keeps coming up, fix the settings or the knowledge base first. The rail's count, such as "17 of 20 approved · 3 edited", shows how many needed edits.
 3. **The knowledge base.** The profile, services, service area and FAQs are filled in, and someone decided the **AI may quote prices** switch. Questions it can't answer go to a person, so gaps cost time, not mistakes.
-4. **The test console.** Try the client's common questions, a booking, "are you a real person?", an angry customer and an emergency, and read what it would send.
+4. **The test console.** Try the client's common questions, a booking, "are you a real person?", an angry customer and an emergency, and read what it would send. If it answers the phone, play an incoming call too, and an outgoing one for each kind of call the client turned on.
 5. **Booking.** Every calendar in **Book** can be booked online, with the right services and hours, and rescheduling and cancelling are set the way the client wants.
 6. **Qualifying.** The questions, what makes a lead not a fit, and who hears about qualified leads.
 7. **Hand-off.** Someone is on the hand-off list and gets the emails (**Settings** → **Notifications**), and the hand-off message reads right.

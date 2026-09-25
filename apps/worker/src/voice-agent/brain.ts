@@ -69,13 +69,12 @@ import {
   CONNECTING,
   phoneChannelLines,
   phoneTurn,
+  PHONE_MAX_TOKENS,
   tongue,
   type CallLine,
 } from './prompt';
 import type { StreamTicket } from './ticket';
 
-/** Tokens per model call on a call: a spoken reply is a sentence or three. */
-const PHONE_MAX_TOKENS = 600;
 /** How long a call waits for a text reply that's running on the same conversation to finish. */
 const RUN_WAIT_MS = 3_000;
 

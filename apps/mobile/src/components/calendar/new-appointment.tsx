@@ -372,4 +372,4 @@ function defaultLength(config: CalendarConfig | null): number {
   return config?.durations.minutes[0] ?? 60;
 }
 
-export { clockOf };
+export { Chips, clockOf, Field, nextDays };

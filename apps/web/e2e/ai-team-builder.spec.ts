@@ -7,7 +7,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * builder's modules with their one-line summaries, a red item fixed with Fix (and undone), Undo, Save,
  * turning it on, "Switch to automatic now" and "Back to training" (each confirmed), History with Restore
  * (training progress stays), the test console (a price question answered from the knowledge base, held as
- * a draft while in training wheels, and nothing sent) and the Activity tab.
+ * a draft while in training wheels, and nothing sent; then a test call that picks up and hangs up on a goodbye)
+ * and the Activity tab.
  *
  * Quiet hours are set explicitly (8 PM to 8 AM) so the Hours module's note never depends on the default.
  */
@@ -197,6 +198,26 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await expect(testConsole.getByText('Draft (training wheels)').first()).toBeVisible();
   const inbox = await api<{ items: unknown[] }>(token, 'queries', 'inbox.list', { workspaceId });
   expect(inbox.items).toHaveLength(0);
+
+  // A test call: an incoming one picks up with the greeting, and a goodbye hangs up. An outgoing one needs
+  // someone to call first.
+  await testConsole.getByTestId('test-channel-phone').click();
+  await expect(testConsole.getByTestId('test-console-input')).toBeHidden();
+  await testConsole.getByTestId('test-console-start-call').click();
+  await expect(testConsole.getByTestId('test-console-reply').first()).toContainText(
+    'Thanks for calling',
+  );
+  await testConsole.getByTestId('test-console-input').fill('That’s all, bye!');
+  await testConsole.getByTestId('test-console-send').click();
+  await expect(testConsole.getByTestId('test-console-reply').last()).toHaveText(
+    'Thanks for calling. Bye now!',
+  );
+  await expect(testConsole.getByTestId('test-console-call-over')).toBeVisible();
+  await expect(testConsole.getByTestId('test-console-input')).toBeHidden();
+  await expect(log).toContainText('Said goodbye and hung up');
+  await testConsole.getByTestId('test-call-outbound').click();
+  await expect(testConsole.getByText('Pick a customer for Ava to call.')).toBeVisible();
+  await expect(testConsole.getByTestId('test-console-start-call')).toBeDisabled();
   await testConsole.getByRole('button', { name: 'Close' }).click();
   await expect(testConsole).toBeHidden();
 

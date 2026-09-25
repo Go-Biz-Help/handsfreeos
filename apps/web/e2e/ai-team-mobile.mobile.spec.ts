@@ -134,6 +134,19 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   expect(await width()).toBeLessThanOrEqual(390);
   const inbox = await api<{ items: unknown[] }>(token, 'queries', 'inbox.list', { workspaceId });
   expect(inbox.items).toHaveLength(0);
+
+  // A test call fits the phone too: the call's options wrap, and the screen never scrolls sideways.
+  await testConsole.getByRole('tab', { name: 'Chat', exact: true }).click();
+  await testConsole.getByTestId('test-channel-phone').click();
+  await testConsole.getByTestId('test-call-outbound').click();
+  await expect(testConsole.getByTestId('test-call-options')).toBeVisible();
+  expect(await width()).toBeLessThanOrEqual(390);
+  await testConsole.getByTestId('test-call-inbound').click();
+  await testConsole.getByTestId('test-console-start-call').click();
+  await expect(testConsole.getByTestId('test-console-reply').first()).toContainText(
+    'Thanks for calling',
+  );
+  expect(await width()).toBeLessThanOrEqual(390);
   await testConsole.getByRole('button', { name: 'Close' }).click();
   await expect(testConsole).toBeHidden();
 

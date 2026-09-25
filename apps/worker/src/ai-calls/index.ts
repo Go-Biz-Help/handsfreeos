@@ -527,24 +527,41 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
         where a.id = ${aiCallId}`,
   );
   if (!c) return null;
-  if (c.purpose === 'quote' && c.total_cents !== null) {
-    const lines = [
-      `Quote${c.number ? ` ${c.number}` : ''}${c.title?.trim() ? `: ${c.title.trim()}` : ''}`,
-      `Total: ${money(Number(c.total_cents))}`,
-    ];
-    if (c.expires_on) lines.push(`Good until: ${c.expires_on}`);
-    return lines.join('\n');
-  }
-  if (c.purpose === 'campaign' && c.goal) {
-    const lines = [`What the owner wants from these calls: ${c.goal.trim()}`];
-    if (c.offer_name) {
-      lines.push(`Offer: ${c.offer_name.trim()}`);
-      if (c.offer_details?.trim()) lines.push(`Offer details: ${c.offer_details.trim()}`);
-      if (c.offer_ends) lines.push(`Offer ends: ${c.offer_ends}`);
-    }
-    return lines.join('\n');
-  }
+  if (c.purpose === 'quote' && c.total_cents !== null)
+    return quoteFacts({ ...c, total_cents: c.total_cents });
+  if (c.purpose === 'campaign' && c.goal) return campaignFacts({ ...c, goal: c.goal });
   return null;
+}
+
+/** A quote's facts for a call about it: its number and title, total and last day. */
+export function quoteFacts(q: {
+  readonly number: string | null;
+  readonly title: string | null;
+  readonly total_cents: string | number;
+  readonly expires_on: string | null;
+}): string {
+  const lines = [
+    `Quote${q.number ? ` ${q.number}` : ''}${q.title?.trim() ? `: ${q.title.trim()}` : ''}`,
+    `Total: ${money(Number(q.total_cents))}`,
+  ];
+  if (q.expires_on) lines.push(`Good until: ${q.expires_on}`);
+  return lines.join('\n');
+}
+
+/** A call campaign's facts: the owner's goal and any offer. */
+export function campaignFacts(c: {
+  readonly goal: string;
+  readonly offer_name?: string | null;
+  readonly offer_details?: string | null;
+  readonly offer_ends?: string | null;
+}): string {
+  const lines = [`What the owner wants from these calls: ${c.goal.trim()}`];
+  if (c.offer_name) {
+    lines.push(`Offer: ${c.offer_name.trim()}`);
+    if (c.offer_details?.trim()) lines.push(`Offer details: ${c.offer_details.trim()}`);
+    if (c.offer_ends) lines.push(`Offer ends: ${c.offer_ends}`);
+  }
+  return lines.join('\n');
 }
 
 // ---------- approving ----------

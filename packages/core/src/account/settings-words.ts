@@ -48,6 +48,9 @@ export const MORE_WORDS = {
   /** M17: forms a phone can fill in with no signal. */
   forms: 'Forms',
   approvals: 'Approvals',
+  /** The AI teammate's test console, for people who manage it. */
+  testTeammate: 'Test your AI teammate',
+  testTeammateDetail: 'Text, chat, email or call your AI teammate as a customer',
   settings: 'Settings',
   openOnWeb: 'Open on the web',
   openOnWebDetail: 'Workflows, the AI teammate, business settings, members and more',
