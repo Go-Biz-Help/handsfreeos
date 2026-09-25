@@ -213,6 +213,8 @@ export interface RunLead {
 export interface RunCalendar {
   readonly id: string;
   readonly name: string;
+  /** What the business says it's for (the calendar's description), so the teammate picks the right one. */
+  readonly description: string | null;
   readonly timeZone: string;
   readonly services: readonly { id: string; name: string; durations: number[] }[];
   /**
@@ -665,6 +667,7 @@ async function calendarsOf(
     out.push({
       id: cal.id,
       name: cal.name,
+      description: cal.description?.trim() || null,
       timeZone: cal.timeZone,
       services,
       deposit: most ? { amountCents: most.amountCents, mode: most.mode } : null,

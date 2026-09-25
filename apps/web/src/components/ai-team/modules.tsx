@@ -705,12 +705,34 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
                 className="mt-[5px] h-2.5 w-2.5 flex-none rounded-full"
                 style={{ background: calendarColor(cal.color) }}
               />
-              <label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5">
-                <span className="truncate text-[13px] font-semibold">{cal.name}</span>
-                {cal.lengths.length ? (
-                  <span className="truncate text-xs text-text-3">{lengthsWords(cal.lengths)}</span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <label htmlFor={id} className="flex min-w-0 cursor-pointer flex-col gap-0.5">
+                  <span className="truncate text-[13px] font-semibold">{cal.name}</span>
+                  {cal.lengths.length ? (
+                    <span className="truncate text-xs text-text-3">
+                      {lengthsWords(cal.lengths)}
+                    </span>
+                  ) : null}
+                  {cal.description ? (
+                    <span
+                      className="line-clamp-2 text-xs text-text-2"
+                      data-testid={`book-calendar-for-${cal.id}`}
+                    >
+                      {cal.description}
+                    </span>
+                  ) : null}
+                </label>
+                {/* It picks a calendar by what it's for: without a description it has only the name to go on. */}
+                {on && !cal.description && !cal.archived ? (
+                  <Link
+                    href={`${base}/${TEAMMATE_LINKS.calendarDetails(cal.id)}`}
+                    className="self-start text-xs font-medium text-accent-text hover:underline"
+                    data-testid={`book-calendar-say-for-${cal.id}`}
+                  >
+                    Tell {name} what it’s for
+                  </Link>
                 ) : null}
-              </label>
+              </span>
               {cal.archived ? (
                 <Badge variant="danger" className="h-5 text-[11.5px]">
                   Archived
