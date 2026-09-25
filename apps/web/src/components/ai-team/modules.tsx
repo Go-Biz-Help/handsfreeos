@@ -29,7 +29,8 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Fragment } from 'react';
+import { useRouter } from 'next/navigation';
+import { Fragment, type MouseEvent } from 'react';
 import { WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
 import { SetRow } from '@/components/settings/set-row';
 import { Avatar } from '@/components/ui/avatar';
@@ -85,6 +86,8 @@ export interface ModuleProps {
   /** Training-wheels progress, which Autonomy shows. */
   readonly progress: TeammateProgress | null;
   readonly readOnly: boolean;
+  /** Saves any change still waiting, before leaving for a page that reads these settings. */
+  readonly flush: () => Promise<unknown>;
 }
 
 const withCurrent = (list: readonly number[], v: number) =>
@@ -820,8 +823,16 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
 
 // ---------- Follow up ----------
 
-function FollowUpModule({ draft, patch, workspaceId }: ModuleProps) {
+function FollowUpModule({ draft, patch, workspaceId, flush }: ModuleProps) {
   const f = draft.followUp;
+  const router = useRouter();
+  // Straight to its Adjust sheet on Automations, once a change made here has saved.
+  const schedule = `/app/w/${workspaceId}/settings/automations?adjust=follow_ups_after_silence`;
+  const openSchedule = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    void flush().then(() => router.push(schedule));
+  };
   return (
     <>
       <ModuleHeading
@@ -856,7 +867,12 @@ function FollowUpModule({ draft, patch, workspaceId }: ModuleProps) {
       <Note className="mt-3" icon={Moon}>
         Follow-ups wait until quiet hours end, and stop once they reply, book, or text STOP. The
         schedule is in{' '}
-        <Link href={`/app/w/${workspaceId}/settings/automations`} className="underline">
+        <Link
+          href={schedule}
+          onClick={openSchedule}
+          className="underline"
+          data-testid="followup-schedule-link"
+        >
           Settings, Automations
         </Link>
         .

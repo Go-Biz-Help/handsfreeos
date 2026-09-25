@@ -13,16 +13,16 @@ import {
   type TeammatePatch,
   type TeammatePatchFix,
 } from '@hfos/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { ApiError, errorMessage } from '@/lib/api/client';
 
 /**
  * The AI teammate's settings as the builder edits them: one local TeammateConfig, checked with core's
  * validateTeammate and labelled with inferTeammateLabels on every change (the rules the server saves with),
- * with Undo, Fix and Save. Save sends the whole document against the revision it started from; when someone
- * saved in between, the server refuses it and "Load their version" takes theirs. Nothing is saved before
- * Save, because saved settings reach customers: half-typed text never goes live.
+ * with Undo and Fix. Changes save on their own a moment after the last edit, so typing in a field is one
+ * save, not one per letter. Each save sends the whole document against the revision it started from; when
+ * someone saved in between, the server refuses it and "Load their version" takes theirs.
  */
 
 export interface TeammateDraftAdapter {
@@ -33,6 +33,17 @@ export interface TeammateDraftAdapter {
   ): Promise<{ revision: number; changes: readonly string[] }>;
   /** The newest saved settings, for "Load their version". */
   load(): Promise<{ revision: number; config: unknown }>;
+}
+
+/** What the auto-save indicator says: Saved, Saving…, Couldn't save, or Not saved (someone saved first). */
+export type SaveState = 'saved' | 'saving' | 'failed' | 'conflict';
+
+/** Where the draft stood once its saves settled. */
+export interface Settled {
+  /** Nothing is waiting to be saved. */
+  readonly clean: boolean;
+  /** The revision the settings are now. */
+  readonly revision: number;
 }
 
 export interface PatchOptions {
@@ -66,6 +77,8 @@ export interface TeammateDraft {
   /** Someone saved a newer revision while this tab has changes, or our save was refused for it. */
   readonly stale: boolean;
   readonly saving: boolean;
+  /** For the auto-save indicator. */
+  readonly saveState: SaveState;
   readonly readOnly: boolean;
   readonly canUndo: boolean;
   readonly undoLabel: string | null;
@@ -74,8 +87,10 @@ export interface TeammateDraft {
   readonly patch: PatchFn;
   applyFix(fix: TeammatePatchFix): void;
   undo(): void;
-  /** Resolves true once saved. */
+  /** Saves now instead of waiting (Try again after a failed save). Resolves true once saved. */
   save(): Promise<boolean>;
+  /** Saves anything waiting and resolves once it's done, before leaving the page or changing the status. */
+  flush(): Promise<Settled>;
   /** Drops this tab's changes and takes the newest saved settings. */
   loadTheirs(): Promise<void>;
   /** Drops this tab's changes (before a restore). */
@@ -101,6 +116,8 @@ interface Edit {
 
 const GROUP_MS = 1200;
 const MAX_UNDO = 100;
+/** How long after the last edit it saves. */
+const AUTOSAVE_MS = 800;
 
 /** JSON with object keys sorted, so equal settings compare equal whatever order they were built in. */
 export function stableJson(value: unknown): string {
@@ -127,6 +144,8 @@ export function useTeammateDraft(opts: {
   /** Members read the teammate; owners and admins (ai_team.manage) change it. */
   readOnly: boolean;
   adapter: TeammateDraftAdapter;
+  /** After each save (to fetch the new revision and history). */
+  onSaved?: () => void;
 }): TeammateDraft {
   const { revision, catalogs, readOnly, adapter } = opts;
   const saved = useMemo(() => parseTeammateConfig(opts.config), [opts.config]);
@@ -140,7 +159,13 @@ export function useTeammateDraft(opts: {
   };
   const [edit, setEdit] = useState<Edit>(fresh);
   const [saving, setSaving] = useState(false);
+  // The settings a save failed on: not retried until they change again, or Try again.
+  const [failed, setFailed] = useState<TeammateConfig | null>(null);
+  const [nudge, setNudge] = useState(0);
   const [now] = useState(() => Date.now());
+  const inflight = useRef(false);
+  const waiters = useRef<((settled: Settled) => void)[]>([]);
+  const onSaved = useRef(opts.onSaved);
 
   // A newer revision (someone's save, or our own coming back) replaces a clean draft; with edits it raises
   // the "Load their version" banner instead.
@@ -197,29 +222,69 @@ export function useTeammateDraft(opts: {
     setEdit({ ...current, draft: top.before, undo: current.undo.slice(0, -1), fixed: null });
   }
 
+  const stale = (newer && dirty) || current.refused;
+
   async function save(): Promise<boolean> {
-    if (saving || !dirty || readOnly) return false;
+    if (inflight.current || saving || !dirty || readOnly || stale) return false;
+    inflight.current = true;
     setSaving(true);
+    setFailed(null);
     const sent = draft;
     try {
       const out = await adapter.save(current.rev, sent);
-      // Edits made while it saved stay as unsaved changes on top.
-      setEdit((e) => ({ ...e, rev: out.revision, base: sent, fixed: null, refused: false }));
-      toast.success(
-        out.changes.length
-          ? `Saved as revision ${out.revision}.`
-          : 'Nothing changed, so nothing new was saved.',
-      );
+      // Edits made while it saved stay as unsaved changes on top, and save next.
+      setEdit((e) => ({ ...e, rev: out.revision, base: sent, refused: false }));
+      onSaved.current?.();
       return true;
     } catch (e) {
       if (e instanceof ApiError && e.rule === 'revision_conflict')
         setEdit((x) => ({ ...x, refused: true }));
-      else toast.error(errorMessage(e));
+      else {
+        setFailed(sent);
+        toast.error(errorMessage(e));
+      }
       return false;
     } finally {
+      inflight.current = false;
       setSaving(false);
     }
   }
+
+  // Saves a moment after the last edit; right away when something is waiting on it (flush).
+  const saveNow = useRef(save);
+  useEffect(() => {
+    saveNow.current = save;
+    onSaved.current = opts.onSaved;
+  });
+  const failedHere = failed !== null && stableJson(failed) === stableJson(draft);
+  useEffect(() => {
+    if (readOnly || !dirty || saving || stale || failedHere) return;
+    const t = setTimeout(() => void saveNow.current(), waiters.current.length ? 0 : AUTOSAVE_MS);
+    return () => clearTimeout(t);
+  }, [draft, dirty, saving, stale, failedHere, readOnly, nudge]);
+
+  // Anyone waiting on flush hears once there's nothing left it can save.
+  useEffect(() => {
+    if (!waiters.current.length || saving) return;
+    if (dirty && !readOnly && !stale && !failedHere) return;
+    const settled: Settled = { clean: !dirty, revision: current.rev };
+    for (const done of waiters.current.splice(0)) done(settled);
+  });
+
+  function flush(): Promise<Settled> {
+    return new Promise((done) => {
+      waiters.current.push(done);
+      setNudge((n) => n + 1);
+    });
+  }
+
+  // Leaving the page with an edit still waiting saves it on the way out.
+  useEffect(
+    () => () => {
+      void saveNow.current();
+    },
+    [],
+  );
 
   async function loadTheirs() {
     try {
@@ -263,8 +328,15 @@ export function useTeammateDraft(opts: {
     labels,
     blocking: hasBlockingTeammateIssues(issues),
     changes,
-    stale: (newer && dirty) || current.refused,
+    stale,
     saving,
+    saveState: stale
+      ? 'conflict'
+      : saving || (dirty && !failedHere)
+        ? 'saving'
+        : dirty
+          ? 'failed'
+          : 'saved',
     readOnly,
     canUndo: !readOnly && !!top,
     undoLabel: top?.label ?? null,
@@ -273,6 +345,7 @@ export function useTeammateDraft(opts: {
     applyFix: (fix) => void commit(fix.patch, fix.label, {}, fix.label),
     undo,
     save,
+    flush,
     loadTheirs,
     discard,
   };

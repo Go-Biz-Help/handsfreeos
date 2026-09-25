@@ -1,5 +1,5 @@
 'use client';
-import { ChevronDown, FlaskConical, History } from 'lucide-react';
+import { ChevronDown, CloudAlert, CloudCheck, FlaskConical, History, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -10,15 +10,62 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { TeammateStatus } from '@/lib/ai-team/types';
+import type { SaveState } from '@/lib/ai-team/use-draft';
 import { cn } from '@/lib/utils';
 import { TeammateStatusBadge } from './chips';
 import { TeammateMark } from './mark';
 
-/** The teammate's name, status and last save, with the test console, History and More. */
+/** Saved / Saving… / Couldn't save (Try again) / Not saved: changes save on their own. */
+export function SaveIndicator({
+  state,
+  onRetry,
+  className,
+}: {
+  state: SaveState;
+  onRetry: () => void;
+  className?: string;
+}) {
+  const bad = state === 'failed' || state === 'conflict';
+  const Icon = state === 'saving' ? Loader2 : bad ? CloudAlert : CloudCheck;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 whitespace-nowrap text-[13px]',
+        bad ? 'font-medium text-warning-text' : 'text-text-3',
+        className,
+      )}
+      data-testid="teammate-save-state"
+      data-state={state}
+      aria-live="polite"
+    >
+      <Icon
+        className={cn('h-4 w-4 flex-none', state === 'saving' && 'animate-spin')}
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      {
+        {
+          saved: 'Saved',
+          saving: 'Saving…',
+          failed: 'Couldn’t save',
+          conflict: 'Not saved',
+        }[state]
+      }
+      {state === 'failed' ? (
+        <button type="button" onClick={onRetry} className="text-accent-text hover:underline">
+          Try again
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
+/** The teammate's name, status and last save, with the save indicator, test console, History and More. */
 export function TeammateHeader({
   name,
   status,
   saved,
+  saveState,
   onTest,
   onHistory,
   menu,
@@ -28,6 +75,8 @@ export function TeammateHeader({
   status: TeammateStatus;
   /** "Revision 6 · saved by Dale today at 10:12 AM". */
   saved: string | null;
+  /** The auto-save indicator, for owners and admins. */
+  saveState?: ReactNode;
   /** Owners and admins only. */
   onTest?: () => void;
   onHistory: () => void;
@@ -53,6 +102,7 @@ export function TeammateHeader({
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {saveState ? <span className="mr-1">{saveState}</span> : null}
         {onTest ? (
           <Button variant="secondary" size="sm" onClick={onTest} data-testid="open-test-console">
             <FlaskConical className="h-4 w-4" strokeWidth={1.5} />
