@@ -95,7 +95,8 @@ export async function loadMoneyShell(workspaceId: string): Promise<MoneyShell> {
 
 /**
  * Every account the business has had, disconnected ones too — what they took stays on the books — for splitting
- * the lists by account (0105). Someone who bills sees the accounts they may use; empty for anyone else.
+ * the lists by account (0105). A sign-in that was started and never finished was never an account, and took
+ * nothing, so it stays out. Someone who bills sees the accounts they may use; empty for anyone else.
  */
 export async function loadAccounts(
   api: ApiClient,
@@ -110,7 +111,7 @@ export async function loadAccounts(
       })
       .then((r) => unwrapPage(r)),
   );
-  return got?.connections ?? [];
+  return (got?.connections ?? []).filter((c) => c.externalAccountId !== null);
 }
 
 /** The catalogue and the accounts the editor picks from: the accounts are the ones they may use. */

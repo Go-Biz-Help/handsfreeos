@@ -175,24 +175,25 @@ function base(settings: MoneySettings): DocumentDraft {
 }
 
 /**
- * The accounts someone may pick to be paid into (0105): the ones they may bill into, and the one a document
- * already uses even if it isn't theirs, so an invoice someone else raised still reads right.
+ * The accounts someone may pick to be paid into (0105): the connected ones they may bill into — never a sign-in
+ * that was started and never finished, nor one needing a reconnect — and the one a document already uses even if
+ * it isn't theirs or connected, so an invoice someone else raised still reads right.
  */
 export function accountsFor(
   connections: readonly PaymentConnectionRow[],
   current: string | null = null,
 ): PaymentConnectionRow[] {
-  return connections.filter((c) => c.usableByMe || c.id === current);
+  return connections.filter((c) => c.id === current || (c.status === 'active' && c.usableByMe));
 }
 
 /**
  * Where something new is paid into unless they pick, as the server would choose it: the default if it's theirs,
- * else the first of theirs — connected ones only, never one still signing in or needing a reconnect.
+ * else the first of theirs.
  */
 export function firstAccount(
   connections: readonly PaymentConnectionRow[],
 ): PaymentConnectionRow | undefined {
-  const mine = accountsFor(connections).filter((c) => c.status === 'active');
+  const mine = accountsFor(connections);
   return mine.find((c) => c.isDefault) ?? mine[0];
 }
 
