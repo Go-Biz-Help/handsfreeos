@@ -573,6 +573,8 @@ export const TeammateCatalogsOut = z.object({
     z.object({
       id: uuid,
       name: z.string(),
+      /** What it's for; the teammate reads it to pick a calendar. */
+      description: z.string().nullable(),
       archived: z.boolean(),
       bookableOnline: z.boolean(),
       color: z.string(),
