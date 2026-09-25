@@ -37,6 +37,7 @@ export default async function FormPage({
         siteSlug={siteRes.data?.site?.slug ?? null}
         canManage={canManage}
         brandedOrigin={brandedOrigin}
+        timeZone={got.workspace.timezone}
       />
     </>
   );

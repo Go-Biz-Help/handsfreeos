@@ -862,12 +862,14 @@ function describeAction(e: AuditEntry): string {
       return `changed a text in a campaign`;
     case 'campaign.update_email':
       return `changed the email in the campaign ${campaignOf(e)}`;
+    case 'campaign.update_call':
+      return `changed how the calls open in the campaign ${campaignOf(e)}`;
     case 'email_unsubscribe.record':
       return `recorded that ${s(e.after?.address) || 'a customer'} unsubscribed from campaign email`;
     case 'campaign.remove_recipient':
       return `took someone out of a campaign`;
     case 'campaign.approve':
-      return `approved the campaign ${campaignOf(e)}: ${countOf(e.after?.approved)} ${s(e.after?.channel) === 'email' ? 'emails' : 'texts'}, ${countOf(e.after?.perHour)} an hour`;
+      return `approved the campaign ${campaignOf(e)}: ${countOf(e.after?.approved)} ${campaignNoun(e)}, ${countOf(e.after?.perHour)} an hour`;
     case 'campaign.pause':
       return `paused the campaign ${campaignOf(e)}`;
     case 'campaign.resume':
@@ -875,7 +877,7 @@ function describeAction(e: AuditEntry): string {
     case 'campaign.cancel':
       return `stopped the campaign ${campaignOf(e)}`;
     case 'campaign.set_pace':
-      return `set the campaign ${campaignOf(e)} to ${countOf(e.after?.perHour)} ${s(e.after?.channel) === 'email' ? 'emails' : 'texts'} an hour`;
+      return `set the campaign ${campaignOf(e)} to ${countOf(e.after?.perHour)} ${campaignNoun(e)} an hour`;
     default:
       return detectionSentence(e) ?? e.action;
   }
@@ -886,6 +888,9 @@ const campaignOf = (e: AuditEntry) => {
   const t = s(e.after?.name) || e.entityName;
   return t ? `“${t}”` : '';
 };
+/** What a campaign sends, as its audit line counts them. */
+const campaignNoun = (e: AuditEntry) =>
+  s(e.after?.channel) === 'email' ? 'emails' : s(e.after?.channel) === 'call' ? 'calls' : 'texts';
 const countOf = (v: unknown): number => (typeof v === 'number' ? v : 0);
 
 // ---- Milestone 8: the Action Center helpers ----

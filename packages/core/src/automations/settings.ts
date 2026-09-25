@@ -59,6 +59,8 @@ const Switches = z.object({
   callConfirmVisits: z.boolean().default(false),
   /** AI outbound calls: the AI teammate rings back a missed call nobody answered. New: off. */
   callBackMissed: z.boolean().default(false),
+  /** AI outbound calls: the AI teammate asks to call about a quote still unanswered after its reminder. New: off. */
+  callQuotes: z.boolean().default(false),
   /** The AI keeps each customer's tags right after a message, a call, a booking, a deal, a payment or a form. */
   aiTags: on(),
   /** …and fills in or corrects their name, email, number and address when they said so (0107). */

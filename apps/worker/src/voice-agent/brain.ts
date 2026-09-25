@@ -39,6 +39,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
+import { callBrief } from '../ai-calls';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { chatCodeSender } from '../ai-team/chat-code';
@@ -134,6 +135,8 @@ export interface OutboundCall {
   readonly personId: string;
   readonly attendeeId: string | null;
   readonly firstName: string | null;
+  /** A quote's or a campaign's facts, for the AI (data); null for the other reasons. */
+  readonly brief: string | null;
 }
 
 export type Prepared =
@@ -224,6 +227,7 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
           personId: o.person_id,
           attendeeId: o.attendee_id,
           firstName: o.first_name?.trim() || null,
+          brief: await callBrief(tx, o.id),
         };
       }
       const [conv] = await tx

@@ -5435,11 +5435,14 @@ export const campaigns = app.table('campaigns', {
   nextSendAt: ts('next_send_at'),
   /** Promotions: the offer (Knowledge → Offers) this campaign is about, if any. */
   offerId: uuid('offer_id').references(() => offers.id, { onDelete: 'set null' }),
-  /** Email campaigns: sms or email (never changes); an email campaign's one subject and body. */
+  /** Email campaigns: sms, email or call (never changes); an email campaign's one subject and body. */
   channel: text('channel').notNull().default('sms'),
   emailSubject: text('email_subject'),
   emailBody: text('email_body'),
   emailEdited: boolean('email_edited').notNull().default(false),
+  /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
+  callOpening: text('call_opening'),
+  callEdited: boolean('call_edited').notNull().default(false),
   /** Why the worker paused it; null when a person did. */
   pausedReason: text('paused_reason'),
   ...timestamps(),

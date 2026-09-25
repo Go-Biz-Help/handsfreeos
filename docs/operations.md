@@ -7785,6 +7785,16 @@ Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `ca
 
 Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 
+**Call campaigns** (**Send as: Calls** on the new campaign form): the AI teammate calls each person picked, instead of a text each. Only people who agreed to calls in writing (**Calls from us** on the customer's Details says "Agreed in writing", with where) are called; the rest are left out, saying why.
+
+- Left out too: no phone, called by another campaign in the last 14 days, waiting on a reply or with an open card on Home, or booked in the next 30 days. The same checks run again just before each call.
+- The AI writes one opening line from the goal (and the offer, if any): it finishes "I'm calling …", for example "about our fall tune-up, which is $89 this month." The owner changes it on the review screen (**How every call opens**). On the call the AI says who it is, that it's an AI and that the call is recorded, then that line, then asks if now is a good time, and talks from the campaign's goal and offer, nothing more.
+- **Approve all and start calling** is the approval for every call on the list, so the calls don't wait for a person again, even while the teammate is training.
+- The same pace (calls an hour), open hours, quiet hours, **Pause**, **Resume** and **Stop** as texts. Each call is an AI call like the others (see "AI calls" below): recorded, the business's voicemail choice, "don't call me again" respected. Each person's row shows how their call went: **Calling soon**, **Talked** (with the summary), **Voicemail**, **No answer**, **Busy**, **Not called**.
+- It pauses itself, saying why, when the AI teammate isn't taking calls (off, or its phone off).
+
+Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`). See "Apply new migrations".
+
 **About an offer**: a campaign can be about one of the business's offers (Knowledge → Offers, live or upcoming). Picking one fills in the goal if it's empty, and the AI writes each text from the offer's own words and says when it ends. An archived offer can't be picked.
 
 ### Offer ending
@@ -7797,15 +7807,18 @@ Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind an
 
 ### AI calls
 
-The AI teammate can ring a customer itself. Two reasons for now, each a row on **Settings → Automations**, off to
-begin with:
+The AI teammate can ring a customer itself. Three reasons, each a row on **Settings → Automations**, off to begin
+with, and call campaigns (see "Outreach campaigns" above):
 
-| Row                                  | What it does                                                                                                                                                                  | On to begin with |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **Call to confirm tomorrow’s visit** | Three hours after the day-before reminder asked them to confirm, if they still haven't, it calls. A "yes" on the call confirms the visit. Never within two hours of the start | No               |
-| **Call back a missed call**          | Five minutes after a customer's call nobody (and no AI) answered, it calls back, unless anyone has been in touch with them since. Not for a call more than a day old          | No               |
+| Row                                   | What it does                                                                                                                                                                                                                        | On to begin with |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **Call to confirm tomorrow’s visit**  | Three hours after the day-before reminder asked them to confirm, if they still haven't, it calls. A "yes" on the call confirms the visit. Never within two hours of the start                                                       | No               |
+| **Call back a missed call**           | Five minutes after a customer's call nobody (and no AI) answered, it calls back, unless anyone has been in touch with them since. Not for a call more than a day old                                                                | No               |
+| **Call about a quote with no answer** | Two days after a quote's reminder text, if it's still open (no yes or no, not expired) and they haven't texted, emailed or called since, it asks to call. **Always waits for a person to approve it**, whatever the teammate's mode | No               |
 
-Both need the AI teammate on, with its phone turned on (**AI team → Phone**); the row says so until then.
+All three need the AI teammate on, with its phone turned on (**AI team → Phone**); the row says so until then.
+The quote call comes after the quote's reminder text (Settings → Payments, "Nudge an estimate nobody answered"); with no
+reminder set, there's no call either.
 
 - **Every call** comes from the business number, in open hours only and never in quiet hours (it waits for the next
   good moment). It starts: "Hi Ann, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I'm
@@ -7817,20 +7830,23 @@ Both need the AI teammate on, with its phone turned on (**AI team → Phone**); 
   up and send a text instead (the default), leave a short message, or just hang up.
 - **"Don't call me again"** on a call: the AI records it, and no AI call goes to them after that. The customer page's
   Details has **Calls from us** ("Agreed in writing (Signed service agreement)", "Doesn't want calls", "Not asked"),
-  where a person can change it. A yes needs where it's written; campaign calls (next) will only go to a yes.
-- Quote follow-up calls and campaign calls are the next piece. Quote calls will always wait for a person, whatever
-  the teammate's mode.
+  where a person can change it. A yes needs where it's written; campaign calls only go to a yes.
+- **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
+  the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
+  got (the team can text it again).
 
 Kept in `app.ai_calls` (one row per call: why, status, how it went, the summary) and `people.call_consent`; a call
 waiting for approval is an AI teammate draft of kind `call`. The worker's jobs are `ai_calls.consider`,
 `ai_calls.place` and `ai_calls.voicemail_text`; the carrier asks `/webhooks/twilio/voice/ai-call` what to do when
-it's answered. Needs `20261008000100_ai_calls.sql`. See "Apply new migrations".
+it's answered. Needs `20261008000100_ai_calls.sql` and, for quote and campaign calls,
+`20261008000200_quote_and_campaign_calls.sql`. See "Apply new migrations".
 
 **When something goes wrong**
 
 - **No calls go out:** check the row is on, the teammate is on with its phone on, the business has a live number,
   and the balance has room. An `ai_calls` row says why a call was left alone (`reason`: `already_confirmed`,
-  `in_touch_since`, `no_calls`, `switched_off`, `no_voice`, `balance`, `no_number`, `too_late`).
+  `in_touch_since`, `no_calls`, `switched_off`, `no_voice`, `balance`, `no_number`, `too_late`, and for campaign
+  calls `no_call_consent` and `campaign_stopped`).
 - **A call rings but the AI says nothing:** the voice agent isn't set up (`VOICE_AGENT` on the worker); the call
   hangs up by itself.
 

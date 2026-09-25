@@ -1,5 +1,6 @@
 'use client';
 import {
+  CAMPAIGN_CALL_OPENING_MAX,
   CAMPAIGN_DRAFT_MAX,
   CAMPAIGN_EMAIL_BODY_MAX,
   CAMPAIGN_EMAIL_SUBJECT_MAX,
@@ -17,6 +18,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CampaignGet, CampaignRecipient } from '@/lib/api/types';
 import {
   CAMPAIGN_STATUS_BADGE,
+  callWords,
   PAUSED_REASON_WORDS,
   people,
   skipWords,
@@ -36,7 +38,8 @@ const timeOf = (iso: string) =>
  * One campaign. While the AI writes, it shows how far it has got; then every text, each one editable, and
  * "Approve all and send"; once sending, how many went, when the next one goes, the pace, and pause or stop.
  * An email campaign shows its one email instead (subject and words, editable, with the footer every email
- * gets), and the people it goes to.
+ * gets), and the people it goes to. A call campaign shows how every call opens (editable), and who it calls and
+ * how each call went.
  */
 export function CampaignView({
   workspaceId,
@@ -52,7 +55,8 @@ export function CampaignView({
   const [busy, setBusy] = useState<string | null>(null);
   const live = c.status === 'drafting' || c.status === 'sending';
   const email = c.channel === 'email';
-  const noun = email ? 'email' : 'text';
+  const calls = c.channel === 'call';
+  const noun = email ? 'email' : calls ? 'call' : 'text';
 
   // Keeps up with the worker while it writes or sends.
   useEffect(() => {
@@ -100,12 +104,12 @@ export function CampaignView({
             </Badge>
             <span className="text-[13px] text-text-2">
               {c.status === 'drafting'
-                ? email
+                ? email || calls
                   ? `To ${people(c.counts.total - c.counts.skipped)}`
                   : `${c.counts.total - c.counts.drafting - c.counts.skipped} of ${c.counts.total - c.counts.skipped} written`
                 : c.status === 'review'
                   ? `${people(c.counts.ready)} to ${noun}`
-                  : `${c.counts.sent} of ${c.counts.sent + c.counts.approved + c.counts.failed} sent`}
+                  : `${c.counts.sent} of ${c.counts.sent + c.counts.approved + c.counts.failed} ${calls ? 'called' : 'sent'}`}
             </span>
           </div>
           {canManage ? (
@@ -117,14 +121,16 @@ export function CampaignView({
                       'approve',
                       email
                         ? `Send this email to ${people(c.counts.ready)}, ${c.perHour} an hour while you’re open?`
-                        : `Send ${people(c.counts.ready)} these texts, ${c.perHour} an hour while you’re open?`,
+                        : calls
+                          ? `Have your AI teammate call ${people(c.counts.ready)}, ${c.perHour} an hour while you’re open? Each call says it’s an AI and that it’s recorded.`
+                          : `Send ${people(c.counts.ready)} these texts, ${c.perHour} an hour while you’re open?`,
                     )
                   }
                   loading={busy === 'approve'}
                   disabled={c.counts.ready === 0}
                   data-testid="campaign-approve"
                 >
-                  Approve all and send
+                  {calls ? 'Approve all and start calling' : 'Approve all and send'}
                 </Button>
               ) : null}
               {c.status === 'sending' ? (
@@ -152,7 +158,9 @@ export function CampaignView({
                   onClick={() =>
                     act(
                       'cancel',
-                      `Stop this campaign? ${email ? 'Emails' : 'Texts'} not sent yet won’t go.`,
+                      calls
+                        ? 'Stop this campaign? Calls not made yet won’t be.'
+                        : `Stop this campaign? ${email ? 'Emails' : 'Texts'} not sent yet won’t go.`,
                     )
                   }
                   loading={busy === 'cancel'}
@@ -195,10 +203,23 @@ export function CampaignView({
         </p>
       ) : null}
 
-      {email && going.length ? (
+      {calls && c.call ? (
+        <CallCard
+          workspaceId={workspaceId}
+          campaignId={c.id}
+          call={c.call}
+          editable={canManage && c.status === 'review'}
+        />
+      ) : calls && c.status === 'drafting' ? (
+        <p className="text-[13px] text-text-2">
+          The AI is writing how the calls open. This page updates on its own.
+        </p>
+      ) : null}
+
+      {(email || calls) && going.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
-            Who gets it
+            {calls ? 'Who it calls' : 'Who gets it'}
           </h2>
           <Card className="divide-y divide-border">
             {going.map((r) => (
@@ -207,14 +228,14 @@ export function CampaignView({
                 workspaceId={workspaceId}
                 r={r}
                 editable={canManage && c.status === 'review' && r.status === 'ready'}
-                email
+                mode={calls ? 'call' : 'email'}
               />
             ))}
           </Card>
         </section>
       ) : null}
 
-      {email ? null : going.length ? (
+      {email || calls ? null : going.length ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
             {c.status === 'review' ? 'Read each text' : 'Texts'}
@@ -272,7 +293,8 @@ function PaceLine({
   const [value, setValue] = useState(String(c.perHour));
   const [busy, setBusy] = useState(false);
   const changeable = canManage && ['review', 'sending', 'paused'].includes(c.status);
-  const noun = c.channel === 'email' ? 'emails' : 'texts';
+  const noun = c.channel === 'email' ? 'emails' : c.channel === 'call' ? 'calls' : 'texts';
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1);
 
   async function save() {
     const n = Number(value);
@@ -308,7 +330,7 @@ function PaceLine({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="h-8 w-20"
-            aria-label={`${noun === 'emails' ? 'Emails' : 'Texts'} an hour`}
+            aria-label={`${Noun} an hour`}
             data-testid="campaign-pace-input"
           />
           <span>{noun} an hour</span>
@@ -341,7 +363,7 @@ function PaceLine({
       )}
       {c.status === 'sending' && data.nextSendAt ? (
         <span className="basis-full">
-          Next {noun === 'emails' ? 'email' : 'text'}: {timeOf(data.nextSendAt)}
+          Next {noun.slice(0, -1)}: {timeOf(data.nextSendAt)}
         </span>
       ) : null}
     </div>
@@ -352,14 +374,16 @@ function RecipientRow({
   workspaceId,
   r,
   editable,
-  email = false,
+  mode = 'text',
 }: {
   workspaceId: string;
   r: CampaignRecipient;
   editable: boolean;
-  /** An email campaign's row: who and where, no words of their own. */
-  email?: boolean;
+  /** An email or call campaign's row: who and where, no words of their own (a call's shows how it went). */
+  mode?: 'text' | 'email' | 'call';
 }) {
+  const email = mode === 'email';
+  const call = mode === 'call' ? callWords(r.call) : null;
   const router = useRouter();
   const [text, setText] = useState(r.draft ?? '');
   const [busy, setBusy] = useState(false);
@@ -413,10 +437,16 @@ function RecipientRow({
         </span>
         <span className="flex items-center gap-2 text-[12.5px] text-text-2">
           {r.edited ? <span>Edited</span> : null}
-          {r.status === 'sent' && r.sentAt ? (
+          {call ? (
+            <Badge variant={call.tone} data-testid={`recipient-call-${r.id}`}>
+              {call.text}
+            </Badge>
+          ) : r.status === 'sent' && r.sentAt ? (
             <Badge variant="ok">Sent {timeOf(r.sentAt)}</Badge>
           ) : null}
-          {r.status === 'failed' ? <Badge variant="danger">Didn’t send</Badge> : null}
+          {r.status === 'failed' && !call ? (
+            <Badge variant="danger">{mode === 'call' ? 'Not called' : 'Didn’t send'}</Badge>
+          ) : null}
           {r.status === 'approved' ? <span>Waiting its turn</span> : null}
           {editable ? (
             <Button
@@ -431,7 +461,10 @@ function RecipientRow({
           ) : null}
         </span>
       </div>
-      {email ? null : editable ? (
+      {mode === 'call' && r.call?.summary ? (
+        <p className="text-[13px] text-text-2">{r.call.summary}</p>
+      ) : null}
+      {mode !== 'text' ? null : editable ? (
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -535,6 +568,77 @@ function EmailCard({
             email.postalAddress ?? 'No address yet: add it in Settings → Payments.'
           }`}
         </div>
+      </Card>
+    </section>
+  );
+}
+
+/** A call campaign's opening line (saved when the box is left), and how every call goes around it. */
+function CallCard({
+  workspaceId,
+  campaignId,
+  call,
+  editable,
+}: {
+  workspaceId: string;
+  campaignId: string;
+  call: NonNullable<CampaignGet['campaign']['call']>;
+  editable: boolean;
+}) {
+  const router = useRouter();
+  const [opening, setOpening] = useState(call.opening ?? '');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setOpening(call.opening ?? ''), [call.opening]);
+
+  async function save() {
+    const o = opening.trim();
+    if (!o || o === (call.opening ?? '')) return;
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/campaign.update_call', {
+          body: { workspaceId, campaignId, opening: o },
+        }),
+      );
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2" data-testid="campaign-call">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+          How every call opens
+        </h2>
+        {call.edited ? <span className="text-[12.5px] text-text-2">Edited</span> : null}
+      </div>
+      <Card className="flex flex-col gap-3 p-[18px]">
+        <p className="text-[12.5px] text-text-2">
+          “Hi Ana, this is your AI teammate, an AI assistant for your business. This call is
+          recorded. I’m calling …”
+        </p>
+        {editable ? (
+          <Input
+            value={opening}
+            onChange={(e) => setOpening(e.target.value)}
+            onBlur={save}
+            maxLength={CAMPAIGN_CALL_OPENING_MAX}
+            disabled={busy}
+            aria-label="I’m calling …"
+            data-testid="campaign-call-opening"
+          />
+        ) : (
+          <p className="text-[13.5px] font-medium">{call.opening}</p>
+        )}
+        <p className="text-[12px] text-text-3">
+          Then it asks if now is a good time, and talks from what the campaign is for. Anyone who
+          asks not to be called again isn’t. A voicemail box gets what you chose in Settings →
+          Automations.
+        </p>
       </Card>
     </section>
   );

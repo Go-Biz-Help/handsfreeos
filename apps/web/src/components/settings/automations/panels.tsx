@@ -1843,8 +1843,8 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
         <Note>
           {ai} calls from your business number, in open hours only and never in quiet hours. Every
           call starts with who it is, that it’s an AI and that the call is recorded. While it’s
-          training, each call waits for someone to approve it on the Approvals page. Anyone who asks
-          not to be called again isn’t.
+          training, each call waits for someone to approve it on the Approvals page; a call about a
+          quote always does. Anyone who asks not to be called again isn’t.
         </Note>
       </Block>
       <Block title="When a voicemail box answers">

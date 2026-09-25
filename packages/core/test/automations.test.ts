@@ -102,6 +102,7 @@ describe('automation settings', () => {
   it('turns on every switch for what a business already had, and leaves re-engaging off', () => {
     expect(defaultAutomationSettings().switches).toEqual({
       callBackMissed: false,
+      callQuotes: false,
       callConfirmVisits: false,
       dayBefore: true,
       dayOf: true,
@@ -241,19 +242,19 @@ describe('automation rows', () => {
   });
 
   it('counts what is working, and what is on but waiting to be set up', () => {
-    // Everything works but re-engaging and the two AI calls, which start off, and intake questions, which waits
-    // for a form.
+    // Everything works but re-engaging and the three AI calls, which start off, and intake questions, which
+    // waits for a form.
     const rows = automationRows(ctx({ teammate: teammate('automatic') }));
     expect(automationCounts(rows)).toEqual({
-      working: rows.length - 4,
+      working: rows.length - 5,
       needsSetup: 1,
       total: rows.length,
     });
     // No teammate: its four rows read as a new one starts (all on), and none works yet, nor the three health
-    // rows about its work. The thank-you still works: a card asks a person instead. The two AI calls start off.
+    // rows about its work. The thank-you still works: a card asks a person instead. The three AI calls start off.
     const none = automationRows(ctx());
     expect(automationCounts(none)).toEqual({
-      working: none.length - 11,
+      working: none.length - 12,
       needsSetup: 8,
       total: none.length,
     });
