@@ -226,6 +226,15 @@ function recordedActor(actor: Actor, scope: ResolvedScope): RecordedActor {
           ...(actor.via
             ? { _attention: { itemId: actor.via.itemId, itemKind: actor.via.itemKind } }
             : {}),
+          // The AI keeping tags and details up to date: what brought it on, and the pass (0107).
+          ...(actor.contactAi
+            ? {
+                _contactAi: {
+                  trigger: actor.contactAi.trigger,
+                  sweepId: actor.contactAi.sweepId,
+                },
+              }
+            : {}),
         },
       };
     case 'workflow':

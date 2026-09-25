@@ -33,7 +33,8 @@ const RECORD = new URL('./contract/mobile-contract.json', import.meta.url);
 /**
  * Online commands the phone also sends: a draft estimate or invoice saved on it (a stale save keeps a new draft);
  * calling a customer through the person's own cell, cancelling that call, and verifying that cell; deleting the
- * account; the Assistant's consent; and registering the phone for push notifications, or removing it.
+ * account; the Assistant's consent; registering the phone for push notifications, or removing it; and adding a
+ * lesson from correcting the AI to what it knows, from its Home card.
  */
 const ONLINE_COMMANDS = [
   'estimate.create',
@@ -48,6 +49,7 @@ const ONLINE_COMMANDS = [
   'push_device.register',
   'push_device.remove',
   'user.update_profile',
+  'teammate_lesson.apply',
 ];
 /** What the phone asks the server for that its own copy can't answer. */
 const QUERIES = [

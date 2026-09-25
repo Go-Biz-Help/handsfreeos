@@ -306,6 +306,7 @@ import { maintenanceSetSchedule } from './maintenance';
 import { attendeeConfirm, attendeeConfirmOnline } from './attendee-confirm';
 import { paymentConnectionCommands } from './payment-connection';
 import { campaignCommands } from './campaign';
+import { contactAiCommands } from './contact-ai';
 import {
   moneySaveSettings,
   planArchive,
@@ -770,6 +771,8 @@ export const commands: readonly CommandDef[] = [
   referralCreateLead,
   teammateLessonApply,
   ...campaignCommands,
+  // The AI's pass over the whole customer list, putting tags on and off (0107).
+  ...contactAiCommands,
   maintenanceSetSchedule,
   leadCatchUp,
   attendeeConfirm,
@@ -841,6 +844,7 @@ export * from './automations';
 export * from './referral';
 export * from './teammate-lesson';
 export * from './campaign';
+export * from './contact-ai';
 export * from './maintenance';
 export * from './attendee-confirm';
 export * from './payment-connection';

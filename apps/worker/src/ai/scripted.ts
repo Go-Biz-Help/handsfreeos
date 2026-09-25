@@ -864,19 +864,65 @@ export function scriptedPromise(message: string): Record<string, unknown> {
 }
 
 /**
- * "Repeated corrections": the corrections have one thing in common when every reason given shares a word (of five
- * letters or more); the line is the first reason, as the business wrote it.
+ * "Learn from corrections": the newest correction teaches the AI something when it says why; the line is its reason,
+ * as the business wrote it, unless what the AI knows or a waiting suggestion already says it word for word, and it
+ * comes from the corrections whose reasons share a word (of five letters or more) with it. What
+ * the AI knows says otherwise when a line under one of its labels shares a word (of five letters or more) with the
+ * reason: that line is the old words, and the reason takes their place.
  */
 export function scriptedLesson(message: string): Record<string, unknown> {
-  const reasons = [...message.matchAll(/^Why: (.+)$/gm)].map((m) => m[1]!.trim());
-  const none = { similar: false, line: null, why: null };
-  if (reasons.length < 3) return none;
+  const none = { teach: false, line: null, why: null, from: [], conflict: null };
+  // Each correction's reason, by its number ("Correction 2:" … "Why: …").
+  const reasons = new Map<number, string>();
+  const parts = unquote(quotedBlock(message, 'corrections') ?? '').split(/^Correction (\d+):$/m);
+  for (let i = 1; i + 1 < parts.length; i += 2) {
+    const why = /^Why: (.+)$/m.exec(parts[i + 1]!)?.[1];
+    if (why) reasons.set(Number(parts[i]), why.trim());
+  }
+  const reason = reasons.get(1);
+  if (!reason) return none;
+  const line = reason.replace(/[.!]*$/, '.');
+  const flat = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  const knows = unquote(quotedBlock(message, 'what_the_ai_knows') ?? '');
+  const waiting = unquote(quotedBlock(message, 'already_suggested') ?? '');
+  if (flat(`${knows}\n${waiting}`).includes(flat(line))) return none;
   const wordsOf = (t: string) => new Set(t.toLowerCase().match(/[a-z]{5,}/g) ?? ([] as string[]));
-  const [first, ...rest] = reasons.map(wordsOf);
-  const shared = [...first!].find((w) => rest.every((r) => r.has(w)));
-  if (!shared) return none;
-  const line = reasons[0]!.replace(/[.!]*$/, '.');
-  return { similar: true, line, why: `Every correction mentions “${shared}”` };
+  const said = wordsOf(line);
+  const from = [...reasons]
+    .filter(([, why]) => [...wordsOf(why)].some((w) => said.has(w)))
+    .map(([n]) => n);
+  let place: string | null = null;
+  let existing: string | null = null;
+  for (const text of knows.split('\n')) {
+    const label = /^\[([^\]]+)\]/.exec(text)?.[1];
+    if (label) {
+      place = label;
+      continue;
+    }
+    if (place && text.trim() && [...wordsOf(text)].some((w) => said.has(w))) {
+      existing = text.replace(/^[-•]\s*/, '').trim();
+      break;
+    }
+  }
+  return {
+    teach: true,
+    line,
+    why: 'The correction says why',
+    from,
+    conflict:
+      place && existing
+        ? {
+            place,
+            existing,
+            replacement: line,
+            explain: `What the AI knows says “${existing}”, but the correction says “${line}”`,
+          }
+        : null,
+  };
 }
 
 /**
@@ -897,6 +943,73 @@ export function scriptedCampaign(message: string): Record<string, unknown> {
   };
 }
 
+/**
+ * The AI's look at a customer's tags and details (contact-ai/): a listed tag their history or conversation names
+ * goes on (“Mentioned …”), one they say they're "no longer" into comes off, and, when it may change details, "my new
+ * email is …", "my new number is …" and "we moved to …" from anyone but an unverified website visitor or the AI
+ * teammate change those. Nothing else changes.
+ */
+export function scriptedContactAi(message: string): Record<string, unknown> {
+  const block = (tag: string) => unquote(quotedBlock(message, tag) ?? '');
+  const tags = block('tags_you_may_use')
+    .split('\n')
+    .map((l) => /^- (.+)$/.exec(l.trim())?.[1]?.trim())
+    .filter((t): t is string => !!t);
+  const customer = block('customer');
+  const has = new Set(
+    [
+      ...(/^Tags now: (.+)$/m.exec(customer)?.[1] ?? '').matchAll(
+        /(?:^|, )(.+?) \(put on by [^)]*\)/g,
+      ),
+    ].map((m) => m[1]!.trim().toLowerCase()),
+  );
+  const cameFrom = /^Came from: (.+)$/m.exec(customer)?.[1] ?? '';
+  const lines = block('conversation').split('\n');
+  const trusted = lines.filter(
+    (l) => !/from (?:a website visitor \(not verified\)|the AI teammate)\]/.test(l),
+  );
+  const evidence = [cameFrom, block('history'), block('notes'), ...lines].join('\n');
+  const addTags: { tag: string; reason: string }[] = [];
+  const removeTags: { tag: string; reason: string }[] = [];
+  for (const tag of tags) {
+    const off = new RegExp(
+      `no longer[^.!?\\n]{0,40}${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      'i',
+    );
+    if (off.test(evidence)) {
+      if (has.has(tag.toLowerCase()))
+        removeTags.push({ tag, reason: `Said they’re no longer into “${tag}”` });
+      continue;
+    }
+    if (!has.has(tag.toLowerCase()) && mentions(evidence, tag))
+      addTags.push({ tag, reason: `Mentioned “${tag}”` });
+  }
+  const details: { field: string; action: 'set'; value: string; reason: string }[] = [];
+  if (/You may change contact details/.test(message)) {
+    const said = trusted.join('\n');
+    const email = /my new email is ([^\s,;!]+@[^\s,;!]+?)[.,;!]?(?:\s|$)/i.exec(said)?.[1];
+    if (email)
+      details.push({ field: 'email', action: 'set', value: email, reason: 'Gave a new email' });
+    const phone = /my new (?:phone |cell )?number is (\+?[\d()\s.-]{7,}\d)/i.exec(said)?.[1];
+    if (phone)
+      details.push({
+        field: 'phone',
+        action: 'set',
+        value: phone.trim(),
+        reason: 'Gave a new number',
+      });
+    const street = /we moved to ([^.!?\n,]+)/i.exec(said)?.[1];
+    if (street)
+      details.push({
+        field: 'addressLine1',
+        action: 'set',
+        value: street.trim(),
+        reason: 'Said they moved',
+      });
+  }
+  return { addTags: addTags.slice(0, 10), removeTags: removeTags.slice(0, 10), details };
+}
+
 /** An email campaign's one email: the goal as the subject, and a short body greeting {first_name}. */
 export function scriptedEmailCampaign(message: string): Record<string, unknown> {
   const goal = unquote(quotedBlock(message, 'campaign_goal') ?? '').trim();
@@ -911,6 +1024,10 @@ export function scriptedEmailCampaign(message: string): Record<string, unknown> 
 
 export const AUTOMATION_RULES: readonly ScriptRule[] = [
   {
+    when: /Say which of the listed tags this customer should gain or lose, and which of their contact details changed\.$/,
+    json: (message) => scriptedContactAi(message),
+  },
+  {
     when: /Write the one email for the campaign above, or nulls if it can’t be written\.$/,
     json: (message) => scriptedEmailCampaign(message),
   },
@@ -919,7 +1036,7 @@ export const AUTOMATION_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedCampaign(message),
   },
   {
-    when: /Say whether these corrections have one thing in common, and if so write one line of guidance for the AI\.$/,
+    when: /Say whether the newest correction teaches the AI something, write the line if it does, and say whether what the AI knows says otherwise\.$/,
     json: (message) => scriptedLesson(message),
   },
   {

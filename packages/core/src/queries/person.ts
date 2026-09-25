@@ -129,6 +129,7 @@ export const personList = defineQuery({
           ${input.ownerUserId ? sql`and p.owner_user_id = ${input.ownerUserId}` : sql``}
           ${input.assignedUserId ? sql`and (p.owner_user_id = ${input.assignedUserId} or p.team_user_ids @> array[${input.assignedUserId}::uuid])` : sql``}
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.tagId})` : sql``}
+          ${input.withoutTagId ? sql`and not exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.withoutTagId})` : sql``}
         ) x
         ${cursor ? (recent ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
         order by ${recent ? sql`x.sort_key desc, x.id desc` : sql`x.sort_key, x.id`}

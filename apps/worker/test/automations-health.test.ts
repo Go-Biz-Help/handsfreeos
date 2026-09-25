@@ -2,8 +2,9 @@
  * Settings → Automations' health and quality (stage 4b), on the real database:
  * - a payment connection that needs signing in again is an urgent card at once, and its owners get a push;
  * - a channel that usually gets texts and has gone quiet gets a card;
- * - three rejections of the AI teammate's drafts for the same reason become one line to add to what it knows, and
- *   adding it puts it in the policies and clears the card;
+ * - a rejection of the AI teammate's draft becomes a line to add to what it knows at once (not after three), adding it
+ *   puts it in the policies and clears the card, and one that goes against what the AI knows asks which is right and
+ *   swaps the old words for the new ones;
  * - drafts nobody looked at for a week get a card;
  * - the weekly re-read of the website starts a scan of its own, and its waiting updates get a card;
  * - a question the AI couldn't answer, asked three times, gets a card until it's answered.
@@ -22,6 +23,7 @@ import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WEBSITE_RESCAN_JOB, websiteRescanKey } from '../src/automations/index';
 import {
+  addFact,
   admin,
   api,
   draftsOf,
@@ -131,51 +133,180 @@ describe('a channel gone quiet', () => {
 });
 
 describe('the AI teammate', () => {
-  it('turns three rejections for the same reason into one line to add, and adding it clears the card', async () => {
-    const reasons = [
-      'We don’t work Sundays, offer Monday instead',
-      'No Sundays please, we are closed',
-      'Sundays are our day off',
-    ];
-    for (const [i, reason] of reasons.entries()) {
-      const c = await newCustomer(t, `Sun${i}`);
-      const { conversationId } = await textIn(t, c.phone, 'Can you come out Sunday?');
-      await replyNow(t, conversationId);
-      const [draft] = await draftsOf(conversationId);
-      await executeCommand(
-        api(),
-        aiTeammateDecideDraft,
-        { workspaceId: t.workspaceId, draftId: draft!.id, decision: 'reject', reason },
-        owner(t),
-        meta(),
-      );
-      await drain(t);
-    }
-    const [lesson] = await rows<{ id: string; line: string; corrections: number }>(
-      admin(),
-      sql`select id, line, cardinality(draft_ids) as corrections from app.teammate_lessons
-          where teammate_id = ${t.teammateId}`,
+  /** A customer asks, the teammate drafts a reply, and the owner turns it down saying why. */
+  async function rejectWith(name: string, ask: string, reason: string): Promise<void> {
+    const c = await newCustomer(t, name);
+    const { conversationId } = await textIn(t, c.phone, ask);
+    await replyNow(t, conversationId);
+    const [draft] = await draftsOf(conversationId);
+    await executeCommand(
+      api(),
+      aiTeammateDecideDraft,
+      { workspaceId: t.workspaceId, draftId: draft!.id, decision: 'reject', reason },
+      owner(t),
+      meta(),
     );
-    // The scripted AI gives the latest reason as the line.
-    expect(lesson).toMatchObject({ line: 'Sundays are our day off.', corrections: 3 });
+    await drain(t);
+  }
+
+  const lessons = () =>
+    rows<{
+      id: string;
+      line: string;
+      corrections: number;
+      conflict: Record<string, unknown> | null;
+    }>(
+      admin(),
+      sql`select id, line, cardinality(draft_ids) as corrections, conflict from app.teammate_lessons
+          where teammate_id = ${t.teammateId} order by created_at`,
+    );
+  const policies = async () =>
+    (
+      await rows<{ policies: string }>(
+        admin(),
+        sql`select profile ->> 'policies' as policies from app.knowledge_profiles
+            where workspace_id = ${t.workspaceId}`,
+      )
+    )[0]?.policies ?? '';
+
+  it('offers a line from the first correction, not the third, and adding it clears the card', async () => {
+    await rejectWith(
+      'Sun0',
+      'Can you come out Sunday?',
+      'We don’t work Sundays, offer Monday instead',
+    );
+    const [lesson, more] = await lessons();
+    expect(more).toBeUndefined();
+    // The scripted AI gives the newest reason as the line.
+    expect(lesson).toMatchObject({
+      line: 'We don’t work Sundays, offer Monday instead.',
+      corrections: 1,
+      conflict: null,
+    });
     const card = await itemOf(t, lesson!.id, 'ai_corrections');
     expect(card.state).toBe('open');
+    expect(card.title).toBe(`Ava was corrected`);
+    expect(card.reasons).toMatchObject([
+      {
+        code: 'corrected',
+        label: 'Corrected once · “We don’t work Sundays, offer Monday instead.”',
+      },
+    ]);
 
-    await executeCommand(
+    const out = await executeCommand(
       api(),
       teammateLessonApply,
       { workspaceId: t.workspaceId, lessonId: lesson!.id },
       owner(t),
       meta(),
     );
+    expect(out.output.replaced).toBeNull();
     await drain(t);
-    const [profile] = await rows<{ policies: string }>(
+    expect(await policies()).toContain('We don’t work Sundays, offer Monday instead.');
+    expect((await itemOf(t, lesson!.id, 'ai_corrections')).state).toBe('resolved');
+  });
+
+  it('offers nothing new when the AI already knows it', async () => {
+    await rejectWith('Sun1', 'Sunday any good?', 'We don’t work Sundays, offer Monday instead');
+    expect(await lessons()).toHaveLength(1);
+  });
+
+  it('asks which is right when what the AI knows says otherwise, and the new words take the old ones’ place', async () => {
+    await rows(
       admin(),
-      sql`select profile ->> 'policies' as policies from app.knowledge_profiles
+      sql`update app.knowledge_profiles
+          set profile = jsonb_set(profile, '{policies}',
+            to_jsonb((profile ->> 'policies') || ${'\n- Saturday visits cost the same as weekdays.'}))
           where workspace_id = ${t.workspaceId}`,
     );
-    expect(profile?.policies).toContain('Sundays are our day off.');
-    expect((await itemOf(t, lesson!.id, 'ai_corrections')).state).toBe('resolved');
+    await rejectWith('Sat0', 'Can you come out Saturday?', 'Saturday visits cost extra');
+    const lesson = (await lessons()).at(-1)!;
+    expect(lesson).toMatchObject({
+      line: 'Saturday visits cost extra.',
+      corrections: 1,
+      conflict: {
+        place: 'policies',
+        itemId: null,
+        where: 'Policies',
+        existing: 'Saturday visits cost the same as weekdays.',
+        replacement: 'Saturday visits cost extra.',
+      },
+    });
+    const card = await itemOf(t, lesson.id, 'ai_corrections');
+    expect(card.title).toBe(`Ava was corrected · which is right?`);
+    expect(card.detail).toMatch(/Saturday visits cost the same as weekdays/);
+    expect(card.reasons).toMatchObject([
+      {
+        code: 'knows_otherwise',
+        label: 'Policies says “Saturday visits cost the same as weekdays.”',
+      },
+      { code: 'corrected', label: 'Corrected once · “Saturday visits cost extra.”' },
+    ]);
+
+    // Never both: adding it without saying which is right is refused, and nothing changes.
+    await expect(
+      executeCommand(
+        api(),
+        teammateLessonApply,
+        { workspaceId: t.workspaceId, lessonId: lesson.id },
+        owner(t),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ rule: 'lesson_conflict' });
+    expect(await policies()).toContain('Saturday visits cost the same as weekdays.');
+
+    const out = await executeCommand(
+      api(),
+      teammateLessonApply,
+      { workspaceId: t.workspaceId, lessonId: lesson.id, replace: true },
+      owner(t),
+      meta(),
+    );
+    expect(out.output.replaced).toEqual({
+      where: 'Policies',
+      before: 'Saturday visits cost the same as weekdays.',
+      after: 'Saturday visits cost extra.',
+    });
+    await drain(t);
+    const now = await policies();
+    expect(now).toContain('- Saturday visits cost extra.');
+    expect(now).not.toContain('cost the same as weekdays');
+    expect(now).toContain('We don’t work Sundays, offer Monday instead.');
+    expect((await itemOf(t, lesson.id, 'ai_corrections')).state).toBe('resolved');
+  });
+
+  it('changes the knowledge item that says otherwise when the new one is picked', async () => {
+    const itemId = await addFact(
+      t,
+      'Dryer vents',
+      'Dryer vent cleaning is free with every furnace tune-up.',
+    );
+    await rejectWith(
+      'Vent0',
+      'Can you clean my dryer vent?',
+      'Dryer vent cleaning costs $89 on its own',
+    );
+    const lesson = (await lessons()).at(-1)!;
+    expect(lesson.conflict).toMatchObject({
+      place: 'item',
+      itemId,
+      where: 'Dryer vents',
+      existing: 'Dryer vent cleaning is free with every furnace tune-up.',
+    });
+    const out = await executeCommand(
+      api(),
+      teammateLessonApply,
+      { workspaceId: t.workspaceId, lessonId: lesson.id, replace: true },
+      owner(t),
+      meta(),
+    );
+    expect(out.output.replaced?.where).toBe('Dryer vents');
+    const [item] = await rows<{ body: string }>(
+      admin(),
+      sql`select body from app.knowledge_items where id = ${itemId}`,
+    );
+    expect(item?.body).toBe('Dryer vent cleaning costs $89 on its own.');
+    expect(await policies()).toContain('Dryer vent cleaning costs $89 on its own.');
   });
 
   it('flags a week of drafts nobody looked at', async () => {

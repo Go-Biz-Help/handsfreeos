@@ -60,12 +60,16 @@ export const query = <T>(
     ctx.correlationId,
   );
 
-/** Runs a command as the person, through the same kernel as a click, marked as done through the Assistant. */
+/**
+ * Runs a command as the person, through the same kernel as a click, marked as done through the Assistant. A
+ * `reason` the person gave (why these customers get this tag) is kept on the audit row.
+ */
 export async function command<T>(
   db: Db,
   ctx: ToolContext,
   name: string,
   input: Record<string, unknown>,
+  reason?: string | null,
 ): Promise<T> {
   const def = registry.command(name);
   if (!def) throw new Error(`Unknown command ${name}`);
@@ -77,6 +81,7 @@ export async function command<T>(
     {
       correlationId: ctx.correlationId,
       channel: 'assistant',
+      ...(reason?.trim() ? { reason: reason.trim().slice(0, 1000) } : {}),
     },
   );
   return done.output as T;
@@ -92,6 +97,11 @@ interface PersonItem {
   company: { id: string; name: string } | null;
   openLeads: number;
   notes?: string | null;
+  tags?: { id: string; name: string }[];
+  otherEmails?: { email: string; label: string | null }[];
+  otherPhones?: { phone: string; label: string | null }[];
+  source?: string | null;
+  custom?: Record<string, unknown>;
 }
 interface LeadItem {
   id: string;
@@ -258,6 +268,17 @@ export const readTools: Record<string, ReadTool> = {
       upcomingFor(db, ctx, personId),
     ]);
     const next = upcoming.items[0];
+    // The business's own fields, by id and name, so update_customer can change them (0107).
+    const custom = person.custom ?? {};
+    const fields = Object.keys(custom).length
+      ? (
+          await query<{ fields: { id: string; label: string }[] }>(db, ctx, 'custom_field.list', {
+            entity: 'person',
+          }).catch(() => ({ fields: [] as { id: string; label: string }[] }))
+        ).fields
+          .filter((f) => custom[f.id] !== undefined)
+          .map((f) => ({ id: f.id, name: f.label, value: custom[f.id] }))
+      : [];
     return {
       result: {
         person: {
@@ -266,7 +287,12 @@ export const readTools: Record<string, ReadTool> = {
           phone: person.phone,
           email: person.email,
           address: person.address,
+          otherPhones: person.otherPhones ?? [],
+          otherEmails: person.otherEmails ?? [],
           company: person.company?.name ?? null,
+          source: person.source ?? null,
+          tags: (person.tags ?? []).map((t) => ({ id: t.id, name: t.name })),
+          fields,
           notes: person.notes ?? null,
         },
         openLeads: leads.items.map(leadResult),
