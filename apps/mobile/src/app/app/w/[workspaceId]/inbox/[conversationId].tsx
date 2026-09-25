@@ -1,4 +1,5 @@
 import {
+  ALL_LINES_WORDS,
   assigneeShort,
   checkRich,
   COMPOSER_WORDS,
@@ -60,6 +61,7 @@ import {
   SnoozeSheet,
   StatusBanner,
 } from '@/components/inbox/conversation-parts';
+import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
 import { BrandMark } from '@/components/shell/brand';
@@ -85,7 +87,7 @@ import { dropReplyPhoto, sendReply, takeReplyPhoto, type TrayPhoto } from '@/inb
 import { threadEntries, type ThreadEntry } from '@/inbox/thread-entries';
 import { useConversation, useThread } from '@/inbox/use-conversation';
 import { useEmailFacts } from '@/inbox/use-email';
-import { useMembers, useNow } from '@/inbox/use-inbox';
+import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
 import { useNetwork } from '@/lib/network';
 
 type Row =
@@ -97,7 +99,22 @@ type Row =
  * draft waiting for an OK, and the composer. Everything reads from the phone's copy and works with no signal, but Call.
  */
 export default function Conversation() {
-  const params = useLocalSearchParams<{ conversationId: string; edit?: string; draft?: string }>();
+  const { conversationId, lanes } = useLocalSearchParams<{
+    conversationId: string;
+    lanes?: string;
+  }>();
+  // Switching lines lands on this same screen with another thread: what is typed, open or asked belongs to the one left.
+  return <Thread key={`${conversationId}:${lanes ?? ''}`} />;
+}
+
+function Thread() {
+  const params = useLocalSearchParams<{
+    conversationId: string;
+    edit?: string;
+    draft?: string;
+    /** "all": every line of the customer's woven into one timeline, to read (0089). */
+    lanes?: string;
+  }>();
   const conversationId = params.conversationId;
   const { business, me, userId } = useBusiness();
   const insets = useSafeAreaInsets();
@@ -106,7 +123,15 @@ export default function Conversation() {
   const { data, loading } = useConversation(conversationId);
   const c = data?.conversation ?? null;
   const person = data?.person ?? null;
-  const thread = useThread(conversationId, c?.person?.id ?? null);
+  const lanes = useLanes(c);
+  // Down to one line (the other archived, say) there is nothing to weave, and no switcher to pick a line from.
+  const all = params.lanes === 'all' && lanes.length !== 1;
+  const thread = useThread(
+    conversationId,
+    c?.person?.id ?? null,
+    all ? lanes.map((l) => l.id) : undefined,
+  );
+  const lineOf = React.useMemo(() => new Map(lanes.map((l) => [l.id, l.lineDisplay])), [lanes]);
   const drafts = useWaitingDrafts({ conversationId, kind: 'reply' });
   const members = useMembers();
   const names = useNames();
@@ -607,15 +632,28 @@ export default function Conversation() {
         return <ThreadDraft waiting={item.waiting} who={who} timeZone={data.timeZone} now={now} />;
       case 'item': {
         const i = item.item;
-        if (i.type === 'call') return <CallCard item={i} workspaceId={business.id} />;
-        if (i.channel === 'email')
-          return <EmailCard item={i} customerName={person?.fullName ?? null} />;
+        const shown =
+          i.type === 'call' ? (
+            <CallCard item={i} workspaceId={business.id} />
+          ) : i.channel === 'email' ? (
+            <EmailCard item={i} customerName={person?.fullName ?? null} />
+          ) : (
+            <MessageBubble
+              item={i}
+              customerFirstName={first}
+              onCancelHeld={(messageId) => void actions.cancelHeld(messageId)}
+            />
+          );
+        // "All lines" says which of the business's lines each one was on; one lane's thread says it once, above.
+        const line = all && i.conversationId ? lineOf.get(i.conversationId) : undefined;
+        if (!line) return shown;
         return (
-          <MessageBubble
-            item={i}
-            customerFirstName={first}
-            onCancelHeld={(messageId) => void actions.cancelHeld(messageId)}
-          />
+          <View>
+            <Text className="pt-2 text-center text-[11px] text-text-3" testID={`line-${i.id}`}>
+              {ALL_LINES_WORDS.line(i.direction, line)}
+            </Text>
+            {shown}
+          </View>
         );
       }
     }
@@ -632,7 +670,7 @@ export default function Conversation() {
   return (
     <Screen
       title={rowName(c)}
-      subtitle={threadChannelLine(c, person)}
+      subtitle={all ? ALL_LINES_WORDS.label : threadChannelLine(c, person)}
       leading="back"
       back={businessHref(business.id, 'inbox')}
       ask={false}
@@ -674,6 +712,15 @@ export default function Conversation() {
             : undefined
         }
       >
+        <LaneSwitcher
+          lanes={lanes}
+          currentId={conversationId}
+          all={all}
+          onPick={(id) => router.replace(businessHref(business.id, `inbox/${id}`) as Href)}
+          onAll={() =>
+            router.replace(businessHref(business.id, `inbox/${conversationId}?lanes=all`) as Href)
+          }
+        />
         <HandlingBanner
           view={view}
           c={c}
@@ -712,49 +759,65 @@ export default function Conversation() {
             </View>
           }
         />
-        <View style={{ paddingBottom: keyboard ? 0 : insets.bottom }} className="bg-card">
-          <Composer
-            userId={userId}
-            mode={current}
-            modes={modes}
-            onMode={switchMode}
-            body={body}
-            onBody={setBody}
-            subject={subject}
-            onSubject={setSubject}
-            showSubject={current === 'email' && !sameChannel}
-            photos={photos}
-            onAddPhoto={(source) => void addPhoto(source)}
-            onRemovePhoto={(photo) => {
-              dropReplyPhoto(userId, photo);
-              setPhotos((p) => p.filter((x) => x.fileId !== photo.fileId));
-            }}
-            canPhoto={current !== 'chat' && !!person && !editing}
-            note={note}
-            off={off}
-            first={first}
-            phoneDisplay={phoneDisplay}
-            fromNumber={data.fromNumber}
-            fromEmail={email.fromAddress}
-            elsewhere={sameChannel ? null : current === 'email' ? emailTo : (person?.phone ?? null)}
-            handover={sameChannel ? handoverNote(view, teammateName) : null}
-            online={online}
-            editing={!!editing}
-            onCancelEdit={() => {
-              setEditing(null);
-              setBody('');
-            }}
-            busy={sending}
-            onSend={() => void send()}
-            boxKey={boxKey}
-            rich={rich}
-            onRich={changeRich}
-            richCheck={richCheck}
-            canRich={canRich}
-            canCarousel={!!person}
-            onCardPhoto={(key, source) => void addCardPhoto(key, source)}
-          />
-        </View>
+        {all ? (
+          /**
+           * "All lines" reads and never writes (0089): no composer at all, with the reason and the way out in its
+           * place, as on the web. A greyed-out box would leave somebody typing into something that won't send.
+           */
+          <View
+            style={{ paddingBottom: insets.bottom }}
+            className="border-t border-border bg-card px-4 py-3"
+            testID="composer-all-lines"
+          >
+            <Text className="text-center text-[13.5px] text-text-2">{ALL_LINES_WORDS.note}</Text>
+          </View>
+        ) : (
+          <View style={{ paddingBottom: keyboard ? 0 : insets.bottom }} className="bg-card">
+            <Composer
+              userId={userId}
+              mode={current}
+              modes={modes}
+              onMode={switchMode}
+              body={body}
+              onBody={setBody}
+              subject={subject}
+              onSubject={setSubject}
+              showSubject={current === 'email' && !sameChannel}
+              photos={photos}
+              onAddPhoto={(source) => void addPhoto(source)}
+              onRemovePhoto={(photo) => {
+                dropReplyPhoto(userId, photo);
+                setPhotos((p) => p.filter((x) => x.fileId !== photo.fileId));
+              }}
+              canPhoto={current !== 'chat' && !!person && !editing}
+              note={note}
+              off={off}
+              first={first}
+              phoneDisplay={phoneDisplay}
+              fromNumber={data.fromNumber}
+              fromEmail={email.fromAddress}
+              elsewhere={
+                sameChannel ? null : current === 'email' ? emailTo : (person?.phone ?? null)
+              }
+              handover={sameChannel ? handoverNote(view, teammateName) : null}
+              online={online}
+              editing={!!editing}
+              onCancelEdit={() => {
+                setEditing(null);
+                setBody('');
+              }}
+              busy={sending}
+              onSend={() => void send()}
+              boxKey={boxKey}
+              rich={rich}
+              onRich={changeRich}
+              richCheck={richCheck}
+              canRich={canRich}
+              canCarousel={!!person}
+              onCardPhoto={(key, source) => void addCardPhoto(key, source)}
+            />
+          </View>
+        )}
       </View>
 
       <ActionsSheet

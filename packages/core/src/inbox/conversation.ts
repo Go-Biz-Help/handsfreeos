@@ -52,6 +52,19 @@ export function threadChannelLine(
   return opts.short ? 'Texts' : 'Texts · not in Customers yet';
 }
 
+/**
+ * "All lines" (0089): every lane of the customer woven into one timeline, each item saying which of the business's
+ * lines it was on. It reads and never writes: a reply has to leave from a line, and "all" is not one, so the box
+ * gives way to `note` and the switcher above is where somebody picks.
+ */
+export const ALL_LINES_WORDS = {
+  label: 'All lines',
+  note: 'Reading every line at once. Pick a line above to reply.',
+  /** Above each item: "To Front desk · (713) 555-0100" for what came in, "From info@…" for what went out. */
+  line: (direction: 'inbound' | 'outbound', lineDisplay: string): string =>
+    `${direction === 'inbound' ? 'To' : 'From'} ${lineDisplay}`,
+} as const;
+
 /** "(713) 555-0142 isn’t a customer yet. Add them, or link the number to someone you already have." */
 export function notCustomerBanner(
   counterpartDisplay: string,

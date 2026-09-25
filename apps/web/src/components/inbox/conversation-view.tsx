@@ -1,5 +1,6 @@
 'use client';
 import {
+  ALL_LINES_WORDS,
   assigneeShort,
   can,
   closedBanner,
@@ -407,7 +408,7 @@ export function ConversationView({
       className="flex-none border-t border-border bg-card px-4 py-3 text-center text-[13px] text-text-2"
       data-testid="composer-all-lines"
     >
-      Reading every line at once. Pick a line above to reply.
+      {ALL_LINES_WORDS.note}
     </div>
   ) : (
     <Composer

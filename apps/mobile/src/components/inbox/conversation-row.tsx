@@ -96,8 +96,9 @@ export function RowChipView({ chip }: { chip: RowChip }) {
 }
 
 /**
- * A conversation in the list, as the canvas draws it: who (the customer, or the number), the channel, when, the latest
- * message ("You: …" for what you sent), and what needs attention under it, with the assignee and the unread count.
+ * A customer in the list, as the canvas draws it: who (the customer, or the number), the channel, when, the latest
+ * message ("You: …" for what you sent), and what needs attention under it ("Text · Email" when they write in more than
+ * one place), with the assignee and the unread count.
  */
 export const ConversationRow = React.memo(function ConversationRow({
   c,
@@ -116,7 +117,9 @@ export const ConversationRow = React.memo(function ConversationRow({
   now: number;
   onPress: (id: string) => void;
 }) {
-  const unread = c.unreadCount > 0;
+  // The row is the customer (0089): its badge counts what is unread on every line of theirs, as the web's does.
+  const unreadCount = c.unreadTotal ?? c.unreadCount;
+  const unread = unreadCount > 0;
   const name = rowName(c);
   const chips = conversationChips(c, {
     waitThreshold,
@@ -178,10 +181,10 @@ export const ConversationRow = React.memo(function ConversationRow({
             {unread ? (
               <View
                 className="h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-[5px]"
-                accessibilityLabel={`${c.unreadCount} unread`}
+                accessibilityLabel={`${unreadCount} unread`}
               >
                 <Text className="text-[11px] font-semibold text-white">
-                  {unreadLabel(c.unreadCount)}
+                  {unreadLabel(unreadCount)}
                 </Text>
               </View>
             ) : null}

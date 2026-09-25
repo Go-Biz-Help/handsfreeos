@@ -1,5 +1,6 @@
 'use client';
 import {
+  ALL_LINES_WORDS,
   arrived,
   clockTime,
   dayDivider,
@@ -178,7 +179,7 @@ function ThreadEntry({
           a single lane's thread says its line once above the composer rather than on every message in it. */}
       {item.lineDisplay ? (
         <div className="pt-2 text-center text-[11px] text-text-3" data-testid={`line-${item.id}`}>
-          {item.direction === 'inbound' ? 'To' : 'From'} {item.lineDisplay}
+          {ALL_LINES_WORDS.line(item.direction, item.lineDisplay)}
         </div>
       ) : null}
       {item.type === 'call' ? (

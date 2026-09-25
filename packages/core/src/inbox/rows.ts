@@ -81,6 +81,36 @@ export interface ConversationListRow {
   readonly lead_value_cents?: number | string | null;
   readonly lead_next_action?: Text;
   readonly lead_next_action_at?: Text;
+  /** The business's end of the thread (0089): the number it is on, or the address mail goes out from. */
+  readonly line_e164?: Text;
+  readonly line_label?: Text;
+  readonly line_address?: Text;
+}
+
+/** One of a customer's conversations, as the list's row and the thread's line switcher take it (0089). */
+export interface InboxLane {
+  readonly id: string;
+  readonly channel: 'sms' | 'email' | 'chat';
+  /** "Front desk · (713) 555-0100", "info@lonestarhvac.com", "Website chat". */
+  readonly lineDisplay: string;
+  readonly unreadCount: number;
+}
+
+/**
+ * How a lane reads: the business's own end of the thread, never the customer's. A named number says its name
+ * as well as its digits; a lane with no line still says something, because a blank item is not choosable.
+ */
+export function lineDisplayOf(l: {
+  readonly channel: 'sms' | 'email' | 'chat';
+  readonly e164: Text | undefined;
+  readonly label: Text | undefined;
+  readonly address: Text | undefined;
+}): string {
+  if (l.channel === 'chat') return 'Website chat';
+  if (l.channel === 'email') return l.address || 'Email';
+  const number = l.e164 ? formatPhone(l.e164) : null;
+  if (!number) return 'Text';
+  return l.label ? `${l.label} · ${number}` : number;
 }
 
 /** A conversation as the inbox's words take it (the API's ConversationSummary, as far as a phone's copy knows it). */
@@ -104,6 +134,12 @@ export interface ConversationShape extends RowFacts {
     readonly nextAction: string | null;
     readonly nextActionAt: string | null;
   } | null;
+  /** Which of the business's lines this thread is on. */
+  readonly lineDisplay: string;
+  /** Every live lane of this customer, newest first: set once the list groups them (`groupByCustomer`). */
+  readonly lanes?: readonly InboxLane[];
+  /** Unread across all of those lanes, which is what the row's badge says. */
+  readonly unreadTotal?: number;
 }
 
 const CHANNELS = new Set(['sms', 'email', 'chat']);
@@ -157,7 +193,92 @@ export function conversationOf(r: ConversationListRow): ConversationShape {
     takenOverBy: userRef(r.taken_over_by, r.taken_over_name),
     // Whether a chat visitor still has the page open isn't on the phone.
     onSiteNow: false,
+    lineDisplay: lineDisplayOf({
+      channel,
+      e164: r.line_e164,
+      label: r.line_label,
+      address: r.line_address,
+    }),
   };
+}
+
+/**
+ * Which customer a thread belongs to, as `inbox.list` and `inbox.summary` group them (0089): their id when the
+ * thread is linked to someone, so their texts and email are one row; otherwise the address itself, so an unknown
+ * number and an unknown mail address stay apart, since nothing knows they are the same person.
+ */
+export const customerKeyOf = (c: Pick<ConversationShape, 'person' | 'channel' | 'counterpart'>) =>
+  c.person?.id ?? `${c.channel}:${c.counterpart}`;
+
+/** A lane, as a row's switcher lists it. */
+const laneOf = (c: ConversationShape): InboxLane => ({
+  id: c.id,
+  channel: c.channel,
+  lineDisplay: c.lineDisplay,
+  unreadCount: c.unreadCount,
+});
+
+/** Newest first by the latest message, ties by id: how a customer's lanes are listed. */
+const byNewest = (a: ConversationShape, b: ConversationShape): number => {
+  const x = a.lastMessageAt ?? '';
+  const y = b.lastMessageAt ?? '';
+  return x === y ? b.id.localeCompare(a.id) : x > y ? -1 : 1;
+};
+
+/** A customer's lanes, newest first. */
+export const lanesOf = (conversations: readonly ConversationShape[]): InboxLane[] =>
+  [...conversations].sort(byNewest).map(laneOf);
+
+/** Every live lane of each customer, newest first, keyed by `customerKeyOf`. */
+function lanesByCustomer(
+  conversations: readonly ConversationShape[],
+): ReadonlyMap<string, readonly InboxLane[]> {
+  const groups = new Map<string, ConversationShape[]>();
+  for (const c of conversations) {
+    const key = customerKeyOf(c);
+    const list = groups.get(key);
+    if (list) list.push(c);
+    else groups.set(key, [c]);
+  }
+  return new Map([...groups].map(([key, list]) => [key, lanesOf(list)]));
+}
+
+/**
+ * One row per customer, not per thread, as `inbox.list` gives them (0089).
+ *
+ * The filter runs first, on threads, so a box still means what it says: "Mine" is the customer with a thread
+ * assigned to me, and the row stands for that thread rather than some other lane the filter never matched.
+ * Then each customer keeps their newest matching lane, which carries every one of their lanes (whatever the
+ * filter) and the unread across all of them. `items` is everything the list could show, before the filter.
+ */
+export function groupByCustomer<T extends { readonly conversation: ConversationShape }>(
+  items: readonly T[],
+  filter: InboxFilter,
+  myUserId: string,
+): T[] {
+  const lanes = lanesByCustomer(items.map((i) => i.conversation));
+  const order = inboxOrder(filter.box);
+  // Which lane stands for the customer: the newest by the box's own key, as `row_number()` picks it.
+  const newer = (a: ConversationShape, b: ConversationShape) =>
+    filter.box === 'needs_person' ? order(b, a) : order(a, b);
+  const kept = new Map<string, T>();
+  for (const item of items) {
+    if (!inInbox(item.conversation, filter, myUserId)) continue;
+    const key = customerKeyOf(item.conversation);
+    const held = kept.get(key);
+    if (!held || newer(item.conversation, held.conversation) < 0) kept.set(key, item);
+  }
+  return [...kept].map(([key, item]) => {
+    const all = lanes.get(key) ?? [laneOf(item.conversation)];
+    return {
+      ...item,
+      conversation: {
+        ...item.conversation,
+        lanes: all,
+        unreadTotal: all.reduce((n, l) => n + l.unreadCount, 0),
+      },
+    };
+  });
 }
 
 export interface InboxFilter {
@@ -220,7 +341,11 @@ export function inboxOrder(box: InboxBoxKey) {
   };
 }
 
-/** The badges' counts, as `inbox.summary` counts them: open conversations that have had a message. */
+/**
+ * The badges' counts, as `inbox.summary` counts them: open conversations that have had a message, each customer once
+ * (0089). The list beside the badges shows a customer's texts and email as one row, and a badge that counted their
+ * lanes would say "3" over a list with one row in it.
+ */
 export interface InboxCounts {
   readonly open: { readonly mine: number; readonly unassigned: number; readonly all: number };
   readonly unread: { readonly mine: number; readonly unassigned: number; readonly all: number };
@@ -237,30 +362,43 @@ export function inboxCounts(
   waitingThresholdMinutes: number,
   now = Date.now(),
 ): InboxCounts {
-  const open = { mine: 0, unassigned: 0, all: 0 };
-  const unread = { mine: 0, unassigned: 0, all: 0 };
-  let waiting = 0;
-  let needsPerson = 0;
-  let ai = 0;
+  const open = { mine: new Set<string>(), unassigned: new Set<string>(), all: new Set<string>() };
+  const unread = { mine: new Set<string>(), unassigned: new Set<string>(), all: new Set<string>() };
+  const waiting = new Set<string>();
+  const needsPerson = new Set<string>();
+  const ai = new Set<string>();
   const threshold = waitingThresholdMinutes || 10;
   for (const c of conversations) {
     if (c.status !== 'open' || !c.lastMessageAt) continue;
+    const who = customerKeyOf(c);
     const mine = c.assignee?.id === myUserId;
     const unassigned = !c.assignee;
-    open.all += 1;
-    if (mine) open.mine += 1;
-    if (unassigned) open.unassigned += 1;
+    open.all.add(who);
+    if (mine) open.mine.add(who);
+    if (unassigned) open.unassigned.add(who);
     if (c.unreadCount > 0) {
-      unread.all += 1;
-      if (mine) unread.mine += 1;
-      if (unassigned) unread.unassigned += 1;
+      unread.all.add(who);
+      if (mine) unread.mine.add(who);
+      if (unassigned) unread.unassigned.add(who);
     }
     if (c.awaitingReplySince && Date.parse(c.awaitingReplySince) <= now - threshold * 60_000)
-      waiting += 1;
-    if (c.needsPersonSince) needsPerson += 1;
-    if (c.handledBy === 'ai') ai += 1;
+      waiting.add(who);
+    if (c.needsPersonSince) needsPerson.add(who);
+    if (c.handledBy === 'ai') ai.add(who);
   }
-  return { open, unread, waiting, waitingThresholdMinutes: threshold, needsPerson, ai };
+  const sizes = (b: typeof open) => ({
+    mine: b.mine.size,
+    unassigned: b.unassigned.size,
+    all: b.all.size,
+  });
+  return {
+    open: sizes(open),
+    unread: sizes(unread),
+    waiting: waiting.size,
+    waitingThresholdMinutes: threshold,
+    needsPerson: needsPerson.size,
+    ai: ai.size,
+  };
 }
 
 /** The business's texting settings from its synced `settings`, as the server reads them. */
@@ -343,6 +481,8 @@ export interface MediaShape {
 
 /** A thread item from a phone's copy: the API's ThreadItem, less what the copy doesn't hold (an email's HTML). */
 export interface ThreadItemShape extends ThreadItemFacts {
+  /** The lane it is on, so "All lines" can say which of the business's lines each one was on (0089). */
+  readonly conversationId: string | null;
   readonly media: readonly MediaShape[];
   readonly deliveredAt: string | null;
   /**
@@ -417,6 +557,7 @@ export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
   return {
     type: 'message',
     id: r.id,
+    conversationId: r.conversation_id,
     occurredAt: new Date(r.occurred_at).toISOString(),
     direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
     status: r.status,
@@ -471,6 +612,7 @@ export function callItemOf(r: CallThreadRow): ThreadItemShape {
   return {
     type: 'call',
     id: r.id,
+    conversationId: r.conversation_id,
     occurredAt: new Date(r.started_at).toISOString(),
     direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
     status: r.status,

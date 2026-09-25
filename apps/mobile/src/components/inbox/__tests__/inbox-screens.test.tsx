@@ -1,4 +1,4 @@
-import { conversationOf, type ConversationListRow } from '@hfos/core';
+import { conversationOf, groupByCustomer, type ConversationListRow } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
@@ -7,6 +7,7 @@ import MyCell from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell';
 import { Composer } from '@/components/inbox/composer';
 import { ActionsSheet } from '@/components/inbox/conversation-parts';
 import { ConversationRow } from '@/components/inbox/conversation-row';
+import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
 import { change } from '@/changes';
@@ -118,6 +119,63 @@ describe('a row in the list', () => {
     expect(screen.getByTestId('wait-chip')).toHaveTextContent('Waiting 34 min');
     await fireEvent.press(screen.getByTestId('conversation-row-c1'));
     expect(onPress).toHaveBeenCalledWith('c1');
+  });
+
+  it('is one row for a customer who texts and emails, as on the web, with a way between them (0089)', async () => {
+    const mike = { ...row, person_id: 'p-mike', first_name: 'Mike', last_name: 'Johnson' };
+    const [one, ...more] = groupByCustomer(
+      [
+        { conversation: conversationOf({ ...mike, id: 'c-text', unread_count: 1 }) },
+        {
+          conversation: conversationOf({
+            ...mike,
+            id: 'c-mail',
+            channel: 'email',
+            counterpart: 'mike@example.com',
+            unread_count: 2,
+            last_message_at: '2026-09-17T12:40:00.000Z',
+            line_address: 'info@lonestarhvac.com',
+          }),
+        },
+      ],
+      { box: 'all', status: 'open' },
+      DALE,
+    );
+    expect(more).toHaveLength(0);
+    await render(
+      <ConversationRow
+        c={one!.conversation}
+        myUserId={DALE}
+        waitThreshold={10}
+        timeZone="America/Chicago"
+        draftWaiting={false}
+        now={Date.parse('2026-09-17T13:04:00.000Z')}
+        onPress={() => undefined}
+      />,
+    );
+    expect(screen.getByText('Text · Email')).toBeTruthy();
+    expect(screen.getByLabelText('3 unread')).toBeTruthy();
+
+    const onPick = jest.fn();
+    const onAll = jest.fn();
+    const lanes = one!.conversation.lanes!;
+    await render(
+      <LaneSwitcher lanes={lanes} currentId="c-text" all={false} onPick={onPick} onAll={onAll} />,
+    );
+    expect(screen.getByTestId('lane-c-mail')).toHaveTextContent('info@lonestarhvac.com2');
+    await fireEvent.press(screen.getByTestId('lane-c-mail'));
+    expect(onPick).toHaveBeenCalledWith('c-mail');
+    await fireEvent.press(screen.getByTestId('lane-all'));
+    expect(onAll).toHaveBeenCalledTimes(1);
+
+    // Reading all of them: "All lines" is the one picked, and either line leads back to answering.
+    await render(
+      <LaneSwitcher lanes={lanes} currentId="c-text" all onPick={onPick} onAll={onAll} />,
+    );
+    expect(screen.getByTestId('lane-all')).toBeSelected();
+    expect(screen.getByTestId('lane-c-text')).not.toBeSelected();
+    await fireEvent.press(screen.getByTestId('lane-c-text'));
+    expect(onPick).toHaveBeenLastCalledWith('c-text');
   });
 });
 

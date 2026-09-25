@@ -1,4 +1,5 @@
 'use client';
+import { ALL_LINES_WORDS } from '@hfos/core';
 import { ChevronDown, Layers, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import { WebsiteIcon } from './ai-bits';
 import { CountBadge } from './bits';
 
 /** Every lane reads "All lines" the same way, here and in the composer's reason for not sending. */
-export const ALL_LINES = 'All lines';
+export const ALL_LINES = ALL_LINES_WORDS.label;
 
 /** The line a lane is on, as an icon: which kind of conversation somebody is switching to. */
 function LaneIcon({ channel }: { channel: ConversationLane['channel'] }) {

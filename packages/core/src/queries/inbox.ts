@@ -7,6 +7,7 @@ import { chatWidgetName } from '../chat/origins';
 import { formatPhone } from '../crm/phone';
 import { addressOut, fullName, tagsOf } from '../crm/records';
 import { HfosError } from '../errors';
+import { lineDisplayOf } from '../inbox/rows';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
@@ -290,22 +291,17 @@ function summary(r: ConversationRow): ConversationSummary {
  * blank item in a menu is not choosable.
  */
 function lane(l: LaneRow): ConversationLane {
-  const number = l.line_e164 ? formatPhone(l.line_e164) : null;
-  const lineDisplay =
-    l.channel === 'chat'
-      ? 'Website chat'
-      : l.channel === 'email'
-        ? (l.line_address ?? 'Email')
-        : number
-          ? l.line_label
-            ? `${l.line_label} · ${number}`
-            : number
-          : 'Text';
   return {
     id: l.id,
     channel: l.channel,
     lineId: l.line_id,
-    lineDisplay,
+    // The phone's copy says it the same way (`lineDisplayOf`), so a line reads the same on both.
+    lineDisplay: lineDisplayOf({
+      channel: l.channel,
+      e164: l.line_e164,
+      label: l.line_label,
+      address: l.line_address,
+    }),
     unreadCount: Number(l.unread_count),
     status: l.status,
     archived: !!l.archived,

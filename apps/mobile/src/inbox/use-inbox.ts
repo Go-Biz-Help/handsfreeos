@@ -1,13 +1,15 @@
 import {
   conversationOf,
+  groupByCustomer,
   inboxCounts,
   inboxOrder,
-  inInbox,
+  lanesOf,
   telephonySettingsOf,
   type ConversationListRow,
   type ConversationShape,
   type InboxCounts,
   type InboxFilter,
+  type InboxLane,
   type TeammateStatus,
 } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
@@ -21,6 +23,7 @@ import { withOwnChanges } from './outbox';
 import {
   CONVERSATIONS_SQL,
   INBOX_OUTBOX_SQL,
+  LANES_SQL,
   MEMBERS_SQL,
   TEAMMATE_SQL,
   WORKSPACE_SQL,
@@ -28,8 +31,9 @@ import {
 
 /**
  * The inbox from the phone's copy: every conversation in the business on screen (its open ones and the last 12 months'
- * messages are on the phone), with this phone's own changes over them, filtered, ordered and counted as the web's
- * `inbox.list` and `inbox.summary` do (core's `inInbox`, `inboxOrder`, `inboxCounts`).
+ * messages are on the phone), with this phone's own changes over them, filtered, grouped into one row per customer,
+ * ordered and counted as the web's `inbox.list` and `inbox.summary` do (core's `groupByCustomer`, `inboxOrder`,
+ * `inboxCounts`).
  */
 
 type ListRow = ConversationListRow & { readonly draft_waiting: number | null };
@@ -136,7 +140,7 @@ export function useConversations(): {
   }, [data, outbox, members, me.user.id, me.user.fullName, me.user.email, isLoading]);
 }
 
-/** The list for a box, status and search, in the web's order, and every box's counts. */
+/** The list for a box, status and search, one row per customer, in the web's order, and every box's counts. */
 export function useInboxList(filter: InboxFilter): {
   readonly items: readonly InboxItem[];
   readonly counts: InboxCounts;
@@ -150,11 +154,37 @@ export function useInboxList(filter: InboxFilter): {
     const all = items.map((i) => i.conversation);
     const order = inboxOrder(filter.box);
     return {
-      items: items
-        .filter((i) => inInbox(i.conversation, filter, me.user.id))
-        .sort((a, b) => order(a.conversation, b.conversation)),
+      items: groupByCustomer(items, filter, me.user.id).sort((a, b) =>
+        order(a.conversation, b.conversation),
+      ),
       counts: inboxCounts(all, me.user.id, telephony.unansweredReminderMinutes, now),
       loading,
     };
   }, [items, filter, me.user.id, telephony.unansweredReminderMinutes, now, loading]);
+}
+
+/**
+ * Every live lane of the customer behind one conversation, newest first, with this phone's own changes over each
+ * (0089): what the thread's line switcher lists. Empty until the conversation has loaded.
+ */
+export function useLanes(
+  c: Pick<ConversationShape, 'id' | 'person' | 'channel' | 'counterpart'> | null,
+): readonly InboxLane[] {
+  const { business, me } = useBusiness();
+  const personId = c?.person?.id ?? '';
+  const { data } = useQuery<ListRow>(LANES_SQL, [
+    business.id,
+    c?.id ?? '',
+    personId,
+    personId,
+    personId,
+    c?.channel ?? '',
+    c?.counterpart ?? '',
+  ]);
+  const outbox = useInboxOutbox();
+  return React.useMemo(() => {
+    if (!c) return [];
+    const self = { id: me.user.id, fullName: me.user.fullName || me.user.email };
+    return lanesOf(data.map((row) => withOwnChanges(conversationOf(row), outbox, self)));
+  }, [c, data, outbox, me.user.id, me.user.fullName, me.user.email]);
 }
