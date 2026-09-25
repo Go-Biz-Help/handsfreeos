@@ -15,9 +15,9 @@
  * spread: `NumberPortOut` says which fields are *filled*, never what they say.
  */
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, or } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { files, numberPorts, phoneNumbers } from '@hfos/db/schema';
+import { files, migrationReconnectTasks, numberPorts, phoneNumbers } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
@@ -460,7 +460,7 @@ export const numberPortComplete = defineCommand({
   output: NumberPortCompleteOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['number_port.completed', 'phone_number.ported_in'],
+  emits: ['number_port.completed', 'phone_number.ported_in', 'migration.task_changed'],
   actors: ['system'],
   async handler(ctx, input) {
     const p = await loadPort(ctx, input.portId);
@@ -496,9 +496,65 @@ export const numberPortComplete = defineCommand({
       payload: { e164: p.e164, kind: p.kind },
       after: { number: formatPhone(p.e164) },
     });
+    await tickOffMigratedNumber(ctx, p.e164);
     return { portId: p.id, phoneNumberId: numberId };
   },
 });
+
+/**
+ * A migration that found this number asked for it to be moved (M11), and now it has been.
+ *
+ * The migration writes each number it finds as a setup step — "your customers know this number, so it moves" —
+ * and those steps hold `migration.finalize` back until they are done. Moving the number is the step, so the
+ * moment the carrier finishes, it is ticked off here rather than left for somebody to come back and tick off
+ * by hand. By nobody (`completed_by` stays empty): HandsFreeOS saw it happen, no person claimed it.
+ *
+ * Only this business's own steps, and only open ones: a step somebody marked not needed stays that way.
+ */
+async function tickOffMigratedNumber(ctx: CommandContext, e164: string): Promise<void> {
+  const open = await ctx.tx
+    .select({
+      id: migrationReconnectTasks.id,
+      migrationId: migrationReconnectTasks.migrationId,
+      workspaceId: migrationReconnectTasks.workspaceId,
+      label: migrationReconnectTasks.label,
+      state: migrationReconnectTasks.state,
+    })
+    .from(migrationReconnectTasks)
+    .where(
+      and(
+        eq(migrationReconnectTasks.workspaceId, ctx.scope.workspaceId!),
+        eq(migrationReconnectTasks.kind, 'messaging'),
+        inArray(migrationReconnectTasks.state, ['todo', 'in_progress', 'blocked']),
+        or(
+          eq(migrationReconnectTasks.label, e164),
+          sql`${migrationReconnectTasks.descriptor} ->> 'number' = ${e164}`,
+        ),
+      ),
+    );
+  if (!open.length) return;
+  await ctx.tx
+    .update(migrationReconnectTasks)
+    .set({ state: 'done', completedAt: new Date(), completedBy: null })
+    .where(
+      inArray(
+        migrationReconnectTasks.id,
+        open.map((t) => t.id),
+      ),
+    );
+  // The same event a person ticking it off writes, so the migration's history reads the same either way.
+  for (const t of open)
+    await ctx.emit({
+      type: 'migration.task_changed',
+      entityType: 'migration',
+      entityId: t.migrationId,
+      workspaceId: t.workspaceId,
+      payload: { taskId: t.id, state: 'done' },
+      before: { state: t.state },
+      after: { step: t.label, state: 'done' },
+      broadcast: false,
+    });
+}
 
 export const portCommands = [
   numberPortStart,

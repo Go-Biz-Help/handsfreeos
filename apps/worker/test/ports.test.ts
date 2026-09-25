@@ -335,6 +335,59 @@ describe('a number that moves', () => {
     expect(landed?.providerSid).toBeNull();
   });
 
+  it('ticks off the migration’s step for the number once it lands, and only that one', async () => {
+    const e164 = aNumber('0125');
+    const other = aNumber('0126');
+    const [ws] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${workspaceId}`,
+    );
+    const org = ws!.organization_id;
+    const [connection] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.migration_connections (organization_id, source_system, status, adapter_version)
+          values (${org}, 'gohighlevel', 'active', 1) returning id`,
+    );
+    const [migration] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.migrations (organization_id, connection_id, source_system, status, name, adapter_version)
+          values (${org}, ${connection!.id}, 'gohighlevel', 'transition'::app.migration_status, 'Old CRM', 1)
+          returning id`,
+    );
+    // The two numbers the migration found customers texting and ringing, as `findReconnectTasks` writes them.
+    for (const n of [e164, other])
+      await rows(
+        admin(),
+        sql`insert into app.migration_reconnect_tasks (migration_id, organization_id, workspace_id, kind,
+              provider, label, instructions, settings_path, descriptor, blocks_live_use)
+            values (${migration!.id}, ${org}, ${workspaceId}, 'messaging', 'carrier', ${n}, 'Move it here.',
+              '/settings/texting', ${JSON.stringify({ number: n })}::jsonb, true)`,
+      );
+
+    const portId = await readyPort(e164);
+    await executeCommand(api(), numberPortSubmit, { workspaceId, portId }, actor(owner), meta());
+    await drain();
+    expect((await portRow(portId)).status).toBe('complete');
+
+    const tasks = await rows<{
+      label: string;
+      state: string;
+      completed_at: Date | null;
+      completed_by: string | null;
+    }>(
+      admin(),
+      sql`select label, state::text as state, completed_at, completed_by
+          from app.migration_reconnect_tasks where migration_id = ${migration!.id}`,
+    );
+    const step = new Map(tasks.map((t) => [t.label, t]));
+    expect(step.get(e164)?.state).toBe('done');
+    expect(step.get(e164)?.completed_at).not.toBeNull();
+    // HandsFreeOS saw the carrier finish it; no person claimed it.
+    expect(step.get(e164)?.completed_by).toBeNull();
+    // The number that has not moved is still on the list.
+    expect(step.get(other)?.state).toBe('todo');
+  });
+
   it('gives the number back when the old carrier says no', async () => {
     const e164 = aNumber('0000');
     const portId = await readyPort(e164);
