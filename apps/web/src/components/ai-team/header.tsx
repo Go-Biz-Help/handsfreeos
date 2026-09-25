@@ -84,7 +84,7 @@ export function TeammateHeader({
   );
 }
 
-/** Teammate · Activity. */
+/** Teammate · Activity · Approvals. */
 export function TeammateSubnav({
   workspaceId,
   className,
@@ -101,11 +101,10 @@ export function TeammateSubnav({
       label: 'Activity',
       active: pathname.startsWith(`${base}/activity`),
     },
-    // Its drafts wait on the Approvals page, beside workflow approvals.
     {
-      href: `/app/w/${workspaceId}/workflows/approvals?filter=ai`,
+      href: `${base}/approvals`,
       label: 'Approvals',
-      active: false,
+      active: pathname.startsWith(`${base}/approvals`),
     },
   ];
   return (

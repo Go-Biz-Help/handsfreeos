@@ -20,7 +20,7 @@ const FILTERS: readonly ApprovalsFilter[] = ['all', 'workflows', 'ai'];
 /**
  * What waits for the viewer's yes: workflow approval steps (owners and admins see every one, named approvers
  * theirs) and the AI teammate's drafts, with the ones decided or expired lately. `?filter=ai` opens on the
- * teammate's drafts (the AI teammate area links here).
+ * teammate's drafts (the AI teammate area has its own Approvals tab with only those).
  */
 export default async function ApprovalsPage({
   params,

@@ -8,9 +8,9 @@ const NEXT = '+17135550299';
 
 /**
  * Training wheels on the Approvals page: with approvals needed set to 5 (the fewest the settings allow), five
- * customers' drafts wait beside workflow approvals under the "Ava" filter; approving all five turns the teammate
- * automatic (by the threshold), and the next customer's reply goes straight out with no draft. Quiet hours are
- * off, so it passes at any hour.
+ * customers' drafts wait on the AI teammate's own Approvals tab, and beside workflow approvals under the "Ava"
+ * filter; approving all five turns the teammate automatic (by the threshold), and the next customer's reply
+ * goes straight out with no draft. Quiet hours are off, so it passes at any hour.
  */
 test('AI teammate approvals: five approvals turn it automatic, then it replies on its own', async ({
   page,
@@ -22,6 +22,16 @@ test('AI teammate approvals: five approvals turn it automatic, then it replies o
   for (const from of CUSTOMERS)
     await textFromCustomer({ from, to: b.business, body: 'Hi, do you service Katy?' });
   await draftsWaiting(b, CUSTOMERS.length);
+
+  // The AI teammate area's own Approvals tab: only Ava's drafts, under Ava's header.
+  await page.goto(`/app/w/${b.workspaceId}/ai-team`);
+  await page.getByTestId('subnav-approvals').click();
+  await expect(page).toHaveURL(/\/ai-team\/approvals$/);
+  await expect(page.getByTestId('teammate-approvals-tab')).toBeVisible();
+  await expect(page.getByTestId('teammate-name')).toHaveText('Ava');
+  await expect(page.getByTestId('subnav-approvals')).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByTestId('teammate-draft')).toHaveCount(CUSTOMERS.length);
+  await expect(page.getByTestId('approvals-filter-all')).toHaveCount(0);
 
   await page.goto(`/app/w/${b.workspaceId}/workflows/approvals`);
   await expect(page.getByTestId('approvals-count')).toHaveText('5');

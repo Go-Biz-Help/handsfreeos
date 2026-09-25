@@ -80,6 +80,7 @@ export function ApprovalsBoard({
   progress = null,
   timezone = 'America/Chicago',
   initialFilter = 'all',
+  teammateOnly = false,
 }: {
   workspaceId: string;
   /** Pending approvals the viewer can decide, newest first. */
@@ -98,8 +99,10 @@ export function ApprovalsBoard({
   teammateName?: string | null;
   progress?: TeammateGetOut['progress'];
   timezone?: string;
-  /** From `?filter=`: the AI teammate area links straight to its drafts. */
+  /** From `?filter=`. */
   initialFilter?: ApprovalsFilter;
+  /** The AI teammate area's Approvals tab: only its drafts, so no filter between kinds. */
+  teammateOnly?: boolean;
 }) {
   useLiveRefresh(['workflow_approval', 'ai_teammate_draft']);
   const now = useNow(serverNow);
@@ -121,13 +124,14 @@ export function ApprovalsBoard({
     { id: 'waiting', label: APPROVALS_WORDS.waitingTab(all.length) },
     { id: 'decided', label: APPROVALS_WORDS.decidedTab(decidedCount) },
   ];
-  const filters: readonly { id: ApprovalsFilter; label: string }[] = name
-    ? [
-        { id: 'all', label: APPROVALS_WORDS.filterAll(all.length) },
-        { id: 'workflows', label: APPROVALS_WORDS.filterWorkflows(openFlows.length) },
-        { id: 'ai', label: APPROVALS_WORDS.filterTeammate(name, openDrafts.length) },
-      ]
-    : [];
+  const filters: readonly { id: ApprovalsFilter; label: string }[] =
+    name && !teammateOnly
+      ? [
+          { id: 'all', label: APPROVALS_WORDS.filterAll(all.length) },
+          { id: 'workflows', label: APPROVALS_WORDS.filterWorkflows(openFlows.length) },
+          { id: 'ai', label: APPROVALS_WORDS.filterTeammate(name, openDrafts.length) },
+        ]
+      : [];
   const training = progress?.status === 'training' ? progressShort(progress) : null;
   const markDone = (id: string) => setDone((s) => new Set(s).add(id));
   return (
@@ -220,7 +224,9 @@ export function ApprovalsBoard({
       ) : (
         <Card data-testid="approvals-empty">
           <EmptyState title={APPROVALS_WORDS.emptyTitle}>
-            {APPROVALS_WORDS.emptyBody(name)}
+            {teammateOnly && name
+              ? APPROVALS_WORDS.teammateEmptyBody(name)
+              : APPROVALS_WORDS.emptyBody(name)}
           </EmptyState>
         </Card>
       )}
