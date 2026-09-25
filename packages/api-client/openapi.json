@@ -26590,6 +26590,10 @@
                             "default": false,
                             "type": "boolean"
                           },
+                          "callQuotes": {
+                            "default": false,
+                            "type": "boolean"
+                          },
                           "aiTags": {
                             "default": true,
                             "type": "boolean"
@@ -26859,6 +26863,10 @@
                               "default": false,
                               "type": "boolean"
                             },
+                            "callQuotes": {
+                              "default": false,
+                              "type": "boolean"
+                            },
                             "aiTags": {
                               "default": true,
                               "type": "boolean"
@@ -26885,6 +26893,7 @@
                             "approvalExpiry",
                             "callConfirmVisits",
                             "callBackMissed",
+                            "callQuotes",
                             "aiTags",
                             "aiDetails"
                           ],
@@ -27336,7 +27345,7 @@
     "/v1/commands/campaign.create": {
       "post": {
         "operationId": "command_campaign_create",
-        "summary": "Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, or one email to them all. Nothing is sent until someone approves the drafts.",
+        "summary": "Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, one email to them all, or an AI call to each who agreed to calls in writing. Nothing goes until someone approves it.",
         "tags": [
           "commands"
         ],
@@ -27412,7 +27421,8 @@
                     "type": "string",
                     "enum": [
                       "sms",
-                      "email"
+                      "email",
+                      "call"
                     ]
                   }
                 },
@@ -27582,6 +27592,83 @@
                   "campaignId",
                   "subject",
                   "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "campaignId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "review",
+                        "sending",
+                        "paused",
+                        "done",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "campaignId",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/campaign.update_call": {
+      "post": {
+        "operationId": "command_campaign_update_call",
+        "summary": "Change what the AI says it’s calling about on every call of a call campaign, before it’s approved. It finishes “I’m calling …”.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workflows.manage. Emits campaign.call_edited.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "campaignId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "opening": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "campaignId",
+                  "opening"
                 ]
               }
             }
@@ -85895,7 +85982,8 @@
                             "type": "string",
                             "enum": [
                               "sms",
-                              "email"
+                              "email",
+                              "call"
                             ]
                           },
                           "status": {
@@ -86063,7 +86151,7 @@
     "/v1/queries/campaign.get": {
       "post": {
         "operationId": "query_campaign_get",
-        "summary": "One outreach campaign: everyone it picked, each person’s text, and what became of it.",
+        "summary": "One outreach campaign: everyone it picked, each person’s text (or the email, or the calls’ opening line), and what became of it.",
         "tags": [
           "queries"
         ],
@@ -86120,7 +86208,8 @@
                           "type": "string",
                           "enum": [
                             "sms",
-                            "email"
+                            "email",
+                            "call"
                           ]
                         },
                         "status": {
@@ -86320,6 +86409,32 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "call": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "opening": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "edited": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "opening",
+                                "edited"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -86336,7 +86451,8 @@
                         "approvedAt",
                         "finishedAt",
                         "audience",
-                        "email"
+                        "email",
+                        "call"
                       ],
                       "additionalProperties": false
                     },
@@ -86414,6 +86530,59 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "call": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "awaiting_approval",
+                                      "queued",
+                                      "calling",
+                                      "done",
+                                      "skipped",
+                                      "cancelled",
+                                      "failed"
+                                    ]
+                                  },
+                                  "outcome": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "talked",
+                                          "voicemail",
+                                          "no_answer",
+                                          "busy",
+                                          "failed"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "summary": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "status",
+                                  "outcome",
+                                  "summary"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -86427,7 +86596,8 @@
                           "draft",
                           "edited",
                           "sentAt",
-                          "error"
+                          "error",
+                          "call"
                         ],
                         "additionalProperties": false
                       }
@@ -86461,7 +86631,7 @@
     "/v1/queries/campaign.preview_audience": {
       "post": {
         "operationId": "query_campaign_preview_audience",
-        "summary": "Who a new outreach campaign would text or email, and how many are left out and why, before it’s made.",
+        "summary": "Who a new outreach campaign would text, email or call, and how many are left out and why, before it’s made.",
         "tags": [
           "queries"
         ],
@@ -86508,7 +86678,8 @@
                     "type": "string",
                     "enum": [
                       "sms",
-                      "email"
+                      "email",
+                      "call"
                     ]
                   }
                 },

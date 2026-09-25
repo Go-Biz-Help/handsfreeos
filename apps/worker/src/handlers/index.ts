@@ -28,7 +28,7 @@ import {
   onCalendarRefreshWanted,
 } from './calendar';
 import { onCampaignCreated, onCampaignPace, onCampaignSending } from '../automations/campaigns';
-import { onAiCallEnded, onMissedCallForAi } from '../ai-calls/index';
+import { onAiCallEnded, onMissedCallForAi, onQuoteNudgedForAi } from '../ai-calls/index';
 import { onExpiringArm } from '../automations/expiring';
 import { onHandoffNudge } from '../automations/handoff';
 import { onConnectionBroke, onCorrection } from '../automations/health';
@@ -186,6 +186,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // brings the customer a receipt (or, where nobody was watching, that it didn't go through), and a
     // settled invoice brings the team its "you've been paid".
     'estimate.sent': [onEstimateSent, onPipelineEvidence],
+    'estimate.nudged': onQuoteNudgedForAi,
     'estimate.accepted': onPipelineEvidence,
     'invoice.sent': onInvoiceSent,
     'invoice.updated': onInvoiceChanged,

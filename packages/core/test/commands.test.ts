@@ -387,6 +387,7 @@ describe('registry', () => {
       'campaign.create',
       'campaign.update_draft',
       'campaign.update_email',
+      'campaign.update_call',
       'campaign.remove_recipient',
       'campaign.approve',
       'campaign.pause',
