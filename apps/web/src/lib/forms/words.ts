@@ -1,4 +1,10 @@
-import { FORM_MODE_LABELS, QUESTION_LABELS, type FormMode, type QuestionType } from '@hfos/core';
+import {
+  FORM_MODE_LABELS,
+  publicFormPath,
+  QUESTION_LABELS,
+  type FormMode,
+  type QuestionType,
+} from '@hfos/core';
 import {
   AlignLeft,
   AtSign,
@@ -79,4 +85,4 @@ export function completionLine(rate: number | null): string | null {
   return `${Math.round(rate * 100)}% finish it`;
 }
 
-export const PUBLIC_FORM_PATH = (site: string, slug: string) => `/f/${site}/${slug}`;
+export const PUBLIC_FORM_PATH = publicFormPath;

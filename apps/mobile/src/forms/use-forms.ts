@@ -16,6 +16,8 @@ export interface PhoneForm {
   readonly id: string;
   readonly name: string;
   readonly mode: 'form' | 'survey' | 'quiz';
+  /** Its part of the public link (`/f/<site>/<slug>`), which the share sheet builds from. */
+  readonly slug: string;
   readonly definition: FormDefinitionValue;
 }
 
@@ -23,11 +25,12 @@ interface FormRow {
   id: string;
   name: string;
   mode: string;
+  slug: string | null;
   definition: string | null;
 }
 
 const SQL = `
-  SELECT f.id AS id, f.name AS name, f.mode AS mode, v.definition AS definition
+  SELECT f.id AS id, f.name AS name, f.mode AS mode, f.slug AS slug, v.definition AS definition
   FROM forms f
   LEFT JOIN form_versions v ON v.form_id = f.id
   WHERE f.workspace_id = ?
@@ -58,6 +61,7 @@ export function usePhoneForms(): {
             id: row.id,
             name: row.name,
             mode: (row.mode as PhoneForm['mode']) ?? 'form',
+            slug: row.slug ?? '',
             definition: parsed.data,
           },
         ];

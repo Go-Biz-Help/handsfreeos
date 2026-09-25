@@ -219,11 +219,13 @@ export async function makeCalendar(
   w: World,
   name: string,
   patch: ConfigPatch = {},
+  description?: string,
 ): Promise<{ id: string; slug: string }> {
   const created = await run(w, calendarCreate, {
     workspaceId: w.workspaceId,
     name,
     preset: 'scratch',
+    ...(description ? { description } : {}),
   });
   const { calendar } = await executeQuery(
     api(),

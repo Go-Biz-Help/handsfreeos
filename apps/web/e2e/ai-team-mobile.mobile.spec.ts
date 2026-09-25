@@ -71,17 +71,18 @@ test('AI teammate at 390 px, dark: drawer, picker, modules full screen, checks a
   await expect(page.getByTestId('phone-module-followUp')).toContainText('15 follow-ups');
   expect(await width()).toBeLessThanOrEqual(390);
 
-  // A module opens full screen, and saves from its top bar.
+  // A module opens full screen; a change saves on its own, and its top bar says so.
   await page.getByTestId('phone-module-followUp').click();
   const screen = page.getByTestId('teammate-module-screen');
   await expect(screen).toBeVisible();
   const box = (await screen.boundingBox())!;
   expect(box.width).toBeLessThanOrEqual(390);
   expect(box.height).toBeGreaterThan(800);
+  const saveState = screen.getByTestId('teammate-save-state');
+  await expect(saveState).toHaveText('Saved');
   await screen.getByTestId('skill-followUp').click();
-  await screen.getByRole('button', { name: 'Save' }).click();
-  await expect(page.getByText(/^Saved as revision 2\./)).toBeVisible();
-  await expect(screen.getByRole('button', { name: 'Save' })).toHaveCount(0);
+  await expect(saveState).toHaveText('Saved');
+  await expect(summary).toContainText('Revision 2');
   await screen.getByRole('button', { name: 'Back' }).click();
   await expect(screen).toBeHidden();
   await expect(page.getByTestId('phone-module-followUp')).toContainText('Off');

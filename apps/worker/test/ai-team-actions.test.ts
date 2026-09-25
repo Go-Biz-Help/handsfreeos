@@ -351,10 +351,15 @@ const RULES: TeammateRule[] = [
 
 beforeAll(async () => {
   w = await teammateWorld('ai-actions', { status: 'automatic', disclosure: 'when_asked' });
-  lawn = await makeCalendar(w, 'Lawn care', {
-    recurring: { customerSeries: true, maxOccurrences: 8 },
-    waitlist: { enabled: true },
-  });
+  lawn = await makeCalendar(
+    w,
+    'Lawn care',
+    {
+      recurring: { customerSeries: true, maxOccurrences: 8 },
+      waitlist: { enabled: true },
+    },
+    'Weekly mowing and edging.\nNot for tree work.',
+  );
   byZip = await makeCalendar(w, 'Repairs', {
     territory: { routing: 'zip' },
     locations: { options: [{ kind: 'customer_address' }] },
@@ -383,6 +388,18 @@ describe('what the teammate is told about its calendars', () => {
     expect(context).toMatch(/Lawn care.*takes repeat visits, up to 8 \(book_repeating\)/);
     expect(context).toMatch(/Repairs.*goes by ZIP code/);
     expect(context).toContain('check it with check_service_area');
+  });
+
+  it('says what each calendar is for, when the business has said', async () => {
+    const c = await newCustomer(w, 'Bea');
+    const m = await textIn(w, c.phone, 'My zip is 78702, can someone mow my lawn?');
+    await replyNow(w, m.conversationId);
+    const context = requestAbout(w, 'mow my lawn')!.context!;
+    expect(context).toMatch(
+      /Lawn care \(calendar id [0-9a-f-]{36}\), for “Weekly mowing and edging\. Not for tree work\.”/,
+    );
+    expect(context).toMatch(/Repairs \(calendar id [0-9a-f-]{36}\)(?!, for)/);
+    expect(context).toContain('Book on the calendar that fits what they want');
   });
 });
 

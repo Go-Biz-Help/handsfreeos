@@ -42,6 +42,7 @@ export const catalogs: TeammateCatalogs = {
     {
       id: SERVICE_CAL,
       name: 'Service calls',
+      description: 'Repairs and tune-ups at the customer’s home.',
       archived: false,
       bookableOnline: true,
       color: '#0e7490',
@@ -50,6 +51,7 @@ export const catalogs: TeammateCatalogs = {
     {
       id: OFFICE_CAL,
       name: 'Office visits',
+      description: null,
       archived: false,
       bookableOnline: false,
       color: '#7c3aed',
@@ -58,6 +60,7 @@ export const catalogs: TeammateCatalogs = {
     {
       id: OLD_CAL,
       name: 'Old calendar',
+      description: null,
       archived: true,
       bookableOnline: true,
       color: '#2d69d8',

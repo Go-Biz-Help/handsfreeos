@@ -165,6 +165,8 @@ export interface BuilderProps {
   payments: BuilderPayments;
   /** Their own domain when one is serving (M17): the booking link in the right rail is on it. */
   brandedOrigin: string | null;
+  /** Open with its name and description showing (the AI teammate's "Tell it what it's for" link). */
+  openDetails?: boolean;
 }
 
 /**
@@ -238,7 +240,7 @@ export function CalendarBuilder(props: BuilderProps) {
   const [impact, setImpact] = useState<{ impacts: Impact[]; restore: number | null } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
-  const [renaming, setRenaming] = useState(false);
+  const [renaming, setRenaming] = useState(props.openDetails ?? false);
   const [linking, setLinking] = useState(false);
 
   const setDraft = (next: CalendarConfig) => {
@@ -893,7 +895,11 @@ function RenameDialog({
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </Field>
-          <Field label="Description (optional)" htmlFor="rename-description">
+          <Field
+            label="Description (optional)"
+            htmlFor="rename-description"
+            hint="What it’s for. Shown on the booking page, and your AI teammate reads it to pick this calendar."
+          >
             <Textarea
               id="rename-description"
               value={form.description ?? ''}

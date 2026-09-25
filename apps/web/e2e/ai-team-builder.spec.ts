@@ -4,7 +4,7 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * The AI teammate area: "AI teammate" in the drawer after Knowledge, a preset (labels follow the pick), the
- * builder's modules with their one-line summaries, a red item fixed with Fix (and undone), Undo, Save,
+ * builder's modules with their one-line summaries, a red item fixed with Fix (and undone), Undo, saving on its own,
  * turning it on, "Switch to automatic now" and "Back to training" (each confirmed), History with Restore
  * (training progress stays), the test console (a price question answered from the knowledge base, held as
  * a draft while in training wheels, and nothing sent; then a test call that picks up and hangs up on a goodbye)
@@ -75,13 +75,22 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await expect(labels).toHaveText(['Lead Qualifier', 'Follows up']);
   await expect(page.getByTestId('module-summary-qualify')).toContainText('questions');
 
-  // Identity: the name follows as it's typed, and Undo takes it back.
+  // Identity: the name follows as it's typed and saves on its own; Undo takes it back, and saves that too.
+  const saveState = page.getByTestId('teammate-save-state');
+  const saveNote = page.getByTestId('teammate-save-note');
+  const savedRevision = async () =>
+    Number((await saveNote.textContent())?.match(/revision (\d+)$/)?.[1]);
+  await expect(saveState).toHaveText('Saved');
   await page.getByTestId('identity-name').fill('Max');
   await expect(page.getByTestId('teammate-name')).toHaveText('Max');
   await expect(page.getByTestId('module-summary-identity')).toHaveText('Max · says it’s AI first');
-  await expect(page.getByTestId('teammate-save-note')).toHaveText('Unsaved changes');
+  await expect(saveState).toHaveText('Saved');
+  await expect(saveNote).toHaveText('All changes saved · revision 2');
+  await expect(page.getByTestId('teammate-revision')).toContainText('Revision 2');
   await page.getByTestId('teammate-undo').click();
   await expect(page.getByTestId('teammate-name')).toHaveText('Ava');
+  await expect(saveState).toHaveText('Saved');
+  await expect(saveNote).toHaveText('All changes saved · revision 3');
 
   // Qualify: with no questions left it can't be turned on, and Fix brings suggested ones back.
   await page.getByTestId('module-qualify').click();
@@ -130,10 +139,12 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await expect(how).not.toContainText('Tells the team when a lead isn’t a fit');
   await page.getByTestId('qualify-tell-team').click();
   await expect(page.getByTestId('qualify-tell-team')).toBeChecked();
-  await page.getByTestId('teammate-save').click();
-  await expect(page.getByText(/^Saved as revision 2\./)).toBeVisible();
-  await expect(page.getByTestId('teammate-save-note')).toHaveText('All changes saved · revision 2');
-  await expect(page.getByTestId('teammate-revision')).toContainText('Revision 2');
+  // Each change saved on its own a moment later; how many revisions that took depends on the pauses.
+  await expect(saveState).toHaveText('Saved');
+  await expect(saveNote).toHaveText(/^All changes saved · revision \d+$/);
+  const qualified = await savedRevision();
+  expect(qualified).toBeGreaterThan(3);
+  await expect(page.getByTestId('teammate-revision')).toContainText(`Revision ${qualified}`);
 
   // Hours: its own hours sit beside quiet hours, which apply to texts.
   await page.getByTestId('module-hours').click();
@@ -146,8 +157,9 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await page.getByTestId('module-autonomy').click();
   await page.getByRole('button', { name: 'Less (Approvals needed)' }).click();
   await expect(page.getByTestId('module-summary-autonomy')).toHaveText('19 approvals · 2 h drafts');
-  await page.getByTestId('teammate-save').click();
-  await expect(page.getByTestId('teammate-save-note')).toHaveText('All changes saved · revision 3');
+  await expect(saveState).toHaveText('Saved');
+  const latest = await savedRevision();
+  expect(latest).toBeGreaterThan(qualified);
 
   // Limits: its part of today's AI use under its share, and prices as Knowledge sets them.
   await page.getByTestId('module-limits').click();
@@ -169,14 +181,17 @@ test('AI teammate: a preset, the modules, Fix, the status override, history and 
   await page.getByTestId('status-confirm').click();
   await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
 
-  // History: every save is kept; restoring revision 2 saves it again as revision 4, status untouched.
+  // History: every save is kept; restoring the one before Autonomy's saves it again as the newest,
+  // status untouched.
   await page.getByTestId('open-history').click();
   const history = page.getByTestId('teammate-history');
-  await expect(history.locator('li')).toHaveCount(3);
-  await expect(history.getByTestId('revision-3')).toContainText('Current');
-  await history.getByTestId('restore-2').click();
-  await expect(page.getByText(/^Restored revision 2 as revision 4\./)).toBeVisible();
-  await expect(page.getByTestId('teammate-revision')).toContainText('Revision 4');
+  await expect(history.locator('li')).toHaveCount(latest);
+  await expect(history.getByTestId(`revision-${latest}`)).toContainText('Current');
+  await history.getByTestId(`restore-${qualified}`).click();
+  await expect(
+    page.getByText(`Restored revision ${qualified} as revision ${latest + 1}.`, { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByTestId('teammate-revision')).toContainText(`Revision ${latest + 1}`);
   await expect(page.getByTestId('module-summary-autonomy')).toHaveText('20 approvals · 2 h drafts');
   await expect(page.getByTestId('teammate-status')).toHaveText('Training wheels');
 
