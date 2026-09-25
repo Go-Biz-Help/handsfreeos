@@ -188,7 +188,7 @@ export function diffTeammateConfigs(
     onOff,
   );
   change('Chases times it offered', a.followUp.chaseTimes, b.followUp.chaseTimes, onOff);
-  change('Follow-ups', a.followUp.ladderHours, b.followUp.ladderHours, followUpLadderWords);
+  change('Follow-ups', a.followUp.ladder, b.followUp.ladder, followUpLadderWords);
   change(
     'Then monthly for',
     a.followUp.monthlyForMonths,

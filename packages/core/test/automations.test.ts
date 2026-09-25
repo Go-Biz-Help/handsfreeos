@@ -329,9 +329,7 @@ describe('automation switches', () => {
     const followUp = patch.config['followUp'] as Record<string, unknown>;
     expect(followUp['chaseTimes']).toBe(false);
     expect(followUp['enabled']).toBe(true);
-    expect(followUp['ladderHours']).toEqual(
-      (t.config['followUp'] as Record<string, unknown>)['ladderHours'],
-    );
+    expect(followUp['ladder']).toEqual((t.config['followUp'] as Record<string, unknown>)['ladder']);
     expect(patch.config['identity']).toEqual(t.config['identity']);
     // Nothing to write to without a teammate.
     expect(automationPatch('follow_ups_after_silence', true, ctx())).toBeNull();

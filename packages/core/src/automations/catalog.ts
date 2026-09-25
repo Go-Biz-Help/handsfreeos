@@ -204,7 +204,7 @@ export const AUTOMATIONS = [
     id: 'follow_ups_after_silence',
     group: 'leads',
     label: 'Follow-ups after silence',
-    oneLiner: 'Nudges a customer who stops replying: 9 times over a month, then monthly.',
+    oneLiner: 'Nudges a customer who stops replying, on a schedule you choose.',
     effect: 'texts',
     defaultOn: true,
     binding: { store: 'teammate', path: 'followUp.enabled' },

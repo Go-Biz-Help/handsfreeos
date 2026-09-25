@@ -87,7 +87,7 @@ import {
 import { scheduleExpirySweep } from './expiry';
 import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
-import { scheduleFollowUp, type OfferedSlot } from './nudges';
+import { scheduleFollowUp, spreadAfter, type OfferedSlot } from './nudges';
 import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
 import { chatCodeSender } from './chat-code';
 import { photoBlocks, photoLines, pickPhotos } from './photos';
@@ -1356,7 +1356,11 @@ async function finish(
           outcome: 'no_reply',
           summary: `Quiet hours: it answers once they end, at ${clockLabel(q.end, q.tz)}.`,
         });
-        return { outcome: 'other', waitUntil: new Date(q.end + QUIET_GRACE_MS) };
+        // A follow-up goes at a random time early on, like one the follow-up job held back itself.
+        return {
+          outcome: 'other',
+          waitUntil: new Date(run.kind === 'nudge' ? spreadAfter(q.end) : q.end + QUIET_GRACE_MS),
+        };
       }
       if (e.rule === 'not_handled_by_ai') {
         await closeRun(tx, run.id, { ...common, status: 'superseded', summary: TAKEN_OVER });

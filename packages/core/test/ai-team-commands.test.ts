@@ -625,6 +625,63 @@ describe('message.send as the AI teammate', () => {
     }
   });
 
+  it('follows up in quiet hours within 20 minutes of its own unanswered text, but not 30', async () => {
+    /** A chat where the teammate asked something `minutesAgo` minutes ago, and a follow-up run for it. */
+    const askedAgo = async (firstName: string, minutesAgo: number) => {
+      const c = await aiChat(a, firstName, 60);
+      const asked = await asAva(a, { conversationId: c.conversationId }, messageSend, {
+        workspaceId: a.wsId,
+        conversationId: c.conversationId,
+        body: 'Is this for your home or a business?',
+        clientId: randomUUID(),
+        inReplyToMessageId: c.messageId,
+      });
+      await rows(
+        admin(),
+        sql`update app.messages set occurred_at = now() - make_interval(mins => ${minutesAgo})
+            where id = ${asked.output.messageId}`,
+      );
+      const [r] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.ai_teammate_runs (workspace_id, teammate_id, conversation_id, person_id, triggered_by, status)
+            values (${a.wsId}, ${a.teammateId}, ${c.conversationId}, ${c.personId}, 'ai_teammate.follow_up', 'running')
+            returning id`,
+      );
+      return { ...c, runId: r!.id };
+    };
+    const quick = await askedAgo('Vic', 10);
+    const slow = await askedAgo('Wen', 30);
+    const followUp = (c: { conversationId: string; runId: string }) =>
+      asAva(a, { conversationId: c.conversationId, runId: c.runId }, messageSend, {
+        workspaceId: a.wsId,
+        conversationId: c.conversationId,
+        body: 'Just checking in, is this for your home?',
+        clientId: `ai:${c.runId}`,
+      });
+    await setQuietHours(a, true);
+    try {
+      await followUp(quick);
+      const err = await expectHfos(() => followUp(slow), 'rule_violation', 'quiet_hours');
+      expect(reasonOf(err)).toBe('first_text');
+      // A reply run is no follow-up, however soon after.
+      const notFollowUp = await runRow(a, { conversationId: quick.conversationId });
+      const reply = await expectHfos(
+        () =>
+          asAva(a, { conversationId: quick.conversationId, runId: notFollowUp }, messageSend, {
+            workspaceId: a.wsId,
+            conversationId: quick.conversationId,
+            body: 'Still there?',
+            clientId: randomUUID(),
+          }),
+        'rule_violation',
+        'quiet_hours',
+      );
+      expect(reasonOf(reply)).toBe('first_text');
+    } finally {
+      await setQuietHours(a, false);
+    }
+  });
+
   it('sends at most 3 replies in a quiet period, never a first text, and workflows still wait', async () => {
     const sam = await aiChat(a, 'Sam', 1);
     const tia = await customer(a, 'Tia');

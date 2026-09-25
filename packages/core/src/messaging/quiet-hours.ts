@@ -97,6 +97,16 @@ export const QUIET_REPLY_LIMIT = 3;
  * the morning.
  */
 export const QUIET_FIRST_MESSAGE_WINDOW_MS = 15 * 60_000;
+/**
+ * Follow-ups after silence (Automations): one set for this many minutes or less after the teammate's own
+ * unanswered text still goes in quiet hours, while the conversation is live. A later one waits, and goes at a
+ * random time within QUIET_FOLLOW_UP_SPREAD_MINUTES of quiet hours ending, so a night's worth don't all land at
+ * once. It counts toward QUIET_REPLY_LIMIT like a reply.
+ */
+export const QUIET_FOLLOW_UP_MINUTES = 20;
+/** message.send lets one through this long after that text at most, for a job that ran a little late. */
+export const QUIET_FOLLOW_UP_WINDOW_MS = (QUIET_FOLLOW_UP_MINUTES + 5) * 60_000;
+export const QUIET_FOLLOW_UP_SPREAD_MINUTES = 60;
 
 /** When the quiet period `now` falls in began, or null when it isn't quiet hours. */
 export function quietPeriodStart(
