@@ -4,9 +4,9 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 /**
- * Matomo analytics for the web app (site 3 in gobizhelp.matomo.cloud, shared with handsfreeos.com): which screens the
- * people running a business open, and how often. Only on app.handsfreeos.com, so local runs, the Playwright specs,
- * Vercel previews and a business's own domain (M17) count nothing.
+ * Matomo analytics for the web app (site 5 in gobizhelp.matomo.cloud; handsfreeos.com is 3, the phone app 4): which
+ * screens the people running a business open, and how often. Only on app.handsfreeos.com, so local runs, the
+ * Playwright specs, Vercel previews and a business's own domain (M17) count nothing.
  *
  * What it sends is picked on purpose, because the app is full of other people's customers:
  * - **Only our own users' screens** (`TRACKED`). The pages a business's customers open — a booking page, an invoice,
@@ -21,7 +21,7 @@ import { useEffect, useRef } from 'react';
  */
 const MATOMO_URL = 'https://gobizhelp.matomo.cloud/';
 const MATOMO_SCRIPT = 'https://cdn.matomo.cloud/gobizhelp.matomo.cloud/matomo.js';
-const SITE_ID = '3';
+const SITE_ID = '5';
 const HOST = 'app.handsfreeos.com';
 
 const TRACKED = [
