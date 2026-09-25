@@ -53,6 +53,15 @@ export function rewriteFeedback(problems: readonly ReplyProblem[]): string {
   ].join('\n');
 }
 
+/** How much of a calendar's description the context carries: enough to say what it's for. */
+const CALENDAR_FOR_MAX_CHARS = 300;
+
+/** Text on one line, cut at `max` characters with an ellipsis. */
+const clipLine = (text: string, max: number): string => {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
+};
+
 const CHANNEL_LINES: Readonly<Record<TeammateChannel, string>> = {
   sms: 'Channel: text message. Keep a reply under 300 characters, in plain words, with no line breaks.',
   email:
@@ -117,6 +126,10 @@ function skillLines(rc: RunContext): string[] {
     out.push(
       '- Book visits: call find_times, offer two or three of the times it gives, and book only one of those.',
     );
+    if (rc.calendars.length > 1)
+      out.push(
+        '  Book on the calendar that fits what they want, going by its name, what it’s for and its services. When more than one could fit, ask what they need.',
+      );
     for (const c of rc.calendars) {
       const services = c.services.length
         ? `: ${c.services
@@ -148,8 +161,12 @@ function skillLines(rc: RunContext): string[] {
               ? [`takes repeat visits, up to ${c.maxRepeats} (book_repeating)`]
               : []),
           ];
+      // What the business says it's for, on one line and kept short (the calendar's description).
+      const forWhat = c.description
+        ? `, for “${quoteData(clipLine(c.description, CALENDAR_FOR_MAX_CHARS))}”`
+        : '';
       out.push(
-        `  - ${quoteData(c.name)} (calendar id ${c.id})${services}${deposit}${
+        `  - ${quoteData(c.name)} (calendar id ${c.id})${forWhat}${services}${deposit}${
           extras.length ? `; ${extras.join('; ')}` : ''
         }`,
       );

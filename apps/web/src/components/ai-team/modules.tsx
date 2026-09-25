@@ -29,7 +29,8 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Fragment } from 'react';
+import { useRouter } from 'next/navigation';
+import { Fragment, type MouseEvent } from 'react';
 import { WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
 import { SetRow } from '@/components/settings/set-row';
 import { Avatar } from '@/components/ui/avatar';
@@ -85,6 +86,8 @@ export interface ModuleProps {
   /** Training-wheels progress, which Autonomy shows. */
   readonly progress: TeammateProgress | null;
   readonly readOnly: boolean;
+  /** Saves any change still waiting, before leaving for a page that reads these settings. */
+  readonly flush: () => Promise<unknown>;
 }
 
 const withCurrent = (list: readonly number[], v: number) =>
@@ -705,12 +708,34 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
                 className="mt-[5px] h-2.5 w-2.5 flex-none rounded-full"
                 style={{ background: calendarColor(cal.color) }}
               />
-              <label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5">
-                <span className="truncate text-[13px] font-semibold">{cal.name}</span>
-                {cal.lengths.length ? (
-                  <span className="truncate text-xs text-text-3">{lengthsWords(cal.lengths)}</span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <label htmlFor={id} className="flex min-w-0 cursor-pointer flex-col gap-0.5">
+                  <span className="truncate text-[13px] font-semibold">{cal.name}</span>
+                  {cal.lengths.length ? (
+                    <span className="truncate text-xs text-text-3">
+                      {lengthsWords(cal.lengths)}
+                    </span>
+                  ) : null}
+                  {cal.description ? (
+                    <span
+                      className="line-clamp-2 text-xs text-text-2"
+                      data-testid={`book-calendar-for-${cal.id}`}
+                    >
+                      {cal.description}
+                    </span>
+                  ) : null}
+                </label>
+                {/* It picks a calendar by what it's for: without a description it has only the name to go on. */}
+                {on && !cal.description && !cal.archived ? (
+                  <Link
+                    href={`${base}/${TEAMMATE_LINKS.calendarDetails(cal.id)}`}
+                    className="self-start text-xs font-medium text-accent-text hover:underline"
+                    data-testid={`book-calendar-say-for-${cal.id}`}
+                  >
+                    Tell {name} what it’s for
+                  </Link>
                 ) : null}
-              </label>
+              </span>
               {cal.archived ? (
                 <Badge variant="danger" className="h-5 text-[11.5px]">
                   Archived
@@ -820,8 +845,16 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
 
 // ---------- Follow up ----------
 
-function FollowUpModule({ draft, patch, workspaceId }: ModuleProps) {
+function FollowUpModule({ draft, patch, workspaceId, flush }: ModuleProps) {
   const f = draft.followUp;
+  const router = useRouter();
+  // Straight to its Adjust sheet on Automations, once a change made here has saved.
+  const schedule = `/app/w/${workspaceId}/settings/automations?adjust=follow_ups_after_silence`;
+  const openSchedule = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    void flush().then(() => router.push(schedule));
+  };
   return (
     <>
       <ModuleHeading
@@ -856,7 +889,12 @@ function FollowUpModule({ draft, patch, workspaceId }: ModuleProps) {
       <Note className="mt-3" icon={Moon}>
         Follow-ups wait until quiet hours end, and stop once they reply, book, or text STOP. The
         schedule is in{' '}
-        <Link href={`/app/w/${workspaceId}/settings/automations`} className="underline">
+        <Link
+          href={schedule}
+          onClick={openSchedule}
+          className="underline"
+          data-testid="followup-schedule-link"
+        >
           Settings, Automations
         </Link>
         .

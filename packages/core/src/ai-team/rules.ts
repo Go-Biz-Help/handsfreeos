@@ -70,6 +70,8 @@ export const TEAMMATE_LINKS = {
   websiteChat: 'settings/website-chat',
   newCalendar: 'settings/calendars/new',
   calendar: (id: string) => `settings/calendars/${id}`,
+  /** The calendar with its name and description open, to say what it's for. */
+  calendarDetails: (id: string) => `settings/calendars/${id}?details=1`,
   newKnowledge: 'knowledge/items/new',
   profile: 'knowledge/profile',
   businessHours: 'settings/workspace',

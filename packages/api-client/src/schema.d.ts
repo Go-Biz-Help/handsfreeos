@@ -28004,6 +28004,7 @@ export interface operations {
                                 archived: boolean;
                                 bookableOnline: boolean;
                                 color: string;
+                                description: string | null;
                                 /** Format: uuid */
                                 id: string;
                                 lengths: number[];

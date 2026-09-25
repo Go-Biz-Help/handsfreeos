@@ -216,6 +216,7 @@ export async function loadTeammateCatalogs(
     .select({
       id: calendars.id,
       name: calendars.name,
+      description: calendars.description,
       status: calendars.status,
       public: calendars.public,
       color: calendars.color,
@@ -300,6 +301,7 @@ export async function loadTeammateCatalogs(
     calendars: calendarList.map((c) => ({
       id: c.id,
       name: c.name,
+      description: c.description?.trim() || null,
       archived: c.status === 'archived',
       bookableOnline: c.public && c.status !== 'archived',
       color: c.color,
