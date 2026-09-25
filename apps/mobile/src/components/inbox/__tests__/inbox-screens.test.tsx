@@ -157,12 +157,25 @@ describe('a row in the list', () => {
     expect(screen.getByLabelText('3 unread')).toBeTruthy();
 
     const onPick = jest.fn();
+    const onAll = jest.fn();
+    const lanes = one!.conversation.lanes!;
     await render(
-      <LaneSwitcher lanes={one!.conversation.lanes!} currentId="c-text" onPick={onPick} />,
+      <LaneSwitcher lanes={lanes} currentId="c-text" all={false} onPick={onPick} onAll={onAll} />,
     );
     expect(screen.getByTestId('lane-c-mail')).toHaveTextContent('info@lonestarhvac.com2');
     await fireEvent.press(screen.getByTestId('lane-c-mail'));
     expect(onPick).toHaveBeenCalledWith('c-mail');
+    await fireEvent.press(screen.getByTestId('lane-all'));
+    expect(onAll).toHaveBeenCalledTimes(1);
+
+    // Reading all of them: "All lines" is the one picked, and either line leads back to answering.
+    await render(
+      <LaneSwitcher lanes={lanes} currentId="c-text" all onPick={onPick} onAll={onAll} />,
+    );
+    expect(screen.getByTestId('lane-all')).toBeSelected();
+    expect(screen.getByTestId('lane-c-text')).not.toBeSelected();
+    await fireEvent.press(screen.getByTestId('lane-c-text'));
+    expect(onPick).toHaveBeenLastCalledWith('c-text');
   });
 });
 

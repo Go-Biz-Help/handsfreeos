@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_LINES_WORDS,
   bridgeOver,
   CALL_SHEET_WORDS,
   callRecordingFolder,
@@ -319,6 +320,29 @@ describe('a thread from the copy', () => {
     expect(hiddenCall({ answered_via: 'bridge', answered_by_user_id: null })).toBe(true);
     expect(hiddenCall({ answered_via: 'bridge', answered_by_user_id: ME })).toBe(false);
     expect(hiddenCall({ answered_via: null, answered_by_user_id: null })).toBe(false);
+  });
+
+  it('says which lane each item is on, for "All lines" to name its line (0089)', () => {
+    const [text, mail] = threadItemsOf(
+      [
+        message({ id: 'm1', conversation_id: 'c-text', occurred_at: '2026-09-17T12:00:00Z' }),
+        message({
+          id: 'm2',
+          conversation_id: 'c-mail',
+          channel: 'email',
+          direction: 'inbound',
+          occurred_at: '2026-09-17T12:30:00Z',
+        }),
+      ],
+      [],
+    );
+    expect([text!.conversationId, mail!.conversationId]).toEqual(['c-text', 'c-mail']);
+    expect(ALL_LINES_WORDS.line('outbound', 'Front desk · (713) 555-0100')).toBe(
+      'From Front desk · (713) 555-0100',
+    );
+    expect(ALL_LINES_WORDS.line('inbound', 'info@lonestarhvac.com')).toBe(
+      'To info@lonestarhvac.com',
+    );
   });
 
   it('puts messages and calls in order, with a held text’s time and a voicemail’s words', () => {

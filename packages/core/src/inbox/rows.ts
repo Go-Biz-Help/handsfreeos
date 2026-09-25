@@ -481,6 +481,8 @@ export interface MediaShape {
 
 /** A thread item from a phone's copy: the API's ThreadItem, less what the copy doesn't hold (an email's HTML). */
 export interface ThreadItemShape extends ThreadItemFacts {
+  /** The lane it is on, so "All lines" can say which of the business's lines each one was on (0089). */
+  readonly conversationId: string | null;
   readonly media: readonly MediaShape[];
   readonly deliveredAt: string | null;
   /**
@@ -555,6 +557,7 @@ export function messageItemOf(r: MessageThreadRow): ThreadItemShape {
   return {
     type: 'message',
     id: r.id,
+    conversationId: r.conversation_id,
     occurredAt: new Date(r.occurred_at).toISOString(),
     direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
     status: r.status,
@@ -609,6 +612,7 @@ export function callItemOf(r: CallThreadRow): ThreadItemShape {
   return {
     type: 'call',
     id: r.id,
+    conversationId: r.conversation_id,
     occurredAt: new Date(r.started_at).toISOString(),
     direction: r.direction === 'outbound' ? 'outbound' : 'inbound',
     status: r.status,

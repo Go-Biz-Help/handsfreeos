@@ -172,15 +172,20 @@ export interface ThreadData {
   readonly pending: readonly PendingReply[];
 }
 
-/** The thread: messages and calls oldest first, and the replies written on this phone still on their way. */
-export function useThread(conversationId: string, personId: string | null): ThreadData {
+/**
+ * The thread: messages and calls oldest first, and the replies written on this phone still on their way. `laneIds`,
+ * for "All lines", weaves in every lane of the customer rather than the one conversation (0089).
+ */
+export function useThread(
+  conversationId: string,
+  personId: string | null,
+  laneIds?: readonly string[],
+): ThreadData {
   const { business } = useBusiness();
   const { online } = useNetwork();
-  const { data: messages } = useQuery<MessageThreadRow>(MESSAGES_SQL, [
-    business.id,
-    conversationId,
-  ]);
-  const { data: calls } = useQuery<CallThreadRow>(CALLS_SQL, [business.id, conversationId]);
+  const ids = JSON.stringify(laneIds?.length ? laneIds : [conversationId]);
+  const { data: messages } = useQuery<MessageThreadRow>(MESSAGES_SQL, [business.id, ids]);
+  const { data: calls } = useQuery<CallThreadRow>(CALLS_SQL, [business.id, ids]);
   const { data: noteRows } = useQuery<NoteRow>(NOTES_SQL, [business.id, personId ?? '']);
   const outbox = useInboxOutbox();
   const now = useNow(15_000);
@@ -190,10 +195,9 @@ export function useThread(conversationId: string, personId: string | null): Thre
       (i) => !(i.scheduledFor && cancelled.has(i.id)),
     );
     const arrived = new Set(items.flatMap((i) => (i.clientId ? [i.clientId] : [])));
-    return {
-      items,
-      notes: personId ? noteRows.map(noteOf) : [],
-      pending: pendingReplies(outbox, conversationId, arrived, online, now),
-    };
-  }, [messages, calls, noteRows, personId, outbox, conversationId, online, now]);
+    const pending = (JSON.parse(ids) as string[])
+      .flatMap((id) => pendingReplies(outbox, id, arrived, online, now))
+      .sort((a, b) => a.row.seq - b.row.seq);
+    return { items, notes: personId ? noteRows.map(noteOf) : [], pending };
+  }, [messages, calls, noteRows, personId, outbox, ids, online, now]);
 }

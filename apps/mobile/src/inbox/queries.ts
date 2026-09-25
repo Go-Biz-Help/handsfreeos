@@ -70,7 +70,8 @@ export const LANES_SQL = `${CONVERSATION_BASE} AND (c.id = ? OR c.archived_at IS
 
 /**
  * A conversation's messages from the last 12 months on the phone, with who sent and approved them, and for texts
- * how each went, when an RCS one was read, what it carried and which button a reply came from (0103).
+ * how each went, when an RCS one was read, what it carried and which button a reply came from (0103). The
+ * conversations come as a JSON array: one lane, or every lane of the customer for "All lines" (0089).
  */
 export const MESSAGES_SQL = `
   SELECT m.id, m.conversation_id, m.channel, m.direction, m.status, m.from_address, m.to_addresses, m.cc_addresses,
@@ -81,10 +82,10 @@ export const MESSAGES_SQL = `
   LEFT JOIN users su ON su.id = m.sent_by
   LEFT JOIN ai_teammates t ON t.id = m.sent_by_teammate_id
   LEFT JOIN users ab ON ab.id = m.approved_by
-  WHERE m.workspace_id = ? AND m.conversation_id = ?
+  WHERE m.workspace_id = ? AND m.conversation_id IN (SELECT value FROM json_each(?))
   ORDER BY m.occurred_at`;
 
-/** A conversation's calls, with who placed and answered them. */
+/** A conversation's calls, with who placed and answered them; the conversations as `MESSAGES_SQL` takes them. */
 export const CALLS_SQL = `
   SELECT k.id, k.conversation_id, k.direction, k.from_e164, k.to_e164, k.status, k.answered_via,
     k.answered_by_user_id, ${userName('au')} AS answered_name, k.placed_by, ${userName('pu')} AS placed_name,
@@ -92,7 +93,7 @@ export const CALLS_SQL = `
   FROM calls k
   LEFT JOIN users au ON au.id = k.answered_by_user_id
   LEFT JOIN users pu ON pu.id = k.placed_by
-  WHERE k.workspace_id = ? AND k.conversation_id = ?
+  WHERE k.workspace_id = ? AND k.conversation_id IN (SELECT value FROM json_each(?))
   ORDER BY k.started_at`;
 
 /** The customer beside a conversation: contact details, texting consent, when they became a customer. */
