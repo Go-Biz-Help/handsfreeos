@@ -25,6 +25,7 @@ import {
   Minus,
   Pencil,
   Percent,
+  Phone,
   Receipt,
   Repeat,
   Send,
@@ -296,6 +297,12 @@ export function DraftCard({
       {draft.preview.actions.map((a, i) => (
         <ActionRow key={i} icon={ACTION_ICON[a.kind]} line={draftActionLine(a)} />
       ))}
+      {draft.preview.call ? (
+        <ActionRow
+          icon={Phone}
+          line={`Calls ${draft.preview.call.toDisplay}, says it’s an AI and the call is recorded, about ${draft.preview.call.goal}`}
+        />
+      ) : null}
       {draft.preview.discount ? (
         <ActionRow
           icon={Percent}

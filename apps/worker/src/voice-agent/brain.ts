@@ -121,6 +121,19 @@ export interface PreparedCall {
   readonly state: RunState;
   /** Changes held for the team's OK in training, across the call: each turn's draft carries all of them. */
   readonly trainingHeld: RunState['held'];
+  /** AI outbound calls: the call it placed itself, and why; null when it's answering one. */
+  readonly outbound: OutboundCall | null;
+}
+
+/** A call the teammate placed (app.ai_calls). */
+export interface OutboundCall {
+  readonly aiCallId: string;
+  readonly purpose: 'confirm_visit' | 'missed_call' | 'quote' | 'campaign';
+  /** What it says it's calling about: it finishes "I'm calling …". */
+  readonly goal: string;
+  readonly personId: string;
+  readonly attendeeId: string | null;
+  readonly firstName: string | null;
 }
 
 export type Prepared =
@@ -154,15 +167,17 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
   const provider = deps.voiceAi ?? deps.ai.provider;
   if (!provider) return { ok: false, why: 'no AI provider' };
   const meta = workerMeta(null, null);
+  // A call it placed already has its record (the place job made it): this finds it by the call's sid.
+  const placed = !!ticket.aiCallId;
   const recorded = await executeCommand(
     deps.db,
     callRecord,
     {
       workspaceId: scope.workspaceId,
       providerSid: ticket.callSid,
-      direction: 'inbound',
-      from: ticket.from,
-      to: ticket.line,
+      direction: placed ? 'outbound' : 'inbound',
+      from: placed ? ticket.line : ticket.from,
+      to: placed ? ticket.from : ticket.line,
       status: 'ringing',
     },
     systemActor(scope),
@@ -185,6 +200,32 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
       if (!money.allowed) return { why: 'balance ran out' };
       const account = await loadAccount(tx, scope.workspaceId, deps.sealer);
       if (!account) return { why: 'no telephony account' };
+      let outbound: OutboundCall | null = null;
+      if (ticket.aiCallId) {
+        const [o] = await rows<{
+          id: string;
+          purpose: OutboundCall['purpose'];
+          goal: string;
+          person_id: string;
+          attendee_id: string | null;
+          status: string;
+          first_name: string | null;
+        }>(
+          tx,
+          sql`select c.id, c.purpose, c.goal, c.person_id, c.attendee_id, c.status, p.first_name
+              from app.ai_calls c join app.people p on p.id = c.person_id
+              where c.id = ${ticket.aiCallId} and c.workspace_id = ${scope.workspaceId}`,
+        );
+        if (!o || o.status !== 'calling') return { why: 'not a call it placed' };
+        outbound = {
+          aiCallId: o.id,
+          purpose: o.purpose,
+          goal: o.goal,
+          personId: o.person_id,
+          attendeeId: o.attendee_id,
+          firstName: o.first_name?.trim() || null,
+        };
+      }
       const [conv] = await tx
         .select()
         .from(conversations)
@@ -199,7 +240,8 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
         tx,
         sql`insert into app.ai_teammate_runs
               (workspace_id, teammate_id, conversation_id, person_id, triggered_by, ai_epoch, message_ids, model, call_id)
-            values (${scope.workspaceId}, ${teammate.id}, ${conv.id}, ${conv.personId}, 'call.answered',
+            values (${scope.workspaceId}, ${teammate.id}, ${conv.id}, ${conv.personId},
+              ${outbound ? 'call.placed' : 'call.answered'},
               ${epoch}, '{}'::uuid[], ${provider.model.slice(0, 100)}, ${callId})
             on conflict (conversation_id) where status = 'running' do nothing
             returning id`,
@@ -270,6 +312,7 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
           meta: runMeta,
           state: newRunState(),
           trainingHeld: [],
+          outbound,
         } satisfies PreparedCall,
       };
     });
@@ -286,7 +329,10 @@ function asBatch(said: string): BatchMessage {
 }
 
 function toolsFor(call: PreparedCall): TeammateTool[] {
-  const all = teammateTools(call.config, { phone: true });
+  const all = teammateTools(call.config, {
+    phone: true,
+    outbound: call.outbound?.purpose ?? null,
+  });
   return call.personHasIt
     ? all.filter((t) => PERSON_HAS_IT_TOOLS.has(t.name as TeammateToolName))
     : all;
@@ -372,6 +418,13 @@ export async function thinkTurn(
     // Each turn is its own request, so its calls get their own ids.
     callPrefix: `t${input.turn}:`,
     phone: true,
+    outboundCall: call.outbound
+      ? {
+          aiCallId: call.outbound.aiCallId,
+          personId: call.outbound.personId,
+          attendeeId: call.outbound.attendeeId,
+        }
+      : null,
     log: deps.log,
   });
   const onTurnUsage = (usage: AiUsage) =>
@@ -386,7 +439,11 @@ export async function thinkTurn(
     provider,
     system: TEAMMATE_SYSTEM,
     context: contextText(rc, {
-      channelLines: phoneChannelLines({ training: call.training, personHasIt: call.personHasIt }),
+      channelLines: phoneChannelLines({
+        training: call.training,
+        personHasIt: call.personHasIt,
+        outbound: call.outbound,
+      }),
     }),
     maxTokens: PHONE_MAX_TOKENS,
     execute,
@@ -592,6 +649,19 @@ export async function finishCall(
       call.meta,
     ).catch((e: unknown) =>
       deps.log.warn({ err: e, callId: call.callId }, 'couldn’t save a call’s words'),
+    );
+  // A call it placed: how it went, on its own row too (the person's timeline and the approval card read it).
+  if (call.outbound)
+    await asWorker(deps.db, call.scope, (tx) =>
+      tx.execute(
+        // The carrier's "it ended" may have got here first (onAiCallEnded): the summary is still the call's.
+        sql`update app.ai_calls set status = 'done', outcome = 'talked',
+              summary = ${ending.summary.slice(0, 1000)}, finished_at = coalesce(finished_at, now())
+            where id = ${call.outbound!.aiCallId}
+              and (status = 'calling' or (status = 'done' and outcome = 'talked'))`,
+      ),
+    ).catch((e: unknown) =>
+      deps.log.warn({ err: e, callId: call.callId }, 'couldn’t record how a placed call went'),
     );
   await asWorker(deps.db, call.scope, (tx) =>
     closeRun(tx, call.runId, {

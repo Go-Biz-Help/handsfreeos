@@ -26,7 +26,15 @@ import {
   type PreparedCall,
   type TurnOutcome,
 } from './brain';
-import { CANT_GO_ON, GOODBYE, greetingOf, STILL_THERE, tongue, type CallLine } from './prompt';
+import {
+  CANT_GO_ON,
+  GOODBYE,
+  greetingOf,
+  outboundGreetingOf,
+  STILL_THERE,
+  tongue,
+  type CallLine,
+} from './prompt';
 import type { HeardWords, Listening, SpeechServices } from './speech';
 import type { StreamTicket } from './ticket';
 
@@ -164,7 +172,13 @@ export class CallSession {
         }),
       this.timings.maxCallMs,
     );
-    const said = await this.say(greetingOf(this.call.config, this.call.rc.grounding.business.name));
+    const business = this.call.rc.grounding.business.name;
+    const out = this.call.outbound;
+    const said = await this.say(
+      out
+        ? outboundGreetingOf(this.call.config, business, out.firstName, out.goal, out.purpose)
+        : greetingOf(this.call.config, business),
+    );
     if (said === 'done') this.armQuiet();
     this.maybeTurn();
     return true;
@@ -265,7 +279,7 @@ export class CallSession {
       await this.say(o.text, { interruptible: false });
       this.ending = {
         outcome: 'replied',
-        summary: `Answered a call (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}) and said goodbye.`,
+        summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}) and said goodbye.`,
         turns: this.turn,
         lastSaid: o.text,
       };
@@ -345,7 +359,7 @@ export class CallSession {
     await this.say(text, { interruptible: false });
     this.ending = {
       outcome: this.turn ? 'replied' : 'no_reply',
-      summary: 'Answered a call; the line went quiet, so it said goodbye.',
+      summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'}; the line went quiet, so it said goodbye.`,
       turns: this.turn,
       lastSaid: text,
     };
@@ -368,7 +382,7 @@ export class CallSession {
     const call = this.call!;
     this.ending = {
       outcome: 'handed_off',
-      summary: `Answered a call and connected them to the team: ${REASON_WORDS[reason] ?? 'they needed a person'}.`,
+      summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'} and connected them to the team: ${REASON_WORDS[reason] ?? 'they needed a person'}.`,
       turns: this.turn,
       lastSaid: this.lines.findLast((l) => l.who === 'teammate')?.text ?? null,
     };
@@ -403,7 +417,7 @@ export class CallSession {
     if (!call) return;
     const ending: CallEnding = this.ending ?? {
       outcome: this.lines.some((l) => l.who === 'caller') ? 'replied' : 'no_reply',
-      summary: `Answered a call (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}); they hung up.`,
+      summary: `${call.outbound ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}); they hung up.`,
       turns: this.turn,
       lastSaid: this.lines.findLast((l) => l.who === 'teammate')?.text ?? null,
     };

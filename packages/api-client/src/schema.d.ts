@@ -4757,6 +4757,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/person.set_call_consent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a customer agreed in writing to calls from the business (and where that’s written), or that they don’t want calls. Campaign calls only go to people who agreed; nobody who said no gets an AI call.
+         * @description Risk level 1. Requires inbox.use. Emits person.call_consent_changed.
+         */
+        post: operations["command_person_set_call_consent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/person.set_sms_consent": {
         parameters: {
             query?: never;
@@ -12263,6 +12283,14 @@ export interface operations {
                             eveningAt?: string;
                         };
                         /** @default {} */
+                        calls?: {
+                            /**
+                             * @default text
+                             * @enum {string}
+                             */
+                            voicemail?: "text" | "message" | "hang_up";
+                        };
+                        /** @default {} */
                         contactAi?: {
                             /** @default  */
                             guide?: string;
@@ -12315,6 +12343,10 @@ export interface operations {
                             aiTags?: boolean;
                             /** @default true */
                             approvalExpiry?: boolean;
+                            /** @default false */
+                            callBackMissed?: boolean;
+                            /** @default false */
+                            callConfirmVisits?: boolean;
                             /** @default true */
                             dayBefore?: boolean;
                             /** @default true */
@@ -12361,6 +12393,13 @@ export interface operations {
                             briefings: {
                                 /** @default 18:00 */
                                 eveningAt: string;
+                            };
+                            calls: {
+                                /**
+                                 * @default text
+                                 * @enum {string}
+                                 */
+                                voicemail: "text" | "message" | "hang_up";
                             };
                             contactAi: {
                                 /** @default  */
@@ -12409,6 +12448,10 @@ export interface operations {
                                 aiTags: boolean;
                                 /** @default true */
                                 approvalExpiry: boolean;
+                                /** @default false */
+                                callBackMissed: boolean;
+                                /** @default false */
+                                callConfirmVisits: boolean;
                                 /** @default true */
                                 dayBefore: boolean;
                                 /** @default true */
@@ -21184,6 +21227,45 @@ export interface operations {
             };
         };
     };
+    command_person_set_call_consent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    consent: "opted_in" | "opted_out";
+                    /** Format: uuid */
+                    personId: string;
+                    source?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        at: string | null;
+                        /** @enum {string} */
+                        consent: "unknown" | "opted_in" | "opted_out";
+                        /** Format: uuid */
+                        personId: string;
+                        source: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_person_set_sms_consent: {
         parameters: {
             query?: never;
@@ -27577,7 +27659,7 @@ export interface operations {
                     conversationId?: string;
                     cursor?: string;
                     /** @enum {string} */
-                    kind?: "reply" | "approval";
+                    kind?: "reply" | "approval" | "call";
                     /** @default 50 */
                     limit?: number;
                     /**
@@ -27618,7 +27700,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "reply" | "approval";
+                            kind: "reply" | "approval" | "call";
                             knowledge: unknown[];
                             lead: {
                                 /** Format: uuid */
@@ -27781,6 +27863,16 @@ export interface operations {
                                     /** @default  */
                                     summary: string;
                                 })[];
+                                /** @default null */
+                                call: {
+                                    /** Format: uuid */
+                                    aiCallId: string;
+                                    goal: string;
+                                    /** @enum {string} */
+                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign";
+                                    to: string;
+                                    toDisplay: string;
+                                } | null;
                                 /** @default null */
                                 discount: {
                                     percent: number;
@@ -35591,6 +35683,11 @@ export interface operations {
                                 state: string | null;
                             };
                             archivedAt: string | null;
+                            callConsent: {
+                                /** @enum {string} */
+                                consent: "unknown" | "opted_in" | "opted_out";
+                                source: string | null;
+                            };
                             company: {
                                 archived: boolean;
                                 /** Format: uuid */

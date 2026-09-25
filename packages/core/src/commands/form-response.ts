@@ -28,7 +28,7 @@ import {
   writeCustomFields,
   writeFormAnswers,
 } from '../forms/submit';
-import { insertWithId, madeBefore } from '../crm/client-ids';
+import { insertWithId } from '../crm/client-ids';
 import { otherPhonesOf } from '../crm/contact-points';
 import { normalizePhone } from '../crm/phone';
 import { findOrCreateCustomer, intakeSourceOf, takeIntakeSlot } from '../crm/intake';
@@ -67,7 +67,36 @@ const hashToken = (token: string): Buffer => createHash('sha256').update(token).
 const newToken = () => randomBytes(24).toString('base64url');
 const hashOf = (value: string): Buffer => createHash('sha256').update(value).digest();
 
-type ResponseRow = typeof formResponses.$inferSelect;
+/**
+ * Every column a person may read (the grants in 0074 and 0109): the resume key's hash, when it runs out and the
+ * visitor's hash are the worker's alone. `form_response.record` runs as the teammate holding the phone, so a sheet
+ * is always read this way, and the one check that needs the key's hash asks for it itself (`assertHolder`).
+ */
+const READABLE_SHEET = {
+  id: formResponses.id,
+  workspaceId: formResponses.workspaceId,
+  formId: formResponses.formId,
+  versionId: formResponses.versionId,
+  status: formResponses.status,
+  source: formResponses.source,
+  personId: formResponses.personId,
+  leadId: formResponses.leadId,
+  invoiceId: formResponses.invoiceId,
+  answers: formResponses.answers,
+  calculations: formResponses.calculations,
+  score: formResponses.score,
+  scorePossible: formResponses.scorePossible,
+  scorePercent: formResponses.scorePercent,
+  passed: formResponses.passed,
+  resultId: formResponses.resultId,
+  onePerPerson: formResponses.onePerPerson,
+  startedAt: formResponses.startedAt,
+  completedAt: formResponses.completedAt,
+} as const;
+
+type ResponseRow = {
+  [K in keyof typeof READABLE_SHEET]: (typeof formResponses.$inferSelect)[K];
+};
 
 interface OpenResponse {
   readonly response: ResponseRow;
@@ -83,7 +112,7 @@ async function openResponse(
 ): Promise<OpenResponse> {
   const ws = ctx.scope.workspaceId!;
   const query = ctx.tx
-    .select()
+    .select(READABLE_SHEET)
     .from(formResponses)
     .where(and(eq(formResponses.id, responseId), eq(formResponses.workspaceId, ws)));
   const [response] = opts.forUpdate ? await query.for('update') : await query;
@@ -117,9 +146,17 @@ const answersOf = (response: ResponseRow): AnswerSheet =>
  * page has instead of a sign-in, so it is required of the worker acting for one. The AI teammate is already
  * inside the business, working its own conversation, and carries no key.
  */
-function assertHolder(ctx: CommandContext, response: ResponseRow, token: string | undefined): void {
+async function assertHolder(
+  ctx: CommandContext,
+  response: ResponseRow,
+  token: string | undefined,
+): Promise<void> {
   if (ctx.actor.type !== 'system') return;
-  const held = response.resumeTokenHash;
+  const [row] = await ctx.tx
+    .select({ held: formResponses.resumeTokenHash })
+    .from(formResponses)
+    .where(eq(formResponses.id, response.id));
+  const held = row?.held;
   if (!token || !held || !timingSafeEqual(Buffer.from(held), hashToken(token)))
     throw HfosError.notFound('That answer sheet isn’t there.');
 }
@@ -201,7 +238,7 @@ export const formResponseSave = defineCommand({
     const { response, definition, form } = await openResponse(ctx, input.responseId, {
       forUpdate: true,
     });
-    assertHolder(ctx, response, input.token);
+    await assertHolder(ctx, response, input.token);
     if (response.status === 'completed')
       throw HfosError.conflict('This one has already been sent.', 'response_sent');
     assertOpen(form, definition);
@@ -283,7 +320,7 @@ export const formResponseSubmit = defineCommand({
     const { response, definition, form } = await openResponse(ctx, input.responseId, {
       forUpdate: true,
     });
-    assertHolder(ctx, response, input.token);
+    await assertHolder(ctx, response, input.token);
     if (response.status === 'completed')
       throw HfosError.conflict('This one has already been sent.', 'response_sent');
     assertOpen(form, definition);
@@ -414,14 +451,17 @@ export const formResponseSubmit = defineCommand({
           }),
         );
         leadId = created.leadId;
-        await takeIntakeSlot(
-          ctx.tx,
-          ws,
-          intake,
-          await workspaceZone(ctx.tx, ws),
-          new Date(),
-          false,
-        );
+        // The day's count is the worker's (0072): it measures what arrives on its own, and a teammate typing a
+        // customer's answers in on the phone is not that.
+        if (ctx.actor.type !== 'human')
+          await takeIntakeSlot(
+            ctx.tx,
+            ws,
+            intake,
+            await workspaceZone(ctx.tx, ws),
+            new Date(),
+            false,
+          );
         await writeCustomFields(
           ctx.tx,
           'leads',
@@ -673,17 +713,35 @@ export const formResponseRecord = defineCommand({
     const ws = ctx.scope.workspaceId!;
     requireHuman(ctx);
     // Sent twice — the queue retried, or two phones were handed the same job. The first one stands.
-    const earlier = await madeBefore(ctx.tx, 'formResponses', input.id, ws);
-    if (earlier?.status === 'completed')
+    const [earlier] = input.id
+      ? await ctx.tx
+          .select(READABLE_SHEET)
+          .from(formResponses)
+          .where(and(eq(formResponses.id, input.id), eq(formResponses.workspaceId, ws)))
+      : [];
+    if (earlier?.status === 'completed') {
+      // The same answer the first send gave, worked out again from what it kept.
+      const [version] = await ctx.tx
+        .select()
+        .from(formVersions)
+        .where(eq(formVersions.id, earlier.versionId));
+      if (!version) throw HfosError.internal('The version this was filled in on is missing.');
+      const definition = parseStoredForm(version.definition);
+      const answers = answersOf(earlier);
+      const { score, calculations } = outcome(definition, answers);
       return {
         responseId: earlier.id,
         personId: earlier.personId,
         leadId: earlier.leadId,
         resultId: earlier.resultId,
-        score: earlier.score === null ? null : Number(earlier.score),
-        scorePercent: earlier.scorePercent,
+        score: score.graded ? score.points : null,
+        scorePercent: score.graded ? score.percent : null,
         passed: earlier.passed,
-      } as never;
+        calculations,
+        dueCents: dueCents(definition, answers, calculations),
+        invoiceId: earlier.invoiceId,
+      };
+    }
 
     let responseId = earlier?.id ?? null;
     if (!responseId) {

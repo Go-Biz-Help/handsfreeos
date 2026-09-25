@@ -570,6 +570,7 @@ interface PreviewJson {
   message?: { body?: unknown; subject?: unknown; channel?: unknown } | null;
   actions?: unknown[];
   discount?: { percent?: unknown; reason?: unknown } | null;
+  call?: { toDisplay?: unknown; goal?: unknown } | null;
 }
 
 export function teammateDraftOf(
@@ -611,7 +612,13 @@ export function teammateDraftOf(
   const edits = json<{ body?: string; subject?: string } | null>(r.edits, null);
   const messageChannel =
     typeof preview.message?.channel === 'string' ? preview.message.channel : null;
-  const kind = r.kind === 'approval' ? 'approval' : 'reply';
+  const call =
+    preview.call &&
+    typeof preview.call.toDisplay === 'string' &&
+    typeof preview.call.goal === 'string'
+      ? { toDisplay: preview.call.toDisplay, goal: preview.call.goal }
+      : null;
+  const kind = r.kind === 'approval' ? 'approval' : r.kind === 'call' ? 'call' : 'reply';
   return {
     id: r.id,
     kind,
@@ -619,13 +626,13 @@ export function teammateDraftOf(
     channel: r.channel ?? messageChannel,
     teammate: { id: r.teammate_id, name: r.teammate_name || 'The AI teammate' },
     person: r.person_id ? { fullName: nameOf(r.first_name, r.last_name) || 'Customer' } : null,
-    preview: { message, actions, discount },
+    preview: { message, actions, discount, call },
     conversationId: r.conversation_id,
     personId: r.person_id,
     leadId: r.lead_id,
     expiresAt: iso(r.expires_at),
     createdAt: iso(r.created_at) ?? new Date(0).toISOString(),
     edits,
-    canDecide: r.status === 'pending' && (kind === 'reply' || opts.canManage),
+    canDecide: r.status === 'pending' && (kind !== 'approval' || opts.canManage),
   };
 }

@@ -576,6 +576,22 @@ export const TEAMMATE_TOOLS = [
     autonomy: 'auto',
   }),
   define({
+    name: 'confirm_visit',
+    description:
+      'On a call you placed to confirm their visit: record that they said it still works. Only after they clearly say yes.',
+    input: z.strictObject({}),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
+    name: 'no_more_calls',
+    description:
+      'On a call you placed: record that they don’t want calls from the business any more, when they ask. Then say sorry for the trouble and end the call.',
+    input: z.strictObject({}),
+    skill: 'core',
+    autonomy: 'auto',
+  }),
+  define({
     name: 'no_reply',
     description:
       'End your turn without replying, when nothing needs an answer: a thank-you, an automatic message, or a conversation that’s finished.',
@@ -638,6 +654,12 @@ export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
 /** Only on a live phone call (M18 step 5). */
 export const PHONE_ONLY: ReadonlySet<TeammateToolName> = new Set(['end_call']);
 
+/** Only on a call the teammate placed itself (AI outbound calls); confirm_visit only on one to confirm a visit. */
+export const OUTBOUND_CALL_ONLY: ReadonlySet<TeammateToolName> = new Set([
+  'confirm_visit',
+  'no_more_calls',
+]);
+
 /**
  * Never on a live phone call: a caller always gets an answer, there are no photos on a call, and the caller's
  * number is the proof a chat code stands in for.
@@ -654,6 +676,8 @@ export interface TeammateToolOptions {
   readonly unverifiedChat?: boolean;
   /** It's answering a live phone call (M18 step 5). */
   readonly phone?: boolean;
+  /** It placed this call itself, and why (AI outbound calls). */
+  readonly outbound?: 'confirm_visit' | 'missed_call' | 'quote' | 'campaign' | null;
 }
 
 /** The tools a teammate's settings turn on, in registry order. */
@@ -684,6 +708,12 @@ export function teammateTools(
     if (t.name === 'join_waitlist' && !config.book.waitlist) return false;
     if (t.name === 'book_repeating' && !config.book.repeats) return false;
     if (t.name === 'check_service_area' && !config.book.serviceArea) return false;
+    if (OUTBOUND_CALL_ONLY.has(t.name))
+      return (
+        !!opts.phone &&
+        !!opts.outbound &&
+        (t.name !== 'confirm_visit' || opts.outbound === 'confirm_visit')
+      );
     if (PHONE_ONLY.has(t.name)) return !!opts.phone;
     if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;
     if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;

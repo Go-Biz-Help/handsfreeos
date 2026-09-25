@@ -36,9 +36,10 @@ free-text `source`, with no UTM fields.
 
 ## Outbound calls
 
-Needs an AI voice agent. Today calls ring people or go to voicemail and get transcribed, and the AI teammate
-works by text, email and chat only. When voice arrives, "Outbound calls" slots into Appointments. It follows the
-same training rule: calls wait for approval while the teammate is training.
+Shipping in two pieces. The first is live: the AI teammate calls to confirm tomorrow's visit a text didn't
+confirm, and calls back a missed call (two rows, off to begin with). Every call is in open hours, never quiet hours,
+recorded, and says it's an AI; calls wait for approval while the teammate is training. Still to come: quote
+follow-up calls (always approved first) and campaign calls (only to people who agreed to calls in writing).
 
 ## When each one ships
 
