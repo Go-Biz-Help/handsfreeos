@@ -25,6 +25,7 @@ import type { JobHandler } from '../jobs';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
 import { runtimeConfigOf } from './config';
 import { QUIET_GRACE_MS, sendDraftJobKey, TEAMMATE_JOBS } from './constants';
+import { onCallDraftDecided } from '../ai-calls/index';
 import { handOffAsSystem } from './handoff';
 import { scheduleFollowUp } from './nudges';
 
@@ -110,8 +111,12 @@ export const onDraftDecided: EventHandler = async (ctx) => {
   const e = ctx.event;
   const p = isRecord(e.payload) ? e.payload : {};
   const draftId = str(p['draftId']);
-  if (p['decision'] !== 'approved' || !draftId || !e.workspaceId || !e.organizationId) return;
+  if (!draftId || !e.workspaceId || !e.organizationId) return;
   const scope: TenantScope = { workspaceId: e.workspaceId, organizationId: e.organizationId };
+  // A call draft (AI outbound calls): approved, the call is placed at the next good moment; rejected, it isn't.
+  if (p['kind'] === 'call')
+    return onCallDraftDecided(ctx.tx, scope, draftId, p['decision'] === 'approved');
+  if (p['decision'] !== 'approved') return;
   const { waitUntil } = await sendApprovedDraft(
     ctx.log,
     ctx.tx,

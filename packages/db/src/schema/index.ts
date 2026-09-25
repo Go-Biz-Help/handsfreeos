@@ -444,6 +444,10 @@ export const people = app.table('people', {
   smsConsent: smsConsent('sms_consent').notNull().default('unknown'),
   smsConsentAt: ts('sms_consent_at'),
   smsConsentSource: text('sms_consent_source'),
+  /** AI outbound calls: written consent to calls (campaign calls need it), and where it is. */
+  callConsent: smsConsent('call_consent').notNull().default('unknown'),
+  callConsentAt: ts('call_consent_at'),
+  callConsentSource: text('call_consent_source'),
   // Milestone 10
   fieldTimes: fieldTimes(),
   /** A customer made with no signal that looked like this one (0059): "Possible duplicate of …". */
@@ -2719,7 +2723,7 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   }),
   personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
   leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
-  /** reply, approval. */
+  /** reply, approval, call. */
   kind: text('kind').notNull(),
   status: workflowApprovalStatus('status').notNull().default('pending'),
   preview: jsonb('preview').$type<Json>().notNull().default({}),
@@ -5463,6 +5467,39 @@ export const campaignRecipients = app.table('campaign_recipients', {
   ...timestamps(),
 });
 
+/** AI outbound calls: one call the AI teammate means to place, and how it went. */
+export const aiCalls = app.table('ai_calls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  /** confirm_visit, missed_call, quote or campaign. */
+  purpose: text('purpose').notNull(),
+  attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
+    onDelete: 'cascade',
+  }),
+  missedCallId: uuid('missed_call_id').references(() => calls.id, { onDelete: 'set null' }),
+  estimateId: uuid('estimate_id').references(() => estimates.id, { onDelete: 'cascade' }),
+  campaignRecipientId: uuid('campaign_recipient_id').references(() => campaignRecipients.id, {
+    onDelete: 'cascade',
+  }),
+  toE164: text('to_e164').notNull(),
+  goal: text('goal').notNull(),
+  /** awaiting_approval, queued, calling, done, skipped, cancelled or failed. */
+  status: text('status').notNull().default('queued'),
+  reason: text('reason'),
+  draftId: uuid('draft_id').references(() => aiTeammateDrafts.id, { onDelete: 'set null' }),
+  callId: uuid('call_id').references(() => calls.id, { onDelete: 'set null' }),
+  /** talked, voicemail, no_answer, busy or failed. */
+  outcome: text('outcome'),
+  summary: text('summary'),
+  dedupeKey: text('dedupe_key').notNull(),
+  placedAt: ts('placed_at'),
+  finishedAt: ts('finished_at'),
+  ...timestamps(),
+});
+
 /** Email campaigns: an address that asked for no more campaign email from this business. */
 export const emailUnsubscribes = app.table('email_unsubscribes', {
   id: id(),
@@ -5732,6 +5769,7 @@ export const tables = {
   campaigns,
   campaignRecipients,
   emailUnsubscribes,
+  aiCalls,
   foundingOffers,
   foundingGrants,
   foundingApplications,

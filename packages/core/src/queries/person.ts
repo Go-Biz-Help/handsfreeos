@@ -164,15 +164,24 @@ export const personGet = defineQuery({
     if (!row) throw HfosError.notFound('Person not found.');
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'person', [row.id]);
     // The fields this business invented, only here: a list of fifty customers needn't carry them.
-    const [values] = await rows<{ custom: Record<string, unknown> }>(
+    const [values] = await rows<{
+      custom: Record<string, unknown>;
+      call_consent: 'unknown' | 'opted_in' | 'opted_out';
+      call_consent_source: string | null;
+    }>(
       ctx.tx,
-      sql`select custom from app.people where id = ${row.id}`,
+      sql`select custom, call_consent::text as call_consent, call_consent_source
+          from app.people where id = ${row.id}`,
     );
     return {
       person: {
         ...summary(row, tags.get(row.id) ?? []),
         notes: row.notes,
         custom: values?.custom ?? {},
+        callConsent: {
+          consent: values?.call_consent ?? 'unknown',
+          source: values?.call_consent_source ?? null,
+        },
       },
     };
   },

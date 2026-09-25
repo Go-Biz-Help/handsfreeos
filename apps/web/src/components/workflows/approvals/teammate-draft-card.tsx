@@ -129,7 +129,11 @@ export function TeammateDraftCard({
         toast.success(approvedToast(d, out, edited, first));
         onDone();
       } else {
-        toast.success(`Rejected. Nothing went to ${first}.`);
+        toast.success(
+          d.kind === 'call'
+            ? `Rejected. ${name} won’t call ${first}.`
+            : `Rejected. Nothing went to ${first}.`,
+        );
         setRejecting(false);
         // A reply's rejection leaves the conversation with the teammate: ask what happens next.
         if (d.kind === 'reply' && d.conversationId) setRejected(true);
@@ -341,6 +345,18 @@ export function TeammateDraftCard({
               {!body.trim() ? <FieldError>Write the message, or reject it.</FieldError> : null}
             </>
           ) : null}
+          {d.preview.call ? (
+            <div className="flex flex-col gap-1.5" data-testid="teammate-draft-call">
+              <span className={SECTION}>The call</span>
+              <p className="rounded-[10px] border border-border px-3 py-2.5 text-[13.5px] leading-[1.5]">
+                {name} calls {first} on {d.preview.call.toDisplay} and says it’s an AI, that the
+                call is recorded, and that it’s calling {d.preview.call.goal}
+              </p>
+              <span className="text-xs text-text-3">
+                Placed at the next good time: in open hours, never in quiet hours.
+              </span>
+            </div>
+          ) : null}
           <DraftActions draft={d} />
           <p className="flex items-start gap-2 rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-text-2">
             <Info className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={1.75} />
@@ -351,9 +367,13 @@ export function TeammateDraftCard({
               {bookHolds
                 ? 'Approving books the time first, then sends. If someone took that time meanwhile, the conversation goes to a person with a note. '
                 : ''}
-              {expired
-                ? 'This expired, so the conversation went to a person.'
-                : `If nobody decides ${expires ? `by ${expires.replace('Expires ', '')}` : 'in time'}, ${goesToPerson} goes to a person.`}
+              {d.kind === 'call'
+                ? expired
+                  ? 'This expired, so the call wasn’t made.'
+                  : `If nobody decides ${expires ? `by ${expires.replace('Expires ', '')}` : 'in time'}, the call isn’t made.`
+                : expired
+                  ? 'This expired, so the conversation went to a person.'
+                  : `If nobody decides ${expires ? `by ${expires.replace('Expires ', '')}` : 'in time'}, ${goesToPerson} goes to a person.`}
             </span>
           </p>
         </div>
@@ -369,7 +389,7 @@ export function TeammateDraftCard({
               data-testid="teammate-draft-approve"
             >
               {busy === 'approve' ? null : <Check className="h-4 w-4" strokeWidth={1.75} />}
-              {message ? 'Approve and send' : 'Approve'}
+              {d.kind === 'call' ? 'Approve the call' : message ? 'Approve and send' : 'Approve'}
             </Button>
             <Button
               variant="secondary"
@@ -400,7 +420,11 @@ export function TeammateDraftCard({
       <Dialog open={rejecting} onOpenChange={(o) => busy === null && setRejecting(o)}>
         <DialogContent
           title={`Reject ${name}’s draft?`}
-          description={`Nothing goes to ${first}${d.preview.actions.length ? ', and nothing changes on the calendar' : ''}.`}
+          description={
+            d.kind === 'call'
+              ? `${name} won’t call ${first}.`
+              : `Nothing goes to ${first}${d.preview.actions.length ? ', and nothing changes on the calendar' : ''}.`
+          }
         >
           <div className="mt-4 flex flex-col gap-1.5">
             <Label htmlFor={`draft-reject-${d.id}`}>

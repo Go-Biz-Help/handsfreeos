@@ -18,7 +18,7 @@ export interface AiApprovalFacts {
     /** workflow: a workflow's approval step (`workflow_approvals`); teammate: a draft (`ai_teammate_drafts`). */
     readonly source: 'workflow' | 'teammate';
     /** A teammate draft's kind: a reply to send, or an action to approve; null for a workflow step. */
-    readonly draftKind: 'reply' | 'approval' | null;
+    readonly draftKind: 'reply' | 'approval' | 'call' | null;
     readonly status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
     readonly createdAt: string;
     readonly expiresAt: string | null;
@@ -42,7 +42,14 @@ function assess(f: AiApprovalFacts, settings: AttentionSettings, now: number): A
   const what =
     a.source === 'workflow'
       ? chip('approval', 'workflow approval')
-      : chip('draft', a.draftKind === 'approval' ? 'AI action to approve' : 'AI reply draft');
+      : chip(
+          'draft',
+          a.draftKind === 'approval'
+            ? 'AI action to approve'
+            : a.draftKind === 'call'
+              ? 'AI call to approve'
+              : 'AI reply draft',
+        );
   const assignee =
     a.approvers.length === 1
       ? a.approvers[0]!

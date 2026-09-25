@@ -47,8 +47,11 @@ export interface CallLine {
 export function phoneChannelLines(o: {
   readonly training: boolean;
   readonly personHasIt: boolean;
+  /** AI outbound calls: it placed this call, and why. */
+  readonly outbound?: { readonly purpose: string; readonly goal: string } | null;
 }): string[] {
   return [
+    ...(o.outbound ? outboundLines(o.outbound) : []),
     'Channel: a live phone call. What you reply is spoken aloud, so talk the way people do on the phone: one to three short sentences, no lists, no links, no emoji, nothing that only makes sense written down. Say times the way people say them (“Tuesday at two thirty”).',
     'Ask one question at a time. The caller’s words come from speech recognition and may be a little off: when something that matters is unclear (a name, a time, an address), ask them to say it again.',
     'Never read out a link, an email address or a long number, and never promise to send one yourself: when something needs a link or a payment, say the team will text it to them.',
@@ -66,6 +69,47 @@ export function phoneChannelLines(o: {
       : []),
   ];
 }
+
+/** What it says about a call it placed (AI outbound calls): why it called, and how to finish. */
+function outboundLines(o: { readonly purpose: string; readonly goal: string }): string[] {
+  return [
+    `You placed this call; they didn’t call you. You already said who you are, that you’re an AI and that the call is recorded, and that you’re calling ${quoteData(o.goal)}. Stay on that, answer what they ask, and keep it short.`,
+    ...(o.purpose === 'confirm_visit'
+      ? [
+          'When they say the visit still works, use confirm_visit, thank them and end_call. If it doesn’t, offer to move it (find_times, then reschedule) or cancel it, as they want.',
+        ]
+      : []),
+    ...(o.purpose === 'missed_call'
+      ? ['Find out what they called about and help, like any call.']
+      : []),
+    'If they ask not to be called again, use no_more_calls, say sorry for the trouble and end_call. If it’s a bad time, offer that they can call back or text, and end_call.',
+  ];
+}
+
+/**
+ * What it says when the customer picks up a call it placed (AI outbound calls): who it is, for which business,
+ * that it's an AI and that the call is recorded (always, whatever the disclosure setting says), and why it's
+ * calling. The goal finishes "I'm calling …".
+ */
+export function outboundGreetingOf(
+  config: TeammateConfig,
+  business: string,
+  firstName: string | null,
+  goal: string,
+  purpose: string,
+): string {
+  const hi = firstName ? `Hi ${firstName}` : 'Hi';
+  const why = /[.!?]$/.test(goal.trim()) ? goal.trim() : `${goal.trim()}.`;
+  return `${hi}, this is ${config.identity.name}, an AI assistant for ${business}. This call is recorded. I’m calling ${why} ${CALL_QUESTION[purpose] ?? ''}`.trim();
+}
+
+/** What it asks right after saying why it's calling. */
+export const CALL_QUESTION: Readonly<Record<string, string>> = {
+  confirm_visit: 'Does that still work for you?',
+  missed_call: 'How can I help?',
+  quote: 'Do you have any questions about it?',
+  campaign: 'Is now a good time?',
+};
 
 /**
  * What it says when it picks up: the owner's greeting, or "Thanks for calling …". When its settings say it

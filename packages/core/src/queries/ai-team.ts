@@ -129,7 +129,7 @@ export const aiTeammateGet = defineQuery({
 
 type DraftRow = {
   id: string;
-  kind: 'reply' | 'approval';
+  kind: 'reply' | 'approval' | 'call';
   status: TeammateDraftOut['status'];
   teammate_id: string;
   teammate_name: string;

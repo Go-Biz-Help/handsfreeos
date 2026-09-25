@@ -5,6 +5,7 @@
  * is open) confirms in message.receive. A booking that moves needs confirming again: 0041's triggers clear it.
  */
 import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { sql } from '@hfos/db/client';
 import { appointmentAttendees } from '@hfos/db/schema';
 import {
@@ -27,6 +28,7 @@ import {
   AttendeeConfirmOnlineOutput,
   AttendeeConfirmOutput,
 } from '../schemas/calendar';
+import { uuid } from '../schemas/common';
 import { loadBooked } from './appointment-online';
 
 export type ConfirmedVia = 'sms' | 'link' | 'staff' | 'ai';
@@ -219,6 +221,50 @@ export const attendeeConfirmOnline = defineCommand({
       .where(eq(appointmentAttendees.id, att.id))
       .returning();
     await announceConfirmed(ctx, appt, att, 'link');
+    return confirmation(appt, row!, true);
+  },
+});
+
+/** attendee.confirm_by_call: the customer said yes on a call the AI teammate placed to confirm it. */
+export const AttendeeConfirmByCallInput = z.object({ workspaceId: uuid, attendeeId: uuid });
+
+export const attendeeConfirmByCall = defineCommand({
+  name: 'attendee.confirm_by_call',
+  description:
+    'Worker: the customer confirmed their visit on a call the AI teammate placed to ask. Once is enough.',
+  risk: 1,
+  input: AttendeeConfirmByCallInput,
+  output: AttendeeConfirmOutput,
+  permission: null,
+  scope: inWorkspace,
+  emits: ['attendee.confirmed'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const [seat] = await ctx.tx
+      .select()
+      .from(appointmentAttendees)
+      .where(
+        and(
+          eq(appointmentAttendees.id, input.attendeeId),
+          eq(appointmentAttendees.workspaceId, ws),
+        ),
+      )
+      .for('update');
+    if (!seat) throw HfosError.notFound('Booking not found.');
+    const appt = await requireAppointment(ctx.tx, ws, seat.appointmentId);
+    if (seat.confirmedAt) return confirmation(appt, seat, false);
+    if (seat.status === 'cancelled')
+      throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
+    requireScheduled(appt);
+    if (appt.startsAt.getTime() <= Date.now())
+      throw HfosError.rule('appointment_started', 409, 'This appointment has already started.');
+    const [row] = await ctx.tx
+      .update(appointmentAttendees)
+      .set({ confirmedAt: new Date(), confirmedVia: 'ai', confirmedBy: null })
+      .where(eq(appointmentAttendees.id, seat.id))
+      .returning();
+    await announceConfirmed(ctx, appt, seat, 'ai', { byCall: true });
     return confirmation(appt, row!, true);
   },
 });

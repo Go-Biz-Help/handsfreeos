@@ -26582,6 +26582,14 @@
                             "default": true,
                             "type": "boolean"
                           },
+                          "callConfirmVisits": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "callBackMissed": {
+                            "default": false,
+                            "type": "boolean"
+                          },
                           "aiTags": {
                             "default": true,
                             "type": "boolean"
@@ -26731,6 +26739,21 @@
                           }
                         }
                       },
+                      "calls": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "voicemail": {
+                            "default": "text",
+                            "type": "string",
+                            "enum": [
+                              "text",
+                              "message",
+                              "hang_up"
+                            ]
+                          }
+                        }
+                      },
                       "contactAi": {
                         "default": {},
                         "type": "object",
@@ -26828,6 +26851,14 @@
                               "default": true,
                               "type": "boolean"
                             },
+                            "callConfirmVisits": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "callBackMissed": {
+                              "default": false,
+                              "type": "boolean"
+                            },
                             "aiTags": {
                               "default": true,
                               "type": "boolean"
@@ -26852,6 +26883,8 @@
                             "jobCheck",
                             "handoffFollowUp",
                             "approvalExpiry",
+                            "callConfirmVisits",
+                            "callBackMissed",
                             "aiTags",
                             "aiDetails"
                           ],
@@ -27020,6 +27053,24 @@
                           ],
                           "additionalProperties": false
                         },
+                        "calls": {
+                          "type": "object",
+                          "properties": {
+                            "voicemail": {
+                              "default": "text",
+                              "type": "string",
+                              "enum": [
+                                "text",
+                                "message",
+                                "hang_up"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "voicemail"
+                          ],
+                          "additionalProperties": false
+                        },
                         "contactAi": {
                           "type": "object",
                           "properties": {
@@ -27042,6 +27093,7 @@
                         "maintenance",
                         "briefings",
                         "pipeline",
+                        "calls",
                         "contactAi"
                       ],
                       "additionalProperties": false
@@ -27996,6 +28048,106 @@
                   "required": [
                     "campaignId",
                     "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/person.set_call_consent": {
+      "post": {
+        "operationId": "command_person_set_call_consent",
+        "summary": "Record that a customer agreed in writing to calls from the business (and where that’s written), or that they don’t want calls. Campaign calls only go to people who agreed; nobody who said no gets an AI call.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits person.call_consent_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "consent": {
+                    "type": "string",
+                    "enum": [
+                      "opted_in",
+                      "opted_out"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "personId",
+                  "consent"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "personId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "consent": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "opted_in",
+                        "opted_out"
+                      ]
+                    },
+                    "source": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "at": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "personId",
+                    "consent",
+                    "source",
+                    "at"
                   ],
                   "additionalProperties": false
                 }
@@ -52478,6 +52630,30 @@
                             "type": "string"
                           },
                           "additionalProperties": {}
+                        },
+                        "callConsent": {
+                          "type": "object",
+                          "properties": {
+                            "consent": {
+                              "type": "string",
+                              "enum": [
+                                "unknown",
+                                "opted_in",
+                                "opted_out"
+                              ]
+                            },
+                            "source": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "consent",
+                            "source"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -52504,7 +52680,8 @@
                         "createdAt",
                         "updatedAt",
                         "notes",
-                        "custom"
+                        "custom",
+                        "callConsent"
                       ],
                       "additionalProperties": false
                     }
@@ -73217,7 +73394,8 @@
                     "type": "string",
                     "enum": [
                       "reply",
-                      "approval"
+                      "approval",
+                      "call"
                     ]
                   },
                   "conversationId": {
@@ -73255,7 +73433,8 @@
                             "type": "string",
                             "enum": [
                               "reply",
-                              "approval"
+                              "approval",
+                              "call"
                             ]
                           },
                           "status": {
@@ -74185,12 +74364,57 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "call": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "aiCallId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      "purpose": {
+                                        "type": "string",
+                                        "enum": [
+                                          "confirm_visit",
+                                          "missed_call",
+                                          "quote",
+                                          "campaign"
+                                        ]
+                                      },
+                                      "to": {
+                                        "type": "string"
+                                      },
+                                      "toDisplay": {
+                                        "type": "string"
+                                      },
+                                      "goal": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "aiCallId",
+                                      "purpose",
+                                      "to",
+                                      "toDisplay",
+                                      "goal"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "message",
                               "actions",
-                              "discount"
+                              "discount",
+                              "call"
                             ],
                             "additionalProperties": false
                           },

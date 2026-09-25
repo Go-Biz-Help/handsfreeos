@@ -32,7 +32,7 @@ export interface AutomationContext {
 }
 
 export interface NeedsSetup {
-  readonly code: 'teammate_on' | 'intake_form' | 'maintenance_schedule';
+  readonly code: 'teammate_on' | 'intake_form' | 'maintenance_schedule' | 'voice_on';
   /** One sentence the row shows under its title. */
   readonly text: string;
 }
@@ -99,6 +99,8 @@ function needsSetupOf(def: AutomationDef, ctx: AutomationContext): NeedsSetup | 
           ? 'Turn on your AI teammate to start.'
           : 'Set up your AI teammate to start.',
       };
+    if (need === 'voice_on' && readPath(ctx.teammate?.config ?? {}, 'phone.enabled') !== true)
+      return { code: 'voice_on', text: 'Turn on phone calls for your AI teammate to start.' };
     if (need === 'intake_form' && ctx.automations.intake.formId === null)
       return { code: 'intake_form', text: 'Pick a form to start.' };
     if (need === 'maintenance_schedule' && ctx.maintenanceReady === false)
