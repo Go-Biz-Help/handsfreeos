@@ -381,6 +381,24 @@ test('Automations: the AI teammate’s rows and the follow-up schedule', async (
       return [f.ladder.map((x) => `${x.after} ${x.unit}`).join(), f.monthlyForMonths];
     })
     .toEqual(['4 hours,1 days,2 days,4 days,7 days,10 days,14 days,21 days,30 days', 6]);
+  await close(page);
+
+  // The AI teammate's Follow up links straight to this sheet. A change made there a moment before saves
+  // first, so the sheet shows it; closing the sheet drops ?adjust=, so a reload doesn't open it again.
+  await page.goto(`/app/w/${owner.workspaceId}/ai-team`);
+  await page.getByTestId('module-followUp').click();
+  await page.getByRole('button', { name: 'More (Then once a month for this many months)' }).click();
+  await page.getByTestId('followup-schedule-link').click();
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/app/w/${owner.workspaceId}/settings/automations\\?adjust=follow_ups_after_silence$`,
+    ),
+  );
+  await expect(page.getByTestId('adjust-follow_ups')).toBeVisible();
+  await expect(page.getByTestId('followup-monthly')).toHaveValue('7');
+  expect((await teammate()).monthlyForMonths).toBe(7);
+  await close(page);
+  await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/automations$`));
 });
 
 test('Automations: intake questions’ form and message, the thank-you without a teammate, and referrals', async ({

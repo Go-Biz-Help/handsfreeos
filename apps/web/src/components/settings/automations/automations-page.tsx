@@ -36,7 +36,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ComponentType } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -70,6 +70,7 @@ function flipped(label: string, on: boolean): string {
 
 export function AutomationsSettings({
   workspaceId,
+  initialAdjust,
   role,
   businessName,
   initialAttention,
@@ -85,6 +86,8 @@ export function AutomationsSettings({
   maintenanceReady,
 }: {
   workspaceId: string;
+  /** An automation whose Adjust sheet opens with the page (`?adjust=`). */
+  initialAdjust: string | null;
   role: Role;
   businessName: string;
   initialAttention: AttentionSettings;
@@ -131,7 +134,33 @@ export function AutomationsSettings({
     );
     return { ...next, revision: out.revision };
   });
-  const [adjusting, setAdjusting] = useState<AutomationRow | null>(null);
+  const [adjusting, setAdjusting] = useState<AutomationRow | null>(() =>
+    initialAdjust
+      ? (automationRows({
+          attention: initialAttention,
+          automations: initialAutomations,
+          teammate: initialTeammate,
+          maintenanceReady,
+        }).find((r) => r.def.id === initialAdjust && r.def.adjust) ?? null)
+      : null,
+  );
+  // Opened from a link: its row sits behind the sheet, so it's in view once the sheet closes.
+  useEffect(() => {
+    if (!initialAdjust) return;
+    document
+      .querySelector(`[data-testid="automation-${CSS.escape(initialAdjust)}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }, [initialAdjust]);
+
+  function closeAdjust() {
+    setAdjusting(null);
+    // A reload shouldn't open it again.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('adjust')) {
+      url.searchParams.delete('adjust');
+      window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  }
 
   const ctx = {
     attention: attention.value,
@@ -288,7 +317,7 @@ export function AutomationsSettings({
         );
       })}
 
-      <Sheet open={adjusting !== null} onOpenChange={(open) => (open ? null : setAdjusting(null))}>
+      <Sheet open={adjusting !== null} onOpenChange={(open) => (open ? null : closeAdjust())}>
         {adjusting && adjusting.def.adjust ? (
           <SheetContent title={adjusting.def.label} description={adjusting.def.oneLiner}>
             <AdjustPanelView panel={adjusting.def.adjust as AdjustPanel} env={env} />

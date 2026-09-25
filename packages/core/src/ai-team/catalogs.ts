@@ -41,6 +41,8 @@ export interface TeammateCatalogs {
   readonly calendars: readonly {
     readonly id: string;
     readonly name: string;
+    /** What it's for, in the business's words (the teammate reads it to pick a calendar); null when unsaid. */
+    readonly description: string | null;
     readonly archived: boolean;
     /** Public on the booking site: the teammate books only where customers could book themselves. */
     readonly bookableOnline: boolean;
