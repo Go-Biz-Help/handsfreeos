@@ -9,7 +9,7 @@
  *   on `invalid_grant`.
  * - `payments.plan`, one for the whole server, hourly. It re-arms any active connection whose refresh time has
  *   passed — including one whose own job exhausted its retries and is sitting there `failed`, which the
- *   per-connection dedupe key would otherwise never replace.
+ *   per-connection dedupe key would otherwise never replace. It also clears away sign-ins nobody finished.
  */
 import { and, eq, inArray } from 'drizzle-orm';
 import { executeCommand, paymentConnectionFail, scheduleJob } from '@hfos/core/server';
@@ -202,9 +202,25 @@ export const paymentsRefresh: JobHandler = async (ctx) => {
 };
 
 /**
+ * A sign-in that was started and never finished — cancelled or refused at the provider, or simply left — is a row
+ * with no account behind it, and every Connect makes one. Once its ten-minute link has lapsed it can never finish,
+ * so it goes, an hour after that so a callback still on its way is never cut short. It never took a payment; an
+ * invoice or plan pointed at one is left naming no account, and is paid into the default like any other.
+ */
+async function forgetUnfinishedSignIns(tx: Tx, workspaceId: string): Promise<void> {
+  await tx.execute(
+    sql`delete from app.payment_connections
+        where workspace_id = ${workspaceId}::uuid
+          and external_account_id is null and connected_at is null
+          and coalesce(oauth_state_expires_at, created_at) < now() - interval '1 hour'`,
+  );
+}
+
+/**
  * Hourly, for the whole server: every active connection whose refresh time has passed gets its job back. A
  * pending one is only pulled earlier; one that exhausted its retries and is sitting `failed` gets a new row,
  * because the dedupe index only counts pending ones. This is the safety net that stops a 30-day silent outage.
+ * Sign-ins nobody finished are cleared away on the same pass.
  *
  * It goes business by business because the empty scope sees no business's rows — `payment_connections`' service
  * policy is `workspace_id = private.system_scope_workspace()`, so a global read comes back empty. The list of
@@ -240,6 +256,14 @@ export const paymentsPlan: JobHandler = async (ctx) => {
       ctx.log.warn(
         { workspaceId: scope.workspaceId, err: errorMessage(e) },
         'could not re-arm a business’s payment token refreshes',
+      );
+    }
+    try {
+      await asWorker(ctx.db, scope, (tx) => forgetUnfinishedSignIns(tx, scope.workspaceId));
+    } catch (e) {
+      ctx.log.warn(
+        { workspaceId: scope.workspaceId, err: errorMessage(e) },
+        'could not clear a business’s unfinished payment sign-ins',
       );
     }
   }

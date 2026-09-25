@@ -318,7 +318,8 @@ export const jobs: JobMap = {
   // The AI keeping customers' tags and details up to date: a look after something happens, and a pass over the
   // whole list a person started (contact-ai/).
   ...contactAiJobs,
-  // Payments: each connection's token kept alive (Square's lasts 30 days), and the hourly re-arm behind it.
+  // Payments: each connection's token kept alive (Square's lasts 30 days), and the hourly re-arm behind it, which
+  // also clears away sign-ins nobody finished.
   ...paymentJobs,
   // Money: a refund carried out at the provider, with its own retries (money/refunds.ts).
   ...moneyJobs,
