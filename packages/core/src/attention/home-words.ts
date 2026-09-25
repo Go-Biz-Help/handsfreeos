@@ -547,6 +547,17 @@ export type HandleIcon =
   | 'user-plus';
 
 /**
+ * A lesson from correcting the AI that goes against what it already knows: its card asks which is right, and its
+ * main button puts the new words in place of the old ones (teammate_lesson.apply with `replace`).
+ */
+export function lessonKnowsOtherwise(item: {
+  readonly kind: Item['kind'];
+  readonly reasons: readonly { readonly code: string }[];
+}): boolean {
+  return item.kind === 'ai_corrections' && item.reasons.some((r) => r.code === 'knows_otherwise');
+}
+
+/**
  * The main button's words and icon for an item: Call Maria, Reply, Set next action, Confirm by text, Approve, Open
  * task. `reach` says the channel it would really use; `callsAvailable` whether this device can call (the web's
  * browser calling, a phone's own cell).
@@ -648,7 +659,9 @@ export function handleButtonOf(
     case 'ai_unreviewed':
       return { label: 'Review', icon: 'check' };
     case 'ai_corrections':
-      return { label: 'Add to what the AI knows', icon: 'check' };
+      return lessonKnowsOtherwise(item)
+        ? { label: 'Use the new one', icon: 'check' }
+        : { label: 'Add to what the AI knows', icon: 'check' };
     case 'website_changed':
       return { label: 'Review updates', icon: 'file-text' };
     case 'faq_suggestions':

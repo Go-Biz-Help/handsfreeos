@@ -2,3 +2,4 @@
 export * from './profile';
 export * from './items';
 export * from './prompt';
+export * from './lessons';

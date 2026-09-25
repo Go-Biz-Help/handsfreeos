@@ -82,7 +82,7 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   connection_error: 'Connection broken',
   connection_silent: 'Connection silent',
   ai_unreviewed: 'AI not reviewed',
-  ai_corrections: 'AI keeps being corrected',
+  ai_corrections: 'Something to teach the AI',
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
   offer_lapsing: 'Offer ending',

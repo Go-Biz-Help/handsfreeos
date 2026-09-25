@@ -230,7 +230,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'conversation.handed_off': onHandoffNudge,
     'workflow.approval_requested': onExpiringArm,
     'ai_teammate.drafted': onExpiringArm,
-    // Automations' "Repeated corrections": an edit or a rejection may be the third alike (automations/health.ts).
+    // Automations' "Learn from corrections": each edit or rejection is read right away (automations/health.ts).
     'ai_teammate.draft_decided': onCorrection,
     // Automations' "Outreach campaigns": the AI writes each text, then they go a few an hour once approved
     // (automations/campaigns.ts).

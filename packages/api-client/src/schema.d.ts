@@ -6627,8 +6627,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add the line of guidance made of repeated corrections to the AI teammate to the business’s policies, which the AI reads on every reply.
-         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated.
+         * Add the line of guidance made of corrections to the AI teammate to the business’s policies, which the AI reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.
+         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated, knowledge_item.updated.
          */
         post: operations["command_teammate_lesson_apply"];
         delete?: never;
@@ -24828,6 +24828,7 @@ export interface operations {
                     /** Format: uuid */
                     lessonId: string;
                     line?: string;
+                    replace?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -24844,6 +24845,11 @@ export interface operations {
                         /** Format: uuid */
                         lessonId: string;
                         line: string;
+                        replaced: {
+                            after: string;
+                            before: string;
+                            where: string;
+                        } | null;
                     };
                 };
             };
@@ -28685,7 +28691,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -28805,7 +28811,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -28885,7 +28891,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;

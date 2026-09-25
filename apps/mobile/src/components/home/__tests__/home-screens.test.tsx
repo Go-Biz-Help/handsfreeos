@@ -9,7 +9,7 @@ import { HomeEnvProvider, type HomeEnv } from '@/components/home/home-context';
 import { DismissSheet, ItemSheet } from '@/components/home/item-sheets';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
-import { change, changes } from '@/changes';
+import { change, ChangeError, changes, NEEDS_SIGNAL } from '@/changes';
 import type { OutboxRow } from '@/changes/outbox';
 import { startCall } from '@/inbox/calls';
 import type { Me } from '@/lib/businesses';
@@ -18,8 +18,8 @@ import { useHomeActions, type HomeActions } from '@/home/actions';
 /**
  * Home's cards and sheets with React Native Testing Library: a card's words and buttons (Call needs signal; Let
  * HandsFreeOS Handle is off on approvals), a refused change coming back with the API's words, the ⋯ sheet's Snooze and
- * Assign, Dismiss this?, Home's commands going through `change()` with the item's row changed at once, and a workflow
- * approval's Approve and send.
+ * Assign, Dismiss this?, Home's commands going through `change()` with the item's row changed at once, a lesson from
+ * correcting the AI added in one tap, and a workflow approval's Approve and send.
  */
 
 jest.mock('expo-router', () => ({
@@ -290,6 +290,9 @@ describe('Home’s commands', () => {
         <Pressable onPress={() => act.call(target)} testID="call">
           <Text>Call</Text>
         </Pressable>
+        <Pressable onPress={() => act.handle(target)} testID="handle">
+          <Text>Handle</Text>
+        </Pressable>
       </>
     );
   }
@@ -334,6 +337,74 @@ describe('Home’s commands', () => {
 
     await fireEvent.press(screen.getByTestId('call'));
     expect(startCall).toHaveBeenCalledWith({ personId: 'person-1' });
+  });
+
+  it('add a lesson from correcting the AI in one tap, or put the new words in place of the old', async () => {
+    const lesson = (clash: boolean) =>
+      item({
+        id: 'item-7',
+        kind: 'ai_corrections',
+        subject: { type: 'lesson', id: 'lesson-1' },
+        personId: null,
+        leadId: null,
+        reasons: [
+          ...(clash
+            ? [
+                {
+                  code: 'knows_otherwise' as const,
+                  label: 'Policies says “Saturday visits cost the same.”',
+                  text: 'Policies says “Saturday visits cost the same.”',
+                },
+              ]
+            : []),
+          {
+            code: 'corrected',
+            label: 'Corrected once · “Saturday visits cost extra.”',
+            text: 'Corrected once · “Saturday visits cost extra.”',
+          },
+        ],
+      });
+    const sent = (replaced: { where: string; before: string; after: string } | null) => ({
+      id: 'change-7',
+      queued: false,
+      output: { lessonId: 'lesson-1', line: 'Saturday visits cost extra.', replaced },
+    });
+
+    jest.mocked(change).mockResolvedValueOnce(sent(null) as never);
+    const view = await render(wrap(<Buttons it={lesson(false)} />));
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('handle'));
+    });
+    expect(change).toHaveBeenLastCalledWith('teammate_lesson.apply', {
+      workspaceId: WS,
+      lessonId: 'lesson-1',
+    });
+    expect(toast.show).toHaveBeenLastCalledWith('Added to what the AI knows.');
+
+    jest.mocked(change).mockResolvedValueOnce(
+      sent({
+        where: 'Policies',
+        before: 'Saturday visits cost the same.',
+        after: 'Saturday visits cost extra.',
+      }) as never,
+    );
+    await view.rerender(wrap(<Buttons it={lesson(true)} />));
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('handle'));
+    });
+    expect(change).toHaveBeenLastCalledWith('teammate_lesson.apply', {
+      workspaceId: WS,
+      lessonId: 'lesson-1',
+      replace: true,
+    });
+    expect(toast.show).toHaveBeenLastCalledWith('Changed Policies to the new words.');
+
+    // It never waits on the phone: with no signal, it says so and nothing changes.
+    jest.mocked(change).mockRejectedValueOnce(new ChangeError('needs-signal', NEEDS_SIGNAL));
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('handle'));
+    });
+    expect(toast.error).toHaveBeenLastCalledWith(NEEDS_SIGNAL);
   });
 });
 

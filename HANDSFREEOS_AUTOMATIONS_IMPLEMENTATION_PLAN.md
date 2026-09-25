@@ -153,8 +153,9 @@ reacts to an event · **T** AI teammate change.
      normal card.
    - **Nobody reviewing the AI**: a card when drafts waited over 7 days with none approved or rejected, or in
      automatic mode nobody opened its conversations in 7 days.
-   - **Repeated corrections**: after 3 similar corrections in 14 days, a card with one suggested line for the AI's
-     instructions; one tap adds it.
+   - **Learn from corrections** (was "Repeated corrections"): from the first correction that teaches the AI
+     something (no longer after 3), a card with one suggested line for the AI's instructions; one tap adds it. When
+     the line goes against what the AI already knows, the card shows the old words and asks which is right.
    - **Website changed**: re-read the site weekly; when prices, hours or services changed, a card shows what
      changed, with "Update what the AI knows".
    - **FAQ suggestions**: a card as soon as the same question the AI couldn't answer comes up 3 times; type an
