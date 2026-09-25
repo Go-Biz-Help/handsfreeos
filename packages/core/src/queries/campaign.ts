@@ -35,6 +35,8 @@ interface SummaryRow extends Record<string, unknown> {
   email_subject: string | null;
   email_body: string | null;
   email_edited: boolean;
+  call_opening: string | null;
+  call_edited: boolean;
   paused_reason: string | null;
   audience: { tagIds?: string[]; stageIds?: string[] } | null;
   created_at: Date;
@@ -56,7 +58,7 @@ interface SummaryRow extends Record<string, unknown> {
 async function summaries(tx: Tx, workspaceId: string, campaignId: string | null) {
   const list = await rows<SummaryRow>(
     tx,
-    sql`select c.id, c.name, c.goal, c.channel, c.status, c.per_hour, c.email_subject, c.email_body, c.email_edited, c.paused_reason, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
+    sql`select c.id, c.name, c.goal, c.channel, c.status, c.per_hour, c.email_subject, c.email_body, c.email_edited, c.call_opening, c.call_edited, c.paused_reason, c.audience, c.created_at, c.approved_at, c.finished_at, c.next_send_at,
           c.offer_id, (select o.name from app.offers o where o.id = c.offer_id) as offer_name,
           count(r.id)::int as total,
           count(r.id) filter (where r.status = 'drafting')::int as drafting,
@@ -85,6 +87,7 @@ async function summaries(tx: Tx, workspaceId: string, campaignId: string | null)
       c.channel === 'email'
         ? { subject: c.email_subject, body: c.email_body, edited: c.email_edited }
         : null,
+    call: c.channel === 'call' ? { opening: c.call_opening, edited: c.call_edited } : null,
     audience: { tagIds: c.audience?.tagIds ?? [], stageIds: c.audience?.stageIds ?? [] },
     counts: {
       total: c.total,
@@ -113,14 +116,16 @@ export const campaignList = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const list = await summaries(ctx.tx, input.workspaceId, null);
-    return { items: list.map(({ audience: _a, nextSendAt: _n, email: _e, ...rest }) => rest) };
+    return {
+      items: list.map(({ audience: _a, nextSendAt: _n, email: _e, call: _c, ...rest }) => rest),
+    };
   },
 });
 
 export const campaignGet = defineQuery({
   name: 'campaign.get',
   description:
-    'One outreach campaign: everyone it picked, each person’s text, and what became of it.',
+    'One outreach campaign: everyone it picked, each person’s text (or the email, or the calls’ opening line), and what became of it.',
   input: CampaignRef,
   output: CampaignGetOutput,
   permission: 'records.read',
@@ -148,11 +153,18 @@ export const campaignGet = defineQuery({
       edited: boolean;
       sent_at: Date | null;
       error: string | null;
+      call_status: string | null;
+      call_outcome: string | null;
+      call_summary: string | null;
     }>(
       ctx.tx,
       sql`select r.id, r.person_id, p.first_name, p.last_name, p.phone_e164, p.email::text as email, r.status, r.skip_reason, r.draft,
-            r.edited, r.sent_at, r.error
+            r.edited, r.sent_at, r.error, ac.status as call_status, ac.outcome as call_outcome,
+            ac.summary as call_summary
           from app.campaign_recipients r join app.people p on p.id = r.person_id
+          left join lateral (
+            select a.status, a.outcome, a.summary from app.ai_calls a
+            where a.campaign_recipient_id = r.id order by a.created_at desc limit 1) ac on true
           where r.campaign_id = ${input.campaignId}
           order by case r.status when 'skipped' then 2 when 'removed' then 3 else 1 end,
             p.first_name nulls last, p.last_name nulls last, r.id`,
@@ -171,6 +183,13 @@ export const campaignGet = defineQuery({
         edited: r.edited,
         sentAt: iso(r.sent_at),
         error: r.error,
+        call: r.call_status
+          ? {
+              status: r.call_status as 'queued',
+              outcome: r.call_outcome as 'talked' | null,
+              summary: r.call_summary,
+            }
+          : null,
       })),
       nextSendAt: campaign.status === 'sending' ? nextSendAt : null,
     };
@@ -180,7 +199,7 @@ export const campaignGet = defineQuery({
 export const campaignPreviewAudience = defineQuery({
   name: 'campaign.preview_audience',
   description:
-    'Who a new outreach campaign would text or email, and how many are left out and why, before it’s made.',
+    'Who a new outreach campaign would text, email or call, and how many are left out and why, before it’s made.',
   input: CampaignPreviewInput,
   output: CampaignPreviewOutput,
   permission: 'records.read',

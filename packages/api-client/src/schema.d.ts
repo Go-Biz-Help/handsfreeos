@@ -1027,7 +1027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, or one email to them all. Nothing is sent until someone approves the drafts.
+         * Start an outreach campaign: one text to every customer with one of the tags or an open deal in one of the stages, written per person by the AI from your goal, one email to them all, or an AI call to each who agreed to calls in writing. Nothing goes until someone approves it.
          * @description Risk level 2. Requires workflows.manage. Emits campaign.created.
          */
         post: operations["command_campaign_create"];
@@ -1111,6 +1111,26 @@ export interface paths {
          * @description Risk level 1. Requires workflows.manage. Emits campaign.pace_changed.
          */
         post: operations["command_campaign_set_pace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/campaign.update_call": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change what the AI says it’s calling about on every call of a call campaign, before it’s approved. It finishes “I’m calling …”.
+         * @description Risk level 1. Requires workflows.manage. Emits campaign.call_edited.
+         */
+        post: operations["command_campaign_update_call"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8127,7 +8147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One outreach campaign: everyone it picked, each person’s text, and what became of it.
+         * One outreach campaign: everyone it picked, each person’s text (or the email, or the calls’ opening line), and what became of it.
          * @description Requires records.read.
          */
         post: operations["query_campaign_get"];
@@ -8167,7 +8187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who a new outreach campaign would text or email, and how many are left out and why, before it’s made.
+         * Who a new outreach campaign would text, email or call, and how many are left out and why, before it’s made.
          * @description Requires records.read.
          */
         post: operations["query_campaign_preview_audience"];
@@ -8691,6 +8711,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_form_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/form.response_export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Every finished answer sheet on a form with each answer in words, newest first and a page at a time, for a spreadsheet.
+         * @description Requires forms.manage.
+         */
+        post: operations["query_form_response_export"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12327,6 +12367,8 @@ export interface operations {
                             callBackMissed?: boolean;
                             /** @default false */
                             callConfirmVisits?: boolean;
+                            /** @default false */
+                            callQuotes?: boolean;
                             /** @default true */
                             dayBefore?: boolean;
                             /** @default true */
@@ -12432,6 +12474,8 @@ export interface operations {
                                 callBackMissed: boolean;
                                 /** @default false */
                                 callConfirmVisits: boolean;
+                                /** @default false */
+                                callQuotes: boolean;
                                 /** @default true */
                                 dayBefore: boolean;
                                 /** @default true */
@@ -13462,7 +13506,7 @@ export interface operations {
                      * @default sms
                      * @enum {string}
                      */
-                    channel?: "sms" | "email";
+                    channel?: "sms" | "email" | "call";
                     goal: string;
                     name: string;
                     /** @default null */
@@ -13606,6 +13650,41 @@ export interface operations {
                     /** Format: uuid */
                     campaignId: string;
                     perHour: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_update_call: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    opening: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -30072,8 +30151,12 @@ export interface operations {
                                 stageIds: string[];
                                 tagIds: string[];
                             };
+                            call: {
+                                edited: boolean;
+                                opening: string | null;
+                            } | null;
                             /** @enum {string} */
-                            channel: "sms" | "email";
+                            channel: "sms" | "email" | "call";
                             counts: {
                                 approved: number;
                                 drafting: number;
@@ -30109,6 +30192,12 @@ export interface operations {
                         };
                         nextSendAt: string | null;
                         recipients: {
+                            call: {
+                                outcome: ("talked" | "voicemail" | "no_answer" | "busy" | "failed") | null;
+                                /** @enum {string} */
+                                status: "awaiting_approval" | "queued" | "calling" | "done" | "skipped" | "cancelled" | "failed";
+                                summary: string | null;
+                            } | null;
                             draft: string | null;
                             edited: boolean;
                             email: string | null;
@@ -30155,7 +30244,7 @@ export interface operations {
                         items: {
                             approvedAt: string | null;
                             /** @enum {string} */
-                            channel: "sms" | "email";
+                            channel: "sms" | "email" | "call";
                             counts: {
                                 approved: number;
                                 drafting: number;
@@ -30208,7 +30297,7 @@ export interface operations {
                      * @default sms
                      * @enum {string}
                      */
-                    channel?: "sms" | "email";
+                    channel?: "sms" | "email" | "call";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -32159,6 +32248,59 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                             version: number | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_form_response_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor?: string;
+                    /** Format: uuid */
+                    formId: string;
+                    /** @default 200 */
+                    limit?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        columns: {
+                            questionId: string;
+                            title: string;
+                        }[];
+                        formName: string;
+                        nextCursor: string | null;
+                        rows: {
+                            answers: {
+                                [key: string]: string;
+                            };
+                            /** Format: date-time */
+                            completedAt: string;
+                            passed: boolean | null;
+                            personName: string | null;
+                            /** Format: uuid */
+                            responseId: string;
+                            scorePercent: number | null;
+                            /** @enum {string} */
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
                         }[];
                     };
                 };

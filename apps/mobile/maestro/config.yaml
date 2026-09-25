@@ -40,6 +40,7 @@ executionOrder:
     - A lead moved with no signal moves at once, and stands when signal is back
     - More and the settings a phone needs
     - Ideas - the board, a vote given and taken back, an idea, the roadmap and What's new
+    - Forms - a form's answers, one answer sheet, and deleting it
     - Ask HandsFreeOS - an answer with its card, and your chats
     - Ask HandsFreeOS - a text asks first, and only sends on the button
     - Ask HandsFreeOS - with no signal it says so, and queues nothing

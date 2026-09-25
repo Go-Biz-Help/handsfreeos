@@ -43,13 +43,20 @@ export default function FillForm() {
   // Made once, not per attempt: a failed send that the person tries again is the same answer sheet.
   const responseId = React.useMemo(() => newId(), []);
 
+  // Back from filling in goes to the form's own page, where its answers and its link are.
+  const formHref = businessHref(business.id, `forms/${String(formId)}`);
   const blocked = form ? blockedQuestions(form.definition) : [];
   const state = form ? formState(form.definition, answers) : null;
   const words = smsConsentWords(business.name, 'form');
 
   if (!form)
     return (
-      <Screen title="Form" back={businessHref(business.id, 'forms')} testID="fill-form">
+      <Screen
+        title="Form"
+        leading="back"
+        back={businessHref(business.id, 'forms')}
+        testID="fill-form"
+      >
         <Text className="px-1 py-6 text-[13px] text-text-2">
           This form isn’t on this phone. It may have been unpublished, or this phone may not have
           caught up yet.
@@ -61,7 +68,7 @@ export default function FillForm() {
   // of five questions and sending an answer sheet missing the fifth is the failure worth avoiding.
   if (blocked.length > 0)
     return (
-      <Screen title={form.name} back={businessHref(business.id, 'forms')} testID="fill-form">
+      <Screen title={form.name} leading="back" back={formHref} testID="fill-form">
         <View className="gap-2 px-1 py-6">
           <Text className="text-[15px] font-medium">Fill this one in on the web</Text>
           <Text className="text-[13px] text-text-2">
@@ -98,7 +105,9 @@ export default function FillForm() {
         smsConsent: consent,
       });
       toast.show('Sent.');
-      router.replace(businessHref(business.id, 'forms'));
+      // Back to the form's page, which counts it as on its way until HandsFreeOS has it.
+      if (router.canGoBack()) router.back();
+      else router.replace(formHref);
     } catch {
       toast.show('That didn’t send. It’s saved on this phone; try again.');
     } finally {
@@ -107,7 +116,7 @@ export default function FillForm() {
   };
 
   return (
-    <Screen title={form.name} back={businessHref(business.id, 'forms')} testID="fill-form">
+    <Screen title={form.name} leading="back" back={formHref} testID="fill-form">
       {form.definition.intro ? (
         <Text className="px-1 pb-1 text-[13px] text-text-2">{form.definition.intro}</Text>
       ) : null}

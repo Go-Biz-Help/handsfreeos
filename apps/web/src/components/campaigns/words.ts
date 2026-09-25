@@ -8,11 +8,22 @@ export const CAMPAIGN_STATUS_WORDS: Record<string, string> = {
   cancelled: 'Stopped',
 };
 
-/** The same, for an email campaign where it reads differently. */
+/** The same, for an email or call campaign where it reads differently. */
 export const statusWords = (status: string, channel: string): string =>
   channel === 'email' && status === 'drafting'
     ? 'Writing the email'
-    : (CAMPAIGN_STATUS_WORDS[status] ?? status);
+    : channel === 'call' && status === 'drafting'
+      ? 'Planning the calls'
+      : channel === 'call' && status === 'sending'
+        ? 'Calling'
+        : (CAMPAIGN_STATUS_WORDS[status] ?? status);
+
+/** How a campaign reaches people, on its badge. */
+export const CHANNEL_WORDS: Record<string, string> = {
+  sms: 'Texts',
+  email: 'Email',
+  call: 'Calls',
+};
 
 export const CAMPAIGN_STATUS_BADGE: Record<string, 'accent' | 'pending' | 'ok' | 'gray'> = {
   drafting: 'gray',
@@ -35,7 +46,32 @@ export const SKIP_REASON_WORDS: Record<string, string> = {
   unsubscribed: 'Unsubscribed from your emails',
   email_stopped: 'Email to them bounced or was marked as spam',
   emailed_recently: 'Sent another campaign email in the last 14 days',
+  no_call_consent: 'Hasn’t agreed to calls in writing',
+  called_recently: 'Called by another campaign in the last 14 days',
 };
+
+/** How one person's campaign call went. */
+export function callWords(
+  call: { status: string; outcome: string | null } | null,
+): { text: string; tone: 'ok' | 'gray' | 'pending' | 'danger' } | null {
+  if (!call) return null;
+  if (call.status === 'queued') return { text: 'Calling soon', tone: 'pending' };
+  if (call.status === 'calling') return { text: 'Calling now', tone: 'pending' };
+  if (call.status === 'skipped' || call.status === 'cancelled')
+    return { text: 'Not called', tone: 'gray' };
+  switch (call.outcome) {
+    case 'talked':
+      return { text: 'Talked', tone: 'ok' };
+    case 'voicemail':
+      return { text: 'Voicemail', tone: 'gray' };
+    case 'no_answer':
+      return { text: 'No answer', tone: 'gray' };
+    case 'busy':
+      return { text: 'Busy', tone: 'gray' };
+    default:
+      return { text: 'Didn’t go through', tone: 'danger' };
+  }
+}
 
 /** Why HandsFreeOS paused a campaign, and what to do about it. */
 export const PAUSED_REASON_WORDS: Record<string, string> = {
@@ -52,6 +88,8 @@ export const PAUSED_REASON_WORDS: Record<string, string> = {
   messaging_not_ready:
     'Paused: texting isn’t set up yet. Finish it in Settings → Texting & calls, then resume.',
   no_number: 'Paused: this business has no phone number to text from. Add one, then resume.',
+  ai_calls_not_ready:
+    'Paused: your AI teammate isn’t taking calls. Turn it on with its phone on (AI team → Phone), then resume.',
 };
 
 export const skipWords = (reason: string | null): string =>
