@@ -6,7 +6,8 @@
  * - they haven't written since, nothing got booked, and no draft waits for a person;
  * - their lead isn't won, lost or ruled out as not a fit, and they haven't texted STOP;
  * - the ladder isn't used up.
- * Then it waits for the teammate's working hours (and, for a text, the end of quiet hours) and runs the follow-up
+ * Then it waits for the teammate's working hours (and, for a text, the end of quiet hours, unless it's one of the
+ * quick ones: nudges.ts goesInQuietHours), going at a random time early on (spreadAfter), and runs the follow-up
  * (run.ts runNudge), which in training becomes a draft. When the message they didn't answer offered times, it
  * first checks which are still open, so the follow-up offers those and never one that's gone.
  */
@@ -14,7 +15,7 @@ import { eq } from 'drizzle-orm';
 import {
   calendarAvailability,
   executeQuery,
-  followUpScheduleHours,
+  followUpScheduleMinutes,
   loadTeammate,
   openHoursOf,
   workspaceMessaging,
@@ -25,9 +26,17 @@ import { quietEndAt } from '../booking/deliver';
 import type { JobHandler } from '../jobs';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
 import { answersChannel, runtimeConfigOf } from './config';
-import { QUIET_GRACE_MS, TEAMMATE_JOBS } from './constants';
+import { TEAMMATE_JOBS } from './constants';
 import { nextWorkingAt } from './hours';
-import { followsUp, nextFollowUpAt, offeredOf, unansweredOf, type OfferedSlot } from './nudges';
+import {
+  followsUp,
+  goesInQuietHours,
+  nextFollowUpAt,
+  offeredOf,
+  spreadAfter,
+  unansweredOf,
+  type OfferedSlot,
+} from './nudges';
 import { runNudge, type NudgeSpec } from './run';
 
 type Due =
@@ -145,16 +154,16 @@ export const followUpJob: JobHandler = async (ctx) => {
     const m = await workspaceMessaging(tx, scope.workspaceId);
     const tz = m.timezone || 'UTC';
     const working = nextWorkingAt(config, openHoursOf(m.rawSettings), tz, now);
-    if (working > now) return { wait: new Date(working) };
-    if (conv.channel === 'sms') {
+    if (working > now) return { wait: new Date(spreadAfter(working)) };
+    if (conv.channel === 'sms' && !goesInQuietHours(config, u, now)) {
       const end = quietEndAt(m.settings.quietHours, tz, now);
-      if (end !== null) return { wait: new Date(end + QUIET_GRACE_MS) };
+      if (end !== null) return { wait: new Date(spreadAfter(end)) };
     }
     return {
       n: u.sent + 1,
       lastAt: u.anchorAt,
-      total: followUpScheduleHours(config.followUp).length,
-      monthly: u.sent + 1 > config.followUp.ladderHours.length,
+      total: followUpScheduleMinutes(config.followUp).length,
+      monthly: u.sent + 1 > config.followUp.ladder.length,
       neverWrote: u.neverWrote,
       offered: u.sent === 0 && config.followUp.chaseTimes ? carried : [],
     };

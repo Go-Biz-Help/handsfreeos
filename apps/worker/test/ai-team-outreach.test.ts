@@ -7,7 +7,14 @@
  * when they reply.
  */
 import { randomUUID } from 'node:crypto';
-import { addDays, executeCommand, leadCreate, localDateOf, weekdayOf } from '@hfos/core/server';
+import {
+  addDays,
+  DEFAULT_FOLLOW_UP_LADDER,
+  executeCommand,
+  leadCreate,
+  localDateOf,
+  weekdayOf,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -193,7 +200,15 @@ describe('follow-up nudges', () => {
 
   it('follows up on the ladder, counted from the message they didn’t answer, until it runs out', async () => {
     // A short ladder so the test can walk it: 4 hours, day 1, then one monthly.
-    await saveTeammate(w, { followUp: { ladderHours: [4, 24], monthlyForMonths: 1 } });
+    await saveTeammate(w, {
+      followUp: {
+        ladder: [
+          { after: 4, unit: 'hours' },
+          { after: 1, unit: 'days' },
+        ],
+        monthlyForMonths: 1,
+      },
+    });
     try {
       const { conversationId } = await firstMessageTo('Gil');
       const key = followUpJobKey(conversationId);
@@ -223,7 +238,7 @@ describe('follow-up nudges', () => {
       expect((await jobRow(key))?.status).toBe('done');
     } finally {
       await saveTeammate(w, {
-        followUp: { ladderHours: [4, 24, 48, 96, 168, 240, 336, 504, 720], monthlyForMonths: 6 },
+        followUp: { ladder: [...DEFAULT_FOLLOW_UP_LADDER], monthlyForMonths: 6 },
       });
     }
   });

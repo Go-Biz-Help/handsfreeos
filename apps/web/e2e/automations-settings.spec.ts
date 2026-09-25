@@ -311,7 +311,11 @@ test('Automations: the AI teammate’s rows and the follow-up schedule', async (
       await api<{
         teammate: {
           config: {
-            followUp: { ladderHours: number[]; monthlyForMonths: number; chaseTimes: boolean };
+            followUp: {
+              ladder: { after: number; unit: string }[];
+              monthlyForMonths: number;
+              chaseTimes: boolean;
+            };
           };
         };
       }>(owner.token, 'queries', 'ai_teammate.get', { workspaceId: owner.workspaceId })
@@ -331,28 +335,52 @@ test('Automations: the AI teammate’s rows and the follow-up schedule', async (
   await chase.click();
   await expect.poll(async () => (await teammate()).chaseTimes).toBe(false);
 
-  // The ladder: in plain words, each step editable, and it only goes forward.
+  // The ladder: in plain words, each step editable in its own unit, and it only goes forward.
   await adjust(page, 'follow_ups_after_silence');
   await expect(page.getByTestId('followup-ladder-words')).toHaveText(
     '4 hours, then days 1, 2, 4, 7, 10, 14, 21 and 30, then once a month for 6 months.',
   );
   await enter(page, 'followup-step-0', '6');
-  await expect.poll(async () => (await teammate()).ladderHours[0]).toBe(6);
+  await expect.poll(async () => (await teammate()).ladder[0]).toEqual({ after: 6, unit: 'hours' });
   await expect(page.getByTestId('followup-ladder-words')).toContainText('6 hours, then days 1');
-  // Day 2 moved to day 1 would come no later than the one before: refused, and it stays.
-  await enter(page, 'followup-step-2', '1');
-  await expect(page.getByText('Use a whole number from 2 to 3.')).toBeVisible();
-  await expect(page.getByTestId('followup-step-2')).toHaveValue('2');
-  await expect.poll(async () => (await teammate()).ladderHours[2]).toBe(48);
+  // 30 minutes takes two moves. Halfway, 30 hours would come after day 1: it says so, and saves nothing yet.
+  await enter(page, 'followup-step-0', '30');
+  await expect(page.getByTestId('followup-problem-1')).toHaveText(
+    'Has to come after follow-up 1 (30 hours).',
+  );
+  await expect(page.getByTestId('followup-unsaved')).toBeVisible();
+  await page.getByTestId('followup-unit-0').selectOption('minutes');
+  await expect(page.getByTestId('followup-problem-1')).toHaveCount(0);
+  await expect
+    .poll(async () => (await teammate()).ladder[0])
+    .toEqual({ after: 30, unit: 'minutes' });
+  await expect(page.getByTestId('followup-ladder-words')).toContainText('30 minutes, then days 1');
+  // Remove the last, then add one: it comes after the last that's left, and can be in weeks.
+  await page.getByTestId('followup-remove-8').click();
+  await expect.poll(async () => (await teammate()).ladder.length).toBe(8);
+  await page.getByTestId('followup-add').click();
+  await expect.poll(async () => (await teammate()).ladder[8]).toEqual({ after: 42, unit: 'days' });
+  await enter(page, 'followup-step-8', '8');
+  await page.getByTestId('followup-unit-8').selectOption('weeks');
+  await expect.poll(async () => (await teammate()).ladder[8]).toEqual({ after: 8, unit: 'weeks' });
+  await expect(page.getByTestId('followup-ladder-words')).toContainText('21, then week 8');
+  // Quiet hours: what waits, and where to change them.
+  await expect(page.getByTestId('followup-quiet-note')).toContainText(
+    'Anything over 20 minutes won’t send in quiet hours.',
+  );
+  await expect(page.getByTestId('followup-quiet-link')).toHaveAttribute(
+    'href',
+    `/app/w/${owner.workspaceId}/settings/texting#quiet-hours`,
+  );
   await enter(page, 'followup-monthly', '2');
   await expect.poll(async () => (await teammate()).monthlyForMonths).toBe(2);
   await page.getByTestId('followup-reset').click();
   await expect
     .poll(async () => {
       const f = await teammate();
-      return [f.ladderHours.join(), f.monthlyForMonths];
+      return [f.ladder.map((x) => `${x.after} ${x.unit}`).join(), f.monthlyForMonths];
     })
-    .toEqual(['4,24,48,96,168,240,336,504,720', 6]);
+    .toEqual(['4 hours,1 days,2 days,4 days,7 days,10 days,14 days,21 days,30 days', 6]);
   await close(page);
 
   // The AI teammate's Follow up links straight to this sheet. A change made there a moment before saves

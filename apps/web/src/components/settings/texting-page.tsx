@@ -1347,7 +1347,8 @@ function Configured({
           canManage={status.canManage}
         />
 
-        <Card className="p-6">
+        {/* Automations' "Edit quiet hours" links here. */}
+        <Card className="p-6" id="quiet-hours">
           <h2 className="text-lg font-semibold tracking-tight">Texting rules</h2>
           <div className="mt-2">
             <SetRow

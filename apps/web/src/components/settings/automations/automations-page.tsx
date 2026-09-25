@@ -15,7 +15,8 @@ import {
   automationCounts,
   automationPatch,
   automationRows,
-  DEFAULT_FOLLOW_UP_LADDER_HOURS,
+  DEFAULT_FOLLOW_UP_LADDER,
+  DEFAULT_FOLLOW_UP_MONTHLY,
   type AdjustPanel,
   type AttentionSettings,
   type AutomationEffect,
@@ -202,8 +203,8 @@ export function AutomationsSettings({
     const f = (config['followUp'] ?? {}) as Partial<FollowUpView>;
     return {
       enabled: f.enabled ?? true,
-      ladderHours: f.ladderHours ?? DEFAULT_FOLLOW_UP_LADDER_HOURS,
-      monthlyForMonths: f.monthlyForMonths ?? 6,
+      ladder: f.ladder ?? DEFAULT_FOLLOW_UP_LADDER,
+      monthlyForMonths: f.monthlyForMonths ?? DEFAULT_FOLLOW_UP_MONTHLY,
     };
   };
   const env: PanelEnv = {

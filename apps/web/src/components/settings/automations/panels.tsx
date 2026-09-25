@@ -11,7 +11,8 @@ import {
   AUTO_RECENT_PERSON_HOURS,
   checkNudgeTemplate,
   CONTACT_AI_GUIDE_MAX,
-  DEFAULT_FOLLOW_UP_LADDER_HOURS,
+  DEFAULT_FOLLOW_UP_LADDER,
+  DEFAULT_FOLLOW_UP_MONTHLY,
   DEFAULT_NUDGE_TEMPLATE,
   DEFAULT_INTAKE_MESSAGE,
   DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
@@ -19,9 +20,16 @@ import {
   DEFAULT_REENGAGE_TEMPLATE,
   intakeMessageProblem,
   maintenanceTemplateProblem,
+  FOLLOW_UP_MAX_MINUTES,
+  FOLLOW_UP_MAX_STEPS,
+  FOLLOW_UP_MIN_MINUTES,
+  FOLLOW_UP_UNITS,
   followUpLadderWords,
+  followUpStepMinutes,
+  followUpStepWords,
   guessStageRole,
   NUDGE_SAMPLE,
+  QUIET_FOLLOW_UP_MINUTES,
   STAGE_ROLE_LABELS,
   STAGE_ROLES,
   renderIntakeMessage,
@@ -34,24 +42,27 @@ import {
   type AttentionSettings,
   type AutomationSettings,
   type CallVoicemailChoice,
+  type FollowUpStep,
+  type FollowUpUnit,
   type NudgeCheckContext,
   type NudgePlaceholder,
   type NudgeProblemCode,
   type RoleOverride,
 } from '@hfos/core';
-import { ShieldCheck } from 'lucide-react';
+import { Moon, Plus, ShieldCheck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useNow } from '@/components/calendar/appt';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/input';
+import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Pipeline, Role } from '@/lib/api/types';
 import { formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { SetRow } from '../set-row';
 import { Check1, MoneyBox, NumberBox, tomorrowLabel } from './inputs';
 
@@ -65,7 +76,7 @@ type SaveAttention = Save<AttentionSettings>;
 /** The AI teammate's follow-up settings, as its config holds them. */
 export interface FollowUpView {
   readonly enabled: boolean;
-  readonly ladderHours: readonly number[];
+  readonly ladder: readonly FollowUpStep[];
   readonly monthlyForMonths: number;
 }
 
@@ -334,23 +345,106 @@ function UnansweredPanel({ env }: { env: PanelEnv }) {
   );
 }
 
-/** Hours as the ladder's boxes show them: whole days as days, anything else as hours. */
-const stepOf = (h: number): { value: number; unit: 'hours' | 'days' } =>
-  h % 24 === 0 ? { value: h / 24, unit: 'days' } : { value: h, unit: 'hours' };
+/** A follow-up's unit in the menu: "hour" beside 1, "hours" beside anything else. */
+const unitWord = (unit: FollowUpUnit, n: number) => (n === 1 ? unit.slice(0, -1) : unit);
+
+/** What's wrong with step `i` of a ladder being edited, or null. */
+function stepProblem(ladder: readonly FollowUpStep[], i: number): string | null {
+  const s = ladder[i]!;
+  if (!Number.isInteger(s.after) || s.after < 1) return 'Use a whole number, 1 or more.';
+  const m = followUpStepMinutes(s);
+  if (m < FOLLOW_UP_MIN_MINUTES) return `At least ${FOLLOW_UP_MIN_MINUTES} minutes.`;
+  if (m > FOLLOW_UP_MAX_MINUTES) return 'At most 5 years.';
+  const prev = ladder[i - 1];
+  if (prev && m <= followUpStepMinutes(prev))
+    return `Has to come after follow-up ${i} (${followUpStepWords(prev)}).`;
+  return null;
+}
+
+/** A step added at the end: twice the last one, or one more of its unit when that would run past 5 years. */
+function stepAfter(last: FollowUpStep | undefined): FollowUpStep | null {
+  if (!last) return { after: 4, unit: 'hours' };
+  for (const next of [
+    { after: last.after * 2, unit: last.unit },
+    { after: last.after + 1, unit: last.unit },
+  ])
+    if (followUpStepMinutes(next) <= FOLLOW_UP_MAX_MINUTES) return next;
+  return null;
+}
+
+/** A follow-up's number, kept while it's typed and handed on when it's left (or on Enter). */
+function StepNumber({
+  value,
+  label,
+  invalid,
+  onCommit,
+  testId,
+}: {
+  value: number;
+  label: string;
+  invalid: boolean;
+  onCommit: (next: number) => void;
+  testId: string;
+}) {
+  const [text, setText] = useState(String(value));
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setText(String(value));
+  }
+  return (
+    <Input
+      inputSize="sm"
+      inputMode="numeric"
+      aria-label={label}
+      invalid={invalid}
+      value={text}
+      onChange={(e) => setText(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={() => {
+        const n = Number(text.trim() || '0');
+        if (n !== value) onCommit(n);
+        else setText(String(value));
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      className="w-16 px-2.5 tabular-nums"
+      data-testid={testId}
+    />
+  );
+}
 
 function FollowUpsPanel({ env }: { env: PanelEnv }) {
   const ai = env.teammateName ?? 'Your AI teammate';
   const f = env.followUp;
-  const ladder = f?.ladderHours ?? DEFAULT_FOLLOW_UP_LADDER_HOURS;
-  /** A step changed: the ladder must still go forward, one after the other. */
-  function setStep(i: number, hours: number) {
-    const next = ladder.map((h, j) => (j === i ? hours : h));
-    if (next.some((h, j) => j > 0 && h <= next[j - 1]!)) {
-      toast.error('Each follow-up has to come after the one before.');
-      return;
-    }
-    void env.saveFollowUp({ ladderHours: next }, `Follow-ups: ${followUpLadderWords(next)}.`);
+  const saved = f?.ladder ?? DEFAULT_FOLLOW_UP_LADDER;
+  // Edits wait here until every step makes sense, so a change that takes two moves (a number, then its unit)
+  // isn't refused halfway. A saved ladder that changes underneath (a save undone) replaces it.
+  const [draft, setDraft] = useState<readonly FollowUpStep[]>(saved);
+  const [shown, setShown] = useState(saved);
+  if (shown !== saved) {
+    setShown(saved);
+    setDraft(saved);
   }
+  const problems = draft.map((_, i) => stepProblem(draft, i));
+  const valid = problems.every((p) => p === null);
+  const ladder = valid ? draft : saved;
+
+  function edit(next: readonly FollowUpStep[]) {
+    setDraft(next);
+    if (next.every((_, i) => stepProblem(next, i) === null))
+      void env.saveFollowUp({ ladder: next }, `Follow-ups: ${followUpLadderWords(next)}.`);
+  }
+  const setStep = (i: number, step: FollowUpStep) =>
+    edit(draft.map((s, j) => (j === i ? step : s)));
+  const added = stepAfter(draft[draft.length - 1]);
+  const isDefault =
+    JSON.stringify(saved) === JSON.stringify(DEFAULT_FOLLOW_UP_LADDER) &&
+    f?.monthlyForMonths === DEFAULT_FOLLOW_UP_MONTHLY;
+
   return (
     <>
       <Block>
@@ -367,38 +461,94 @@ function FollowUpsPanel({ env }: { env: PanelEnv }) {
       {f ? (
         <Block title="When they go">
           <p className="text-xs text-text-3" data-testid="followup-ladder-words">
-            {followUpLadderWords(ladder)}, then once a month for {f.monthlyForMonths}{' '}
-            {f.monthlyForMonths === 1 ? 'month' : 'months'}.
+            {followUpLadderWords(ladder)}
+            {f.monthlyForMonths
+              ? `, then once a month for ${f.monthlyForMonths} ${f.monthlyForMonths === 1 ? 'month' : 'months'}.`
+              : '.'}
           </p>
-          <div className="mt-2 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
-            {ladder.map((h, i) => {
-              const s = stepOf(h);
-              // Each step stays between its neighbours, so the box itself refuses one that would jump the queue.
-              const prev = ladder[i - 1] ?? 0;
-              const next = ladder[i + 1] ?? Number.POSITIVE_INFINITY;
-              const min =
-                s.unit === 'days' ? Math.max(1, Math.floor(prev / 24) + 1) : Math.max(1, prev + 1);
-              const max =
-                s.unit === 'days'
-                  ? Math.min(365, Math.ceil(next / 24) - 1)
-                  : Math.min(72, next - 1);
+          <div className="mt-2 flex flex-col">
+            {draft.map((s, i) => {
+              const problem = problems[i];
+              const n = i + 1;
               return (
-                <SetRow key={i} center first={i === 0} title={`Follow-up ${i + 1}`}>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-xs text-text-3">after</span>
-                    <NumberBox
-                      value={s.value}
-                      min={min}
-                      max={Math.max(min, max)}
-                      unit={s.unit}
-                      label={`Follow-up ${i + 1} goes this long after the unanswered message`}
-                      onCommit={(n) => setStep(i, s.unit === 'days' ? n * 24 : n)}
-                      testId={`followup-step-${i}`}
-                    />
-                  </span>
-                </SetRow>
+                <div
+                  key={i}
+                  className={cn('flex flex-col gap-1 py-2.5', i > 0 && 'border-t border-border')}
+                  data-testid={`followup-row-${i}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                    <span className="text-[13px] font-medium">Follow-up {n}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-xs text-text-3">after</span>
+                      <StepNumber
+                        value={s.after}
+                        label={`Follow-up ${n}: how long after the unanswered message`}
+                        invalid={!!problem}
+                        onCommit={(after) => setStep(i, { ...s, after })}
+                        testId={`followup-step-${i}`}
+                      />
+                      <Select
+                        selectSize="sm"
+                        className="w-[118px]"
+                        aria-label={`Follow-up ${n}: unit`}
+                        value={s.unit}
+                        onChange={(e) => setStep(i, { ...s, unit: e.target.value as FollowUpUnit })}
+                        data-testid={`followup-unit-${i}`}
+                      >
+                        {FOLLOW_UP_UNITS.map((u) => (
+                          <option key={u} value={u}>
+                            {unitWord(u, s.after)}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove follow-up ${n}`}
+                        title={draft.length === 1 ? 'Keep at least one follow-up' : undefined}
+                        disabled={draft.length === 1}
+                        onClick={() => edit(draft.filter((_, j) => j !== i))}
+                        data-testid={`followup-remove-${i}`}
+                      >
+                        <X className="h-4 w-4" aria-hidden />
+                      </Button>
+                    </span>
+                  </div>
+                  {problem ? (
+                    <p
+                      className="text-right text-xs text-danger"
+                      role="alert"
+                      data-testid={`followup-problem-${i}`}
+                    >
+                      {problem}
+                    </p>
+                  ) : null}
+                </div>
               );
             })}
+          </div>
+          {!valid ? (
+            <p className="text-xs text-text-3" data-testid="followup-unsaved">
+              Not saved yet: fix the one in red and it saves.
+            </p>
+          ) : null}
+          <div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5"
+              disabled={draft.length >= FOLLOW_UP_MAX_STEPS || !added}
+              title={
+                draft.length >= FOLLOW_UP_MAX_STEPS
+                  ? `Up to ${FOLLOW_UP_MAX_STEPS} follow-ups`
+                  : undefined
+              }
+              onClick={() => added && edit([...draft, added])}
+              data-testid="followup-add"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Add a follow-up
+            </Button>
           </div>
           <SetRow
             center
@@ -420,19 +570,40 @@ function FollowUpsPanel({ env }: { env: PanelEnv }) {
               testId="followup-monthly"
             />
           </SetRow>
+          <div
+            className="flex items-start gap-2 rounded-[9px] bg-card-2 px-[11px] py-[9px] text-[12.5px] leading-[1.45] text-text-2"
+            data-testid="followup-quiet-note"
+          >
+            <Moon className="mt-px h-4 w-4 flex-none" strokeWidth={1.75} aria-hidden />
+            <span>
+              Anything over {QUIET_FOLLOW_UP_MINUTES} minutes won’t send in quiet hours. It goes at
+              a random time early on the first day it can, within the hour after quiet hours end.{' '}
+              {QUIET_FOLLOW_UP_MINUTES} minutes or less still sends, since the conversation is
+              fresh.{' '}
+              <Link
+                href={`/app/w/${env.workspaceId}/settings/texting#quiet-hours`}
+                className={linkCls}
+                data-testid="followup-quiet-link"
+              >
+                Edit quiet hours
+              </Link>
+            </span>
+          </div>
           <div className="flex justify-end">
             <Button
               variant="ghost"
               size="sm"
-              disabled={
-                ladder.join() === DEFAULT_FOLLOW_UP_LADDER_HOURS.join() && f.monthlyForMonths === 6
-              }
-              onClick={() =>
+              disabled={isDefault && valid}
+              onClick={() => {
+                setDraft(DEFAULT_FOLLOW_UP_LADDER);
                 void env.saveFollowUp(
-                  { ladderHours: [...DEFAULT_FOLLOW_UP_LADDER_HOURS], monthlyForMonths: 6 },
+                  {
+                    ladder: DEFAULT_FOLLOW_UP_LADDER.map((x) => ({ ...x })),
+                    monthlyForMonths: DEFAULT_FOLLOW_UP_MONTHLY,
+                  },
                   'The schedule is back to the original.',
-                )
-              }
+                );
+              }}
               data-testid="followup-reset"
             >
               Reset

@@ -3,6 +3,8 @@
  * asks the customer something and they go quiet, follow-ups go on the business's ladder, counted from that message:
  * by default 4 hours, then days 1, 2, 4, 7, 10, 14, 21 and 30, then once a month for 6 months (core's
  * followUpDueAt). Each one it sends arms the next, whatever it says; only the first unanswered message has to ask.
+ * A text due in quiet hours waits for them to end, unless it's set for QUIET_FOLLOW_UP_MINUTES or less (the
+ * conversation is still live), and then goes at a random time early on (spreadAfter).
  * A reply, a booking, a hand-off, a take-over, a closed lead or STOP stops them: the follow-up job checks before
  * each one (follow-up.ts).
  *
@@ -12,11 +14,18 @@
  * - "Chase an offered time" (followUp.chaseTimes): the unanswered message offered times, so the first follow-up
  *   comes sooner (before those times go) and says which are still open.
  */
-import { followUpDueAt, type TeammateConfig } from '@hfos/core/server';
+import {
+  followUpDueAt,
+  followUpScheduleMinutes,
+  QUIET_FOLLOW_UP_MINUTES,
+  QUIET_FOLLOW_UP_SPREAD_MINUTES,
+  QUIET_FOLLOW_UP_WINDOW_MS,
+  type TeammateConfig,
+} from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { scheduleDebouncedJob } from '../jobs';
 import type { TenantScope } from '../services';
-import { followUpJobKey, TEAMMATE_JOBS } from './constants';
+import { followUpJobKey, QUIET_GRACE_MS, TEAMMATE_JOBS } from './constants';
 
 const HOUR = 3_600_000;
 /** A chase goes this long before the earliest time it offered, at the latest... */
@@ -131,6 +140,28 @@ export function nextFollowUpAt(
   if (u.sent > 0 || !offered.length || !config.followUp.chaseTimes) return due;
   const earliest = Math.min(...offered.map((o) => Date.parse(o.startsAt)));
   return Math.max(u.anchorAt + CHASE_AFTER_MS, now, Math.min(due, earliest - CHASE_BEFORE_MS));
+}
+
+/**
+ * Whether the next follow-up may still go in quiet hours: its step is QUIET_FOLLOW_UP_MINUTES or less after the
+ * message they didn't answer, and it isn't running so late that message.send would refuse it.
+ */
+export function goesInQuietHours(config: TeammateConfig, u: Unanswered, now: number): boolean {
+  const minutes = followUpScheduleMinutes(config.followUp)[u.sent];
+  return (
+    minutes !== undefined &&
+    minutes <= QUIET_FOLLOW_UP_MINUTES &&
+    now - u.anchorAt <= QUIET_FOLLOW_UP_WINDOW_MS
+  );
+}
+
+/**
+ * When a follow-up that had to wait goes: at a random time early on, within QUIET_FOLLOW_UP_SPREAD_MINUTES of
+ * `opensAt` (quiet hours ending, or the teammate starting work), so a night's worth don't all land at once.
+ */
+export function spreadAfter(opensAt: number, random: () => number = Math.random): number {
+  const spread = QUIET_FOLLOW_UP_SPREAD_MINUTES * 60_000 - QUIET_GRACE_MS;
+  return opensAt + QUIET_GRACE_MS + Math.floor(random() * spread);
 }
 
 /**

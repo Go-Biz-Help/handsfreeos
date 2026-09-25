@@ -9,6 +9,7 @@ import {
   formatHours,
   PHONE_ANSWER_MODES,
   PHONE_VOICES,
+  QUIET_FOLLOW_UP_MINUTES,
   TEAMMATE_LINKS,
   type NotifyWho,
   type PhoneAnswerMode,
@@ -871,7 +872,7 @@ function FollowUpModule({ draft, patch, workspaceId, flush }: ModuleProps) {
         first
         center
         title="Then once a month for"
-        description={`After ${followUpLadderWords(f.ladderHours)}. Change the schedule in Settings, Automations.`}
+        description={`After ${followUpLadderWords(f.ladder)}. Change the schedule in Settings, Automations.`}
       >
         <Stepper
           value={f.monthlyForMonths}
@@ -887,8 +888,9 @@ function FollowUpModule({ draft, patch, workspaceId, flush }: ModuleProps) {
         />
       </SetRow>
       <Note className="mt-3" icon={Moon}>
-        Follow-ups wait until quiet hours end, and stop once they reply, book, or text STOP. The
-        schedule is in{' '}
+        Follow-ups set for more than {QUIET_FOLLOW_UP_MINUTES} minutes wait until quiet hours end,
+        then go at a random time early that morning. They stop once they reply, book, or text STOP.
+        The schedule is in{' '}
         <Link
           href={schedule}
           onClick={openSchedule}

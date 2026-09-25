@@ -50,6 +50,7 @@ import {
   CANCELLED_TEXT,
   formatClock,
   QUIET_FIRST_MESSAGE_WINDOW_MS,
+  QUIET_FOLLOW_UP_WINDOW_MS,
   QUIET_REPLY_LIMIT,
   QUIET_REPLY_WINDOW_MS,
   quietHoursEndAt,
@@ -260,8 +261,9 @@ async function assertCanText(
 
 /**
  * The AI teammate's quiet-hours reply window: a direct reply to the latest text in this conversation, within
- * QUIET_REPLY_WINDOW_MS of its arrival, and at most QUIET_REPLY_LIMIT of them in one quiet period. Every
- * refusal is rule quiet_hours, with `details.reason`, so the worker waits for the morning.
+ * QUIET_REPLY_WINDOW_MS of its arrival, or a follow-up close behind its own unanswered text (quickFollowUp), and
+ * at most QUIET_REPLY_LIMIT of them in one quiet period. Every refusal is rule quiet_hours, with
+ * `details.reason`, so the worker waits for the morning.
  */
 async function assertQuietReply(
   ctx: CommandContext,
@@ -278,9 +280,30 @@ async function assertQuietReply(
       { localTime: q.localTime, endsAt: q.endsAt, reason },
       'quiet_hours',
     );
+  const underLimit = async () => {
+    const since = quietPeriodStart(m.settings.quietHours, m.timezone) ?? new Date();
+    const [sent] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from app.messages
+          where conversation_id = ${conv.id} and direction = 'outbound' and channel = 'sms'
+            and sent_by_teammate_id is not null and occurred_at >= ${since.toISOString()}::timestamptz`,
+    );
+    if ((sent?.n ?? 0) >= QUIET_REPLY_LIMIT)
+      throw refuse(
+        'reply_limit',
+        `The AI teammate already answered ${QUIET_REPLY_LIMIT} texts here, so the next reply waits.`,
+      );
+  };
   if (opts.created || !opts.inReplyToMessageId) {
     // A lead that just came in on its own gets its greeting at once, whatever the hour.
     if (ctx.actor.type === 'ai_employee' && (await freshLeadGreeting(ctx, ctx.actor.runId))) return;
+    // So does a follow-up close behind its own unanswered text, while the conversation is live.
+    if (
+      ctx.actor.type === 'ai_employee' &&
+      !opts.created &&
+      (await quickFollowUp(ctx, ctx.actor.runId, conv.id))
+    )
+      return underLimit();
     throw refuse('first_text', 'Until then the AI teammate only answers a text that just came in.');
   }
   const [latest] = await ctx.tx
@@ -302,18 +325,7 @@ async function assertQuietReply(
       'reply_window_passed',
       'That text came in more than 15 minutes ago, so the reply waits.',
     );
-  const since = quietPeriodStart(m.settings.quietHours, m.timezone) ?? new Date();
-  const [sent] = await rows<{ n: number }>(
-    ctx.tx,
-    sql`select count(*)::int as n from app.messages
-        where conversation_id = ${conv.id} and direction = 'outbound' and channel = 'sms'
-          and sent_by_teammate_id is not null and occurred_at >= ${since.toISOString()}::timestamptz`,
-  );
-  if ((sent?.n ?? 0) >= QUIET_REPLY_LIMIT)
-    throw refuse(
-      'reply_limit',
-      `The AI teammate already answered ${QUIET_REPLY_LIMIT} texts here, so the next reply waits.`,
-    );
+  await underLimit();
 }
 
 /**
@@ -331,6 +343,36 @@ async function freshLeadGreeting(ctx: CommandContext, runId: string | null): Pro
             and l.created_by is null and l.created_at >= ${since}::timestamptz) as fresh`,
   );
   return !!r?.fresh;
+}
+
+/**
+ * Whether this AI run is a follow-up (Automations, "Follow-ups after silence") within QUIET_FOLLOW_UP_WINDOW_MS
+ * of the teammate's own text they haven't answered: its first since the customer last wrote. The follow-up job
+ * only sends one in quiet hours when its step is QUIET_FOLLOW_UP_MINUTES or less; this is the backstop.
+ */
+async function quickFollowUp(
+  ctx: CommandContext,
+  runId: string | null,
+  conversationId: string,
+): Promise<boolean> {
+  if (!runId) return false;
+  const since = new Date(Date.now() - QUIET_FOLLOW_UP_WINDOW_MS).toISOString();
+  const [r] = await rows<{ quick: boolean }>(
+    ctx.tx,
+    sql`with last_in as (
+          select max(i.occurred_at) as at from app.messages i
+          where i.conversation_id = ${conversationId} and i.direction = 'inbound')
+        select exists (
+            select 1 from app.ai_teammate_runs r
+            where r.id = ${runId} and r.conversation_id = ${conversationId}
+              and r.triggered_by = 'ai_teammate.follow_up')
+          and (select min(m.occurred_at) from app.messages m
+            where m.conversation_id = ${conversationId} and m.direction = 'outbound'
+              and m.sent_by_teammate_id is not null and coalesce(m.client_id, '') not like 'handoff:%'
+              and m.occurred_at > coalesce((select at from last_in), '-infinity'::timestamptz))
+            >= ${since}::timestamptz as quick`,
+  );
+  return !!r?.quick;
 }
 
 /**

@@ -7,9 +7,11 @@ import { describe, expect, it } from 'vitest';
 import type { RunContext } from '../src/ai-team/context';
 import {
   followsUp,
+  goesInQuietHours,
   nextFollowUpAt,
   offeredIn,
   offeredOf,
+  spreadAfter,
   type OfferedSlot,
   type Unanswered,
 } from '../src/ai-team/nudges';
@@ -46,6 +48,22 @@ describe('when follow-ups go', () => {
     expect(nextFollowUpAt(c, unanswered({ sent: 9 }), [], T0)).toBe(T0 + (720 + 720) * H);
     expect(nextFollowUpAt(c, unanswered({ sent: 14 }), [], T0)).toBe(T0 + (720 + 6 * 720) * H);
     expect(nextFollowUpAt(c, unanswered({ sent: 15 }), [], T0)).toBeNull();
+  });
+
+  it('goes by each step’s own unit', () => {
+    const c = config({
+      ladder: [
+        { after: 15, unit: 'minutes' },
+        { after: 2, unit: 'weeks' },
+        { after: 1, unit: 'years' },
+      ],
+      monthlyForMonths: 0,
+    });
+    const M = 60_000;
+    expect(nextFollowUpAt(c, unanswered(), [], T0)).toBe(T0 + 15 * M);
+    expect(nextFollowUpAt(c, unanswered({ sent: 1 }), [], T0)).toBe(T0 + 14 * 24 * H);
+    expect(nextFollowUpAt(c, unanswered({ sent: 2 }), [], T0)).toBe(T0 + 365 * 24 * H);
+    expect(nextFollowUpAt(c, unanswered({ sent: 3 }), [], T0)).toBeNull();
   });
 
   it('only starts after a question, and leaves a lead who never wrote alone when that row is off', () => {
@@ -147,5 +165,38 @@ describe('the follow-up’s turn', () => {
     expect(turn({ offered: [{ label: 'Wed 10:00 AM', startsAt: '', open: false }] })).toContain(
       'Call find_times for new ones',
     );
+  });
+});
+
+describe('follow-ups and quiet hours', () => {
+  const M = 60_000;
+  const c = config({
+    ladder: [
+      { after: 20, unit: 'minutes' },
+      { after: 21, unit: 'minutes' },
+      { after: 4, unit: 'hours' },
+    ],
+  });
+
+  it('lets one set for 20 minutes or less go in quiet hours, unless it runs late', () => {
+    expect(goesInQuietHours(c, unanswered(), T0 + 20 * M)).toBe(true);
+    // Its step is 21 minutes: it waits for the morning.
+    expect(goesInQuietHours(c, unanswered({ sent: 1 }), T0 + 21 * M)).toBe(false);
+    expect(goesInQuietHours(c, unanswered({ sent: 2 }), T0 + 4 * H)).toBe(false);
+    // The job ran more than 25 minutes after the message: message.send would refuse it, so it waits.
+    expect(goesInQuietHours(c, unanswered(), T0 + 26 * M)).toBe(false);
+    // The ladder is used up.
+    expect(goesInQuietHours(c, unanswered({ sent: 20 }), T0)).toBe(false);
+  });
+
+  it('goes at a random time within the first hour after quiet hours end', () => {
+    expect(spreadAfter(T0, () => 0)).toBe(T0 + 2 * M);
+    expect(spreadAfter(T0, () => 0.999_999)).toBeLessThan(T0 + 60 * M);
+    expect(spreadAfter(T0, () => 0.999_999)).toBeGreaterThan(T0 + 59 * M);
+    for (let i = 0; i < 50; i++) {
+      const at = spreadAfter(T0);
+      expect(at).toBeGreaterThanOrEqual(T0 + 2 * M);
+      expect(at).toBeLessThan(T0 + 60 * M);
+    }
   });
 });

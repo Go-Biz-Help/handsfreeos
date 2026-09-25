@@ -5,7 +5,7 @@
  */
 import {
   followUpLadderWords,
-  followUpScheduleHours,
+  followUpScheduleMinutes,
   formatHours,
   TEAMMATE_LABEL_NAMES,
   type DisclosureMode,
@@ -184,7 +184,7 @@ export function moduleSummary(
     }
     case 'followUp':
       return config.followUp.enabled
-        ? plural(followUpScheduleHours(config.followUp).length, 'follow-up', 'follow-ups')
+        ? plural(followUpScheduleMinutes(config.followUp).length, 'follow-up', 'follow-ups')
         : 'Off';
     case 'hours':
       return config.hours.mode === 'always'
@@ -273,7 +273,7 @@ export function describeTeammate(config: TeammateConfig, catalogs: TeammateCatal
   }
   if (config.followUp.enabled)
     out.push(
-      `Follows up when a customer goes quiet: ${followUpLadderWords(config.followUp.ladderHours)}${
+      `Follows up when a customer goes quiet: ${followUpLadderWords(config.followUp.ladder)}${
         config.followUp.monthlyForMonths
           ? `, then monthly for ${plural(config.followUp.monthlyForMonths, 'month', 'months')}`
           : ''
