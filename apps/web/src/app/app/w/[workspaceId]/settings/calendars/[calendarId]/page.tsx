@@ -15,10 +15,13 @@ const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: '
 /** The builder: every module, labels, conflicts with Fix, the booking link, Save with the impact review. */
 export default async function CalendarBuilderPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string; calendarId: string }>;
+  searchParams: Promise<{ details?: string }>;
 }) {
   const { workspaceId, calendarId } = await params;
+  const { details } = await searchParams;
   if (!ID.test(calendarId)) notFound();
   const { api, userId } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
@@ -89,6 +92,7 @@ export default async function CalendarBuilderPage({
       pipelines={pipelines.pipelines}
       textingReady={textingReady}
       brandedOrigin={brandedOrigin}
+      openDetails={details === '1'}
       payments={{
         // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
         accounts: accounts
