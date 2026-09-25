@@ -11,8 +11,9 @@
  */
 
 import {
+  handoverScreen,
   settingsArea,
-  settingsPath,
+  settingsWhere,
   type AssistantCard,
   type SettingsArea,
   type SettingsAreaInfo,
@@ -23,11 +24,24 @@ import { query, type ReadTool } from './tools-read';
 
 type Args = Record<string, unknown>;
 
+interface AreaQuery {
+  readonly name: string;
+  readonly as: string;
+  /** What it needs besides the workspace (migrations are listed by organization). */
+  readonly input?: (ctx: ToolContext) => Record<string, unknown>;
+}
+
 /** What one area is read with: the same queries the screen behind it runs. */
-const QUERIES: Record<SettingsArea, readonly { readonly name: string; readonly as: string }[]> = {
+const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   business: [{ name: 'workspace.get', as: 'business' }],
   branded_domain: [{ name: 'branded_domain.get', as: 'brandedDomain' }],
+  permissions: [{ name: 'permission.settings', as: 'permissions' }],
   pipelines: [{ name: 'pipeline.list', as: 'pipelines' }],
+  fields: [{ name: 'custom_field.list', as: 'fields' }],
+  relationships: [
+    { name: 'custom_record_type.list', as: 'kindsOfRecords' },
+    { name: 'relationship_type.list', as: 'relationshipTypes' },
+  ],
   calendars: [{ name: 'calendar.list', as: 'calendars' }],
   services: [{ name: 'service.list', as: 'services' }],
   resources: [{ name: 'resource.list', as: 'resources' }],
@@ -41,18 +55,27 @@ const QUERIES: Record<SettingsArea, readonly { readonly name: string; readonly a
   texting: [{ name: 'phone.setup_status', as: 'texting' }],
   email: [{ name: 'email.setup_status', as: 'email' }],
   website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
+  templates: [{ name: 'template.list', as: 'templates' }],
   lead_intake: [{ name: 'intake.list', as: 'leadIntake' }],
   payments: [
     { name: 'money.settings', as: 'payments' },
     { name: 'payment_connection.list', as: 'accounts' },
   ],
   products: [{ name: 'product.list', as: 'products' }],
+  usage: [{ name: 'wallet.get', as: 'balance' }],
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
   my_account: [{ name: 'account.me', as: 'me' }],
   my_calendar: [{ name: 'schedule.team', as: 'schedules' }],
   imports: [{ name: 'import.list', as: 'imports' }],
+  migrations: [
+    {
+      name: 'migration.list',
+      as: 'migrations',
+      input: (ctx) => ({ organizationId: ctx.organizationId }),
+    },
+  ],
 };
 
 /** Everything `account.me` holds that isn't this person's own settings; the model never needs it. */
@@ -72,7 +95,7 @@ const areaOf = (args: Args): SettingsArea => args['area'] as SettingsArea;
 async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promise<ToolOutcome> {
   const parts = await Promise.all(
     QUERIES[info.area].map(async (q) => {
-      const value = await query<unknown>(db, ctx, q.name).catch(() => null);
+      const value = await query<unknown>(db, ctx, q.name, q.input?.(ctx)).catch(() => null);
       return [q.as, q.as === 'me' ? meShape(value) : value] as const;
     }),
   );
@@ -80,7 +103,7 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
   return {
     result: {
       area: info.area,
-      where: `Settings → ${info.label}`,
+      where: settingsWhere(info.area),
       canChange: info.canChange,
       theyDoThemselves: info.handovers.map((h) => h.what),
       ...Object.fromEntries(parts),
@@ -95,11 +118,11 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
 function helpCard(workspaceId: string, info: SettingsAreaInfo): AssistantCard | null {
   const first = info.handovers[0];
   if (!first) return null;
-  const href = settingsPath(workspaceId, info.area);
+  const { where, href } = handoverScreen(workspaceId, info, first);
   return {
     type: 'list',
     title: first.what.charAt(0).toUpperCase() + first.what.slice(1),
-    aside: `Settings → ${info.label}`,
+    aside: where,
     items: first.steps.map((step, i) => ({
       title: `${i + 1}. ${step}`,
       detail: '',
@@ -120,12 +143,14 @@ export const settingsReadTools: Record<string, ReadTool> = {
     return {
       result: {
         area: info.area,
-        where: `Settings → ${info.label}`,
+        where: settingsWhere(info.area),
+        onScreen: info.onScreen,
         what: info.what,
         canChange: info.canChange,
         theyDoThemselves: info.handovers.map((h) => ({
           what: h.what,
           why: h.why,
+          where: handoverScreen(ctx.workspaceId, info, h).where,
           steps: h.steps,
         })),
       },
