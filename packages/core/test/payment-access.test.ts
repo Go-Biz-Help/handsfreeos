@@ -129,6 +129,22 @@ describe('who bills into which account', () => {
     );
   });
 
+  it('refuses a sign-in that was started and never finished, which could never take the money', async () => {
+    const [started] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.payment_connections (workspace_id, provider, environment, status)
+          values (${t.wsId}, 'stripe', 'live', 'pending') returning id`,
+    );
+    await expectHfos(
+      () => invoiceFor(t.owner, started!.id),
+      'payment_connection_not_connected',
+      409,
+    );
+    // Nor is it where an invoice lands when nobody names one.
+    expect(await paidInto((await invoiceFor(t.owner)).invoiceId)).toBe(main);
+    await rows(admin(), sql`delete from app.payment_connections where id = ${started!.id}`);
+  });
+
   it('refuses the same in the database, whatever writes it as a person', async () => {
     const made = await invoiceFor(t.priya);
     const err = await expectPg(() =>

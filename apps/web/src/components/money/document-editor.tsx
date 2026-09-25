@@ -419,6 +419,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
                       {connectionLabel(c)}
                       {c.isDefault ? ' · default' : ''}
                       {c.usableByMe ? '' : ' · not yours'}
+                      {c.status === 'active' ? '' : ' · not connected'}
                     </option>
                   ))}
                 </Select>
@@ -428,7 +429,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
                   {theirs.isDefault ? <Badge variant="owner">Default</Badge> : null}
                   <span className="text-text-3">Chosen when you turn this into an invoice.</span>
                 </span>
-              ) : connections.length > 0 ? (
+              ) : connections.some((c) => c.status === 'active') ? (
                 <span className="flex-1 text-[13px] text-text-3" data-testid="document-no-account">
                   None of the connected accounts is yours to bill into.{' '}
                   <Link

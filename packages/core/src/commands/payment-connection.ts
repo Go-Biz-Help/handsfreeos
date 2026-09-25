@@ -217,22 +217,33 @@ export async function accountForPerson(
   return null;
 }
 
-/** Refuses an account this person may not bill into, in words, before the database's own check would. */
+/**
+ * Refuses an account this person may not bill into, in words, before the database's own check would — and one
+ * that isn't connected, such as a sign-in that was started and never finished, which could never take the money.
+ */
 export async function assertAccountUsable(
   ctx: CommandContext,
   userId: string,
   connectionId: string,
 ): Promise<void> {
-  const [ok] = await rows<{ ok: boolean }>(
+  const ws = ctx.scope.workspaceId!;
+  const [ok] = await rows<{ ok: boolean; status: string | null }>(
     ctx.tx,
-    sql`select private.payment_account_usable(${ctx.scope.workspaceId!}::uuid, ${connectionId}::uuid,
-          ${userId}::uuid) as ok`,
+    sql`select private.payment_account_usable(${ws}::uuid, ${connectionId}::uuid, ${userId}::uuid) as ok,
+          (select c.status::text from app.payment_connections c
+           where c.id = ${connectionId}::uuid and c.workspace_id = ${ws}::uuid) as status`,
   );
   if (!ok?.ok)
     throw HfosError.rule(
       'payment_account_not_yours',
       403,
       'That payment account is kept for other people on the team. Pick one of yours.',
+    );
+  if (ok.status !== 'active')
+    throw HfosError.rule(
+      'payment_connection_not_connected',
+      409,
+      'That account isn’t connected right now. Pick a connected one, or finish connecting it in Settings → Payments.',
     );
 }
 

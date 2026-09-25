@@ -2,15 +2,18 @@
  * Connecting the accounts a business is paid into, end to end on the stand-in provider: signing in through the
  * real routes, several accounts at once (including two of the same provider), the default moving when one goes,
  * Stripe's refusal to attach to an account another platform controls, and Square's 30-day token — renewed,
- * asking for a reconnect when it can't be, and rescued by the hourly re-arm when its own job has died.
+ * asking for a reconnect when it can't be, and rescued by the hourly re-arm when its own job has died. The same
+ * hourly pass clears away sign-ins nobody finished.
  */
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
   executeCommand,
+  invoiceCreate,
   organizationCreate,
   paymentConnectionConnect,
   paymentConnectionDisconnect,
+  personCreate,
   type HumanActor,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
@@ -28,6 +31,7 @@ import { PAYMENT_JOBS, PAYMENT_PLAN_KEY, refreshJobKey } from '../src/payments/r
 import { processDeliveries } from '../src/deliveries';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
+import { systemActor } from '../src/services';
 import { testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-payments-connections-${process.pid}`;
@@ -176,6 +180,23 @@ async function refreshNow(connectionId: string): Promise<void> {
         where dedupe_key = ${refreshJobKey(connectionId)} and status = 'pending'`,
   );
   await drain();
+}
+
+/** The server-wide hourly `payments.plan`, run now. */
+async function runHourlyPlan(): Promise<void> {
+  await rows(
+    admin(),
+    sql`insert into app.scheduled_jobs (kind, dedupe_key, run_at, payload)
+        values (${PAYMENT_JOBS.plan}, ${PAYMENT_PLAN_KEY}, now(), '{}'::jsonb)
+        on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null
+        do update set run_at = now()`,
+  );
+  await rows(
+    admin(),
+    sql`update app.scheduled_jobs set locked_at = now(), locked_by = ${WORKER_ID}
+        where dedupe_key = ${PAYMENT_PLAN_KEY} and status = 'pending'`,
+  );
+  await processJobs({ ...s, workerId: WORKER_ID, batchSize: 50, reservedOnly: true, jobs });
 }
 
 beforeAll(async () => {
@@ -413,19 +434,7 @@ describe('Square’s 30-day token', () => {
     expect((await refreshJob(rescued)).filter((j) => j.status === 'pending')).toHaveLength(0);
 
     // The hourly plan puts one back, so a dead job can't end a business's payments thirty days later.
-    await rows(
-      admin(),
-      sql`insert into app.scheduled_jobs (kind, dedupe_key, run_at, payload)
-          values (${PAYMENT_JOBS.plan}, ${PAYMENT_PLAN_KEY}, now(), '{}'::jsonb)
-          on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null
-          do update set run_at = now()`,
-    );
-    await rows(
-      admin(),
-      sql`update app.scheduled_jobs set locked_at = now(), locked_by = ${WORKER_ID}
-          where dedupe_key = ${PAYMENT_PLAN_KEY} and status = 'pending'`,
-    );
-    await processJobs({ ...s, workerId: WORKER_ID, batchSize: 50, reservedOnly: true, jobs });
+    await runHourlyPlan();
     expect((await refreshJob(rescued)).filter((j) => j.status === 'pending')).toHaveLength(1);
 
     // And it really runs: the token is renewed.
@@ -434,5 +443,60 @@ describe('Square’s 30-day token', () => {
     const after = await connection(rescued);
     expect(after.status).toBe('active');
     expect(after.tokenEnc).not.toBe(before.tokenEnc);
+  });
+});
+
+describe('sign-ins nobody finished', () => {
+  it('the hourly plan clears them away once they can never finish, and leaves real accounts alone', async () => {
+    // Cancelled at the provider an hour and more after its link lapsed, and one started just now.
+    const left = await connect('square', `merchant_test_${token()}`, { decision: 'deny' });
+    await worker((tx) =>
+      tx
+        .update(paymentConnections)
+        .set({ oauthStateExpiresAt: new Date(Date.now() - 2 * 60 * 60_000) })
+        .where(eq(paymentConnections.id, left.connectionId)),
+    );
+    const { output: fresh } = await executeCommand(
+      api(),
+      paymentConnectionConnect,
+      { workspaceId, provider: 'stripe', environment: 'test' as const },
+      actor(owner),
+      meta(),
+    );
+    // An invoice the business raised on its own, pointed at the one that never finished: nobody could pay it.
+    const { output: person } = await executeCommand(
+      api(),
+      personCreate,
+      { workspaceId, firstName: 'Client', lastName: 'Co' },
+      actor(owner),
+      meta(),
+    );
+    const { output: bill } = await executeCommand(
+      testDbs().worker.db,
+      invoiceCreate,
+      {
+        workspaceId,
+        personId: person.personId,
+        lines: [{ name: 'Work', quantity: 1, unitPriceCents: 10_000, taxable: false }],
+        connectionId: left.connectionId,
+      },
+      systemActor(scope()),
+      meta(),
+    );
+
+    await runHourlyPlan();
+
+    const still = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.payment_connections
+          where id in (${left.connectionId}, ${fresh.connectionId}, ${stripeId})`,
+    );
+    expect(still.map((r) => r.id).sort()).toEqual([fresh.connectionId, stripeId].sort());
+    // The invoice names no account now, so it is paid into the default like any other.
+    const [invoice] = await rows<{ connection_id: string | null }>(
+      admin(),
+      sql`select connection_id from app.invoices where id = ${bill.invoiceId}`,
+    );
+    expect(invoice?.connection_id).toBeNull();
   });
 });
