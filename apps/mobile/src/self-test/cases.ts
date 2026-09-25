@@ -529,8 +529,12 @@ export const CASES: readonly Case[] = [
           ? `Zone fallbacks this phone needed: ${substituted.join(', ')}`
           : 'This phone knows every zone on core’s list.',
       );
-      // Each fallback keeps its zone's clock on this phone's own data, weekly for a year. Only where the phone knows
-      // both names: without the zone, zoneOffsetMinutes(zone) already reads the fallback.
+      // Where this phone knows a zone and its fallback both, they should keep the same clock, weekly for a year. Only
+      // there: without the zone, zoneOffsetMinutes(zone) already reads the fallback. Under tzdb 2026d they always do
+      // (packages/core/test/intl.test.ts checks the table on Node), so a pair that doesn't means this phone's own data
+      // for one of them predates a change: the Android 14 test image still has Asia/Qostanay on UTC+6, which
+      // Kazakhstan left in 2024. Core falls back only for a zone the phone doesn't know, so it can't change what such
+      // a phone shows for that zone, and the pair is noted rather than failed.
       const weeks = Array.from({ length: 53 }, (_, week) => at + week * 7 * 86_400_000);
       const offClock: string[] = [];
       for (const [zone, names] of Object.entries(TIME_ZONE_FALLBACKS)) {
@@ -541,7 +545,10 @@ export const CASES: readonly Case[] = [
           if (off !== undefined) offClock.push(`${name} for ${zone} at ${iso(off)}`);
         }
       }
-      t.equal(offClock, [], 'fallbacks off their zone’s clock on this phone');
+      if (offClock.length > 0)
+        t.note(
+          `Zones and fallbacks on different clocks in this phone's own data, which is older for one of each pair: ${offClock.join(', ')}`,
+        );
       // tzdb merged some zones recently; older ICU keeps them apart.
       const instants = ['2026-01-15T12:00:00Z', '2026-07-15T12:00:00Z'].map((d) => Date.parse(d));
       const drifting: string[] = [];
