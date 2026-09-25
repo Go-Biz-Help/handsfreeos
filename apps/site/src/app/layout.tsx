@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
+import { Hanken_Grotesk } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { Matomo } from '@/components/matomo';
 import { SiteFooter } from '@/components/site-footer';
@@ -8,12 +8,9 @@ import { SupportChat } from '@/components/support-chat';
 import { company, urls } from '@/content/site';
 import './globals.css';
 
+// One family. The product's JetBrains Mono is not loaded here: nothing on the site sets in mono, and a
+// preloaded font competes with the page itself for a phone's first second.
 const hanken = Hanken_Grotesk({ subsets: ['latin'], variable: '--font-hanken', display: 'swap' });
-const jetbrains = JetBrains_Mono({
-  subsets: ['latin'],
-  variable: '--font-jetbrains',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(urls.site),
@@ -50,7 +47,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-US" className={`${hanken.variable} ${jetbrains.variable}`}>
+    <html lang="en-US" className={hanken.variable}>
       <body className="font-sans">
         <a
           href="#main"

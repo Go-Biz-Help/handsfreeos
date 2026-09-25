@@ -14,7 +14,10 @@
   --text-3: #676c75;
   --accent: #2d69d8;
   --accent-hover: color-mix(in oklab, var(--accent) 86%, #000000);
-  --accent-text: var(--accent);
+  /* A shade under the accent, so accent text passes 4.5:1 on the soft accent tints the mock-ups draw
+     on as well as on the page (the accent itself measures 4.0–4.4:1 there). Dark mode already derives
+     its own. */
+  --accent-text: color-mix(in oklab, var(--accent) 90%, #000000);
   --accent-soft: color-mix(in oklab, var(--accent) 10%, #ffffff);
   --accent-soft-2: color-mix(in oklab, var(--accent) 18%, #ffffff);
   --ring: color-mix(in oklab, var(--accent) 28%, transparent);
@@ -99,7 +102,7 @@
   --color-on-solid: var(--on-solid);
   --font-sans:
     var(--font-hanken), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius-control: 8px;
   --radius-card: 12px;
   --radius-dialog: 14px;
