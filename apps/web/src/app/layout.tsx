@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { Matomo } from '@/components/matomo';
 import { Toaster } from '@/components/ui/toaster';
 import { parseTheme, THEME_COOKIE, themeAttr } from '@/lib/theme';
 import './globals.css';
@@ -30,6 +31,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body className="font-sans text-sm">
         {children}
         <Toaster />
+        <Matomo />
       </body>
     </html>
   );

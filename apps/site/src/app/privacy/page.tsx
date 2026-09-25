@@ -14,7 +14,7 @@ import { company, urls } from '@/content/site';
 
  */
 
-const LAST_UPDATED = 'September 18, 2026';
+const LAST_UPDATED = 'September 25, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
@@ -113,6 +113,14 @@ export default function PrivacyPage() {
               </td>
               <td>Your browser or phone, automatically</td>
               <td>To keep the service up, keep it secure, and find what broke</td>
+            </tr>
+            <tr>
+              <td>
+                Usage: which pages of this website and which screens of the apps are opened, how
+                often, and from what kind of device
+              </td>
+              <td>Your browser or phone, automatically, through Matomo</td>
+              <td>To see which parts get used, and so what to fix and build next</td>
             </tr>
           </tbody>
         </table>
@@ -284,6 +292,10 @@ export default function PrivacyPage() {
               <td>Cloudflare</td>
               <td>Sits in front of the service to keep it up and keep attacks out</td>
             </tr>
+            <tr>
+              <td>Matomo</td>
+              <td>Counts visits to this website and which screens of the apps get used</td>
+            </tr>
           </tbody>
         </table>
         <p>
@@ -301,8 +313,17 @@ export default function PrivacyPage() {
         <p>
           The web app uses cookies to keep you signed in and to remember small preferences like
           light or dark. This website uses none of the advertising trackers you would normally
-          expect. If we ever add analytics, it will be the kind that counts visits without following
-          people around, and this page will say so.
+          expect.
+        </p>
+        <p>
+          We count visits with Matomo, on this website, in the web app and in the phone app: which
+          pages and screens are opened, how often, and from what kind of device. On the website and
+          in the web app, Matomo may set its own cookie so a return visit is not counted as a new
+          person; no other website can read it. The apps record the screen, never what is on it: a
+          customer&rsquo;s page is counted as &ldquo;a customer&rsquo;s page&rdquo;, not by their
+          name, and nothing you type or search for is sent. The pages your customers open &mdash;
+          booking pages, invoices, forms &mdash; are not counted at all. None of it is used for
+          advertising or shared with anyone else.
         </p>
         <p>
           Some browsers send a &ldquo;Do Not Track&rdquo; signal. We do not need to do anything

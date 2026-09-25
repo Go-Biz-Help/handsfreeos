@@ -8989,16 +8989,17 @@ You need:
 
 Metro, which packages the app, replaces every `process.env.EXPO_PUBLIC_…` it can see with the value that was set **when the build ran**, and writes the result into the bundle. There is no configuration file on the phone and nothing is fetched at startup: a build points where it pointed the day it was made, for good.
 
-| Name                                   | Required       | What it is                                                           | Its value                                              |
-| -------------------------------------- | -------------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
-| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                             | `https://ybupfghakoszfcxhyrby.supabase.co`             |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                       | The `sb_publishable_…` key from the Supabase dashboard |
-| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                  | `https://api.handsfreeos.com`                          |
-| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                       | `https://sync.handsfreeos.com`                         |
-| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                    | `https://app.handsfreeos.com` (also the default)       |
-| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes | `https://hooks.handsfreeos.com`                        |
-| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                | Leave unset until passkeys work                        |
-| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                         | Leave unset                                            |
+| Name                                   | Required       | What it is                                                                   | Its value                                                               |
+| -------------------------------------- | -------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`             | Yes            | Supabase, for signing in                                                     | `https://ybupfghakoszfcxhyrby.supabase.co`                              |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes            | That project's publishable key                                               | The `sb_publishable_…` key from the Supabase dashboard                  |
+| `EXPO_PUBLIC_API_URL`                  | Yes            | The API, which every change the phone makes goes to                          | `https://api.handsfreeos.com`                                           |
+| `EXPO_PUBLIC_SYNC_URL`                 | Yes            | The sync service, which fills the phone's copy                               | `https://sync.handsfreeos.com`                                          |
+| `EXPO_PUBLIC_WEB_URL`                  | No, but set it | The web app, for the pages the phone links out to                            | `https://app.handsfreeos.com` (also the default)                        |
+| `EXPO_PUBLIC_WORKER_URL`               | No, but set it | The worker: **the Assistant**, and test builds' stand-in push routes         | `https://hooks.handsfreeos.com`                                         |
+| `EXPO_PUBLIC_MATOMO_SITE_ID`           | No, but set it | Matomo's id for the phone app, which counts screens (`src/lib/analytics.ts`) | The phone app's site id in gobizhelp.matomo.cloud; unset counts nothing |
+| `EXPO_PUBLIC_PASSKEYS_ENABLED`         | No             | Shows passkey sign-in                                                        | Leave unset until passkeys work                                         |
+| `EXPO_PUBLIC_E2E`                      | No             | Builds for the Maestro flows                                                 | Leave unset                                                             |
 
 The first four are the ones `isConfigured()` checks (`apps/mobile/src/lib/config.ts`). With any one of them empty the app opens on **"This build isn't connected"** and goes no further. Every one of these ends up readable inside the app on anyone's phone, so a secret must never be among them — that is what `EXPO_PUBLIC_` means.
 

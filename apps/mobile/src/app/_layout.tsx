@@ -11,6 +11,7 @@ import { LockGate } from '@/components/lock/lock-gate';
 import { TestUnlockPrompt } from '@/components/lock/test-unlock-prompt';
 import { Text } from '@/components/ui/text';
 import { Toaster } from '@/components/ui/toast';
+import { useScreenTracking } from '@/lib/analytics';
 import { startApp } from '@/lib/app-start';
 import { useSession } from '@/lib/auth';
 import { config, isConfigured, testToolsEnabled } from '@/lib/config';
@@ -25,6 +26,7 @@ export default function RootLayout() {
   const theme = useThemeName();
   const state = useSession();
   const [ready, setReady] = React.useState(false);
+  useScreenTracking();
 
   React.useEffect(() => {
     void startApp().finally(() => setReady(true));

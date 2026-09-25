@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { Matomo } from '@/components/matomo';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { SupportChat } from '@/components/support-chat';
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <main id="main">{children}</main>
         <SiteFooter />
         <SupportChat />
+        <Matomo />
       </body>
     </html>
   );
