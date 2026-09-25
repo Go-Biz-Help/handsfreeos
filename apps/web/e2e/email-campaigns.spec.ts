@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { quietHoursOff } from './ai-team';
 import { api, ownerWithSite } from './booking-helpers';
 import { MAILPIT } from './helpers';
 
@@ -36,6 +37,8 @@ test('Email campaign: one email, edit it, approve; the unsubscribe page', async 
       openHours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, start: '00:00', end: '24:00' })),
     },
   });
+  // Open all day and no quiet hours, so the emails go out at whatever hour it runs.
+  await quietHoursOff(owner.token, ws);
   const { tagId } = await api<{ tagId: string }>(owner.token, 'commands', 'tag.create', {
     workspaceId: ws,
     name: 'Newsletter',
