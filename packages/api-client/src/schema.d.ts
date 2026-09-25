@@ -707,7 +707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.
+         * Put the business’s forms, payment links, estimates, invoices and booking page on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.
          * @description Risk level 2. Requires channels.manage. Emits branded_domain.added.
          */
         post: operations["command_branded_domain_add"];
@@ -727,7 +727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.
+         * Take the business off its own domain. Its forms, payment links, estimates, invoices and booking page go back to handsfreeos.com at once; links already sent on the old domain stop working.
          * @description Risk level 3. Requires channels.manage. Emits branded_domain.removed.
          */
         post: operations["command_branded_domain_remove"];
@@ -1371,6 +1371,46 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits company.updated. Can wait on a phone with no signal.
          */
         post: operations["command_company_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contact_ai.cancel_sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop the AI’s pass over the customer list. What it already changed stays, each change in the audit log.
+         * @description Risk level 1. Requires tags.manage. Emits contact_ai.sweep_cancelled.
+         */
+        post: operations["command_contact_ai_cancel_sweep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contact_ai.start_sweep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Have the AI go through every customer (or the ones with one tag) and put on or take off tags from what it knows about them: their details, conversations, calls, visits, deals and payments. Optionally it also fills in and corrects contact details. Each change is logged with its reason.
+         * @description Risk level 2. Requires tags.manage. Emits contact_ai.sweep_started.
+         */
+        post: operations["command_contact_ai_start_sweep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6607,8 +6647,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add the line of guidance made of repeated corrections to the AI teammate to the business’s policies, which the AI reads on every reply.
-         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated.
+         * Add the line of guidance made of corrections to the AI teammate to the business’s policies, which the AI reads on every reply. When it goes against what the AI already knows, say replace: true to put the new words in place of the old ones; dismissing it keeps them.
+         * @description Risk level 1. Requires knowledge.manage. Emits teammate_lesson.applied, knowledge.profile_updated, knowledge_item.updated.
          */
         post: operations["command_teammate_lesson_apply"];
         delete?: never;
@@ -8211,6 +8251,66 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_company_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contact_ai.preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Before a pass over the list: how many customers it would look at, the tags it may use, and the workflows that start when a customer’s tags change.
+         * @description Requires records.read.
+         */
+        post: operations["query_contact_ai_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contact_ai.reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The log of the AI’s looks at customers’ tags and details, newest first: what it put on, took off and changed, each with its reason, and what it left alone and why. For one customer, one pass, or everyone.
+         * @description Requires records.read.
+         */
+        post: operations["query_contact_ai_reviews"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contact_ai.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How the AI’s upkeep of customers’ tags and details is going: the pass over the list going now and the last few, whether it tags and fixes details on its own, and its last week.
+         * @description Requires records.read.
+         */
+        post: operations["query_contact_ai_status"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12171,6 +12271,11 @@ export interface operations {
                             voicemail?: "text" | "message" | "hang_up";
                         };
                         /** @default {} */
+                        contactAi?: {
+                            /** @default  */
+                            guide?: string;
+                        };
+                        /** @default {} */
                         intake?: {
                             /** @default null */
                             formId?: string | null;
@@ -12212,6 +12317,10 @@ export interface operations {
                         };
                         /** @default {} */
                         switches?: {
+                            /** @default true */
+                            aiDetails?: boolean;
+                            /** @default true */
+                            aiTags?: boolean;
                             /** @default true */
                             approvalExpiry?: boolean;
                             /** @default false */
@@ -12272,6 +12381,10 @@ export interface operations {
                                  */
                                 voicemail: "text" | "message" | "hang_up";
                             };
+                            contactAi: {
+                                /** @default  */
+                                guide: string;
+                            };
                             intake: {
                                 /** @default null */
                                 formId: string | null;
@@ -12309,6 +12422,10 @@ export interface operations {
                                 template: string;
                             };
                             switches: {
+                                /** @default true */
+                                aiDetails: boolean;
+                                /** @default true */
+                                aiTags: boolean;
                                 /** @default true */
                                 approvalExpiry: boolean;
                                 /** @default false */
@@ -14086,6 +14203,78 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_contact_ai_cancel_sweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    sweepId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        reviewed: number;
+                        /** Format: uuid */
+                        sweepId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contact_ai_start_sweep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    fixDetails?: boolean;
+                    /** @default  */
+                    instructions?: string;
+                    /** @default null */
+                    onlyTagId?: string | null;
+                    /** @default [] */
+                    tagIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        sweepId: string;
+                        total: number;
                     };
                 };
             };
@@ -24721,6 +24910,7 @@ export interface operations {
                     /** Format: uuid */
                     lessonId: string;
                     line?: string;
+                    replace?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -24737,6 +24927,11 @@ export interface operations {
                         /** Format: uuid */
                         lessonId: string;
                         line: string;
+                        replaced: {
+                            after: string;
+                            before: string;
+                            where: string;
+                        } | null;
                     };
                 };
             };
@@ -28588,7 +28783,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -28708,7 +28903,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -28788,7 +28983,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "site_changed" | "asked" | "offer_ends";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -29132,7 +29327,7 @@ export interface operations {
                     /** Format: date-time */
                     before?: string;
                     /** @enum {string} */
-                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "test";
+                    channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "test";
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */
@@ -30392,6 +30587,228 @@ export interface operations {
                             website: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_contact_ai_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    onlyTagId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        customers: number;
+                        tags: {
+                            color: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        tagWorkflows: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contact_ai_reviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    /** @default false */
+                    changedOnly?: boolean;
+                    /** @default 20 */
+                    limit?: number;
+                    /** Format: uuid */
+                    personId?: string;
+                    /** Format: uuid */
+                    sweepId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            addedTags: {
+                                name: string;
+                                reason: string;
+                            }[];
+                            /** Format: date-time */
+                            createdAt: string;
+                            details: {
+                                field: string;
+                                from: string | null;
+                                reason: string;
+                                to: string | null;
+                            }[];
+                            /** Format: uuid */
+                            id: string;
+                            note: string | null;
+                            /** @enum {string} */
+                            outcome: "changed" | "unchanged" | "skipped" | "failed";
+                            person: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            };
+                            removedTags: {
+                                name: string;
+                                reason: string;
+                            }[];
+                            skipped: {
+                                what: string;
+                                why: string;
+                            }[];
+                            sweepId: string | null;
+                            /** @enum {string} */
+                            trigger: "activity" | "sweep";
+                        }[];
+                        nextBefore: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_contact_ai_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lastWeek: {
+                            changed: number;
+                            reviewed: number;
+                        };
+                        recent: {
+                            changed: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detailsChanged: number;
+                            finishedAt: string | null;
+                            fixDetails: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            instructions: string;
+                            note: string | null;
+                            onlyTag: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reviewed: number;
+                            /** @enum {string} */
+                            status: "running" | "done" | "cancelled" | "failed";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            tagsAdded: number;
+                            tagsRemoved: number;
+                            total: number;
+                        }[];
+                        running: {
+                            changed: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            detailsChanged: number;
+                            finishedAt: string | null;
+                            fixDetails: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            instructions: string;
+                            note: string | null;
+                            onlyTag: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            requestedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            reviewed: number;
+                            /** @enum {string} */
+                            status: "running" | "done" | "cancelled" | "failed";
+                            tags: {
+                                color: string;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            tagsAdded: number;
+                            tagsRemoved: number;
+                            total: number;
+                        } | null;
+                        switches: {
+                            details: boolean;
+                            tags: boolean;
+                        };
                     };
                 };
             };
@@ -35293,6 +35710,8 @@ export interface operations {
                     sort?: "name" | "recent";
                     /** Format: uuid */
                     tagId?: string;
+                    /** Format: uuid */
+                    withoutTagId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };

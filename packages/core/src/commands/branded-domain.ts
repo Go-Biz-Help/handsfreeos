@@ -10,10 +10,15 @@
  * **It hangs off the booking site.** That row is already the business's public identity — the `lonestar` in
  * `/book/lonestar` and `/f/lonestar/quote` — and a branded domain is another name for exactly that. One per
  * site, so "which business is this host?" always has one answer.
+ *
+ * **But it is not only for booking.** Forms, estimates, invoices and payment links all live on it too, so a
+ * business that has never set up a booking page still gets one: `ensureBookingSite` names it the way
+ * publishing a form does, switched off, and the domain points at that.
  */
 import { rows, sql } from '@hfos/db/client';
 import { and, eq, sql as dsql } from 'drizzle-orm';
-import { bookingSites, brandedDomains } from '@hfos/db/schema';
+import { brandedDomains } from '@hfos/db/schema';
+import { ensureBookingSite } from '../calendar/site';
 import { HfosError } from '../errors';
 import { requireHuman, userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -47,7 +52,7 @@ async function loadDomain(ctx: CommandContext, domainId: string): Promise<Domain
 export const brandedDomainAdd = defineCommand({
   name: 'branded_domain.add',
   description:
-    'Put the business’s booking page, forms and links on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.',
+    'Put the business’s forms, payment links, estimates, invoices and booking page on a domain it owns. HandsFreeOS shows the DNS records to add and checks them.',
   risk: 2,
   input: BrandedDomainAddInput,
   output: BrandedDomainRefOutput,
@@ -59,8 +64,7 @@ export const brandedDomainAdd = defineCommand({
 
     // One of our own names is nobody's to claim by typing it. Which of them may be claimed, and by which
     // single workspace, is written down in `platform.claimable_hosts` — so this asks rather than guesses,
-    // and the trigger on the table refuses anything that gets past here. Said before the booking-site
-    // check because "that one is not yours" is the truer answer of the two.
+    // and the trigger on the table refuses anything that gets past here.
     if (isOurHost(input.domain)) {
       const [claim] = await rows<{ workspace_id: string | null }>(
         ctx.tx,
@@ -73,19 +77,6 @@ export const brandedDomainAdd = defineCommand({
           'That is one of our own addresses. Use a domain your business owns.',
         );
     }
-
-    const [site] = await ctx.tx
-      .select({ id: bookingSites.id })
-      .from(bookingSites)
-      .where(eq(bookingSites.workspaceId, workspaceId));
-    // The site is the thing being renamed. Without one there is nothing for the domain to point at, and a
-    // business gets a clearer answer than a foreign-key error.
-    if (!site)
-      throw HfosError.rule(
-        'no_booking_site',
-        409,
-        'Set your booking page up first — the domain points at it.',
-      );
 
     // Asking again for the one already there is not a second domain; changing it is removing and adding,
     // because a name that has been in somebody's DNS for a week is not something to silently repoint.
@@ -103,6 +94,9 @@ export const brandedDomainAdd = defineCommand({
       );
     }
 
+    // The site is the thing being renamed. A business that only sends forms or payment links has never
+    // needed a booking page, so it gets its link name here rather than being sent off to make one.
+    const site = await ensureBookingSite(ctx.tx, workspaceId, userIdOf(ctx.actor));
     const [made] = await ctx.tx
       .insert(brandedDomains)
       .values({
@@ -151,7 +145,7 @@ export const brandedDomainVerify = defineCommand({
 export const brandedDomainRemove = defineCommand({
   name: 'branded_domain.remove',
   description:
-    'Take the business off its own domain. Links go back to handsfreeos.com at once; links already sent on the old domain stop working.',
+    'Take the business off its own domain. Its forms, payment links, estimates, invoices and booking page go back to handsfreeos.com at once; links already sent on the old domain stop working.',
   // A three, not a two: every QR code, flyer and text already carrying that address stops working the moment
   // this runs, and there is nothing we can do about the ones already printed.
   risk: 3,

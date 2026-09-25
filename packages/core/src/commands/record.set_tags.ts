@@ -1,7 +1,7 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
 import { companies, leads, people, recordTagRemovals, recordTags, tags } from '@hfos/db/schema';
 import { assertAiReach } from '../ai-team/reach';
-import { setRecordTags, tagsOf } from '../crm/records';
+import { fullName, setRecordTags, tagsOf } from '../crm/records';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -110,12 +110,24 @@ async function changeTags(
 ) {
   const workspaceId = ctx.scope.workspaceId!;
   const { recordType, recordId, mode } = input;
-  const table = recordType === 'person' ? people : recordType === 'company' ? companies : leads;
-  const [record] = await ctx.tx
-    .select({ id: table.id })
-    .from(table)
-    .where(and(eq(table.id, recordId), eq(table.workspaceId, workspaceId)));
+  const [record] =
+    recordType === 'person'
+      ? await ctx.tx
+          .select({ id: people.id, first: people.firstName, last: people.lastName })
+          .from(people)
+          .where(and(eq(people.id, recordId), eq(people.workspaceId, workspaceId)))
+      : recordType === 'company'
+        ? await ctx.tx
+            .select({ id: companies.id, first: companies.name, last: dsql<string>`''` })
+            .from(companies)
+            .where(and(eq(companies.id, recordId), eq(companies.workspaceId, workspaceId)))
+        : await ctx.tx
+            .select({ id: leads.id, first: leads.title, last: dsql<string>`''` })
+            .from(leads)
+            .where(and(eq(leads.id, recordId), eq(leads.workspaceId, workspaceId)));
   if (!record) throw HfosError.notFound('Record not found.');
+  // Who the tags are on, so the audit log can say (the AI and many-at-once tag whole lists).
+  const name = fullName(record.first, record.last);
   const before = await tagsOf(ctx.tx, workspaceId, recordType, recordId);
   const later =
     mode === 'replace'
@@ -160,7 +172,7 @@ async function changeTags(
     entityId: recordId,
     payload: { recordType, tagIds: after.map((t) => t.id), mode, added, removed },
     before: { tags: before.map((t) => t.name) },
-    after: { tags: after.map((t) => t.name) },
+    after: { name, tags: after.map((t) => t.name) },
     broadcast: false,
   });
   return { tags: after, changed, notApplied };

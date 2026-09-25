@@ -1273,6 +1273,15 @@ const counterpartLabel = (c: ConversationInfo): string =>
 const detailOf = (text: string | null | undefined): string | null =>
   text?.trim() ? clipLine(text, DETAIL_MAX) : null;
 
+/** "Ava was corrected", "Ava keeps being corrected", or, when it clashes, what the card asks. */
+function lessonTitle(
+  name: string,
+  lesson: Pick<LessonInfo['lesson'], 'corrections' | 'conflict'>,
+): string {
+  if (lesson.conflict) return `${name} was corrected · which is right?`;
+  return lesson.corrections > 1 ? `${name} keeps being corrected` : `${name} was corrected`;
+}
+
 interface Loaded {
   readonly leads: Map<string, LeadInfo>;
   readonly conversations: Map<string, ConversationInfo>;
@@ -2087,8 +2096,8 @@ export async function reconcile(
       { leadId: null, personId: null },
       {
         subjectType: 'lesson',
-        title: `${l.teammateName} keeps being corrected`,
-        detail: detailOf(l.lesson.why),
+        title: lessonTitle(l.teammateName, l.lesson),
+        detail: detailOf(l.explain ?? l.lesson.why),
         conversationId: null,
       },
     );

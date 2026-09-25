@@ -9,6 +9,7 @@
 import { rows, sql, type Tx } from '@hfos/db/client';
 import type { WeeklyHours } from '../calendar/config';
 import { uuidArray } from '../calendar/load';
+import { lessonConflictOf } from '../commands/teammate-lesson';
 import { formatPhone } from '../crm/phone';
 import { CHANNEL_QUIET_GAPS, type ChannelKind } from './detectors/channel-quiet';
 import type { ConnectionProblem, ConnectionSystem } from './detectors/connection';
@@ -336,6 +337,8 @@ export async function loadTeammates(
 export interface LessonInfo {
   readonly lesson: AttentionFacts<'ai_corrections'>['lesson'];
   readonly teammateName: string;
+  /** When it goes against what the AI knows: the clash in plain words. */
+  readonly explain: string | null;
 }
 
 /** Open lessons (and in a reconcile the ones named, whatever became of them). */
@@ -354,31 +357,37 @@ export async function loadLessons(
     why: string | null;
     corrections: number;
     status: 'open' | 'applied' | 'dismissed';
+    conflict: unknown;
     created_at: Date;
   }>(
     tx,
     sql`select l.id, l.teammate_id, t.name as teammate_name, l.line, l.why,
-          cardinality(l.draft_ids) as corrections, l.status, l.created_at
+          cardinality(l.draft_ids) as corrections, l.status, l.conflict, l.created_at
         from app.teammate_lessons l join app.ai_teammates t on t.id = l.teammate_id
         where l.workspace_id = ${workspaceId}
           and (l.id = any(${uuidArray([...ids])}) ${all ? sql`or l.status = 'open'` : sql``})`,
   );
   return new Map(
-    list.map((r) => [
-      r.id,
-      {
-        lesson: {
-          id: r.id,
-          teammateId: r.teammate_id,
-          line: r.line,
-          why: r.why,
-          corrections: r.corrections,
-          status: r.status,
-          createdAt: iso(r.created_at)!,
+    list.map((r) => {
+      const conflict = lessonConflictOf(r.conflict);
+      return [
+        r.id,
+        {
+          lesson: {
+            id: r.id,
+            teammateId: r.teammate_id,
+            line: r.line,
+            why: r.why,
+            corrections: r.corrections,
+            status: r.status,
+            createdAt: iso(r.created_at)!,
+            conflict: conflict && { where: conflict.where, existing: conflict.existing },
+          },
+          teammateName: r.teammate_name,
+          explain: conflict?.explain ?? null,
         },
-        teammateName: r.teammate_name,
-      },
-    ]),
+      ];
+    }),
   );
 }
 

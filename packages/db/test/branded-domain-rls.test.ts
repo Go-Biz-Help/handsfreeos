@@ -249,6 +249,60 @@ describe('a name of ours somebody is allowed to claim', () => {
   });
 });
 
+/**
+ * 0107: a domain is not only for booking, so adding one names the business if nothing has yet.
+ *
+ * `branded_domain.add` makes the booking site row switched off, as the person adding the domain. Since 0106
+ * that person can hold `channels.manage` without `calendars.manage`, and they must still be able to — or a
+ * business that keeps somebody away from its calendars cannot let them put it on its own domain.
+ */
+describe('naming the business so a domain has something to point at', () => {
+  let fresh: string;
+
+  beforeAll(async () => {
+    fresh = (await bootstrapOrganization(owner, 'Branded Org C', 'Forms Only HVAC')).wsId;
+    await admin$
+      .insert(workspaceMemberships)
+      .values([{ workspaceId: fresh, userId: member.id, role: 'member' }]);
+    await rows(
+      admin$,
+      sql`insert into app.member_permission_overrides (workspace_id, user_id, permission, allowed)
+          values (${fresh}, ${member.id}, 'channels.manage', true)`,
+    );
+  });
+
+  afterEach(async () => {
+    await rows(admin$, sql`delete from app.booking_sites where workspace_id = ${fresh}`);
+  });
+
+  afterAll(async () => {
+    await rows(
+      admin$,
+      sql`delete from app.member_permission_overrides where workspace_id = ${fresh}`,
+    );
+  });
+
+  const name = (enabled: boolean) =>
+    as(member)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.booking_sites (workspace_id, slug, name, enabled, created_by)
+            values (${fresh}, ${`forms-only-${Math.random().toString(36).slice(2, 8)}`},
+                    'Forms Only HVAC', ${enabled}, ${member.id}) returning id`,
+      ),
+    );
+
+  it('somebody who may set the domain, but not the calendars, may name it switched off', async () => {
+    const [made] = await name(false);
+    expect(made?.id).toBeTruthy();
+  });
+
+  it('but may not open it for booking — that is still the calendars’ to say', async () => {
+    const e = await expectPgError(() => name(true));
+    expect(e.code).toBe('42501');
+  });
+});
+
 describe('what the host said is the worker’s to write', () => {
   it('an owner cannot mark their own domain verified', async () => {
     const [made] = await add(owner, ws, siteId, uniqueDomain('self-verify'));
@@ -328,13 +382,18 @@ describe('which business is this host', () => {
     expect(found?.site_slug).toBe(expected!.slug);
   });
 
-  it('stops answering when the booking page is switched off', async () => {
+  it('keeps answering when the booking page is switched off, because forms and payment links live there too', async () => {
+    // 0107: a business that takes no online bookings still sends forms, invoices and payment links on its
+    // own domain. Booking being off is the booking page's to say, not a reason to stop serving the name.
     const domain = uniqueDomain('siteoff');
     const [made] = await add(owner, ws, siteId, domain);
     await record(ws, made!.id, { status: 'verified', certificateReady: true });
     await rows(admin$, sql`update app.booking_sites set enabled = false where id = ${siteId}`);
-    expect(await whoseHost(domain)).toEqual([]);
-    await rows(admin$, sql`update app.booking_sites set enabled = true where id = ${siteId}`);
+    try {
+      expect((await whoseHost(domain))[0]?.workspace_id).toBe(ws);
+    } finally {
+      await rows(admin$, sql`update app.booking_sites set enabled = true where id = ${siteId}`);
+    }
   });
 
   it('does not care how the host is capitalised, because a browser does not', async () => {

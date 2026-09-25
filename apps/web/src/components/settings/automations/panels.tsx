@@ -10,6 +10,7 @@ import {
   AUTO_CANCEL_WINDOW_MINUTES,
   AUTO_RECENT_PERSON_HOURS,
   checkNudgeTemplate,
+  CONTACT_AI_GUIDE_MAX,
   DEFAULT_FOLLOW_UP_LADDER_HOURS,
   DEFAULT_NUDGE_TEMPLATE,
   DEFAULT_INTAKE_MESSAGE,
@@ -1710,6 +1711,82 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
   );
 }
 
+// ---- The AI's tags and details (0107) ----
+
+function AiTagsPanel({ env }: { env: PanelEnv }) {
+  const guide = env.automations.contactAi.guide;
+  const [draft, setDraft] = useState(guide);
+  const [error, setError] = useState<string | null>(null);
+  const dirty = draft.trim() !== guide;
+  const tooLong = draft.trim().length > CONTACT_AI_GUIDE_MAX;
+  return (
+    <>
+      <Block>
+        <Note>
+          A few minutes after a customer’s message, call, visit, deal, payment or form, the AI reads
+          what the business knows about them and puts on the tags that fit, or takes off ones it put
+          on that no longer do. A tag someone on your team put on stays. It looks at one customer at
+          most every half hour.
+        </Note>
+        <Note>
+          With “Keep contact details up to date” on, it also fills in or fixes their name, email,
+          number and address when they tell you — only what they actually wrote or said, never from
+          a website chat whose visitor didn’t prove who they are. An email or number it replaces
+          stays on file as “Previous”.
+        </Note>
+        <Note>
+          Every change is in the audit log as “HandsFreeOS AI”, with its reason. To go through
+          everyone you already have, use{' '}
+          <Link href={`/app/w/${env.workspaceId}/settings/tags`} className={linkCls}>
+            Tags
+          </Link>
+          .
+        </Note>
+      </Block>
+      <Block title="How you tag customers">
+        <Textarea
+          aria-label="How you tag customers"
+          value={draft}
+          rows={4}
+          placeholder="VIP: has spent over $2,000 with us. Commercial: a business, not a home."
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setError(null);
+          }}
+          data-testid="ai-tags-guide"
+        />
+        <p className="text-[12.5px] text-text-3">
+          In your own words. The AI reads it every time it looks at a customer’s tags.
+        </p>
+        {tooLong || error ? (
+          <p className="text-[12.5px] text-danger-text">
+            {tooLong ? `Keep it under ${CONTACT_AI_GUIDE_MAX} characters.` : error}
+          </p>
+        ) : null}
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            disabled={!dirty || tooLong}
+            onClick={() =>
+              void env.saveAutomations(
+                (s) => ({ ...s, contactAi: { ...s.contactAi, guide: draft.trim() } }),
+                'Saved how you tag customers.',
+                (e) => {
+                  const f = fieldErrors(e);
+                  setError(Object.values(f)[0] ?? 'That didn’t save.');
+                },
+              )
+            }
+            data-testid="ai-tags-guide-save"
+          >
+            Save
+          </Button>
+        </div>
+      </Block>
+    </>
+  );
+}
+
 const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNode>> = {
   new_lead: NewLeadPanel,
   hot_lead: HotLeadPanel,
@@ -1732,6 +1809,7 @@ const PANELS: Readonly<Record<AdjustPanel, (props: { env: PanelEnv }) => ReactNo
   estimates: EstimatesPanel,
   balance: BalancePanel,
   ai_calls: AiCallsPanel,
+  ai_tags: AiTagsPanel,
 };
 
 /** One automation's Adjust panel. */

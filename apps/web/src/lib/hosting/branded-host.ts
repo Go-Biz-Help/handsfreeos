@@ -1,7 +1,7 @@
 /**
  * A request arriving on a business's own domain (M17).
  *
- * `booking.lonestarhvac.com/` is that business's booking page; `booking.lonestarhvac.com/quote` is its form
+ * `go.lonestarhvac.com/` is that business's booking page; `go.lonestarhvac.com/quote` is its form
  * called `quote`. The proxy rewrites the path and Next serves the page that was always there, so nothing
  * downstream — no page, no route, no link builder — has to know a branded domain exists.
  *

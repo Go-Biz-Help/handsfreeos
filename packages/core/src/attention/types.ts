@@ -59,8 +59,10 @@ export const REASON_CODES = [
   'broken',
   /** The AI's work nobody looked at: "14 drafts · none reviewed in 7 days". */
   'unreviewed',
-  /** What the AI keeps being corrected on, as one line of guidance. */
+  /** What the AI was corrected on, as one line of guidance. */
   'corrected',
+  /** Where what the AI knows says otherwise: "Hours says “Open 7 days a week”". */
+  'knows_otherwise',
   /** What changed on the website: "3 pages changed · 4 updates". */
   'site_changed',
   /** A question customers keep asking: "“Do you work Sundays?” · asked 4 times". */

@@ -440,7 +440,7 @@ const manageTag: SettingsConfirmTool = {
 
   async commit(db, ctx, args) {
     const act = action(args);
-    const href = `/app/w/${ctx.workspaceId}/settings/workspace`;
+    const href = `/app/w/${ctx.workspaceId}/settings/tags`;
     if (act === 'create') {
       await command(db, ctx, 'tag.create', {
         name: args['name'],

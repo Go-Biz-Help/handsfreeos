@@ -35,6 +35,8 @@ const VIA: Record<RequestChannel, string | null> = {
   chat_widget: 'via website chat',
   // Someone working in the phone app is working in the app.
   mobile: null,
+  // The AI keeping customers' tags and details up to date (0107): its name leads the row, its reason is below.
+  contact_ai: null,
 };
 
 /**
@@ -178,12 +180,31 @@ function describeAction(e: AuditEntry): string {
       return `updated the tag ${name(e)}`;
     case 'tag.delete':
       return `deleted the tag ${s(e.before?.name)}`;
-    case 'record.set_tags':
+    case 'record.set_tags': {
+      // Putting some on or taking some off (a workflow, the AI, many customers at once) says which.
+      const added = tagsBetween(e.after?.tags, e.before?.tags);
+      const removed = tagsBetween(e.before?.tags, e.after?.tags);
+      if (added.length && !removed.length)
+        return `added the tag${added.length > 1 ? 's' : ''} ${added.join(', ')}${onWhom(e)}`;
+      if (removed.length && !added.length)
+        return `removed the tag${removed.length > 1 ? 's' : ''} ${removed.join(', ')}${onWhom(e)}`;
       return `set tags to ${list(e.after?.tags) || 'none'}`;
+    }
+    // The AI's pass over the whole customer list (0107).
+    case 'contact_ai.start_sweep':
+      return `started the AI going through ${num(e.after?.total)} customer${num(e.after?.total) === '1' ? '' : 's'}${
+        list(e.after?.tags) ? ` with the tags ${list(e.after?.tags)}` : ''
+      }${e.after?.fixDetails ? ', fixing contact details too' : ''}`;
+    case 'contact_ai.cancel_sweep':
+      return `stopped the AI going through customers (${num(e.after?.reviewed)} of ${num(e.after?.total)} looked at)`;
+    case 'contact_ai.sweep_finished':
+      return s(e.after?.status) === 'failed'
+        ? `stopped going through customers: ${s(e.after?.note)}`
+        : `finished going through ${num(e.after?.reviewed)} customers: ${num(e.after?.changed)} changed (${num(e.after?.tagsAdded)} tags on, ${num(e.after?.tagsRemoved)} off, ${num(e.after?.detailsChanged)} details)`;
     case 'record.add_tag':
-      return `added the tag ${list(tagsBetween(e.after?.tags, e.before?.tags)) || 'a tag'}`;
+      return `added the tag ${list(tagsBetween(e.after?.tags, e.before?.tags)) || 'a tag'}${onWhom(e)}`;
     case 'record.remove_tag':
-      return `removed the tag ${list(tagsBetween(e.before?.tags, e.after?.tags)) || 'a tag'}`;
+      return `removed the tag ${list(tagsBetween(e.before?.tags, e.after?.tags)) || 'a tag'}${onWhom(e)}`;
     // A business's own fields, its own kinds of records, and how records relate (0101).
     case 'custom_field.create':
       return `added the field ${s(e.after?.label)}`;
@@ -1549,6 +1570,9 @@ const customKeys = (e: AuditEntry) =>
     .map((k) => k.slice('custom.'.length).replace(/_/g, ' '))
     .join(', ') || 'fields';
 /** The tag names in one list and not the other (what a single add or remove changed). */
+const num = (v: unknown): string => (typeof v === 'number' ? String(v) : '0');
+/** "on Mike Johnson", when the row names who (a tag put on a customer, 0107). */
+const onWhom = (e: AuditEntry): string => (s(e.after?.name) ? ` on ${s(e.after?.name)}` : '');
 const tagsBetween = (these: unknown, those: unknown): string[] => {
   const other = new Set(Array.isArray(those) ? those.map(String) : []);
   return Array.isArray(these) ? these.map(String).filter((t) => !other.has(t)) : [];
@@ -1626,6 +1650,9 @@ export function auditActor(
       kind: 'workflow',
       workflowId: e.actor.workflow?.id ?? e.actor.userId,
     };
+  // The AI keeping customers' tags and details up to date on its own (0107).
+  if (e.actor.type === 'system' && e.channel === 'contact_ai')
+    return { name: 'HandsFreeOS AI', kind: 'system', workflowId: null };
   if (e.actor.type === 'system') return { name: 'HandsFreeOS', kind: 'system', workflowId: null };
   return { name: e.actor.fullName ?? 'Someone', kind: 'person', workflowId: null };
 }
@@ -1679,6 +1706,7 @@ export function auditCategory(action: string): AuditCategory {
     action.startsWith('company.') ||
     action.startsWith('tag.') ||
     action.startsWith('record.') ||
+    action.startsWith('contact_ai.') ||
     action.startsWith('custom_field.') ||
     action.startsWith('custom_record') ||
     action.startsWith('relationship')

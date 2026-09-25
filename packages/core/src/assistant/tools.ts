@@ -79,6 +79,31 @@ export const assistantTools = [
     permission: 'records.read',
   }),
   define({
+    name: 'list_customers',
+    description:
+      'Many customers at once, up to 100 a page with their ids and tags: everyone, the ones matching words (name, phone, email, street), the ones with a tag, or the ones without one. Use it to gather who to tag; pass nextCursor back for the next page.',
+    input: z.object({
+      query: z.string().trim().max(120).optional(),
+      tagId: uuid.optional().describe('Only customers with this tag'),
+      withoutTagId: uuid.optional().describe('Only customers without this tag'),
+      limit: z.number().int().min(1).max(100).default(50),
+      cursor: z.string().max(400).optional().describe('nextCursor from the page before'),
+    }),
+    autonomy: 'auto',
+    permission: 'records.read',
+  }),
+  define({
+    name: 'ai_tagging_status',
+    description:
+      'How the AI’s upkeep of customers’ tags and details is going: the pass over the whole list going now (how far, what it changed), the last few passes, whether it tags and fixes details on its own after each message, call, visit or payment, and its latest changes with their reasons (one customer’s with personId).',
+    input: z.object({
+      personId: uuid.optional(),
+      changedOnly: z.boolean().default(true).describe('Only the looks that changed something'),
+    }),
+    autonomy: 'auto',
+    permission: 'records.read',
+  }),
+  define({
     name: 'list_leads',
     description:
       'Leads, newest first. Filter by status, by when they came in, by assignee, by customer, or to those without a next action.',
@@ -967,16 +992,94 @@ export const assistantTools = [
   }),
   define({
     name: 'update_customer',
-    description: 'Change a person’s name, phone or email.',
+    description:
+      'Change, add or remove any of a person’s details: name, main phone and email (null takes one off), address (only the parts that change; null clears a part), other numbers and emails (add or remove), notes, source, company and the business’s own fields (by field id, from get_customer; null clears one). Pass only what changes, and why in reason: it is kept in the audit log.',
     input: z.object({
       personId: uuid,
       firstName: z.string().trim().max(80).optional(),
       lastName: z.string().trim().max(80).optional(),
-      phone: z.string().trim().max(40).optional(),
-      email: z.string().trim().max(254).optional(),
+      phone: z.string().trim().max(40).nullable().optional(),
+      email: z.string().trim().max(254).nullable().optional(),
+      address: z
+        .object({
+          line1: z.string().trim().max(200).nullable().optional(),
+          line2: z.string().trim().max(200).nullable().optional(),
+          city: z.string().trim().max(100).nullable().optional(),
+          state: z.string().trim().max(50).nullable().optional(),
+          postalCode: z.string().trim().max(20).nullable().optional(),
+        })
+        .optional(),
+      addOtherPhones: z
+        .array(
+          z.object({
+            phone: z.string().trim().max(40),
+            label: z.string().trim().max(40).optional(),
+          }),
+        )
+        .max(5)
+        .optional(),
+      removeOtherPhones: z.array(z.string().trim().max(40)).max(20).optional(),
+      addOtherEmails: z
+        .array(
+          z.object({
+            email: z.string().trim().max(254),
+            label: z.string().trim().max(40).optional(),
+          }),
+        )
+        .max(5)
+        .optional(),
+      removeOtherEmails: z.array(z.string().trim().max(254)).max(20).optional(),
+      notes: z.string().trim().max(10000).nullable().optional().describe('Replaces the notes'),
+      source: z.string().trim().max(80).nullable().optional(),
+      companyId: uuid.nullable().optional(),
+      fields: z
+        .record(
+          z.string().max(40),
+          z.union([
+            z.string().max(5000),
+            z.number(),
+            z.boolean(),
+            z.array(z.string().max(200)),
+            z.null(),
+          ]),
+        )
+        .optional()
+        .describe('The business’s own fields by id; null clears one'),
+      reason: z.string().trim().max(300).optional().describe('Why, for the audit log'),
     }),
     autonomy: 'confirm',
     permission: 'records.write',
+  }),
+  define({
+    name: 'tag_customers',
+    description:
+      'Put tags on or take them off many customers at once (up to 200 people, 50 companies, 50 leads a call), leaving their other tags alone. Tag ids come from get_settings (tags); newTagNames makes tags that don’t exist yet and puts them on too. Gather the people with list_customers first. Say why in reason: it is kept in the audit log.',
+    input: z.object({
+      personIds: z.array(uuid).max(200).default([]),
+      companyIds: z.array(uuid).max(50).default([]),
+      leadIds: z.array(uuid).max(50).default([]),
+      addTagIds: z.array(uuid).max(10).default([]),
+      removeTagIds: z.array(uuid).max(10).default([]),
+      newTagNames: z.array(text(40)).max(5).default([]),
+      reason: text(300).describe('Why these customers get these tags'),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.write',
+  }),
+  define({
+    name: 'ai_tag_customers',
+    description:
+      'Have the AI go through the whole customer list (or only the ones with onlyTagId) in the background and put on or take off tags from everything it knows about each one: details, messages, calls, visits, deals, payments and forms. Put what to look for in instructions, in the person’s words. tagIds limits the tags it may use (all of them when empty); newTagNames makes new tags first. fixDetails also lets it fill in and correct names, emails, numbers and addresses customers gave. Every change is logged with its reason. action stop ends the pass going now.',
+    input: z.object({
+      action: z.enum(['start', 'stop']).default('start'),
+      instructions: z.string().trim().max(2000).optional(),
+      tagIds: z.array(uuid).max(50).default([]),
+      newTagNames: z.array(text(40)).max(10).default([]),
+      onlyTagId: uuid.optional(),
+      fixDetails: z.boolean().default(false),
+    }),
+    autonomy: 'confirm',
+    permission: 'tags.manage',
   }),
   define({
     name: 'create_lead',

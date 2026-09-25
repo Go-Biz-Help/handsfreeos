@@ -1,7 +1,8 @@
 /**
  * Automations' health and quality (stage 4b), without a database: when a channel goes quiet, a connection breaks
- * or goes silent, nobody reviews the AI, a lesson waits, the website changed and a question keeps coming up; how a
- * lesson joins the policies; and where each card opens.
+ * or goes silent, nobody reviews the AI, a lesson waits (and what it goes against), the website changed and a
+ * question keeps coming up; how a lesson joins the policies or takes the place of what says otherwise; and where
+ * each card opens.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -9,6 +10,7 @@ import {
   defaultAttentionSettings,
   DETECTORS,
   gapWords,
+  lessonKnowsOtherwise,
   type AiCorrectionsFacts,
   type AiUnreviewedFacts,
   type ChannelQuietFacts,
@@ -18,6 +20,7 @@ import {
 } from '../src/attention/index';
 import { openDayMs } from '../src/attention/load-health';
 import { withLesson } from '../src/commands/teammate-lesson';
+import { saysWords, swapWords } from '../src/knowledge/lessons';
 import { ago, business, DAY, HOUR, later, NOW, uid, WEEKDAYS_8_TO_5 } from './attention-fixtures';
 
 const settings = defaultAttentionSettings();
@@ -170,6 +173,37 @@ describe('ai_corrections, website_changed and faq_suggestions', () => {
     expect(DETECTORS.ai_corrections.detect(f('applied'), settings, NOW)).toBeNull();
   });
 
+  it('a lesson shows from its first correction, and says where what the AI knows says otherwise', () => {
+    const f = (conflict: AiCorrectionsFacts['lesson']['conflict']): AiCorrectionsFacts => ({
+      business,
+      lesson: {
+        id: uid(4),
+        teammateId: uid(3),
+        line: 'We don’t work Sundays.',
+        why: null,
+        corrections: 1,
+        status: 'open',
+        createdAt: ago(HOUR),
+        conflict,
+      },
+    });
+    expect(
+      DETECTORS.ai_corrections.detect(f(null), settings, NOW)?.reasons.map((r) => r.label),
+    ).toEqual(['Corrected once · “We don’t work Sundays.”']);
+    const clash = DETECTORS.ai_corrections.detect(
+      f({ where: 'Hours', existing: 'Open 7 days a week' }),
+      settings,
+      NOW,
+    );
+    expect(clash?.reasons.map((r) => [r.code, r.label])).toEqual([
+      ['knows_otherwise', 'Hours says “Open 7 days a week”'],
+      ['corrected', 'Corrected once · “We don’t work Sundays.”'],
+    ]);
+    const card = { kind: 'ai_corrections' as const, reasons: clash!.reasons };
+    expect(lessonKnowsOtherwise(card)).toBe(true);
+    expect(lessonKnowsOtherwise({ ...card, reasons: clash!.reasons.slice(1) })).toBe(false);
+  });
+
   it('the weekly re-read opens a card while its updates wait; a person’s own scan doesn’t', () => {
     const f = (over: Partial<WebsiteChangedFacts['scan']> = {}): WebsiteChangedFacts => ({
       business,
@@ -218,6 +252,33 @@ describe('a lesson joins the policies', () => {
       '- We don’t work Sundays.',
     );
     expect(withLesson('x'.repeat(2990), 'We don’t work Sundays.')).toBeNull();
+  });
+});
+
+describe('a lesson takes the place of what says otherwise', () => {
+  it('finds the old words whatever their case, spacing or quotes', () => {
+    expect(saysWords('Open  7 days a week, 8–6.', 'open 7 days a week')).toBe(true);
+    expect(saysWords('We don’t do Sundays.', "We don't do Sundays")).toBe(true);
+    expect(saysWords('Open 7 days a week.', 'Open 6 days')).toBe(false);
+    expect(saysWords('Anything', '   ')).toBe(false);
+  });
+
+  it('swaps them for the new ones, or takes them out without leaving a bare bullet', () => {
+    expect(
+      swapWords('Open 7 days a week, 8–6.', 'Open 7 days a week', 'Open Monday to Saturday'),
+    ).toBe('Open Monday to Saturday, 8–6.');
+    expect(
+      swapWords(
+        'Deposits are 20%.\n- We work Sundays by appointment.\nNo pets.',
+        'We work Sundays by appointment.',
+        'We don’t work Sundays.',
+      ),
+    ).toBe('Deposits are 20%.\n- We don’t work Sundays.\nNo pets.');
+    expect(
+      swapWords('Deposits are 20%.\n- We work Sundays.\nNo pets.', 'We work Sundays.', ''),
+    ).toBe('Deposits are 20%.\nNo pets.');
+    expect(swapWords('Call us, we work Sundays too.', ' we work Sundays too', '')).toBe('Call us.');
+    expect(swapWords('Open 7 days a week.', 'Closed Sundays', 'x')).toBeNull();
   });
 });
 

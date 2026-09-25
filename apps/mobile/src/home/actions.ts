@@ -6,6 +6,7 @@ import {
   firstNameOr,
   itemCustomerOf,
   LEAD_ITEM_KINDS,
+  lessonKnowsOtherwise,
   snoozedUntilWords,
   type AttentionItemOut,
 } from '@hfos/core';
@@ -176,13 +177,33 @@ export function useHomeActions(o: {
           // The week's money opens Money.
           case 'revenue_moved':
             return target(item);
-          // Health and quality: the page that checks or fixes it (a lesson's one-tap Add is on the web's card,
-          // and on the page it opens).
+          // A lesson from correcting the AI goes into what it knows in one tap, as on the web. When what it knows
+          // said otherwise, the card asked which is right and this is "Use the new one": the new words take the
+          // old ones' place (dismissing keeps them). It needs signal; the card clears when the phone next syncs.
+          case 'ai_corrections':
+            return void (async () => {
+              try {
+                const replace = lessonKnowsOtherwise(item);
+                const made = await change('teammate_lesson.apply', {
+                  workspaceId,
+                  lessonId: item.subject.id,
+                  ...(replace ? { replace } : {}),
+                });
+                const { replaced } = made.output;
+                toast.show(
+                  replaced
+                    ? `Changed ${replaced.where} to the new words.`
+                    : 'Added to what the AI knows.',
+                );
+              } catch (error) {
+                failed(error);
+              }
+            })();
+          // Health and quality: the page that checks or fixes it.
           case 'channel_quiet':
           case 'connection_error':
           case 'connection_silent':
           case 'ai_unreviewed':
-          case 'ai_corrections':
           case 'website_changed':
           case 'faq_suggestions':
           case 'offer_lapsing':

@@ -152,6 +152,16 @@ Home is one ranked list of what needs attention, with the money affected at the 
 
 "The Action Center" in `docs/operations.md` covers the kinds and thresholds, every guard before an automatic message, confirming visits, both emails, the test routes and what to agree with a client before turning it on.
 
+## Tags and contact details the AI keeps up to date
+
+The AI tags the whole customer list and keeps each customer's details right, three ways, and writes down everything it does.
+
+- **When asked.** The Assistant lists many customers at once with their tags, puts tags on or takes them off up to 200 in one card, and changes, adds or takes off any detail of a customer, the business's own fields included. Each waits for Confirm and runs as the person, "via Assistant", with the reason they gave.
+- **On its own.** A few minutes after a customer's message, call, visit, deal, payment or form, the AI reads what the business knows about them and puts on the tags that fit, takes off ones it put on that no longer do, and fills in or fixes a detail they gave ("my new email is…"). **Settings** → **Automations** → **Tag customers for you** and **Keep contact details up to date**, with the business's own "how we tag" guide under **Adjust**.
+- **Looking back.** **Settings** → **Tags** → **Let the AI tag your customers** (or "tag everyone who…" to the Assistant) sends the AI through every customer, or the ones with one tag, in the background, with progress and a **Stop**.
+
+The rules hold in code, not only in the prompt (`packages/core/src/contact-ai/rules.ts`): only the business's own tags; never taking off a tag a person put on; never writing a detail that isn't in what the customer or team actually wrote or said, and never from a website chat whose visitor didn't prove who they are; and a replaced email or number stays on file as "Previous". Each change is a command with its audit row (**HandsFreeOS AI**, the AI's reason under **Reason**), and every look the AI takes, changed or not, is a row of `app.contact_ai_reviews` with what it said and what was left alone and why (migration `20261007000600`). "Tags and contact details, kept up to date by the AI" in `docs/operations.md` has the details.
+
 ## Money
 
 **Money** in the sidebar is what the business has quoted, what it is owed and what has come in: estimates, invoices, payments and maintenance plans, with the catalogue under **Settings** → **Products**. An estimate goes out by text and email, the customer approves it by typing their name, and it becomes an invoice in one press. An invoice is paid on the customer's own link — card or bank transfer — and the receipt goes out on its own.

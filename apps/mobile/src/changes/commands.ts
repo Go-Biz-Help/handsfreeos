@@ -114,6 +114,8 @@ import {
   TaskReopenOutput,
   TaskUpdateInput,
   TaskUpdateOutput,
+  TeammateLessonApplyInput,
+  TeammateLessonApplyOutput,
   UserPhoneStartVerificationInput,
   UserPhoneStartVerificationOutput,
   UserUpdateProfileInput,
@@ -250,6 +252,9 @@ export const PHONE_COMMANDS = {
   'task.delete': command(ANYTIME, TaskDeleteInput, TaskDeleteOutput),
   'task.reopen': command(ANYTIME, TaskReopenInput, TaskReopenOutput),
   'task.update': command(ANYTIME, TaskUpdateInput, TaskUpdateOutput),
+  // A lesson from correcting the AI, added to what it knows from its Home card. Never queued: it can go against
+  // what the AI knows, and whether the old words are still there is the server's to say at the moment it's pressed.
+  'teammate_lesson.apply': command(ONLINE, TeammateLessonApplyInput, TeammateLessonApplyOutput),
   'user_phone.start_verification': command(
     ONLINE,
     UserPhoneStartVerificationInput,
