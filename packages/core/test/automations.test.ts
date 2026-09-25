@@ -115,6 +115,8 @@ describe('automation settings', () => {
       jobCheck: true,
       handoffFollowUp: true,
       approvalExpiry: true,
+      aiTags: true,
+      aiDetails: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,

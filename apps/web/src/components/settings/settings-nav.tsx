@@ -25,6 +25,8 @@ export function SettingsNav({
     // Who may do what: only an owner sets it.
     { href: `${base}/permissions`, label: 'Permissions', needs: 'permissions.manage' },
     { href: `${base}/pipelines`, label: 'Pipelines', needs: 'pipelines.manage' },
+    // The business's tags, and the AI putting them on every customer (0107).
+    { href: `${base}/tags`, label: 'Tags', needs: 'tags.manage' },
     // What a business keeps about its customers: its own fields, and its own kinds of records (pets,
     // vehicles, properties) with how they relate.
     { href: `${base}/fields`, label: 'Fields', needs: 'fields.manage' },

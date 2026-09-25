@@ -9,6 +9,7 @@ import type {
 } from './runtime';
 import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
+import { contactConfirmTools, contactReadTools } from './tools-contacts';
 import { moneyConfirmTools, moneyReadTools } from './tools-money';
 import { command, money, paths, query, readTools, when } from './tools-read';
 import { settingsReadTools } from './tools-settings';
@@ -590,71 +591,6 @@ const createCustomer: ConfirmTool = {
   },
 };
 
-const updateCustomer: ConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
-    const { person } = await query<{
-      person: {
-        fullName: string;
-        firstName: string;
-        lastName: string;
-        phone: string | null;
-        email: string | null;
-      };
-    }>(db, ctx, 'person.get', { personId: args['personId'] });
-    const nextName = [
-      str(args['firstName']) ?? person.firstName,
-      str(args['lastName']) ?? person.lastName,
-    ]
-      .filter(Boolean)
-      .join(' ');
-    const fields = [
-      ...(nextName !== person.fullName
-        ? [{ label: 'Name', value: `${person.fullName} → ${nextName}` }]
-        : []),
-      ...(str(args['phone']) && str(args['phone']) !== person.phone
-        ? [{ label: 'Phone', value: `${person.phone ?? 'none'} → ${String(args['phone'])}` }]
-        : []),
-      ...(str(args['email']) && str(args['email']) !== person.email
-        ? [{ label: 'Email', value: `${person.email ?? 'none'} → ${String(args['email'])}` }]
-        : []),
-    ];
-    if (!fields.length) throw HfosError.validation([], 'Nothing would change.');
-    return {
-      card: confirmCard(toolCallId, 'update_customer', {
-        title: `Change ${firstName(person.fullName)}’s details?`,
-        fields,
-        body: null,
-        stageFrom: null,
-        stageTo: null,
-        warnings: [],
-        reasons: [],
-        confirmLabel: 'Save changes',
-        editable: false,
-      }),
-      result: { person: person.fullName, changes: fields.map((f) => f.label) },
-    };
-  },
-  async commit(db, ctx, args) {
-    await command(
-      db,
-      ctx,
-      'person.update',
-      defined({
-        personId: args['personId'],
-        firstName: str(args['firstName']),
-        lastName: str(args['lastName']),
-        phone: str(args['phone']),
-        email: str(args['email']),
-      }),
-    );
-    return {
-      outcome: 'Saved the changes',
-      href: paths(ctx.workspaceId).person(String(args['personId'])),
-      command: 'person.update',
-    };
-  },
-};
-
 const createLead: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const [{ person }, { pipelines }, who] = await Promise.all([
@@ -791,7 +727,6 @@ const confirmTools: Record<string, ConfirmTool> = {
   send_email: sendEmail,
   move_lead: moveLead,
   create_customer: createCustomer,
-  update_customer: updateCustomer,
   create_lead: createLead,
   update_lead: updateLead,
   ...calendarConfirmTools,
@@ -804,11 +739,14 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...settingsChannelConfirmTools,
   ...settingsMoneyConfirmTools,
   ...settingsMeConfirmTools,
+  // Customers in bulk and any of their details, and the AI's pass over the list (0107).
+  ...contactConfirmTools,
 };
 
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */
 export const executorFor = (name: string) =>
   readTools[name] ??
+  contactReadTools[name] ??
   settingsReadTools[name] ??
   autoWrites[name] ??
   attentionAutoTools[name] ??
@@ -829,6 +767,7 @@ export function createToolExecutor(
     async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
       const run =
         readTools[tool.name] ??
+        contactReadTools[tool.name] ??
         settingsReadTools[tool.name] ??
         autoWrites[tool.name] ??
         attentionAutoTools[tool.name] ??

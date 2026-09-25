@@ -113,6 +113,7 @@ export const ADJUST_PANELS = [
   'estimates',
   'balance',
   'stages',
+  'ai_tags',
 ] as const;
 export type AdjustPanel = (typeof ADJUST_PANELS)[number];
 
@@ -435,6 +436,31 @@ export const AUTOMATIONS = [
     adjust: null,
   },
   {
+    id: 'ai_tags',
+    group: 'pipeline',
+    label: 'Tag customers for you',
+    oneLiner:
+      'The AI reads each new message, call, visit and payment and keeps the customer’s tags right.',
+    effect: 'records',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'aiTags' },
+    customerFacing: null,
+    needs: [],
+    adjust: 'ai_tags',
+  },
+  {
+    id: 'ai_details',
+    group: 'pipeline',
+    label: 'Keep contact details up to date',
+    oneLiner: 'Fills in or fixes a customer’s name, email, number or address when they tell you.',
+    effect: 'records',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'aiDetails' },
+    customerFacing: null,
+    needs: [],
+    adjust: 'ai_tags',
+  },
+  {
     id: 'pipeline_mismatch',
     group: 'pipeline',
     label: 'Deal in the wrong stage',
@@ -668,9 +694,9 @@ export const AUTOMATIONS = [
   {
     id: 'ai_corrections',
     group: 'health',
-    label: 'Repeated corrections',
+    label: 'Learn from corrections',
     oneLiner:
-      'When you fix the AI for the same thing 3 times, suggests one line to teach it. One tap adds it.',
+      'When you fix the AI, suggests a line to teach it at once, and asks if it clashes with what it knows.',
     effect: 'alerts',
     defaultOn: true,
     binding: { store: 'attention_kind', kinds: ['ai_corrections'] },

@@ -22,6 +22,7 @@ import { randomUUID } from 'node:crypto';
 import {
   executeCommand,
   executeQuery,
+  inboxList,
   migrationCreate,
   migrationGet,
   migrationMapScopes,
@@ -786,6 +787,19 @@ describe('the history arrives as history', () => {
     // And the thread's own summary follows its newest message, as it would have if it happened here.
     const [dave] = list.filter((t) => t.counterpart === '+15125550101');
     expect(new Date(dave!.last_message_at!).getUTCFullYear()).toBe(2024);
+  }, 60_000);
+
+  it('puts every thread in the inbox, where the old system had it', async () => {
+    // GoHighLevel's inbox lists every conversation, and this one lists open ones. A thread that arrived
+    // closed was on its customer's page and nowhere in the inbox, which reads as the move having lost it —
+    // and none of these had an unread message, which is what used to decide it.
+    const list = await threads();
+    expect(list.every((t) => t.status === 'open')).toBe(true);
+    const inbox = await ask<{ items: { id: string; lanes: { id: string }[] }[] }>(inboxList, {
+      workspaceId,
+    });
+    const shown = new Set(inbox.items.flatMap((i) => [i.id, ...i.lanes.map((l) => l.id)]));
+    expect(list.filter((t) => !shown.has(t.id)).map((t) => t.counterpart)).toEqual([]);
   }, 60_000);
 });
 

@@ -7,6 +7,7 @@ import {
   attentionReachOf,
   clockLabel,
   handleButtonOf,
+  lessonKnowsOtherwise,
   letHandleAutoToast,
   letHandleOffReason,
   type HandleIcon,
@@ -286,21 +287,30 @@ export function useItemActions(o: {
       settle();
     }
 
-    /** The line made of repeated corrections goes into what the AI knows. */
+    /**
+     * The line made of a correction goes into what the AI knows. When what it knows said otherwise, the card asked
+     * which is right and this is "Use the new one": the new words take the old ones' place (dismissing keeps them).
+     */
     async function addLesson(item: AttentionItem) {
+      const replace = lessonKnowsOtherwise(item);
       hide([item.id]);
       try {
-        unwrap(
+        const out = unwrap(
           await apiBrowser().POST('/v1/commands/teammate_lesson.apply', {
-            body: { workspaceId, lessonId: item.subject.id },
+            body: { workspaceId, lessonId: item.subject.id, ...(replace ? { replace } : {}) },
           }),
         );
-        toast.success('Added to what the AI knows.', {
-          action: {
-            label: 'See it',
-            onClick: () => router.push(`${base}/knowledge/profile`),
+        toast.success(
+          out.replaced
+            ? `Changed ${out.replaced.where} to the new words.`
+            : 'Added to what the AI knows.',
+          {
+            action: {
+              label: 'See it',
+              onClick: () => router.push(`${base}/knowledge/profile`),
+            },
           },
-        });
+        );
       } catch (e) {
         unhide([item.id]);
         throw e;

@@ -17,6 +17,8 @@ export const requestChannel = z.enum([
   'ai_employee',
   'chat_widget',
   'mobile',
+  // The AI keeping customers' tags and details up to date on its own (0107).
+  'contact_ai',
   'test',
 ]);
 export type RequestChannel = z.infer<typeof requestChannel>;

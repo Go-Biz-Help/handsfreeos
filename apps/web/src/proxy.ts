@@ -11,7 +11,7 @@ const AUTH_PAGES = ['/sign-in', '/sign-up'];
 /** Refreshes the Supabase session cookie on every request and gates protected routes. */
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  // A business's own domain (M17): `booking.lonestarhvac.com` is that business's booking page, and a bare
+  // A business's own domain (M17): `go.lonestarhvac.com` is that business's booking page, and a bare
   // name on it is one of its forms. Checked first, and null on every request to our own address, so this
   // costs one header comparison for everybody else.
   const branded = await brandedHostProxy(request);
