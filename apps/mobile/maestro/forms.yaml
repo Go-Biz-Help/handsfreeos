@@ -1,0 +1,83 @@
+appId: com.gobizhelp.handsfreeos
+name: Forms - a form's answers, one answer sheet, and deleting it
+tags:
+  - ci
+# More → Forms (M17): Lone Star's "Job feedback" survey (apps/worker/scripts/seed-forms.ts) opens on its answers, live
+# from HandsFreeOS. Dale opens the newest answer sheet and reads what it says, deletes it once he has said so a second
+# time, and is back on the form, where the newest answer sheet is now another one. The sheet is picked by what it says,
+# so a second run on the same stack deletes the next one rather than failing on the first.
+env:
+  EMAIL: dale@lonestarhvac.test
+  PASSWORD: HandsFree-Demo-2026
+---
+- runFlow: subflows/start-signed-out.yaml
+- runFlow: subflows/sign-in-with-password.yaml
+- repeat:
+    times: 4
+    while:
+      notVisible:
+        id: 'tab-more'
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'back'
+          commands:
+            - tapOn:
+                id: 'back'
+- tapOn:
+    id: 'tab-more'
+- extendedWaitUntil:
+    visible:
+      id: 'more'
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: 'more-forms'
+    timeout: 10000
+- tapOn:
+    id: 'more-forms'
+# The form is in the phone's copy, which came down at sign-in.
+- extendedWaitUntil:
+    visible: 'Job feedback'
+    timeout: 60000
+- tapOn: 'Job feedback'
+- extendedWaitUntil:
+    visible:
+      id: 'form-answers'
+    timeout: 30000
+- takeScreenshot: form-answers
+# The newest answer sheet: the first row.
+- tapOn:
+    id: 'form-answer-[0-9a-f-]+'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'form-answer-value-q_notes000'
+    timeout: 30000
+- copyTextFrom:
+    id: 'form-answer-value-q_notes000'
+- takeScreenshot: form-answer
+# Deleting asks a second time before anything goes.
+- tapOn:
+    id: 'form-answer-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'form-answer-delete-confirm'
+    timeout: 10000
+- tapOn:
+    id: 'form-answer-delete-confirm'
+# Back on the form, the deleted sheet is gone from the list at once: the newest there now says something else.
+- extendedWaitUntil:
+    visible:
+      id: 'form-answers'
+    timeout: 30000
+- tapOn:
+    id: 'form-answer-[0-9a-f-]+'
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: 'form-answer-value-q_notes000'
+    timeout: 30000
+- assertNotVisible: ${maestro.copiedText}
+- takeScreenshot: form-answer-after-delete

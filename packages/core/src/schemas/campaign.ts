@@ -4,8 +4,13 @@
  *
  * Or one email (email campaigns): the AI drafts one subject and body, the owner changes it, and only
  * {first_name} changes per person. Every email carries an unsubscribe link and the business's address.
+ *
+ * Or calls (AI outbound calls): the AI teammate rings each person who agreed to calls in writing. The AI writes
+ * one opening line for them all ("about our fall tune-up, which is $89 this month"), the owner changes it, and it
+ * finishes "I'm calling …" on every call.
  */
 import { z } from 'zod';
+import { aiCallOutcome, aiCallStatus } from './ai-call';
 import { isoDateTime, uuid } from './common';
 import { requiredEmail } from './message';
 
@@ -20,8 +25,8 @@ export const CAMPAIGN_STATUSES = [
 export const campaignStatus = z.enum(CAMPAIGN_STATUSES);
 export type CampaignStatus = z.infer<typeof campaignStatus>;
 
-/** Texts or one email. */
-export const CAMPAIGN_CHANNELS = ['sms', 'email'] as const;
+/** Texts, one email, or calls. */
+export const CAMPAIGN_CHANNELS = ['sms', 'email', 'call'] as const;
 export const campaignChannel = z.enum(CAMPAIGN_CHANNELS);
 export type CampaignChannel = z.infer<typeof campaignChannel>;
 
@@ -50,6 +55,9 @@ export const SKIP_REASONS = [
   'unsubscribed',
   'email_stopped',
   'emailed_recently',
+  // Call campaigns.
+  'no_call_consent',
+  'called_recently',
 ] as const;
 export const skipReason = z.enum(SKIP_REASONS);
 export type SkipReason = z.infer<typeof skipReason>;
@@ -66,6 +74,8 @@ export const CAMPAIGN_DRAFT_MAX = 480;
 /** An email campaign's subject and body. */
 export const CAMPAIGN_EMAIL_SUBJECT_MAX = 150;
 export const CAMPAIGN_EMAIL_BODY_MAX = 8000;
+/** A call campaign's opening line: it finishes "I'm calling …". */
+export const CAMPAIGN_CALL_OPENING_MAX = 200;
 /** The one placeholder an email campaign fills per person. */
 export const FIRST_NAME_PLACEHOLDER = '{first_name}';
 
@@ -89,7 +99,7 @@ export const CampaignCreateInput = z.object({
   perHour: perHour.default(CAMPAIGN_PER_HOUR_DEFAULT),
   /** An offer from Knowledge → Offers the texts are about: the AI gets its details and end date. */
   offerId: uuid.nullable().default(null),
-  /** Texts (the default), or one email. */
+  /** Texts (the default), one email, or calls. */
   channel: campaignChannel.default('sms'),
 });
 export const CampaignCreateOutput = z.object({
@@ -112,6 +122,15 @@ export const CampaignUpdateEmailInput = z.object({
   campaignId: uuid,
   subject: z.string().trim().min(1, 'Write a subject.').max(CAMPAIGN_EMAIL_SUBJECT_MAX),
   body: z.string().trim().min(1, 'Write something.').max(CAMPAIGN_EMAIL_BODY_MAX),
+});
+export const CampaignUpdateCallInput = z.object({
+  workspaceId: uuid,
+  campaignId: uuid,
+  opening: z
+    .string()
+    .trim()
+    .min(1, 'Say what it’s calling about.')
+    .max(CAMPAIGN_CALL_OPENING_MAX, `Keep it under ${CAMPAIGN_CALL_OPENING_MAX} characters.`),
 });
 export const CampaignRecipientRef = z.object({ workspaceId: uuid, recipientId: uuid });
 export const CampaignRecipientOutput = z.object({ recipientId: uuid, status: recipientStatus });
@@ -194,6 +213,14 @@ export const CampaignRecipientOut = z.object({
   edited: z.boolean(),
   sentAt: isoDateTime.nullable(),
   error: z.string().nullable(),
+  /** A call campaign: how this person's call went (null for texts and email, and before it's made). */
+  call: z
+    .object({
+      status: aiCallStatus,
+      outcome: aiCallOutcome.nullable(),
+      summary: z.string().nullable(),
+    })
+    .nullable(),
 });
 
 export const CampaignGetOutput = z.object({
@@ -207,6 +234,13 @@ export const CampaignGetOutput = z.object({
         edited: z.boolean(),
         /** The business's address, shown under every email. */
         postalAddress: z.string().nullable(),
+      })
+      .nullable(),
+    /** A call campaign's opening line (null for texts and email, and while the AI writes it). */
+    call: z
+      .object({
+        opening: z.string().nullable(),
+        edited: z.boolean(),
       })
       .nullable(),
   }),

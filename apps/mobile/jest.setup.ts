@@ -72,7 +72,7 @@ jest.mock('expo-file-system', () => {
     File,
     Directory,
     UploadType: { BINARY_CONTENT: 0, MULTIPART: 1 },
-    Paths: { document: { uri: 'file:///documents' } },
+    Paths: { document: { uri: 'file:///documents' }, cache: { uri: 'file:///cache' } },
     __files: files,
   };
 });

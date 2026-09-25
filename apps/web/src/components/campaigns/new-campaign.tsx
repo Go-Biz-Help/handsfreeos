@@ -15,10 +15,12 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CampaignPreview, Offer, PipelineList, Tag } from '@/lib/api/types';
 import { people, skipWords } from './words';
 
+type Channel = 'sms' | 'email' | 'call';
+
 /**
- * A new outreach campaign: texts or one email, who (tags or pipeline stages), what it's for in a line, and how
- * fast. Nothing is sent from here: the AI writes each text (or the one email) first, and a person reads and
- * approves it on the next screen.
+ * A new outreach campaign: texts, one email or AI calls, who (tags or pipeline stages), what it's for in a line,
+ * and how fast. Nothing goes from here: the AI writes each text (or the one email, or how the calls open) first,
+ * and a person reads and approves it on the next screen.
  */
 export function NewCampaign({
   workspaceId,
@@ -39,9 +41,10 @@ export function NewCampaign({
   const [stageIds, setStageIds] = useState<string[]>([]);
   const [perHour, setPerHour] = useState(String(CAMPAIGN_PER_HOUR_DEFAULT));
   const [offerId, setOfferId] = useState('');
-  const [channel, setChannel] = useState<'sms' | 'email'>('sms');
+  const [channel, setChannel] = useState<Channel>('sms');
   const email = channel === 'email';
-  const noun = email ? 'Emails' : 'Texts';
+  const calls = channel === 'call';
+  const noun = email ? 'Emails' : calls ? 'Calls' : 'Texts';
   const [preview, setPreview] = useState<CampaignPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const picked = tagIds.length + stageIds.length > 0;
@@ -106,19 +109,22 @@ export function NewCampaign({
     <Card className="flex max-w-2xl flex-col gap-5 p-[18px]" data-testid="campaign-new">
       <div className="flex flex-col gap-1.5">
         <span className="text-[13px] font-medium text-text">Send as</span>
-        <Segmented<'sms' | 'email'>
+        <Segmented<Channel>
           value={channel}
           onChange={setChannel}
           ariaLabel="Send as"
           options={[
             { value: 'sms', label: 'Texts', testId: 'campaign-channel-sms' },
             { value: 'email', label: 'Email', testId: 'campaign-channel-email' },
+            { value: 'call', label: 'Calls', testId: 'campaign-channel-call' },
           ]}
         />
         <span className="text-[12.5px] text-text-2">
           {email
             ? 'One email to everyone, with their first name. It goes to anyone with an email who hasn’t unsubscribed.'
-            : 'A text for each person, written from what they’ve had done. Only to people who agreed to texts.'}
+            : calls
+              ? 'Your AI teammate calls each person, says it’s an AI and that the call is recorded. Only to people who agreed to calls in writing.'
+              : 'A text for each person, written from what they’ve had done. Only to people who agreed to texts.'}
         </span>
       </div>
       <Field label="Name" htmlFor="campaign-name">
@@ -164,7 +170,9 @@ export function NewCampaign({
         hint={
           email
             ? 'One line. The AI writes the email from this; you can change every word before it goes.'
-            : 'One line. The AI writes each person’s text from this and what they’ve had done before.'
+            : calls
+              ? 'One line. The AI writes how every call opens from this, and talks from it on the call. You can change the opening before it starts.'
+              : 'One line. The AI writes each person’s text from this and what they’ve had done before.'
         }
       >
         <Textarea
@@ -211,7 +219,7 @@ export function NewCampaign({
             data-testid="campaign-preview"
           >
             <span className="font-medium">
-              It would {email ? 'email' : 'text'} {people(preview.recipients)}.
+              It would {email ? 'email' : calls ? 'call' : 'text'} {people(preview.recipients)}.
             </span>
             {skipped.length ? (
               <ul className="mt-1 text-[12.5px] text-text-2">
@@ -254,7 +262,9 @@ export function NewCampaign({
         <span className="text-[12.5px] text-text-2">
           {email
             ? 'Every email has an unsubscribe link and your address. Nothing goes until you approve.'
-            : 'Texts only, to people who agreed to them. Nothing goes until you approve.'}
+            : calls
+              ? 'Calls only, to people who agreed to them in writing. Nothing goes until you approve.'
+              : 'Texts only, to people who agreed to them. Nothing goes until you approve.'}
         </span>
         <Button
           onClick={create}
@@ -269,7 +279,7 @@ export function NewCampaign({
           }
           data-testid="campaign-create"
         >
-          {email ? 'Write the email' : 'Write the texts'}
+          {email ? 'Write the email' : calls ? 'Plan the calls' : 'Write the texts'}
         </Button>
       </div>
     </Card>
