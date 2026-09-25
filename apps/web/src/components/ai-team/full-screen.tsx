@@ -22,7 +22,7 @@ export function FullScreen({
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
-  /** On the right of the top bar (Save). */
+  /** On the right of the top bar (Saved / Saving…). */
   action?: ReactNode;
   children: ReactNode;
   className?: string;

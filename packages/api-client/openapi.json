@@ -73143,6 +73143,12 @@
                               "name": {
                                 "type": "string"
                               },
+                              "description": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
                               "archived": {
                                 "type": "boolean"
                               },
@@ -73164,6 +73170,7 @@
                             "required": [
                               "id",
                               "name",
+                              "description",
                               "archived",
                               "bookableOnline",
                               "color",

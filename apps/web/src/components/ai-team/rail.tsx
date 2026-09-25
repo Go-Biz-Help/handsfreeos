@@ -25,6 +25,7 @@ import {
   type ProgressView,
 } from '@/lib/ai-team/describe';
 import type { TeammateStatus } from '@/lib/ai-team/types';
+import type { SaveState } from '@/lib/ai-team/use-draft';
 import { cn } from '@/lib/utils';
 import { TeammateLabelChips, TeammateStatusBadge } from './chips';
 import { AI_FILL, TeammateMark } from './mark';
@@ -286,7 +287,7 @@ export function IssueList({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-[13px] font-medium">Done: {lastFix}.</span>
             <span className="mt-0.5 text-xs text-text-2">
-              Nothing else changed. Save when you’re ready.
+              Nothing else changed, and it saves on its own.
             </span>
           </span>
           <Button variant="ghost" size="sm" onClick={onUndoFix} data-testid="teammate-undo-fix">
@@ -391,26 +392,22 @@ export function IssuesHeading({ issues }: { issues: readonly TeammateIssue[] }) 
   );
 }
 
-/** Save, with where things stand and a way to Undo and into History. */
+/** Where saving stands (changes save on their own), with Undo and a way into History. */
 export function SaveCard({
-  dirty,
+  saveState,
   revision,
-  saving,
   readOnly,
   canUndo,
   undoLabel,
   onUndo,
-  onSave,
   onHistory,
 }: {
-  dirty: boolean;
+  saveState: SaveState;
   revision: number;
-  saving: boolean;
   readOnly: boolean;
   canUndo: boolean;
   undoLabel: string | null;
   onUndo: () => void;
-  onSave: () => void;
   onHistory: () => void;
 }) {
   return (
@@ -419,9 +416,12 @@ export function SaveCard({
         <span className="text-[13px] font-medium" data-testid="teammate-save-note">
           {readOnly
             ? `Revision ${revision}`
-            : dirty
-              ? 'Unsaved changes'
-              : `All changes saved · revision ${revision}`}
+            : {
+                saved: `All changes saved · revision ${revision}`,
+                saving: 'Saving…',
+                failed: 'Couldn’t save your last change',
+                conflict: 'Not saved',
+              }[saveState]}
         </span>
         <button
           type="button"
@@ -443,11 +443,6 @@ export function SaveCard({
           Undo
         </Button>
       ) : null}
-      {readOnly ? null : (
-        <Button onClick={onSave} loading={saving} disabled={!dirty} data-testid="teammate-save">
-          Save
-        </Button>
-      )}
     </Card>
   );
 }

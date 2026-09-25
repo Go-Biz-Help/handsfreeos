@@ -21,13 +21,17 @@ const hostOf = (u: string): string => {
  * Settings → Automations (owners and admins): every automation, grouped, each with a switch and an Adjust sheet
  * for its timing and wording. It took in Settings → Action Center: the kinds Home looks for and their thresholds,
  * the typical job value, when a lead goes quiet in each stage, the follow-up wording and replying C to confirm.
+ * `?adjust=<automation id>` opens that automation's Adjust sheet (the AI teammate's Follow up links here).
  */
 export default async function AutomationsSettingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
+  searchParams: Promise<{ adjust?: string | string[] }>;
 }) {
   const { workspaceId } = await params;
+  const { adjust } = await searchParams;
   const { api } = await apiServer();
   const [got, me] = await Promise.all([
     api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
@@ -95,6 +99,7 @@ export default async function AutomationsSettingsPage({
       <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <AutomationsSettings
         workspaceId={workspaceId}
+        initialAdjust={typeof adjust === 'string' ? adjust : null}
         role={role}
         businessName={got.workspace.name}
         initialAttention={attentionSettingsOf(got.workspace.settings)}
