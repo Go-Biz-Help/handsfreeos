@@ -7791,7 +7791,7 @@ Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 - The same pace (calls an hour), open hours, quiet hours, **Pause**, **Resume** and **Stop** as texts. Each call is an AI call like the others (see "AI calls" below): recorded, the business's voicemail choice, "don't call me again" respected. Each person's row shows how their call went: **Calling soon**, **Talked** (with the summary), **Voicemail**, **No answer**, **Busy**, **Not called**.
 - It pauses itself, saying why, when the AI teammate isn't taking calls (off, or its phone off).
 
-Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`). See "Apply new migrations".
+Needs `20261008000300_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`). See "Apply new migrations".
 
 **About an offer**: a campaign can be about one of the business's offers (Knowledge → Offers, live or upcoming). Picking one fills in the goal if it's empty, and the AI writes each text from the offer's own words and says when it ends. An archived offer can't be picked.
 
@@ -7837,7 +7837,7 @@ Kept in `app.ai_calls` (one row per call: why, status, how it went, the summary)
 waiting for approval is an AI teammate draft of kind `call`. The worker's jobs are `ai_calls.consider`,
 `ai_calls.place` and `ai_calls.voicemail_text`; the carrier asks `/webhooks/twilio/voice/ai-call` what to do when
 it's answered. Needs `20261008000100_ai_calls.sql` and, for quote and campaign calls,
-`20261008000200_quote_and_campaign_calls.sql`. See "Apply new migrations".
+`20261008000300_quote_and_campaign_calls.sql`. See "Apply new migrations".
 
 **When something goes wrong**
 
