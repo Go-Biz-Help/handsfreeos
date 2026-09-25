@@ -5,7 +5,18 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { customFields, formAnswers, formResponses, forms, leads, people } from '@hfos/db/schema';
+import { randomUUID } from 'node:crypto';
+import {
+  customFields,
+  formAnswers,
+  formDays,
+  formResponses,
+  forms,
+  leads,
+  people,
+  tasks,
+  workspaceMemberships,
+} from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -14,6 +25,7 @@ import {
   formSaveDraft,
   organizationCreate,
   formResponseDelete,
+  formResponseRecord,
   formResponseSave,
   formResponseStart,
   formResponseSubmit,
@@ -517,6 +529,95 @@ describe('sending it', () => {
     const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
     expect(person!.smsConsent).toBe('opted_in');
     expect(person!.smsConsentSource).toContain('Texts please');
+  });
+});
+
+describe('filled in on the phone', () => {
+  /**
+   * `form_response.record` runs as the person holding the phone, not as the worker, so every write it and
+   * `form_response.submit` make has to be one a teammate's own session may make. Nothing ran it against a
+   * database until the phone app's flows did, and every one was refused.
+   */
+  let teammate: TestUser;
+  beforeAll(async () => {
+    teammate = await createTestUser('form-resp-member', { fullName: 'Priya Member' });
+    await admin()
+      .insert(workspaceMemberships)
+      .values({ workspaceId: wsId, userId: teammate.id, role: 'member' });
+  });
+
+  const record = (formId: string, answers: Record<string, unknown>, id = randomUUID()) =>
+    run(formResponseRecord, { workspaceId: wsId, id, formId, answers, smsConsent: true }, teammate);
+
+  it('a teammate sends one for a customer, and it does everything a sent form does', async () => {
+    const form = await publishedForm(
+      'Walk-in',
+      [
+        {
+          op: 'add_question',
+          index: null,
+          question: question('Gate code', {
+            id: qid('gate'),
+            type: 'short_text',
+            mapTo: `custom:${gateCodeFieldId}`,
+          }),
+        },
+        {
+          op: 'set_on_submit',
+          patch: { task: { title: 'Call them back', dueInDays: 1 } },
+        },
+      ],
+      { oneResponsePerPerson: true },
+    );
+    const id = randomUUID();
+    const sent = await record(
+      form.formId,
+      { [qid('name')]: 'Lupe', [qid('phone')]: '(512) 555-0241', [qid('gate')]: '4455' },
+      id,
+    );
+    expect(sent.responseId).toBe(id);
+
+    const row = await responseRow(id);
+    expect(row.status).toBe('completed');
+    expect(row.source).toBe('app');
+    // Nobody comes back to it on a link, so it has no key.
+    expect(row.resumeTokenHash).toBeNull();
+    expect(row.personId).toBe(sent.personId);
+
+    // The customer, what they told us, and the texting box they ticked.
+    const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
+    expect(person!.firstName).toBe('Lupe');
+    expect((person!.custom as Record<string, unknown>)[gateCodeFieldId]).toBe('4455');
+    expect(person!.smsConsent).toBe('opted_in');
+    // A plain form opens a lead where Lead intake points it, and the task the form asks for.
+    expect(sent.leadId).toBeTruthy();
+    const [task] = await admin().select().from(tasks).where(eq(tasks.personId, sent.personId!));
+    expect(task!.title).toBe('Call them back');
+
+    // Every answer, and the form's own counts.
+    const answers = await admin().select().from(formAnswers).where(eq(formAnswers.responseId, id));
+    expect(answers).toHaveLength(3);
+    expect(Number((await formRow(form.formId)).responseCount)).toBe(1);
+    const [day] = await admin().select().from(formDays).where(eq(formDays.formId, form.formId));
+    expect(day!.completions).toBe(1);
+  });
+
+  it('sent twice with the same id, it is still one answer sheet', async () => {
+    const form = await publishedForm('Sent twice');
+    const id = randomUUID();
+    const answers = { [qid('name')]: 'Theo', [qid('phone')]: '(512) 555-0242' };
+    const first = await record(form.formId, answers, id);
+    const again = await record(form.formId, answers, id);
+    expect(again.responseId).toBe(first.responseId);
+    expect(again.personId).toBe(first.personId);
+    expect(Number((await formRow(form.formId)).responseCount)).toBe(1);
+  });
+
+  it('an anonymous survey keeps nobody', async () => {
+    const form = await publishedForm('Rate the visit', [], { identity: 'anonymous' });
+    const sent = await record(form.formId, { [qid('name')]: 'Whoever' });
+    expect(sent.personId).toBeNull();
+    expect((await responseRow(sent.responseId)).status).toBe('completed');
   });
 });
 

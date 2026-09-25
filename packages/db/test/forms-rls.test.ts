@@ -264,6 +264,89 @@ describe('forms: who reads and who writes', () => {
     );
     expect(deleted).toHaveLength(1);
   });
+
+  it('a teammate sends a sheet from the app, and nothing more (0109)', async () => {
+    const form = await live(wsA, orgA);
+    const start = (user: TestUser, extra = '') =>
+      as(user)((tx) =>
+        rows<{ id: string }>(
+          tx,
+          sql`insert into app.form_responses (workspace_id, form_id, version_id, source${sql.raw(extra ? ', resume_token_hash, resume_expires_at' : '')})
+              values (${wsA}, ${form.formId}, ${form.versionId}, 'app'${sql.raw(extra)})
+              returning id`,
+        ),
+      );
+    // With a key, or in another business: refused.
+    expect(
+      (await failure(() => start(member, `, '\\x${'ab'.repeat(32)}', now() + interval '1 day'`)))
+        .code,
+    ).toBe('42501');
+    expect((await failure(() => start(outsider))).code).toBe('42501');
+
+    // A sheet from the app, with no key and nobody on it: the teammate starts it, sends it and files its answers.
+    const [sheet] = await start(member);
+    const sent = await as(member)((tx) =>
+      rows(
+        tx,
+        sql`update app.form_responses set status = 'completed', completed_at = now(), answers = '{"q_aaaaaaaa": "Lupe"}'
+            where id = ${sheet!.id} returning id`,
+      ),
+    );
+    expect(sent).toHaveLength(1);
+    await as(member)((tx) =>
+      tx.execute(
+        sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title, question_type, value, text_value)
+            values (${wsA}, ${sheet!.id}, ${form.formId}, 'q_aaaaaaaa', 'Your name', 'short_text', '"Lupe"', 'Lupe')`,
+      ),
+    );
+    await as(member)((tx) =>
+      tx.execute(
+        sql`insert into app.form_days (workspace_id, form_id, day, completions)
+            values (${wsA}, ${form.formId}, current_date, 1)
+            on conflict (form_id, day) do update set completions = app.form_days.completions + 1`,
+      ),
+    );
+
+    // Once sent, it is never changed by hand again.
+    const again = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`update app.form_responses set answers = '{}' where id = ${sheet!.id} returning id`,
+      ),
+    );
+    expect(again).toHaveLength(0);
+
+    // A customer's sheet from the link stays the worker's: not changed, no answers filed under it, no key read.
+    const linkSheet = await respond(form);
+    const touched = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`update app.form_responses set answers = '{}' where id = ${linkSheet} returning id`,
+      ),
+    );
+    expect(touched).toHaveLength(0);
+    expect(
+      (
+        await failure(() =>
+          as(owner)((tx) =>
+            tx.execute(
+              sql`insert into app.form_answers (workspace_id, response_id, form_id, question_id, question_title, question_type)
+                  values (${wsA}, ${linkSheet}, ${form.formId}, 'q_bbbbbbbb', 'Sneaky', 'short_text')`,
+            ),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+    expect(
+      (
+        await failure(() =>
+          as(owner)((tx) =>
+            rows(tx, sql`select resume_token_hash from app.form_responses where id = ${linkSheet}`),
+          ),
+        )
+      ).code,
+    ).toBe('42501');
+  });
 });
 
 describe('the fields a business invents', () => {

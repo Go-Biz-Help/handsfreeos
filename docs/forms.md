@@ -87,6 +87,13 @@ Built, and nothing in `forms/` had to change — the engine really was ready.
 - **`form_response.record`** makes the answer sheet and sends it in one go, with an id from the phone, then
   hands over to `form_response.submit` so every consequence — the customer, the lead, the workflows — is the
   form's own behaviour and not a second set of rules.
+- **It runs as the teammate, so 0109 lets a teammate write that sheet.** With `records.write`, a person may
+  start a sheet from the app (`source = 'app'`, no key, nobody on it yet), send it while it is open, and
+  write its answers and the form's count for the day. A sheet from the link, the embed, a QR code or a
+  conversation is still the worker's alone, a sent sheet is never edited, and the key's and the visitor's
+  hashes stay unreadable, so a sheet is read through `READABLE_SHEET`. A teammate's send doesn't count
+  against Lead intake's day, which measures what arrives on its own. Until 0109 every one was refused, and
+  nothing had run the command against a database.
 - **`apps/mobile/src/forms/`** and `app/.../forms/[formId].tsx` render it with core's `formState` and
   `answerProblem`, so what the phone accepts is what the server accepts.
 - **A file, a signature or a card payment stops the whole form** with "open this one on the web", rather
