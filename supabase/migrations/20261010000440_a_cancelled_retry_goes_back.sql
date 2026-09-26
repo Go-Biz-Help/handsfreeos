@@ -24,6 +24,11 @@ grant update (failed_attempt, activity_id) on app.messages to authenticated;
 create or replace function private.guard_message_activity()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
+  -- Only people are held to this (the role a person's commands run as); the worker and the database's own
+  -- upkeep (seeds, tests, support) aren't. `role` is a setting SECURITY DEFINER leaves alone.
+  if coalesce(current_setting('role', true), '') <> 'authenticated' then
+    return new;
+  end if;
   if old.activity_id is not distinct from new.activity_id or new.activity_id is null then
     return new;
   end if;
@@ -73,6 +78,11 @@ end $$;
 create or replace function private.guard_message_time()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
+  -- Only people are held to this (the role a person's commands run as); the worker and the database's own
+  -- upkeep (seeds, tests, support) aren't. `role` is a setting SECURITY DEFINER leaves alone.
+  if coalesce(current_setting('role', true), '') <> 'authenticated' then
+    return new;
+  end if;
   if old.occurred_at is not distinct from new.occurred_at then
     return new;
   end if;
