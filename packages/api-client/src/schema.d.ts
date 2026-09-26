@@ -25780,7 +25780,7 @@ export interface operations {
                 "application/json": {
                     reason: string;
                     /** @enum {string} */
-                    stage: "off" | "warn" | "enforce";
+                    stage: "off" | "warn" | "enforce" | "agency";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -25796,9 +25796,9 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         /** @enum {string} */
-                        stage: "off" | "warn" | "enforce";
+                        stage: "off" | "warn" | "enforce" | "agency";
                         /** @enum {string} */
-                        was: "off" | "warn" | "enforce";
+                        was: "off" | "warn" | "enforce" | "agency";
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -36701,7 +36701,7 @@ export interface operations {
                         opened: boolean;
                         spent30dCents: number;
                         /** @enum {string} */
-                        stage: "off" | "warn" | "enforce";
+                        stage: "off" | "warn" | "enforce" | "agency";
                         suspendedAt: string | null;
                         suspendedReason: string | null;
                         toppedUp30dCents: number;

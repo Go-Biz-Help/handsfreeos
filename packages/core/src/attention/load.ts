@@ -1351,6 +1351,7 @@ async function loadWallet(tx: Tx, workspaceId: string): Promise<WalletInfo | nul
   if (!w) return null;
   return {
     workspaceId,
+    // `agency` reads as `off`: a business its agency pays for has nothing to hear about its balance.
     stage: w.stage === 'warn' || w.stage === 'enforce' ? w.stage : 'off',
     balanceCents: Number(w.balance_cents),
     floorCents: Number(w.floor_cents),

@@ -22,8 +22,15 @@ import { HfosError } from '../errors';
 /** What is being paid for, which decides how much room is needed and what a refusal says. */
 export type SpendKind = 'text' | 'call' | 'ai' | 'number';
 
-/** How far along the wallet a business is. `off` is silent, `warn` speaks, only `enforce` refuses. */
-export type WalletStage = 'off' | 'warn' | 'enforce';
+/**
+ * How far along the wallet a business is. `off` is silent, `warn` speaks, only `enforce` refuses. `agency` is a
+ * business its agency pays for: silent like `off` for good, never topped up, its usage recorded all the same.
+ */
+export type WalletStage = 'off' | 'warn' | 'enforce' | 'agency';
+
+/** Whether the wallet says anything to this business (balance, warnings, notices): only at `warn` and `enforce`. */
+export const walletSpeaks = (stage: string | null | undefined): boolean =>
+  stage === 'warn' || stage === 'enforce';
 
 export interface WalletRoom {
   /** False only when this business is at `enforce` and the balance has run out. */
@@ -45,7 +52,8 @@ const OPEN: WalletRoom = {
   stage: 'off',
 };
 
-const isStage = (v: unknown): v is WalletStage => v === 'off' || v === 'warn' || v === 'enforce';
+const isStage = (v: unknown): v is WalletStage =>
+  v === 'off' || v === 'warn' || v === 'enforce' || v === 'agency';
 
 /** What a business is told, per kind. Never "insufficient funds": say what stopped and how to start it again. */
 export const WALLET_REFUSALS: Readonly<Record<SpendKind, string>> = {

@@ -33531,7 +33531,8 @@
                     "enum": [
                       "off",
                       "warn",
-                      "enforce"
+                      "enforce",
+                      "agency"
                     ]
                   },
                   "reason": {
@@ -33567,7 +33568,8 @@
                       "enum": [
                         "off",
                         "warn",
-                        "enforce"
+                        "enforce",
+                        "agency"
                       ]
                     },
                     "stage": {
@@ -33575,7 +33577,8 @@
                       "enum": [
                         "off",
                         "warn",
-                        "enforce"
+                        "enforce",
+                        "agency"
                       ]
                     },
                     "changed": {
@@ -48500,7 +48503,8 @@
                       "enum": [
                         "off",
                         "warn",
-                        "enforce"
+                        "enforce",
+                        "agency"
                       ]
                     },
                     "balanceCents": {

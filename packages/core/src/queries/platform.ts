@@ -40,6 +40,7 @@ import {
   HealthSummaryOutput,
   ViewAsCurrentInput,
   ViewAsCurrentOutput,
+  WalletStageValue,
 } from '../schemas/support';
 const onPlatform = () => ({ kind: 'platform' as const });
 
@@ -358,8 +359,7 @@ export const platformWalletGet = defineQuery({
         cost30dCents: 0,
         toppedUp30dCents: 0,
       };
-    const stage: 'off' | 'warn' | 'enforce' =
-      w.stage === 'warn' || w.stage === 'enforce' ? w.stage : 'off';
+    const stage = WalletStageValue.options.find((s) => s === w.stage) ?? 'off';
     return {
       opened: true,
       stage,

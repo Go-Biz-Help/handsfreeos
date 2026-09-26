@@ -68,6 +68,7 @@ type WalletRow = {
   last_recharge_at: Date | null;
   pending_recharges: number;
   spent_30d_cents: number | string;
+  stage: string;
   workspace_created_at: Date;
 };
 
@@ -88,7 +89,7 @@ async function walletFor(
             coalesce((select sum(abs(l.amount_cents)) from app.usage_ledger l
               where l.workspace_id = w.workspace_id and l.kind = 'spend'
                 and l.occurred_at > now() - interval '30 days'), 0) as spent_30d_cents,
-            ws.created_at as workspace_created_at
+            ws.created_at as workspace_created_at, w.stage::text as stage
           from app.usage_wallets w join app.workspaces ws on ws.id = w.workspace_id
           where w.workspace_id = ${scope.workspaceId}`,
     ),
@@ -100,6 +101,8 @@ const ms = (d: Date | null): number | null => (d ? d.getTime() : null);
 
 /** Whether this wallet should be topped up now, and for how much. */
 export function decideRecharge(w: WalletRow, now: number): Escalation | null {
+  // Its agency pays for what it uses: its card, if it has one, is never charged for it.
+  if (w.stage === 'agency') return null;
   if (!w.auto_topup || !w.method_token || w.suspended_at) return null;
   if (w.pending_recharges > 0) return null;
   const paused = ms(w.paused_until);
@@ -358,9 +361,10 @@ export const planWallets: JobHandler = async (ctx) => {
   await asWorker(ctx.db, {}, async (tx) => {
     const list = await rows<{ workspace_id: string; organization_id: string }>(
       tx,
-      // Only the wallets that could possibly need one: with a card, switched on, not suspended.
+      // Only the wallets that could possibly need one: with a card, switched on, not suspended, and not paid
+      // for by the agency.
       sql`select workspace_id, organization_id from app.usage_wallets
-          where auto_topup and method_token is not null and suspended_at is null`,
+          where auto_topup and method_token is not null and suspended_at is null and stage <> 'agency'`,
     );
     for (let i = 0; i < list.length; i += PLAN_CHUNK)
       for (const b of list.slice(i, i + PLAN_CHUNK))
