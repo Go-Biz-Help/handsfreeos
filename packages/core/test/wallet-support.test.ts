@@ -12,13 +12,13 @@
  * asserted here is that both doors are shut to everyone except a staff admin, and open to them.
  */
 import { randomUUID } from 'node:crypto';
-import { rows, sql } from '@hfos/db/client';
+import { asUser, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
 import { executeCommand } from '../src/kernel/execute';
 import type { HumanActor, RequestMeta } from '../src/kernel/types';
-import { organizationCreate, walletAdjust } from '../src/server';
+import { organizationCreate, walletAdjust, walletSetStage } from '../src/server';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -155,5 +155,49 @@ describe('everybody else', () => {
         meta(),
       ),
     ).rejects.toThrow();
+  });
+});
+
+describe('moving a business along the wallet', () => {
+  const move = (who: TestUser, stage: 'off' | 'warn' | 'enforce', reason = 'Rollout') =>
+    executeCommand(api(), walletSetStage, { workspaceId, stage, reason }, human(who), meta());
+  const stage = async () => {
+    const [w] = await rows<{ stage: string }>(
+      admin(),
+      sql`select stage::text as stage from app.usage_wallets where workspace_id = ${workspaceId}`,
+    );
+    return w?.stage;
+  };
+
+  it('a staff admin moves it from silent to warned to stopped, and back', async () => {
+    expect((await move(staffAdmin, 'warn')).output).toMatchObject({
+      was: 'off',
+      stage: 'warn',
+      changed: true,
+    });
+    expect(await stage()).toBe('warn');
+    expect((await move(staffAdmin, 'enforce')).output).toMatchObject({
+      was: 'warn',
+      changed: true,
+    });
+    expect(await stage()).toBe('enforce');
+    // The same click twice is visibly a no-op.
+    expect((await move(staffAdmin, 'enforce')).output.changed).toBe(false);
+    await move(staffAdmin, 'off');
+    expect(await stage()).toBe('off');
+  });
+
+  it('refuses a support agent and the business’s own owner, and the owner writing it directly', async () => {
+    await expect(move(agent, 'enforce')).rejects.toBeInstanceOf(HfosError);
+    await expect(move(owner, 'warn')).rejects.toBeInstanceOf(HfosError);
+    expect(await stage()).toBe('off');
+    const direct = await asUser(api(), owner.claims, (tx) =>
+      rows(
+        tx,
+        sql`update app.usage_wallets set stage = 'warn' where workspace_id = ${workspaceId}`,
+      ),
+    ).catch((e: unknown) => e);
+    expect(direct instanceof Error || (Array.isArray(direct) && direct.length === 0)).toBe(true);
+    expect(await stage()).toBe('off');
   });
 });
