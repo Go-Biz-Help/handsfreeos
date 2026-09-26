@@ -262,6 +262,14 @@ describe('the test console', () => {
         detail: expect.stringContaining('“Thanks for calling.”'),
       });
       expect(done(booked)['firstWordsMs']).toBeNull();
+      // Each of its sentences comes as it's ready, so the console can say them out loud early too; the booking's
+      // reply comes only once it's done.
+      expect(
+        eventsOf(saidBye)
+          .filter((e) => e.type === 'say')
+          .map((e) => e['text']),
+      ).toEqual(['Thanks for calling.', 'Bye now!']);
+      expect(eventsOf(booked).some((e) => e.type === 'say')).toBe(false);
 
       // Nothing happened for real: no visit, no call, no conversation.
       expect(await appointmentsOf(c.id)).toHaveLength(0);

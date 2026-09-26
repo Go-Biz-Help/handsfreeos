@@ -14,8 +14,9 @@
  *   first request has no messages and gets the greeting (the pick-up, or the opening of a call it places to confirm
  *   a visit, ring back a missed call, follow up a quote or for a campaign); then each turn has the phone's tools and
  *   words, and a hand-off connects them to the team, which ends the call, as a goodbye does. It thinks with the
- *   model the business's calls do (its phone model, else VOICE_MODEL), and a reply it would start saying while it's still written (voice-agent/
- *   early-speech.ts) says so, with how long the first words took.
+ *   model the business's calls do (its phone model, else VOICE_MODEL). A reply it would start saying while it's
+ *   still written (voice-agent/early-speech.ts) says so, with how long the first words took, and streams each of
+ *   those sentences as it's ready (`say`), so talking out loud starts early too.
  */
 import type { AiMessage, AiProvider, AiToolCall, AiUsage } from '@hfos/ai';
 import type { Geocoder } from '../geo/geocoder';
@@ -1520,14 +1521,17 @@ export async function runTest(
           passes: (words) => checked(words).ok,
           mayStart: () => !state.held.length && !state.moneyAsk,
           say: (sentence) => {
-            if (firstWordsMs !== null) return;
-            firstWordsMs = Date.now() - began;
-            send({
-              type: 'note',
-              title: 'Starts talking',
-              detail: `On a real call it says “${sentence}” now, checked, while it writes the rest.`,
-              at: nowIso(),
-            });
+            if (firstWordsMs === null) {
+              firstWordsMs = Date.now() - began;
+              send({
+                type: 'note',
+                title: 'Starts talking',
+                detail: `On a real call it says “${sentence}” now, checked, while it writes the rest.`,
+                at: nowIso(),
+              });
+            }
+            // Out loud, the console says it now too.
+            send({ type: 'say', text: sentence });
           },
         })
       : null;

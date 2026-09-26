@@ -127,6 +127,31 @@ describe('a call', () => {
     expect(handed.log.at(-1)!.title).toBe('Connected them to the team');
   });
 
+  it('shows the words it says while writing, then the whole reply', () => {
+    const writing = play(turn('call', 'Are you open Saturdays?'), [
+      { type: 'say', text: 'Yes, we are.' },
+      { type: 'say', text: 'We open at nine.' },
+    ]);
+    expect(writing).toMatchObject({
+      done: false,
+      early: ['Yes, we are.', 'We open at nine.'],
+      reply: 'Yes, we are. We open at nine.',
+    });
+    const finished = play(writing, [
+      {
+        type: 'done',
+        outcome: 'replied',
+        reply: 'Yes, we are. We open at nine. Anything else?',
+        draft: false,
+        ended: false,
+        toolSteps: 0,
+        ms: 900,
+        firstWordsMs: 300,
+      },
+    ]);
+    expect(finished.reply).toBe('Yes, we are. We open at nine. Anything else?');
+  });
+
   it('says when it started talking, for a reply it said while writing it', () => {
     const t = play(turn('call', 'What time are you open?'), [
       { type: 'note', title: 'Starts talking', detail: null, at: AT },
