@@ -39,8 +39,8 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     void reply.status(404).send(HfosError.noSuchRoute().toBody());
   });
 
-  // Six per machine: Fly runs the API on two, and Supavisor's session mode lets the hfos_api role hold 15
-  // connections in all, so two machines at their busiest (12) still leave room for a deploy's overlap.
+  // Six per machine: Fly runs the API on two, and even on Supavisor's session mode, where every open connection
+  // holds one of the role's pool slots (15 by default), two machines at their busiest (12) fit with room to spare.
   const db = opts.db ?? createDb(opts.env.databaseUrl, { max: 6, applicationName: 'hfos-api' });
   if (!opts.db) app.addHook('onClose', async () => db.close());
   const verifyToken = opts.verifyToken ?? createTokenVerifier(opts.env);

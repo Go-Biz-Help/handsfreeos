@@ -169,7 +169,7 @@ Supabase runs the HandsFreeOS database, sign-in (Supabase Auth), file storage an
 - Project ref: `ybupfghakoszfcxhyrby`. Region: `us-east-1`. Postgres 17.
 - Dashboard: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby`
 - Project URL: `https://ybupfghakoszfcxhyrby.supabase.co`
-- Session pooler host: `aws-0-us-east-1.pooler.supabase.com`, port `5432`. Supabase says to copy this host from the dashboard's **Connect** panel rather than work it out from the region. See "Check the pooler host".
+- Pooler host: `aws-0-us-east-1.pooler.supabase.com`. The API and the worker use its transaction port, `6543`. The admin string for the Supabase CLI uses its session port, `5432`. Supabase says to copy this host from the dashboard's **Connect** panel rather than work it out from the region. See "Check the pooler host".
 - Plan: Pro (the Go Biz Help organization's plan), on Micro compute. HandsFreeOS adds about $10 a month for Micro. The organization's $10 compute credit is already used by its other projects.
 
 The apps never sign in to the database as `postgres`. The API signs in as `hfos_api` and the worker as `hfos_worker`. Inside every transaction, each one switches to a narrower role: `authenticated` for the API, `service_actor` for the worker. That way the database's row level security rules apply to every request.
@@ -181,6 +181,7 @@ The commands below use the Supabase CLI (`supabase`) and the Fly CLI (`fly`). Ru
 - The first 12 migrations in `supabase/migrations` are applied, from `20260911000100_foundation_roles_schemas.sql` to `20260913000200_email.sql`. The hosted history records each one under its file's version, so `supabase db push` treats them as applied. The 13th, `20260913000300_resend_and_domain_check.sql`, is not applied yet. Apply it with "Apply new migrations" below before you push the code that needs it.
 - `hfos_api` and `hfos_worker` have their hosted passwords. Those passwords, the two connection strings built from them and the publishable key are in `.env.hosted`. It is a gitignored file at `~/Projects/HandsFreeOS/.env.hosted`, and it exists only on your Mac. The third role, `service_actor`, cannot sign in at all.
 - On 2026-09-11 the API was tested end to end against this project through the session pooler.
+- On 2026-09-26 the API and the worker moved to the transaction pooler on port `6543`, and the pool size went from 15 to 20. Two API machines had filled the session pooler's 15 slots with idle connections, and every signed-in page failed with "Something went wrong on our side".
 - The storage buckets `attachments`, `imports` and `telephony` exist.
 - The project signs sign-in tokens with ES256. That is the only algorithm the API and the worker accept.
 - On 2026-09-12 you set these in the dashboard:
@@ -318,7 +319,7 @@ Supabase throttles key changes for about 5 minutes after each one. If a button d
 
 ### Database connection strings for the API and the worker
 
-The API and the worker connect through Supabase's session pooler on port `5432`. The direct host (`db.ybupfghakoszfcxhyrby.supabase.co`) has only an IPv6 address. The transaction pooler on port `6543` is not used today (see "How many connections the apps use" for when you might switch). On the pooler, the user name is the role, a dot, and the project ref.
+The API and the worker connect through Supabase's transaction pooler on port `6543`. It lends an app a database connection only while a transaction runs, so an app connection sitting idle holds nothing. The code is written for it: it never uses prepared statements, and it sets its role and settings inside each transaction. The direct host (`db.ybupfghakoszfcxhyrby.supabase.co`) has only an IPv6 address. The session pooler on port `5432` is only for the admin string in "Push with the Supabase CLI". On the pooler, the user name is the role, a dot, and the project ref.
 
 `.env.hosted` already holds both finished strings, so you copy them rather than build them. Fly Part 6 saves them in your password manager and gives them to Fly the first time. Use the steps below whenever you set or change them later.
 
@@ -388,7 +389,7 @@ Do this once, and again for any new or copied project. Supabase says the host ca
 1. In the dashboard, click **Connect** in the project's top bar.
 2. Choose **Session pooler** and look at its URI.
 
-   You should see a string like `postgresql://postgres.ybupfghakoszfcxhyrby:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres`.
+   You should see a string like `postgresql://postgres.ybupfghakoszfcxhyrby:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres`. **Transaction pooler** shows the same host with port `6543`.
 
    This panel changed recently. It may show a **Direct** tab with a **Connection Method** menu, where you set **Session pooler** and leave **Type** on **URI**. If the host is not `aws-0-us-east-1.pooler.supabase.com` (for example, it says `aws-1-us-east-1`), use the host it shows in every connection string: the API's, the worker's and the admin string in "Push with the Supabase CLI". Never give an app this `postgres.` string.
 
@@ -399,13 +400,13 @@ You only need this if `.env.hosted` is missing a string, or for a new or copied 
 API (`hfos_api`):
 
 ```text
-postgresql://hfos_api.ybupfghakoszfcxhyrby:<hfos_api password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+postgresql://hfos_api.ybupfghakoszfcxhyrby:<hfos_api password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
 ```
 
 Worker (`hfos_worker`):
 
 ```text
-postgresql://hfos_worker.ybupfghakoszfcxhyrby:<hfos_worker password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+postgresql://hfos_worker.ybupfghakoszfcxhyrby:<hfos_worker password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
 ```
 
 Keep `?sslmode=require` at the end. The apps do not insist on an encrypted connection by themselves; that ending is what turns encryption on.
@@ -414,7 +415,7 @@ Never give an app the `postgres` user (`postgres.ybupfghakoszfcxhyrby`). The app
 
 #### How many connections the apps use
 
-Each open app connection holds one pooler connection, and the pooler opens database connections up to its **Pool Size**. The API opens up to 6 connections per machine. The worker opens up to 10 per machine: 4 for its loops and 6 for its web server. Both close a connection once it has sat unused for 20 seconds, so a quiet app gives its share of the pool back. Micro compute allows 60 database connections and 200 pooler clients. When the pool is full, extra connections wait up to a minute, then fail with `Max client connections reached` (or `MaxClientsInSessionMode`).
+Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 10 per machine: 4 for its loops and 6 for its web server. Both close a connection once it has sat unused for 20 seconds. Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
 
 Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7). After that deploy, count them:
 
@@ -430,20 +431,15 @@ You should see a `COUNT` column with each app's number of machines.
 
 1. Open **Database** → **Settings**: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/settings`. If the page has moved, search the dashboard for "pool size".
 2. In the **Connection pooling** section, find **Pool Size**.
-3. Check that it is at least 6 for each API machine plus 10 for each worker machine. With two machines each, that is 32. At 15, two API machines (up to 12 connections) fit, but a third does not.
-4. If it is lower, raise it and save. Supabase suggests giving the pool no more than about 80% of the database connections, which is 48 on Micro. If you need more than that, move to a larger compute size or run fewer machines.
+3. Check that it is 20. Each role gets a pool that size, so the two apps can use up to 40 of Micro's 60 database connections, and Supabase's own services use about 10 more. On the transaction pooler that is plenty, because a transaction holds its connection for milliseconds.
+4. Don't raise it above 20 on Micro, or the apps and Supabase's own services together can run the database out of connections, which breaks sign-in too. If you need more, move to a larger compute size first.
 
-Check the pool size again before you add machines to either app.
+Before you add machines to either app, check that the apps' clients (6 per API machine, 10 per worker machine) stay well under 200.
 
-If you see `Max client connections reached` in a log:
+If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in a log, an app's string is on the session pooler, port `5432`. Move both strings to `6543`:
 
-1. Keep the API to one machine. Fly asks you to confirm. Type `y` and press Return.
-
-   ```bash
-   fly scale count 1 --app handsfreeos-api
-   ```
-
-2. If it still happens, move both apps to Supabase's transaction mode, on port `6543`. The code is written to work with it. First, in your password manager, change `:5432/` to `:6543/` in both saved strings.
+1. Open `.env.hosted` (see "Database connection strings for the API and the worker") and change `:5432/` to `:6543/` on the `DATABASE_URL=` and `DATABASE_URL_WORKER=` lines. Make the same change in your password manager.
+2. Leave every other string alone: the admin string for the Supabase CLI stays on `5432`, and the sync service's string goes to the direct host, not the pooler.
 3. Give the API its new string. Paste `DATABASE_URL=<new string>` without quotes, then press Return and Control-D. The API restarts.
 
    ```bash
@@ -456,8 +452,7 @@ If you see `Max client connections reached` in a log:
    fly secrets import --app handsfreeos-worker
    ```
 
-5. If `.env.hosted` holds the full strings, make the same change on both lines there.
-6. Check the worker's log.
+5. Check the worker's log.
 
    ```bash
    fly logs --app handsfreeos-worker --no-tail
@@ -465,7 +460,7 @@ If you see `Max client connections reached` in a log:
 
    You should see `worker started`.
 
-7. Check the API's health check.
+6. Check the API's health check.
 
    ```bash
    fly checks list --app handsfreeos-api
@@ -595,7 +590,7 @@ Right after a reset, the pooler can refuse the new password for a few seconds. D
    cd ~/Projects/HandsFreeOS
    ```
 
-3. Build the admin connection string. It is the session pooler string with the `postgres` user and the database password (percent-encoded if needed). Use the same pooler host as your other strings; if **Connect** shows a different host, use that one (see "Check the pooler host"). Never give this string to an app, Fly or Vercel.
+3. Build the admin connection string. It is the session pooler string (port `5432`, not the apps' `6543`) with the `postgres` user and the database password (percent-encoded if needed). Use the same pooler host as your other strings; if **Connect** shows a different host, use that one (see "Check the pooler host"). Never give this string to an app, Fly or Vercel.
 
    ```text
    postgresql://postgres.ybupfghakoszfcxhyrby:<database password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
@@ -1390,7 +1385,7 @@ Nothing on Fly reads a `.env` file. The images contain none, because `.dockerign
 | `WEB_ORIGINS`            | `[env]`       | Yes, or the browser cannot call the API | `http://localhost:3000`                                 | Already `https://app.handsfreeos.com`. Separate several with commas.                                                                                                           |
 | `SUPABASE_URL`           | `[env]`       | Yes, the API will not start without it  | None                                                    | Already `https://ybupfghakoszfcxhyrby.supabase.co`                                                                                                                             |
 | `LOG_LEVEL`              | `[env]`       | No                                      | `info`                                                  | Already `info`                                                                                                                                                                 |
-| `DATABASE_URL`           | Fly secret    | Yes, the API will not start without it  | None                                                    | The session pooler string for the `hfos_api` role (Fly Part 6). It must not use the `postgres` role.                                                                           |
+| `DATABASE_URL`           | Fly secret    | Yes, the API will not start without it  | None                                                    | The transaction pooler string (port `6543`) for the `hfos_api` role (Fly Part 6). It must not use the `postgres` role.                                                         |
 | `SUPABASE_JWT_ISSUER`    | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1`                                | Worked out from `SUPABASE_URL`                                                                                                                                                 |
 | `SUPABASE_JWKS_URL`      | Leave unset   | No                                      | `<SUPABASE_URL>/auth/v1/.well-known/jwks.json`          | Worked out from `SUPABASE_URL`                                                                                                                                                 |
 | `ASSISTANT_DAILY_TOKENS` | Fly secret    | Only when you change the daily AI limit | `2000000`                                               | The same number as the worker's. The API shows each business's AI use against it, in the AI teammate's **Limits**. See "Change the daily limit" in "The Assistant: Anthropic". |
@@ -1420,7 +1415,7 @@ The worker will not start if any of these is missing or malformed.
 
 | Name                        | Where to copy the value from                                                                                                                                                                                                |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL_WORKER`       | The session pooler string for the `hfos_worker` role (Fly Part 6). It must not use the `postgres` role.                                                                                                                     |
+| `DATABASE_URL_WORKER`       | The transaction pooler string (port `6543`) for the `hfos_worker` role (Fly Part 6). It must not use the `postgres` role.                                                                                                   |
 | `SMTP_URL`                  | Built from the Postmark server API token: `smtp://<server API token>:<server API token>@smtp.postmarkapp.com:587?requireTLS=true` (Fly Part 6).                                                                             |
 | `WORKER_ENCRYPTION_KEY`     | You generate it once with `openssl rand -base64 32` and save it in your password manager (Fly Part 6). It must be 32 random bytes, base64 encoded.                                                                          |
 | `TWILIO_ACCOUNT_SID`        | The Twilio console, signed in as the master account: the **Account SID** (starts with `AC`).                                                                                                                                |
@@ -1519,7 +1514,7 @@ Save every value in your password manager as you go. Never save them in a file i
 
 #### Get the two database connection strings
 
-The apps connect through Supabase's session pooler, because the direct database host has only an IPv6 address. "Database connection strings for the API and the worker" in "The database: Supabase (hosted)" shows what the strings look like and how to build one by hand.
+The apps connect through Supabase's transaction pooler on port `6543`, because the direct database host has only an IPv6 address and the transaction pooler lets many app connections share a few database ones. "Database connection strings for the API and the worker" in "The database: Supabase (hosted)" shows what the strings look like and how to build one by hand.
 
 1. From the repository root, open `.env.hosted` in TextEdit. Its name starts with a dot, so Finder hides it.
 
@@ -1537,9 +1532,10 @@ The apps connect through Supabase's session pooler, because the direct database 
 
 If the file has no `DATABASE_URL=` or `DATABASE_URL_WORKER=` line, build that string with "Build a connection string by hand" in "The database: Supabase (hosted)". The passwords alone are on the `HFOS_API_DB_PASSWORD` and `HFOS_WORKER_DB_PASSWORD` lines.
 
-Check two things:
+Check three things:
 
 - The user name before the password must be `hfos_api.ybupfghakoszfcxhyrby` or `hfos_worker.ybupfghakoszfcxhyrby`. Never use `postgres.ybupfghakoszfcxhyrby`. The apps refuse a plain `postgres` user, but their check does not catch the pooler's `postgres.` form.
+- The port after the host must be `6543`. An older `.env.hosted` may say `5432`, the session pooler, where every idle connection holds a slot. Change it to `6543` (see "How many connections the apps use").
 - When you build a string by hand, percent-encode any character in the password other than letters, digits, `-`, `.`, `_` or `~`. For example, `@` becomes `%40`.
 
 #### Generate and save the worker encryption key
@@ -1627,7 +1623,7 @@ Save the finished string in your password manager as "Worker SMTP_URL".
 3. Type `DATABASE_URL=`, then paste the string right after it, with no space and no quotes. The line looks like this, with the real password in it:
 
    ```text
-   DATABASE_URL=postgresql://hfos_api.ybupfghakoszfcxhyrby:<hfos_api password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+   DATABASE_URL=postgresql://hfos_api.ybupfghakoszfcxhyrby:<hfos_api password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
    ```
 
 4. Press Return, then Control-D.
@@ -1703,7 +1699,7 @@ The worker only checks that these three values are present, never that they are 
 2. Put these ten lines in the note, one per line, without quotes. Copy each real value from its own entry.
 
    ```text
-   DATABASE_URL_WORKER=postgresql://hfos_worker.ybupfghakoszfcxhyrby:<hfos_worker password>@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+   DATABASE_URL_WORKER=postgresql://hfos_worker.ybupfghakoszfcxhyrby:<hfos_worker password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require
    SUPABASE_SECRET_KEY=<Supabase secret key>
    SMTP_URL=smtp://<server API token>:<server API token>@smtp.postmarkapp.com:587?requireTLS=true
    WORKER_ENCRYPTION_KEY=<encryption key>
@@ -2212,7 +2208,7 @@ Both apps log one JSON object per line. The message is in the `msg` field. `"lev
 | `calendar refresh failed`                                                                                                                                                                                         | Reading a connected calendar's busy times failed. The worker tries again, waiting longer each time. After five failures in a row the calendar shows **Not syncing**. | Read `err`. See "When a calendar needs reconnecting" in "The calendar: Google, Outlook and online booking".                                                                                                                           |
 | `calendar write-through failed`                                                                                                                                                                                   | Adding, moving or removing an appointment's event in someone's calendar failed.                                                                                      | Read `err`. The worker tries again, and the calendar's next check also catches up.                                                                                                                                                    |
 | `assistant run failed`                                                                                                                                                                                            | An Assistant question failed partway. The person saw "Something went wrong" or, when Anthropic was busy, "The Assistant is busy right now".                          | Read `err`. See "When a question fails" in "The Assistant: Anthropic".                                                                                                                                                                |
-| `Max client connections reached` or `MaxClientsInSessionMode`                                                                                                                                                     | Too many database connections through the session pooler.                                                                                                            | See "How many connections the apps use" in "The database: Supabase (hosted)".                                                                                                                                                         |
+| `Max client connections reached`, `MaxClientsInSessionMode` or `max clients reached in session mode`                                                                                                              | Too many database connections through the pooler. The session-mode messages mean an app's string is on port `5432` instead of `6543`.                                | See "How many connections the apps use" in "The database: Supabase (hosted)".                                                                                                                                                         |
 
 #### Errors that stop an app from starting
 
