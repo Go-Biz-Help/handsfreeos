@@ -9,13 +9,15 @@
  * - A call with nobody talking sends a keep-alive, or Deepgram closes the stream after ten seconds.
  *
  * Speaking: one request per sentence, answered with the audio as it's made (μ-law at 8 kHz, no container), so
- * the first words play before the last ones exist.
+ * the first words play before the last ones exist. On a call, `openVoice` keeps one streaming connection open
+ * for every sentence instead (deepgram-voice-line.ts), and a sentence it can't take goes by request as before.
  *
  * Voice mode's clips (the web and the phone): a recording is one pre-recorded request, heard in English or
  * Spanish without being told which, and a clip to play is one Aura 2 request answered as an MP3.
  */
 import type { Logger } from 'pino';
 import WebSocket from 'ws';
+import { openDeepgramVoice } from './deepgram-voice-line';
 import {
   voiceModel,
   type HeardClip,
@@ -209,6 +211,13 @@ export function createDeepgramSpeech(deps: {
       for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>)
         yield Buffer.from(chunk);
     },
+
+    openVoice: (options) =>
+      openDeepgramVoice({
+        apiKey: deps.apiKey,
+        model: voiceModel(options.voice, options.language),
+        log: deps.log,
+      }),
 
     async transcribe(audio, options) {
       const res = await fetch(`${CLIP_LISTEN_URL}?${clipListenParams().toString()}`, {

@@ -256,6 +256,89 @@ describe('AnthropicProvider', () => {
     ]);
   });
 
+  it('caches a conversation’s lasting instructions after the fixed ones, and says when the answer started', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-haiku-4-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const started: string[] = [];
+    await provider.stream(
+      { ...REQUEST, lasting: 'The business, the customer and the FAQ.' },
+      { onStarted: (first) => started.push(first) },
+    );
+    expect(sent[0]!.body['system']).toEqual([
+      { type: 'text', text: REQUEST.system, cache_control: { type: 'ephemeral' } },
+      {
+        type: 'text',
+        text: 'The business, the customer and the FAQ.',
+        cache_control: { type: 'ephemeral' },
+      },
+      { type: 'text', text: REQUEST.context },
+    ]);
+    // Once, for the answer's first block, whatever follows.
+    expect(started).toEqual(['text']);
+  });
+
+  it('warms: reads the same instructions and tools ahead of time and answers nothing', async () => {
+    let calls = 0;
+    const { sent, fetch } = recording(() =>
+      ++calls > 1
+        ? sse(TOOL_TURN)
+        : new Response(
+            JSON.stringify({
+              id: 'msg_warm',
+              type: 'message',
+              role: 'assistant',
+              model: 'claude-haiku-4-5',
+              content: [],
+              stop_reason: 'max_tokens',
+              stop_sequence: null,
+              usage: {
+                input_tokens: 12,
+                output_tokens: 0,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 5100,
+              },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+    );
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-haiku-4-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const request: AiRequest = {
+      system: REQUEST.system,
+      lasting: 'The business, the customer and the FAQ.',
+      tools: [{ ...REQUEST.tools![0]!, streamInput: true }],
+      messages: [],
+    };
+    const usage = await provider.warm(request);
+    expect(usage).toEqual({
+      inputTokens: 12,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 5100,
+    });
+    const warm = sent[0]!.body;
+    expect(warm).toMatchObject({ model: 'claude-haiku-4-5', max_tokens: 0 });
+    expect(warm).not.toHaveProperty('stream');
+    // Exactly what a turn sends before its own context, so the turn finds it ready.
+    await provider.stream({
+      ...request,
+      context: 'Now.',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+    const turn = sent[1]!.body;
+    expect(warm['tools']).toEqual(turn['tools']);
+    expect(warm['system']).toEqual((turn['system'] as unknown[]).slice(0, 2));
+  });
+
   it('keeps the model’s reasoning in order and hands it back exactly as it came', async () => {
     // Opus 5.5 thinks before every answer and ties that thinking to the conversation.
     const [start, ...rest] = TOOL_TURN;

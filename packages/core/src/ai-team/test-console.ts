@@ -39,12 +39,13 @@
  *     { type: 'check', ok, passed: ReplyRule[], problems: { rule, message }[], rewritten, at }
  *                                                 checkTeammateReply on the final reply
  *     { type: 'note', title, detail, at }         anything else worth a line ("Disclosure line")
- *     { type: 'done', outcome, reply, draft, ended, toolSteps, ms, firstWordsMs }
+ *     { type: 'done', outcome, reply, draft, ended, toolSteps, ms, firstWordsMs, steps }
  *                                                 outcome: replied, drafted, handed_off or no_reply; draft:
  *                                                 training wheels would hold it for an OK; ended: a phone test's
  *                                                 call is over (it said goodbye, or connected them to the team);
  *                                                 firstWordsMs: a phone test's reply started being said this long
- *                                                 in, while the rest was written (null when it wasn't)
+ *                                                 in, while the rest was written (null when it wasn't); steps: a
+ *                                                 phone test's stopwatch, TestSteps (null otherwise)
  *     { type: 'error', message }                  the run stopped; the message is for people
  *   `detail`, `query` and `reply` may be null. Unknown event types are skipped.
  */
@@ -204,11 +205,59 @@ export type TestEvent =
       readonly ms: number;
       /** A phone test: how long until its first words could be said (null: only once the reply was done). */
       readonly firstWordsMs: number | null;
+      /** A phone test's stopwatch: where the time went before it could start talking (null otherwise). */
+      readonly steps: TestSteps | null;
     }
   | { readonly type: 'error'; readonly message: string };
 
+/**
+ * Where a phone test's time went, step by step, in milliseconds. The steps add up to `firstWordsMs` when it
+ * started talking early; with a look-up first, only the first two are known.
+ */
+export interface TestSteps {
+  /** Before the AI is asked: the knowledge that matches what they said, and the AI budget. */
+  readonly loadMs: number;
+  /** Asked, until the AI's answer started coming back (null: it never did). */
+  readonly waitMs: number | null;
+  /** The answer started, until its first sentence was written and checked (null: it wasn't said early). */
+  readonly sentenceMs: number | null;
+  /** The AI thought before it wrote anything (its model does, unless told not to). */
+  readonly thought: boolean;
+  /** Its instructions were ready (read ahead, while the greeting played) rather than read fresh. */
+  readonly ready: boolean;
+}
+
+/** "Loading 0.1 s · the AI starts 0.5 s · first sentence 0.2 s", with what's worth knowing after it. */
+export function stepsLine(steps: TestSteps, seconds: (ms: number) => string): string {
+  return [
+    `loading ${seconds(steps.loadMs)}`,
+    steps.waitMs !== null ? `the AI starts ${seconds(steps.waitMs)}` : null,
+    steps.sentenceMs !== null ? `first sentence ${seconds(steps.sentenceMs)}` : null,
+    steps.thought ? 'it thought first' : null,
+    steps.ready ? 'its instructions were ready' : 'it read its instructions fresh',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
+/** A length of time in milliseconds, or null when it isn't one. */
+const ms = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
+
+function stepsOf(v: unknown): TestSteps | null {
+  if (!isObj(v)) return null;
+  const loadMs = ms(v.loadMs);
+  if (loadMs === null) return null;
+  return {
+    loadMs,
+    waitMs: ms(v.waitMs),
+    sentenceMs: ms(v.sentenceMs),
+    thought: v.thought === true,
+    ready: v.ready === true,
+  };
+}
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 const words = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
 const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
@@ -291,10 +340,8 @@ export function parseTestEvent(raw: unknown): TestEvent | null {
             ended: raw.ended === true,
             toolSteps: num(raw.toolSteps),
             ms: num(raw.ms),
-            firstWordsMs:
-              typeof raw.firstWordsMs === 'number' && Number.isFinite(raw.firstWordsMs)
-                ? raw.firstWordsMs
-                : null,
+            firstWordsMs: ms(raw.firstWordsMs),
+            steps: stepsOf(raw.steps),
           }
         : null;
     }

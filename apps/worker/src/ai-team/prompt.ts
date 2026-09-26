@@ -8,6 +8,8 @@
 import {
   formatDuration,
   formatHours,
+  formatKnowledgeForPrompt,
+  groundingBrief,
   groundingContext,
   localDateOf,
   money,
@@ -18,7 +20,7 @@ import {
 import { atLabel, clockLabel, dayLabel, isoWithOffset } from '../assistant/calendar-format';
 import type { HistoryLine, RunContext } from './context';
 import { handoffExpectation, handoffLine } from './hours';
-import { planEvery } from './tools';
+import { planEvery, type OfferedTime } from './tools';
 
 export const TEAMMATE_SYSTEM = [
   'You are a small business’s AI teammate. You answer its customers by text message, email or website chat on the business’s behalf, and you act only through the tools you’re given.',
@@ -331,17 +333,10 @@ function customerLines(rc: RunContext): string[] {
   return lines;
 }
 
-/** The context written for each call. `channelLines` stands in for the channel's own line (a live phone call). */
-export function contextText(
-  rc: RunContext,
-  opts: { readonly channelLines?: readonly string[] } = {},
-): string {
+/** Who it is and how it talks here: how every context starts. `channelLines` stands in for the channel's own line. */
+function aboutLines(rc: RunContext, opts: { readonly channelLines?: readonly string[] }): string[] {
   const { config } = rc;
-  const tz = rc.workspace.timeZone;
   const business = rc.grounding.business.name;
-  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(
-    rc.now,
-  );
   const lines: string[] = [
     `Business: ${quoteData(business)}.`,
     `You are ${quoteData(config.identity.name)}, ${quoteData(business)}’s AI teammate.`,
@@ -354,34 +349,130 @@ export function contextText(
   if (config.identity.signature)
     lines.push(`Sign your messages: ${quoteData(config.identity.signature)}`);
   lines.push(...(opts.channelLines ?? [CHANNEL_LINES[rc.conversation.channel]]));
-  lines.push(
-    `Today is ${weekday}, ${localDateOf(rc.now, tz)} (${tz}). It’s ${clockLabel(rc.now, tz)} there now (${isoWithOffset(rc.now, tz)}).`,
+  return lines;
+}
+
+/** The date and the time: the part of a context that changes from one minute to the next. */
+function nowLine(rc: RunContext): string {
+  const tz = rc.workspace.timeZone;
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(
+    rc.now,
   );
-  lines.push(`The business is open ${formatHours(rc.workspace.openHours)}.`);
-  // M18: the customer's language, and the one fixed line the teammate may translate itself.
-  lines.push(
+  return `Today is ${weekday}, ${localDateOf(rc.now, tz)} (${tz}). It’s ${clockLabel(rc.now, tz)} there now (${isoWithOffset(rc.now, tz)}).`;
+}
+
+/** The hours, the language, the hand-off, what it does and who the customer is. */
+function standingLines(rc: RunContext): string[] {
+  const { config } = rc;
+  const tz = rc.workspace.timeZone;
+  return [
+    `The business is open ${formatHours(rc.workspace.openHours)}.`,
+    // M18: the customer's language, and the one fixed line the teammate may translate itself.
     `Language: answer in the language the customer writes in${
       rc.conversationLanguage ? ` (so far: ${rc.conversationLanguage})` : ''
     }, and give its code as language on reply and hand_off (en, es, vi…).`,
-  );
-  lines.push(
     `If you hand off, the customer is told: “${quoteData(
       handoffLine(
         config.handOff.tellCustomer,
         handoffExpectation(rc.workspace.openHours, tz, rc.now),
       ),
     )}” When they write in a language other than English, pass that sentence translated faithfully as translatedLine, with nothing added.`,
-  );
-  lines.push('What you do:', ...skillLines(rc));
-  lines.push(...customerLines(rc));
-  lines.push(
+    'What you do:',
+    ...skillLines(rc),
+    ...customerLines(rc),
+  ];
+}
+
+/** The context written for each question. `channelLines` stands in for the channel's own line (a live phone call). */
+export function contextText(
+  rc: RunContext,
+  opts: { readonly channelLines?: readonly string[] } = {},
+): string {
+  return [
+    ...aboutLines(rc, opts),
+    nowLine(rc),
+    ...standingLines(rc),
     groundingContext({
       profile: rc.grounding.profile,
       business: rc.grounding.business,
       items: rc.matches.map(promptItem),
     }),
-  );
-  return lines.join('\n');
+  ].join('\n');
+}
+
+/** What a call knows before anyone asks: its FAQ in full, and open times it may offer without looking. */
+export interface CallKnowledge {
+  /** Short FAQ answers and facts, all of them (up to a limit); a turn's search leaves these out. */
+  readonly faq: readonly RunContext['matches'][number][];
+  /** Open times over the next few days, as of the pickup. */
+  readonly openTimes: readonly OfferedTime[];
+}
+
+/**
+ * A phone call's context, first part: everything that stays the same all call, read once when it's picked up.
+ * The provider caches it, so each turn reads only `callTurnContext`: the time, and knowledge the FAQ lacks.
+ */
+export function callLasting(
+  rc: RunContext,
+  known: CallKnowledge,
+  opts: { readonly channelLines: readonly string[] },
+): string {
+  return [
+    ...aboutLines(rc, opts),
+    ...standingLines(rc),
+    groundingBrief({ profile: rc.grounding.profile, business: rc.grounding.business }),
+    ...faqLines(known.faq),
+    ...openTimeLines(rc, known.openTimes),
+  ].join('\n');
+}
+
+/** A call turn's own context: the time now, and the knowledge matching what they just said that the FAQ lacks. */
+export function callTurnContext(rc: RunContext, faqIds: ReadonlySet<string>): string {
+  const more = rc.matches.filter((m) => !faqIds.has(m.id)).map(promptItem);
+  if (!faqIds.size) return [nowLine(rc), formatKnowledgeForPrompt(more)].join('\n');
+  return [
+    nowLine(rc),
+    ...(more.length
+      ? ['More knowledge that matches what they just said:', formatKnowledgeForPrompt(more)]
+      : []),
+  ].join('\n');
+}
+
+function faqLines(faq: CallKnowledge['faq']): string[] {
+  if (!faq.length) return [];
+  return [
+    'The business’s FAQ and facts, all of them, so you rarely need search_knowledge:',
+    // Already cut to fit (voice-agent/call-knowledge.ts), so every item here is whole.
+    formatKnowledgeForPrompt(faq.map(promptItem), Number.POSITIVE_INFINITY),
+  ];
+}
+
+/** The open times it read at pickup, by calendar and day, each with what book takes. */
+function openTimeLines(rc: RunContext, times: readonly OfferedTime[]): string[] {
+  if (!times.length) return [];
+  const out = [
+    'Some open times over the next few days, as of when the call started (not every one). Offer two or three of these without looking them up, and book one with its calendar id and startsAt. For another day or time, a service or a length, use find_times. Booking still checks the time is free.',
+  ];
+  for (const cal of rc.calendars) {
+    const mine = times.filter((t) => t.calendarId === cal.id);
+    if (!mine.length) continue;
+    out.push(`- ${quoteData(cal.name)} (calendar id ${cal.id}):`);
+    const days = new Map<string, OfferedTime[]>();
+    for (const t of mine) {
+      const day = dayLabel(Date.parse(t.startsAt), cal.timeZone);
+      days.set(day, [...(days.get(day) ?? []), t]);
+    }
+    for (const [day, list] of days)
+      out.push(
+        `  ${day}: ${list
+          .map((t) => {
+            const at = Date.parse(t.startsAt);
+            return `${clockLabel(at, cal.timeZone)} (startsAt ${isoWithOffset(at, cal.timeZone)})`;
+          })
+          .join(', ')}`,
+      );
+  }
+  return out;
 }
 
 function speaker(h: HistoryLine, name: string): string {

@@ -99,6 +99,8 @@ export interface OfferedTime {
   /** M18: where their address is, on a calendar whose areas go by distance or a drawn shape. */
   readonly point: { readonly lat: number; readonly lng: number } | null;
   readonly label: string;
+  /** Read when a phone call was picked up (its context lists them), not offered by find_times. */
+  readonly preloaded?: boolean;
 }
 
 export interface FoundItem {

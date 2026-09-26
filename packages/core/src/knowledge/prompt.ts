@@ -56,12 +56,19 @@ export function groundingContext(input: {
   readonly business: KnowledgeBusiness;
   readonly items: readonly KnowledgeItemForPrompt[];
 }): string {
+  return [groundingBrief(input), formatKnowledgeForPrompt(input.items)].join('\n');
+}
+
+/** The brief and the rules without any items: what stays the same for a whole conversation (a phone call). */
+export function groundingBrief(input: {
+  readonly profile: KnowledgeProfile;
+  readonly business: KnowledgeBusiness;
+}): string {
   return [
     '<business_profile>',
     quoteData(briefFromProfile(input.profile, input.business)),
     '</business_profile>',
     'Rules for using this knowledge:',
     groundingRules(input.profile, input.business),
-    formatKnowledgeForPrompt(input.items),
   ].join('\n');
 }

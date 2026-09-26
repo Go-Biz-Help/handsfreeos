@@ -3,12 +3,14 @@ import { structuredOutputSchema } from './json-schema';
 import {
   AiProviderError,
   type AiContent,
+  type AiFirstBlock,
   type AiMessage,
   type AiProvider,
   type AiRequest,
   type AiStopReason,
   type AiStreamOptions,
   type AiTurn,
+  type AiUsage,
 } from './types';
 
 export interface AnthropicOptions {
@@ -74,28 +76,13 @@ export class AnthropicProvider implements AiProvider {
   }
 
   async stream(request: AiRequest, options: AiStreamOptions = {}): Promise<AiTurn> {
-    // Tools, then the fixed instructions, form a prefix the API caches; the per-question context comes after it.
-    const system: Anthropic.TextBlockParam[] = [
-      { type: 'text', text: request.system, cache_control: { type: 'ephemeral' } },
-    ];
-    if (request.context) system.push({ type: 'text', text: request.context });
-    // Deferred tools reach the model only through its search; the search tool itself is never deferred.
-    const searching = this.toolSearch && (request.tools ?? []).some((t) => t.deferred);
-    const tools: Anthropic.ToolUnion[] = (request.tools ?? []).map((t) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
-      ...(t.strict ? { strict: true } : {}),
-      ...(t.streamInput ? { eager_input_streaming: true } : {}),
-      ...(searching && t.deferred ? { defer_loading: true } : {}),
-    }));
-    if (searching) tools.unshift(TOOL_SEARCH);
+    const tools = this.toolsOf(request);
     try {
       const stream = this.client.messages.stream(
         {
           model: this.model,
           max_tokens: request.maxTokens ?? 2048,
-          system,
+          system: systemOf(request),
           messages: request.messages.map(toAnthropic),
           ...(tools.length ? { tools } : {}),
           ...(request.responseFormat
@@ -111,6 +98,15 @@ export class AnthropicProvider implements AiProvider {
         },
         { signal: options.signal },
       );
+      const onStarted = options.onStarted;
+      if (onStarted) {
+        let started = false;
+        stream.on('streamEvent', (event) => {
+          if (started || event.type !== 'content_block_start') return;
+          started = true;
+          onStarted(firstBlockOf(event.content_block.type));
+        });
+      }
       const onText = options.onText;
       if (onText) stream.on('text', (delta) => onText(delta));
       const onToolInput = options.onToolInput;
@@ -142,6 +138,73 @@ export class AnthropicProvider implements AiProvider {
       throw providerError(e);
     }
   }
+
+  /**
+   * `max_tokens: 0`: the API reads the instructions and tools, writing them to its cache, and answers nothing.
+   * The tools, `system` and `lasting` must be exactly what the next request sends for it to find them.
+   */
+  async warm(request: AiRequest): Promise<AiUsage> {
+    const tools = this.toolsOf(request);
+    try {
+      const message = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 0,
+        system: systemOf(request),
+        // Read while warming, never answered: anything that isn't blank.
+        messages: request.messages.length
+          ? request.messages.map(toAnthropic)
+          : [{ role: 'user', content: 'Getting ready.' }],
+        ...(tools.length ? { tools } : {}),
+      });
+      return usageOf(message.usage);
+    } catch (e) {
+      throw providerError(e);
+    }
+  }
+
+  private toolsOf(request: AiRequest): Anthropic.ToolUnion[] {
+    // Deferred tools reach the model only through its search; the search tool itself is never deferred.
+    const searching = this.toolSearch && (request.tools ?? []).some((t) => t.deferred);
+    const tools: Anthropic.ToolUnion[] = (request.tools ?? []).map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
+      ...(t.strict ? { strict: true } : {}),
+      ...(t.streamInput ? { eager_input_streaming: true } : {}),
+      ...(searching && t.deferred ? { defer_loading: true } : {}),
+    }));
+    if (searching) tools.unshift(TOOL_SEARCH);
+    return tools;
+  }
+}
+
+/**
+ * Tools, then the fixed instructions, form a prefix the API caches (the same for every conversation with the same
+ * tools); a conversation's lasting part is cached after it; the per-question context comes last, uncached.
+ */
+function systemOf(request: AiRequest): Anthropic.TextBlockParam[] {
+  const system: Anthropic.TextBlockParam[] = [
+    { type: 'text', text: request.system, cache_control: { type: 'ephemeral' } },
+  ];
+  if (request.lasting)
+    system.push({ type: 'text', text: request.lasting, cache_control: { type: 'ephemeral' } });
+  if (request.context) system.push({ type: 'text', text: request.context });
+  return system;
+}
+
+function firstBlockOf(type: string): AiFirstBlock {
+  if (type === 'thinking' || type === 'redacted_thinking') return 'thinking';
+  if (type === 'text') return 'text';
+  return type === 'tool_use' ? 'tool_call' : 'other';
+}
+
+function usageOf(u: Anthropic.Usage): AiUsage {
+  return {
+    inputTokens: u.input_tokens,
+    outputTokens: u.output_tokens,
+    cacheReadTokens: u.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+  };
 }
 
 function toAnthropic(m: AiMessage): Anthropic.MessageParam {
@@ -213,18 +276,12 @@ function fromAnthropic(message: Anthropic.Message): AiTurn {
     )
       content.push({ type: 'passthrough', block: { ...block } });
   }
-  const u = message.usage;
   return {
     text,
     toolCalls,
     content,
     stopReason: STOP[message.stop_reason ?? ''] ?? 'other',
-    usage: {
-      inputTokens: u.input_tokens,
-      outputTokens: u.output_tokens,
-      cacheReadTokens: u.cache_read_input_tokens ?? 0,
-      cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
-    },
+    usage: usageOf(message.usage),
   };
 }
 

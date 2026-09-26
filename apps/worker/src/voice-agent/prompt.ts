@@ -160,6 +160,8 @@ export function phoneTurn(
   said: string,
 ): string {
   const name = rc.config.identity.name;
+  // The times read at pickup are in the call's context already; these are the ones it offered since.
+  const offered = call.offered.filter((o) => !o.preloaded);
   const lines = call.lines.map(
     (l) => `${l.who === 'caller' ? 'Caller' : `You (${quoteData(name)})`}: ${quoteData(l.text)}`,
   );
@@ -169,10 +171,10 @@ export function phoneTurn(
     '<call_transcript>',
     ...(lines.length ? lines : ['(it just started)']),
     '</call_transcript>',
-    ...(call.offered.length
+    ...(offered.length
       ? [
           'Times you’ve offered on this call (book only one of these):',
-          ...call.offered.map(
+          ...offered.map(
             (o) => `- ${o.label} (calendar id ${o.calendarId}, startsAt ${o.startsAt})`,
           ),
         ]

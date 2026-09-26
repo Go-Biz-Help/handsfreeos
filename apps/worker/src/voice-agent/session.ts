@@ -9,6 +9,8 @@
  *   it. A reply starts while the model is still writing it: each checked sentence is said as it's ready
  *   (brain.ts, early-speech.ts), and the rest follows once the turn is done. The caller talking over it stops it
  *   at once (barge-in), except while it says goodbye or connects them.
+ * - Sentences go down one voice connection opened while the greeting plays (VoiceLine), which saves each the
+ *   time a request takes to start; one the connection can't take goes by request, as the greeting does.
  * - Quiet after it spoke: it asks whether they're still there, then says goodbye and hangs up.
  * - A hand-off rings the team on the same call (the transfer TwiML); a goodbye hangs up; the caller hanging up
  *   ends it. However it ends, the call's words are saved and its run closed.
@@ -26,6 +28,7 @@ import {
   handOffForTransfer,
   prepareCall,
   thinkTurn,
+  warmCall,
   type BrainDeps,
   type CallEnding,
   type PreparedCall,
@@ -41,8 +44,16 @@ import {
   type CallLine,
 } from './prompt';
 import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
-import type { HeardWords, Listening, SpeechServices } from './speech';
+import {
+  LineBusy,
+  voiceModel,
+  type HeardWords,
+  type Listening,
+  type SpeechServices,
+  type VoiceLine,
+} from './speech';
 import type { StreamTicket } from './ticket';
+import { TurnClock } from './turn-clock';
 
 /** What the session sends Twilio. */
 export interface CallLink {
@@ -79,6 +90,43 @@ export interface SessionDeps extends BrainDeps {
   readonly timings?: Partial<SessionTimings>;
 }
 
+/**
+ * Says one sentence: down the call's open voice when it has one, and by request when that can't take it. Once any
+ * of it went down the line it isn't said again (the caller would hear it twice): a failure then is the sentence's.
+ */
+export async function sayOne(o: {
+  readonly line: VoiceLine | null;
+  readonly byRequest: () => AsyncIterable<Buffer>;
+  readonly sentence: string;
+  readonly signal: AbortSignal;
+  readonly send: (audio: Buffer) => void;
+  /** The line broke (not merely busy): the call counts it. */
+  readonly lineFailed: (e: unknown) => void;
+}): Promise<void> {
+  if (o.line) {
+    let sent = false;
+    try {
+      for await (const audio of o.line.say(o.sentence, o.signal)) {
+        if (o.signal.aborted) return;
+        sent = true;
+        o.send(audio);
+      }
+      return;
+    } catch (e) {
+      if (o.signal.aborted) return;
+      if (sent) throw e;
+      if (!(e instanceof LineBusy)) o.lineFailed(e);
+    }
+  }
+  for await (const audio of o.byRequest()) {
+    if (o.signal.aborted) return;
+    o.send(audio);
+  }
+}
+
+/** After this many failures of the call's open voice, every sentence goes by request for the rest of the call. */
+const LINE_FAILURES_MAX = 3;
+
 const REASON_WORDS: Partial<Record<ConversationHandoffReason, string>> = {
   asked_for_person: 'they asked for a person',
   frustrated: 'they sounded frustrated',
@@ -104,6 +152,8 @@ interface Utterance {
   voiced: Promise<void>;
   /** Speaking failed: the rest isn't said. */
   failed: boolean;
+  /** When it started: a turn's stopwatch counts the first sound of what it began. */
+  readonly began: number;
 }
 
 /** "Hi there. How can I help?" → two sentences, spoken one after the other. */
@@ -121,6 +171,12 @@ export class CallSession {
   private heard: string[] = [];
   private language: string | null = null;
   private thinking = false;
+  /** The call's open voice (VoiceLine), and the one being opened. */
+  private voiceLine: VoiceLine | null = null;
+  private opening: Promise<void> | null = null;
+  private lineFailures = 0;
+  /** The latest turn's stopwatch. */
+  private clock: TurnClock | null = null;
   private speaking: Utterance | null = null;
   private readonly marks = new Map<string, () => void>();
   private markSeq = 0;
@@ -195,6 +251,13 @@ export class CallSession {
         }),
       this.timings.maxCallMs,
     );
+    // While the greeting plays: the call's FAQ and open times are read, and the AI reads its instructions, so
+    // the first thing the caller asks finds them ready. A turn that starts sooner waits for the reading.
+    void warmCall(this.deps, this.call).catch((e: unknown) =>
+      this.log.warn({ err: e }, 'couldn’t get a call ready'),
+    );
+    // The call's voice opens meanwhile too: the greeting goes by request, and every sentence after down the line.
+    this.openLine(this.language);
     const business = this.call.rc.grounding.business.name;
     const out = this.call.outbound;
     const said = await this.say(
@@ -263,6 +326,8 @@ export class CallSession {
     const before = [...this.lines];
     this.lines.push({ who: 'caller', text: said });
     const turn = ++this.turn;
+    const clock = new TurnClock();
+    this.clock = clock;
     // The start of the reply, said while the model is still writing the rest.
     const early: { utterance: Utterance | null } = { utterance: null };
     const speak = (sentence: string, ending: boolean) => {
@@ -278,6 +343,7 @@ export class CallSession {
         said,
         language: this.language,
         speak,
+        clock,
       });
     } catch (e) {
       this.log.error({ err: e, turn }, 'a call turn failed');
@@ -292,6 +358,8 @@ export class CallSession {
     this.thinking = false;
     if (this.closed) return;
     await this.act(outcome, early.utterance);
+    // Where the turn's time went, from the end of their words to the first sound (TurnClock).
+    this.log.info({ turn, early: !!early.utterance, ...clock.log() }, 'a call turn’s timings');
   }
 
   // ---- doing ----
@@ -348,6 +416,7 @@ export class CallSession {
       text,
       voiced: Promise.resolve(),
       failed: false,
+      began: Date.now(),
     };
     this.lines.push({ who: 'teammate', text });
     this.speaking = u;
@@ -368,20 +437,71 @@ export class CallSession {
       if (u.abort.signal.aborted || u.failed) return;
       this.saidText += sentence;
       try {
-        for await (const audio of this.deps.speech.speak(sentence, {
-          voice: call.config.phone.voice,
-          language: this.language,
+        await sayOne({
+          line: this.lineFor(this.language),
+          byRequest: () =>
+            this.deps.speech.speak(sentence, {
+              voice: call.config.phone.voice,
+              language: this.language,
+              signal: u.abort.signal,
+            }),
+          sentence,
           signal: u.abort.signal,
-        })) {
-          if (u.abort.signal.aborted) break;
-          this.link.sendAudio(audio);
-        }
+          send: (audio) => {
+            if (this.clock && u.began >= this.clock.started) this.clock.audio();
+            this.link.sendAudio(audio);
+          },
+          lineFailed: (e) => {
+            this.lineFailures++;
+            this.log.warn({ err: e }, 'the call’s voice failed; saying the sentence by request');
+          },
+        });
       } catch (e) {
         if (u.abort.signal.aborted) return;
         u.failed = true;
         this.log.warn({ err: e }, 'couldn’t speak on a call');
       }
     });
+  }
+
+  /**
+   * The call's open voice in the caller's language, when one is ready (VoiceLine). Otherwise it opens one for the
+   * sentences after this, and this one goes by request. After a few failures it stops trying for the call.
+   */
+  private lineFor(language: string | null): VoiceLine | null {
+    const call = this.call;
+    if (!call || !this.deps.speech.openVoice) return null;
+    const model = voiceModel(call.config.phone.voice, language);
+    const line = this.voiceLine;
+    if (line?.open && line.model === model) return line;
+    if (line) {
+      line.close();
+      this.voiceLine = null;
+    }
+    this.openLine(language);
+    return null;
+  }
+
+  private openLine(language: string | null): void {
+    const call = this.call;
+    const open = this.deps.speech.openVoice;
+    if (!call || !open || this.opening || this.closed || this.lineFailures >= LINE_FAILURES_MAX)
+      return;
+    this.opening = open({ voice: call.config.phone.voice, language })
+      .then((line) => {
+        if (this.closed) line.close();
+        else this.voiceLine = line;
+      })
+      .catch((e: unknown) => {
+        this.lineFailures++;
+        this.log.warn(
+          { err: e },
+          'couldn’t open a voice for the call; it says each sentence by request',
+        );
+      })
+      .finally(() => {
+        this.opening = null;
+      });
   }
 
   /** Waits until all of it has played (Twilio's mark); 'cut' when the caller talked over it or the call ended. */
@@ -487,6 +607,8 @@ export class CallSession {
     for (const done of this.marks.values()) done();
     this.marks.clear();
     await this.listening?.close().catch(() => undefined);
+    this.voiceLine?.close();
+    this.voiceLine = null;
     const call = this.call;
     if (!call) return;
     const ending: CallEnding = this.ending ?? {

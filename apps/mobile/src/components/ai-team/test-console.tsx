@@ -48,6 +48,7 @@ import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import {
   turnHeading,
   turnMeta,
+  turnSteps,
   type LogIcon,
   type LogLine,
   type LogTone,
@@ -289,6 +290,11 @@ export function TestConsoleView({
                   </Text>
                   <Text className="text-xs text-text-3">{turnMeta(t)}</Text>
                 </View>
+                {turnSteps(t) ? (
+                  <Text className="mt-0.5 text-xs text-text-3" testID="test-console-steps">
+                    {turnSteps(t)}
+                  </Text>
+                ) : null}
                 {t.log.map((l) => (
                   <LogRow key={l.id} line={l} timeZone={timeZone} />
                 ))}

@@ -6,12 +6,14 @@ import {
   TEST_CALL_REASONS,
   TEST_CHANNEL_NAMES,
   restToSay,
+  stepsLine,
   testSamples,
   testVerb,
   type AiCallPurpose,
   type TestCall,
   type TestCallDirection,
   type TestConsoleChannel,
+  type TestSteps,
 } from '@hfos/core';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
@@ -84,6 +86,8 @@ interface Turn {
   readonly ms: number | null;
   /** A call's reply started being said this long in, while the rest was written. */
   readonly firstWordsMs: number | null;
+  /** A call's stopwatch: where the time went before it could start talking. */
+  readonly steps: TestSteps | null;
   /** On a call, the reply's sentences a real call says while the rest is written, as they come. */
   readonly early: readonly string[];
   readonly error: string | null;
@@ -236,6 +240,7 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
         toolSteps: e.toolSteps,
         ms: e.ms,
         firstWordsMs: e.firstWordsMs,
+        steps: e.steps,
         log: [...t.log, endLine(t, e, timeZone)],
       };
     case 'error':
@@ -412,6 +417,7 @@ export function TestConsole({
       toolSteps: 0,
       ms: null,
       firstWordsMs: null,
+      steps: null,
       early: [],
       error: null,
     };
@@ -955,6 +961,14 @@ export function TestConsole({
                           <span className="text-[13px] font-semibold">{heading(t, i)}</span>
                           <span className="text-xs text-text-3">{meta(t)}</span>
                         </div>
+                        {t.steps ? (
+                          <p
+                            className="mt-0.5 text-xs text-text-3"
+                            data-testid="test-console-steps"
+                          >
+                            Where the time went: {stepsLine(t.steps, seconds)}
+                          </p>
+                        ) : null}
                         {t.log.map((l, j) => (
                           <LogRow key={l.id} line={l} first={j === 0} />
                         ))}

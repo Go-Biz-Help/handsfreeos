@@ -47,10 +47,9 @@ import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { chatCodeSender } from '../ai-team/chat-code';
 import { runtimeConfigOf } from '../ai-team/config';
-import { KNOWLEDGE_MATCHES } from '../ai-team/constants';
 import { loadRunContext, type BatchMessage, type RunContext } from '../ai-team/context';
 import { handOffAsAi } from '../ai-team/handoff';
-import { contextText, TEAMMATE_SYSTEM } from '../ai-team/prompt';
+import { callTurnContext, TEAMMATE_SYSTEM } from '../ai-team/prompt';
 import {
   checkReply,
   checkRows,
@@ -64,12 +63,13 @@ import {
   type DraftRun,
 } from '../ai-team/run';
 import { createExecutor, newRunState, toolDefinition, type RunState } from '../ai-team/tools';
-import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { WorkerServices } from '../services';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import type { ProviderAccount } from '../telephony/provider';
+import { offerOpenTimes, readCallBrief, turnMatches, type CallBrief } from './call-knowledge';
 import { EarlySpeech, streamSpoken } from './early-speech';
+import type { TurnClock } from './turn-clock';
 import { callModel } from './index';
 import {
   alreadySaid,
@@ -383,22 +383,57 @@ const transfer = (
   note: note.slice(0, TRANSFER_NOTE_MAX),
 });
 
-/** The knowledge that matches what the caller just said, or the call's own when nothing does. */
-async function turnMatches(
-  deps: BrainDeps,
-  call: PreparedCall,
-  said: string,
-): Promise<RunContext['matches']> {
-  const words = anyOfWords(said);
-  if (!words) return call.rc.matches;
-  const found = await asWorker(deps.db, call.scope, (tx) =>
-    findKnowledge(tx, {
-      workspaceId: call.scope.workspaceId,
-      queries: [words],
-      limit: KNOWLEDGE_MATCHES,
-    }),
-  );
-  return found.length ? found : call.rc.matches;
+/** Each call's brief, read once (the first of the greeting's warm-up and the first turn asks). */
+const briefs = new WeakMap<PreparedCall, Promise<CallBrief>>();
+
+/** What the call reads once, at pickup: its FAQ, some open times, and the lasting context they go in. */
+export function briefOf(deps: BrainDeps, call: PreparedCall): Promise<CallBrief> {
+  let brief = briefs.get(call);
+  if (!brief) {
+    brief = readCallBrief(deps, call.scope, {
+      rc: call.rc,
+      channelLines: phoneChannelLines({
+        training: call.training,
+        personHasIt: call.personHasIt,
+        outbound: call.outbound,
+      }),
+      booking: toolsFor(call).some((t) => t.name === 'book'),
+      meta: call.meta,
+    }).then((b) => {
+      offerOpenTimes(call.state, b);
+      return b;
+    });
+    briefs.set(call, brief);
+  }
+  return brief;
+}
+
+/**
+ * While the greeting plays: reads the call's brief and has the provider read the call's instructions and tools
+ * ahead of the first turn, so that turn finds them ready. What it costs is the business's, like any AI use.
+ */
+export async function warmCall(deps: BrainDeps, call: PreparedCall): Promise<void> {
+  const brief = await briefOf(deps, call);
+  const provider = call.provider;
+  if (!provider.warm) return;
+  try {
+    const usage = await provider.warm({
+      system: TEAMMATE_SYSTEM,
+      lasting: brief.lasting,
+      // Exactly the tools a turn sends: the cache is found only when everything before the turn's own matches.
+      tools: toolsFor(call).map((t) => streamSpoken(toolDefinition(t))),
+      messages: [],
+    });
+    await recordAndChargeAi(deps, call.scope, {
+      source: 'teammate',
+      teammateId: call.teammate.id,
+      teammateRunId: call.runId,
+      model: provider.model,
+      usage,
+    });
+  } catch (e) {
+    deps.log.warn({ err: e, runId: call.runId }, 'couldn’t get the AI ready for a call');
+  }
 }
 
 /** One turn: what the caller said, answered. */
@@ -412,6 +447,8 @@ export async function thinkTurn(
     readonly language: string | null;
     /** Says a checked sentence of the reply while the rest is still being written; `ending` for a goodbye. */
     readonly speak?: (sentence: string, ending: boolean) => void;
+    /** The turn's stopwatch: when the AI was asked, when it answered, when its first sentence was ready. */
+    readonly clock?: TurnClock;
   },
 ): Promise<TurnOutcome> {
   const { scope, state } = call;
@@ -430,10 +467,14 @@ export async function thinkTurn(
     );
 
   const provider = call.provider;
+  const brief = await briefOf(deps, call);
   const rc: RunContext = {
     ...call.rc,
     batch,
-    matches: await turnMatches(deps, call, input.said),
+    matches: await turnMatches(deps, scope, input.said, {
+      faqIds: brief.faqIds,
+      otherwise: call.rc.matches,
+    }),
     now: Date.now(),
   };
   // The loop checks the budget before every model call, its first one included.
@@ -477,24 +518,23 @@ export async function thinkTurn(
       : null,
     log: deps.log,
   });
-  const onTurnUsage = (usage: AiUsage) =>
-    recordAndChargeAi(deps, scope, {
+  const clock = input.clock;
+  const onTurnUsage = (usage: AiUsage) => {
+    clock?.usage(usage);
+    return recordAndChargeAi(deps, scope, {
       source: 'teammate',
       teammateId: call.teammate.id,
       teammateRunId: call.runId,
       model: provider.model,
       usage,
     });
+  };
   const base = {
     provider,
     system: TEAMMATE_SYSTEM,
-    context: contextText(rc, {
-      channelLines: phoneChannelLines({
-        training: call.training,
-        personHasIt: call.personHasIt,
-        outbound: call.outbound,
-      }),
-    }),
+    // What stays the same all call, ready from the greeting's warm-up; then only this turn's time and knowledge.
+    lasting: brief.lasting,
+    context: callTurnContext(rc, brief.faqIds),
     maxTokens: PHONE_MAX_TOKENS,
     execute,
     onTurnUsage,
@@ -538,7 +578,10 @@ export async function thinkTurn(
     ? new EarlySpeech({
         passes: (words) => checked(words).ok,
         mayStart: () => !state.held.length && !state.moneyAsk,
-        say: speak,
+        say: (sentence, ending) => {
+          clock?.sentence();
+          speak(sentence, ending);
+        },
       })
     : null;
 
@@ -557,6 +600,7 @@ export async function thinkTurn(
     tools: tools.map((t) => streamSpoken(toolDefinition(t))),
     maxRounds: call.config.limits.toolRounds,
     ...(early ? { onToolInput: early.onToolInput } : {}),
+    ...(clock ? { onAsked: clock.onAsked, onStarted: clock.onStarted } : {}),
   });
   const stop = failed(loop);
   if (stop) return stop;

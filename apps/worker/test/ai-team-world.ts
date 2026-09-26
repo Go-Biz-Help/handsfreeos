@@ -112,6 +112,7 @@ export async function teammateWorld(
 
 /** The world's model from now on (the scripted stand-in by default), with its requests kept. */
 export function useModel(w: TeammateWorld, inner: AiProvider, dailyTokens = 5_000_000): void {
+  const warm = inner.warm?.bind(inner);
   const provider: AiProvider = {
     id: 'recording',
     model: inner.model,
@@ -119,6 +120,7 @@ export function useModel(w: TeammateWorld, inner: AiProvider, dailyTokens = 5_00
       w.requests.push(request);
       return inner.stream(request, options);
     },
+    ...(warm ? { warm } : {}),
   };
   Object.assign(w, { s: { ...w.s, ai: { provider, dailyTokens } } as TestServices });
 }

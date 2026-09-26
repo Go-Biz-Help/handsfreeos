@@ -6,6 +6,8 @@
  * - `listen` opens one stream for the whole call. It reports words as they're heard (interim and final), when
  *   the caller starts talking (so the teammate stops mid-sentence), and when they've finished a thought.
  * - `speak` turns one sentence into audio, streamed, so the first words play while the rest is still made.
+ *   `openVoice` does the same over one connection kept open for the call, which saves each sentence the time it
+ *   takes to start a request; `speak` stays the fallback whenever that connection can't.
  *
  * Voice mode on the web and the phone (the Assistant, and the test console on a call) uses the same services for
  * whole clips instead of a live stream: `transcribe` reads one recording the app made, and `voiceClip` answers
@@ -63,11 +65,37 @@ export interface VoiceClip {
   readonly audio: Buffer;
 }
 
+/**
+ * One voice kept open for a whole call: each sentence goes down a connection opened once, rather than a request of
+ * its own, so the first sound of each comes sooner. A line speaks in one voice (`model`); a caller who switches
+ * language gets another. When a line can't say a sentence it throws before any audio, and the call says that one
+ * with `speak` instead; `LineBusy` means only this sentence (the line stays open).
+ */
+export interface VoiceLine {
+  /** The voice it speaks in (voiceModel). */
+  readonly model: string;
+  /** False once it's closed or broken: the call opens another. */
+  readonly open: boolean;
+  /** 8 kHz μ-law audio of `text`, in pieces as they're made. Stopping part-way closes the line. */
+  say(text: string, signal?: AbortSignal): AsyncIterable<Buffer>;
+  close(): void;
+}
+
+/** This sentence can't go down the line (it's saying another, or has said its fill this minute): use `speak`. */
+export class LineBusy extends Error {
+  constructor(why: string) {
+    super(why);
+    this.name = 'LineBusy';
+  }
+}
+
 export interface SpeechServices {
   readonly name: 'deepgram' | 'fake';
   listen(handlers: ListenHandlers): Promise<Listening>;
   /** 8 kHz μ-law audio of `text`, in pieces as they're made. */
   speak(text: string, options: SpeakOptions): AsyncIterable<Buffer>;
+  /** Opens a voice for a call (VoiceLine). Without it, every sentence is said with `speak`. */
+  openVoice?(options: Omit<SpeakOptions, 'signal'>): Promise<VoiceLine>;
   /** The words in one recording (`contentType` is its own: audio/webm, audio/mp4…). */
   transcribe(
     audio: Buffer,
