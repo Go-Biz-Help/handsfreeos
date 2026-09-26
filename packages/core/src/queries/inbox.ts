@@ -164,9 +164,11 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
       -- where you are standing is a menu that reads as though you are nowhere.
       and (z.id = x.id
         or ${archived ? sql`z.archived_at is not null` : sql`z.archived_at is null`})
-      and case when x.person_id is not null then z.person_id = x.person_id
-               else z.person_id is null and z.channel::text = x.channel and z.counterpart = x.counterpart
-          end)`;
+      -- An OR rather than a CASE, and the cast on the outer side, so each half can use its own index: a CASE
+      -- read every thread in the business once per row on the page.
+      and (z.person_id = x.person_id
+        or (x.person_id is null and z.person_id is null and z.channel = x.channel::app.channel
+          and z.counterpart = x.counterpart)))`;
 
 /**
  * The customer an unlinked thread looks like, so the row can offer "Same as Kim Alvarez?" (0089).
@@ -190,6 +192,26 @@ const SAME_AS = (workspaceId: string) => sql`
       sp.updated_at desc
     limit 1)`;
 
+/**
+ * The customer's open lead and who sent the last text, over a row `x` of `conversationSelect`.
+ *
+ * Each is a lookup of its own, so they sit in the outer select, beside the lanes: Postgres works them out for the
+ * page it hands back rather than for every thread in the box. Inside `conversationSelect` they ran for all of a
+ * business's threads before the page was cut, and a 950-thread inbox took three seconds to open.
+ */
+const ROW_EXTRAS = sql`
+    (select json_build_object('id', l.id, 'title', l.title, 'stageId', l.stage_id, 'pipelineId', s.pipeline_id,
+              'stageName', s.name, 'valueCents', l.value_cents,
+              'nextAction', l.next_action, 'nextActionAt', l.next_action_at)
+       from app.leads l join app.pipeline_stages s on s.id = l.stage_id
+       where x.person_id is not null and l.person_id = x.person_id and l.status = 'open' and l.archived_at is null
+       order by l.updated_at desc limit 1) as open_lead,
+    -- Only read when the last message went out: summary() shows a sender for nothing else.
+    (select json_build_object('id', su.id, 'fullName', coalesce(nullif(su.full_name, ''), su.email::text))
+       from app.messages lm join app.users su on su.id = lm.sent_by
+       where x.last_direction = 'outbound' and lm.conversation_id = x.id and lm.direction = 'outbound'
+       order by lm.occurred_at desc limit 1) as last_sender`;
+
 /** `sortBy` needs_person: the "Needs a person" box, by how long it has waited. */
 const conversationSelect = (
   workspaceId: string,
@@ -204,16 +226,6 @@ const conversationSelect = (
     c.handled_by::text as handled_by, c.ai_teammate_id, tm.name as teammate_name, c.needs_person_since,
     c.handoff_reason, c.handoff_note, c.taken_over_by,
     coalesce(nullif(tu.full_name, ''), tu.email::text) as taken_over_name,
-    (select json_build_object('id', l.id, 'title', l.title, 'stageId', l.stage_id, 'pipelineId', s.pipeline_id,
-              'stageName', s.name, 'valueCents', l.value_cents,
-              'nextAction', l.next_action, 'nextActionAt', l.next_action_at)
-       from app.leads l join app.pipeline_stages s on s.id = l.stage_id
-       where c.person_id is not null and l.person_id = c.person_id and l.status = 'open' and l.archived_at is null
-       order by l.updated_at desc limit 1) as open_lead,
-    (select json_build_object('id', su.id, 'fullName', coalesce(nullif(su.full_name, ''), su.email::text))
-       from app.messages lm join app.users su on su.id = lm.sent_by
-       where lm.conversation_id = c.id and lm.direction = 'outbound'
-       order by lm.occurred_at desc limit 1) as last_sender,
     ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key,
     ${GROUP_KEY} as group_key
   from app.conversations c
@@ -440,7 +452,7 @@ export const inboxList = defineQuery({
       : sql`select * from (${matching}) k`;
     const list = await rows<ConversationRow>(
       ctx.tx,
-      sql`select x.*,
+      sql`select x.*, ${ROW_EXTRAS},
             ${LANES(input.workspaceId, input.box === 'archived')} as lanes,
             ${SAME_AS(input.workspaceId)} as same_as
           from (${one}) x
@@ -511,7 +523,8 @@ export const conversationGet = defineQuery({
       // The lanes ride along because the thread view is where somebody switches between them (0089). Live
       // ones only: a closed or archived lane is not somewhere to start typing, and the switcher is a place to
       // start typing.
-      sql`select x.*, ${LANES(input.workspaceId, false)} as lanes, ${SAME_AS(input.workspaceId)} as same_as
+      sql`select x.*, ${ROW_EXTRAS}, ${LANES(input.workspaceId, false)} as lanes,
+            ${SAME_AS(input.workspaceId)} as same_as
           from (${conversationSelect(input.workspaceId)} and c.id = ${input.conversationId}) x`,
     );
     if (!row) throw HfosError.notFound('Conversation not found.');
