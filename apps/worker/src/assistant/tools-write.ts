@@ -20,6 +20,22 @@ import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools } from './tools-settings-calendar';
 import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
+import { billingAutoTools, billingConfirmTools } from './tools-billing';
+import { contentAutoTools, contentConfirmTools } from './tools-content';
+import { extraAutoTools, extraConfirmTools } from './tools-extra';
+import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
+import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling';
+import { setupAutoTools, setupConfirmTools } from './tools-setup';
+
+/** The rest of what people do on the screens, one file an area: run on their own. */
+const moreAutoTools = {
+  ...inboxCrmAutoTools,
+  ...schedulingAutoTools,
+  ...billingAutoTools,
+  ...contentAutoTools,
+  ...setupAutoTools,
+  ...extraAutoTools,
+};
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
 export const LOST_REASONS = [
@@ -741,6 +757,13 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...settingsMeConfirmTools,
   // Customers in bulk and any of their details, and the AI's pass over the list (0107).
   ...contactConfirmTools,
+  // The rest of what people do on the screens, one file an area.
+  ...inboxCrmConfirmTools,
+  ...schedulingConfirmTools,
+  ...billingConfirmTools,
+  ...contentConfirmTools,
+  ...setupConfirmTools,
+  ...extraConfirmTools,
 };
 
 /** Every tool the Assistant can call has one of these; worker tests check none is missing. */
@@ -753,6 +776,7 @@ export const executorFor = (name: string) =>
   moneyReadTools[name] ??
   workflowAutoTools[name] ??
   formAutoTools[name] ??
+  moreAutoTools[name] ??
   confirmTools[name];
 
 /** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
@@ -771,7 +795,8 @@ export function createToolExecutor(
         settingsReadTools[tool.name] ??
         autoWrites[tool.name] ??
         attentionAutoTools[tool.name] ??
-        moneyReadTools[tool.name];
+        moneyReadTools[tool.name] ??
+        moreAutoTools[tool.name];
       if (run) return run(db, ctx, args);
       const form = formAutoTools[tool.name];
       if (form) return form(db, ctx, args, forms ?? (workflows as FormToolDeps | null));

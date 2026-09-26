@@ -19,6 +19,12 @@ import type { Logger } from 'pino';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
 import { contextText, SYSTEM, type PromptContext } from './prompt';
 import * as store from './store';
+import { billingStepLabels } from './tools-billing';
+import { contentStepLabels } from './tools-content';
+import { extraStepLabels } from './tools-extra';
+import { inboxCrmStepLabels } from './tools-inbox-crm';
+import { schedulingStepLabels } from './tools-scheduling';
+import { setupStepLabels } from './tools-setup';
 
 /** One question never runs more tool rounds than this; the answer says it stopped short. */
 const MAX_ROUNDS = 8;
@@ -147,7 +153,16 @@ const STEP_LABEL: Record<string, string> = {
   update_my_account: 'Changing your account',
   update_my_hours: 'Changing your hours',
 };
-const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
+const MORE_STEP_LABELS: Record<string, string> = {
+  ...inboxCrmStepLabels,
+  ...schedulingStepLabels,
+  ...billingStepLabels,
+  ...contentStepLabels,
+  ...setupStepLabels,
+  ...extraStepLabels,
+};
+const stepLabel = (tool: string) =>
+  STEP_LABEL[tool] ?? MORE_STEP_LABELS[tool] ?? 'Preparing it for your OK';
 
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
