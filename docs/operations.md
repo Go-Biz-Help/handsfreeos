@@ -414,7 +414,7 @@ Never give an app the `postgres` user (`postgres.ybupfghakoszfcxhyrby`). The app
 
 #### How many connections the apps use
 
-Each open app connection holds one pooler connection, and the pooler opens database connections up to its **Pool Size**. The API opens up to 10 connections per machine. The worker opens up to 7 per machine: 4 for its loops and 3 for its web server. Micro compute allows 60 database connections and 200 pooler clients. When the pool is full, extra connections wait up to a minute, then fail with `Max client connections reached` (or `MaxClientsInSessionMode`).
+Each open app connection holds one pooler connection, and the pooler opens database connections up to its **Pool Size**. The API opens up to 6 connections per machine. The worker opens up to 10 per machine: 4 for its loops and 6 for its web server. Both close a connection once it has sat unused for 20 seconds, so a quiet app gives its share of the pool back. Micro compute allows 60 database connections and 200 pooler clients. When the pool is full, extra connections wait up to a minute, then fail with `Max client connections reached` (or `MaxClientsInSessionMode`).
 
 Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7). After that deploy, count them:
 
@@ -430,7 +430,7 @@ You should see a `COUNT` column with each app's number of machines.
 
 1. Open **Database** → **Settings**: `https://supabase.com/dashboard/project/ybupfghakoszfcxhyrby/database/settings`. If the page has moved, search the dashboard for "pool size".
 2. In the **Connection pooling** section, find **Pool Size**.
-3. Check that it is at least 10 for each API machine plus 7 for each worker machine. With two machines each, that is 34. If it is 15, for example, two busy API machines (up to 20 connections) go over it.
+3. Check that it is at least 6 for each API machine plus 10 for each worker machine. With two machines each, that is 32. At 15, two API machines (up to 12 connections) fit, but a third does not.
 4. If it is lower, raise it and save. Supabase suggests giving the pool no more than about 80% of the database connections, which is 48 on Micro. If you need more than that, move to a larger compute size or run fewer machines.
 
 Check the pool size again before you add machines to either app.
