@@ -26,7 +26,7 @@ export default function RootLayout() {
   const theme = useThemeName();
   const state = useSession();
   const [ready, setReady] = React.useState(false);
-  useScreenTracking();
+  useScreenTracking(state.status === 'signedIn' ? state.person.userId : null);
 
   React.useEffect(() => {
     void startApp().finally(() => setReady(true));

@@ -30,10 +30,10 @@ describe('analytics', () => {
 
   it('counts each screen once, with the one before it as the referrer', () => {
     const { t, sent } = tracker();
-    t.screen('/app/w/:id/inbox');
-    t.screen('/app/w/:id/inbox');
-    t.screen('/app/w/:id/inbox/:id');
-    t.screen('');
+    t.screen('/app/w/:id/inbox', null);
+    t.screen('/app/w/:id/inbox', null);
+    t.screen('/app/w/:id/inbox/:id', null);
+    t.screen('', null);
 
     expect(sent).toHaveLength(2);
     expect(sent[0]).toMatchObject({
@@ -45,10 +45,40 @@ describe('analytics', () => {
       lang: 'en-US',
     });
     expect(sent[0]).not.toHaveProperty('urlref');
+    expect(sent[0]).not.toHaveProperty('uid');
     expect(sent[1]).toMatchObject({
       url: 'https://com.gobizhelp.handsfreeos/app/w/:id/inbox/:id',
       urlref: 'https://com.gobizhelp.handsfreeos/app/w/:id/inbox',
     });
+  });
+
+  it('names the person by their account id alone, and starts a new visit once they sign out', () => {
+    const { t, sent } = tracker();
+    t.screen('/sign-in', null);
+    t.screen('/sign-in', 'account-a');
+    t.screen('/app/w/:id/inbox', 'account-a');
+    t.screen('/app/w/:id/pipeline', 'account-a');
+    t.screen('/sign-in', null);
+    t.screen('/app/w/:id/inbox', 'account-b');
+
+    expect(sent).toHaveLength(5);
+    expect(sent[0]).not.toHaveProperty('uid');
+    expect(sent[1]).toMatchObject({ uid: 'account-a' });
+    expect(sent[1]).not.toHaveProperty('new_visit');
+    expect(sent[2]).toMatchObject({ uid: 'account-a' });
+    expect(sent[2]).not.toHaveProperty('new_visit');
+    expect(sent[3]).toMatchObject({ action_name: '/sign-in', new_visit: '1' });
+    expect(sent[3]).not.toHaveProperty('uid');
+    expect(sent[4]).toMatchObject({ uid: 'account-b' });
+    expect(sent[4]).not.toHaveProperty('new_visit');
+  });
+
+  it('starts a new visit when the next screen is counted for a different account', () => {
+    const { t, sent } = tracker();
+    t.screen('/app/w/:id/inbox', 'account-a');
+    t.screen('/app/w/:id/pipeline', 'account-b');
+
+    expect(sent[1]).toMatchObject({ uid: 'account-b', new_visit: '1' });
   });
 
   it('counts the screen again only when the app comes back after the visit has closed', () => {
@@ -56,7 +86,7 @@ describe('analytics', () => {
     t.resume();
     expect(sent).toHaveLength(0);
 
-    t.screen('/app/w/:id/pipeline');
+    t.screen('/app/w/:id/pipeline', 'account-a');
     later(5 * 60 * 1000);
     t.resume();
     expect(sent).toHaveLength(1);
@@ -64,7 +94,8 @@ describe('analytics', () => {
     later(30 * 60 * 1000);
     t.resume();
     expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ action_name: '/app/w/:id/pipeline' });
+    expect(sent[1]).toMatchObject({ action_name: '/app/w/:id/pipeline', uid: 'account-a' });
+    expect(sent[1]).not.toHaveProperty('new_visit');
   });
 
   it('never lets a failed send reach the screen', async () => {
@@ -75,7 +106,7 @@ describe('analytics', () => {
       post: () => Promise.reject(new Error('no signal')),
       now: () => 0,
     });
-    expect(() => t.screen('/app')).not.toThrow();
+    expect(() => t.screen('/app', null)).not.toThrow();
     await new Promise((resolve) => setImmediate(resolve));
   });
 });

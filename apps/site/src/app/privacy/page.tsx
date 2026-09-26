@@ -117,7 +117,8 @@ export default function PrivacyPage() {
             <tr>
               <td>
                 Usage: which pages of this website and which screens of the apps are opened, how
-                often, and from what kind of device
+                often, and from what kind of device; in the apps, with your account&rsquo;s id
+                number
               </td>
               <td>Your browser or phone, automatically, through Matomo</td>
               <td>To see which parts get used, and so what to fix and build next</td>
@@ -338,11 +339,13 @@ export default function PrivacyPage() {
           We count visits with Matomo, on this website, in the web app and in the phone app: which
           pages and screens are opened, how often, and from what kind of device. On the website and
           in the web app, Matomo may set its own cookie so a return visit is not counted as a new
-          person; no other website can read it. The apps record the screen, never what is on it: a
-          customer&rsquo;s page is counted as &ldquo;a customer&rsquo;s page&rdquo;, not by their
-          name, and nothing you type or search for is sent. The pages your customers open &mdash;
-          booking pages, invoices, forms &mdash; are not counted at all. None of it is used for
-          advertising or shared with anyone else.
+          person; no other website can read it. While you are signed in, the apps also send your
+          account&rsquo;s id number &mdash; a random string, never your name or email &mdash; so
+          your visits from different computers and phones count as one person&rsquo;s. The apps
+          record the screen, never what is on it: a customer&rsquo;s page is counted as &ldquo;a
+          customer&rsquo;s page&rdquo;, not by their name, and nothing you type or search for is
+          sent. The pages your customers open &mdash; booking pages, invoices, forms &mdash; are not
+          counted at all. None of it is used for advertising or shared with anyone else.
         </p>
         <p>
           On this website only, we also use Opinly to see which of our own ads, posts and links
