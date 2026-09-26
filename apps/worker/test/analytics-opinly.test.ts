@@ -27,6 +27,26 @@ const purchase = {
   userId: null,
 };
 
+/** A job for a real person: the database answers their email, whatever it is asked. */
+const withUser = (extra: Record<string, unknown>) =>
+  ({
+    log,
+    analytics: { ...analytics, ...extra },
+    job: {
+      payload: {
+        event: 'sign_up',
+        properties: {},
+        externalEventId: 'sign_up:user-1',
+        userId: 'user-1',
+      },
+    },
+    scope: {},
+    db: {
+      transaction: (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({ execute: async () => [{ email: 'dana@example.com' }] }),
+    },
+  }) as unknown as JobContext;
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -104,6 +124,29 @@ describe('sendConversion', () => {
     await expect(sendConversion(jobCtx(purchase))).rejects.toThrow(/503/);
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
     await expect(sendConversion(jobCtx(purchase))).rejects.toThrow(/fetch failed/);
+  });
+
+  it('adds the visitor id the person signed up as, beside their email', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 201 }));
+    vi.stubGlobal('fetch', fetch);
+    const visitorOf = vi.fn().mockResolvedValue('6f1c0b9e-6a0e-4d57-9b5e-1f2a3b4c5d6e');
+    await sendConversion(withUser({ visitorOf }));
+    expect(visitorOf).toHaveBeenCalledWith('user-1');
+    expect(JSON.parse(fetch.mock.calls[0]![1].body)).toMatchObject({
+      event: 'sign_up',
+      externalEventId: 'sign_up:user-1',
+      email: 'dana@example.com',
+      anonId: '6f1c0b9e-6a0e-4d57-9b5e-1f2a3b4c5d6e',
+    });
+  });
+
+  it('still sends by email when the visitor id cannot be read', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 201 }));
+    vi.stubGlobal('fetch', fetch);
+    await sendConversion(withUser({ visitorOf: vi.fn().mockRejectedValue(new Error('down')) }));
+    const body = JSON.parse(fetch.mock.calls[0]![1].body);
+    expect(body.email).toBe('dana@example.com');
+    expect(body).not.toHaveProperty('anonId');
   });
 
   it('sends nothing once analytics has been switched off', async () => {

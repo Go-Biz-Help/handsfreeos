@@ -76,5 +76,7 @@ JSON, not HTML. Everything that talks to Opinly is in `src/lib/opinly/`:
   unsafe link schemes are removed.
 - **Analytics**: the pixel is in every page's `<head>`. The founding form identifies the visitor and sends a
   `generate_lead` from the browser and from `api/founding/apply` (same `externalEventId`, so they merge). The
-  worker sends `sign_up`, `begin_checkout` and `purchase` (`apps/worker/src/analytics/opinly.ts`). `/privacy`
-  says all of this; change one and change the other.
+  worker sends `sign_up`, `begin_checkout` and `purchase` (`apps/worker/src/analytics/opinly.ts`).
+  `components/signup-link-visitor.tsx` adds the pixel's visitor id to every link to the app's sign-up as
+  `?oa=`; the sign-up form keeps it on the account, and the worker sends it with those events, so they land on
+  the exact visit. `/privacy` says all of this; change one and change the other.

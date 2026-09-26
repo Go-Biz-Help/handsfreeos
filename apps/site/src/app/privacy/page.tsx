@@ -348,10 +348,12 @@ export default function PrivacyPage() {
           click and how long you stay. Your IP address is used only to work out your country. It
           never reads what you type into a form, with one exception: an email address you enter
           here, such as on the founding application, is sent to Opinly and kept only as a one-way
-          hash. When somebody with that address later signs up or pays for HandsFreeOS, we tell
-          Opinly too, with the same address, so we can see which article or campaign brought them.
-          None of the apps, and none of the pages your customers open, run it. It is not used to
-          show you ads anywhere.
+          hash. If you follow a link from here to sign up, the random visitor number goes along in
+          the link and is kept with your new account. When you then sign up or pay for HandsFreeOS,
+          we tell Opinly too, with that number and your email address, so we can see which article
+          or campaign brought you. Deleting your account deletes the number with it. None of the
+          apps, and none of the pages your customers open, run the script. It is not used to show
+          you ads anywhere.
         </p>
         <p>
           Some browsers send a &ldquo;Do Not Track&rdquo; signal. We do not need to do anything

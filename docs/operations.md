@@ -3732,7 +3732,7 @@ Good to know:
 - **Publishing is live at once.** The webhook drops the cached posts and the pages that show them. Without it (a missed delivery, or step 3 not done yet), changes still appear within the hour.
 - **Without the key** the blog's pages say the articles did not load, and the rest of the site is unaffected. A deploy never needs Opinly to be up: posts are built on first visit if the build could not reach it.
 - **The webhook answers 400** to anything not signed with the secret, and **500** if the secret is not set — Svix keeps retrying a 500, so setting the secret late loses nothing.
-- **Analytics.** Opinly's pixel runs on every page of the website (not the apps, and not the pages businesses' customers open). The founding application identifies the visitor and is reported as a `generate_lead`; the worker reports `sign_up`, `begin_checkout` and `purchase`. `/privacy` says so, in "Cookies and tracking".
+- **Analytics.** Opinly's pixel runs on every page of the website (not the apps, and not the pages businesses' customers open). The founding application identifies the visitor and is reported as a `generate_lead`; the worker reports `sign_up`, `begin_checkout` and `purchase`. The website's "Start free" links carry the visitor's Opinly id to the sign-up page (`?oa=`), which keeps it on the new account, so those events land on the exact visit that brought the person in. The worker reads it back with `SUPABASE_SECRET_KEY`; without that it sends the email alone. `/privacy` says so, in "Cookies and tracking".
 
 ### Good to know
 
