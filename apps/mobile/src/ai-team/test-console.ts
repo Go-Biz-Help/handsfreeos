@@ -67,6 +67,8 @@ export interface Turn {
   readonly log: readonly LogLine[];
   readonly toolSteps: number;
   readonly ms: number | null;
+  /** A call's reply started being said this long in, while the rest was written. */
+  readonly firstWordsMs: number | null;
   readonly error: string | null;
 }
 
@@ -121,6 +123,7 @@ export function newTurn(o: {
     log: [first],
     toolSteps: 0,
     ms: null,
+    firstWordsMs: null,
     error: null,
   };
 }
@@ -230,6 +233,7 @@ export function stepTurn(t: Turn, e: TestEvent, now = new Date().toISOString()):
         reply: e.reply ?? t.reply,
         toolSteps: e.toolSteps,
         ms: e.ms,
+        firstWordsMs: e.firstWordsMs,
         log: [...t.log, endLine(t, e, now)],
       };
     case 'error':
@@ -265,12 +269,18 @@ export function turnHeading(
   return ORDINALS[n] ? `${ORDINALS[n]} reply` : `Reply ${n + 1}`;
 }
 
-/** "2 look-ups · 1.4 s", or "Working on it…" while it runs. */
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+
+/**
+ * "2 look-ups · 1.4 s", "1 look-up · talks at 0.8 s · done at 2.4 s" for a call that started talking early, or
+ * "Working on it…" while it runs.
+ */
 export function turnMeta(t: Turn): string {
   if (!t.done) return 'Working on it…';
   return [
     `${t.toolSteps} ${t.toolSteps === 1 ? 'look-up' : 'look-ups'}`,
-    t.ms !== null ? `${(t.ms / 1000).toFixed(1)} s` : null,
+    t.firstWordsMs !== null ? `talks at ${seconds(t.firstWordsMs)}` : null,
+    t.ms !== null ? (t.firstWordsMs !== null ? `done at ${seconds(t.ms)}` : seconds(t.ms)) : null,
   ]
     .filter(Boolean)
     .join(' · ');

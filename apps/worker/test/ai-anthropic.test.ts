@@ -7,6 +7,7 @@ import {
   parseStructured,
   structuredOutputSchema,
   type AiRequest,
+  type AiToolInput,
   type AiTurn,
 } from '@hfos/ai';
 
@@ -210,6 +211,37 @@ describe('AnthropicProvider', () => {
       {
         role: 'user',
         content: [{ type: 'tool_result', tool_use_id: 'toolu_0', content: '[]', is_error: true }],
+      },
+    ]);
+  });
+
+  it('streams a tool call’s input as it’s written, for tools that ask for it', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const inputs: AiToolInput[] = [];
+    const turn = await provider.stream(
+      { ...REQUEST, tools: [{ ...REQUEST.tools![0]!, streamInput: true }] },
+      { onToolInput: (i) => inputs.push(i) },
+    );
+    const call = { id: 'toolu_test_1', name: 'search_customers' };
+    expect(inputs).toEqual([
+      { ...call, json: '', done: false },
+      { ...call, json: '{"query":', done: false },
+      { ...call, json: '{"query":"Mike"}', done: false },
+      { ...call, json: '{"query":"Mike"}', done: true },
+    ]);
+    expect(turn.toolCalls).toEqual([{ ...call, arguments: { query: 'Mike' } }]);
+    expect(sent[0]!.body['tools']).toEqual([
+      {
+        name: 'search_customers',
+        description: 'Find customers.',
+        input_schema: REQUEST.tools![0]!.inputSchema,
+        eager_input_streaming: true,
       },
     ]);
   });

@@ -826,10 +826,15 @@ export function checkRows(attempt: number, verdict: ReplyCheck, final: boolean):
   );
 }
 
-/** The conversation with the check's problems added for the one rewrite. */
-export function withFeedback(messages: readonly AiMessage[], verdict: ReplyCheck): AiMessage[] {
+/** The conversation with the check's problems added for the one rewrite, and `also` after them. */
+export function withFeedback(
+  messages: readonly AiMessage[],
+  verdict: ReplyCheck,
+  also?: string,
+): AiMessage[] {
   const out = [...messages];
-  const note: AiContent = { type: 'text', text: rewriteFeedback(verdict.problems) };
+  const feedback = rewriteFeedback(verdict.problems);
+  const note: AiContent = { type: 'text', text: also ? `${feedback}\n${also}` : feedback };
   const last = out[out.length - 1];
   if (last?.role === 'user' && Array.isArray(last.content))
     out[out.length - 1] = { role: 'user', content: [...last.content, note] };

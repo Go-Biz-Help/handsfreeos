@@ -248,12 +248,20 @@ describe('the test console', () => {
         { from: 'teammate', text: String(done(booked)['reply']) },
         { from: 'customer', text: 'That’s all, bye!' },
       );
-      const bye = done(await turn(lines, inbound, { personId: c.id }));
+      const saidBye = await turn(lines, inbound, { personId: c.id });
+      const bye = done(saidBye);
       expect(bye).toMatchObject({
         outcome: 'replied',
         reply: 'Thanks for calling. Bye now!',
         ended: true,
       });
+      // A goodbye changes nothing, so it starts being said while it's written; the booking's words waited for it.
+      expect(bye['firstWordsMs']).toEqual(expect.any(Number));
+      expect(eventsOf(saidBye).find((e) => e.type === 'note')).toMatchObject({
+        title: 'Starts talking',
+        detail: expect.stringContaining('“Thanks for calling.”'),
+      });
+      expect(done(booked)['firstWordsMs']).toBeNull();
 
       // Nothing happened for real: no visit, no call, no conversation.
       expect(await appointmentsOf(c.id)).toHaveLength(0);

@@ -7,8 +7,27 @@ import {
   type AiRequest,
   type AiStreamOptions,
   type AiToolCall,
+  type AiToolInput,
   type AiTurn,
 } from './types';
+
+/** How many characters of a tool call's JSON a stand-in writes at a time. */
+const TOOL_INPUT_PIECE = 8;
+
+/** A stand-in's tool calls as a model writes them (`onToolInput`): each one's JSON a few characters at a time. */
+export function writeToolCalls(
+  calls: readonly AiToolCall[],
+  onToolInput: ((input: AiToolInput) => void) | undefined,
+): void {
+  if (!onToolInput) return;
+  for (const c of calls) {
+    const json = JSON.stringify(c.arguments);
+    onToolInput({ id: c.id, name: c.name, json: '', done: false });
+    for (let end = TOOL_INPUT_PIECE; end < json.length; end += TOOL_INPUT_PIECE)
+      onToolInput({ id: c.id, name: c.name, json: json.slice(0, end), done: false });
+    onToolInput({ id: c.id, name: c.name, json, done: true });
+  }
+}
 
 export interface ScriptRule {
   /** Matched against the person's latest question. */
@@ -62,6 +81,7 @@ export class ScriptedProvider implements AiProvider {
         name: c.name,
         arguments: c.arguments,
       }));
+      writeToolCalls(toolCalls, options.onToolInput);
       return { text: '', toolCalls, stopReason: 'tool_use', usage: usage(inputTokens, 20) };
     }
 

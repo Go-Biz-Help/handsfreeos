@@ -8,8 +8,11 @@
  *   else is theirs, so it connects the caller to the team.
  * - `thinkTurn`: what the caller said goes through the same immediate hand-offs as a text (an emergency, a
  *   sensitive topic, asking for a person, frustration), then the tool loop, then the safety check (one rewrite).
- *   Held changes run before the words are said (automatic), or wait in a draft for the team (training); money
- *   waits for an OK in every mode, and the caller hears the team will text it.
+ *   The knowledge that matches their words is in the context before the model is asked, so a question the
+ *   business answers takes one model call, not a search and then another. A reply on a turn that changes nothing
+ *   starts being said while it's written, a checked sentence at a time (early-speech.ts); the rest follows once
+ *   it's done. Held changes run before the words are said (automatic), or wait in a draft for the team
+ *   (training); money waits for an OK in every mode, and the caller hears the team will text it.
  * - `finishCall`: the words of the call on the call's record (the timeline and the inbox show them, and the next
  *   text reply reads them), and the run closed.
  */
@@ -44,6 +47,7 @@ import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { chatCodeSender } from '../ai-team/chat-code';
 import { runtimeConfigOf } from '../ai-team/config';
+import { KNOWLEDGE_MATCHES } from '../ai-team/constants';
 import { loadRunContext, type BatchMessage, type RunContext } from '../ai-team/context';
 import { handOffAsAi } from '../ai-team/handoff';
 import { contextText, TEAMMATE_SYSTEM } from '../ai-team/prompt';
@@ -60,11 +64,14 @@ import {
   type DraftRun,
 } from '../ai-team/run';
 import { createExecutor, newRunState, toolDefinition, type RunState } from '../ai-team/tools';
+import { anyOfWords, findKnowledge } from '../knowledge/find';
 import type { WorkerServices } from '../services';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import type { ProviderAccount } from '../telephony/provider';
+import { EarlySpeech, streamSpoken } from './early-speech';
 import {
+  alreadySaid,
   CANT_GO_ON,
   CONNECTING,
   phoneChannelLines,
@@ -141,10 +148,23 @@ export interface OutboundCall {
 export type Prepared =
   { readonly ok: true; readonly call: PreparedCall } | { readonly ok: false; readonly why: string };
 
-/** What the call does after a turn. */
+/**
+ * What the call does after a turn. `spoken` is how much of `text` it already said while the reply was written
+ * (the session says the rest); none when it said nothing early.
+ */
 export type TurnOutcome =
-  | { readonly kind: 'say'; readonly text: string; readonly language: string | null }
-  | { readonly kind: 'end'; readonly text: string; readonly language: string | null }
+  | {
+      readonly kind: 'say';
+      readonly text: string;
+      readonly language: string | null;
+      readonly spoken?: number;
+    }
+  | {
+      readonly kind: 'end';
+      readonly text: string;
+      readonly language: string | null;
+      readonly spoken?: number;
+    }
   | {
       readonly kind: 'transfer';
       readonly text: string;
@@ -354,6 +374,24 @@ const transfer = (
   note: note.slice(0, TRANSFER_NOTE_MAX),
 });
 
+/** The knowledge that matches what the caller just said, or the call's own when nothing does. */
+async function turnMatches(
+  deps: BrainDeps,
+  call: PreparedCall,
+  said: string,
+): Promise<RunContext['matches']> {
+  const words = anyOfWords(said);
+  if (!words) return call.rc.matches;
+  const found = await asWorker(deps.db, call.scope, (tx) =>
+    findKnowledge(tx, {
+      workspaceId: call.scope.workspaceId,
+      queries: [words],
+      limit: KNOWLEDGE_MATCHES,
+    }),
+  );
+  return found.length ? found : call.rc.matches;
+}
+
 /** One turn: what the caller said, answered. */
 export async function thinkTurn(
   deps: BrainDeps,
@@ -363,13 +401,15 @@ export async function thinkTurn(
     readonly lines: readonly CallLine[];
     readonly said: string;
     readonly language: string | null;
+    /** Says a checked sentence of the reply while the rest is still being written; `ending` for a goodbye. */
+    readonly speak?: (sentence: string, ending: boolean) => void;
   },
 ): Promise<TurnOutcome> {
   const { scope, state } = call;
   const language = input.language;
-  const rc: RunContext = { ...call.rc, batch: [asBatch(input.said)], now: Date.now() };
+  const batch = [asBatch(input.said)];
 
-  const immediate = immediateHandOff(rc);
+  const immediate = immediateHandOff({ ...call.rc, batch });
   if (immediate)
     return transfer(
       language,
@@ -383,6 +423,13 @@ export async function thinkTurn(
   const provider = deps.voiceAi ?? deps.ai.provider;
   if (!provider)
     return transfer(language, 'error', 'The AI isn’t set up, so it couldn’t answer the call.');
+  const rc: RunContext = {
+    ...call.rc,
+    batch,
+    matches: await turnMatches(deps, call, input.said),
+    now: Date.now(),
+  };
+  // The loop checks the budget before every model call, its first one included.
   const hasRoom = () =>
     aiBudget.teammateHasRoom(deps.db, scope, {
       teammateId: call.teammate.id,
@@ -390,13 +437,6 @@ export async function thinkTurn(
       sharePercent: call.config.limits.dailySharePercent,
       timeZone: rc.workspace.timeZone,
     });
-  if (!(await hasRoom()))
-    return transfer(
-      language,
-      'budget',
-      'It reached its share of today’s AI limit during a call.',
-      CANT_GO_ON[tongue(language)],
-    );
 
   // What one turn did starts over; what it offered and found stays for the rest of the call.
   state.held.length = 0;
@@ -483,6 +523,18 @@ export async function thinkTurn(
     return null;
   };
 
+  // Training: nothing it holds has happened yet, so it may not say it has.
+  const checked = (text: string) =>
+    checkReply(rc, call.training ? { ...state, held: [] } : state, text);
+  const speak = input.speak;
+  const early = speak
+    ? new EarlySpeech({
+        passes: (words) => checked(words).ok,
+        mayStart: () => !state.held.length && !state.moneyAsk,
+        say: speak,
+      })
+    : null;
+
   const loop = await runToolLoop({
     ...base,
     messages: [
@@ -495,8 +547,9 @@ export async function thinkTurn(
         ),
       },
     ],
-    tools: tools.map(toolDefinition),
+    tools: tools.map((t) => streamSpoken(toolDefinition(t))),
     maxRounds: call.config.limits.toolRounds,
+    ...(early ? { onToolInput: early.onToolInput } : {}),
   });
   const stop = failed(loop);
   if (stop) return stop;
@@ -504,9 +557,13 @@ export async function thinkTurn(
   if (ended?.kind === 'hand_off')
     return transfer(language, ended.reason, `On a call: ${ended.note}`);
 
-  // Training: nothing it holds has happened yet, so it may not say it has.
-  const checked = (text: string) =>
-    checkReply(rc, call.training ? { ...state, held: [] } : state, text);
+  // What it already said while writing: the reply carries on from there.
+  const said = early?.said ?? '';
+  const heard = (text: string): { text: string; spoken: number } => {
+    if (!said) return { text, spoken: 0 };
+    const whole = text.trim();
+    return { text: whole.startsWith(said) ? whole : `${said} ${whole}`, spoken: said.length };
+  };
   const spoken = (): { text: string; ending: boolean } => {
     const e = endOf(state);
     return e?.kind === 'reply' || e?.kind === 'end_call'
@@ -523,7 +580,7 @@ export async function thinkTurn(
     state.end = null;
     const redo = await runToolLoop({
       ...base,
-      messages: withFeedback(loop.messages, verdict),
+      messages: withFeedback(loop.messages, verdict, said ? alreadySaid(said) : undefined),
       tools: enders.map(toolDefinition),
       maxRounds: 1,
     });
@@ -602,7 +659,8 @@ export async function thinkTurn(
       language,
     };
   }
-  return ending ? { kind: 'end', text, language } : { kind: 'say', text, language };
+  const out = heard(text);
+  return { kind: ending ? 'end' : 'say', text: out.text, language, spoken: out.spoken };
 }
 
 /** The call's words, one line each, newest kept when they run long. */
