@@ -112,6 +112,15 @@ const RULES: Record<string, { status: number; message: string }> = {
     message: 'You already have this number, so there is nothing to move.',
   },
   no_number_port: { status: 404, message: 'That port no longer exists.' },
+  // 20261011000100: a number coming over from Twilio or HighLevel. What arrived is the worker's to say.
+  number_import_provider_fields: {
+    status: 403,
+    message: 'Only HandsFreeOS records where a number is and whether it has arrived.',
+  },
+  number_import_status_transition: {
+    status: 409,
+    message: 'A number on its way here can only be called off before it arrives.',
+  },
   message_status_transition: {
     status: 409,
     message: 'Only a message that did not go out can be sent again.',

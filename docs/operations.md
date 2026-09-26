@@ -1488,6 +1488,7 @@ The defaults are right in production. Setting some of these changes real behavio
 | `WORKER_POLL_MS`                           | `1000` (one second between loop passes)                                    | Tuning only.                                                                                                                                                                                                                 |
 | `WORKER_BATCH_SIZE`                        | `20`                                                                       | Tuning only.                                                                                                                                                                                                                 |
 | `REGISTRATION_POLL_MS`                     | `900000` (15 minutes) with Twilio                                          | How often carrier registrations are checked.                                                                                                                                                                                 |
+| `NUMBER_IMPORT_POLL_MS`                    | `300000` (5 minutes) with Twilio                                           | How often a number being transferred in from another Twilio account (or GoHighLevel) is looked for. It slows down by itself after two days.                                                                                  |
 | `MAILBOX_BACKFILL_DAYS`                    | `30` (kept between 1 and 90)                                               | How far back a new mailbox's first sync looks.                                                                                                                                                                               |
 | `MAILBOX_SYNC_MS`                          | Not set: Outlook every 5 minutes, Gmail every 2                            | A test override. It changes how often every mailbox is checked.                                                                                                                                                              |
 | `CALENDAR_PROVIDER`                        | `real` in production                                                       | Production refuses `fake`, the stand-in for local development and tests.                                                                                                                                                     |
@@ -4452,6 +4453,49 @@ They also upload a **signed authorisation** (an LOA). HandsFreeOS will not send 
 **While it is moving**, the number shows in the business's Settings as "Moving to us" and counts against their ten-number limit, but sends nothing and cannot be made their default. That row is also what stops a second business claiming the same number. A port that is called off or turned down gives it straight back.
 
 **Locally and in tests**, the fake carrier decides from the last four digits: a number ending `0000` is turned down, one ending `0001` stays with the carrier forever, and anything else goes through. There is no way to test a real port without doing a real one.
+
+### Bringing a number that is already in Twilio (their own Twilio, or GoHighLevel)
+
+Many businesses coming here already have their number **inside Twilio**, just in somebody else's account:
+
+- **Their own Twilio account.** Often the one a GoHighLevel agency plugged in as "bring your own Twilio".
+- **GoHighLevel / LeadConnector "LC Phone".** These are Twilio numbers too, held in HighLevel's own Twilio account.
+
+Neither needs a carrier port. The number moves **account to account inside Twilio**, straight into the business's own HandsFreeOS subaccount, and it keeps the same public number. It usually takes a few business days, not the two to four weeks of a port. **Settings → Texting & calls → "I already have a number I want to keep"** asks "Where is your number today?" and offers three answers: GoHighLevel, "My own Twilio account", or another phone company (which is the carrier port above).
+
+**Where every number ends up.** HandsFreeOS parent account → one subaccount per business → that business's numbers. An imported number lands in the business's own subaccount like a bought one. It is billed there, registered for texting there, and closed with the business if the business is deleted.
+
+**Why we cannot just pull the number across.** Twilio's API only moves numbers between accounts under one parent. A number in somebody else's account has to be **sent** by its owner:
+
+- **GoHighLevel:** the business asks HighLevel's support (in HighLevel: Help → Contact support, or `support@gohighlevel.com`).
+- **Their own Twilio:** the business opens a support request with Twilio for a phone number transfer between accounts, from the account the number is in.
+
+The screen writes the request for them, with the destination **Account SID** filled in, ready to copy. Twilio may email the owner of each account to confirm the transfer. For the receiving side that is us, the owner of the parent account, so **watch the parent account's email** and approve transfers into a subaccount when Twilio asks.
+
+**Never tell anybody to release or delete the number first.** Releasing a number hands it back to the carrier, and it can be gone for good. The screen says this more than once. If a business's own support desk suggests "releasing it so you can buy it again", stop them.
+
+**What HandsFreeOS does, without anybody pressing anything:**
+
+1. **Before anything is sent**, a carrier lookup (Twilio Lookup, line type intelligence) checks who hosts the number. `Twilio - SMS/MMS-SVR` and the like mean it can move account to account. Any other carrier means it needs a port, and the screen says so. A lookup costs about a cent. The settings screen allows ten a minute per person.
+2. **The business's subaccount is made at once** if it does not exist yet, so the screen can show where to send the number.
+3. **The worker looks for the number in that subaccount**: every five minutes (`NUMBER_IMPORT_POLL_MS`), hourly after two days, and every six hours after two weeks. It never gives up by itself. A request somebody forgot to send can still land a month later. "It should be there — look now" looks straight away.
+4. **The moment it is there**, the worker sets the number's SMS, voice and call-status webhooks to ours. It also clears any TwiML apps and fallback URLs the old owner left on it, because those would otherwise take our place. Then it adds the number to the business's messaging service, and makes it one of the business's numbers. Calls ring and texts arrive from then on.
+
+**Nothing is claimed while waiting.** Anybody can type anybody's number, so a waiting import holds nothing. The number arriving in _that business's own subaccount_ is the proof, because only its owner could have sent it there. If another business here still holds the same number when it lands, the import stops with a message asking them to contact support. Decide which business it belongs to, release the stale one, and ask the business to start again.
+
+**Setting the number up is separate from registering it for texting.** Each import shows two statuses side by side:
+
+- **Phone number**: waiting for the transfer, then **live here**. Calls work from this moment.
+- **Texting registration**: A2P 10DLC for a local number, toll-free verification for a toll-free one. HighLevel's registration belongs to HighLevel's brand and **does not move with the number**. Until the business's own registration is approved here, texts may be blocked by the carriers. A business that already has an approved 10DLC campaign here gets the new number covered as soon as it joins the messaging service.
+
+**Connecting a Twilio account.** Only the organization's owners and admins can connect one, because listing an account lists every business's numbers in it. Numbers can then be sent to any business in the organization. They give the Account SID with either the account's auth token or, better, a standard **API key** SID and secret, which they can revoke in Twilio at any time. We only ever **read** with it: the account and its subaccounts, and the numbers in each. We never change anything in their account. Each number shows who its webhooks point at today ("Used by HighLevel"), whether it is already here, and whether it is already on its way to one of their businesses.
+
+- The secret is sealed with the worker's key in `app.twilio_connections.secret_enc`. It is never selectable by a person, never synced to a phone, and never logged.
+- "Disconnect" wipes it. Numbers already on their way keep coming, because they are watched for in our subaccount, not theirs.
+- If Twilio stops accepting it (the token was rotated, or the key revoked), the connection shows "Needs connecting again".
+- One of HandsFreeOS's own accounts (the parent or any subaccount) is refused, because its numbers are already here.
+
+**Locally and in tests**, the fake carrier's lookup says Twilio for every number except one ending `0009` (another carrier) and `0008` (the lookup is down). Connecting any made-up Account SID with any token that does not contain "wrong" makes a stand-in account with three numbers, one of them "used by HighLevel". On a local worker, a number being watched for arrives about three approvals (`FAKE_APPROVAL_MS × 3`) after the first look, unless it ends `0002`. Tests move numbers themselves with the fake's `transferIn`.
 
 ### RCS: branded texts with buttons
 

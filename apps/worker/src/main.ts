@@ -90,6 +90,7 @@ const services: EngineServices = {
   reminderOverrideMs: env.reminderOverrideMs,
   registrationPollMs: env.registrationPollMs,
   portPollMs: env.portPollMs,
+  numberImportPollMs: env.numberImportPollMs,
   email: createEmail(env, log),
   mailboxes: createMailboxes(env),
   calendars: createCalendars(env),

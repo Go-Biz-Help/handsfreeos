@@ -171,3 +171,93 @@ export function registrationPreflight(input: {
 }): Promise<{ checks: PreflightCheck[] }> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }
+
+/** Who hosts a number today, by the carrier lookup (owners and admins; the worker checks). */
+export interface NumberHost {
+  readonly e164: string;
+  readonly display: string;
+  readonly numberType: 'local' | 'toll_free';
+  /** `Twilio - SMS/MMS-SVR` for a Twilio number — HighLevel's LC Phone numbers are Twilio numbers. */
+  readonly carrierName: string | null;
+  readonly lineType: string | null;
+  /** In Twilio, so it can move account to account instead of by a carrier port. */
+  readonly hostedInTwilio: boolean;
+  /** Already one of this business's numbers, or another business's here. */
+  readonly alreadyHere: 'yours' | 'elsewhere' | null;
+}
+
+/** Looks up who hosts a number, before a business asks for it to be sent here (20261011000100). */
+export function lookupNumberHost(workspaceId: string, e164: string): Promise<NumberHost> {
+  return workerPost('/v1/telephony/number-host', { workspaceId, e164 });
+}
+
+/** A connected Twilio account as the screen shows it. Never its secret. */
+export interface TwilioConnectionInfo {
+  readonly id: string;
+  readonly accountSid: string;
+  readonly friendlyName: string | null;
+  readonly usesApiKey: boolean;
+  readonly status: 'active' | 'broken' | 'disconnected';
+  readonly lastError: string | null;
+  readonly checkedAt: string | null;
+  readonly createdAt: string;
+}
+
+/** One number in a connected Twilio account, and where it stands for this organization. */
+export interface TwilioAccountNumber {
+  readonly sid: string;
+  /** The (sub)account it sits in. An agency's account has one per client. */
+  readonly accountSid: string;
+  readonly accountName: string | null;
+  readonly e164: string;
+  readonly display: string;
+  readonly friendlyName: string | null;
+  readonly numberType: 'local' | 'toll_free';
+  readonly capabilities: { readonly sms: boolean; readonly mms: boolean; readonly voice: boolean };
+  /** Who its webhooks point at today: HighLevel shows up here. */
+  readonly usedBy: 'highlevel' | 'handsfreeos' | 'other' | 'nothing';
+  /** Already a number here: in one of this organization's businesses (named), or somebody else's (null name). */
+  readonly heldBy: {
+    readonly workspaceId: string | null;
+    readonly workspaceName: string | null;
+  } | null;
+  /** On its way to one of this organization's businesses. */
+  readonly comingTo: { readonly workspaceId: string; readonly workspaceName: string } | null;
+}
+
+export interface TwilioAccountListing {
+  readonly connection: TwilioConnectionInfo;
+  readonly numbers: readonly TwilioAccountNumber[];
+  /** More numbers than one listing shows. */
+  readonly truncated: boolean;
+}
+
+/**
+ * Connects a business's own Twilio account (the organization's owners and admins): the Account SID with its
+ * auth token, or with an API key and its secret. Answers with what is in it.
+ */
+export function connectTwilio(input: {
+  workspaceId: string;
+  accountSid: string;
+  authToken?: string;
+  apiKeySid?: string;
+  apiKeySecret?: string;
+}): Promise<TwilioAccountListing> {
+  return workerPost('/v1/telephony/twilio/connect', input);
+}
+
+/** A connected account's numbers, listed again. */
+export function listTwilioNumbers(
+  workspaceId: string,
+  connectionId: string,
+): Promise<TwilioAccountListing> {
+  return workerPost('/v1/telephony/twilio/numbers', { workspaceId, connectionId });
+}
+
+/** Lets a connected account go; what it was opened with is wiped. Numbers on their way keep coming. */
+export function disconnectTwilio(
+  workspaceId: string,
+  connectionId: string,
+): Promise<{ connectionId: string }> {
+  return workerPost('/v1/telephony/twilio/disconnect', { workspaceId, connectionId });
+}

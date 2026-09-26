@@ -967,6 +967,84 @@ export const numberPorts = app.table('number_ports', {
 });
 
 /**
+ * Bringing a number that already lives in Twilio (20261011000100): from the business's own Twilio account, or
+ * from GoHighLevel / LeadConnector, whose LC Phone numbers are Twilio numbers in HighLevel's account. The number
+ * moves account to account inside Twilio — no port, no new number — and the worker watches the workspace's
+ * subaccount for it. **Separate from carrier registration**: an import finishes when the number works here,
+ * whether or not texting has been approved yet.
+ */
+export const numberImportSource = app.enum('number_import_source', ['twilio', 'highlevel']);
+export type NumberImportSource = (typeof numberImportSource.enumValues)[number];
+export const numberImportStatus = app.enum('number_import_status', [
+  'waiting',
+  'complete',
+  'failed',
+  'cancelled',
+]);
+export type NumberImportStatus = (typeof numberImportStatus.enumValues)[number];
+export const twilioConnectionStatus = app.enum('twilio_connection_status', [
+  'active',
+  'broken',
+  'disconnected',
+]);
+
+/**
+ * A Twilio account a business connected so HandsFreeOS can list its numbers. The organization's, because one
+ * account often holds numbers for several of its businesses; seen by its owners and admins only. The secret is
+ * sealed by the worker and no person can select it.
+ */
+export const twilioConnections = app.table('twilio_connections', {
+  id: id(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  accountSid: text('account_sid').notNull(),
+  friendlyName: text('friendly_name'),
+  /** The API key (SK…) they gave us, or null for the account's own auth token. */
+  apiKeySid: text('api_key_sid'),
+  secretEnc: text('secret_enc'),
+  keyId: text('key_id'),
+  status: twilioConnectionStatus('status').notNull().default('active'),
+  lastError: text('last_error'),
+  checkedAt: ts('checked_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+export const numberImports = app.table('number_imports', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  e164: text('e164').notNull(),
+  source: numberImportSource('source').notNull(),
+  status: numberImportStatus('status').notNull().default('waiting'),
+  connectionId: uuid('connection_id').references(() => twilioConnections.id, {
+    onDelete: 'set null',
+  }),
+  /** The account holding the number today, and its id there: what the transfer request names. */
+  sourceAccountSid: text('source_account_sid'),
+  sourceNumberSid: text('source_number_sid'),
+  /** Who hosts it, by the carrier lookup. A Twilio carrier is what says it can move account to account. */
+  carrierName: text('carrier_name'),
+  hostedInTwilio: boolean('hosted_in_twilio'),
+  lookedUpAt: ts('looked_up_at'),
+  accountId: uuid('account_id').references(() => telephonyAccounts.id, { onDelete: 'set null' }),
+  /** The workspace's own subaccount: where the owner asks for the number to be sent. */
+  destinationAccountSid: text('destination_account_sid'),
+  providerSid: text('provider_sid'),
+  phoneNumberId: uuid('phone_number_id').references(() => phoneNumbers.id, {
+    onDelete: 'set null',
+  }),
+  numberType: phoneNumberType('number_type'),
+  lastError: text('last_error'),
+  nextPollAt: ts('next_poll_at'),
+  pollCount: integer('poll_count').notNull().default(0),
+  lastCheckedAt: ts('last_checked_at'),
+  completedAt: ts('completed_at'),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+});
+
+/**
  * A business's RCS sender (0103). Made and approved at Twilio, in the business's own subaccount; connected here,
  * which puts it on the business's messaging service so every text goes RCS first. A person connects it, pauses
  * it and lets it go; everything Twilio says is the worker's to write (`private.guard_rcs_sender_update`).
@@ -5976,6 +6054,8 @@ export const tables = {
   phoneNumbers,
   telephonyRegistrations,
   numberPorts,
+  twilioConnections,
+  numberImports,
   rcsSenders,
   conversations,
   messages,

@@ -12,5 +12,12 @@ export function createTelephony(env: WorkerEnv, log: Logger): TelephonyProvider 
       authToken: env.twilioAuthToken!,
       primaryProfileSid: env.twilioPrimaryProfileSid,
     });
-  return createFakeTelephony({ approvalMs: env.fakeApprovalMs, callbacks: true, log });
+  // A number being brought over from Twilio or HighLevel "arrives" a few approvals later, so the whole
+  // wait can be walked through locally without anybody sending a transfer request.
+  return createFakeTelephony({
+    approvalMs: env.fakeApprovalMs,
+    callbacks: true,
+    log,
+    autoTransferMs: env.fakeApprovalMs * 3,
+  });
 }

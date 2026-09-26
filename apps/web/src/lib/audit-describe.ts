@@ -335,6 +335,28 @@ function describeAction(e: AuditEntry): string {
       return portStateSentence(e);
     case 'number_port.complete':
       return `${s(e.after?.number)} finished moving here`;
+    // 20261011000100: a number already in Twilio (the business's own account, or GoHighLevel's), sent account
+    // to account. Never what was typed to connect an account — only which account.
+    case 'number_import.start':
+      return `started bringing ${s(e.after?.number)} over from ${s(e.after?.from) || 'Twilio'}`;
+    case 'number_import.cancel':
+      return `stopped watching for ${s(e.after?.number)}`;
+    case 'number_import.record_check':
+      return e.after?.problem
+        ? `could not finish a look for a number on its way here: ${s(e.after.problem)}`
+        : e.after?.carrier
+          ? `found out who hosts a number on its way here (${s(e.after.carrier)})`
+          : 'got the Twilio account ready to receive a number';
+    case 'number_import.complete':
+      return `${s(e.after?.number)} arrived and is set up for calls and texts`;
+    case 'number_import.fail':
+      return `could not set up ${s(e.after?.number)}: ${s(e.after?.why)}`;
+    case 'twilio_connection.save':
+      return `connected the Twilio account ${s(e.after?.account)}${e.after?.name ? ` (${s(e.after.name)})` : ''}`;
+    case 'twilio_connection.disconnect':
+      return `disconnected the Twilio account ${s(e.after?.account)}`;
+    case 'twilio_connection.fail':
+      return `found Twilio no longer accepts the account ${s(e.after?.account)}`;
     // 0103: RCS. The sender is made in the business's Twilio account; these connect it, pause it and let it go.
     case 'rcs_sender.connect':
       return e.before

@@ -104,6 +104,7 @@ export function testServices(
     reminderOverrideMs: opts.reminderOverrideMs ?? null,
     registrationPollMs: 50,
     portPollMs: 50,
+    numberImportPollMs: 50,
     email: {
       ...createLocalEmail({
         smtpUrl: process.env.SMTP_URL ?? 'smtp://127.0.0.1:54425',
