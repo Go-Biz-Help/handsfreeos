@@ -808,7 +808,7 @@ export const commands: readonly CommandDef[] = [
   ...reviewCommands,
   ...formResponseCommands,
   ...portCommands,
-  // Numbers already in Twilio: a business's own account, or GoHighLevel's LC Phone (20261011000100).
+  // Numbers already in Twilio: a business's own account, or GoHighLevel's LC Phone (20261010000900).
   ...numberImportCommands,
   ...twilioConnectionCommands,
   ...inboxVisibilityCommands,

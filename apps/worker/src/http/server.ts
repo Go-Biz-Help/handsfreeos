@@ -254,7 +254,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerMoneyLinkRoutes(app, deps);
   await registerUnsubscribeRoutes(app, deps);
   registerAiCallRoutes(app, deps);
-  // Bringing a number that already lives in Twilio: a business's own account, or HighLevel's (20261011000100).
+  // Bringing a number that already lives in Twilio: a business's own account, or HighLevel's (20261010000900).
   registerNumberImportRoutes(app, deps);
   registerWalletCardRoutes(app, deps);
   await registerChatRoutes(app, deps);

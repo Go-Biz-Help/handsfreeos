@@ -103,7 +103,7 @@ export function PortStep({
   /** What we already know about the business, for the letter. */
   profile: LetterProfile;
   onBack: () => void;
-  /** Where the back link goes, in words: a new number, or the other ways to bring one (20261011000100). */
+  /** Where the back link goes, in words: a new number, or the other ways to bring one (20261010000900). */
   backLabel?: string;
 }) {
   const router = useRouter();

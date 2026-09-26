@@ -158,7 +158,7 @@ export const numberPortStart = defineCommand({
       .limit(1);
     if (live && ['draft', 'submitted', 'carrier_review', 'scheduled'].includes(live.status))
       return refOf(live);
-    // The same number already coming over inside Twilio (20261011000100): a port and a transfer would race,
+    // The same number already coming over inside Twilio (20261010000900): a port and a transfer would race,
     // and only one can win.
     const [importing] = await ctx.tx
       .select({ id: numberImports.id })

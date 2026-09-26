@@ -1,5 +1,5 @@
 /**
- * Bringing a number that already lives in Twilio (20261011000100): from the business's own Twilio account, or
+ * Bringing a number that already lives in Twilio (20261010000900): from the business's own Twilio account, or
  * from GoHighLevel / LeadConnector. See `messaging/number-import.ts` for the shape of the feature.
  *
  * **Two tracks, never merged.** `setup` is the number itself — waiting for the transfer, then live here with our

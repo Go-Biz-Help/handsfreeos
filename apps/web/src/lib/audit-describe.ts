@@ -335,7 +335,7 @@ function describeAction(e: AuditEntry): string {
       return portStateSentence(e);
     case 'number_port.complete':
       return `${s(e.after?.number)} finished moving here`;
-    // 20261011000100: a number already in Twilio (the business's own account, or GoHighLevel's), sent account
+    // 20261010000900: a number already in Twilio (the business's own account, or GoHighLevel's), sent account
     // to account. Never what was typed to connect an account — only which account.
     case 'number_import.start':
       return `started bringing ${s(e.after?.number)} over from ${s(e.after?.from) || 'Twilio'}`;

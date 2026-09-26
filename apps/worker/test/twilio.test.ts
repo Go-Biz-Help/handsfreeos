@@ -1244,7 +1244,7 @@ describe('RCS (0103)', () => {
   });
 });
 
-describe('bringing a number that is already in Twilio (20261011000100)', () => {
+describe('bringing a number that is already in Twilio (20261010000900)', () => {
   it('asks the carrier lookup who hosts a number, with the master account', async () => {
     const seen = mockTwilio([
       [

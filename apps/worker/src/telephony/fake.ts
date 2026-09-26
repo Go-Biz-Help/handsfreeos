@@ -117,10 +117,10 @@ export interface FakeTelephony extends TelephonyProvider {
   /** Content templates made for rich texts, by sid, and the ones deleted once their message was done (0103). */
   readonly contents: Map<string, ContentTemplate & { readonly accountSid: string }>;
   readonly deletedContents: string[];
-  /** Numbers the carrier lookup was asked about, in order (20261011000100). */
+  /** Numbers the carrier lookup was asked about, in order (20261010000900). */
   readonly lookups: string[];
   /**
-   * A business's own Twilio account, as if it had one (20261011000100): signed in to with `secret`, whether as
+   * A business's own Twilio account, as if it had one (20261010000900): signed in to with `secret`, whether as
    * the account or as an API key. `parentSid` makes it a subaccount of another such account. Returns its sid.
    */
   addExternalAccount(input: {
@@ -229,7 +229,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const contents = new Map<string, ContentTemplate & { accountSid: string }>();
   const deletedContents: string[] = [];
   const lookups: string[] = [];
-  /** Businesses' own Twilio accounts (20261011000100), and the numbers in them. */
+  /** Businesses' own Twilio accounts (20261010000900), and the numbers in them. */
   const externalAccounts = new Map<
     string,
     { sid: string; secret: string; friendlyName: string; parentSid: string | null }
@@ -569,7 +569,7 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       return { sid: transferIn(e164, account.sid), capabilities: CAPS };
     },
     /**
-     * Who hosts a number (20261011000100). Twilio, unless it ends 0009 (another carrier: it needs a port) or
+     * Who hosts a number (20261010000900). Twilio, unless it ends 0009 (another carrier: it needs a port) or
      * 0008 (the lookup is down, which must never stop an import from being watched for).
      */
     async lookupNumber(e164) {
