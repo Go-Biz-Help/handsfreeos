@@ -123,8 +123,13 @@ export const MessageRetryOutput = z.object({
 export const MessageCancelScheduledInput = z.object({ workspaceId: uuid, messageId: uuid });
 export const MessageCancelScheduledOutput = z.object({
   messageId: uuid,
-  /** False when it was cancelled already. */
+  /** False when it was cancelled already, or isn't going anyway (it didn't go). */
   changed: z.boolean(),
+  /**
+   * Whether it stays in the conversation. A new text leaves it; a failed text that was tried again goes back as
+   * it was, not delivered, and can be tried again later.
+   */
+  stays: z.boolean(),
 });
 
 // ---------- worker-only (system actor) ----------
@@ -309,7 +314,15 @@ export const ConversationThreadOutput = z.object({
   nextCursor: z.string().nullable(),
 });
 export const MessageGetInput = z.object({ workspaceId: uuid, messageId: uuid });
-export const MessageGetOutput = z.object({ message: ThreadItem, conversationId: uuid });
+export const MessageGetOutput = z.object({
+  message: ThreadItem,
+  conversationId: uuid,
+  /**
+   * A failed text tried again in quiet hours, waiting for them to end: cancelling it puts it back as it was, not
+   * delivered, rather than taking it out of the conversation.
+   */
+  triedAgain: z.boolean(),
+});
 
 export const PersonSetSmsConsentInput = z.object({
   workspaceId: uuid,

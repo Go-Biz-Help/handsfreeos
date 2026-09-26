@@ -556,6 +556,28 @@ describe('a conversation’s buttons', () => {
       expect(
         (await read('unsent_messages', { conversationId: bobText })).waitingForQuietHours,
       ).toContainEqual(expect.objectContaining({ messageId: failedText }));
+
+      // Cancelled, it doesn't leave the conversation: it goes back to not delivered, with its reason.
+      const cancel = { action: 'cancel_held_text', conversationId: bobText, messageId: failedText };
+      const { card: cancelCard } = await prepare('manage_conversation', cancel);
+      expect(cancelCard.warnings).toEqual([
+        {
+          kind: 'note',
+          text: 'It doesn’t go. It stays in the conversation as not delivered, and you can send it again later.',
+        },
+      ]);
+      expect((await commit('manage_conversation', cancel)).outcome).toBe(
+        'It won’t go. It’s back as not delivered.',
+      );
+      expect(await message(failedText)).toEqual({ status: 'failed', error_code: null });
+      const unsent = await read('unsent_messages', { conversationId: bobText });
+      expect(unsent.waitingForQuietHours).toEqual([]);
+      expect(unsent.didNotGo).toContainEqual(
+        expect.objectContaining({ messageId: failedText, why: 'The carrier turned it away.' }),
+      );
+      await expect(prepare('manage_conversation', cancel)).rejects.toThrow(
+        'That text isn’t waiting to go.',
+      );
     } finally {
       await rows(
         admin(),

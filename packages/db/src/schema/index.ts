@@ -827,6 +827,17 @@ export interface ButtonReply {
   readonly via: 'tap' | 'text';
 }
 
+/**
+ * How a failed text stood before it was tried again in quiet hours (message.retry), kept on `messages.failed_attempt`
+ * while the retry waits for them to end, so cancelling the retry puts it back as it was.
+ */
+export interface FailedAttempt {
+  readonly status: 'failed' | 'undelivered';
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly occurredAt: string;
+}
+
 export const telephonyAccounts = app.table('telephony_accounts', {
   id: id(),
   workspaceId: uuid('workspace_id')
@@ -1124,6 +1135,8 @@ export const messages = app.table('messages', {
     (): AnyPgColumn => campaignRecipients.id,
     { onDelete: 'set null' },
   ),
+  /** A failed text tried again in quiet hours, while it waits: how the attempt that failed stood. */
+  failedAttempt: jsonb('failed_attempt').$type<FailedAttempt>(),
 });
 
 export const calls = app.table('calls', {

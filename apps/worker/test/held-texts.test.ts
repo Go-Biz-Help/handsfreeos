@@ -3,6 +3,7 @@
  * - It waits: the job is due when quiet hours end, and nothing goes to the carrier before then.
  * - It goes then, through the same sender as every text, credited to the person who wrote it.
  * - Cancelled, the job runs at once and the text ends there, never reaching the carrier.
+ * - A failed text tried again in quiet hours, then cancelled, goes back as it was, and the job leaves it be.
  */
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
@@ -10,13 +11,16 @@ import {
   executeCommand,
   localMinutes,
   messageCancelScheduled,
+  messageRetry,
   messageSend,
+  messageUpdateStatus,
   organizationCreate,
   personCreate,
   phoneNumberBuy,
   phoneUpdateSettings,
   quietHoursEndAt,
   type HumanActor,
+  type SystemActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { activities, messages } from '@hfos/db/schema';
@@ -52,6 +56,7 @@ const tollFree = () =>
 let dale: TestUser;
 let marco: TestUser;
 let workspaceId: string;
+let organizationId: string;
 let mariaId: string;
 let s: TestServices;
 
@@ -118,7 +123,7 @@ beforeAll(async () => {
     createTestUser('heldw-dale', { fullName: 'Dale Owner' }),
     createTestUser('heldw-marco', { fullName: 'Marco Member' }),
   ]);
-  workspaceId = (
+  ({ workspaceId, organizationId } = (
     await executeCommand(
       api(),
       organizationCreate,
@@ -126,7 +131,7 @@ beforeAll(async () => {
       actor(dale),
       meta(),
     )
-  ).output.workspaceId;
+  ).output);
   await rows(
     admin(),
     sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${marco.id}, 'member')`,
@@ -233,6 +238,71 @@ describe('a text held until quiet hours end', () => {
     });
     expect(s.telephony.sent).toHaveLength(sentBefore);
     expect((await heldJob(held.messageId))!.status).toBe('done');
+    await quiet(false);
+  });
+
+  it('a failed text tried again and then cancelled goes back as it was, and the job leaves it be', async () => {
+    await quiet(false);
+    const sent = (
+      await executeCommand(
+        api(),
+        messageSend,
+        { workspaceId, personId: mariaId, body: 'Your filter came in.' },
+        actor(marco),
+        meta(),
+      )
+    ).output;
+    await drain();
+    // The carrier took it, then couldn't deliver it.
+    const system: SystemActor = { type: 'system', workspaceId, organizationId, onBehalfOf: null };
+    await executeCommand(
+      testDbs().worker.db,
+      messageUpdateStatus,
+      {
+        workspaceId,
+        messageId: sent.messageId,
+        status: 'undelivered',
+        errorCode: '30003',
+        errorMessage: 'The carrier turned it away.',
+      },
+      system,
+      meta(),
+    );
+    const [failed] = await admin().select().from(messages).where(eq(messages.id, sent.messageId));
+    expect(failed!.providerMessageId).toBeTruthy();
+
+    // Retry pressed at night, then cancelled.
+    await quiet(true);
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: sent.messageId },
+      actor(marco),
+      meta(),
+    );
+    await drain();
+    expect((await heldJob(sent.messageId))!.status).toBe('pending');
+    const sentBefore = s.telephony.sent.length;
+    await executeCommand(
+      api(),
+      messageCancelScheduled,
+      { workspaceId, messageId: sent.messageId },
+      actor(dale),
+      meta(),
+    );
+    await drain();
+    const [row] = await admin().select().from(messages).where(eq(messages.id, sent.messageId));
+    expect(row).toMatchObject({
+      status: 'undelivered',
+      errorCode: '30003',
+      errorMessage: 'The carrier turned it away.',
+      providerMessageId: failed!.providerMessageId,
+      activityId: failed!.activityId,
+      failedAttempt: null,
+    });
+    expect(row!.occurredAt.toISOString()).toBe(failed!.occurredAt.toISOString());
+    expect(s.telephony.sent).toHaveLength(sentBefore);
+    expect((await heldJob(sent.messageId))!.status).toBe('done');
     await quiet(false);
   });
 });

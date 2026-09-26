@@ -506,14 +506,23 @@ const manageConversation: SettingsConfirmTool = {
             'messageId',
             'Say which message: unsent_messages lists them with their ids.',
           );
-        const { message: m, conversationId } = await query<{
+        const {
+          message: m,
+          conversationId,
+          triedAgain,
+        } = await query<{
           message: ThreadItem;
           conversationId: string;
+          triedAgain: boolean;
         }>(db, ctx, 'message.get', { messageId });
         if (conversationId !== c.id)
           throw missing('messageId', 'That message isn’t in this conversation.');
         if (act === 'cancel_held_text') {
           if (m.errorCode === 'cancelled') throw nothing('That text is cancelled already.');
+          if (didNotGo(m))
+            throw nothing(
+              'That text isn’t waiting to go. It didn’t go, and goes only if sent again.',
+            );
           if (!m.scheduledFor)
             throw HfosError.rule(
               'not_scheduled',
@@ -527,7 +536,15 @@ const manageConversation: SettingsConfirmTool = {
               { label: 'Text', value: clip(m.body) },
             ],
             'Don’t send it',
-            [{ kind: 'note', text: 'It never goes, and leaves the conversation.' }],
+            [
+              {
+                kind: 'note',
+                // A failed text sent again goes back to how it was; a new one never went at all.
+                text: triedAgain
+                  ? 'It doesn’t go. It stays in the conversation as not delivered, and you can send it again later.'
+                  : 'It never goes, and leaves the conversation.',
+              },
+            ],
           );
         }
         if (!didNotGo(m))
@@ -632,13 +649,15 @@ const manageConversation: SettingsConfirmTool = {
         if (on !== conversationId)
           throw missing('messageId', 'That message isn’t in this conversation.');
         const name = act === 'send_again' ? 'message.retry' : 'message.cancel_scheduled';
-        const out = await command<{ scheduledFor?: string }>(db, ctx, name, {
+        const out = await command<{ scheduledFor?: string; stays?: boolean }>(db, ctx, name, {
           messageId: args['messageId'],
         });
         return {
           outcome:
             act !== 'send_again'
-              ? 'It won’t go'
+              ? out.stays
+                ? 'It won’t go. It’s back as not delivered.'
+                : 'It won’t go'
               : out.scheduledFor
                 ? `It goes when quiet hours end: ${at(out.scheduledFor, ctx.timezone)}`
                 : 'Sending it again',

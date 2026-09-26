@@ -8,7 +8,10 @@
  * - The worker's release: not before its time, again after quiet hours that came round again, refused (with the
  *   reason) when the customer opted out overnight, and otherwise it goes like any text, credited to its writer.
  * - A failed text tried again in quiet hours waits for them to end the same way, then goes in place of the attempt
- *   that failed, without a second line on the timeline.
+ *   that failed, without a second line on the timeline. Cancelled, it goes back as it was: not delivered, with its
+ *   reason, in its place in the thread, to be tried again.
+ * - A held text refused when quiet hours ended never reached the timeline: tried again, by day or held once more,
+ *   it gets its one entry and the conversation's preview when it goes.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
@@ -315,6 +318,7 @@ describe('cancelling a text that waits', () => {
     ).toEqual({
       messageId: held.messageId,
       changed: true,
+      stays: false,
     });
     expect(
       (await run(messageCancelScheduled, { workspaceId: wsId, messageId: held.messageId }, marco))
@@ -582,5 +586,206 @@ describe('a failed text tried again in quiet hours', () => {
     const out = await run(messageRetry, { workspaceId: wsId, messageId: sent.messageId }, marco);
     expect(out).toEqual({ messageId: sent.messageId });
     expect(await messageRow(sent.messageId)).toMatchObject({ status: 'queued', errorCode: null });
+  });
+});
+
+const entriesOf = (messageId: string) =>
+  admin()
+    .select()
+    .from(activities)
+    .where(sql`${activities.meta}->>'messageId' = ${messageId}`);
+const conversationOf = async (id: string) =>
+  (await admin().select().from(conversations).where(eq(conversations.id, id)))[0]!;
+
+describe('cancelling a failed text tried again in quiet hours', () => {
+  it('puts it back as it was: not delivered, with its reason, in its place, to be tried again', async () => {
+    await quietNow(false);
+    const sent = await run(
+      messageSend,
+      { workspaceId: wsId, personId: mikeId, body: 'The part is on back order.' },
+      marco,
+    );
+    await admin()
+      .update(messages)
+      .set({ providerMessageId: `SMfail${uniq()}` })
+      .where(eq(messages.id, sent.messageId));
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: sent.messageId,
+      status: 'undelivered',
+      errorCode: '30003',
+      errorMessage: 'The carrier turned it away.',
+    });
+    const failed = await messageRow(sent.messageId);
+    await quietNow(true);
+    await run(messageRetry, { workspaceId: wsId, messageId: sent.messageId }, marco);
+
+    // A teammate cancels it.
+    expect(
+      await run(messageCancelScheduled, { workspaceId: wsId, messageId: sent.messageId }, dale),
+    ).toEqual({ messageId: sent.messageId, changed: true, stays: true });
+    const back = await messageRow(sent.messageId);
+    expect(back).toMatchObject({
+      status: 'undelivered',
+      errorCode: '30003',
+      errorMessage: 'The carrier turned it away.',
+      activityId: failed.activityId,
+      providerMessageId: failed.providerMessageId,
+      failedAttempt: null,
+    });
+    expect(back.occurredAt.toISOString()).toBe(failed.occurredAt.toISOString());
+    const thread = await ask(
+      conversationThread,
+      { workspaceId: wsId, conversationId: sent.conversationId },
+      marco,
+    );
+    expect(thread.items.find((i) => i.id === sent.messageId)).toMatchObject({
+      status: 'undelivered',
+      errorCode: '30003',
+      scheduledFor: null,
+    });
+    // Its one timeline entry still says it didn't arrive, which is true again.
+    const entries = await entriesOf(sent.messageId);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.meta).toMatchObject({ status: 'undelivered' });
+
+    // Cancel pressed again changes nothing, and doesn't claim it went.
+    expect(
+      await run(messageCancelScheduled, { workspaceId: wsId, messageId: sent.messageId }, marco),
+    ).toEqual({ messageId: sent.messageId, changed: false, stays: true });
+    // The worker's job, brought forward by the cancel, leaves it be.
+    expect(
+      await sys(messageReleaseScheduled, { workspaceId: wsId, messageId: sent.messageId }),
+    ).toMatchObject({ outcome: 'gone' });
+    expect(await messageRow(sent.messageId)).toMatchObject({
+      status: 'undelivered',
+      errorCode: '30003',
+    });
+    expect(await eventTypes(sent.messageId)).toContain('message.schedule_cancelled');
+    // And it can be tried again.
+    const again = await run(messageRetry, { workspaceId: wsId, messageId: sent.messageId }, marco);
+    expect(again.scheduledFor).toEqual(expect.any(String));
+  });
+});
+
+describe('a held text refused when quiet hours ended, tried again', () => {
+  /** "Send at 8:00 AM", and overnight the customer texted STOP; by morning they texted START again. */
+  async function refusedOvernight(body: string) {
+    await quietNow(true);
+    const held = await run(
+      messageSend,
+      { workspaceId: wsId, personId: mikeId, body, sendAfterQuietHours: true },
+      marco,
+    );
+    await admin()
+      .update(messages)
+      .set({ occurredAt: new Date(Date.now() - 60_000) })
+      .where(eq(messages.id, held.messageId));
+    await quietNow(false);
+    await run(
+      personSetSmsConsent,
+      { workspaceId: wsId, personId: mikeId, consent: 'opted_out' },
+      dale,
+    );
+    expect(
+      await sys(messageReleaseScheduled, { workspaceId: wsId, messageId: held.messageId }),
+    ).toMatchObject({ outcome: 'refused' });
+    await run(
+      personSetSmsConsent,
+      { workspaceId: wsId, personId: mikeId, consent: 'opted_in' },
+      dale,
+    );
+    expect(await messageRow(held.messageId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'opted_out',
+      activityId: null,
+    });
+    return held;
+  }
+
+  it('by day, goes onto the timeline and becomes the conversation’s preview, once', async () => {
+    const held = await refusedOvernight('Your estimate is ready.');
+    const out = await run(messageRetry, { workspaceId: wsId, messageId: held.messageId }, dale);
+    expect(out).toEqual({ messageId: held.messageId });
+    const row = await messageRow(held.messageId);
+    expect(row).toMatchObject({ status: 'queued', errorCode: null, sentBy: marco.id });
+    expect(Date.now() - row.occurredAt.getTime()).toBeLessThan(30_000);
+    const entries = await entriesOf(held.messageId);
+    expect(entries).toHaveLength(1);
+    // Sent now, by whoever pressed Retry.
+    expect(entries[0]).toMatchObject({
+      id: row.activityId,
+      kind: 'sms',
+      subtype: 'outbound',
+      authorUserId: dale.id,
+      body: 'Your estimate is ready.',
+    });
+    expect(entries[0]!.meta).not.toHaveProperty('scheduled');
+    expect(await conversationOf(held.conversationId)).toMatchObject({
+      lastPreview: 'Your estimate is ready.',
+      lastDirection: 'outbound',
+    });
+
+    // It fails at the carrier and is tried again: still one entry.
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: held.messageId,
+      status: 'failed',
+      errorCode: '30008',
+    });
+    await run(messageRetry, { workspaceId: wsId, messageId: held.messageId }, dale);
+    expect(await entriesOf(held.messageId)).toHaveLength(1);
+    expect((await messageRow(held.messageId)).activityId).toBe(row.activityId);
+  });
+
+  it('in quiet hours, waits and gets them when it goes; cancelled first, it stays as it was', async () => {
+    const held = await refusedOvernight('We can come Thursday instead.');
+    await quietNow(true);
+    const out = await run(messageRetry, { workspaceId: wsId, messageId: held.messageId }, dale);
+    expect(out.scheduledFor).toEqual(expect.any(String));
+
+    // Cancelled: refused with its reason, still in the thread.
+    expect(
+      await run(messageCancelScheduled, { workspaceId: wsId, messageId: held.messageId }, dale),
+    ).toEqual({ messageId: held.messageId, changed: true, stays: true });
+    expect(await messageRow(held.messageId)).toMatchObject({
+      status: 'failed',
+      errorCode: 'opted_out',
+      errorMessage: 'This customer texted STOP. They can text START to get texts again.',
+      activityId: null,
+    });
+    const thread = await ask(
+      conversationThread,
+      { workspaceId: wsId, conversationId: held.conversationId },
+      marco,
+    );
+    expect(thread.items.find((i) => i.id === held.messageId)).toMatchObject({
+      status: 'failed',
+      scheduledFor: null,
+    });
+
+    // Tried again, it waits, then goes: onto the timeline and the preview, once.
+    await run(messageRetry, { workspaceId: wsId, messageId: held.messageId }, dale);
+    expect(await entriesOf(held.messageId)).toHaveLength(0);
+    await admin()
+      .update(messages)
+      .set({ occurredAt: new Date(Date.now() - 60_000) })
+      .where(eq(messages.id, held.messageId));
+    await quietNow(false);
+    expect(
+      await sys(messageReleaseScheduled, { workspaceId: wsId, messageId: held.messageId }),
+    ).toMatchObject({ outcome: 'sent' });
+    const row = await messageRow(held.messageId);
+    expect(row).toMatchObject({ status: 'queued', errorCode: null, failedAttempt: null });
+    const entries = await entriesOf(held.messageId);
+    expect(entries.map((e) => e.id)).toEqual([row.activityId]);
+    expect(await conversationOf(held.conversationId)).toMatchObject({
+      lastPreview: 'We can come Thursday instead.',
+    });
+    const [queued] = await admin()
+      .select()
+      .from(events)
+      .where(and(eq(events.entityId, held.messageId), eq(events.eventType, 'message.queued')));
+    expect(queued!.payload).toMatchObject({ scheduled: true, retry: true });
   });
 });

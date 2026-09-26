@@ -3907,7 +3907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.
+         * Cancel a text waiting for quiet hours to end. It never goes: a new text leaves the conversation, and a failed text that was tried again goes back as it was, not delivered.
          * @description Risk level 1. Requires inbox.use. Emits message.schedule_cancelled. Can wait on a phone with no signal.
          */
         post: operations["command_message_cancel_scheduled"];
@@ -6887,7 +6887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Update your own name, photo or preferences.
+         * Update your own name, photo or preferences. Each settings key is replaced whole; `expectedSettings` says what the caller last read, and a key that has changed since refuses the save (409 settings_changed).
          * @description Risk level 1. Emits user.profile_updated.
          */
         post: operations["command_user_update_profile"];
@@ -19405,6 +19405,7 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         messageId: string;
+                        stays: boolean;
                     };
                 };
             };
@@ -25466,6 +25467,9 @@ export interface operations {
             content: {
                 "application/json": {
                     avatarUrl?: string | null;
+                    expectedSettings?: {
+                        [key: string]: unknown;
+                    };
                     fullName?: string;
                     settings?: {
                         [key: string]: unknown;
@@ -34750,6 +34754,7 @@ export interface operations {
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
                         };
+                        triedAgain: boolean;
                     };
                 };
             };

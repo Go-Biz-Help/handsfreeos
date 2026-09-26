@@ -1200,7 +1200,7 @@
     "/v1/commands/user.update_profile": {
       "post": {
         "operationId": "command_user_update_profile",
-        "summary": "Update your own name, photo or preferences.",
+        "summary": "Update your own name, photo or preferences. Each settings key is replaced whole; `expectedSettings` says what the caller last read, and a key that has changed since refuses the save (409 settings_changed).",
         "tags": [
           "commands"
         ],
@@ -1230,6 +1230,13 @@
                     ]
                   },
                   "settings": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "expectedSettings": {
                     "type": "object",
                     "propertyNames": {
                       "type": "string"
@@ -9186,7 +9193,7 @@
     "/v1/commands/message.cancel_scheduled": {
       "post": {
         "operationId": "command_message_cancel_scheduled",
-        "summary": "Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.",
+        "summary": "Cancel a text waiting for quiet hours to end. It never goes: a new text leaves the conversation, and a failed text that was tried again goes back as it was, not delivered.",
         "tags": [
           "commands"
         ],
@@ -9232,11 +9239,15 @@
                     },
                     "changed": {
                       "type": "boolean"
+                    },
+                    "stays": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "messageId",
-                    "changed"
+                    "changed",
+                    "stays"
                   ],
                   "additionalProperties": false
                 }
@@ -60450,11 +60461,15 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "triedAgain": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "message",
-                    "conversationId"
+                    "conversationId",
+                    "triedAgain"
                   ],
                   "additionalProperties": false
                 }

@@ -1124,6 +1124,50 @@ export const messageSend = defineCommand({
   },
 });
 
+/**
+ * A held text going for the first time: from this moment it is on the timeline and it is the conversation's
+ * latest. message.release_scheduled does this when quiet hours end, credited to whoever wrote it; message.retry
+ * does it for a held text that was refused then (the customer opted out overnight), credited to the person who
+ * pressed Retry, since a person only ever writes their own timeline entries.
+ */
+async function goesFirstTime(
+  ctx: CommandContext,
+  m: typeof messages.$inferSelect,
+  conv: typeof conversations.$inferSelect,
+  eventId: string,
+  now: Date,
+  whenQuietHoursEnded: boolean,
+) {
+  const activityId = await logChannelActivity(ctx, {
+    kind: 'sms',
+    subtype: 'outbound',
+    personId: conv.personId,
+    body: m.bodyText,
+    occurredAt: now,
+    eventId,
+    ...(ctx.actor.type === 'human' ? {} : { authorUserId: m.sentBy }),
+    meta: {
+      direction: 'outbound',
+      messageId: m.id,
+      conversationId: conv.id,
+      status: 'queued',
+      mediaCount: m.media.length,
+      ...(whenQuietHoursEnded ? { scheduled: true } : {}),
+    },
+  });
+  await ctx.tx.update(messages).set({ occurredAt: now, activityId }).where(eq(messages.id, m.id));
+  await ctx.tx
+    .update(conversations)
+    .set({
+      lastMessageAt: now,
+      lastOutboundAt: now,
+      lastPreview: messagePreview(m.bodyText, m.media.length),
+      lastDirection: 'outbound',
+      ...afterOutbound(false, false, now),
+    })
+    .where(eq(conversations.id, conv.id));
+}
+
 export const messageRetry = defineCommand({
   name: 'message.retry',
   description: 'Send a text or email that did not go out one more time.',
@@ -1161,7 +1205,8 @@ export const messageRetry = defineCommand({
       }));
     if (holdUntil) {
       // Held the way message.send holds a text: queued, cancellable, going at `occurred_at`. The worker's release
-      // runs every check again then and sends it in place of the attempt that failed.
+      // runs every check again then and sends it in place of the attempt that failed. That attempt is kept, so
+      // cancelling puts the text back as it was (message.cancel_scheduled).
       const sendAt = holdUntil.toISOString();
       await ctx.tx
         .update(messages)
@@ -1170,6 +1215,12 @@ export const messageRetry = defineCommand({
           errorCode: SCHEDULED_TEXT,
           errorMessage: null,
           occurredAt: holdUntil,
+          failedAttempt: {
+            status: m.status,
+            errorCode: m.errorCode,
+            errorMessage: m.errorMessage,
+            occurredAt: m.occurredAt.toISOString(),
+          },
         })
         .where(eq(messages.id, m.id));
       await ctx.emit({
@@ -1193,7 +1244,7 @@ export const messageRetry = defineCommand({
       .update(messages)
       .set({ status: 'queued', errorCode: null, errorMessage: null })
       .where(eq(messages.id, m.id));
-    await ctx.emit({
+    const eventId = await ctx.emit({
       type: 'message.queued',
       entityType: 'message',
       entityId: m.id,
@@ -1213,6 +1264,11 @@ export const messageRetry = defineCommand({
         retry: true,
       },
     });
+    // A held text refused when quiet hours ended never went: a customer's text that went is on their timeline
+    // from then. This is its first time, so it gets its entry and the preview now. (Without a customer there is
+    // no timeline, and nothing says whether it went, so it keeps its place.)
+    if (m.channel === 'sms' && !m.activityId && conv.personId)
+      await goesFirstTime(ctx, m, conv, eventId, new Date(), false);
     return { messageId: m.id };
   },
 });
@@ -1220,7 +1276,7 @@ export const messageRetry = defineCommand({
 export const messageCancelScheduled = defineCommand({
   name: 'message.cancel_scheduled',
   description:
-    'Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.',
+    'Cancel a text waiting for quiet hours to end. It never goes: a new text leaves the conversation, and a failed text that was tried again goes back as it was, not delivered.',
   risk: 1,
   input: MessageCancelScheduledInput,
   output: MessageCancelScheduledOutput,
@@ -1239,27 +1295,43 @@ export const messageCancelScheduled = defineCommand({
       .for('update');
     if (!m) throw HfosError.notFound('Message not found.');
     if (m.errorCode === CANCELLED_TEXT && m.direction === 'outbound')
-      return { messageId: m.id, changed: false };
+      return { messageId: m.id, changed: false, stays: false };
+    // It didn't go and isn't going: a retry cancelled already, or refused when quiet hours ended.
+    if (m.direction === 'outbound' && (m.status === 'failed' || m.status === 'undelivered'))
+      return { messageId: m.id, changed: false, stays: true };
     if (m.errorCode !== SCHEDULED_TEXT || m.status !== 'queued')
       throw HfosError.rule(
         'not_scheduled',
         409,
         'This text isn’t waiting any more: it already went, so it can’t be cancelled.',
       );
+    // A failed text tried again (message.retry) was in the conversation, not delivered, before it waited: it goes
+    // back as it was, reason and place and all, to be tried again later. A new text never went, so it leaves.
+    const was = m.failedAttempt;
     await ctx.tx
       .update(messages)
-      .set({ errorCode: CANCELLED_TEXT, errorMessage: 'Cancelled before it went.' })
+      .set(
+        was
+          ? {
+              status: was.status,
+              errorCode: was.errorCode,
+              errorMessage: was.errorMessage,
+              occurredAt: new Date(was.occurredAt),
+              failedAttempt: null,
+            }
+          : { errorCode: CANCELLED_TEXT, errorMessage: 'Cancelled before it went.' },
+      )
       .where(eq(messages.id, m.id));
     const sendAt = m.occurredAt.toISOString();
     await ctx.emit({
       type: 'message.schedule_cancelled',
       entityType: 'message',
       entityId: m.id,
-      payload: { conversationId: m.conversationId, sendAt },
+      payload: { conversationId: m.conversationId, sendAt, ...(was ? { retry: true } : {}) },
       before: { sendAt },
-      after: { cancelled: true },
+      after: { cancelled: true, ...(was ? { status: was.status } : {}) },
     });
-    return { messageId: m.id, changed: true };
+    return { messageId: m.id, changed: true, stays: !!was };
   },
 });
 
@@ -1329,7 +1401,7 @@ export const messageReleaseScheduled = defineCommand({
       // The customer texted STOP overnight, or texting was switched off: it doesn't go, and says why.
       await ctx.tx
         .update(messages)
-        .set({ status: 'failed', errorCode, errorMessage: e.message })
+        .set({ status: 'failed', errorCode, errorMessage: e.message, failedAttempt: null })
         .where(eq(messages.id, m.id));
       await ctx.emit({
         type: 'message.failed',
@@ -1343,8 +1415,9 @@ export const messageReleaseScheduled = defineCommand({
     }
     // It goes now: from this moment it is on the timeline and in the conversation, and the worker sends it.
     const preview = messagePreview(m.bodyText, m.media.length);
-    // A text tried again in quiet hours (message.retry) was on the timeline and in the conversation already.
-    const retry = m.activityId !== null;
+    // A failed text tried again in quiet hours (message.retry) goes in place of the attempt that failed. One held
+    // before that attempt was kept is known by its timeline entry.
+    const retry = m.failedAttempt !== null || m.activityId !== null;
     const eventId = await ctx.emit({
       type: 'message.queued',
       entityType: 'message',
@@ -1365,44 +1438,13 @@ export const messageReleaseScheduled = defineCommand({
         mediaCount: m.media.length,
       },
     });
-    if (retry) {
-      await ctx.tx
-        .update(messages)
-        .set({ errorCode: null, occurredAt: now })
-        .where(eq(messages.id, m.id));
-      return outcome('sent');
-    }
-    const activityId = await logChannelActivity(ctx, {
-      kind: 'sms',
-      subtype: 'outbound',
-      personId: conv.personId,
-      body: m.bodyText,
-      occurredAt: now,
-      eventId,
-      authorUserId: m.sentBy,
-      meta: {
-        direction: 'outbound',
-        messageId: m.id,
-        conversationId: conv.id,
-        status: 'queued',
-        mediaCount: m.media.length,
-        scheduled: true,
-      },
-    });
     await ctx.tx
       .update(messages)
-      .set({ errorCode: null, occurredAt: now, activityId })
+      .set({ errorCode: null, occurredAt: now, failedAttempt: null })
       .where(eq(messages.id, m.id));
-    await ctx.tx
-      .update(conversations)
-      .set({
-        lastMessageAt: now,
-        lastOutboundAt: now,
-        lastPreview: preview,
-        lastDirection: 'outbound',
-        ...afterOutbound(false, false, now),
-      })
-      .where(eq(conversations.id, conv.id));
+    // A text that went before is on the timeline and in the conversation already. One that never went (held from
+    // the start, or refused when quiet hours ended and tried again) gets both now.
+    if (!m.activityId) await goesFirstTime(ctx, m, conv, eventId, now, true);
     return outcome('sent');
   },
 });
