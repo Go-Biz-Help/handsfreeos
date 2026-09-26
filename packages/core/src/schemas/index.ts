@@ -45,6 +45,7 @@ export * from './review';
 export * from './wallet';
 export * from './wallet-queries';
 export * from './port';
+export * from './number-import';
 export * from './rcs';
 export * from './rcs-sender';
 export * from './inbox-visibility';

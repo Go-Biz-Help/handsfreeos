@@ -34,6 +34,7 @@ export * from './messaging/sms';
 export * from './messaging/rcs';
 export * from './messaging/quiet-hours';
 export * from './messaging/bridge';
+export * from './messaging/number-import';
 export * from './schemas/assistant';
 export * from './assistant/tools';
 export * from './assistant/consent';

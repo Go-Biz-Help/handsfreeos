@@ -195,6 +195,51 @@ export interface PortRequest {
   readonly documentPaths: readonly string[];
 }
 
+/**
+ * What a carrier lookup says about a number today (20261011000100). The carrier's name is what tells a
+ * HighLevel number that can move account to account inside Twilio from one that needs a carrier port.
+ */
+export interface NumberLookup {
+  /** `Twilio - SMS/MMS-SVR` for a Twilio number; the other carrier's name otherwise; null when unknown. */
+  readonly carrierName: string | null;
+  /** The lookup's own word: mobile, landline, nonFixedVoip, tollFree … */
+  readonly lineType: string | null;
+}
+
+/**
+ * A Twilio account somebody else owns — a business's own, never one of our subaccounts — opened with what they
+ * gave us: the Account SID with its auth token, or an API key's SID with its secret. **Never logged.**
+ */
+export interface ExternalTwilioCreds {
+  readonly accountSid: string;
+  /** Who the request signs in as: the Account SID, or the API key's SID (SK…). */
+  readonly username: string;
+  readonly secret: string;
+}
+
+export interface ExternalAccount {
+  readonly sid: string;
+  readonly friendlyName: string | null;
+  /** active, suspended or closed, as Twilio spells it. */
+  readonly status: string;
+  /** The parent, when this account is itself a subaccount. */
+  readonly ownerAccountSid: string | null;
+}
+
+/** One number in a connected account, as the business picks it to bring in. */
+export interface ExternalNumber {
+  readonly sid: string;
+  /** The account it sits in: the connected one, or one of its subaccounts (an agency's has one per client). */
+  readonly accountSid: string;
+  readonly accountName: string | null;
+  readonly e164: string;
+  readonly friendlyName: string | null;
+  readonly capabilities: Capabilities;
+  /** Where its texts and calls go today, which is how a number HighLevel is using shows up. */
+  readonly smsUrl: string | null;
+  readonly voiceUrl: string | null;
+}
+
 export interface TelephonyProvider {
   readonly name: 'twilio' | 'fake';
   /** The master account: webhooks it signs verify with its own token. */
@@ -256,8 +301,31 @@ export interface TelephonyProvider {
    * A bought number gets these at the moment it is bought, in the same call. **A ported one arrives bare** —
    * the carrier hands it over and nothing is listening — so this is the step between "the carrier moved it"
    * and "a customer can text it". Separate from `buyNumber` because there is nothing to buy.
+   *
+   * **A number transferred in from another Twilio account arrives dressed** (20261011000100): still pointed at
+   * wherever its old owner had it — HighLevel, usually — possibly through a TwiML app or with fallback
+   * addresses that would catch a text the moment ours hiccupped. So this also clears the apps and fallbacks, and
+   * our webhooks are the only thing left on it.
    */
   configureNumber(account: ProviderAccount, numberSid: string, urls: WebhookUrls): Promise<void>;
+  /**
+   * Who hosts a number today, by the carrier lookup (20261011000100). Asked with the master account, because
+   * it is a question about somebody else's number. One the lookup cannot place comes back with nulls.
+   */
+  lookupNumber(e164: string): Promise<NumberLookup>;
+  /**
+   * Signs in to a business's own Twilio account with what they gave us, and says what it is. A 401 or 403 is
+   * the answer "those are not the right credentials".
+   */
+  inspectAccount(creds: ExternalTwilioCreds): Promise<ExternalAccount>;
+  /**
+   * The numbers in a business's own Twilio account and in its subaccounts, up to `limit`. Read-only: nothing
+   * about any number changes by being listed.
+   */
+  listAccountNumbers(
+    creds: ExternalTwilioCreds,
+    opts: { readonly limit: number },
+  ): Promise<ExternalNumber[]>;
   releaseNumber(account: ProviderAccount, numberSid: string): Promise<void>;
   sendMessage(
     account: ProviderAccount,

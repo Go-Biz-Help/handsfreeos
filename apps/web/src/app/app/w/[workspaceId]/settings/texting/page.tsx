@@ -16,20 +16,29 @@ export default async function TextingSettingsPage({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const [got, status, me, members, ports, site, widgets, forms] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } })),
-    fetchMe(api),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    // Numbers being brought from another carrier (M17). Its own query rather than a field on setup_status,
-    // because it is `channels.manage` only — the losing carrier's paperwork is not everyone's to see.
-    unwrapPage(await api.POST('/v1/queries/number_port.list', { body: { workspaceId } })),
-    // What is already public, for the registration wizard's hosted opt-in: it has to know what it still
-    // has to create, and a carrier reviewing the campaign has to be given addresses that actually open.
-    unwrapPage(await api.POST('/v1/queries/booking_site.get', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/form.list', { body: { workspaceId } })),
-  ]);
+  const [got, status, me, members, ports, site, widgets, forms, imports, twilio] =
+    await Promise.all([
+      unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
+      unwrapPage(await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } })),
+      fetchMe(api),
+      unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+      // Numbers being brought from another carrier (M17). Its own query rather than a field on setup_status,
+      // because it is `channels.manage` only — the losing carrier's paperwork is not everyone's to see.
+      unwrapPage(await api.POST('/v1/queries/number_port.list', { body: { workspaceId } })),
+      // What is already public, for the registration wizard's hosted opt-in: it has to know what it still
+      // has to create, and a carrier reviewing the campaign has to be given addresses that actually open.
+      unwrapPage(await api.POST('/v1/queries/booking_site.get', { body: { workspaceId } })),
+      unwrapPage(await api.POST('/v1/queries/chat_widget.list', { body: { workspaceId } })),
+      unwrapPage(await api.POST('/v1/queries/form.list', { body: { workspaceId } })),
+      // Numbers already in Twilio on their way here — the business's own account, or GoHighLevel's LC Phone —
+      // and the Twilio accounts the organization connected to bring them from.
+      unwrapPage(
+        await api.POST('/v1/queries/number_import.list', {
+          body: { workspaceId, includeFinished: true },
+        }),
+      ),
+      unwrapPage(await api.POST('/v1/queries/twilio_connection.list', { body: { workspaceId } })),
+    ]);
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   // Everyone who works the inbox — by first name for the "these browsers ring" line, and with their ids
   // for choosing who each number rings (M17).
@@ -62,6 +71,9 @@ export default async function TextingSettingsPage({
         people={people}
         ports={ports.ports}
         portsFromMigration={ports.fromMigration}
+        imports={imports.imports}
+        importsFromMigration={imports.fromMigration}
+        twilio={twilio}
         inboxPerPerson={got.workspace.inboxPerPerson}
         surfaces={surfaces}
       />

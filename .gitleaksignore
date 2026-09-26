@@ -11,3 +11,8 @@ b335872452762c73eaf278787b112ff516a2302a:apps/sync/README.md:curl-auth-header:24
 # it from its parts instead of writing it out, so no key-shaped literal is in the source.
 f971639cc505d3f2cdd7a7b0f2671bf58bcd5b3d:apps/worker/test/storage-credentials.test.ts:supabase-service-role-jwt:15
 f971639cc505d3f2cdd7a7b0f2671bf58bcd5b3d:apps/worker/test/storage-credentials.test.ts:jwt:15
+# A made-up Twilio API key id in a core test about which credentials connect an account. The next commit builds
+# it from its parts, so no key-shaped literal is in the source.
+d65446e2c04528027c877d7d5469865a9f520ad6:packages/core/test/number-import.test.ts:generic-api-key:119
+d65446e2c04528027c877d7d5469865a9f520ad6:packages/core/test/number-import.test.ts:generic-api-key:128
+d65446e2c04528027c877d7d5469865a9f520ad6:packages/core/test/number-import.test.ts:generic-api-key:132

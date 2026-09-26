@@ -17,7 +17,13 @@
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, or } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { files, migrationReconnectTasks, numberPorts, phoneNumbers } from '@hfos/db/schema';
+import {
+  files,
+  migrationReconnectTasks,
+  numberImports,
+  numberPorts,
+  phoneNumbers,
+} from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
@@ -152,6 +158,24 @@ export const numberPortStart = defineCommand({
       .limit(1);
     if (live && ['draft', 'submitted', 'carrier_review', 'scheduled'].includes(live.status))
       return refOf(live);
+    // The same number already coming over inside Twilio (20261011000100): a port and a transfer would race,
+    // and only one can win.
+    const [importing] = await ctx.tx
+      .select({ id: numberImports.id })
+      .from(numberImports)
+      .where(
+        and(
+          eq(numberImports.workspaceId, workspaceId),
+          eq(numberImports.e164, input.e164),
+          eq(numberImports.status, 'waiting'),
+        ),
+      );
+    if (importing)
+      throw HfosError.rule(
+        'number_import_open',
+        409,
+        'This number is already on its way here from Twilio or HighLevel. Stop watching for it first if it needs a carrier port instead.',
+      );
 
     const [made] = await ctx.tx
       .insert(numberPorts)
@@ -521,7 +545,7 @@ type StepState = (typeof migrationReconnectTasks.$inferSelect)['state'];
  * needed stays that way whatever the port does. As a person, RLS shows only the steps they may change; one
  * who can move numbers but not change the workspace simply moves nothing on the list.
  */
-async function moveMigratedNumberStep(
+export async function moveMigratedNumberStep(
   ctx: CommandContext,
   e164: string,
   from: readonly StepState[],

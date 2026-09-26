@@ -104,6 +104,8 @@ import { customRecordCommands } from './custom-record';
 import { relationshipCommands } from './relationship';
 import { inboxVisibilityCommands } from './inbox-visibility';
 import { portCommands } from './port';
+import { numberImportCommands } from './number-import';
+import { twilioConnectionCommands } from './twilio-connection';
 import { rcsCommands } from './rcs';
 import {
   emailAddressCreate,
@@ -806,6 +808,9 @@ export const commands: readonly CommandDef[] = [
   ...reviewCommands,
   ...formResponseCommands,
   ...portCommands,
+  // Numbers already in Twilio: a business's own account, or GoHighLevel's LC Phone (20261011000100).
+  ...numberImportCommands,
+  ...twilioConnectionCommands,
   ...inboxVisibilityCommands,
   ...brandedDomainCommands,
   // Relationships (0101): fields for every kind of record, the kinds a business makes up, and how records relate.
@@ -823,6 +828,8 @@ export { attendeeFromPerson } from './appointment';
 export { validateIntake } from './appointment-online';
 export { DEPOSIT_HOLD_JOB, depositHoldKey, holdState } from './appointment-online';
 export * from './calendar-connection';
+export * from './number-import';
+export * from './twilio-connection';
 export * from './reminder';
 export * from './waitlist-offer';
 export * from './form';

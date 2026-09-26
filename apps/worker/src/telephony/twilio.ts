@@ -12,6 +12,8 @@ import {
   type RcsSenderState,
   type RegistrationRequest,
   type DailyUsage,
+  type ExternalNumber,
+  type ExternalTwilioCreds,
   type PortOutcome,
   type RegistrationState,
   type TelephonyProvider,
@@ -30,6 +32,12 @@ const TRANSCRIPT_SERVICE = 'hfos-call-transcripts';
 /** RCS senders (0103), and the content templates a rich text goes out as. */
 const SENDERS = 'https://messaging.twilio.com/v2/Channels/Senders';
 const CONTENT = 'https://content.twilio.com/v1/Content';
+/** Who hosts a number today: the carrier lookup that tells a Twilio-hosted number from one needing a port. */
+const LOOKUPS = 'https://lookups.twilio.com/v2/PhoneNumbers';
+/** Twilio's own host, which its list responses' `next_page_uri` is relative to. */
+const TWILIO_HOST = 'https://api.twilio.com';
+/** How many of a connected account's subaccounts are looked in. An agency with more has asked us to page. */
+const MAX_LISTED_ACCOUNTS = 100;
 
 interface Creds {
   readonly sid: string;
@@ -98,6 +106,18 @@ async function callJson<T>(creds: Creds, url: string, body: unknown): Promise<T>
 }
 
 const credsOf = (a: ProviderAccount): Creds => ({ sid: a.sid, token: a.authToken });
+/** A business's own account signs in as its Account SID, or as the API key it gave us. */
+const externalCreds = (c: ExternalTwilioCreds): Creds => ({ sid: c.username, token: c.secret });
+
+interface IncomingNumberJson {
+  readonly sid: string;
+  readonly account_sid: string;
+  readonly phone_number: string;
+  readonly friendly_name?: string | null;
+  readonly capabilities?: Record<string, boolean>;
+  readonly sms_url?: string | null;
+  readonly voice_url?: string | null;
+}
 
 /**
  * Twilio's word for an RCS sender, onto the four this system acts on (0103). Anything unrecognised is still in
@@ -869,8 +889,85 @@ export function createTwilioTelephony(master: {
           VoiceMethod: 'POST',
           StatusCallback: urls.voiceStatusUrl,
           StatusCallbackMethod: 'POST',
+          // A number transferred in from another account can still carry its old owner's TwiML apps, which
+          // Twilio uses *instead of* the addresses above, and fallbacks that would hand a text to them the
+          // moment ours hiccupped. Empty clears them.
+          SmsApplicationSid: '',
+          VoiceApplicationSid: '',
+          SmsFallbackUrl: '',
+          VoiceFallbackUrl: '',
         },
       );
+    },
+
+    async lookupNumber(e164) {
+      const res = await call<{
+        valid?: boolean;
+        line_type_intelligence?: { carrier_name?: string | null; type?: string | null } | null;
+      }>(masterCreds, 'GET', `${LOOKUPS}/${encodeURIComponent(e164)}`, {
+        Fields: 'line_type_intelligence',
+      });
+      const line = res.line_type_intelligence ?? null;
+      return { carrierName: line?.carrier_name || null, lineType: line?.type || null };
+    },
+
+    async inspectAccount(creds) {
+      const res = await call<{
+        sid: string;
+        friendly_name?: string | null;
+        status?: string | null;
+        owner_account_sid?: string | null;
+      }>(externalCreds(creds), 'GET', `${API}/Accounts/${creds.accountSid}.json`);
+      return {
+        sid: res.sid,
+        friendlyName: res.friendly_name || null,
+        status: res.status ?? 'active',
+        // Twilio answers a top-level account with its own sid here; only a real parent is a parent.
+        ownerAccountSid:
+          res.owner_account_sid && res.owner_account_sid !== res.sid ? res.owner_account_sid : null,
+      };
+    },
+
+    async listAccountNumbers(creds, { limit }) {
+      const auth = externalCreds(creds);
+      // Signed in as a parent, Accounts.json is the parent and every subaccount; as a subaccount, itself.
+      const accounts: { sid: string; friendly_name?: string | null }[] = [];
+      let next: string | null = `${API}/Accounts.json?Status=active&PageSize=100`;
+      while (next && accounts.length < MAX_LISTED_ACCOUNTS) {
+        const page: {
+          accounts?: { sid: string; friendly_name?: string | null }[];
+          next_page_uri?: string | null;
+        } = await call(auth, 'GET', next);
+        accounts.push(...(page.accounts ?? []));
+        next = page.next_page_uri ? `${TWILIO_HOST}${page.next_page_uri}` : null;
+      }
+      if (!accounts.some((a) => a.sid === creds.accountSid))
+        accounts.unshift({ sid: creds.accountSid, friendly_name: null });
+
+      const out: ExternalNumber[] = [];
+      for (const a of accounts.slice(0, MAX_LISTED_ACCOUNTS)) {
+        let url: string | null = `${API}/Accounts/${a.sid}/IncomingPhoneNumbers.json?PageSize=1000`;
+        while (url && out.length < limit) {
+          const page: {
+            incoming_phone_numbers?: IncomingNumberJson[];
+            next_page_uri?: string | null;
+          } = await call(auth, 'GET', url);
+          for (const n of page.incoming_phone_numbers ?? [])
+            out.push({
+              sid: n.sid,
+              accountSid: n.account_sid,
+              accountName: a.friendly_name || null,
+              e164: n.phone_number,
+              friendlyName: n.friendly_name || null,
+              capabilities: caps(n.capabilities),
+              smsUrl: n.sms_url || null,
+              voiceUrl: n.voice_url || null,
+            });
+          url = page.next_page_uri ? `${TWILIO_HOST}${page.next_page_uri}` : null;
+        }
+        if (out.length >= limit) break;
+      }
+      return out.slice(0, limit);
     },
 
     async buyNumber(account, { e164, urls }) {
