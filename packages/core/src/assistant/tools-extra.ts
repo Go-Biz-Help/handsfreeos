@@ -197,7 +197,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_automations',
     description:
-      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, and what the AI does when a voicemail box answers its call. Re-engaging dead leads can only be turned on from the screen, where its message is read first.',
+      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, and what the AI does when a voicemail box answers its call. Re-engaging dead leads can only be turned on from the screen, where its message is read first. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
     input: z.object({
       turnOn: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
       turnOff: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),

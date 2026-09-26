@@ -259,6 +259,21 @@ describe('the AI teammate’s finer rules', () => {
     expect(c['autonomy']).toEqual({ approvalsNeeded: 30, draftExpiresMinutes: 240 });
   });
 
+  it('lists each phone call change once, in the words its history uses', async () => {
+    const { card } = await prepare('update_ai_teammate_rules', {
+      answersPhoneCalls: false,
+      phonePicksUp: 'always',
+      phoneVoice: 'bright',
+      phoneGreeting: 'Thanks for calling Extra HVAC!',
+    });
+    expect(card.fields).toEqual([
+      { label: 'Phone calls', value: 'on → off' },
+      { label: 'Answers calls', value: 'when nobody picks up → every call' },
+      { label: 'Phone voice', value: 'calm → bright' },
+      { label: 'Phone greeting', value: 'Thanks for calling Extra HVAC!' },
+    ]);
+  });
+
   it('says what is wrong instead of saving something the settings refuse', async () => {
     await expect(
       prepare('update_ai_teammate_rules', {
@@ -445,7 +460,8 @@ describe('your own alerts and side menu', () => {
     expect(field(hide.card, 'Hide')!.value).toBe('Audit log and Campaigns');
     expect(field(hide.card, 'Your menu')!.value).toBe('15 in the menu · 2 hidden');
     expect((await me()).user.settings['menu']).toBeUndefined();
-    await confirm('arrange_my_menu', hide.parsed);
+    // The web's menu reads the saved menu again once this is confirmed, so there's no reload to ask for.
+    expect((await confirm('arrange_my_menu', hide.parsed)).outcome).toBe('Menu saved');
     expect(menuOf((await me()).user.settings).hidden).toEqual(['audit', 'campaigns']);
 
     const home = await prepare('arrange_my_menu', { action: 'hide', places: ['home'] });

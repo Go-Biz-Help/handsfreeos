@@ -807,7 +807,7 @@ export const assistantTools = [
   define({
     name: 'manage_ai_teammate',
     description:
-      'Set up or change the AI teammate: its name, how it says it is AI, whether it is off, on training wheels (every message waits for a person) or automatic, which channels it answers, its hours, what it may do (reply, answer questions, qualify, book, follow up) and its limits. Read it with get_settings first.',
+      'Set up or change the AI teammate: its name, how it says it is AI, whether it is off, on training wheels (every message waits for a person) or automatic, which channels it answers, its hours, what it may do (respond, answer questions, qualify, book, follow up) and its limits. repliesToLeads is the switch on its whole Respond section: off, new leads get no first message at all, but it still answers people who write in (its channels, hours and status decide that). To start or stop only the first message to new leads, use update_automations with new_lead_greeting. Read it with get_settings first.',
     input: z.object({
       action: z.enum(['create', 'change', 'set_status']),
       preset: z
@@ -826,7 +826,12 @@ export const assistantTools = [
       answersTexts: z.boolean().optional(),
       answersEmail: z.boolean().optional(),
       answersWebsiteChat: z.boolean().optional(),
-      repliesToLeads: z.boolean().optional(),
+      repliesToLeads: z
+        .boolean()
+        .optional()
+        .describe(
+          'The Respond section’s switch. Off: no first message to new leads, even with new_lead_greeting on',
+        ),
       answersQuestions: z.boolean().optional(),
       booksVisits: z.boolean().optional(),
       bookableCalendarIds: z.array(uuid).max(20).optional(),

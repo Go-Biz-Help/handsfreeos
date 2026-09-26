@@ -761,6 +761,50 @@ describe('the AI teammate', () => {
     expect(after.teammate.name).toBe(before.teammate.name);
     expect(after.teammate.config.answer.enabled).toBe(before.teammate.config.answer.enabled);
   });
+
+  it('keeps Respond and the New lead greeting apart, and says how they go together', async () => {
+    type Respond = { enabled: boolean; newLeads: { enabled: boolean } };
+    const respond = async () =>
+      (await q<{ teammate: { config: { respond: Respond } } }>('ai_teammate.get')).teammate.config
+        .respond;
+    const off = await prepare(
+      'manage_ai_teammate',
+      { action: 'change', repliesToLeads: false },
+      owner,
+    );
+    expect(off.card.fields).toContainEqual({ label: 'Respond', value: 'Off' });
+    expect(off.card.warnings[0]!.text).toBe(
+      'New leads get no first message while Respond is off, even with New lead greeting on. Ava still answers people who write in.',
+    );
+    await confirm(off.tool!, off.parsed, owner);
+    // Only the section's own switch: the greeting inside it stays as it was.
+    expect(await respond()).toMatchObject({ enabled: false, newLeads: { enabled: true } });
+
+    const greetingOff = await prepare(
+      'update_automations',
+      { turnOff: ['new_lead_greeting'] },
+      owner,
+    );
+    await confirm(greetingOff.tool!, greetingOff.parsed, owner);
+    expect(await respond()).toMatchObject({ enabled: false, newLeads: { enabled: false } });
+    const greetingOn = await prepare(
+      'update_automations',
+      { turnOn: ['new_lead_greeting'] },
+      owner,
+    );
+    expect(greetingOn.card.warnings.map((w) => w.text)).toContain(
+      'Not working until set up: New lead greeting: Turn on Respond on the AI teammate’s page to start.',
+    );
+
+    const on = await prepare(
+      'manage_ai_teammate',
+      { action: 'change', repliesToLeads: true },
+      owner,
+    );
+    expect(on.card.warnings[0]!.text).toContain('only once New lead greeting is on too');
+    await confirm(on.tool!, on.parsed, owner);
+    expect(await respond()).toMatchObject({ enabled: true, newLeads: { enabled: false } });
+  });
 });
 
 describe('your own account', () => {

@@ -79,7 +79,6 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const joinAnd = (items: readonly string[]) =>
   items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
-const onOff = (v: boolean) => (v ? 'on' : 'off');
 /** Customer-bound wording keeps straight quotes: a curly one sends a text in the slower encoding. */
 const straight = (s: string | undefined) => s?.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
 /** Somebody else's words, marked so the model reads them as what they wrote and nothing more. */
@@ -370,11 +369,6 @@ const KIND_WORDS: Record<QuestionKind, string> = {
   yes_no: 'yes or no',
   number: 'number',
 };
-const PICKS_UP: Record<string, string> = {
-  no_answer: 'When nobody picks up',
-  after_hours: 'When you’re closed',
-  always: 'Every call',
-};
 
 function questionWords(q: QualifyingQuestion): string {
   const parts = [`“${q.question}”`, KIND_WORDS[q.kind]];
@@ -390,7 +384,12 @@ function questionWords(q: QualifyingQuestion): string {
 /** Each rule that changes, before → after, in the words the teammate's history uses. */
 function ruleFields(a: TeammateConfig, b: TeammateConfig, catalogs: TeammateCatalogs): Field[] {
   const fields: Field[] = [];
-  const TEXT_LINES = ['Signature changed', 'Tone note changed', 'Hand-off message changed'];
+  const TEXT_LINES = [
+    'Signature changed',
+    'Tone note changed',
+    'Hand-off message changed',
+    'Phone greeting changed',
+  ];
   for (const line of diffTeammateConfigs(a, b, catalogs)) {
     // Questions and the wording get lines of their own below, with what they now say.
     if (/^(Added|Changed|Removed) the question /.test(line) || TEXT_LINES.includes(line)) continue;
@@ -418,21 +417,8 @@ function ruleFields(a: TeammateConfig, b: TeammateConfig, catalogs: TeammateCata
     fields.push({ label: 'Tone', value: b.identity.toneNote || 'Only your tone of voice' });
   if (a.handOff.tellCustomer !== b.handOff.tellCustomer)
     fields.push({ label: 'Tells the customer', value: b.handOff.tellCustomer });
-  // The history's lines leave phone calls out; the card doesn't.
-  if (a.phone.enabled !== b.phone.enabled)
-    fields.push({
-      label: 'Answers phone calls',
-      value: `${onOff(a.phone.enabled)} → ${onOff(b.phone.enabled)}`,
-    });
-  if (a.phone.answer !== b.phone.answer)
-    fields.push({
-      label: 'Picks up',
-      value: `${PICKS_UP[a.phone.answer]} → ${PICKS_UP[b.phone.answer]}`,
-    });
-  if (a.phone.voice !== b.phone.voice)
-    fields.push({ label: 'Voice', value: `${a.phone.voice} → ${b.phone.voice}` });
   if (a.phone.greeting !== b.phone.greeting)
-    fields.push({ label: 'Greeting', value: b.phone.greeting || 'The usual greeting' });
+    fields.push({ label: 'Phone greeting', value: b.phone.greeting || 'The usual greeting' });
   return capFields(fields);
 }
 
@@ -718,6 +704,9 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
       if (def.effect === 'texts' || def.effect === 'calls') reaching.push(def.label);
       const after = automationRow(def, at);
       if (after.needsSetup) notes.push(`${def.label}: ${after.needsSetup.text}`);
+      // The greeting is one switch inside the teammate's Respond section, which has a switch of its own.
+      else if (id === 'new_lead_greeting' && state.teammate?.config.respond.enabled === false)
+        notes.push(`${def.label}: Turn on Respond on the AI teammate’s page to start.`);
     }
   }
 
@@ -1077,7 +1066,7 @@ const arrangeMyMenu: SettingsConfirmTool = {
     // `settings.menu` is replaced whole, the same save the menu editor makes.
     await command(db, ctx, 'user.update_profile', { settings: { menu: storedMenu(next) } });
     return {
-      outcome: 'Menu saved. Reload the page to see it.',
+      outcome: 'Menu saved',
       href: `/app/w/${ctx.workspaceId}/settings`,
       command: 'user.update_profile',
     };

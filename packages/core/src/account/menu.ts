@@ -440,6 +440,9 @@ export const MENU_WORDS = {
   save: 'Save menu',
   saving: 'Saving',
   saved: 'Menu saved.',
+  /** A newer menu was saved (from the Assistant, or on another device) while the editor was open. */
+  changedMeanwhile:
+    'Your menu was changed somewhere else while this was open. Here it is now. Make your change again, then save.',
   cancel: 'Cancel',
   groupsFull: `A menu holds up to ${MENU_GROUPS_MAX} groups.`,
 } as const;

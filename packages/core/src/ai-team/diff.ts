@@ -9,6 +9,7 @@ import {
   followUpLadderWords,
   type DisclosureMode,
   type HoursMode,
+  type PhoneAnswerMode,
   type QuoteMode,
   type TeammateConfig,
   type UnsureAction,
@@ -29,6 +30,12 @@ export const QUOTE_MODE_NAMES: Readonly<Record<QuoteMode, string>> = {
   off: 'off',
   send_only: 'sends the team’s quotes',
   build: 'builds and sends quotes',
+};
+
+export const PHONE_ANSWER_NAMES: Readonly<Record<PhoneAnswerMode, string>> = {
+  no_answer: 'when nobody picks up',
+  after_hours: 'when you’re closed',
+  always: 'every call',
 };
 
 const UNSURE_NAMES: Readonly<Record<UnsureAction, string>> = {
@@ -105,6 +112,12 @@ export function diffTeammateConfigs(
   change('Website chat', a.channels.chat, b.channels.chat, onOff);
   change('Emails from', a.channels.emailAddressId, b.channels.emailAddressId, address);
   change('Chat widget', a.channels.widgetId, b.channels.widgetId, widget);
+
+  // Phone calls, shown with the channels on the page
+  change('Phone calls', a.phone.enabled, b.phone.enabled, onOff);
+  change('Answers calls', a.phone.answer, b.phone.answer, (v) => PHONE_ANSWER_NAMES[v]);
+  change('Phone voice', a.phone.voice, b.phone.voice);
+  if (a.phone.greeting !== b.phone.greeting) lines.push('Phone greeting changed');
 
   // Respond and answer
   change('Replies to leads', a.respond.enabled, b.respond.enabled, onOff);

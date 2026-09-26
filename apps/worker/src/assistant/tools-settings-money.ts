@@ -562,6 +562,14 @@ const manageAiTeammate: SettingsConfirmTool = {
       };
     }
     const creating = act === 'create';
+    // Respond's switch covers its whole section; the New lead greeting is only the first message inside it.
+    const respond = bool(args['repliesToLeads']);
+    const respondNote =
+      respond === false
+        ? `New leads get no first message while Respond is off, even with New lead greeting on. ${str(args['name']) ?? teammate?.name ?? 'It'} still answers people who write in.`
+        : respond && teammate && !teammate.config.respond.newLeads.enabled
+          ? 'New leads get a first message only once New lead greeting is on too, in Settings → Automations.'
+          : null;
     const fields: Field[] = [
       { label: 'Teammate', value: str(args['name']) ?? teammate?.name ?? '' },
       ...(str(args['disclosure'])
@@ -581,6 +589,9 @@ const manageAiTeammate: SettingsConfirmTool = {
       ...(bool(args['answersWebsiteChat']) === undefined
         ? []
         : [{ label: 'Answers website chat', value: args['answersWebsiteChat'] ? 'Yes' : 'No' }]),
+      ...(bool(args['repliesToLeads']) === undefined
+        ? []
+        : [{ label: 'Respond', value: args['repliesToLeads'] ? 'On' : 'Off' }]),
       ...(bool(args['booksVisits']) === undefined
         ? []
         : [{ label: 'Books visits', value: args['booksVisits'] ? 'Yes' : 'No' }]),
@@ -616,14 +627,17 @@ const manageAiTeammate: SettingsConfirmTool = {
           : `Change ${teammate?.name ?? 'your AI teammate'}`,
         fields,
         confirmLabel: creating ? 'Set it up' : 'Save the change',
-        warnings: creating
-          ? [
-              {
-                kind: 'note',
-                text: 'It starts off. Put it on training wheels first, so every message waits for you.',
-              },
-            ]
-          : [],
+        warnings: [
+          ...(creating
+            ? [
+                {
+                  kind: 'note',
+                  text: 'It starts off. Put it on training wheels first, so every message waits for you.',
+                },
+              ]
+            : []),
+          ...(respondNote ? [{ kind: 'note', text: respondNote }] : []),
+        ],
       }),
       result: { waiting: true, creating },
     };
