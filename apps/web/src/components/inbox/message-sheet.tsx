@@ -158,16 +158,18 @@ function SheetThread({
   const t = useThread(workspaceId, data.conversation.id, loaded.thread);
   const first = firstName(person.fullName);
 
-  /** Cancel on a text held for quiet hours: it never goes. */
+  /** Cancel on a text held for quiet hours: it never goes. A failed text sent again goes back as it was. */
   async function cancelHeld(messageId: string) {
     try {
-      unwrap(
+      const out = unwrap(
         await apiBrowser().POST('/v1/commands/message.cancel_scheduled', {
           body: { workspaceId, messageId },
         }),
       );
-      t.forget(messageId);
-      toast.success(CONVERSATION_DONE.heldCancelled);
+      // A failed text tried again goes back to its old place, which may be further back than the newest page.
+      if (out.stays) void t.bringBack(messageId);
+      else t.forget(messageId);
+      toast.success(out.stays ? CONVERSATION_DONE.retryCancelled : CONVERSATION_DONE.heldCancelled);
     } catch (e) {
       toast.error(errorMessage(e));
       t.refresh();

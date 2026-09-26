@@ -99,11 +99,16 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
       '/public/founding/apply',
       { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
       async (req, reply) => {
-        const body = (req.body ?? {}) as Record<string, unknown>;
+        const { company_website_url: honeypot, ...body } = (req.body ?? {}) as Record<
+          string,
+          unknown
+        >;
         // The honeypot: a field no person sees and a crawler cannot resist. Answered 200, and dropped.
-        if (typeof body['company_website_url'] === 'string' && body['company_website_url'] !== '')
+        if (typeof honeypot === 'string' && honeypot !== '')
           return reply.code(200).send({ ok: true });
 
+        // Left empty it is still sent (the website's form posts every field), so it comes off before the strict
+        // schema reads the rest — otherwise every real application was refused as an unknown field.
         const input = parseBody(FoundingApplyInput, body);
         const [row] = await asWorker(deps.httpDb, {}, (tx) =>
           rows<ApplyRow>(

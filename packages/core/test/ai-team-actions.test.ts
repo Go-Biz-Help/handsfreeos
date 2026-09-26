@@ -369,6 +369,18 @@ describe('waitlist places for the customer in the conversation', () => {
     expect(later.output.alreadyWaiting).toBe(false);
   });
 
+  it('won’t wait for times that have passed, in the booking page’s words', async () => {
+    const ida = await aiChat(a, 'Ida');
+    const passed = () =>
+      asAva(a, { conversationId: ida.conversationId }, waitlistJoinForCustomer, {
+        workspaceId: a.wsId,
+        calendarId: weekly.id,
+        wantedFrom: new Date(Date.now() - 3 * 3600_000).toISOString(),
+        wantedTo: new Date(Date.now() - 3600_000).toISOString(),
+      });
+    await expect(passed()).rejects.toThrow('Pick times that haven’t passed.');
+  });
+
   it('are off when the teammate’s settings say so', async () => {
     await saveTeammate(a, { book: { waitlist: false } });
     const gus = await aiChat(a, 'Gus');

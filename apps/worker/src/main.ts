@@ -76,9 +76,15 @@ const services: EngineServices = {
   driving: createDriveTimer(env, log),
   speech: createSpeech(env, log),
   voiceAi: createVoiceAi(env),
-  aiModel: createModelPicker(env),
+  aiFor: createModelPicker(env),
   siteHost: createSiteHost(env),
-  opinly: createOpinly(env.opinlyApiKey),
+  // With Supabase's admin key it can also read the website visitor a person signed up as (opinly.ts).
+  opinly: createOpinly(
+    env.opinlyApiKey,
+    env.supabaseUrl && env.supabaseSecretKey
+      ? { url: env.supabaseUrl, secretKey: env.supabaseSecretKey }
+      : null,
+  ),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
@@ -146,7 +152,11 @@ const loopDeps = { ...services, workerId, batchSize: env.batchSize };
 
 const model =
   env.assistantProvider === 'anthropic' && env.anthropicApiKey
-    ? new AnthropicProvider({ apiKey: env.anthropicApiKey, model: env.assistantModel })
+    ? new AnthropicProvider({
+        apiKey: env.anthropicApiKey,
+        model: env.assistantModel,
+        toolSearch: env.assistantToolSearch,
+      })
     : env.assistantProvider === 'scripted'
       ? scriptedAssistant()
       : null;

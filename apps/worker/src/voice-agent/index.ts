@@ -41,11 +41,11 @@ export function callModel(
   deps: {
     readonly ai: { readonly provider: AiProvider | null };
     readonly voiceAi?: AiProvider | null;
-    readonly aiModel?: ((model: string) => AiProvider) | null;
+    readonly aiFor?: ((model: string) => AiProvider) | null;
   },
   picked: string | null,
 ): AiProvider | null {
-  return (picked ? deps.aiModel?.(picked) : null) ?? deps.voiceAi ?? deps.ai.provider;
+  return (picked ? deps.aiFor?.(picked) : null) ?? deps.voiceAi ?? deps.ai.provider;
 }
 
 /** A separate model for calls (VOICE_MODEL), only with Claude: the scripted stand-in answers calls too. */

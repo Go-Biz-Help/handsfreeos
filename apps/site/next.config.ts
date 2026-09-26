@@ -2,6 +2,12 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    // Blog pictures come from Opinly's CDN (src/lib/opinly/paths.ts), and only from this account's folder of it.
+    remotePatterns: [
+      { protocol: 'https', hostname: 'cdn.opinly.ai', pathname: '/MzKcn0zBiTOQe3-OH3lIx/**' },
+    ],
+  },
   async redirects() {
     return [
       // The store listings and older notes point at /app; keep every spelling working.

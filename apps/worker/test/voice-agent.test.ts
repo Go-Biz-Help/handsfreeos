@@ -111,7 +111,7 @@ beforeAll(async () => {
   app = await buildHttpServer({
     ...w.s,
     // The model support picked for the business: the same stand-in, under that model's name.
-    aiModel: (model) => ({ id: usual.id, model, stream: (r, o) => usual.stream(r, o) }),
+    aiFor: (model) => ({ id: usual.id, model, stream: (r, o) => usual.stream(r, o) }),
     httpDb: testDbs().worker.db,
     verifyToken: null,
     webOrigins: ['http://localhost:3000'],

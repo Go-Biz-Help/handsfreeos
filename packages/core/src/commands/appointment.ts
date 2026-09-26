@@ -89,6 +89,7 @@ import {
   WaitlistRemoveInput,
   WaitlistRemoveOutput,
 } from '../schemas/calendar';
+import { wantedWindowIssue } from './waitlist-online';
 
 const MIN = 60_000;
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -826,6 +827,8 @@ export const seriesCreate = defineCommand({
     const { config } = calendar;
     if (!config.recurring.staffSeries)
       throw HfosError.rule('series_off', 409, 'Repeats are off for this calendar.');
+    if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
+    if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const sessions = config.schedule.mode === 'sessions';
     const occurrences = expandRecurrence(input.rule, input.firstDate, calendar.timeZone).slice(
       0,
@@ -873,6 +876,8 @@ export const seriesCreate = defineCommand({
           title: input.title,
           notes: input.notes,
           location: input.location,
+          leadId: input.leadId,
+          customRecordId: input.customRecordId,
           source: 'series',
           seriesId: series!.id,
           occurrence: occ.index + 1,
@@ -908,6 +913,8 @@ export const seriesCreate = defineCommand({
         calendarId: calendar.id,
         appointmentIds: created,
         skipped: skipped.length,
+        // The first visit's confirmation (handlers/appointment-messages.ts); the reminders go either way.
+        notify: input.notify,
       },
       after: {
         ...(await appointmentSnapshot(ctx.tx, first)),
@@ -931,7 +938,7 @@ export const seriesCancel = defineCommand({
   output: SeriesCancelOutput,
   permission: 'appointments.write',
   scope: inWorkspace,
-  emits: ['series.cancelled'],
+  emits: ['series.cancelled', 'waitlist.seat_freed'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
@@ -939,7 +946,8 @@ export const seriesCancel = defineCommand({
       throw HfosError.validation([
         { path: 'appointmentId', message: 'This appointment isn’t part of a series.' },
       ]);
-    await lockBooking(ctx.tx, appt.calendarId);
+    const calendar = await loadCalendar(ctx.tx, ws, appt.calendarId);
+    await lockBooking(ctx.tx, calendar.id);
     const now = await dbNow(ctx.tx);
     const scoped =
       input.scope === 'this'
@@ -989,6 +997,9 @@ export const seriesCancel = defineCommand({
       personIds: [...personIds],
       meta: { seriesId: appt.seriesId, cancelled: ids.length, reason: input.reason ?? null },
     });
+    // Each freed 1:1 time goes to the people waiting for it, as when one visit is cancelled (appointment.cancel).
+    for (const a of list)
+      if (a.kind === 'booking' && a.capacity === 1) await signalSeatFreed(ctx, calendar, a);
     return { seriesId: appt.seriesId, cancelled: ids };
   },
 });
@@ -1009,10 +1020,14 @@ export const waitlistAdd = defineCommand({
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     if (!calendar.config.waitlist.enabled)
       throw HfosError.rule('waitlist_off', 409, 'This calendar’s waitlist is off.');
+    const now = await dbNow(ctx.tx);
     if (input.appointmentId) {
       const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
       if (appt.calendarId !== calendar.id) throw HfosError.notFound('Appointment not found.');
       requireScheduled(appt);
+      // A wait for a session ends when it starts (waitlist.expire), as the booking page says.
+      if (appt.startsAt.getTime() <= now)
+        throw HfosError.rule('session_started', 409, 'This session has already started.');
       const [live] = await ctx.tx
         .select({ id: waitlistEntries.id, position: waitlistEntries.position })
         .from(waitlistEntries)
@@ -1024,8 +1039,16 @@ export const waitlistAdd = defineCommand({
           ),
         );
       if (live) return { entryId: live.id, position: live.position };
-    } else if (Date.parse(input.wantedTo!) <= Date.parse(input.wantedFrom!))
-      throw HfosError.validation([{ path: 'wantedTo', message: 'End after the start.' }]);
+    } else {
+      // The booking page's rule: a window of time that has all passed would only expire at once.
+      const issue = wantedWindowIssue(
+        Date.parse(input.wantedFrom!),
+        Date.parse(input.wantedTo!),
+        now,
+      );
+      // The words as the message too, so the Assistant and the API say what's wrong, not only the screen.
+      if (issue) throw HfosError.validation([{ path: 'wantedTo', message: issue }], issue);
+    }
     const contact = await attendeeFromPerson(ctx.tx, ws, input.personId, input.seats, 'staff');
     const [pos] = await rows<{ n: number }>(
       ctx.tx,
@@ -1081,14 +1104,26 @@ export const waitlistRemove = defineCommand({
   output: WaitlistRemoveOutput,
   permission: 'appointments.write',
   scope: inWorkspace,
-  emits: ['waitlist.removed'],
+  emits: ['waitlist.removed', 'waitlist.seat_freed'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
-    const [entry] = await ctx.tx
-      .select()
+    const mine = and(eq(waitlistEntries.id, input.entryId), eq(waitlistEntries.workspaceId, ws));
+    const [found] = await ctx.tx
+      .select({ calendarId: waitlistEntries.calendarId })
       .from(waitlistEntries)
-      .where(and(eq(waitlistEntries.id, input.entryId), eq(waitlistEntries.workspaceId, ws)));
+      .where(mine);
+    if (!found) throw HfosError.notFound('Waitlist entry not found.');
+    // The calendar's booking lock, then the entry's row, as taking an offer does (waitlist-offer.ts): a customer
+    // taking their offer right now finishes first or waits for this, so their booking is never undone here.
+    await lockBooking(ctx.tx, found.calendarId);
+    const [entry] = await ctx.tx.select().from(waitlistEntries).where(mine).for('update');
     if (!entry) throw HfosError.notFound('Waitlist entry not found.');
+    if (entry.status === 'booked')
+      throw HfosError.rule(
+        'already_booked',
+        409,
+        'They’re already booked from the waitlist. Cancel the booking instead.',
+      );
     if (entry.status !== 'waiting' && entry.status !== 'offered') return { entryId: entry.id };
     await ctx.tx
       .update(waitlistEntries)
@@ -1102,6 +1137,15 @@ export const waitlistRemove = defineCommand({
       before: { status: entry.status, position: entry.position },
       after: { status: 'removed' },
     });
+    // Someone taken off while holding an offer lets go of the time, so it goes to the next person waiting for
+    // it, as when an offer runs out (the worker offers it only while it’s still open).
+    const offer =
+      entry.status === 'offered' ? (entry.offer as { fromAppointmentId?: unknown }) : null;
+    if (typeof offer?.fromAppointmentId === 'string') {
+      const calendar = await loadCalendar(ctx.tx, ws, entry.calendarId);
+      const freed = await requireAppointment(ctx.tx, ws, offer.fromAppointmentId);
+      await signalSeatFreed(ctx, calendar, freed);
+    }
     return { entryId: entry.id };
   },
 });

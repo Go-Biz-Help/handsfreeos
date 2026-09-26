@@ -19,7 +19,7 @@ export function registerTeammateRoutes(app: FastifyInstance, deps: HttpDeps): vo
       db: deps.httpDb,
       ai: deps.ai,
       voiceAi: deps.voiceAi,
-      aiModel: deps.aiModel,
+      aiFor: deps.aiFor,
       webUrl: deps.webUrl,
       log: deps.log,
       wallet: deps.wallet,

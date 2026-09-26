@@ -1951,6 +1951,26 @@ describe('the teammate’s settings and status', () => {
     });
   });
 
+  it('keeps phone call changes in its history', async () => {
+    const before = parseTeammateConfig(
+      (await ask(aiTeammateGet, { workspaceId: a.wsId }, a.owner)).teammate!.config,
+    ).phone;
+    const on = await saveTeammate(a, {
+      phone: { enabled: true, answer: 'after_hours', voice: 'deep', greeting: 'Hi there!' },
+    });
+    expect(on.changes).toEqual([
+      'Phone calls: off → on',
+      'Answers calls: when nobody picks up → when you’re closed',
+      'Phone voice: warm → deep',
+      'Phone greeting changed',
+    ]);
+    const seen = await ask(aiTeammateGet, { workspaceId: a.wsId }, a.owner);
+    expect(seen.revisions[0]).toMatchObject({ revision: on.revision, diffSummary: on.changes });
+    // Back as it was, so the tests after this one start from the same settings.
+    const off = await saveTeammate(a, { phone: before });
+    expect(off.changes).toContain('Phone calls: on → off');
+  });
+
   it('carries calendar colours and lengths, whether prices are allowed, and today’s AI use', async () => {
     const get = () => ask(aiTeammateGet, { workspaceId: a.wsId }, a.member);
     const before = await get();

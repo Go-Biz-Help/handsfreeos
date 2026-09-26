@@ -20,6 +20,8 @@ import {
   onConfirmedThanks,
   onMovedNotice,
   onReassignedNotice,
+  onSeriesCancelledNotice,
+  onSeriesConfirm,
 } from './appointment-messages';
 import { onJobStatusChanged } from '../booking/job-texts';
 import {
@@ -60,6 +62,7 @@ import { onWalletLow } from '../money/recharge';
 import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
 import { onFoundingCheckoutRequested, onFoundingPaid } from '../founding/checkout';
+import { onBusinessCreated } from '../opinly';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
@@ -90,7 +93,7 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import type { HandlerMap } from './types';
-import { onSeatFreed } from './waitlist';
+import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
 
 /**
  * Event type → handler, or several run in order in one transaction (a retry runs them all again). Events
@@ -176,6 +179,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'founding.checkout_requested': onFoundingCheckoutRequested,
     // …and paid for: the website's analytics hears of it from a job, when it has a key (founding/checkout.ts).
     'founding.paid': onFoundingPaid,
+    // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).
+    'workspace.created': onBusinessCreated,
     // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
     // for the same reason a refund is. `wallet.empty` brings no second attempt — by then the top-up has
     // already been tried — but it does bring the email, because a push can be switched off and at zero we do
@@ -221,10 +226,21 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onArmJobCheck,
     ],
     'appointment.updated': onAppointmentChanged,
-    'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice, onArmJobCheck],
+    'appointment.rescheduled': [
+      onAppointmentChanged,
+      onArmReminders,
+      onMovedNotice,
+      onArmJobCheck,
+      onWaitedForChanged,
+    ],
     'appointment.still_going': onStillGoing,
     'appointment.reassigned': [onAppointmentChanged, onReassignedNotice],
-    'appointment.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
+    'appointment.cancelled': [
+      onAppointmentChanged,
+      onCancelledNotice,
+      onCancelledTeamEmail,
+      onWaitedForChanged,
+    ],
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
     'message.received': [onMessageReferral, onEngaged],
@@ -257,9 +273,11 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // M18: a job's status or note changed: the customer hears about it (booking/job-texts.ts).
     'job.status_changed': onJobStatusChanged,
     'session.published': onAppointmentChanged,
-    'series.created': [onAppointmentChanged, onArmReminders],
-    'series.cancelled': onAppointmentChanged,
+    'series.created': [onAppointmentChanged, onArmReminders, onSeriesConfirm],
+    'series.cancelled': [onAppointmentChanged, onSeriesCancelledNotice, onWaitedForChanged],
     'waitlist.seat_freed': onSeatFreed,
+    // A wait ends with the window of time, or when the session starts or is cancelled (booking/waitlist.ts).
+    'waitlist.added': onWaitlistAdded,
     // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
     'knowledge_scan.requested': onKnowledgeScanRequested,
     'knowledge_document.added': onKnowledgeDocumentAdded,

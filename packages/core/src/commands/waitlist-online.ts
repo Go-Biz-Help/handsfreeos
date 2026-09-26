@@ -77,6 +77,17 @@ async function enforceCaps(
 const tooMany = () =>
   HfosError.validation([{ path: 'seats', message: 'That’s more people than one booking holds.' }]);
 
+/**
+ * What's wrong with a window of time someone wants to wait for, in plain words, or null. It ends after it starts
+ * and some of it is still to come: a wait for times already gone would only end at once (waitlist.expire). Staff
+ * adding someone (waitlist.add) are held to the same rule.
+ */
+export function wantedWindowIssue(from: number, to: number, now: number): string | null {
+  if (!(to > from)) return 'End after the start.';
+  if (to <= now) return 'Pick times that haven’t passed.';
+  return null;
+}
+
 export const waitlistJoinOnline = defineCommand({
   name: 'waitlist.join_online',
   description:
@@ -128,13 +139,9 @@ export const waitlistJoinOnline = defineCommand({
     } else {
       const from = Date.parse(input.wantedFrom!);
       const to = Date.parse(input.wantedTo!);
-      const issue = !(to > from)
-        ? 'End after the start.'
-        : to <= now
-          ? 'Pick times that haven’t passed.'
-          : to - from > 90 * DAY
-            ? 'Pick 90 days or fewer.'
-            : null;
+      const issue =
+        wantedWindowIssue(from, to, now) ??
+        (to - from > 90 * DAY ? 'Pick 90 days or fewer.' : null);
       if (issue) throw HfosError.validation([{ path: 'wantedTo', message: issue }]);
       if (input.seats > resolveTerms(calendar.config, null).maxPartySize) throw tooMany();
     }

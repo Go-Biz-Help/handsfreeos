@@ -5,5 +5,5 @@
 export * from './types';
 export { AiOutputError, parseStructured } from './structured';
 export { structuredOutputSchema } from './json-schema';
-export { AnthropicProvider, type AnthropicOptions } from './anthropic';
+export { AnthropicProvider, searchesTools, type AnthropicOptions } from './anthropic';
 export { ScriptedProvider, writeToolCalls, type ScriptRule } from './scripted';

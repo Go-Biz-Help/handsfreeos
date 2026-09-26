@@ -628,11 +628,39 @@ describe('converting an estimate', () => {
 
   it('refuses to invoice a draft', async () => {
     const made = await newEstimate();
-    await expectHfos(
+    const err = await expectHfos(
       () => run(estimateConvert, { workspaceId: w.wsId, estimateId: made.estimateId }, w.owner),
       'rule_violation',
       'estimate_not_answered',
     );
+    expect(err.message).toBe('Send the estimate before invoicing it.');
+  });
+
+  it('says in plain words why a declined, expired or voided estimate can’t be invoiced', async () => {
+    const said = {
+      declined: 'A declined estimate can’t be invoiced. Make a new one instead.',
+      expired: 'An expired estimate can’t be invoiced. Make a new one instead.',
+      void: 'A voided estimate can’t be invoiced. Make a new one instead.',
+    };
+    for (const [status, words] of Object.entries(said)) {
+      const made = await newEstimate();
+      const ref = { workspaceId: w.wsId, estimateId: made.estimateId };
+      await run(estimateSend, ref, w.owner);
+      if (status === 'declined') await sys(estimateDeclineOnline, { ...ref, name: 'Maria L.' });
+      else if (status === 'void') await run(estimateVoid, ref, w.owner);
+      // What the worker's estimate.expire does once its date has passed.
+      else
+        await rows(
+          admin(),
+          sql`update app.estimates set status = 'expired' where id = ${made.estimateId}`,
+        );
+      const err = await expectHfos(
+        () => run(estimateConvert, { workspaceId: w.wsId, estimateId: made.estimateId }, w.owner),
+        'rule_violation',
+        'estimate_not_answered',
+      );
+      expect(err.message).toBe(words);
+    }
   });
 });
 

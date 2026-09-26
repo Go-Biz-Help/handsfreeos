@@ -1,11 +1,34 @@
-import { conversationOf, type ConversationListRow, type ThreadItemShape } from '@hfos/core';
+import {
+  CONVERSATION_DONE,
+  conversationOf,
+  threadItemsOf,
+  type ConversationListRow,
+  type MessageThreadRow,
+  type ThreadItemShape,
+} from '@hfos/core';
 
+import { FakePowerSync } from '@/changes/__tests__/fake-powersync';
+import type { ChangeOptions } from '@/changes/controller';
 import type { OutboxRow } from '@/changes/outbox';
 import { pendingLine, quietFactsOf } from '@/components/inbox/pending-reply';
+import { toast } from '@/components/ui/toast';
 
+import { conversationActions } from '../actions';
 import { CALL_REQUEST_KEPT_MS, callRequests, startCall } from '../calls';
 import { cancelledHere, pendingReplies, replyStage, withOwnChanges } from '../outbox';
+import { MESSAGES_SQL } from '../queries';
 import { noteOf, threadEntries } from '../thread-entries';
+
+// A change made here writes its optimistic rows to the phone's copy (real SQLite) and waits for signal.
+let mockCopy: FakePowerSync;
+jest.mock('@/changes', () => ({
+  change: jest.fn(async (_name: string, _input: unknown, options?: ChangeOptions) => {
+    await mockCopy.writeTransaction(async (tx) => {
+      await options?.optimistic?.(tx);
+    });
+    return { id: 'change-1', queued: true };
+  }),
+}));
 
 /**
  * The inbox on the phone: a conversation as this phone's own changes leave it, the replies written here that the thread
@@ -298,6 +321,66 @@ describe('replies written on this phone', () => {
     const cancel = row('message.cancel_scheduled', { messageId: 'm-held' });
     const refused = row('message.cancel_scheduled', { messageId: 'm-gone' }, { state: 'refused' });
     expect([...cancelledHere([cancel, refused])]).toEqual(['m-held']);
+  });
+
+  it('cancelled here, a held text leaves the thread and a failed one tried again goes back, not delivered', async () => {
+    mockCopy = new FakePowerSync();
+    const morning = '2026-09-18T13:00:00.000Z';
+    const failedAt = '2026-09-17T14:05:00.000Z';
+    const insert = (id: string, body: string, failedAttempt: object | null) =>
+      mockCopy.execute(
+        `INSERT INTO messages (id, workspace_id, conversation_id, channel, direction, status, body_text, media,
+           error_code, error_message, occurred_at, failed_attempt)
+         VALUES (?, ?, ?, 'sms', 'outbound', 'queued', ?, '[]', 'scheduled', NULL, ?, ?)`,
+        [id, WS, CONV, body, morning, failedAttempt ? JSON.stringify(failedAttempt) : null],
+      );
+    await insert('m-new', 'See you at 8', null);
+    await insert('m-retry', 'Your filter came in', {
+      status: 'undelivered',
+      errorCode: '30003',
+      errorMessage: 'The carrier turned it away.',
+      occurredAt: failedAt,
+    });
+    // The thread as useThread reads it: the phone's copy, less held texts cancelled here.
+    const thread = async (outbox: OutboxRow[] = []) =>
+      threadItemsOf(
+        await mockCopy.getAll<MessageThreadRow>(MESSAGES_SQL, [WS, JSON.stringify([CONV])]),
+        [],
+      ).filter((i) => !(i.scheduledFor && cancelledHere(outbox).has(i.id)));
+    expect((await thread()).map((i) => [i.id, i.scheduledFor])).toEqual([
+      ['m-new', morning],
+      ['m-retry', morning],
+    ]);
+
+    const show = jest.spyOn(toast, 'show').mockImplementation(() => 1);
+    const actions = conversationActions({
+      workspaceId: WS,
+      conversationId: CONV,
+      myUserId: DALE.id,
+    });
+    expect(await actions.cancelHeld('m-new')).toBe(true);
+    expect(show).toHaveBeenLastCalledWith(CONVERSATION_DONE.heldCancelled);
+    expect(await actions.cancelHeld('m-retry')).toBe(true);
+    expect(show).toHaveBeenLastCalledWith(CONVERSATION_DONE.retryCancelled);
+    show.mockRestore();
+
+    // At once, with no signal: the new one is gone, and the retry is back where it was, as it was.
+    const cancels = ['m-new', 'm-retry'].map((messageId) =>
+      row('message.cancel_scheduled', { messageId }),
+    );
+    expect(await thread(cancels)).toEqual([
+      expect.objectContaining({
+        id: 'm-retry',
+        occurredAt: failedAt,
+        status: 'undelivered',
+        errorCode: '30003',
+        errorMessage: 'The carrier turned it away.',
+        scheduledFor: null,
+      }),
+    ]);
+    expect(
+      await mockCopy.getOptional('SELECT failed_attempt FROM messages WHERE id = ?', ['m-retry']),
+    ).toEqual({ failed_attempt: null });
   });
 });
 

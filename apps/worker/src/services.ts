@@ -64,7 +64,7 @@ export interface WorkerServices {
    * The AI thinking with a model named at run time: a business's phone model, which support picks in /admin
    * (voice-agent/index.ts callModel). Null when only the usual models can answer (the scripted stand-in).
    */
-  readonly aiModel: ((model: string) => AiProvider) | null;
+  readonly aiFor: ((model: string) => AiProvider) | null;
   /**
    * Where a business's own domain is served from (M17). **Null when nobody has turned it on**, which every
    * handler checks: the feature is absent rather than present and failing.

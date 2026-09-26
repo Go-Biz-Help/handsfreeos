@@ -182,6 +182,16 @@ export function estimateMoveProblem(from: EstimateStatus, to: EstimateStatus): s
   return `${ESTIMATE_SUBJECT[from]} can’t be ${ESTIMATE_PAST[to]}.`;
 }
 
+/**
+ * Why an estimate can't be turned into an invoice, or null when it can (sent, or approved). estimate.convert and
+ * the Assistant say the same.
+ */
+export function estimateInvoiceProblem(status: EstimateStatus): string | null {
+  if (status === 'sent' || status === 'accepted') return null;
+  if (status === 'draft') return 'Send the estimate before invoicing it.';
+  return `${ESTIMATE_SUBJECT[status]} can’t be invoiced. Make a new one instead.`;
+}
+
 /** Why an invoice can't move there, in a sentence the screen can show, or null. */
 export function invoiceMoveProblem(from: InvoiceStatus, to: InvoiceStatus): string | null {
   if (from === to || canInvoiceMove(from, to)) return null;

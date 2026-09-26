@@ -23,7 +23,7 @@ import { contactAiJobs } from './contact-ai/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
-import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
+import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
@@ -70,6 +70,7 @@ import {
   SPEECH_JOBS,
 } from './money/speech-usage';
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
+import { opinlyJobs } from './opinly';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
 import { SUPPORT_JOBS } from './support/draft';
@@ -304,6 +305,9 @@ export const jobs: JobMap = {
   // A time held while a customer pays a deposit, given back when nobody does (booking/deposit.ts).
   ...depositJobs,
   'waitlist.offer_expire': waitlistOfferExpire,
+  // A wait ended once its window of time has passed, or its session has started or been cancelled: the same
+  // command as an offer running out.
+  [WINDOW_END_JOB]: waitlistOfferExpire,
   'knowledge.scan': knowledgeScanJob,
   'knowledge.document': knowledgeDocumentJob,
   // Workflows: each run's cursor, schedules, date triggers, releasing held runs, pruning old step logs.
@@ -332,6 +336,8 @@ export const jobs: JobMap = {
   // Founding seats (0093): a Checkout page made at Stripe, and the hourly sweep that gives back reservations
   // nobody took up or paid for (founding/checkout.ts).
   ...foundingJobs,
+  // Sign-ups and checkouts opened, sent to Opinly with retries of their own (opinly.ts).
+  ...opinlyJobs,
   // Money: an invoice's message and its reminders, marking one overdue, an estimate's message, its nudge and
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).

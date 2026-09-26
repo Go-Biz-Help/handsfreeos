@@ -34,6 +34,7 @@ import {
   scheduleTeam,
   serviceList,
   territoryList,
+  waitlistList,
 } from './calendar';
 import { companyGet, companyList } from './company';
 import {
@@ -159,6 +160,7 @@ export {
   calendarAvailability,
   appointmentList,
   appointmentGet,
+  waitlistList,
   scheduleTeam,
   serviceList,
   resourceList,
@@ -222,6 +224,7 @@ export const queries: readonly QueryDef[] = [
   calendarAvailability,
   appointmentList,
   appointmentGet,
+  waitlistList,
   scheduleTeam,
   serviceList,
   resourceList,

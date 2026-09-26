@@ -89,7 +89,7 @@ export function testServices(
     driving: roughDriveTimer,
     speech: createFakeSpeech(),
     voiceAi: null,
-    aiModel: null,
+    aiFor: null,
     // The in-memory host: a branded domain can be driven end to end with no Vercel account (M17).
     siteHost: createFakeHost(),
     opinly: opts.opinly ?? null,

@@ -559,9 +559,19 @@ export const onConversationLinked: EventHandler = async (ctx) => {
   const earlier = await ctx.tx
     .select()
     .from(messages)
-    .where(and(eq(messages.conversationId, ctx.event.entityId), isNull(messages.activityId)))
+    .where(
+      and(
+        eq(messages.conversationId, ctx.event.entityId),
+        isNull(messages.activityId),
+        // Only what happened. A text that never went (still held from the start, cancelled, or refused when quiet
+        // hours ended) joins the timeline, and becomes the conversation's latest, when it first goes.
+        eq(messages.went, true),
+      ),
+    )
     .orderBy(asc(messages.occurredAt));
   for (const m of earlier) {
+    // A failed text tried again in quiet hours, still waiting, is on the timeline as the attempt that was made.
+    const was = m.failedAttempt;
     const [a] = await ctx.tx
       .insert(activities)
       .values({
@@ -570,14 +580,14 @@ export const onConversationLinked: EventHandler = async (ctx) => {
         subtype: m.direction,
         personId,
         body: m.bodyText || messagePreview(null, m.media.length) || null,
-        occurredAt: m.occurredAt,
+        occurredAt: was ? new Date(was.occurredAt) : m.occurredAt,
         authorUserId: null,
         actorType: 'system',
         meta: {
           direction: m.direction,
           messageId: m.id,
           conversationId: m.conversationId,
-          status: m.status,
+          status: was?.status ?? m.status,
           sentBy: m.sentBy,
           backfilled: true,
         },

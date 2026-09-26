@@ -100,7 +100,7 @@ export type BrainDeps = Pick<
   | 'log'
   | 'ai'
   | 'voiceAi'
-  | 'aiModel'
+  | 'aiFor'
   | 'wallet'
   | 'moneyLinks'
   | 'geocoder'

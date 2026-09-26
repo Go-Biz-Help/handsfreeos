@@ -5323,6 +5323,13 @@
               "type": "string"
             },
             "additionalProperties": {}
+          },
+          "expectedSettings": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           }
         }
       }
@@ -6255,6 +6262,7 @@
         "read_at": "timestamp with time zone",
         "rich": "jsonb",
         "button_reply": "jsonb",
+        "failed_attempt": "jsonb",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }
@@ -6859,6 +6867,7 @@
         "read_at": "timestamp with time zone",
         "rich": "jsonb",
         "button_reply": "jsonb",
+        "failed_attempt": "jsonb",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }

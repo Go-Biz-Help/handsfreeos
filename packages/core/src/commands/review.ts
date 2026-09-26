@@ -283,6 +283,24 @@ export const reviewReply = defineCommand({
   emits: ['review.replied'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
+    // An answer that can't be posted would sit here looking sent: Facebook doesn't let apps answer, and a
+    // connection that has lost its sign-in has nothing to post with.
+    const [found] = await ctx.tx
+      .select({ provider: reviews.provider, status: reviewConnections.status })
+      .from(reviews)
+      .leftJoin(reviewConnections, eq(reviewConnections.id, reviews.connectionId))
+      .where(and(eq(reviews.id, input.reviewId), eq(reviews.workspaceId, workspaceId)));
+    if (!found) throw HfosError.notFound('That review is not here.');
+    if (found.provider !== 'google')
+      throw HfosError.conflict(
+        'Facebook doesn’t let apps answer reviews, so this one is answered on Facebook itself.',
+        'review_not_answerable',
+      );
+    if (found.status !== 'connected' && found.status !== 'needs_attention')
+      throw HfosError.conflict(
+        'Google needs signing in again (Reviews shows Sign in again) before an answer can go up.',
+        'review_not_answerable',
+      );
     const [row] = await ctx.tx
       .update(reviews)
       .set({ replyBody: input.body, replyPostedAt: new Date(), replyBy: requireHuman(ctx).userId })

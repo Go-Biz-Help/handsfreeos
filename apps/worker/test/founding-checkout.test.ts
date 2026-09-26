@@ -347,20 +347,28 @@ describe('paying for a seat', () => {
     expect(s.payments.fake.platformCharges().some((c) => c.id === page.paymentRef)).toBe(true);
   });
 
-  it("tells the website's analytics once, with what was taken and the address the application used", async () => {
+  it("tells the website's analytics when the page opens, then once what was taken, with the address the application used", async () => {
     const { checkoutId, email } = await startPaying();
-    expect(reported).toEqual([]);
+    const seat = { value: 497, currency: 'USD', offer: PAID };
+    // Before any money only that somebody is at the till. (The owner's sign-up, from making the business, is
+    // reported too, and is not what this test is about.)
+    expect(reported.filter((r) => r.event !== 'sign_up')).toEqual([
+      {
+        event: 'begin_checkout',
+        properties: {
+          ...seat,
+          items: [{ item_id: PAID, item_name: 'Founding Customer', price: 497, quantity: 1 }],
+        },
+        opts: { externalEventId: `begin_checkout:${checkoutId}`, email },
+      },
+    ]);
     const page = s.payments.fake.checkouts().find((p) => p.checkoutId === checkoutId)!;
     await s.payments.fake.payCheckout(page.sessionRef);
     await drain();
     // The owner pays from an account under another address; the website only ever saw the application's.
     expect(owner.email).not.toBe(email);
-    expect(reported).toEqual([
-      {
-        event: 'purchase',
-        properties: { value: 497, currency: 'USD', offer: PAID },
-        opts: { externalEventId: checkoutId, email },
-      },
+    expect(reported.filter((r) => r.event === 'purchase')).toEqual([
+      { event: 'purchase', properties: seat, opts: { externalEventId: checkoutId, email } },
     ]);
   });
 
@@ -394,7 +402,7 @@ describe('paying for a seat', () => {
     await s.payments.fake.expireCheckout(page.sessionRef);
     await drain();
     expect((await checkout(checkoutId)).status).toBe('expired');
-    expect(reported).toEqual([]);
+    expect(reported.filter((r) => r.event === 'purchase')).toEqual([]);
     const [grant] = await rows<{ status: string }>(
       admin(),
       sql`select status::text as status from platform.founding_grants where id = ${grantId}::uuid`,

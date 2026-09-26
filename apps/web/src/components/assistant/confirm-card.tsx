@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { useId, useState } from 'react';
 import { toast } from 'sonner';
 import { StageBadge } from '@/components/crm/chips';
+import { mySettingsChanged } from '@/components/shell/menu-provider';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/field';
 import { Select } from '@/components/ui/input';
@@ -54,6 +55,13 @@ const WARNING: Record<string, { icon: LucideIcon; className: string }> = {
   scheduled: { icon: Clock, className: 'bg-accent-soft text-accent-text' },
 };
 const OTHER_WARNING = { icon: TriangleAlert, className: CAUTION };
+
+/** The tools that save the person's own settings: the side menu reads them again once one is confirmed. */
+const MY_SETTINGS_TOOLS: ReadonlySet<string> = new Set([
+  'arrange_my_menu',
+  'update_my_account',
+  'update_my_alerts',
+]);
 
 /** A move shows the old time struck through and the new one in bold. */
 const FIELD_VALUE: Record<string, string> = {
@@ -89,6 +97,8 @@ export async function decideCard(
       href: out.href,
       error: out.error,
     });
+    // The menu and the theme read the person's own settings once; they read them again after a change here.
+    if (status === 'confirmed' && MY_SETTINGS_TOOLS.has(card.tool)) mySettingsChanged();
     return status === 'confirmed'
       ? (out.outcome ?? ASSISTANT_CONFIRM_WORDS.done)
       : status === 'cancelled'

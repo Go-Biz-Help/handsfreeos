@@ -833,12 +833,18 @@ export const messageGet = defineQuery({
   permission: 'inbox.use',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const [row] = await rows<ThreadRow & { conversation_id: string }>(
+    const [row] = await rows<ThreadRow & { conversation_id: string; tried_again: boolean }>(
       ctx.tx,
-      sql`${messageBranch(input.workspaceId)} and m.id = ${input.messageId}`,
+      sql`select t.*, x.failed_attempt is not null as tried_again
+          from (${messageBranch(input.workspaceId)} and m.id = ${input.messageId}) t
+          join app.messages x on x.id = t.id`,
     );
     if (!row) throw HfosError.notFound('Message not found.');
-    return { message: threadItem(row), conversationId: row.conversation_id };
+    return {
+      message: threadItem(row),
+      conversationId: row.conversation_id,
+      triedAgain: row.tried_again && row.scheduled_for !== null,
+    };
   },
 });
 

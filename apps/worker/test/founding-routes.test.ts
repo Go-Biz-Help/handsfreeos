@@ -89,6 +89,16 @@ describe('POST /public/founding/apply', () => {
     expect(Number(stored[0]!.n)).toBe(1);
   });
 
+  it('takes the website form as it posts, with the hidden field left empty', async () => {
+    const res = await apply({
+      ...form(),
+      company_website_url: '',
+      source: 'https://handsfreeos.com/',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ status: 'pending', offerId: OFFER });
+  });
+
   it('drops a crawler that fills in the hidden field', async () => {
     const res = await apply({ ...form(), company_website_url: 'https://spam.example' });
     expect(res.statusCode).toBe(200);

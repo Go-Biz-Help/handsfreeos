@@ -383,7 +383,7 @@ export interface TurnDetector {
  * sends what they said without a button. The room's own noise is the quietest moment of the last second and a
  * half: talking always has gaps between words, and a fan or a truck outside doesn't, so neither counts as talking.
  * Until that much has been heard, anything plainly as loud as talking is talking, so someone who starts the moment
- * it listens isn't missed. The web reads loudness from the microphone's samples, the phone from the recorder's
+ * it listens, or after complete silence, isn't missed. The web reads loudness from the microphone's samples, the phone from the recorder's
  * meter; both are dBFS.
  */
 export function createTurnDetector(options: TurnDetectorOptions = {}): TurnDetector {
@@ -396,6 +396,8 @@ export function createTurnDetector(options: TurnDetectorOptions = {}): TurnDetec
   const waitMs = options.waitMs ?? 10_000;
   const maxMs = options.maxMs ?? SPEECH_TURN_MAX_MS;
   let start: number | null = null;
+  /** When the readings in `recent` began, unbroken by a whole window of nothing. */
+  let knownFrom: number | null = null;
   const recent: { at: number; db: number }[] = [];
   let loudSince: number | null = null;
   let lastLoud = 0;
@@ -411,11 +413,18 @@ export function createTurnDetector(options: TurnDetectorOptions = {}): TurnDetec
     feed(raw, at) {
       const db = Number.isFinite(raw) ? Math.min(0, Math.max(-120, raw)) : -120;
       if (start === null) start = at;
-      // A reading of nothing at all is a meter with nothing to say yet (Android's first), not a quiet room.
-      if (db > -100) recent.push({ at, db });
       while (recent.length && at - recent[0]!.at > windowMs) recent.shift();
+      // A reading of nothing at all is a meter with nothing to say yet (Android's first), not a quiet room.
+      if (db > -100) {
+        // Nothing heard for a whole window (a meter that wasn't ready, or a microphone gone completely
+        // silent) leaves the room unknown again, as when it started listening. Otherwise the first words
+        // after it would be the room's noise, and talking that rises and falls less than the margin would
+        // never count.
+        if (!recent.length) knownFrom = at;
+        recent.push({ at, db });
+      }
       const noise = recent.length ? Math.min(...recent.map((r) => r.db)) : floorDb - marginDb;
-      const young = at - start < windowMs;
+      const young = knownFrom === null || at - knownFrom < windowMs;
       const loud = db >= Math.max(floorDb, noise + marginDb) || (young && db >= talkingDb);
       level = Math.min(1, Math.max(0, (db - Math.max(noise, floorDb - marginDb)) / 30));
       if (loud) {

@@ -117,7 +117,7 @@ export interface ConsoleDeps {
   /** The model that thinks on a call (VOICE_MODEL), when it isn't the usual one. */
   readonly voiceAi?: AiProvider | null;
   /** The AI with a model named at run time: the business's phone model, when support picked one. */
-  readonly aiModel?: ((model: string) => AiProvider) | null;
+  readonly aiFor?: ((model: string) => AiProvider) | null;
   readonly webUrl: string;
   readonly log: Logger;
   /** The test chat's tokens are real tokens: a business trying its teammate out is charged for it like anything else. */

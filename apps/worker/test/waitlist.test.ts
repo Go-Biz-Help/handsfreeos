@@ -2,13 +2,24 @@
  * The waitlist on the real database, through the public routes: a freed seat in a session books the oldest
  * waiting customer that fits (and tells them), a seat moved to another session gets a notice with its new
  * link, and a freed 1:1 time is offered with a link that shows it, books it once, runs out to the next person,
- * and keeps someone's place when another customer took the time first.
+ * and keeps someone's place when another customer took the time first. A wait for a window of time ends
+ * quietly once the window has passed, and a wait for a session once it starts or is cancelled. Cancelling repeat
+ * visits offers each freed time the same way.
  */
-import { sessionPublish } from '@hfos/core/server';
+import {
+  appointmentCancel,
+  localDateOf,
+  personCreate,
+  seriesCancel,
+  seriesCreate,
+  sessionPublish,
+  waitlistAdd,
+  waitlistRemove,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { offerExpireKey } from '../src/booking/waitlist';
+import { offerExpireKey, windowEndKey } from '../src/booking/waitlist';
 import { dayShort } from '../src/booking/when';
 import {
   admin,
@@ -17,10 +28,12 @@ import {
   CHI,
   customer,
   drain,
+  emailsTo,
   errorOf,
   get,
   HOUR,
   iso,
+  jobRow,
   MIN,
   makeCalendar,
   makeWorld,
@@ -275,5 +288,236 @@ describe('offers for a freed 1:1 time', () => {
     );
     await runDue(w, [offerExpireKey(louEntry.id)]);
     expect((await entryOf(lou.email)).status).toBe('waiting');
+  });
+
+  it('passes a held time to the next person when the one holding it is taken off the list', async () => {
+    const t = at(5, '14:00');
+    const nan = await bookOnline(w, line.slug, t, customer('Nan'));
+    const oli = customer('Oli');
+    const pia = customer('Pia');
+    for (const c of [oli, pia])
+      await joinWaitlist(line.slug, { ...c, wantedFrom: iso(t - HOUR), wantedTo: iso(t + HOUR) });
+    await drain(w);
+    expect((await post(w, `/public/manage/${nan.manageToken}/cancel`, {})).statusCode).toBe(200);
+    await drain(w);
+    const held = await entryOf(oli.email);
+    expect(held.status).toBe('offered');
+
+    await run(w, waitlistRemove, { workspaceId: w.workspaceId, entryId: held.id });
+    await drain(w);
+    expect((await entryOf(oli.email)).status).toBe('removed');
+    expect(await entryOf(pia.email)).toMatchObject({
+      status: 'offered',
+      offer: { startsAt: iso(t) },
+    });
+    await waitForMail(pia.email, `A time opened: Tune-up line on ${dayShort(t, CHI)} at 2:00 PM`);
+  });
+});
+
+describe('a window of time that has passed', () => {
+  it('stops waiting once the window is over, and nobody is told', async () => {
+    const t = at(7, '14:00');
+    const uma = customer('Uma');
+    await joinWaitlist(line.slug, { ...uma, wantedFrom: iso(t - HOUR), wantedTo: iso(t + HOUR) });
+    await drain(w);
+    const entry = await entryOf(uma.email);
+    // Armed for the moment the window ends.
+    const armed = await jobRow(windowEndKey(entry.id));
+    expect(armed?.status).toBe('pending');
+    expect(new Date(armed!.run_at).getTime()).toBe(t + HOUR);
+    const sent = await emailsTo(w, uma.email);
+
+    // The afternoon comes and goes with no opening.
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '2 hours',
+            wanted_to = now() - interval '1 minute'
+          where id = ${entry.id}`,
+    );
+    await runDue(w, [windowEndKey(entry.id)]);
+    expect((await entryOf(uma.email)).status).toBe('expired');
+    expect(await emailsTo(w, uma.email)).toEqual(sent);
+  });
+
+  it('ends a lapsed offer’s wait when the time was taken and the window is over too', async () => {
+    const t = at(8, '14:00');
+    const vic = await bookOnline(w, line.slug, t, customer('Vic'));
+    const wes = customer('Wes');
+    await joinWaitlist(line.slug, { ...wes, wantedFrom: iso(t - HOUR), wantedTo: iso(t + HOUR) });
+    await drain(w);
+    expect((await post(w, `/public/manage/${vic.manageToken}/cancel`, {})).statusCode).toBe(200);
+    await drain(w);
+    const held = await entryOf(wes.email);
+    expect(held.status).toBe('offered');
+
+    // Someone books the time on the page first; then Wes's hold and his whole window run out.
+    await bookOnline(w, line.slug, t, customer('Xan'));
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '2 hours',
+            wanted_to = now() - interval '1 minute', offer_expires_at = now() - interval '1 minute'
+          where id = ${held.id}`,
+    );
+    await runDue(w, [offerExpireKey(held.id)]);
+    // With time left in the window he'd wait again (as Lou did); with none, the wait is over.
+    expect((await entryOf(wes.email)).status).toBe('expired');
+  });
+});
+
+describe('a session that has started or was cancelled', () => {
+  /** A class with both seats taken, so the only way on is to wait. */
+  const full = async (start: number) => {
+    const session = await publish(start);
+    for (const name of ['Kit', 'Lee'])
+      await bookOnline(w, classes.slug, start, { ...customer(name), sessionId: session });
+    return session;
+  };
+
+  it('stops waiting when the session is cancelled, and nobody is told', async () => {
+    const start = at(12, '11:00');
+    const session = await full(start);
+    const may = customer('May');
+    await joinWaitlist(classes.slug, { ...may, sessionId: session });
+    await drain(w);
+    const entry = await entryOf(may.email);
+    // Armed for the moment the session starts.
+    const armed = await jobRow(windowEndKey(entry.id));
+    expect(armed?.status).toBe('pending');
+    expect(new Date(armed!.run_at).getTime()).toBe(start);
+    const sent = await emailsTo(w, may.email);
+
+    await run(w, appointmentCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: session,
+      notify: false,
+    });
+    await drain(w);
+    expect((await entryOf(may.email)).status).toBe('expired');
+    expect(await emailsTo(w, may.email)).toEqual(sent);
+  });
+
+  it('stops waiting once the session starts', async () => {
+    const session = await full(at(13, '11:00'));
+    const ned = customer('Ned');
+    await joinWaitlist(classes.slug, { ...ned, sessionId: session });
+    await drain(w);
+    const entry = await entryOf(ned.email);
+    const sent = await emailsTo(w, ned.email);
+
+    // The class begins with nobody giving up a seat.
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '10 minutes',
+            ends_at = now() + interval '50 minutes'
+          where id = ${session}`,
+    );
+    await runDue(w, [windowEndKey(entry.id)]);
+    expect((await entryOf(ned.email)).status).toBe('expired');
+    expect(await emailsTo(w, ned.email)).toEqual(sent);
+  });
+
+  it('ends the waits for each session of a cancelled series', async () => {
+    const made = await run(w, seriesCreate, {
+      workspaceId: w.workspaceId,
+      calendarId: classes.id,
+      firstDate: localDateOf(at(15, '11:00'), CHI),
+      rule: { freq: 'weekly', count: 2, localTime: '11:00' },
+      userIds: [w.owner.id],
+    });
+    expect(made.appointmentIds).toHaveLength(2);
+    const entries: string[] = [];
+    for (const [i, appointmentId] of made.appointmentIds.entries()) {
+      const first = ['Ola', 'Pia'][i]!;
+      const { personId } = await run(w, personCreate, {
+        workspaceId: w.workspaceId,
+        firstName: first,
+        lastName: 'Waiting',
+        email: customer(first).email,
+      });
+      entries.push(
+        (
+          await run(w, waitlistAdd, {
+            workspaceId: w.workspaceId,
+            calendarId: classes.id,
+            appointmentId,
+            personId,
+          })
+        ).entryId,
+      );
+    }
+    await drain(w);
+
+    await run(w, seriesCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: made.appointmentIds[0]!,
+      scope: 'all',
+      notify: false,
+    });
+    await drain(w);
+    const statusOf = async (id: string) =>
+      (
+        await rows<{ status: string }>(
+          admin(),
+          sql`select status::text as status from app.waitlist_entries where id = ${id}`,
+        )
+      )[0]!.status;
+    expect([await statusOf(entries[0]!), await statusOf(entries[1]!)]).toEqual([
+      'expired',
+      'expired',
+    ]);
+  });
+});
+
+describe('a cancelled repeat', () => {
+  it('offers each visit it frees to the person waiting for that time, as cancelling one visit does', async () => {
+    const plan = await makeCalendar(w, 'Filter plan', {
+      waitlist: { enabled: true, offerMinutes: 60 },
+    });
+    const { personId } = await run(w, personCreate, {
+      workspaceId: w.workspaceId,
+      firstName: 'Rae',
+      lastName: 'Repeat',
+      email: customer('Rae').email,
+    });
+    // Three weekly visits at 9: the second and third are what Sue and Tom are waiting for.
+    const made = await run(w, seriesCreate, {
+      workspaceId: w.workspaceId,
+      calendarId: plan.id,
+      firstDate: localDateOf(at(9, '09:00'), CHI),
+      rule: { freq: 'weekly', count: 3, localTime: '09:00' },
+      personId,
+    });
+    expect(made.appointmentIds).toHaveLength(3);
+    const sue = customer('Sue');
+    const tom = customer('Tom');
+    await joinWaitlist(plan.slug, {
+      ...sue,
+      wantedFrom: iso(at(16, '08:00')),
+      wantedTo: iso(at(16, '11:00')),
+    });
+    await joinWaitlist(plan.slug, {
+      ...tom,
+      wantedFrom: iso(at(23, '08:00')),
+      wantedTo: iso(at(23, '11:00')),
+    });
+    await drain(w);
+
+    await run(w, seriesCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: made.appointmentIds[0]!,
+      scope: 'following',
+      notify: false,
+    });
+    await drain(w);
+    expect(await entryOf(sue.email)).toMatchObject({
+      status: 'offered',
+      offer: { startsAt: iso(at(16, '09:00')) },
+    });
+    expect(await entryOf(tom.email)).toMatchObject({
+      status: 'offered',
+      offer: { startsAt: iso(at(23, '09:00')) },
+    });
+    await waitForMail(sue.email, `A time opened: Filter plan on ${dayShort(at(16, '09:00'), CHI)}`);
+    await waitForMail(tom.email, `A time opened: Filter plan on ${dayShort(at(23, '09:00'), CHI)}`);
   });
 });

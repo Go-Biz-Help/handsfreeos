@@ -183,6 +183,22 @@ describe('diff', () => {
     ]);
   });
 
+  it('describes phone calls: on or off, when it answers, its voice and greeting', () => {
+    const a = emptyTeammateConfig();
+    const b = applyTeammatePatch(a, {
+      phone: { enabled: true, answer: 'always', voice: 'calm', greeting: 'Hi, this is Ava.' },
+    });
+    expect(diffTeammateConfigs(a, b)).toEqual([
+      'Phone calls: off → on',
+      'Answers calls: when nobody picks up → every call',
+      'Phone voice: warm → calm',
+      'Phone greeting changed',
+    ]);
+    expect(
+      diffTeammateConfigs(b, applyTeammatePatch(b, { phone: { answer: 'after_hours' } })),
+    ).toEqual(['Answers calls: every call → when you’re closed']);
+  });
+
   it('works without names', () => {
     const a = emptyTeammateConfig();
     const b = applyTeammatePatch(a, {
