@@ -196,7 +196,7 @@ export interface PortRequest {
 }
 
 /**
- * What a carrier lookup says about a number today (20261011000100). The carrier's name is what tells a
+ * What a carrier lookup says about a number today (20261010000900). The carrier's name is what tells a
  * HighLevel number that can move account to account inside Twilio from one that needs a carrier port.
  */
 export interface NumberLookup {
@@ -302,14 +302,14 @@ export interface TelephonyProvider {
    * the carrier hands it over and nothing is listening — so this is the step between "the carrier moved it"
    * and "a customer can text it". Separate from `buyNumber` because there is nothing to buy.
    *
-   * **A number transferred in from another Twilio account arrives dressed** (20261011000100): still pointed at
+   * **A number transferred in from another Twilio account arrives dressed** (20261010000900): still pointed at
    * wherever its old owner had it — HighLevel, usually — possibly through a TwiML app or with fallback
    * addresses that would catch a text the moment ours hiccupped. So this also clears the apps and fallbacks, and
    * our webhooks are the only thing left on it.
    */
   configureNumber(account: ProviderAccount, numberSid: string, urls: WebhookUrls): Promise<void>;
   /**
-   * Who hosts a number today, by the carrier lookup (20261011000100). Asked with the master account, because
+   * Who hosts a number today, by the carrier lookup (20261010000900). Asked with the master account, because
    * it is a question about somebody else's number. One the lookup cannot place comes back with nulls.
    */
   lookupNumber(e164: string): Promise<NumberLookup>;

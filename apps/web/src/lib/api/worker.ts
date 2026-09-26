@@ -186,7 +186,7 @@ export interface NumberHost {
   readonly alreadyHere: 'yours' | 'elsewhere' | null;
 }
 
-/** Looks up who hosts a number, before a business asks for it to be sent here (20261011000100). */
+/** Looks up who hosts a number, before a business asks for it to be sent here (20261010000900). */
 export function lookupNumberHost(workspaceId: string, e164: string): Promise<NumberHost> {
   return workerPost('/v1/telephony/number-host', { workspaceId, e164 });
 }

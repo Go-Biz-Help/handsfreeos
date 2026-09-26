@@ -90,7 +90,7 @@ export interface WorkerEnv {
   readonly reminderOverrideMs: number | null;
   readonly registrationPollMs: number;
   readonly portPollMs: number;
-  /** How often a number being brought over from Twilio or HighLevel is looked for (20261011000100). */
+  /** How often a number being brought over from Twilio or HighLevel is looked for (20261010000900). */
   readonly numberImportPollMs: number;
   readonly fakeApprovalMs: number;
   /** Workspace email: Postmark in production; locally Mailpit over SMTP, with domains that verify themselves. */

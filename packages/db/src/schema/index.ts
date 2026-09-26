@@ -967,7 +967,7 @@ export const numberPorts = app.table('number_ports', {
 });
 
 /**
- * Bringing a number that already lives in Twilio (20261011000100): from the business's own Twilio account, or
+ * Bringing a number that already lives in Twilio (20261010000900): from the business's own Twilio account, or
  * from GoHighLevel / LeadConnector, whose LC Phone numbers are Twilio numbers in HighLevel's account. The number
  * moves account to account inside Twilio — no port, no new number — and the worker watches the workspace's
  * subaccount for it. **Separate from carrier registration**: an import finishes when the number works here,

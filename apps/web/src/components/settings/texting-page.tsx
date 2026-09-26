@@ -118,7 +118,7 @@ export function TextingPage({
   portsFromMigration: readonly MigratedNumber[];
   /**
    * Numbers already in Twilio on their way here, from the business's own Twilio account or GoHighLevel
-   * (20261011000100). Each carries its own setup status and, separately, its texting registration's.
+   * (20261010000900). Each carries its own setup status and, separately, its texting registration's.
    */
   imports: readonly NumberImportInfo[];
   /** The migration's numbers that are neither on their way by a port nor by a transfer. */
@@ -554,7 +554,7 @@ function NumberStep({
   }
 
   /*
-   * Where the number is today decides how it moves (20261011000100): already in Twilio — the business's own
+   * Where the number is today decides how it moves (20261010000900): already in Twilio — the business's own
    * account, or GoHighLevel's LC Phone — it is transferred account to account in days; anywhere else it is a
    * carrier port. A port already under way goes straight back to the port screen.
    */

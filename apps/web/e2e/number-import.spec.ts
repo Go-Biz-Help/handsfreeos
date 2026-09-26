@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
- * Bringing a number that already lives in Twilio (20261011000100), through Settings → Texting & calls.
+ * Bringing a number that already lives in Twilio (20261010000900), through Settings → Texting & calls.
  *
  * The local worker runs the fake carrier, whose numbers being watched for "arrive" a few approvals after the
  * first look — as if HighLevel's support, or Twilio's, had sent them — so the whole wait plays out here.

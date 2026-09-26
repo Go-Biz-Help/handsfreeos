@@ -37,7 +37,7 @@ import {
 import { formatDate } from '@/lib/format';
 
 /**
- * Bringing a number that already lives in Twilio (20261011000100) — the business's own Twilio account, or
+ * Bringing a number that already lives in Twilio (20261010000900) — the business's own Twilio account, or
  * GoHighLevel / LeadConnector, whose LC Phone numbers are Twilio numbers in HighLevel's account.
  *
  * The number moves account to account inside Twilio, into this business's own HandsFreeOS Twilio account. The
