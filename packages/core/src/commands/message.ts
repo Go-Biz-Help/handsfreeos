@@ -1035,6 +1035,7 @@ export const messageSend = defineCommand({
         clientId: input.clientId ?? null,
         errorCode: SCHEDULED_TEXT,
         occurredAt: holdUntil,
+        went: false,
       });
       if (!conv.phoneNumberId)
         await ctx.tx
@@ -1125,8 +1126,9 @@ export const messageSend = defineCommand({
 });
 
 /**
- * A held text going for the first time: from this moment it is on the timeline and it is the conversation's
- * latest. message.release_scheduled does this when quiet hours end, credited to whoever wrote it; message.retry
+ * A held text going for the first time (`went` was false): from this moment it is the conversation's latest, with
+ * or without a customer, and on the customer's timeline (a conversation without one gets the entry when it's
+ * linked). message.release_scheduled does this when quiet hours end, credited to whoever wrote it; message.retry
  * does it for a held text that was refused then (the customer opted out overnight), credited to the person who
  * pressed Retry, since a person only ever writes their own timeline entries.
  */
@@ -1155,7 +1157,10 @@ async function goesFirstTime(
       ...(whenQuietHoursEnded ? { scheduled: true } : {}),
     },
   });
-  await ctx.tx.update(messages).set({ occurredAt: now, activityId }).where(eq(messages.id, m.id));
+  await ctx.tx
+    .update(messages)
+    .set({ occurredAt: now, activityId, went: true })
+    .where(eq(messages.id, m.id));
   await ctx.tx
     .update(conversations)
     .set({
@@ -1264,11 +1269,9 @@ export const messageRetry = defineCommand({
         retry: true,
       },
     });
-    // A held text refused when quiet hours ended never went: a customer's text that went is on their timeline
-    // from then. This is its first time, so it gets its entry and the preview now. (Without a customer there is
-    // no timeline, and nothing says whether it went, so it keeps its place.)
-    if (m.channel === 'sms' && !m.activityId && conv.personId)
-      await goesFirstTime(ctx, m, conv, eventId, new Date(), false);
+    // A held text refused when quiet hours ended never went. This is its first time, so it becomes the
+    // conversation's latest and gets its timeline entry now. One that went before keeps its place and its entry.
+    if (!m.went) await goesFirstTime(ctx, m, conv, eventId, new Date(), false);
     return { messageId: m.id };
   },
 });
@@ -1442,9 +1445,10 @@ export const messageReleaseScheduled = defineCommand({
       .update(messages)
       .set({ errorCode: null, occurredAt: now, failedAttempt: null })
       .where(eq(messages.id, m.id));
-    // A text that went before is on the timeline and in the conversation already. One that never went (held from
-    // the start, or refused when quiet hours ended and tried again) gets both now.
-    if (!m.activityId) await goesFirstTime(ctx, m, conv, eventId, now, true);
+    // A text that went before is in the conversation already, and on the timeline (or joins it when the conversation
+    // is linked). One that never went (held from the start, or refused when quiet hours ended and tried again) gets
+    // both now.
+    if (!m.went) await goesFirstTime(ctx, m, conv, eventId, now, true);
     return outcome('sent');
   },
 });

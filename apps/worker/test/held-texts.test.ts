@@ -5,7 +5,9 @@
  * - Cancelled, the job runs at once and the text ends there, never reaching the carrier.
  * - A failed text tried again in quiet hours, then cancelled, goes back as it was, and the job leaves it be.
  * - Linking the conversation to a customer leaves held and cancelled texts off their timeline: the held one joins
- *   it when it goes, and becomes the conversation's latest then.
+ *   it when it goes, and becomes the conversation's latest then. A failed text tried again in quiet hours went
+ *   once, so it joins at linking, and keeps that one entry whether the retry is cancelled or goes. A held text
+ *   refused when quiet hours ended never went: it joins, and becomes the latest, only when tried again.
  */
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
@@ -392,5 +394,176 @@ describe('a conversation linked to a customer while a text waits', () => {
       .where(eq(conversations.id, held.conversationId));
     expect(conv).toMatchObject({ personId: joId, lastPreview: body, lastDirection: 'outbound' });
     expect(await entriesFor(dropped.messageId)).toHaveLength(0);
+  });
+
+  /** A number nobody knows yet, as typed and as stored. */
+  const unknownNumber = () => {
+    const last4 = String(1000 + Math.floor(Math.random() * 8999));
+    return { typed: `(713) 555-${last4}`, e164: `+1713555${last4}` };
+  };
+  const setOptedOut = (e164: string, optedOut: boolean) =>
+    rows(
+      admin(),
+      sql`insert into app.opt_outs (workspace_id, counterpart_e164, opted_out, source)
+          values (${workspaceId}, ${e164}, ${optedOut}, 'manual')
+          on conflict (workspace_id, counterpart_e164) do update set opted_out = excluded.opted_out`,
+    );
+  const entriesOf = (messageId: string) =>
+    rows<{ id: string; author_user_id: string | null; occurred_at: Date; status: string }>(
+      admin(),
+      sql`select id, author_user_id, occurred_at, meta->>'status' as status from app.activities
+          where meta->>'messageId' = ${messageId}`,
+    );
+  async function linkToNewCustomer(conversationId: string) {
+    const { personId } = (
+      await executeCommand(
+        api(),
+        personCreate,
+        { workspaceId, firstName: 'Sam', lastName: 'Reyes' },
+        actor(dale),
+        meta(),
+      )
+    ).output;
+    await executeCommand(
+      api(),
+      conversationLinkPerson,
+      { workspaceId, conversationId, personId },
+      actor(dale),
+      meta(),
+    );
+    await drain();
+    return personId;
+  }
+
+  it('a failed text tried again in quiet hours joins the timeline once, cancelled or not', async () => {
+    await quiet(false);
+    const { typed } = unknownNumber();
+    const sent = (
+      await executeCommand(
+        api(),
+        messageSend,
+        { workspaceId, toPhone: typed, body: 'Your filter came in.' },
+        actor(marco),
+        meta(),
+      )
+    ).output;
+    await drain();
+    const system: SystemActor = { type: 'system', workspaceId, organizationId, onBehalfOf: null };
+    await executeCommand(
+      testDbs().worker.db,
+      messageUpdateStatus,
+      {
+        workspaceId,
+        messageId: sent.messageId,
+        status: 'undelivered',
+        errorCode: '30003',
+        errorMessage: 'The carrier turned it away.',
+      },
+      system,
+      meta(),
+    );
+    const [failed] = await admin().select().from(messages).where(eq(messages.id, sent.messageId));
+    expect(failed!.activityId).toBeNull();
+
+    // Retry pressed at night; while it waits, someone works out who it is. It went once, so it joins her timeline.
+    await quiet(true);
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: sent.messageId },
+      actor(marco),
+      meta(),
+    );
+    await drain();
+    await linkToNewCustomer(sent.conversationId);
+
+    // Then the retry is cancelled: back as it was, with the one entry its attempt earned.
+    const out = await executeCommand(
+      api(),
+      messageCancelScheduled,
+      { workspaceId, messageId: sent.messageId },
+      actor(dale),
+      meta(),
+    );
+    expect(out.output).toMatchObject({ changed: true, stays: true });
+    await drain();
+    const [row] = await admin().select().from(messages).where(eq(messages.id, sent.messageId));
+    expect(row).toMatchObject({ status: 'undelivered', errorCode: '30003', failedAttempt: null });
+    const entries = await entriesOf(sent.messageId);
+    expect(entries).toHaveLength(1);
+    expect(row!.activityId).toBe(entries[0]!.id);
+    // The entry is the attempt that was made: when it was, and that it didn't arrive.
+    expect(entries[0]!.status).toBe('undelivered');
+    expect(new Date(entries[0]!.occurred_at).toISOString()).toBe(failed!.occurredAt.toISOString());
+
+    // Tried again by day, it goes: still that one entry.
+    await quiet(false);
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: sent.messageId },
+      actor(marco),
+      meta(),
+    );
+    await drain();
+    expect((await entriesOf(sent.messageId)).map((e) => e.id)).toEqual([row!.activityId]);
+  });
+
+  it('a held text refused when quiet hours ended joins the timeline, and the preview, only when it goes', async () => {
+    await quiet(true);
+    const { typed, e164 } = unknownNumber();
+    const body = 'We can come Thursday instead.';
+    const held = (
+      await executeCommand(
+        api(),
+        messageSend,
+        { workspaceId, toPhone: typed, body, sendAfterQuietHours: true },
+        actor(marco),
+        meta(),
+      )
+    ).output;
+    await drain();
+
+    // Overnight they asked not to be texted, so it didn't go when quiet hours ended; by morning they agreed again.
+    await setOptedOut(e164, true);
+    await quiet(false);
+    await admin()
+      .update(messages)
+      .set({ occurredAt: new Date(Date.now() - 1000) })
+      .where(eq(messages.id, held.messageId));
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now() where id = ${(await heldJob(held.messageId))!.id}`,
+    );
+    await drain();
+    await setOptedOut(e164, false);
+    const [refused] = await admin().select().from(messages).where(eq(messages.id, held.messageId));
+    expect(refused).toMatchObject({ status: 'failed', errorCode: 'opted_out', activityId: null });
+
+    // Linked: it never went, so there's nothing for her timeline yet.
+    await linkToNewCustomer(held.conversationId);
+    expect(await entriesOf(held.messageId)).toHaveLength(0);
+
+    // Tried again by day, it goes for the first time: one entry, by whoever pressed Retry, and the preview.
+    const sentBefore = s.telephony.sent.length;
+    await executeCommand(
+      api(),
+      messageRetry,
+      { workspaceId, messageId: held.messageId },
+      actor(dale),
+      meta(),
+    );
+    await drain();
+    expect(s.telephony.sent).toHaveLength(sentBefore + 1);
+    const entries = await entriesOf(held.messageId);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.author_user_id).toBe(dale.id);
+    const [row] = await admin().select().from(messages).where(eq(messages.id, held.messageId));
+    expect(row!.activityId).toBe(entries[0]!.id);
+    const [conv] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, held.conversationId));
+    expect(conv).toMatchObject({ lastPreview: body, lastDirection: 'outbound' });
   });
 });

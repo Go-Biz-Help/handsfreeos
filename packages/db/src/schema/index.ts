@@ -1137,6 +1137,12 @@ export const messages = app.table('messages', {
   ),
   /** A failed text tried again in quiet hours, while it waits: how the attempt that failed stood. */
   failedAttempt: jsonb('failed_attempt').$type<FailedAttempt>(),
+  /**
+   * Whether it went (was handed to the sender) at least once. False only for a text held from the start until it
+   * first goes; cancelled, or refused when quiet hours ended, it never did. The timeline entry and the
+   * conversation's preview follow this, with or without a customer.
+   */
+  went: boolean('went').notNull().default(true),
 });
 
 export const calls = app.table('calls', {

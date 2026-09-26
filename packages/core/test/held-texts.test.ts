@@ -11,7 +11,8 @@
  *   that failed, without a second line on the timeline. Cancelled, it goes back as it was: not delivered, with its
  *   reason, in its place in the thread, to be tried again.
  * - A held text refused when quiet hours ended never reached the timeline: tried again, by day or held once more,
- *   it gets its one entry and the conversation's preview when it goes.
+ *   it gets its one entry and the conversation's preview when it goes. With no customer it still becomes the
+ *   preview then; a text that went before doesn't.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
@@ -787,5 +788,63 @@ describe('a held text refused when quiet hours ended, tried again', () => {
       .from(events)
       .where(and(eq(events.entityId, held.messageId), eq(events.eventType, 'message.queued')));
     expect(queued!.payload).toMatchObject({ scheduled: true, retry: true });
+  });
+
+  it('with no customer, by day, becomes the conversation’s preview; a text that went before doesn’t', async () => {
+    // A number nobody knows yet.
+    const last4 = String(1000 + Math.floor(Math.random() * 8999));
+    const toPhone = `(281) 555-${last4}`;
+    const optedOut = (out: boolean) =>
+      rows(
+        admin(),
+        sql`insert into app.opt_outs (workspace_id, counterpart_e164, opted_out, source)
+            values (${wsId}, ${`+1281555${last4}`}, ${out}, 'manual')
+            on conflict (workspace_id, counterpart_e164) do update set opted_out = excluded.opted_out`,
+      );
+    await quietNow(true);
+    const held = await run(
+      messageSend,
+      { workspaceId: wsId, toPhone, body: 'Your quote is ready.', sendAfterQuietHours: true },
+      marco,
+    );
+    await admin()
+      .update(messages)
+      .set({ occurredAt: new Date(Date.now() - 60_000) })
+      .where(eq(messages.id, held.messageId));
+    await quietNow(false);
+    await optedOut(true);
+    expect(
+      await sys(messageReleaseScheduled, { workspaceId: wsId, messageId: held.messageId }),
+    ).toMatchObject({ outcome: 'refused' });
+    await optedOut(false);
+
+    // Meanwhile another text went, and didn't arrive.
+    const other = await run(
+      messageSend,
+      { workspaceId: wsId, toPhone, body: 'Running late, there by 10.' },
+      marco,
+    );
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: other.messageId,
+      status: 'failed',
+      errorCode: '30008',
+    });
+    expect(await conversationOf(held.conversationId)).toMatchObject({
+      lastPreview: 'Running late, there by 10.',
+    });
+
+    // The refused one goes for the first time: it's the conversation's latest now.
+    await run(messageRetry, { workspaceId: wsId, messageId: held.messageId }, dale);
+    const row = await messageRow(held.messageId);
+    expect(row).toMatchObject({ status: 'queued', errorCode: null, activityId: null });
+    expect(Date.now() - row.occurredAt.getTime()).toBeLessThan(30_000);
+    const conv = await conversationOf(held.conversationId);
+    expect(conv).toMatchObject({ lastPreview: 'Your quote is ready.', lastDirection: 'outbound' });
+    expect(Date.now() - conv.lastOutboundAt!.getTime()).toBeLessThan(30_000);
+
+    // The other went before: tried again, it keeps its place.
+    await run(messageRetry, { workspaceId: wsId, messageId: other.messageId }, dale);
+    expect((await conversationOf(held.conversationId)).lastPreview).toBe('Your quote is ready.');
   });
 });
