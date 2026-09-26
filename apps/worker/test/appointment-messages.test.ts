@@ -15,6 +15,7 @@ import {
   messageSend,
   personCreate,
   resourceCreate,
+  seriesCancel,
   seriesCreate,
   smsSegments,
   weekdayOf,
@@ -337,6 +338,54 @@ describe('confirmations', () => {
     await drain(w);
     expect(textsTo(w, told.phone)).toHaveLength(1);
     expect(textsTo(w, told.phone)[0]!.body).toContain("You're booked for an AC tune-up");
+    expect(textsTo(w, quiet.phone)).toEqual([]);
+  });
+
+  it('a cancelled repeat tells each customer once, with how many visits went, and nothing when asked not to', async () => {
+    const person = async (first: string) => {
+      const phone = nextPhone();
+      const { personId } = await run(w, personCreate, {
+        workspaceId: w.workspaceId,
+        firstName: first,
+        lastName: 'Repeat',
+        phone,
+      });
+      return { personId, phone };
+    };
+    const told = await person('Wes');
+    const quiet = await person('Xia');
+    let first = localDateOf(at(8, '12:00'), CHI);
+    while (weekdayOf(first) !== 4) first = addDays(first, 1);
+    const repeat = async (personId: string, localTime: string) =>
+      (
+        await run(w, seriesCreate, {
+          workspaceId: w.workspaceId,
+          calendarId: cal.id,
+          firstDate: first,
+          rule: { freq: 'weekly', count: 3, localTime },
+          personId,
+          notify: false,
+        })
+      ).appointmentIds;
+    const [toldFirst] = await repeat(told.personId, '10:00');
+    const [quietFirst] = await repeat(quiet.personId, '11:00');
+    await drain(w);
+
+    await run(w, seriesCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: toldFirst!,
+      scope: 'following',
+    });
+    await run(w, seriesCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: quietFirst!,
+      scope: 'following',
+      notify: false,
+    });
+    await drain(w);
+    const texts = textsTo(w, told.phone);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]!.body).toContain('is cancelled. So are the 2 visits after it.');
     expect(textsTo(w, quiet.phone)).toEqual([]);
   });
 });

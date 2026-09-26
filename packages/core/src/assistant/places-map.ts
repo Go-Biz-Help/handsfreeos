@@ -68,6 +68,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Find an archived conversation: Inbox, then Archived in the status picker',
       'See what the AI teammate handed over: Inbox, Needs a person',
     ],
+    canChange: ['find closed, snoozed, archived, Needs a person and AI-teammate conversations'],
     path: '/inbox',
   },
   {
@@ -100,6 +101,13 @@ export const APP_PLACES: readonly AppPlace[] = [
       'an AI rewrite button, emoji or formatting',
       'a note inside the reply box (notes go in Add a note beside it)',
     ],
+    canChange: [
+      'assign it to a teammate or nobody; close, reopen or snooze it; mark it read or unread',
+      'hand it to the AI teammate or take it back',
+      'link a conversation from an unknown number or address to a customer',
+      'cancel a text waiting for quiet hours, or send again a text or email that didn’t go out',
+      'archive it and bring it back (owners and admins)',
+    ],
     path: '/inbox/[conversationId]',
   },
   {
@@ -124,6 +132,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'deleting a customer for good (archive them)',
       'choosing many customers at once to tag, assign or archive (the Assistant can tag many at once)',
       'exporting customers to a spreadsheet',
+    ],
+    canChange: [
+      'add a company and change its details',
+      'archive and bring back a customer or company (owners and admins)',
+      'find archived customers, companies, leads and records',
     ],
     path: '/customers',
   },
@@ -155,6 +168,13 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Link a pet, vehicle or property: their page, the Relationships card, Add',
       'Record whether they agreed to calls: their page, Details tab, Change beside Calls from us',
       'Archive them: their page, ⋯, then Archive',
+    ],
+    canChange: [
+      'choose who looks after them: add, take off, make main (owners and admins)',
+      'record that they agreed in writing to calls (and where), or don’t want calls; record that they don’t want texts',
+      'delete a file on their record',
+      'add their pets, vehicles or properties, change them, and relate records',
+      'put them on a maintenance plan',
     ],
     path: '/customers/people/[personId]',
   },
@@ -201,6 +221,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Book it: Open full page, then Book',
     ],
     notHere: ['deleting a lead (archive it)'],
+    canChange: ['archive it and bring it back (owners and admins)'],
     path: '/leads/[leadId]',
   },
   {
@@ -221,6 +242,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'adding a new customer from the booking box (add them in Customers first)',
       'blocking time from the calendar itself (time off is Settings → My calendar, Add time off)',
     ],
+    canChange: ['list appointments over any dates, done, missed or cancelled included'],
     path: '/calendar',
   },
   {
@@ -247,9 +269,17 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Bill the visit: open it, press Invoice this visit',
     ],
     notHere: [
-      'sending a reminder now (reminders go on their own; the calendar’s Notifications section decides them)',
       'changing the customer or service after booking',
       'deleting an appointment (cancel it)',
+    ],
+    canChange: [
+      'mark it done or a no-show, or switch it',
+      'mark the customer confirmed, or take a team mark back',
+      'change its title, notes, where it is, or the deal it’s for',
+      'move the job along (On the way, Started, Waiting on parts, Done) and the note the customer sees — each texts them',
+      'add a customer to a group session, or take one off',
+      'book repeat visits, and cancel one visit of a series, it and the ones after, or every upcoming one',
+      'put a customer on a waitlist for a full session or a window of time, or take them off a session’s waitlist',
     ],
     path: '/calendar',
   },
@@ -274,6 +304,10 @@ export const APP_PLACES: readonly AppPlace[] = [
       'deleting a draft (Void it)',
       'recurring invoices (maintenance plans bill themselves instead)',
     ],
+    canChange: [
+      'write an estimate or an invoice, with lines from the catalogue or typed, a discount, a deposit and a note',
+      'change a draft estimate or invoice',
+    ],
     path: '/money',
   },
   {
@@ -296,6 +330,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'a PDF download for the team (the customer’s page has Print or save a PDF)',
       'changing an invoice once it is sent (void it and write a new one)',
     ],
+    canChange: [
+      'send a draft invoice by email or text',
+      'void it',
+      'refund a payment, all or part',
+    ],
     path: '/money/invoices/[invoiceId]',
   },
   {
@@ -312,6 +351,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Bill an approved estimate: Money → Estimates, press it, then Turn into an invoice',
     ],
     notHere: ['a resend or follow-up button (the nudge is Settings → Payments, Invoice reminders)'],
+    canChange: [
+      'record a yes given by phone',
+      'turn it into an invoice, the whole job or just the deposit',
+      'void it',
+    ],
     path: '/money/estimates/[estimateId]',
   },
   {
@@ -331,6 +375,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Change a plan’s price or what it includes: Money → Plans, press its name, then Save; people already on it keep what they signed up for',
       'Stop selling a plan: press its name, then Stop selling it; anyone on it stays on it',
       'Put one customer on a plan from their page: their Money tab, Put on a plan',
+    ],
+    canChange: [
+      'put a customer on a plan and send them the card link',
+      'pause, restart or cancel someone’s plan, or ask them for a new card',
+      'add, change or stop selling a plan',
     ],
     path: '/money/plans',
   },
@@ -509,6 +558,10 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Suggest something: Ideas, press Share an idea',
       'Follow an idea: open it, turn on Email me updates',
     ],
+    canChange: [
+      'find ideas and read one with its comments',
+      'share an idea, vote or take a vote back, comment, and follow one or stop',
+    ],
     notHere: ['deleting an idea once shared'],
     path: '/ideas',
   },
@@ -526,6 +579,10 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Send a workflow to client businesses: Agency area, Templates, Push… on the template, pick the businesses, match the details, then Push',
       'Send starter FAQs to client businesses: Agency area, Knowledge packs, New pack, Save pack, then Push',
     ],
+    canChange: [
+      'see the client businesses, templates and knowledge packs, and which businesses have a template',
+      'push a published template or a knowledge pack to client businesses',
+    ],
     path: '/app/org/[orgId]/templates',
   },
 ];
@@ -536,6 +593,7 @@ export const EVERY_PAGE: readonly string[] = [
   'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers), and Sign out',
   'Each person can reorder, group or hide places in their side menu (Settings → Account, under Side menu); a place may be inside a group called More; Home and Settings never hide',
   'A place their role doesn’t allow isn’t in their side menu at all: Inbox, Money and Audit log need their own permission',
+  'You can send the Get help message for them, and add a business the way Create workspace does (organization owners and admins)',
 ];
 
 /** What people ask for that HandsFreeOS doesn’t do anywhere, so the Assistant says so plainly. */

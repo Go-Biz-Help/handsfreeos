@@ -12,6 +12,9 @@
 
 import {
   applyTeammatePatch,
+  AUTOMATIONS,
+  numberingAtCounter,
+  type AutomationDef,
   type AttentionSettings,
   type MoneySettings,
   type TeammateConfig,
@@ -45,7 +48,11 @@ const TERMS_WORDS: Record<string, string> = {
 };
 
 const moneySettingsOf = (db: Db, ctx: ToolContext) =>
-  query<{ settings: MoneySettings }>(db, ctx, 'money.settings');
+  query<{ settings: MoneySettings; nextEstimateNumber: string; nextInvoiceNumber: string }>(
+    db,
+    ctx,
+    'money.settings',
+  );
 
 /** The whole settings document, with only what was asked for changed. */
 function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
@@ -154,7 +161,16 @@ const updateMoneySettings: SettingsConfirmTool = {
   },
 
   async commit(db, ctx, args) {
-    const { settings } = await moneySettingsOf(db, ctx);
+    const got = await moneySettingsOf(db, ctx);
+    // The whole document is saved, so its numbering starts where documents really are: sending one moves the
+    // counter, not the settings, and a next number behind the counter is refused.
+    const settings: MoneySettings = {
+      ...got.settings,
+      numbering: {
+        estimate: numberingAtCounter(got.settings.numbering.estimate, got.nextEstimateNumber),
+        invoice: numberingAtCounter(got.settings.numbering.invoice, got.nextInvoiceNumber),
+      },
+    };
     await command(db, ctx, 'money.save_settings', {
       settings: nextMoneySettings(settings, args),
     });
@@ -314,9 +330,18 @@ const managePaymentAccount: SettingsConfirmTool = {
 const attentionOf = (db: Db, ctx: ToolContext) =>
   query<{ settings: AttentionSettings }>(db, ctx, 'attention.settings');
 
+/** What Settings → Automations shows without a switch (Drafts awaiting review, Connection broke), by kind. */
+const ALWAYS_WATCHED: ReadonlyMap<string, string> = new Map(
+  (AUTOMATIONS as readonly AutomationDef[]).flatMap((a) =>
+    a.locked && a.binding.store === 'attention_kind'
+      ? a.binding.kinds.map((k) => [k, a.label] as const)
+      : [],
+  ),
+);
+
 function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
   const on = list<string>(args['kindsOn']) ?? [];
-  const off = list<string>(args['kindsOff']) ?? [];
+  const off = (list<string>(args['kindsOff']) ?? []).filter((k) => !ALWAYS_WATCHED.has(k));
   const kinds = { ...now.kinds } as Record<string, boolean>;
   for (const k of on) kinds[k] = true;
   for (const k of off) kinds[k] = false;
@@ -406,26 +431,30 @@ const updateActionCenterSettings: SettingsConfirmTool = {
       fields.push({ label: 'Reply C to confirm', value: next.replyToConfirm ? 'On' : 'Off' });
     const nudgeBlocked =
       bool(args['followUpOnQuietLeads']) === true && !settings.auto.nudgeReviewedAt;
+    // The screen has no switch for these, so a change that turns one off can't be saved here either.
+    const lockedOff = [...new Set((off ?? []).flatMap((k) => ALWAYS_WATCHED.get(k) ?? []))];
+    const why = lockedOff.length
+      ? `${lockedOff.join(' and ')} ${lockedOff.length === 1 ? 'is' : 'are'} always on; Settings → Automations has no switch for ${lockedOff.length === 1 ? 'it' : 'them'}.`
+      : nudgeBlocked
+        ? 'Automatic follow-ups can only be turned on from Settings → Automations, where the message is shown to read first.'
+        : null;
     return {
       card: settingsCard(toolCallId, 'update_action_center_settings', {
         title: 'Change what Home watches for',
         fields,
-        confirmLabel: nudgeBlocked ? '' : 'Save the change',
-        warnings: nudgeBlocked
-          ? [
-              {
-                kind: 'blocked',
-                text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Automations.',
-              },
-            ]
-          : [],
+        confirmLabel: why ? '' : 'Save the change',
+        warnings: lockedOff.length
+          ? [{ kind: 'blocked', text: why! }]
+          : nudgeBlocked
+            ? [
+                {
+                  kind: 'blocked',
+                  text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Automations.',
+                },
+              ]
+            : [],
       }),
-      result: nudgeBlocked
-        ? {
-            blocked: true,
-            why: 'Automatic follow-ups can only be turned on from Settings → Automations, where the message is shown to read first.',
-          }
-        : { waiting: true, changes: fields.map((f) => f.label) },
+      result: why ? { blocked: true, why } : { waiting: true, changes: fields.map((f) => f.label) },
     };
   },
 

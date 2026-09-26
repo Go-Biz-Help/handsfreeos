@@ -72,6 +72,20 @@ export function nextNumberProblem(current: number, next: number): string | null 
   return null;
 }
 
+/**
+ * A counter with its next number caught up to the numbers already taken. Sending an estimate or an invoice moves
+ * the document counter, not the settings, and a save below the counter is refused ("only moves forward"), so
+ * anything that saves the whole settings document starts from here. `preview` is money.settings' next number as
+ * it reads, "INV-1005".
+ */
+export function numberingAtCounter(n: DocumentNumbering, preview: string): DocumentNumbering {
+  const rest = preview.startsWith(n.prefix)
+    ? preview.slice(n.prefix.length)
+    : (/(\d+)$/.exec(preview)?.[1] ?? '');
+  const at = Number(rest);
+  return Number.isInteger(at) && at > n.next ? { ...n, next: at } : n;
+}
+
 /** Why a change to a counter can't be saved, or null: the prefix is free, the number only climbs. */
 export function numberingChangeProblem(
   current: DocumentNumbering,

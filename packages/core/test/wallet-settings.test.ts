@@ -21,11 +21,13 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
-import { executeCommand } from '../src/kernel/execute';
+import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { HumanActor, RequestMeta } from '../src/kernel/types';
 import {
   organizationCreate,
+  usageStatement,
   walletForgetCard,
+  walletGet,
   walletSetAutoTopup,
   walletTopUp,
 } from '../src/server';
@@ -151,5 +153,46 @@ describe('a member', () => {
     expect((e as HfosError).code).toBe('forbidden');
     // And nothing of theirs landed.
     expect((await walletRow())?.topup_cents).toBe(2500);
+  });
+});
+
+describe('a business on the balance', () => {
+  // Usage & balance once threw for every business actually on it: the raw rows carry timestamps as text, and
+  // the page read them as dates.
+  it('shows its balance, a hold on it, and its statement', async () => {
+    const [org] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${workspaceId}`,
+    );
+    // The stage and the ledger are HandsFreeOS's to write: the system scope, as its own commands do.
+    await admin().transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.system_scope.workspace_id', ${workspaceId}, true)`,
+      );
+      await tx.execute(
+        sql`update app.usage_wallets set stage = 'warn', suspended_at = now(), suspended_reason = 'card_declined'
+            where workspace_id = ${workspaceId}`,
+      );
+      await tx.execute(
+        sql`insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, subject, idempotency_key)
+            values (${workspaceId}, ${org!.organization_id}, 'credit', 500, 'A credit from support',
+                    ${`test-credit-${randomUUID()}`})`,
+      );
+    });
+    const wallet = await executeQuery(api(), walletGet, { workspaceId }, human(owner), meta());
+    expect(wallet.opened).toBe(true);
+    expect(wallet.suspended?.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    const statement = await executeQuery(
+      api(),
+      usageStatement,
+      { workspaceId },
+      human(owner),
+      meta(),
+    );
+    expect(statement.items[0]).toMatchObject({
+      subject: 'A credit from support',
+      amountCents: 500,
+    });
+    expect(statement.items[0]!.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });

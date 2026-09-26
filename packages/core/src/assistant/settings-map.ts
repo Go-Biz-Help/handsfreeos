@@ -250,6 +250,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'who works it, and what it offers',
       'its hours, buffers and booking rules',
       'turn it on or off',
+      'seats per time, the places it happens, and routing by ZIP code and which territories',
+      'repeat visits, and the waitlist and how long offers last',
+      'intake questions, and the cancel and reschedule rules',
+      'the confirmation and reminders customers get, and the team’s new-booking email',
+      'CRM: a lead for each booking, and the customer’s owner',
+      'taking a deposit or the full price when they book, and which account it’s paid into',
+      'put back an earlier saved version',
     ],
     handovers: [CONNECT_CALENDAR],
     howTo: [
@@ -544,6 +551,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'deposits, and how long an estimate is good for',
       'invoice reminders and estimate nudges',
       'rename a payout account, make one the default, or disconnect it',
+      'the letters in front of invoice and estimate numbers, and the next number (it only goes up)',
     ],
     handovers: [
       {
@@ -570,6 +578,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     canChange: [
       'add, change or archive an item',
       'its price, unit, tax and the service it matches',
+      'the maintenance plans you sell: add one, change its price, what it includes or its visits, stop selling it',
     ],
     handovers: [],
   },
@@ -586,14 +595,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/usage',
     permission: 'money.manage',
-    canChange: [],
+    canChange: ['automatic top-up: on or off, the balance it tops up below, and how much it adds'],
     handovers: [
       {
-        what: 'top up the balance, or change the card',
+        what: 'top up the balance now, or change the card',
         why: 'it is a card payment, which you make yourself',
         steps: [
           'Open Settings → Usage & balance.',
-          'Press Top up now, or turn on Automatic top-up.',
+          'Press Top up now.',
           'Card on file is where the card is added or changed.',
         ],
       },
@@ -612,12 +621,27 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/automations',
     permission: 'workspace.update',
     canChange: [
-      'turn each automation on or off',
+      'turn any automation on or off, except Drafts awaiting review and Connection broke, which are always on',
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
       'what HandsFreeOS does on its own, and how it words it',
+      'when a dead lead counts as cold, how many a day are re-engaged, and the message they get',
+      'which form Intake questions sends after a first booking',
+      'when the end-of-day email goes out',
+      'what the AI does when a voicemail box answers its call',
     ],
-    handovers: [],
+    handovers: [
+      {
+        what: 'turn on Re-engage dead leads, or automatic follow-ups on quiet leads, the first time',
+        why: 'the message goes to customers on its own, so an owner reads it before it starts',
+        on: { where: ['Settings', 'Automations'], path: '/settings/automations' },
+        steps: [
+          'Open Settings → Automations.',
+          'Press Adjust beside the automation and read its message.',
+          'Press Looks good, turn on.',
+        ],
+      },
+    ],
     howTo: [
       'Change one automation: Settings → Automations, its switch, or Adjust beside it',
       'Set what a typical job is worth: Settings → Automations, Adjust on Hot lead alert',
@@ -640,7 +664,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'off, training wheels, or automatic',
       'which channels it answers on, and its hours',
       'what it may do: answer, qualify, book, follow up',
-      'its limits, and when it hands a customer to a person',
+      'the questions it asks new leads, where a qualified lead goes, and who is told',
+      'its limits: replies a day, look-ups, its share of the AI limit, discounts, bills, quotes and plans',
+      'when it hands a customer to a person, who is told, and what the customer hears',
+      'whether it answers phone calls, when it picks up, its voice and greeting',
+      'its email signature and tone',
+      'how many approvals before it works on its own, and when drafts expire',
       'approve, change or reject what it wrote while it waits for an OK',
     ],
     handovers: [],
@@ -722,7 +751,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings',
     permission: null,
-    canChange: ['your name', 'light or dark', 'which emails and phone alerts you get'],
+    canChange: [
+      'your name',
+      'light or dark',
+      'which emails you get, each kind of phone alert, and the agency daily email',
+      'hide or show places in your side menu, use the suggested groups, or start the menu over',
+    ],
     handovers: [
       {
         what: 'change your password, Google sign-in or passkeys',

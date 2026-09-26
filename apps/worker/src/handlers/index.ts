@@ -20,6 +20,7 @@ import {
   onConfirmedThanks,
   onMovedNotice,
   onReassignedNotice,
+  onSeriesCancelledNotice,
   onSeriesConfirm,
 } from './appointment-messages';
 import { onJobStatusChanged } from '../booking/job-texts';
@@ -257,7 +258,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'job.status_changed': onJobStatusChanged,
     'session.published': onAppointmentChanged,
     'series.created': [onAppointmentChanged, onArmReminders, onSeriesConfirm],
-    'series.cancelled': onAppointmentChanged,
+    'series.cancelled': [onAppointmentChanged, onSeriesCancelledNotice],
     'waitlist.seat_freed': onSeatFreed,
     // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
     'knowledge_scan.requested': onKnowledgeScanRequested,

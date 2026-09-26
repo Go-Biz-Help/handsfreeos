@@ -16,6 +16,7 @@ import {
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
+import { sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -649,6 +650,23 @@ describe('how you get paid', () => {
     const early = await prepare('update_money_settings', { terms: 'due_on_receipt' }, owner);
     expect(early.card.warnings[0]!.text).toContain('before the invoice');
   });
+
+  it('still saves once invoices have gone out and the counter has moved past the saved number', async () => {
+    // Sending an invoice moves the counter on; the saved setting still says where it started. Saving anything else
+    // must not trip "the next number only moves forward" over a number the person never touched.
+    await testDbs().admin.db.execute(
+      sql`insert into app.document_counters (workspace_id, kind, next_number)
+          values (${workspaceId}, 'invoice', 1500)
+          on conflict (workspace_id, kind) do update set next_number = 1500`,
+    );
+    const { parsed, tool } = await prepare('update_money_settings', { taxRatePercent: 6 }, owner);
+    await confirm(tool!, parsed, owner);
+    const after = await q<{ settings: { tax: { rateBp: number } }; nextInvoiceNumber: string }>(
+      'money.settings',
+    );
+    expect(after.settings.tax.rateBp).toBe(600);
+    expect(after.nextInvoiceNumber).toMatch(/1500$/);
+  });
 });
 
 describe('what Home watches for', () => {
@@ -675,6 +693,18 @@ describe('what Home watches for', () => {
     );
     expect(nudges.card.confirmLabel).toBe('');
     expect(nudges.card.warnings[0]!.text).toContain('read and agreed');
+  });
+
+  it('won’t switch off what the screen always shows', async () => {
+    const locked = await prepare(
+      'update_action_center_settings',
+      { kindsOff: ['ai_approval', 'overdue_task'] },
+      owner,
+    );
+    expect(locked.card.confirmLabel).toBe('');
+    expect(locked.card.warnings[0]!.text).toContain('Drafts awaiting review is always on');
+    const after = await q<{ settings: { kinds: Record<string, boolean> } }>('attention.settings');
+    expect(after.settings.kinds['ai_approval']).not.toBe(false);
   });
 });
 

@@ -333,7 +333,12 @@ export interface CancelledInput {
   /** They cancelled it themselves, online. */
   readonly byCustomer: boolean;
   readonly first: boolean;
+  /** Repeat visits after this one cancelled with it: one notice says so, rather than a text for each. */
+  readonly laterToo?: number;
 }
+
+const laterLine = (n: number | undefined): string =>
+  n ? ` So ${n === 1 ? 'is the visit' : `are the ${n} visits`} after it.` : '';
 
 export function cancelledText(i: CancelledInput): string {
   const v = i.visit;
@@ -341,7 +346,7 @@ export function cancelledText(i: CancelledInput): string {
   const b = i.business;
   return text(
     [
-      `${b.name}: Your ${inSentence(v.title)} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)} is cancelled.`,
+      `${b.name}: Your ${inSentence(v.title)} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)} is cancelled.${laterLine(i.laterToo)}`,
       b.bookingUrl
         ? `Book again: ${b.bookingUrl}`
         : b.phoneDisplay
@@ -359,7 +364,7 @@ export function cancelledEmail(i: CancelledInput): EmailText {
   return {
     subject: `Cancelled: ${v.title} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)}`,
     body: paragraphs([
-      `${hello(i.firstName)} your ${inSentence(v.title)} on ${whenLine(v)} is cancelled.${i.byCustomer ? ' You cancelled it online.' : ''}`,
+      `${hello(i.firstName)} your ${inSentence(v.title)} on ${whenLine(v)} is cancelled.${laterLine(i.laterToo)}${i.byCustomer ? ' You cancelled it online.' : ''}`,
       b.bookingUrl
         ? `Book another time: ${b.bookingUrl}`
         : b.phoneDisplay

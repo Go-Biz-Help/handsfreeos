@@ -102,12 +102,13 @@ export const walletGet = defineQuery({
       has_card: boolean;
       card_requested_at: Date | null;
       provider: string | null;
-      suspended_at: Date | null;
+      // Raw SQL rows carry timestamps as text; each is read through new Date(), which takes either.
+      suspended_at: Date | string | null;
       suspended_reason: string | null;
       recharges_in_window: number;
       escalation_step: number;
       paused_until: Date | null;
-      workspace_created_at: Date;
+      workspace_created_at: Date | string;
       spent_30d_cents: number | string;
       spent_mtd_cents: number | string;
       pending_recharge_cents: number | string | null;
@@ -163,7 +164,7 @@ export const walletGet = defineQuery({
       maxTopupCents: escalationCeilingCents({
         topupCents: topup,
         spent30dCents: Number(w.spent_30d_cents),
-        workspaceCreatedAt: w.workspace_created_at.getTime(),
+        workspaceCreatedAt: new Date(w.workspace_created_at).getTime(),
         now: Date.now(),
       }),
       card: w.has_card
@@ -177,7 +178,7 @@ export const walletGet = defineQuery({
         : null,
       cardRequested: w.card_requested_at !== null,
       suspended: w.suspended_at
-        ? { at: w.suspended_at.toISOString(), reason: w.suspended_reason }
+        ? { at: new Date(w.suspended_at).toISOString(), reason: w.suspended_reason }
         : null,
       spent30dCents: Number(w.spent_30d_cents),
       spentThisMonthCents: Number(w.spent_mtd_cents),
@@ -228,7 +229,7 @@ export const usageStatement = defineQuery({
       unit: string | null;
       entity_type: string | null;
       entity_id: string | null;
-      occurred_at: Date;
+      occurred_at: Date | string;
       sort_key: string;
     }>(
       ctx.tx,
@@ -259,7 +260,7 @@ export const usageStatement = defineQuery({
         unit: r.unit,
         entityType: r.entity_type,
         entityId: r.entity_id,
-        occurredAt: r.occurred_at.toISOString(),
+        occurredAt: new Date(r.occurred_at).toISOString(),
       })),
       nextCursor: more && last ? encodeCursor({ sort: last.sort_key, id: last.id }) : null,
     };
