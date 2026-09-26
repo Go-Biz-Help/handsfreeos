@@ -41,6 +41,7 @@ import { createGeocoder } from './geo/geocoder';
 import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
+import { createAnalytics } from './analytics/opinly';
 
 loadEnv();
 const env = readEnv();
@@ -113,6 +114,8 @@ const services: EngineServices = {
   ...(env.supabaseUrl && env.supabaseSecretKey
     ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
     : {}),
+  // Sign-ups and paid seats, told to Opinly so a sale is credited to the post that brought them in.
+  ...createAnalytics(env),
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
   workflowAi: createWorkflowAi({ db: handle.db, ai, log, wallet }),
   // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.

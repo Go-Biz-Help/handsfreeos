@@ -186,6 +186,13 @@ export interface WorkerEnv {
   /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
   readonly assistantProvider: 'anthropic' | 'scripted' | 'none';
   readonly anthropicApiKey: string | null;
+  /**
+   * Opinly's secret key, for telling it about sign-ups and paid seats (analytics/opinly.ts); null sends nothing.
+   * The same key handsfreeos.com reads its blog with.
+   */
+  readonly opinlyApiKey: string | null;
+  /** Where Opinly's API is; only ever changed to point at a stand-in. */
+  readonly opinlyApiUrl: string;
   readonly assistantModel: string;
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
@@ -575,6 +582,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     paymentsFakeSettleMs: fakeSettleMs,
     assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
     anthropicApiKey,
+    opinlyApiKey: (env.OPINLY_API_KEY ?? '').trim() || null,
+    opinlyApiUrl: env.OPINLY_API_URL || 'https://sdk.opinly.ai',
     assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',
     assistantDailyTokens,
     turnstileSecretKey,

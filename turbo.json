@@ -6,7 +6,8 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      "env": ["NEXT_PUBLIC_*", "SUPABASE_URL", "DATABASE_URL", "WEB_ORIGINS", "PORT"]
+      "env": ["NEXT_PUBLIC_*", "SUPABASE_URL", "DATABASE_URL", "WEB_ORIGINS", "PORT"],
+      "passThroughEnv": ["OPINLY_API_KEY", "OPINLY_API_URL"]
     },
     "dev": { "cache": false, "persistent": true },
     "lint": {},

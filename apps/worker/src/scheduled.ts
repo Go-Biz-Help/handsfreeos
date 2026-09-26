@@ -64,6 +64,7 @@ import {
 } from './money/recharge';
 import { moneyJobs } from './money/refunds';
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
+import { analyticsJobs } from './analytics/opinly';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
 import { SUPPORT_JOBS } from './support/draft';
@@ -326,6 +327,8 @@ export const jobs: JobMap = {
   // Founding seats (0093): a Checkout page made at Stripe, and the hourly sweep that gives back reservations
   // nobody took up or paid for (founding/checkout.ts).
   ...foundingJobs,
+  // Sign-ups and paid seats, sent to Opinly with retries of their own (analytics/opinly.ts).
+  ...analyticsJobs,
   // Money: an invoice's message and its reminders, marking one overdue, an estimate's message, its nudge and
   // its expiry, a receipt and a payment that failed, a plan's cycle read back, and the hourly plan and each
   // business's sweep behind them all (money/jobs.ts).

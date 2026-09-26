@@ -11,6 +11,7 @@
  * all day and lost them to a 502 does not write them again.
  */
 import { useState } from 'react';
+import { anonId, withPixel } from '@/lib/opinly/pixel';
 
 /**
  * `ui.tsx`'s Button renders a Link — it is for navigation. A form needs a real submit control, so this is
@@ -50,6 +51,8 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
           // The honeypot. Hidden from people, irresistible to crawlers.
           company_website_url: String(data.get('company_website_url') ?? ''),
           source: typeof document === 'undefined' ? '' : document.referrer.slice(0, 300),
+          // Opinly's visitor id, so the server's copy of this lead lands on this visit (api/founding/apply).
+          anonId: anonId(),
         }),
       });
       if (!res.ok) {
@@ -62,7 +65,21 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
         });
         return;
       }
-      const body = (await res.json()) as { status?: string };
+      const body = (await res.json()) as { status?: string; applicationId?: string };
+      // A lead, and now a person: the visit that brought them here is theirs from here on. The server sends
+      // the same lead with the same id, so the two merge into one however many arrive.
+      const email = String(data.get('email') ?? '').trim();
+      if (body.applicationId) {
+        const applicationId = body.applicationId;
+        withPixel((pixel) => {
+          if (email) pixel.identify({ email });
+          pixel.track(
+            'generate_lead',
+            { offer_id: offerId, status: body.status ?? 'pending' },
+            { externalEventId: `lead:${applicationId}` },
+          );
+        });
+      }
       // The form is reset only once the answer is in, so a failure never costs somebody their words.
       form.reset();
       setState({ kind: 'done', waitlisted: body.status === 'waitlisted' });

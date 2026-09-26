@@ -23,10 +23,11 @@ import {
   foundingRecordCheckoutPaid,
   scheduleJob,
 } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { DeliveryProcessor, ProcessorMap } from '../deliveries';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
+import { queueConversionFrom } from '../analytics/opinly';
 import { errorMessage } from '../outbox';
 import { PaymentError, PlatformUnsupportedError, type CheckoutEvent } from '../payments/provider';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
@@ -66,8 +67,34 @@ type CheckoutRow = {
   id: string;
   status: string;
   amount_cents: number;
+  offer_id: string;
   offer_name: string;
+  requested_by: string | null;
   email: string | null;
+};
+
+const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
+  asWorker(ctx.db, scope, (tx) =>
+    rows<CheckoutRow>(
+      tx,
+      sql`select c.id, c.status::text as status, c.amount_cents, o.id as offer_id, o.name as offer_name,
+            c.requested_by::text as requested_by, u.email::text as email
+          from platform.founding_checkouts c
+          join platform.founding_offers o on o.id = c.offer_id
+          left join app.users u on u.id = c.requested_by
+          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
+    ),
+  );
+
+/** What a founding seat looks like to Opinly: one item, priced in dollars. Stripe is always asked in USD. */
+const seatProperties = (c: CheckoutRow, cents: number, checkoutId: string) => {
+  const value = cents / 100;
+  return {
+    value,
+    currency: 'USD',
+    transaction_id: checkoutId,
+    items: [{ item_id: c.offer_id, item_name: c.offer_name, price: value, quantity: 1 }],
+  };
 };
 
 async function closeCheckout(
@@ -91,17 +118,7 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const checkoutId = String(ctx.job.payload['checkoutId'] ?? '');
   if (!checkoutId) return;
-  const [c] = await asWorker(ctx.db, scope, (tx) =>
-    rows<CheckoutRow>(
-      tx,
-      sql`select c.id, c.status::text as status, c.amount_cents, o.name as offer_name,
-            u.email::text as email
-          from platform.founding_checkouts c
-          join platform.founding_offers o on o.id = c.offer_id
-          left join app.users u on u.id = c.requested_by
-          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
-    ),
-  );
+  const [c] = await checkoutRow(ctx, scope, checkoutId);
   // Already made (a retry after the write), closed, or paid: nothing to do.
   if (!c || c.status !== 'pending') return;
 
@@ -151,6 +168,13 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       systemActor(scope),
       workerMeta(),
     );
+    // The page exists: somebody is at the till. Told to Opinly when it is switched on (analytics/opinly.ts).
+    await queueConversionFrom(ctx, scope, {
+      event: 'begin_checkout',
+      properties: seatProperties(c, Number(c.amount_cents), checkoutId),
+      externalEventId: `begin_checkout:${checkoutId}`,
+      userId: c.requested_by,
+    });
   } catch (e) {
     // Stripe isn't set up on this server, or said no to the request itself: the person is told, not left waiting.
     if (e instanceof PlatformUnsupportedError || (e instanceof PaymentError && e.permanent)) {
@@ -253,6 +277,22 @@ export const onFoundingCheckoutEvent: DeliveryProcessor = async (ctx) => {
         { checkoutId: event.checkoutId, paymentRef: event.paymentRef },
         'a founding seat was paid for and could not be turned on: refund it or find the seat',
       );
+    // A seat turned on is the sale. Only the first time (`already` is Stripe sending it again), and keyed on
+    // the checkout, which is the order number here: a repeat from anywhere merges into this one.
+    if (done.output.outcome === 'activated' && ctx.analytics) {
+      const [c] = await checkoutRow(ctx, scope, event.checkoutId).catch(() => []);
+      if (c)
+        await queueConversionFrom(ctx, scope, {
+          event: 'purchase',
+          properties: seatProperties(
+            c,
+            event.amountTotal ?? Number(c.amount_cents),
+            event.checkoutId,
+          ),
+          externalEventId: event.checkoutId,
+          userId: c.requested_by,
+        });
+    }
     return;
   }
   await executeCommand(

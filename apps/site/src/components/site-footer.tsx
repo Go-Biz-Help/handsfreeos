@@ -11,6 +11,7 @@ const columns = [
       { href: '/#how', label: 'How it works' },
       { href: '/pricing', label: 'Pricing' },
       { href: '/app', label: 'Phone app' },
+      { href: '/blog', label: 'Blog' },
     ],
   },
   {

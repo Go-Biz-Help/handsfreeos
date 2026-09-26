@@ -3,6 +3,7 @@ import type { AiProvider } from '@hfos/ai';
 import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
+import type { AnalyticsService } from './analytics/opinly';
 import type { AuthAdmin } from './account/auth-admin';
 import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
@@ -104,6 +105,8 @@ export interface WorkerServices {
    * (account/auth-admin.ts). Missing without SUPABASE_URL and SUPABASE_SECRET_KEY; that job then waits and retries.
    */
   readonly authAdmin?: AuthAdmin;
+  /** Sign-ups and paid seats, told to Opinly (analytics/opinly.ts). Absent without a key: nothing is queued. */
+  readonly analytics?: AnalyticsService;
   /** HandsFreeOS's own support desk: the addresses its mail arrives on and sends from. */
   readonly support: SupportServices;
   /**

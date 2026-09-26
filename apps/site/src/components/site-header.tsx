@@ -10,6 +10,7 @@ const links = [
   { href: '/features', label: 'What it does' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/app', label: 'Phone app' },
+  { href: '/blog', label: 'Blog' },
   { href: '/support', label: 'Support' },
 ];
 

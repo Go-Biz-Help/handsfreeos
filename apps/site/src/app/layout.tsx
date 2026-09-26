@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Hanken_Grotesk } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { Matomo } from '@/components/matomo';
+import { OpinlyPixel } from '@/components/opinly-pixel';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { SupportChat } from '@/components/support-chat';
@@ -48,6 +49,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-US" className={hanken.variable}>
+      <head>
+        <OpinlyPixel />
+      </head>
       <body className="font-sans">
         <a
           href="#main"
