@@ -14,7 +14,7 @@ import { company, urls } from '@/content/site';
 
  */
 
-const LAST_UPDATED = 'September 25, 2026';
+const LAST_UPDATED = 'September 26, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
@@ -121,6 +121,17 @@ export default function PrivacyPage() {
               </td>
               <td>Your browser or phone, automatically, through Matomo</td>
               <td>To see which parts get used, and so what to fix and build next</td>
+            </tr>
+            <tr>
+              <td>
+                Marketing: which ad, post or link brought you to this website, and, if you apply for
+                a founding seat here, that your visits, your application and any payment for the
+                seat go together
+              </td>
+              <td>
+                Your browser, automatically, and our servers when a seat is paid for, through Opinly
+              </td>
+              <td>To see which of our own ads and posts are worth what they cost</td>
             </tr>
           </tbody>
         </table>
@@ -296,6 +307,13 @@ export default function PrivacyPage() {
               <td>Matomo</td>
               <td>Counts visits to this website and which screens of the apps get used</td>
             </tr>
+            <tr>
+              <td>Opinly</td>
+              <td>
+                Tells us which ads, posts and links bring people to this website, and which of them
+                led to a paid founding seat
+              </td>
+            </tr>
           </tbody>
         </table>
         <p>
@@ -324,6 +342,18 @@ export default function PrivacyPage() {
           name, and nothing you type or search for is sent. The pages your customers open &mdash;
           booking pages, invoices, forms &mdash; are not counted at all. None of it is used for
           advertising or shared with anyone else.
+        </p>
+        <p>
+          On this website only, we also use Opinly to see which of our own ads, posts and links
+          bring people here. It keeps a random number in your browser&rsquo;s storage, not a cookie,
+          so a return visit is known as the same visitor, and it notes the link or ad you arrived
+          from and the pages and buttons you use. It never reads what you type into a form, with one
+          exception: an email address you type here, such as on the founding seat application, is
+          sent to Opinly, which keeps only a scrambled copy (a hash) of it so your visits and your
+          application can be matched up. If you then pay for a founding seat, our servers tell
+          Opinly the amount and the email address you applied with, so the payment is matched to the
+          same visits. Opinly&rsquo;s script is never loaded in the web app or the phone app. It
+          does not follow you to other websites, and nothing it records goes to an ad network.
         </p>
         <p>
           Some browsers send a &ldquo;Do Not Track&rdquo; signal. We do not need to do anything

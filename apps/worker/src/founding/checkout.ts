@@ -36,11 +36,15 @@ export const FOUNDING_JOBS = {
   checkout: 'founding.checkout',
   /** Global, hourly: reservations that ran out go back (private.founding_expire_reservations). */
   expire: 'founding.expire',
+  /** One paid checkout: tell the website's analytics, so the payment is credited to what brought them (opinly.ts). */
+  purchase: 'founding.report_purchase',
 } as const;
 
 export const FOUNDING_EXPIRE_KEY = 'sweep:founding_reservations';
 export const checkoutJobKey = (checkoutId: string): string =>
   `${FOUNDING_JOBS.checkout}:${checkoutId}`;
+export const purchaseJobKey = (checkoutId: string): string =>
+  `${FOUNDING_JOBS.purchase}:${checkoutId}`;
 
 /** The webhook delivery kind a checkout event is stored under, beside Stripe's Connect kinds. */
 export const FOUNDING_CHECKOUT_KIND = 'founding_checkout';
@@ -175,6 +179,66 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
   }
 };
 
+/**
+ * A seat was paid for (`founding.paid`, said once per checkout, stranded or not: the money is in either way). The
+ * report is a job for the reason the page is: Opinly can be down or slow, and a job retries one thing with backoff
+ * rather than holding up the event. Nothing is queued without a key.
+ */
+export const onFoundingPaid: EventHandler = async (ctx) => {
+  const { workspaceId, organizationId } = ctx.scope;
+  const checkoutId = ctx.event.entityId;
+  const payload = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const paidCents = Number(payload['paidCents'] ?? 0);
+  if (!ctx.opinly || !workspaceId || !organizationId || !checkoutId || !(paidCents > 0)) return;
+  await scheduleJob(ctx.tx, {
+    kind: FOUNDING_JOBS.purchase,
+    dedupeKey: purchaseJobKey(checkoutId),
+    runAt: new Date(),
+    payload: { checkoutId, paidCents, offerId: payload['offerId'] ?? null },
+    workspaceId,
+    organizationId,
+  });
+};
+
+/**
+ * One paid seat, reported to Opinly as a `purchase` of what Stripe actually took. The checkout is the dedup key, so
+ * a retry is still one purchase.
+ *
+ * The address is the one the application was made with on the website, because that is the one the website matched
+ * to the visit (the pixel is not in the app, so there is no browser id to send): somebody who pays from an account
+ * with another address is still credited to the ad that brought them. A seat staff gave out with no application
+ * falls back to the address of whoever paid.
+ */
+export const reportFoundingPurchase: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const checkoutId = String(ctx.job.payload['checkoutId'] ?? '');
+  const paidCents = Number(ctx.job.payload['paidCents'] ?? 0);
+  const offerId = ctx.job.payload['offerId'];
+  if (!ctx.opinly || !checkoutId || !(paidCents > 0)) return;
+  const [c] = await asWorker(ctx.db, scope, (tx) =>
+    rows<{ email: string | null }>(
+      tx,
+      sql`select coalesce(
+              (select a.email::text from platform.founding_applications a
+                where a.grant_id = c.grant_id order by a.created_at limit 1),
+              u.email::text) as email
+          from platform.founding_checkouts c
+          left join app.users u on u.id = c.requested_by
+          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
+    ),
+  );
+  if (!c) return;
+  await ctx.opinly.track(
+    'purchase',
+    {
+      value: paidCents / 100,
+      currency: 'USD',
+      ...(typeof offerId === 'string' ? { offer: offerId } : {}),
+    },
+    { externalEventId: checkoutId, ...(c.email ? { email: c.email } : {}) },
+  );
+};
+
 /** Hourly: seats whose reservation ran out, with nothing under way on them, go back (0093). */
 export const expireFoundingReservations: JobHandler = async (ctx) => {
   const [row] = await asWorker(ctx.db, {}, (tx) =>
@@ -188,6 +252,7 @@ export const expireFoundingReservations: JobHandler = async (ctx) => {
 export const foundingJobs: JobMap = {
   [FOUNDING_JOBS.checkout]: runFoundingCheckout,
   [FOUNDING_JOBS.expire]: expireFoundingReservations,
+  [FOUNDING_JOBS.purchase]: reportFoundingPurchase,
 };
 
 /**
