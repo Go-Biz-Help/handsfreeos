@@ -11,7 +11,7 @@
  * all day and lost them to a 502 does not write them again.
  */
 import { useState } from 'react';
-import { identify, track } from '@/lib/opinly';
+import { anonId, identify, track } from '@/lib/opinly/pixel';
 
 /**
  * `ui.tsx`'s Button renders a Link — it is for navigation. A form needs a real submit control, so this is
@@ -52,6 +52,8 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
           // The honeypot. Hidden from people, irresistible to crawlers.
           company_website_url: String(data.get('company_website_url') ?? ''),
           source: typeof document === 'undefined' ? '' : document.referrer.slice(0, 300),
+          // Opinly's visitor id, so the server's copy of this lead lands on this visit (api/founding/apply).
+          anonId: anonId(),
         }),
       });
       if (!res.ok) {

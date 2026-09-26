@@ -17,6 +17,18 @@ export function passwordStrength(pw: string): { score: 0 | 1 | 2 | 3 | 4; label:
   return { score: s as 1 | 2 | 3 | 4, label: ['', 'Weak', 'Okay', 'Good', 'Strong'][s]! };
 }
 
+/**
+ * Who this person was on handsfreeos.com before they got here: the website adds Opinly's anonymous visitor id to
+ * its "Start free" links as `?oa=`. It is kept on the new sign-in, so the worker can credit the sign-up, and
+ * anything bought later, to the article or campaign that brought them (apps/worker/src/analytics/opinly.ts).
+ * Only something shaped like one of Opinly's ids is kept, and deleting the account clears it with the rest of
+ * the sign-in's details.
+ */
+function visitorFromLink(): string | undefined {
+  const id = new URLSearchParams(window.location.search).get('oa');
+  return id && /^[A-Za-z0-9-]{8,128}$/.test(id) ? id : undefined;
+}
+
 export function SignUpForm({ children }: { children?: ReactNode }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -44,11 +56,12 @@ export function SignUpForm({ children }: { children?: ReactNode }) {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     setBusy(true);
+    const visitor = visitorFromLink();
     const { error } = await supabaseBrowser().auth.signUp({
       email: email.trim(),
       password,
       options: {
-        data: { full_name: name.trim() },
+        data: { full_name: name.trim(), ...(visitor ? { opinly_anon_id: visitor } : {}) },
         emailRedirectTo: `${window.location.origin}/auth/confirm`,
       },
     });

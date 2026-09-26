@@ -6,6 +6,7 @@
  */
 
 interface Pixel {
+  /** This browser's anonymous visitor id: the join key a server-side event can carry. */
   readonly anonId: string;
   track(
     event: string,
@@ -42,3 +43,14 @@ export const track = (...args: Parameters<Pixel['track']>): void =>
 /** Tie this browser's visits to a person. The first email a browser is identified with is the one it keeps. */
 export const identify = (person: Parameters<Pixel['identify']>[0]): void =>
   withPixel((pixel) => pixel.identify(person));
+
+/**
+ * The visitor's anonymous id, if the pixel has loaded — sent along with a form or a sign-up link so the server can
+ * report what happens next against this exact visit. Undefined before it loads, and on previews and `next dev`,
+ * where it never does.
+ */
+export function anonId(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const id = window.opinly?.anonId;
+  return typeof id === 'string' && /^[A-Za-z0-9-]{8,128}$/.test(id) ? id : undefined;
+}

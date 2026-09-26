@@ -77,7 +77,13 @@ const services: EngineServices = {
   speech: createSpeech(env, log),
   voiceAi: createVoiceAi(env),
   siteHost: createSiteHost(env),
-  opinly: createOpinly(env.opinlyApiKey),
+  // With Supabase's admin key it can also read the website visitor a person signed up as (opinly.ts).
+  opinly: createOpinly(
+    env.opinlyApiKey,
+    env.supabaseUrl && env.supabaseSecretKey
+      ? { url: env.supabaseUrl, secretKey: env.supabaseSecretKey }
+      : null,
+  ),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,

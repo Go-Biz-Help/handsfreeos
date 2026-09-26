@@ -23,10 +23,11 @@ import {
   foundingRecordCheckoutPaid,
   scheduleJob,
 } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { DeliveryProcessor, ProcessorMap } from '../deliveries';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
+import { foundingContact, queueOpinlyEventFrom, visitorIdFor } from '../opinly';
 import { errorMessage } from '../outbox';
 import { PaymentError, PlatformUnsupportedError, type CheckoutEvent } from '../payments/provider';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
@@ -70,8 +71,34 @@ type CheckoutRow = {
   id: string;
   status: string;
   amount_cents: number;
+  offer_id: string;
   offer_name: string;
+  requested_by: string | null;
   email: string | null;
+};
+
+const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
+  asWorker(ctx.db, scope, (tx) =>
+    rows<CheckoutRow>(
+      tx,
+      sql`select c.id, c.status::text as status, c.amount_cents, o.id as offer_id, o.name as offer_name,
+            c.requested_by::text as requested_by, u.email::text as email
+          from platform.founding_checkouts c
+          join platform.founding_offers o on o.id = c.offer_id
+          left join app.users u on u.id = c.requested_by
+          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
+    ),
+  );
+
+/** What a founding seat looks like to Opinly: one item, priced in dollars. Stripe is always asked in USD. */
+const seatProperties = (c: CheckoutRow, cents: number) => {
+  const value = cents / 100;
+  return {
+    value,
+    currency: 'USD',
+    offer: c.offer_id,
+    items: [{ item_id: c.offer_id, item_name: c.offer_name, price: value, quantity: 1 }],
+  };
 };
 
 async function closeCheckout(
@@ -95,17 +122,7 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const checkoutId = String(ctx.job.payload['checkoutId'] ?? '');
   if (!checkoutId) return;
-  const [c] = await asWorker(ctx.db, scope, (tx) =>
-    rows<CheckoutRow>(
-      tx,
-      sql`select c.id, c.status::text as status, c.amount_cents, o.name as offer_name,
-            u.email::text as email
-          from platform.founding_checkouts c
-          join platform.founding_offers o on o.id = c.offer_id
-          left join app.users u on u.id = c.requested_by
-          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
-    ),
-  );
+  const [c] = await checkoutRow(ctx, scope, checkoutId);
   // Already made (a retry after the write), closed, or paid: nothing to do.
   if (!c || c.status !== 'pending') return;
 
@@ -155,6 +172,15 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       systemActor(scope),
       workerMeta(),
     );
+    // The page exists: somebody is at the till. Told to Opinly when it has a key (opinly.ts); the sale itself is
+    // `founding.paid`, below.
+    await queueOpinlyEventFrom(ctx, scope, {
+      event: 'begin_checkout',
+      properties: seatProperties(c, Number(c.amount_cents)),
+      externalEventId: `begin_checkout:${checkoutId}`,
+      userId: c.requested_by,
+      checkoutId,
+    });
   } catch (e) {
     // Stripe isn't set up on this server, or said no to the request itself: the person is told, not left waiting.
     if (e instanceof PlatformUnsupportedError || (e instanceof PaymentError && e.permanent)) {
@@ -205,9 +231,9 @@ export const onFoundingPaid: EventHandler = async (ctx) => {
  * a retry is still one purchase.
  *
  * The address is the one the application was made with on the website, because that is the one the website matched
- * to the visit (the pixel is not in the app, so there is no browser id to send): somebody who pays from an account
- * with another address is still credited to the ad that brought them. A seat staff gave out with no application
- * falls back to the address of whoever paid.
+ * to the visit: somebody who pays from an account with another address is still credited to the ad that brought
+ * them. A seat staff gave out with no application falls back to the address of whoever paid. When the payer signed
+ * up through a website link, the visitor id kept on their sign-in goes too, which matches the visit exactly.
  */
 export const reportFoundingPurchase: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
@@ -215,19 +241,9 @@ export const reportFoundingPurchase: JobHandler = async (ctx) => {
   const paidCents = Number(ctx.job.payload['paidCents'] ?? 0);
   const offerId = ctx.job.payload['offerId'];
   if (!ctx.opinly || !checkoutId || !(paidCents > 0)) return;
-  const [c] = await asWorker(ctx.db, scope, (tx) =>
-    rows<{ email: string | null }>(
-      tx,
-      sql`select coalesce(
-              (select a.email::text from platform.founding_applications a
-                where a.grant_id = c.grant_id order by a.created_at limit 1),
-              u.email::text) as email
-          from platform.founding_checkouts c
-          left join app.users u on u.id = c.requested_by
-          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
-    ),
-  );
+  const c = await foundingContact(ctx.db, scope, checkoutId);
   if (!c) return;
+  const anonId = await visitorIdFor(ctx, c.requestedBy);
   await ctx.opinly.track(
     'purchase',
     {
@@ -235,7 +251,11 @@ export const reportFoundingPurchase: JobHandler = async (ctx) => {
       currency: 'USD',
       ...(typeof offerId === 'string' ? { offer: offerId } : {}),
     },
-    { externalEventId: checkoutId, ...(c.email ? { email: c.email } : {}) },
+    {
+      externalEventId: checkoutId,
+      ...(c.email ? { email: c.email } : {}),
+      ...(anonId ? { anonId } : {}),
+    },
   );
 };
 

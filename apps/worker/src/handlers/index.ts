@@ -60,6 +60,7 @@ import { onWalletLow } from '../money/recharge';
 import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-notices';
 import { onRefundRequested } from '../money/refunds';
 import { onFoundingCheckoutRequested, onFoundingPaid } from '../founding/checkout';
+import { onBusinessCreated } from '../opinly';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
@@ -176,6 +177,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'founding.checkout_requested': onFoundingCheckoutRequested,
     // …and paid for: the website's analytics hears of it from a job, when it has a key (founding/checkout.ts).
     'founding.paid': onFoundingPaid,
+    // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).
+    'workspace.created': onBusinessCreated,
     // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job
     // for the same reason a refund is. `wallet.empty` brings no second attempt — by then the top-up has
     // already been tried — but it does bring the email, because a push can be switched off and at zero we do

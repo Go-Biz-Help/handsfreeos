@@ -12,12 +12,20 @@ import { company, plan, urls } from '@/content/site';
  * made-up one is both a lie and a manual penalty waiting to happen.
  */
 
-function Script({ data }: { data: Record<string, unknown> }) {
+/**
+ * One JSON-LD block. The blog's come from Opinly rather than from src/content, so `<` is escaped: a post title
+ * containing `</script>` would otherwise end the block early and run whatever followed it as markup.
+ */
+export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
     <script
       type="application/ld+json"
-      // The content is ours, built from the files in src/content, never from user input.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify(data)
+          .replace(/</g, '\\u003c')
+          .replace(/\u2028/g, '\\u2028')
+          .replace(/\u2029/g, '\\u2029'),
+      }}
     />
   );
 }
@@ -25,7 +33,7 @@ function Script({ data }: { data: Record<string, unknown> }) {
 /** Who publishes this site. Sits on the home page, which is the page everything else points at. */
 export function OrganizationJsonLd() {
   return (
-    <Script
+    <JsonLd
       data={{
         '@context': 'https://schema.org',
         '@type': 'Organization',
@@ -57,7 +65,7 @@ export function OrganizationJsonLd() {
 
 export function WebSiteJsonLd() {
   return (
-    <Script
+    <JsonLd
       data={{
         '@context': 'https://schema.org',
         '@type': 'WebSite',
@@ -78,7 +86,7 @@ export function WebSiteJsonLd() {
  */
 export function SoftwareApplicationJsonLd({ monthlyOnSale }: { monthlyOnSale: boolean }) {
   return (
-    <Script
+    <JsonLd
       data={{
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
@@ -124,7 +132,7 @@ export function SoftwareApplicationJsonLd({ monthlyOnSale }: { monthlyOnSale: bo
 /** The questions on the page, in the form an assistant can lift an answer from. */
 export function FaqJsonLd({ faqs, id }: { faqs: readonly Faq[]; id: string }) {
   return (
-    <Script
+    <JsonLd
       data={{
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
