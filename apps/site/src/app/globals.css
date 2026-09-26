@@ -171,3 +171,155 @@ p {
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
 }
+
+/* A blog post's body (src/lib/opinly/render.tsx). Opinly sends structure, not styling, so every element it can
+   produce is set here, in the site's tokens: it themes with the page and reads at the same size as the rest of
+   the site. */
+.post-body {
+  color: var(--text-2);
+  font-size: 1.125rem;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+.post-body > :first-child {
+  margin-top: 0;
+}
+.post-body :is(h2, h3, h4, h5, h6) {
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.25;
+  scroll-margin-top: 5rem;
+}
+.post-body h2 {
+  margin: 2.75rem 0 1rem;
+  font-size: 1.625rem;
+}
+.post-body h3 {
+  margin: 2.25rem 0 0.75rem;
+  font-size: 1.3125rem;
+}
+.post-body :is(h4, h5, h6) {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1.125rem;
+}
+.post-body p,
+.post-body :is(ul, ol),
+.post-body blockquote,
+.post-body pre,
+.post-body figure,
+.post-body .post-table {
+  margin: 0 0 1.25rem;
+}
+.post-body :is(ul, ol) {
+  padding-left: 1.5rem;
+}
+.post-body ul {
+  list-style: disc;
+}
+.post-body ol {
+  list-style: decimal;
+}
+.post-body li {
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem;
+}
+.post-body li > :is(p, ul, ol) {
+  margin-bottom: 0.5rem;
+}
+.post-body li::marker {
+  color: var(--text-3);
+}
+.post-body a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.post-body a:hover {
+  text-decoration-thickness: 2px;
+}
+.post-body :is(strong, b) {
+  color: var(--text);
+  font-weight: 600;
+}
+.post-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  color: var(--text);
+  font-style: italic;
+}
+.post-body blockquote > :last-child {
+  margin-bottom: 0;
+}
+.post-body code {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--text);
+}
+.post-body pre {
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+.post-body pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+.post-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-card);
+}
+.post-body p img {
+  display: inline-block;
+  vertical-align: middle;
+}
+.post-body figcaption {
+  margin-top: 0.625rem;
+  color: var(--text-3);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+.post-body hr {
+  margin: 2.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.post-body mark {
+  background: var(--warning-soft);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+.post-body .post-table {
+  overflow-x: auto;
+}
+.post-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.post-body :is(th, td) {
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 1rem 0.625rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+.post-body th {
+  color: var(--text);
+  font-weight: 600;
+}
+.post-body :is(th, td) > p {
+  margin: 0;
+}

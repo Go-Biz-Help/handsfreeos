@@ -165,6 +165,11 @@ export interface WorkerEnv {
    * and paid, but the payment is never heard about, so nobody's seat turns on: set it before opening $497 seats.
    */
   readonly stripePlatformWebhookSecret: string | null;
+  /**
+   * Opinly's secret `sk-` key: a paid founding seat is reported to the website's marketing analytics, so the payment
+   * is credited to the ad or post that brought them (opinly.ts). Unset sends nothing.
+   */
+  readonly opinlyApiKey: string | null;
   /** Square: the developer application's id and secret. The id is public and the page loads the SDK with it. */
   readonly squareApplicationId: string | null;
   readonly squareApplicationSecret: string | null;
@@ -496,6 +501,14 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       'EXPO_BASE_URL is for Expo’s own testing; production sends pushes only to Expo',
     );
 
+  // The website's pixel carries the publishable `pk-` key, and it is the one most likely to be pasted here. It can
+  // only write from a browser, so every report would be refused; said at deploy rather than in a log nobody reads.
+  const opinlyApiKey = (env.OPINLY_API_KEY ?? '').trim() || null;
+  if (opinlyApiKey && !opinlyApiKey.startsWith('sk-'))
+    throw new Error(
+      'OPINLY_API_KEY must be the secret sk- key from Opinly, not the pk- key the website uses',
+    );
+
   const reminder = env.UNANSWERED_ALERT_MS ? Number(env.UNANSWERED_ALERT_MS) : null;
   return {
     databaseUrl,
@@ -586,6 +599,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY || null,
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || null,
     stripePlatformWebhookSecret: env.STRIPE_PLATFORM_WEBHOOK_SECRET || null,
+    opinlyApiKey,
     squareApplicationId,
     squareApplicationSecret,
     squareWebhookSignatureKeys: list(env.SQUARE_WEBHOOK_SIGNATURE_KEYS),

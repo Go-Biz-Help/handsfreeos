@@ -11,6 +11,7 @@
  * all day and lost them to a 502 does not write them again.
  */
 import { useState } from 'react';
+import { anonId, identify, track } from '@/lib/opinly/pixel';
 
 /**
  * `ui.tsx`'s Button renders a Link — it is for navigation. A form needs a real submit control, so this is
@@ -34,6 +35,7 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const email = String(data.get('email') ?? '');
     setState({ kind: 'sending' });
     try {
       const res = await fetch('/api/founding/apply', {
@@ -43,13 +45,15 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
           offerId,
           businessName: String(data.get('businessName') ?? ''),
           contactName: String(data.get('contactName') ?? ''),
-          email: String(data.get('email') ?? ''),
+          email,
           phone: String(data.get('phone') ?? ''),
           industry: String(data.get('industry') ?? ''),
           note: String(data.get('note') ?? ''),
           // The honeypot. Hidden from people, irresistible to crawlers.
           company_website_url: String(data.get('company_website_url') ?? ''),
           source: typeof document === 'undefined' ? '' : document.referrer.slice(0, 300),
+          // Opinly's visitor id, so the server's copy of this lead lands on this visit (api/founding/apply).
+          anonId: anonId(),
         }),
       });
       if (!res.ok) {
@@ -62,10 +66,22 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
         });
         return;
       }
-      const body = (await res.json()) as { status?: string };
+      const body = (await res.json()) as { applicationId?: string; status?: string };
       // The form is reset only once the answer is in, so a failure never costs somebody their words.
       form.reset();
       setState({ kind: 'done', waitlisted: body.status === 'waitlisted' });
+      /**
+       * The site sells nothing, so an application is the conversion that matters. Only a real one has an id: the
+       * honeypot's answer does not. The worker gives a second press of the button the same id, so it counts once.
+       */
+      if (body.applicationId) {
+        identify({ email });
+        track(
+          'generate_lead',
+          { offer: offerId, status: body.status },
+          { externalEventId: body.applicationId },
+        );
+      }
     } catch {
       setState({
         kind: 'error',

@@ -30,6 +30,7 @@ import {
 } from '../src/payments/fake';
 import { hmacHex } from '../src/payments/provider';
 import { createStripePayments, readStripeCheckoutEvent } from '../src/payments/stripe';
+import type { Opinly } from '../src/opinly';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { testServices, type TestServices } from './helpers';
@@ -193,6 +194,15 @@ let organizationId: string;
 let s: TestServices;
 let app: FastifyInstance;
 
+/** What the website's analytics was told: the stand-in for Opinly's API, as though OPINLY_API_KEY were set. */
+const reported: { event: string; properties: Record<string, unknown>; opts: object }[] = [];
+const opinly: Opinly = {
+  track: async (event, properties, opts) => {
+    reported.push({ event, properties, opts });
+    return { ok: true };
+  },
+};
+
 async function drain(timeoutMs = 15_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -214,8 +224,9 @@ async function drain(timeoutMs = 15_000): Promise<void> {
 }
 
 /** An approval as founding.approve writes it, with the link's token kept. */
-async function approve(): Promise<{ token: string; grantId: string }> {
+async function approve(): Promise<{ token: string; grantId: string; email: string }> {
   const token = `${randomUUID()}${randomUUID()}`.replaceAll('-', '');
+  const email = `${randomUUID()}@hfos.test`;
   const [grant] = await rows<{ id: string }>(
     admin(),
     sql`insert into platform.founding_grants (offer_id, organization_id, expires_at)
@@ -224,10 +235,10 @@ async function approve(): Promise<{ token: string; grantId: string }> {
   await admin().execute(
     sql`insert into platform.founding_applications
           (offer_id, business_name, contact_name, email, status, claim_token_hash, claim_expires_at, grant_id)
-        values (${PAID}, 'Checkout HVAC', 'Dana', ${`${randomUUID()}@hfos.test`}, 'approved',
+        values (${PAID}, 'Checkout HVAC', 'Dana', ${email}, 'approved',
                 ${createHash('sha256').update(token).digest()}, now() + interval '14 days', ${grant!.id}::uuid)`,
   );
-  return { token, grantId: grant!.id };
+  return { token, grantId: grant!.id, email };
 }
 
 async function checkout(checkoutId: string) {
@@ -245,8 +256,8 @@ async function checkout(checkoutId: string) {
   return c!;
 }
 
-async function startPaying(): Promise<{ checkoutId: string; grantId: string }> {
-  const { token, grantId } = await approve();
+async function startPaying(): Promise<{ checkoutId: string; grantId: string; email: string }> {
+  const { token, grantId, email } = await approve();
   const { output } = await executeCommand(
     api(),
     foundingStartCheckout,
@@ -255,7 +266,7 @@ async function startPaying(): Promise<{ checkoutId: string; grantId: string }> {
     meta(),
   );
   await drain();
-  return { checkoutId: output.checkoutId, grantId };
+  return { checkoutId: output.checkoutId, grantId, email };
 }
 
 beforeAll(async () => {
@@ -269,7 +280,7 @@ beforeAll(async () => {
   );
   workspaceId = output.workspaceId;
   organizationId = output.organizationId;
-  s = testServices();
+  s = testServices({ opinly });
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
@@ -294,6 +305,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  reported.length = 0;
   await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${PAID}`);
   await admin().execute(sql`delete from platform.founding_applications where offer_id = ${PAID}`);
   await admin().execute(sql`delete from platform.founding_grants where offer_id = ${PAID}`);
@@ -335,6 +347,31 @@ describe('paying for a seat', () => {
     expect(s.payments.fake.platformCharges().some((c) => c.id === page.paymentRef)).toBe(true);
   });
 
+  it("tells the website's analytics when the page opens, then once what was taken, with the address the application used", async () => {
+    const { checkoutId, email } = await startPaying();
+    const seat = { value: 497, currency: 'USD', offer: PAID };
+    // Before any money only that somebody is at the till. (The owner's sign-up, from making the business, is
+    // reported too, and is not what this test is about.)
+    expect(reported.filter((r) => r.event !== 'sign_up')).toEqual([
+      {
+        event: 'begin_checkout',
+        properties: {
+          ...seat,
+          items: [{ item_id: PAID, item_name: 'Founding Customer', price: 497, quantity: 1 }],
+        },
+        opts: { externalEventId: `begin_checkout:${checkoutId}`, email },
+      },
+    ]);
+    const page = s.payments.fake.checkouts().find((p) => p.checkoutId === checkoutId)!;
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    // The owner pays from an account under another address; the website only ever saw the application's.
+    expect(owner.email).not.toBe(email);
+    expect(reported.filter((r) => r.event === 'purchase')).toEqual([
+      { event: 'purchase', properties: seat, opts: { externalEventId: checkoutId, email } },
+    ]);
+  });
+
   it("pays on the stand-in's own page the way a person would, and lands back in the app", async () => {
     const { checkoutId } = await startPaying();
     const page = new URL((await checkout(checkoutId)).session_url!);
@@ -365,6 +402,7 @@ describe('paying for a seat', () => {
     await s.payments.fake.expireCheckout(page.sessionRef);
     await drain();
     expect((await checkout(checkoutId)).status).toBe('expired');
+    expect(reported.filter((r) => r.event === 'purchase')).toEqual([]);
     const [grant] = await rows<{ status: string }>(
       admin(),
       sql`select status::text as status from platform.founding_grants where id = ${grantId}::uuid`,
