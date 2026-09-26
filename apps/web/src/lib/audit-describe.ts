@@ -389,7 +389,9 @@ function describeAction(e: AuditEntry): string {
               ? `sent an email to ${s(e.after?.to)} · ${s(e.after?.subject)}`
               : `sent a text to ${s(e.after?.to)}`;
     case 'message.retry':
-      return `tried the ${s(e.after?.to).includes('@') ? 'email' : 'text'} to ${s(e.after?.to)} again`;
+      return s(e.after?.sendAt)
+        ? `tried the text to ${s(e.after?.to)} again, held until quiet hours end, ${when(e.after?.sendAt)}`
+        : `tried the ${s(e.after?.to).includes('@') ? 'email' : 'text'} to ${s(e.after?.to)} again`;
     case 'message.receive':
       return receiveSentence(e);
     case 'message.update_status':

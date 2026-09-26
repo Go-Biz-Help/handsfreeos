@@ -182,6 +182,82 @@ describe('campaigns', () => {
     );
   });
 
+  it('picks open deals only: a won or lost stage is refused, as the screen offers open ones', async () => {
+    const { pipelines } = await ask(pipelineList, { workspaceId: t.wsId }, t.owner);
+    for (const kind of ['won', 'lost'] as const) {
+      const stage = pipelines[0]!.stages.find((s) => s.kind === kind)!;
+      const err = await expectHfos(
+        () =>
+          run(
+            campaignCreate,
+            {
+              workspaceId: t.wsId,
+              name: 'Thanks',
+              goal: 'Say thanks',
+              audience: { tagIds: [tagId], stageIds: [stageId, stage.id] },
+            },
+            t.owner,
+          ),
+        'validation',
+        400,
+      );
+      expect(err.message).toBe(
+        `“${stage.name}” is a ${kind} stage. A campaign picks people with an open deal, so choose open stages.`,
+      );
+    }
+    const [n] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.campaigns where workspace_id = ${t.wsId} and name = 'Thanks'`,
+    );
+    expect(n!.n).toBe(0);
+  });
+
+  it('takes out only someone still set to get it, never someone already left out', async () => {
+    const made = await run(
+      campaignCreate,
+      { workspaceId: t.wsId, name: 'Spring', goal: 'Spring check', audience: audience() },
+      t.owner,
+    );
+    const got = await ask(
+      campaignGet,
+      { workspaceId: t.wsId, campaignId: made.campaignId },
+      t.owner,
+    );
+    const gus = got.recipients.find((r) => r.personId === ids['Gus'])!;
+    expect(gus).toMatchObject({ status: 'skipped', skipReason: 'not_opted_in' });
+    const err = await expectHfos(
+      () => run(campaignRemoveRecipient, { workspaceId: t.wsId, recipientId: gus.id }, t.owner),
+      'recipient_state',
+      409,
+    );
+    expect(err.message).toBe('That person is already left out of this campaign.');
+    const [row] = await rows<{ status: string; skip_reason: string }>(
+      admin(),
+      sql`select status::text as status, skip_reason from app.campaign_recipients where id = ${gus.id}`,
+    );
+    expect(row).toEqual({ status: 'skipped', skip_reason: 'not_opted_in' });
+
+    // A ready one goes; taking them out twice is refused the same way.
+    await rows(
+      admin(),
+      sql`update app.campaign_recipients set status = 'ready', draft = 'Hi there'
+          where campaign_id = ${made.campaignId} and status = 'drafting'`,
+    );
+    await rows(
+      admin(),
+      sql`update app.campaigns set status = 'review' where id = ${made.campaignId}`,
+    );
+    const ana = got.recipients.find((r) => r.personId === ids['Ana'])!;
+    expect(
+      await run(campaignRemoveRecipient, { workspaceId: t.wsId, recipientId: ana.id }, t.owner),
+    ).toEqual({ recipientId: ana.id, status: 'removed' });
+    await expectHfos(
+      () => run(campaignRemoveRecipient, { workspaceId: t.wsId, recipientId: ana.id }, t.owner),
+      'recipient_state',
+    );
+    await run(campaignCancel, { workspaceId: t.wsId, campaignId: made.campaignId }, t.owner);
+  });
+
   it('drafts change before approval only; approve, pause, resume and stop move it along', async () => {
     const made = await run(
       campaignCreate,

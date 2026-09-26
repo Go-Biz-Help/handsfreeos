@@ -303,10 +303,15 @@ export function ConversationView({
 
   async function retryMessage(messageId: string) {
     try {
-      unwrap(
+      const out = unwrap(
         await apiBrowser().POST('/v1/commands/message.retry', { body: { workspaceId, messageId } }),
       );
-      toast.success(CONVERSATION_DONE.retrying);
+      // In quiet hours a text tried again waits for them to end, like any held text.
+      toast.success(
+        out.scheduledFor
+          ? SENT_WORDS.held(first ?? c.counterpartDisplay, out.scheduledFor)
+          : CONVERSATION_DONE.retrying,
+      );
       t.refresh();
     } catch (e) {
       toast.error(errorMessage(e));

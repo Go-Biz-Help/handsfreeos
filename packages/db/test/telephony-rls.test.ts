@@ -659,6 +659,14 @@ describe('conversations and messages', () => {
       ),
     );
     expect(retried).toEqual([{ status: 'queued' }]);
+    // A retry in quiet hours is held: a person may move the time of a text still waiting to go…
+    const held = await as(member)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`update app.messages set occurred_at = now() + interval '8 hours' where id = ${failed!.id} returning id`,
+      ),
+    );
+    expect(held).toHaveLength(1);
 
     const [inbound] = await worker(
       wsA,
@@ -679,6 +687,16 @@ describe('conversations and messages', () => {
       ),
     );
     expect(receivedMoves.detail).toBe('message_status_transition');
+    // …but never the time of one that happened.
+    const backdated = await expectPgError(() =>
+      as(member)((tx) =>
+        rows(
+          tx,
+          sql`update app.messages set occurred_at = now() - interval '1 day' where id = ${inbound!.id}`,
+        ),
+      ),
+    );
+    expect(backdated.detail).toBe('message_time_change');
     const wrongChannel = await expectPgError(() =>
       worker(
         wsA,

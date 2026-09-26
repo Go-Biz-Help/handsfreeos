@@ -23,7 +23,13 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
-import { acceptedWording, estimateMoveProblem, money, type EstimateStatus } from '../money/index';
+import {
+  acceptedWording,
+  estimateInvoiceProblem,
+  estimateMoveProblem,
+  money,
+  type EstimateStatus,
+} from '../money/index';
 import {
   DocumentRecordViewInput,
   DocumentViewOutput,
@@ -450,14 +456,8 @@ export const estimateConvert = defineCommand({
     requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;
     const e = await requireEstimate(ctx, input.estimateId);
-    if (e.status !== 'accepted' && e.status !== 'sent')
-      throw HfosError.rule(
-        'estimate_not_answered',
-        409,
-        e.status === 'draft'
-          ? 'Send the estimate before invoicing it.'
-          : `A ${e.status} estimate can’t be invoiced. Make a new one instead.`,
-      );
+    const problem = estimateInvoiceProblem(e.status);
+    if (problem) throw HfosError.rule('estimate_not_answered', 409, problem);
     const lines = (await linesFor(ctx.tx, 'estimate', [e.id])).get(e.id) ?? [];
     const depositCents = depositOf(e);
     if (input.purpose === 'deposit' && depositCents <= 0)

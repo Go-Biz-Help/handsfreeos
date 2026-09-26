@@ -3928,7 +3928,7 @@ export interface paths {
         put?: never;
         /**
          * Send a text or email that did not go out one more time.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.scheduled.
          */
         post: operations["command_message_retry"];
         delete?: never;
@@ -5808,7 +5808,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel one occurrence of a series, it and the ones after it, or every upcoming one.
-         * @description Risk level 2. Requires appointments.write. Emits series.cancelled.
+         * @description Risk level 2. Requires appointments.write. Emits series.cancelled, waitlist.seat_freed.
          */
         post: operations["command_series_cancel"];
         delete?: never;
@@ -6928,7 +6928,7 @@ export interface paths {
         put?: never;
         /**
          * Take someone off a waitlist.
-         * @description Risk level 1. Requires appointments.write. Emits waitlist.removed.
+         * @description Risk level 1. Requires appointments.write. Emits waitlist.removed, waitlist.seat_freed.
          */
         post: operations["command_waitlist_remove"];
         delete?: never;
@@ -10411,6 +10411,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_user_phone_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/waitlist.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who is on a calendar’s waitlist, in line order: for a full session, or for a window of time they want.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_waitlist_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19417,6 +19437,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         messageId: string;
+                        /** Format: date-time */
+                        scheduledFor?: string;
                     };
                 };
             };
@@ -38014,6 +38036,62 @@ export interface operations {
                             lastVerificationAt: string | null;
                             verifiedAt: string | null;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_waitlist_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            appointment: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            offerExpiresAt: string | null;
+                            /** Format: uuid */
+                            personId: string;
+                            position: number;
+                            seats: number;
+                            /** @enum {string} */
+                            status: "waiting" | "offered";
+                            wantedFrom: string | null;
+                            wantedTo: string | null;
+                        }[];
+                        timezone: string;
                     };
                 };
             };

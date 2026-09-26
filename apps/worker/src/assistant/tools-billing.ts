@@ -16,6 +16,7 @@ import {
   computeTotals,
   depositProblem,
   dueDateFor,
+  estimateInvoiceProblem,
   estimateMoveProblem,
   ESTIMATE_WORDS,
   HfosError,
@@ -903,14 +904,8 @@ const manageEstimate: SettingsConfirmTool = {
       };
     }
     // make_invoice
-    if (e.status !== 'accepted' && e.status !== 'sent')
-      throw HfosError.rule(
-        'estimate_not_answered',
-        409,
-        e.status === 'draft'
-          ? 'Send the estimate before invoicing it.'
-          : `${estimateMoveProblem(e.status as EstimateStatus, 'accepted')?.replace('approved', 'invoiced') ?? 'That estimate can’t be invoiced.'} Write a new one instead.`,
-      );
+    const notYet = estimateInvoiceProblem(e.status as EstimateStatus);
+    if (notYet) throw HfosError.rule('estimate_not_answered', 409, notYet);
     const depositOnly = args['bill'] === 'deposit_only';
     if (depositOnly && e.depositCents <= 0)
       throw HfosError.rule(

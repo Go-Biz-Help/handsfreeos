@@ -12,10 +12,13 @@ import {
   assistantToolByName,
   customRecordTypeCreate,
   executeCommand,
+  formatClock,
   hasWorkspacePermission,
   leadCreate,
+  localMinutes,
   organizationCreate,
   personCreate,
+  phoneUpdateSettings,
   type AssistantCard,
   type CommandDef,
   type HumanActor,
@@ -498,6 +501,72 @@ describe('a conversation’s buttons', () => {
     expect((await message(failedEmail)).status).toBe('failed');
     await commit('manage_conversation', args);
     expect((await message(failedEmail)).status).toBe('queued');
+  });
+
+  it('holds a text sent again in quiet hours until they end, and says so before anyone agrees', async () => {
+    const [before] = await rows<{ settings: unknown }>(
+      admin(),
+      sql`select settings from app.workspaces where id = ${workspaceId}`,
+    );
+    // A number that may text, and quiet hours from an hour ago to an hour from now.
+    const [account] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.telephony_accounts (workspace_id, provider, account_sid, status)
+          values (${workspaceId}, 'fake', ${`ACretry${randomUUID().slice(0, 8)}`}, 'active') returning id`,
+    );
+    const [number] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.phone_numbers (workspace_id, account_id, provider_sid, e164, number_type, status)
+          values (${workspaceId}, ${account!.id}, ${`PNretry${randomUUID().slice(0, 8)}`},
+            ${`+1833${String(Date.now() % 10_000_000).padStart(7, '0')}`}, 'toll_free', 'active')
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.telephony_registrations (workspace_id, account_id, phone_number_id, kind, status, provider_sid, approved_at)
+          values (${workspaceId}, ${account!.id}, ${number!.id}, 'toll_free_verification', 'approved',
+            ${`HHretry${randomUUID().slice(0, 8)}`}, now())`,
+    );
+    const hhmm = (m: number) => {
+      const x = ((m % 1440) + 1440) % 1440;
+      return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+    };
+    const local = localMinutes(new Date(), CHI);
+    const end = hhmm(local + 60);
+    await run(
+      phoneUpdateSettings,
+      { workspaceId, quietHours: { enabled: true, start: hhmm(local - 60), end } },
+      dale,
+    );
+    try {
+      const args = { action: 'send_again', conversationId: bobText, messageId: failedText };
+      const { card } = await prepare('manage_conversation', args);
+      expect(card.confirmLabel).toBe('Send it again');
+      expect(card.warnings).toEqual([
+        {
+          kind: 'quiet_hours',
+          text: expect.stringContaining(
+            `in quiet hours. It goes to Bob Reyes when they end, at ${formatClock(end)}, and you can cancel it until then.`,
+          ),
+        },
+      ]);
+      const done = await commit('manage_conversation', args);
+      expect(done.outcome).toMatch(/^It goes when quiet hours end: /);
+      expect(await message(failedText)).toEqual({ status: 'queued', error_code: 'scheduled' });
+      expect(
+        (await read('unsent_messages', { conversationId: bobText })).waitingForQuietHours,
+      ).toContainEqual(expect.objectContaining({ messageId: failedText }));
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set settings = ${JSON.stringify(before!.settings)}::jsonb
+            where id = ${workspaceId}`,
+      );
+      await rows(
+        admin(),
+        sql`update app.phone_numbers set status = 'releasing' where id = ${number!.id}`,
+      );
+    }
   });
 });
 

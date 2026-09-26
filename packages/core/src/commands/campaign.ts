@@ -12,10 +12,10 @@
  * A call campaign is one opening line: the worker drafts it once, a person changes it with `campaign.update_call`,
  * and once approved the AI teammate rings each person (only those who agreed to calls in writing).
  */
-import { and, eq, inArray, sql as dsql } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
-import { campaignRecipients, campaigns } from '@hfos/db/schema';
-import { campaignAudience } from '../campaigns/audience';
+import { campaignRecipients, campaigns, pipelineStages } from '@hfos/db/schema';
+import { campaignAudience, closedStageWords } from '../campaigns/audience';
 import { businessPostalAddress } from '../campaigns/postal-address';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -87,6 +87,24 @@ export const campaignCreate = defineCommand({
         sql`select 1 from app.offers where id = ${input.offerId} and workspace_id = ${ws} and archived_at is null`,
       );
       if (!offer) throw HfosError.notFound('That offer isn’t running any more.');
+    }
+    // The screen offers open stages only: a won or lost deal isn't someone to reach out to.
+    if (input.audience.stageIds.length) {
+      const [closed] = await ctx.tx
+        .select({ name: pipelineStages.name, kind: pipelineStages.kind })
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.workspaceId, ws),
+            inArray(pipelineStages.id, input.audience.stageIds),
+            ne(pipelineStages.kind, 'open'),
+          ),
+        )
+        .limit(1);
+      if (closed) {
+        const message = closedStageWords(closed);
+        throw HfosError.validation([{ path: 'audience.stageIds', message }], message);
+      }
     }
     const email = input.channel === 'email';
     if (email && !(await businessPostalAddress(ctx.tx, ws)))
@@ -286,6 +304,12 @@ export const campaignRemoveRecipient = defineCommand({
     requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;
     const r = await openRecipient(ctx.tx, ws, input.recipientId);
+    // Only someone still set to get it: marking a person who was left out "removed" would lose why they were.
+    if (r.status !== 'ready' && r.status !== 'drafting')
+      throw HfosError.conflict(
+        'That person is already left out of this campaign.',
+        'recipient_state',
+      );
     await ctx.tx
       .update(campaignRecipients)
       .set({ status: 'removed' })

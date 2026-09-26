@@ -12,6 +12,7 @@
  * Anything that reaches customers, or can't be taken back, says so on the card.
  */
 import {
+  closedStageWords,
   describeStep,
   findStep,
   HfosError,
@@ -413,10 +414,8 @@ const startCampaign: SettingsConfirmTool = {
         throw need(
           'Some of those stages aren’t here. Stage ids come from get_settings (pipelines).',
         );
-      if (stage.kind !== 'open')
-        throw need(
-          `“${stage.name}” is a ${stage.kind} stage. A campaign picks people with an open deal, so choose open stages.`,
-        );
+      // Before the card, in campaign.create's own words, so nobody is asked to confirm what it refuses.
+      if (stage.kind !== 'open') throw need(closedStageWords(stage));
     }
     const offerId = str(args['offerId']);
     const offer = offerId ? offers.find((o) => o.id === offerId) : null;

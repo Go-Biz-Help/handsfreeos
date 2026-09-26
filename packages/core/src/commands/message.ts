@@ -1132,7 +1132,7 @@ export const messageRetry = defineCommand({
   output: MessageRetryOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
-  emits: ['message.queued'],
+  emits: ['message.queued', 'message.scheduled'],
   async handler(ctx, input) {
     const [m] = await ctx.tx
       .select()
@@ -1148,11 +1148,47 @@ export const messageRetry = defineCommand({
         'Only a message that did not go out can be sent again.',
       );
     const conv = await loadConversation(ctx, m.conversationId);
+    let holdUntil: Date | null = null;
     if (m.channel === 'email') {
       const stopped = await activeSuppression(ctx.tx, ctx.scope.workspaceId!, conv.counterpart);
       if (stopped)
         throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));
-    } else await assertCanText(ctx, conv, { acknowledgeQuietHours: true, skipQuietHours: true });
+    } else
+      // A text tried again in quiet hours never goes at night: it waits for them to end, like "Send at 8:00 AM".
+      ({ holdUntil } = await assertCanText(ctx, conv, {
+        acknowledgeQuietHours: false,
+        sendAfterQuietHours: true,
+      }));
+    if (holdUntil) {
+      // Held the way message.send holds a text: queued, cancellable, going at `occurred_at`. The worker's release
+      // runs every check again then and sends it in place of the attempt that failed.
+      const sendAt = holdUntil.toISOString();
+      await ctx.tx
+        .update(messages)
+        .set({
+          status: 'queued',
+          errorCode: SCHEDULED_TEXT,
+          errorMessage: null,
+          occurredAt: holdUntil,
+        })
+        .where(eq(messages.id, m.id));
+      await ctx.emit({
+        type: 'message.scheduled',
+        entityType: 'message',
+        entityId: m.id,
+        payload: {
+          conversationId: conv.id,
+          personId: conv.personId,
+          channel: 'sms',
+          mediaCount: m.media.length,
+          retry: true,
+          sendAt,
+        },
+        before: { status: m.status, errorCode: m.errorCode },
+        after: { to: formatPhone(conv.counterpart), status: 'queued', retry: true, sendAt },
+      });
+      return { messageId: m.id, scheduledFor: sendAt };
+    }
     await ctx.tx
       .update(messages)
       .set({ status: 'queued', errorCode: null, errorMessage: null })
@@ -1307,6 +1343,8 @@ export const messageReleaseScheduled = defineCommand({
     }
     // It goes now: from this moment it is on the timeline and in the conversation, and the worker sends it.
     const preview = messagePreview(m.bodyText, m.media.length);
+    // A text tried again in quiet hours (message.retry) was on the timeline and in the conversation already.
+    const retry = m.activityId !== null;
     const eventId = await ctx.emit({
       type: 'message.queued',
       entityType: 'message',
@@ -1317,6 +1355,8 @@ export const messageReleaseScheduled = defineCommand({
         channel: 'sms',
         mediaCount: m.media.length,
         scheduled: true,
+        // Like message.retry's own: the worker sends it despite the provider id the failed attempt left.
+        ...(retry ? { retry: true, replacesProviderMessageId: m.providerMessageId } : {}),
       },
       after: {
         to: formatPhone(conv.counterpart),
@@ -1325,6 +1365,13 @@ export const messageReleaseScheduled = defineCommand({
         mediaCount: m.media.length,
       },
     });
+    if (retry) {
+      await ctx.tx
+        .update(messages)
+        .set({ errorCode: null, occurredAt: now })
+        .where(eq(messages.id, m.id));
+      return outcome('sent');
+    }
     const activityId = await logChannelActivity(ctx, {
       kind: 'sms',
       subtype: 'outbound',

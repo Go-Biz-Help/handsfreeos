@@ -114,7 +114,11 @@ export const MessageSendOutput = z.object({
   scheduledFor: isoDateTime.optional(),
 });
 export const MessageRetryInput = z.object({ workspaceId: uuid, messageId: uuid });
-export const MessageRetryOutput = z.object({ messageId: uuid });
+export const MessageRetryOutput = z.object({
+  messageId: uuid,
+  /** A text tried again in quiet hours waits for them to end: when it goes. */
+  scheduledFor: isoDateTime.optional(),
+});
 /** A text waiting for quiet hours to end, cancelled: it never goes. */
 export const MessageCancelScheduledInput = z.object({ workspaceId: uuid, messageId: uuid });
 export const MessageCancelScheduledOutput = z.object({

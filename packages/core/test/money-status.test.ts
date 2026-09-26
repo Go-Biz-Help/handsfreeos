@@ -12,6 +12,7 @@ import {
   ESTIMATE_STATUSES,
   ESTIMATE_TRANSITIONS,
   estimateExpiresOn,
+  estimateInvoiceProblem,
   estimateIsOpen,
   estimateMoveProblem,
   estimateState,
@@ -61,6 +62,17 @@ describe('estimate states', () => {
       if (canEstimateMove(from, to)) expect(problem).toBeNull();
       else expect(problem).toMatch(/^A[n]? .+ can’t be .+\.$/);
     }
+  });
+
+  it('invoices only a sent or approved estimate, and says why not in a sentence that reads right', () => {
+    for (const status of ESTIMATE_STATUSES) {
+      const problem = estimateInvoiceProblem(status);
+      if (status === 'sent' || status === 'accepted') expect(problem).toBeNull();
+      else expect(problem).not.toMatch(/\bA [aeiou]/i);
+    }
+    expect(estimateInvoiceProblem('expired')).toBe(
+      'An expired estimate can’t be invoiced. Make a new one instead.',
+    );
   });
 
   it('never goes back to draft, and never leaves void', () => {

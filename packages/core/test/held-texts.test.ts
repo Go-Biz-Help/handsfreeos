@@ -7,6 +7,8 @@
  * - Cancelling: it never goes and leaves the conversation; a text that went can't be cancelled.
  * - The worker's release: not before its time, again after quiet hours that came round again, refused (with the
  *   reason) when the customer opted out overnight, and otherwise it goes like any text, credited to its writer.
+ * - A failed text tried again in quiet hours waits for them to end the same way, then goes in place of the attempt
+ *   that failed, without a second line on the timeline.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
@@ -34,7 +36,9 @@ import {
   conversationThread,
   messageCancelScheduled,
   messageReleaseScheduled,
+  messageRetry,
   messageSend,
+  messageUpdateStatus,
   organizationCreate,
   personCreate,
   personSetSmsConsent,
@@ -472,5 +476,111 @@ describe('the worker’s release', () => {
       { workspaceId: wsId, personId: mikeId, consent: 'opted_in' },
       dale,
     );
+  });
+});
+
+describe('a failed text tried again in quiet hours', () => {
+  it('waits for them to end like a held text, then goes in place of the attempt that failed', async () => {
+    await quietNow(false);
+    const sent = await run(
+      messageSend,
+      { workspaceId: wsId, personId: mikeId, body: 'Your part came in today.' },
+      marco,
+    );
+    // The carrier took it, then couldn't deliver it.
+    await admin()
+      .update(messages)
+      .set({ providerMessageId: `SMfail${uniq()}` })
+      .where(eq(messages.id, sent.messageId));
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: sent.messageId,
+      status: 'undelivered',
+      errorCode: '30003',
+      errorMessage: 'The carrier turned it away.',
+    });
+    const failed = await messageRow(sent.messageId);
+    expect(failed.status).toBe('undelivered');
+    expect(failed.activityId).not.toBeNull();
+
+    // Retry pressed at night: it doesn't go now.
+    const quiet = await quietNow(true);
+    const out = await run(messageRetry, { workspaceId: wsId, messageId: sent.messageId }, marco);
+    expect(
+      Math.abs(Date.parse(out.scheduledFor!) - quietHoursEndAt(quiet, TZ)!.getTime()),
+    ).toBeLessThan(60_000);
+    const held = await messageRow(sent.messageId);
+    expect(held).toMatchObject({
+      status: 'queued',
+      errorCode: SCHEDULED_TEXT,
+      errorMessage: null,
+      activityId: failed.activityId,
+    });
+    expect(held.occurredAt.toISOString()).toBe(out.scheduledFor);
+    const queuedEvents = async () =>
+      admin()
+        .select()
+        .from(events)
+        .where(and(eq(events.entityId, sent.messageId), eq(events.eventType, 'message.queued')));
+    expect(await queuedEvents()).toHaveLength(1);
+    expect(await eventTypes(sent.messageId)).toContain('message.scheduled');
+    const thread = await ask(
+      conversationThread,
+      { workspaceId: wsId, conversationId: sent.conversationId },
+      marco,
+    );
+    expect(thread.items.find((i) => i.id === sent.messageId)).toMatchObject({
+      status: 'queued',
+      scheduledFor: out.scheduledFor,
+    });
+    expect(
+      await sys(messageReleaseScheduled, { workspaceId: wsId, messageId: sent.messageId }),
+    ).toMatchObject({ outcome: 'waiting', retryAt: out.scheduledFor });
+
+    // Quiet hours are over: it goes, as a retry, still on the timeline once.
+    await admin()
+      .update(messages)
+      .set({ occurredAt: new Date(Date.now() - 60_000) })
+      .where(eq(messages.id, sent.messageId));
+    await quietNow(false);
+    expect(
+      await sys(messageReleaseScheduled, { workspaceId: wsId, messageId: sent.messageId }),
+    ).toMatchObject({ outcome: 'sent' });
+    expect(await messageRow(sent.messageId)).toMatchObject({
+      status: 'queued',
+      errorCode: null,
+      activityId: failed.activityId,
+    });
+    const queued = await queuedEvents();
+    expect(queued).toHaveLength(2);
+    expect(queued.map((e) => e.payload)).toContainEqual(
+      expect.objectContaining({
+        retry: true,
+        replacesProviderMessageId: failed.providerMessageId,
+      }),
+    );
+    const entries = await admin()
+      .select()
+      .from(activities)
+      .where(sql`${activities.meta}->>'messageId' = ${sent.messageId}`);
+    expect(entries).toHaveLength(1);
+  });
+
+  it('goes now outside quiet hours', async () => {
+    await quietNow(false);
+    const sent = await run(
+      messageSend,
+      { workspaceId: wsId, personId: mikeId, body: 'Daytime retry' },
+      marco,
+    );
+    await sys(messageUpdateStatus, {
+      workspaceId: wsId,
+      messageId: sent.messageId,
+      status: 'failed',
+      errorCode: '30008',
+    });
+    const out = await run(messageRetry, { workspaceId: wsId, messageId: sent.messageId }, marco);
+    expect(out).toEqual({ messageId: sent.messageId });
+    expect(await messageRow(sent.messageId)).toMatchObject({ status: 'queued', errorCode: null });
   });
 });

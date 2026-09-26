@@ -545,16 +545,14 @@ const manageConversation: SettingsConfirmTool = {
         const title = `Send this ${email ? 'email' : 'text'} to ${who} again?`;
         const cant = email ? null : cannotText(got.canText.reason);
         if (cant) return stop(title, cant);
+        // In quiet hours a text tried again waits for them to end (message.retry), like any held text.
         return draft(title, fields, 'Send it again', [
-          { kind: 'caution', text: `It goes to ${who} now.` },
-          ...(!email && got.quiet.quiet
-            ? [
-                {
-                  kind: 'caution',
-                  text: `It’s ${formatClock(got.quiet.localTime)} where the business is, in quiet hours, and it goes now anyway.`,
-                },
-              ]
-            : []),
+          !email && got.quiet.quiet && got.quiet.endsAt
+            ? {
+                kind: 'quiet_hours',
+                text: `It’s ${formatClock(got.quiet.localTime)} where the business is, in quiet hours. It goes to ${who} when they end, at ${formatClock(got.quiet.endsAt)}, and you can cancel it until then.`,
+              }
+            : { kind: 'caution', text: `It goes to ${who} now.` },
         ]);
       }
       default:
@@ -634,9 +632,16 @@ const manageConversation: SettingsConfirmTool = {
         if (on !== conversationId)
           throw missing('messageId', 'That message isn’t in this conversation.');
         const name = act === 'send_again' ? 'message.retry' : 'message.cancel_scheduled';
-        await command(db, ctx, name, { messageId: args['messageId'] });
+        const out = await command<{ scheduledFor?: string }>(db, ctx, name, {
+          messageId: args['messageId'],
+        });
         return {
-          outcome: act === 'send_again' ? 'Sending it again' : 'It won’t go',
+          outcome:
+            act !== 'send_again'
+              ? 'It won’t go'
+              : out.scheduledFor
+                ? `It goes when quiet hours end: ${at(out.scheduledFor, ctx.timezone)}`
+                : 'Sending it again',
           href,
           command: name,
         };
