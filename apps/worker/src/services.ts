@@ -19,6 +19,7 @@ import type { PushServices } from './push/index';
 import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
+import type { Opinly } from './opinly';
 import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
@@ -64,6 +65,11 @@ export interface WorkerServices {
    * handler checks: the feature is absent rather than present and failing.
    */
   readonly siteHost: SiteHost | null;
+  /**
+   * The website's marketing analytics, told about the money it cannot see from a browser (opinly.ts). **Null
+   * without OPINLY_API_KEY**, and every handler checks: nothing is queued, rather than queued and refused.
+   */
+  readonly opinly: Opinly | null;
   readonly sealer: Sealer;
   /** Tests and local demos shorten the reply reminder; production uses each workspace's setting. */
   readonly reminderOverrideMs: number | null;

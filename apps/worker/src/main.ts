@@ -38,6 +38,7 @@ import { createSiteHost } from './hosting';
 import { createDriveTimer } from './geo/driving';
 import { createSpeech, createVoiceAi } from './voice-agent/index';
 import { createGeocoder } from './geo/geocoder';
+import { createOpinly } from './opinly';
 import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
@@ -76,6 +77,7 @@ const services: EngineServices = {
   speech: createSpeech(env, log),
   voiceAi: createVoiceAi(env),
   siteHost: createSiteHost(env),
+  opinly: createOpinly(env.opinlyApiKey),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,

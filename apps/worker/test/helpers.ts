@@ -64,6 +64,8 @@ export function testServices(
     fetchOrigins?: readonly string[];
     /** The model for AI steps, the builder and the knowledge base (default: none). */
     ai?: WorkerServices['ai'];
+    /** The website's analytics (default: none, as with no OPINLY_API_KEY). */
+    opinly?: WorkerServices['opinly'];
   } = {},
 ): TestServices {
   const env = testEnv();
@@ -89,6 +91,7 @@ export function testServices(
     voiceAi: null,
     // The in-memory host: a branded domain can be driven end to end with no Vercel account (M17).
     siteHost: createFakeHost(),
+    opinly: opts.opinly ?? null,
     support: {
       mailDomain: 'handsfreeos.test',
       addresses: ['support', 'help'],
