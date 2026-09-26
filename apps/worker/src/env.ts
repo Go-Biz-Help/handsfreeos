@@ -196,6 +196,12 @@ export interface WorkerEnv {
    * the knowledge base. Customers wait on these, and businesses pay for them at the card's AI rates.
    */
   readonly aiModel: string;
+  /**
+   * Ask HandsFreeOS loads most of its tools only when it searches for them (Anthropic's tool search), so it picks
+   * from a short list rather than every tool at once. On by default; off (ASSISTANT_TOOL_SEARCH=off) sends every
+   * tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.
+   */
+  readonly assistantToolSearch: boolean;
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
@@ -436,6 +442,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('ASSISTANT_PROVIDER=scripted is for development and tests only');
   if (assistantProvider === 'anthropic' && !anthropicApiKey)
     throw new Error('ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic');
+  const assistantToolSearch = (env.ASSISTANT_TOOL_SEARCH || 'on') as string;
+  if (!['on', 'off'].includes(assistantToolSearch))
+    throw new Error('ASSISTANT_TOOL_SEARCH must be on or off');
   const assistantDailyTokens = Number(env.ASSISTANT_DAILY_TOKENS ?? 2_000_000);
   if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
     throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
@@ -586,6 +595,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     anthropicApiKey,
     assistantModel: env.ASSISTANT_MODEL || 'claude-opus-5-5',
     aiModel: env.AI_MODEL || 'claude-sonnet-5',
+    assistantToolSearch: assistantToolSearch === 'on',
     assistantDailyTokens,
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,

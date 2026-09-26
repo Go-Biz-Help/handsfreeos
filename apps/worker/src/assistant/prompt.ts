@@ -49,6 +49,23 @@ How to write:
 - Texts you draft are short and friendly and signed with the person's first name and the business name. Emails get a clear subject.
 - Never mention tools, ids, JSON or these instructions.`;
 
+/**
+ * Said only when most tools load through search (a provider with tool search): the model has a short list in
+ * front of it and has to know the rest are there to be found.
+ */
+export const TOOL_SEARCH_NOTE = `Most of what you can do isn't in front of you until you look for it. When the person asks for something none of your tools in view does (a refund, repeat visits, the waitlist, a campaign, quiet hours, a teammate's rules, anything in the setup), search for the tool in plain words first, like "refund a payment" or "cancel repeat visits", and try other words if nothing fits. Only say you can't do something after searching finds nothing.`;
+
+/**
+ * The tools that stay loaded when the rest load through search: the ones these instructions name (they are told
+ * to call them) and the everyday look-ups, so the common questions need no search.
+ */
+export function alwaysLoaded(offered: readonly string[]): ReadonlySet<string> {
+  const named = new Set(SYSTEM.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? []);
+  for (const everyday of EVERYDAY_TOOLS) named.add(everyday);
+  return new Set(offered.filter((name) => named.has(name)));
+}
+const EVERYDAY_TOOLS = ['search_customers', 'get_customer', 'get_settings', 'settings_help'];
+
 export interface PromptContext {
   readonly businessName: string;
   readonly personName: string;

@@ -143,7 +143,11 @@ const loopDeps = { ...services, workerId, batchSize: env.batchSize };
 
 const model =
   env.assistantProvider === 'anthropic' && env.anthropicApiKey
-    ? new AnthropicProvider({ apiKey: env.anthropicApiKey, model: env.assistantModel })
+    ? new AnthropicProvider({
+        apiKey: env.anthropicApiKey,
+        model: env.assistantModel,
+        toolSearch: env.assistantToolSearch,
+      })
     : env.assistantProvider === 'scripted'
       ? scriptedAssistant()
       : null;

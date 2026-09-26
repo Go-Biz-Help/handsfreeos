@@ -5,6 +5,7 @@ import {
   AnthropicProvider,
   emptyUsage,
   parseStructured,
+  searchesTools,
   structuredOutputSchema,
   type AiRequest,
   type AiTurn,
@@ -259,8 +260,8 @@ describe('AnthropicProvider', () => {
     });
     const turn = await provider.stream(REQUEST);
     const reasoning = { type: 'thinking', thinking: '', signature: 'sig-1' };
-    expect(turn.content![0]).toEqual({ type: 'reasoning', block: reasoning });
-    expect(turn.content!.map((c) => c.type)).toEqual(['reasoning', 'text', 'tool_call']);
+    expect(turn.content![0]).toEqual({ type: 'passthrough', block: reasoning });
+    expect(turn.content!.map((c) => c.type)).toEqual(['passthrough', 'text', 'tool_call']);
 
     await provider.stream({
       ...REQUEST,
@@ -283,6 +284,123 @@ describe('AnthropicProvider', () => {
     expect(sent[1]!.body).not.toHaveProperty('thinking');
     expect(sent[1]!.body).not.toHaveProperty('tool_choice');
     expect(sent[1]!.body).not.toHaveProperty('temperature');
+  });
+
+  it('with tool search, sends the search tool and defers the rest, only on a model that has it', async () => {
+    const tools: AiRequest['tools'] = [
+      { ...REQUEST.tools![0]! },
+      {
+        name: 'refund_payment',
+        description: 'Refund a payment.',
+        inputSchema: { type: 'object', properties: {} },
+        deferred: true,
+      },
+    ];
+    const bodyFor = async (model: string, toolSearch: boolean) => {
+      const { sent, fetch } = recording(() => sse(TOOL_TURN));
+      const provider = new AnthropicProvider({
+        apiKey: 'k',
+        model,
+        fetch,
+        maxRetries: 0,
+        toolSearch,
+      });
+      await provider.stream({ ...REQUEST, tools });
+      return { provider, body: sent[0]!.body };
+    };
+
+    const opus = await bodyFor('claude-opus-5-5', true);
+    expect(opus.provider.toolSearch).toBe(true);
+    expect(opus.body['tools']).toEqual([
+      { type: 'tool_search_tool_bm25_20251119', name: 'tool_search_tool_bm25' },
+      {
+        name: 'search_customers',
+        description: 'Find customers.',
+        input_schema: tools[0]!.inputSchema,
+      },
+      {
+        name: 'refund_payment',
+        description: 'Refund a payment.',
+        input_schema: { type: 'object', properties: {} },
+        defer_loading: true,
+      },
+    ]);
+
+    // Claude Sonnet 5 has no tool search: every tool goes as it always did.
+    const sonnet = await bodyFor('claude-sonnet-5', true);
+    expect(sonnet.provider.toolSearch).toBe(false);
+    const sent = sonnet.body['tools'] as Record<string, unknown>[];
+    expect(sent.map((t) => t['name'])).toEqual(['search_customers', 'refund_payment']);
+    expect(sent.some((t) => 'defer_loading' in t)).toBe(false);
+    // Nor when it's turned off.
+    expect((await bodyFor('claude-opus-5-5', false)).provider.toolSearch).toBe(false);
+    expect(searchesTools('claude-opus-5')).toBe(true);
+    expect(searchesTools('claude-haiku-4-5-20251001')).toBe(true);
+  });
+
+  it('keeps a tool search in the turn, hands it back as it came, and reports a paused turn', async () => {
+    const search = {
+      type: 'server_tool_use',
+      id: 'srvtoolu_1',
+      name: 'tool_search_tool_bm25',
+      input: { query: 'refund' },
+    };
+    const found = {
+      type: 'tool_search_tool_result',
+      tool_use_id: 'srvtoolu_1',
+      content: {
+        type: 'tool_search_tool_search_result',
+        tool_references: [{ type: 'tool_reference', tool_name: 'refund_payment' }],
+      },
+    };
+    const [start] = TOOL_TURN;
+    const paused = [
+      start,
+      [
+        'content_block_start',
+        { type: 'content_block_start', index: 0, content_block: { ...search, input: {} } },
+      ],
+      [
+        'content_block_delta',
+        {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"query":"refund"}' },
+        },
+      ],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+      ['content_block_start', { type: 'content_block_start', index: 1, content_block: found }],
+      ['content_block_stop', { type: 'content_block_stop', index: 1 }],
+      [
+        'message_delta',
+        {
+          type: 'message_delta',
+          delta: { stop_reason: 'pause_turn', stop_sequence: null },
+          usage: { output_tokens: 12 },
+        },
+      ],
+      ['message_stop', { type: 'message_stop' }],
+    ] as const;
+    const { sent, fetch } = recording(() => sse(paused));
+    const provider = new AnthropicProvider({
+      apiKey: 'k',
+      model: 'claude-opus-5-5',
+      fetch,
+      maxRetries: 0,
+      toolSearch: true,
+    });
+    const turn = await provider.stream(REQUEST);
+    expect(turn.stopReason).toBe('pause_turn');
+    expect(turn.content).toEqual([
+      { type: 'passthrough', block: search },
+      { type: 'passthrough', block: found },
+    ]);
+    await provider.stream({
+      ...REQUEST,
+      messages: [...REQUEST.messages, { role: 'assistant', content: turn.content! }],
+    });
+    const messages = sent[1]!.body['messages'] as { content: unknown }[];
+    expect(messages.at(-1)!.content).toEqual([search, found]);
   });
 
   it('turns API errors into codes the runtime can act on', async () => {

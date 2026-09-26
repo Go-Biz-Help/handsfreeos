@@ -53,6 +53,7 @@ const assistantLines = keep([
   'ANTHROPIC_API_KEY',
   'ASSISTANT_MODEL',
   'AI_MODEL',
+  'ASSISTANT_TOOL_SEARCH',
   'ASSISTANT_DAILY_TOKENS',
 ]);
 // A Deepgram key someone pasted in stays too, the same way: without it the worker falls back to the fake

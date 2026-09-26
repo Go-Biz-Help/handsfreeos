@@ -17,7 +17,7 @@ import {
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
-import { contextText, SYSTEM, type PromptContext } from './prompt';
+import { alwaysLoaded, contextText, SYSTEM, TOOL_SEARCH_NOTE, type PromptContext } from './prompt';
 import * as store from './store';
 import { billingStepLabels } from './tools-billing';
 import { contentStepLabels } from './tools-content';
@@ -229,10 +229,14 @@ export async function ask(
     timezone: input.prompt.timezone,
   };
   const offered = new Map(input.tools.map((t) => [t.name, t]));
+  // With tool search, only the tools the instructions name stay loaded; the model finds the rest when needed.
+  const searching = deps.provider.toolSearch === true;
+  const loaded = alwaysLoaded(input.tools.map((t) => t.name));
   const toolDefs = input.tools.map((t) => ({
     name: t.name,
     description: t.description,
     inputSchema: toolInputSchema(t),
+    ...(searching && !loaded.has(t.name) ? { deferred: true } : {}),
   }));
   const messages = modelMessages(await store.history(deps.db, scope, run.threadId));
   const cards: AssistantCard[] = [];
@@ -313,7 +317,7 @@ export async function ask(
   try {
     const loop = await runToolLoop({
       provider: deps.provider,
-      system: SYSTEM,
+      system: searching ? `${SYSTEM}\n\n${TOOL_SEARCH_NOTE}` : SYSTEM,
       context: contextText(input.prompt),
       messages,
       tools: toolDefs,

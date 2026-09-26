@@ -24,11 +24,12 @@ export type AiContent =
       readonly data: string;
     }
   /**
-   * The model's reasoning from an earlier turn of the same tool loop, exactly as the provider sent it. Nothing
-   * here reads or shows it: it goes back unchanged on the next call, because newer Claude models tie it to the
-   * conversation and a loop that drops or edits it can be refused.
+   * A block only the provider understands, from an earlier turn of the same tool loop, exactly as it sent it:
+   * the model's reasoning, or a tool search it ran. Nothing here reads or shows it. It goes back unchanged on the
+   * next call, because newer Claude models tie reasoning to the conversation, and the tools a search found stay
+   * found only while the search is in the history.
    */
-  | { readonly type: 'reasoning'; readonly block: Readonly<Record<string, unknown>> };
+  | { readonly type: 'passthrough'; readonly block: Readonly<Record<string, unknown>> };
 
 /** The image types models take. */
 export const AI_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
@@ -62,6 +63,11 @@ export interface AiToolDefinition {
   readonly inputSchema: Record<string, unknown>;
   /** The provider holds the call's input to the schema exactly (strict tool use); the schema must allow it. */
   readonly strict?: boolean;
+  /**
+   * Loaded only when the model searches for it (a provider with `toolSearch`); elsewhere it is an ordinary tool.
+   * The model sees these tools' names and descriptions only through its search.
+   */
+  readonly deferred?: boolean;
 }
 
 /**
@@ -97,7 +103,9 @@ export interface AiUsage {
   readonly cacheWriteTokens: number;
 }
 
-export type AiStopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'refusal' | 'other';
+/** `pause_turn`: the provider paused a long turn of its own tools; sending the turn back lets it carry on. */
+export type AiStopReason =
+  'end_turn' | 'tool_use' | 'pause_turn' | 'max_tokens' | 'refusal' | 'other';
 
 export interface AiTurn {
   readonly text: string;
@@ -120,6 +128,11 @@ export interface AiStreamOptions {
 export interface AiProvider {
   readonly id: string;
   readonly model: string;
+  /**
+   * It can search tools marked `deferred` and load them when needed, so a request can offer many tools without
+   * the model reading every one of them up front. Without it, deferred tools are sent like any other.
+   */
+  readonly toolSearch?: boolean;
   stream(request: AiRequest, options?: AiStreamOptions): Promise<AiTurn>;
 }
 

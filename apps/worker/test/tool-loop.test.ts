@@ -282,7 +282,7 @@ describe('runToolLoop', () => {
 
   it('hands a turn back as the model gave it, reasoning first, and says why its last turn stopped', async () => {
     const reasoning = {
-      type: 'reasoning',
+      type: 'passthrough',
       block: { type: 'thinking', thinking: '', signature: 's' },
     } as const;
     let calls = 0;
@@ -314,6 +314,34 @@ describe('runToolLoop', () => {
     });
     expect(out.stoppedBy).toBe('end_turn');
     expect(out.lastStop).toBe('refusal');
+  });
+
+  it('carries on a turn the provider paused, as one turn', async () => {
+    const search = { type: 'passthrough', block: { type: 'server_tool_use', id: 's1' } } as const;
+    let calls = 0;
+    const pauses: AiProvider = {
+      id: 'pauses',
+      model: 'pauses',
+      stream: async () =>
+        ++calls === 1
+          ? {
+              text: '',
+              toolCalls: [],
+              content: [search],
+              stopReason: 'pause_turn',
+              usage: emptyUsage,
+            }
+          : { text: 'Found it.', toolCalls: [], stopReason: 'end_turn', usage: emptyUsage },
+    };
+    const { provider, requests } = recorded(pauses);
+    const out = await loop({ provider, messages: question('Refund Mike') });
+    // The paused turn went back as it came, at the end, for the model to carry on from.
+    expect(requests[1]!.messages.at(-1)).toEqual({ role: 'assistant', content: [search] });
+    expect(out.messages.at(-1)).toEqual({
+      role: 'assistant',
+      content: [search, { type: 'text', text: 'Found it.' }],
+    });
+    expect(out.stoppedBy).toBe('end_turn');
   });
 
   it('ends on a failure, marking a busy provider as worth trying again', async () => {
