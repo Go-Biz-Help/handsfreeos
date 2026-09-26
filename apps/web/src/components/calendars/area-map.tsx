@@ -11,10 +11,15 @@ import {
 
 const US_MIDDLE: LatLngLiteral = { lat: 39.5, lng: -98.35 };
 
+/** Where a map event happened, if it happened somewhere. */
+const at = (e: { latLng: { lat(): number; lng(): number } | null }): LatLngLiteral | null =>
+  e.latLng ? { lat: e.latLng.lat(), lng: e.latLng.lng() } : null;
+
 /**
- * The map in a service area's dialog (M18). A distance area shows its circle; a drawn area adds a corner where
- * you click, moves one you drag, and shows the shape so far. `focus` moves the map there (an address someone
- * looked up).
+ * The map in a service area's dialog (M18). A distance area shows its circle around a pin you can drag; a drawn
+ * area adds a corner where you click, moves one you drag, and shows the shape so far. Whatever is dragged follows
+ * the pin while it moves and is kept where it's let go. `focus` moves the map there (an address someone looked
+ * up).
  */
 export function AreaMap({
   kind,
@@ -24,6 +29,7 @@ export function AreaMap({
   focus,
   onCorner,
   onMoveCorner,
+  onMoveCenter,
 }: {
   kind: 'radius' | 'polygon';
   center: LatLngLiteral | null;
@@ -32,6 +38,7 @@ export function AreaMap({
   focus: LatLngLiteral | null;
   onCorner?: (p: LatLngLiteral) => void;
   onMoveCorner?: (i: number, p: LatLngLiteral) => void;
+  onMoveCenter?: (p: LatLngLiteral) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const [maps, setMaps] = useState<GoogleMaps | null>(null);
@@ -42,6 +49,8 @@ export function AreaMap({
   cornerRef.current = onCorner;
   const moveRef = useRef(onMoveCorner);
   moveRef.current = onMoveCorner;
+  const moveCenterRef = useRef(onMoveCenter);
+  moveCenterRef.current = onMoveCenter;
 
   useEffect(() => {
     let live = true;
@@ -99,6 +108,23 @@ export function AreaMap({
       });
       shapes.current.push(circle);
       map.current.fitBounds(circle.getBounds());
+      if (moveCenterRef.current) {
+        const pin = new maps.Marker({
+          map: map.current,
+          position: center,
+          title: 'Where it’s measured from. Drag to move it.',
+          draggable: true,
+        });
+        pin.addListener('drag', (e) => {
+          const p = at(e);
+          if (p) circle.setCenter(p);
+        });
+        pin.addListener('dragend', (e) => {
+          const p = at(e);
+          if (p) moveCenterRef.current?.(p);
+        });
+        shapes.current.push(pin);
+      }
     }
     if (kind === 'polygon') {
       const shape =
@@ -117,9 +143,6 @@ export function AreaMap({
           draggable: movable,
         });
         if (movable) {
-          // The shape follows the corner while it moves; the corner is kept where it's let go.
-          const at = (e: { latLng: { lat(): number; lng(): number } | null }) =>
-            e.latLng ? { lat: e.latLng.lat(), lng: e.latLng.lng() } : null;
           pin.addListener('drag', (e) => {
             const p = at(e);
             if (p && shape) shape.setPaths(corners.map((x, j) => (j === i ? p : x)));
@@ -148,7 +171,7 @@ export function AreaMap({
       aria-label={
         kind === 'polygon'
           ? 'Map: click to add a corner, drag a corner to move it'
-          : 'Map of the area'
+          : 'Map of the area: drag the pin to move where it’s measured from'
       }
     />
   );

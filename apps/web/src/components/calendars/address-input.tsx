@@ -27,13 +27,14 @@ export function AddressInput({
   const [results, setResults] = useState<AddressSuggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  // Only what someone typed is searched: not the address a pick filled in, nor the one the area was saved with.
-  const typed = useRef(false);
+  // Only what someone typed is searched: not an address a pick, Find or the map's pin filled in, nor the one the
+  // area was saved with.
+  const [typed, setTyped] = useState<string | null>(null);
   const off = useRef(false);
 
   useEffect(() => {
     const query = value.trim();
-    if (!typed.current || off.current || query.length < 3) return;
+    if (value !== typed || off.current || query.length < 3) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
@@ -52,10 +53,10 @@ export function AddressInput({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [value, search]);
+  }, [value, typed, search]);
 
   async function pick(s: AddressSuggestion) {
-    typed.current = false;
+    setTyped(null);
     setOpen(false);
     setResults([]);
     onChange([s.main, s.more].filter(Boolean).join(', '));
@@ -63,7 +64,7 @@ export function AddressInput({
   }
 
   const listId = `${id}-suggestions`;
-  const shown = open && results.length > 0;
+  const shown = open && results.length > 0 && value === typed;
   return (
     <div className="relative min-w-0 flex-1">
       <Input
@@ -80,7 +81,7 @@ export function AddressInput({
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onChange={(e) => {
-          typed.current = true;
+          setTyped(e.target.value);
           setOpen(true);
           if (e.target.value.trim().length < 3) setResults([]);
           onChange(e.target.value);

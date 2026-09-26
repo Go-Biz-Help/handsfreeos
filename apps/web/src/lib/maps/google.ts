@@ -53,7 +53,10 @@ interface Places {
 }
 export interface GoogleMaps {
   Map: new (el: HTMLElement, opts: Record<string, unknown>) => GMap;
-  Circle: new (opts: Record<string, unknown>) => GShape & { getBounds(): unknown };
+  Circle: new (opts: Record<string, unknown>) => GShape & {
+    getBounds(): unknown;
+    setCenter(c: LatLngLiteral): void;
+  };
   Polygon: new (opts: Record<string, unknown>) => GShape & {
     setPaths(p: readonly LatLngLiteral[]): void;
   };
@@ -61,9 +64,9 @@ export interface GoogleMaps {
     addListener(name: 'drag' | 'dragend', fn: (e: { latLng: LatLng | null }) => void): unknown;
   };
   Geocoder: new () => {
-    geocode(req: {
-      address: string;
-    }): Promise<{ results: { geometry: { location: LatLng }; formatted_address: string }[] }>;
+    geocode(
+      req: { address: string } | { location: LatLngLiteral },
+    ): Promise<{ results: { geometry: { location: LatLng }; formatted_address: string }[] }>;
   };
   places: Places;
 }
@@ -120,6 +123,17 @@ export async function findPlace(
       point: { lat: top.geometry.location.lat(), lng: top.geometry.location.lng() },
       formatted: top.formatted_address,
     };
+  } catch {
+    return null;
+  }
+}
+
+/** The address at a point on the map (a distance area's pin someone dragged), or null when there isn't one. */
+export async function addressAt(point: LatLngLiteral): Promise<string | null> {
+  const maps = await loadGoogleMaps();
+  try {
+    const { results } = await new maps.Geocoder().geocode({ location: point });
+    return results[0]?.formatted_address ?? null;
   } catch {
     return null;
   }
