@@ -335,7 +335,8 @@ export const BusinessGetOutput = z.object({
 
 // ---------- one business's usage balance ----------
 
-export const WalletStageValue = z.enum(['off', 'warn', 'enforce']);
+/** `agency`: its agency pays for what it uses, and it never hears of a balance. */
+export const WalletStageValue = z.enum(['off', 'warn', 'enforce', 'agency']);
 
 export const AdminWalletGetInput = z.object({ workspaceId: uuid });
 

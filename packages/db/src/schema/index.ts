@@ -4653,7 +4653,7 @@ export const walletRechargeStatus = app.enum('wallet_recharge_status', [
  * a TypeScript-only union, which typechecked perfectly and still drifted: `parity.test.ts` walks every enum
  * in both and found 126 in SQL against 125 in Drizzle.
  */
-export const walletStage = app.enum('wallet_stage', ['off', 'warn', 'enforce']);
+export const walletStage = app.enum('wallet_stage', ['off', 'warn', 'enforce', 'agency']);
 export type WalletStage = (typeof walletStage.enumValues)[number];
 
 /**

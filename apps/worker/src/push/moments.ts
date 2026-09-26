@@ -30,6 +30,7 @@ import {
   type AttentionKind,
   type PaymentMethod,
   type PushRefs,
+  walletSpeaks,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { runtimeConfigOf } from '../ai-team/config';
@@ -121,7 +122,7 @@ export const onWalletPush = pushMoment('wallet', async (ctx, scope) => {
     sql`select balance_cents, suspended_reason, stage::text as stage
         from app.usage_wallets where workspace_id = ${ws}`,
   );
-  if (!w || w.stage === 'off') return;
+  if (!w || !walletSpeaks(w.stage)) return;
   const stopping = w.stage === 'enforce';
   const declined = ctx.event.eventType === 'wallet.suspended';
   const balance = Number(w.balance_cents);

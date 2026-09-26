@@ -16,9 +16,17 @@ import { asUser, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
-import { executeCommand } from '../src/kernel/execute';
+import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { HumanActor, RequestMeta } from '../src/kernel/types';
-import { organizationCreate, walletAdjust, walletSetStage } from '../src/server';
+import { walletRoom } from '../src/money/wallet-gate';
+import {
+  organizationCreate,
+  platformWalletGet,
+  usageStatement,
+  walletAdjust,
+  walletGet,
+  walletSetStage,
+} from '../src/server';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -159,7 +167,7 @@ describe('everybody else', () => {
 });
 
 describe('moving a business along the wallet', () => {
-  const move = (who: TestUser, stage: 'off' | 'warn' | 'enforce', reason = 'Rollout') =>
+  const move = (who: TestUser, stage: 'off' | 'warn' | 'enforce' | 'agency', reason = 'Rollout') =>
     executeCommand(api(), walletSetStage, { workspaceId, stage, reason }, human(who), meta());
   const stage = async () => {
     const [w] = await rows<{ stage: string }>(
@@ -199,5 +207,80 @@ describe('moving a business along the wallet', () => {
     ).catch((e: unknown) => e);
     expect(direct instanceof Error || (Array.isArray(direct) && direct.length === 0)).toBe(true);
     expect(await stage()).toBe('off');
+  });
+});
+
+describe('a business the agency pays for', () => {
+  const move = (stage: 'warn' | 'enforce' | 'agency') =>
+    executeCommand(
+      api(),
+      walletSetStage,
+      { workspaceId, stage, reason: 'Our own business' },
+      human(staffAdmin),
+      meta(),
+    );
+  /** Usage, written the way the worker writes it: under the system's own scope for this business. */
+  const use = (cents: number) =>
+    admin().transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.system_scope.workspace_id', ${workspaceId}, true)`,
+      );
+      await tx.execute(
+        sql`insert into app.usage_ledger (workspace_id, organization_id, kind, amount_cents, cost_cents, subject,
+              idempotency_key)
+            select ${workspaceId}, organization_id, 'spend', ${-cents}, ${Math.round(cents / 2)}, 'Text to a customer',
+                   ${`agency-use-${randomUUID()}`}
+            from app.workspaces where id = ${workspaceId}`,
+      );
+    });
+  const balance = async () => {
+    const [w] = await rows<{ balance: number }>(
+      admin(),
+      sql`select balance_cents::int as balance from app.usage_wallets where workspace_id = ${workspaceId}`,
+    );
+    return Number(w?.balance);
+  };
+
+  it('runs up usage, is shown nothing, and is never stopped', async () => {
+    await move('enforce');
+    const start = await balance();
+    await move('agency');
+    await use(start + 5_000);
+    expect(await balance()).toBe(-5_000);
+
+    // The business: no balance, no statement — the same "nothing yet" as a business not on the wallet.
+    const own = await executeQuery(api(), walletGet, { workspaceId }, human(owner), meta());
+    expect(own.opened).toBe(false);
+    const lines = await executeQuery(api(), usageStatement, { workspaceId }, human(owner), meta());
+    expect(lines.items).toEqual([]);
+    // Far past any overdraft, and still nothing stops.
+    const room = await admin().transaction((tx) => walletRoom(tx, workspaceId, 'text'));
+    expect(room).toMatchObject({ allowed: true, stage: 'agency' });
+
+    // The support desk sees where it is, and what it has used.
+    const desk = await executeQuery(
+      api(),
+      platformWalletGet,
+      { workspaceId },
+      human(staffAdmin),
+      meta(),
+    );
+    expect(desk).toMatchObject({ opened: true, stage: 'agency', balanceCents: -5_000 });
+  });
+
+  it('starts from zero when it is moved off, with the agency’s credit on its statement', async () => {
+    expect((await move('warn')).output).toMatchObject({ was: 'agency', changed: true });
+    expect(await balance()).toBe(0);
+    const paid = (await statement()).filter((l) => l.subject === 'Paid by the agency');
+    expect(paid).toEqual([{ kind: 'credit', amount: 5_000, subject: 'Paid by the agency' }]);
+    const own = await executeQuery(api(), walletGet, { workspaceId }, human(owner), meta());
+    expect(own).toMatchObject({ opened: true, balanceCents: 0 });
+  });
+
+  it('writes nothing off when there is nothing owed', async () => {
+    await move('agency');
+    await move('warn');
+    expect((await statement()).filter((l) => l.subject === 'Paid by the agency')).toHaveLength(1);
+    expect(await balance()).toBe(0);
   });
 });

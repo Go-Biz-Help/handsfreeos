@@ -10,11 +10,13 @@
  * **And a business that is not on the wallet yet is shown nothing at all**, whatever its row says. That is not
  * a display nicety, it is the shadow week: while the worker is counting in `shadow`, every balance in the
  * system falls further below zero every day and nobody is being charged a penny. Showing that to a business
- * would be showing it a bill that does not exist. Both queries check the stage first, so the answer is the
+ * would be showing it a bill that does not exist. The same goes for a business its agency pays for (`agency`):
+ * it never has a bill to be shown. Both queries check the stage first, so the answer is the
  * same wherever it is asked from — this page today, the phone tomorrow.
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
+import { walletSpeaks } from '../money/wallet-gate';
 import { decodeCursor, encodeCursor } from '../kernel/pagination';
 import {
   escalationCeilingCents,
@@ -134,7 +136,7 @@ export const walletGet = defineQuery({
     );
     // A business that has never spent anything has no row, and one that is not on the wallet yet is told the
     // same thing for the same reason: nothing has happened here. "Nothing yet" rather than a scary zero.
-    if (!w || w.stage === 'off')
+    if (!w || !walletSpeaks(w.stage))
       return {
         opened: false,
         balanceCents: 0,
@@ -216,7 +218,7 @@ export const usageStatement = defineQuery({
       ctx.tx,
       sql`select stage::text as stage from app.usage_wallets where workspace_id = ${ws}`,
     );
-    if (!stage || stage.stage === 'off') return { items: [], nextCursor: null };
+    if (!stage || !walletSpeaks(stage.stage)) return { items: [], nextCursor: null };
     const cursor = input.cursor ? decodeCursor(input.cursor) : null;
     const list = await rows<{
       id: string;

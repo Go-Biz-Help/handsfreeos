@@ -8211,10 +8211,10 @@ say so, and somebody will eventually try to "unify" them.
 
 The whole thing runs on two switches that are easy to confuse, so learn them first:
 
-|                      | What it decides                                   | Where it lives                                                      |
-| -------------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
-| `WALLET_MODE`        | Whether we **count** — `off`, `shadow` or `on`    | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
-| A wallet's **stage** | Whether we **speak** — `off`, `warn` or `enforce` | On each business's own row, moved from `/admin` one at a time       |
+|                      | What it decides                                             | Where it lives                                                      |
+| -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| `WALLET_MODE`        | Whether we **count** — `off`, `shadow` or `on`              | `[env]` in `apps/worker/fly.toml`, one setting for the whole server |
+| A wallet's **stage** | Whether we **speak** — `off`, `warn`, `enforce` or `agency` | On each business's own row, moved from `/admin` one at a time       |
 
 Nothing a business sees or feels depends on `WALLET_MODE`. It depends on that business's stage, which starts
 at `off` for everybody and only moves when somebody moves it. That is what makes the shadow week silent: the
@@ -8382,6 +8382,13 @@ month later.
 
 There is deliberately **no global switch** for this. A global switch is how this gets turned on for a thousand
 businesses by accident at two in the morning.
+
+**Paid by the agency** is the other stage, for a business the agency runs for itself. Everything it uses is
+still recorded at cost and price, and `/admin` shows it under that business like any other, but the business
+never sees a balance, is never warned or asked for a card, is never topped up, and nothing stops. Its balance
+just runs down. Moving it to any other stage writes that off with a "Paid by the agency" credit, so it starts
+from zero rather than owing what the agency covered. It is left out of the "below zero" count on
+`/admin/health`, since below zero is what it is for.
 
 ### Part 5: Turning it off
 

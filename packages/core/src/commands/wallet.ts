@@ -39,7 +39,7 @@ import {
   WalletSuspendInput,
   WalletTopUpInput,
 } from '../schemas/wallet';
-import { WalletSetStageInput, WalletSetStageOutput } from '../schemas/support';
+import { WalletSetStageInput, WalletSetStageOutput, WalletStageValue } from '../schemas/support';
 import type { CommandContext } from '../kernel/types';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -660,8 +660,7 @@ export const walletSetStage = defineCommand({
             ${input.stage}::app.wallet_stage)`,
     );
     if (!row) throw HfosError.notFound('No business with that id.');
-    const was: 'off' | 'warn' | 'enforce' =
-      row.was === 'warn' || row.was === 'enforce' ? row.was : 'off';
+    const was = WalletStageValue.options.find((st) => st === row.was) ?? 'off';
     if (row.changed)
       await ctx.emit({
         type: 'wallet.stage_changed',

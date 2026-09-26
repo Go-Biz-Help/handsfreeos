@@ -318,11 +318,14 @@ async function crossing(
 ): Promise<'low' | 'empty' | null> {
   if (after >= before) return null;
   const [w] = await asWorker(deps.db, scope, (tx) =>
-    rows<{ floor_cents: number | string }>(
+    rows<{ floor_cents: number | string; stage: string }>(
       tx,
-      sql`select floor_cents from app.usage_wallets where workspace_id = ${scope.workspaceId}`,
+      sql`select floor_cents, stage::text as stage from app.usage_wallets
+          where workspace_id = ${scope.workspaceId}`,
     ),
   );
+  // Its agency pays: below zero is what it's for, so nothing is low, nothing is topped up, nobody is told.
+  if (w?.stage === 'agency') return null;
   const floor = Number(w?.floor_cents ?? 0);
   if (before > 0 && after <= 0) return 'empty';
   if (before > floor && after <= floor) return 'low';

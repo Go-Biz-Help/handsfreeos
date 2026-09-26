@@ -21,7 +21,9 @@ type Stage = Wallet['stage'];
  * is shown what it was charged, because that is the number it decides on, and staff are shown both, because
  * the question they get asked is why. And **the rollout switch lives here**: moving a business from silent to
  * warned to stopped is the only control in HandsFreeOS that can stop somebody's phone working, so it is one
- * business at a time, behind a confirmation, with a reason.
+ * business at a time, behind a confirmation, with a reason. One stage sits beside the rollout rather than on
+ * it: **paid by the agency**, for a business the agency runs for itself. Its usage is still recorded at cost and
+ * price, but the business never sees a balance and nothing stops; moving it off settles what it ran up.
  */
 const STAGE_WORDS: Readonly<Record<Stage, { label: string; what: string }>> = {
   off: {
@@ -36,12 +38,17 @@ const STAGE_WORDS: Readonly<Record<Stage, { label: string; what: string }>> = {
     label: 'Stopped at zero',
     what: 'The same, and outgoing texts and calls stop once the balance is past its overdraft.',
   },
+  agency: {
+    label: 'Paid by the agency',
+    what: 'The agency pays for everything they use. They never see a balance, are never asked for a card, and nothing stops. Usage is still recorded here; moving them off writes off what they ran up.',
+  },
 };
 
 const STAGE_TONE: Readonly<Record<Stage, BadgeVariant>> = {
   off: 'member',
   warn: 'accent',
   enforce: 'pending',
+  agency: 'ok',
 };
 
 /** Charged over cost, as a multiple. Null where nothing cost us anything, which is not a margin of infinity. */
@@ -152,10 +159,13 @@ export function WalletBlock({
         </p>
       ) : (
         <div className="mt-4 grid gap-x-8 gap-y-2 text-[13px] sm:grid-cols-2">
+          {/* Under the agency the balance only runs down: it is what the agency is covering, not a debt. */}
           <Line
-            label="Balance"
+            label={wallet.stage === 'agency' ? 'Balance, the agency covers it' : 'Balance'}
             value={money(wallet.balanceCents)}
-            tone={wallet.balanceCents <= 0 ? 'text-danger-text' : undefined}
+            tone={
+              wallet.balanceCents <= 0 && wallet.stage !== 'agency' ? 'text-danger-text' : undefined
+            }
           />
           <Line
             label="Card"
@@ -241,6 +251,12 @@ export function WalletBlock({
           description={moving ? STAGE_WORDS[moving].what : ''}
         >
           <div className="mt-4 flex flex-col gap-4">
+            {wallet.stage === 'agency' && wallet.balanceCents < 0 ? (
+              <p className="rounded-[10px] bg-card-2 px-3.5 py-3 text-[13px] text-text-2">
+                The {money(-wallet.balanceCents)} they ran up while the agency paid is written off
+                with a credit, so they start from zero.
+              </p>
+            ) : null}
             {moving === 'enforce' ? (
               <p className="rounded-[10px] bg-warning-soft px-3.5 py-3 text-[13px] text-warning-text">
                 From now on their outgoing texts and calls stop when the balance runs out. Calls

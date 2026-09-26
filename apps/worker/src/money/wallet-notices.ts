@@ -20,6 +20,7 @@
  * The third thing we email about a balance — a top-up bigger than the business chose — lives in `recharge.ts`
  * instead, because it is part of making the charge rather than a warning about one.
  */
+import { walletSpeaks } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { walletCardDeclinedEmail, walletEmptyEmail } from '../emails/templates';
 import { managers } from '../handlers/telephony';
@@ -66,7 +67,8 @@ async function notice(
   kind: 'empty' | 'declined',
 ): Promise<void> {
   const w = await loadWallet(ctx, scope.workspaceId);
-  if (!w || w.stage === 'off') return;
+  // Silent at `off`, and for good at `agency`: the agency pays, so there is nothing to tell them.
+  if (!w || !walletSpeaks(w.stage)) return;
   const fingerprint = fingerprintOf(kind, w);
   if (w.warn_fingerprint === fingerprint) return;
 
