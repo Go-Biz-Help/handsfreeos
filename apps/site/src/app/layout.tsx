@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Hanken_Grotesk } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { Matomo } from '@/components/matomo';
+import { OpinlyPixel } from '@/components/opinly';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { SupportChat } from '@/components/support-chat';
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <SiteFooter />
         <SupportChat />
         <Matomo />
+        <OpinlyPixel />
       </body>
     </html>
   );
