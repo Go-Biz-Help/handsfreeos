@@ -40,9 +40,19 @@ export interface CreateDbOptions {
   readonly applicationName?: string;
 }
 
+/**
+ * Seconds an unused connection stays open. Behind Supavisor's session mode every open connection holds one of
+ * the pool's slots (15 by default) whether or not it is doing anything, and postgres.js keeps them for ever
+ * unless told otherwise. Two API machines that had each been busy once held every slot between them, idle, and
+ * every new connection was refused with `max clients reached in session mode`. Letting go of idle ones gives
+ * the slots back; the next request that needs one opens a fresh connection.
+ */
+const IDLE_TIMEOUT_SECONDS = 20;
+
 export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
   const client = postgres(url, {
     max: opts.max ?? 10,
+    idle_timeout: IDLE_TIMEOUT_SECONDS,
     // Works behind Supavisor transaction mode and needs nothing on a direct connection.
     prepare: false,
     onnotice: () => {},
