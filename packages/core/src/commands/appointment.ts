@@ -1094,11 +1094,23 @@ export const waitlistRemove = defineCommand({
   emits: ['waitlist.removed', 'waitlist.seat_freed'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
-    const [entry] = await ctx.tx
-      .select()
+    const mine = and(eq(waitlistEntries.id, input.entryId), eq(waitlistEntries.workspaceId, ws));
+    const [found] = await ctx.tx
+      .select({ calendarId: waitlistEntries.calendarId })
       .from(waitlistEntries)
-      .where(and(eq(waitlistEntries.id, input.entryId), eq(waitlistEntries.workspaceId, ws)));
+      .where(mine);
+    if (!found) throw HfosError.notFound('Waitlist entry not found.');
+    // The calendar's booking lock, then the entry's row, as taking an offer does (waitlist-offer.ts): a customer
+    // taking their offer right now finishes first or waits for this, so their booking is never undone here.
+    await lockBooking(ctx.tx, found.calendarId);
+    const [entry] = await ctx.tx.select().from(waitlistEntries).where(mine).for('update');
     if (!entry) throw HfosError.notFound('Waitlist entry not found.');
+    if (entry.status === 'booked')
+      throw HfosError.rule(
+        'already_booked',
+        409,
+        'They’re already booked from the waitlist. Cancel the booking instead.',
+      );
     if (entry.status !== 'waiting' && entry.status !== 'offered') return { entryId: entry.id };
     await ctx.tx
       .update(waitlistEntries)

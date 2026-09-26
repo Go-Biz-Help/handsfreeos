@@ -2,7 +2,20 @@
  * Calendar reads: calendars (with settings, labels, conflicts computed now and revisions), open times (the
  * booking page's system actor may ask too), appointments, the team's hours and the catalogs.
  */
-import { and, asc, desc, eq, gt, inArray, lt, ne, sql as dsql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  lt,
+  ne,
+  or,
+  sql as dsql,
+  type SQL,
+} from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import type { JobStatus } from '../schemas/job';
 import {
@@ -725,6 +738,8 @@ export const waitlistList = defineQuery({
           eq(waitlistEntries.workspaceId, input.workspaceId),
           eq(waitlistEntries.calendarId, calendar.id),
           inArray(waitlistEntries.status, ['waiting', 'offered']),
+          // A window of time that has all passed is over, even before the worker marks it expired.
+          or(isNotNull(waitlistEntries.appointmentId), gt(waitlistEntries.wantedTo, dsql`now()`)),
         ),
       )
       .orderBy(asc(waitlistEntries.position), asc(waitlistEntries.createdAt));

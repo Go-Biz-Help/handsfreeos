@@ -92,7 +92,7 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import type { HandlerMap } from './types';
-import { onSeatFreed } from './waitlist';
+import { onSeatFreed, onWaitlistAdded } from './waitlist';
 
 /**
  * Event type → handler, or several run in order in one transaction (a retry runs them all again). Events
@@ -260,6 +260,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'series.created': [onAppointmentChanged, onArmReminders, onSeriesConfirm],
     'series.cancelled': [onAppointmentChanged, onSeriesCancelledNotice],
     'waitlist.seat_freed': onSeatFreed,
+    // A wait for a window of time ends with the window (booking/waitlist.ts).
+    'waitlist.added': onWaitlistAdded,
     // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
     'knowledge_scan.requested': onKnowledgeScanRequested,
     'knowledge_document.added': onKnowledgeDocumentAdded,

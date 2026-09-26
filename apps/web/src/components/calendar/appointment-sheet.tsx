@@ -77,6 +77,14 @@ const Section = ({
 
 type Attendee = AppointmentDetail['attendees'][number];
 type Entry = NonNullable<Attendee['reminders']['confirmation']>;
+/** Someone on this session's waitlist, in line order. */
+type Waiting = AppointmentDetail['waitlist'][number];
+
+/** "1st", "2nd", "3rd", "11th". */
+const ordinal = (n: number) => {
+  const v = n % 100;
+  return `${n}${v >= 11 && v <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')}`;
+};
 
 /** How a booking was confirmed: a text (C, or YES while asked), the Confirm button, staff, or the AI teammate. */
 type Via = NonNullable<Attendee['confirmedVia']>;
@@ -201,8 +209,8 @@ function plannedRows(
 
 /**
  * An appointment's details, from the right on wide screens and from the bottom on phones: the customer (or
- * the seats on a session), where, who and what's reserved, reminders and notes, then Reschedule, Complete,
- * No-show and Cancel.
+ * the seats on a session, and who is on its waitlist), where, who and what's reserved, reminders and notes,
+ * then Reschedule, Complete, No-show and Cancel.
  */
 export function AppointmentSheet({
   workspaceId,
@@ -325,6 +333,29 @@ export function AppointmentSheet({
           action: { label: 'Undo', onClick: () => void markConfirmed(seat, false) },
         });
       else toast.success('Confirmation taken back.');
+      changed();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Take someone off this session's waitlist, once asked (waitlist.remove), like "Waiting for a time" in the
+   * calendar's settings. Nothing is sent to them.
+   */
+  async function removeWaiting(w: Waiting) {
+    const first = firstName(w.fullName);
+    if (!confirm(`Take ${first} off the waitlist?`)) return;
+    setBusy(`waitlist:${w.id}`);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/waitlist.remove', {
+          body: { workspaceId, entryId: w.id },
+        }),
+      );
+      toast.success(`${first} is off the waitlist.`);
       changed();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -728,6 +759,54 @@ export function AppointmentSheet({
                       </span>
                     </div>
                   ))}
+                </Section>
+              ) : null}
+
+              {appt.waitlist.length ? (
+                <Section
+                  label="Waitlist"
+                  action={
+                    <span className="text-xs text-text-3">{appt.waitlist.length} waiting</span>
+                  }
+                >
+                  <div data-testid="sheet-waitlist">
+                    {appt.waitlist.map((w, i) => (
+                      <div
+                        key={w.id}
+                        className="flex items-center gap-2.5 py-[5px]"
+                        data-testid={`sheet-waitlist-${w.id}`}
+                      >
+                        <Avatar name={w.fullName} seed={w.personId} size="sm" />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <Link
+                            href={`/app/w/${workspaceId}/customers/people/${w.personId}`}
+                            className="truncate text-[13px] hover:underline"
+                          >
+                            {w.fullName}
+                          </Link>
+                          <span className="truncate text-xs text-text-3">
+                            {[
+                              `${ordinal(i + 1)} in line`,
+                              w.seats > 1 ? `${w.seats} seats` : null,
+                              w.status === 'offered' ? 'Holding an offer' : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="flex-none"
+                          loading={busy === `waitlist:${w.id}`}
+                          aria-label={`Take ${firstName(w.fullName)} off the waitlist`}
+                          onClick={() => void removeWaiting(w)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
                 </Section>
               ) : null}
 

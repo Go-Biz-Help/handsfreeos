@@ -580,6 +580,33 @@ describe('seats on a group session', () => {
     });
   });
 
+  it('leaves out someone whose window of time has passed', async () => {
+    const { entryId } = (await run(
+      byName('waitlist.add'),
+      {
+        workspaceId,
+        calendarId: tuneUps,
+        personId: boId,
+        wantedFrom: at(2, '08:00'),
+        wantedTo: at(2, '12:00'),
+      },
+      owner,
+    )) as { entryId: string };
+    expect((await read('get_waitlist', { calendarId: tuneUps })).result).toMatchObject({
+      waiting: [{ entryId, name: 'Bo Nguyen' }],
+    });
+    // The morning comes and goes with no opening, before the worker has marked it over.
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '5 hours',
+            wanted_to = now() - interval '1 hour'
+          where id = ${entryId}`,
+    );
+    const { result, card } = await read('get_waitlist', { calendarId: tuneUps });
+    expect(result).toMatchObject({ waiting: [], note: 'Nobody is waiting.' });
+    expect(card).toBeNull();
+  });
+
   it('says the waitlist is off rather than adding to it', async () => {
     await expect(
       prepare('manage_waitlist', {

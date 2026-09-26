@@ -5,7 +5,8 @@
  * - waitlist.offer: a 1:1 time opened on an hours calendar, so the oldest waiting entry whose wanted window
  *   covers it is offered that time for the calendar's offerMinutes. The entry keeps the offer (0019).
  * - waitlist.expire: an offer ran out. Its entry expires and the time goes to the next person, or, when
- *   someone else took the time meanwhile, the entry waits again in its old place.
+ *   someone else took the time meanwhile, the entry waits again in its old place. It also ends a wait for a
+ *   window of time once the whole window has passed: the entry expires, and nobody is told.
  * - waitlist.claim_online: the customer takes their offer from its link, booked through
  *   appointment.book_online with the entry's own clientId, so claiming twice books once.
  *
@@ -341,9 +342,9 @@ export const waitlistOffer = defineCommand({
 export const WaitlistExpireInput = z.object({ workspaceId: uuid, entryId: uuid });
 export const WaitlistExpireOutput = z.object({
   status: z.enum(['waiting', 'offered', 'booked', 'expired', 'removed']),
-  /** The offer ran out just now. */
+  /** The offer ran out, or the window of time they wanted passed, just now. */
   expired: z.boolean(),
-  /** When it runs out, while it hasn't yet. */
+  /** When it runs out, while it hasn't yet: the offer, or the end of the window someone waits for. */
   expiresAt: isoDateTime.nullable(),
   fromAppointmentId: uuid.nullable(),
 });
@@ -351,9 +352,11 @@ export const WaitlistExpireOutput = z.object({
 type EntryRow = {
   id: string;
   calendar_id: string;
+  appointment_id: string | null;
   person_id: string;
   status: 'waiting' | 'offered' | 'booked' | 'expired' | 'removed';
   seats: number;
+  wanted_to: Date | string | null;
   offer: unknown;
   offer_expires_at: Date | string | null;
   contact_phone_e164: string | null;
@@ -371,8 +374,8 @@ async function lockEntry(tx: Tx, workspaceId: string, entryId: string): Promise<
   await lockBooking(tx, first.calendarId);
   const [row] = await rows<EntryRow>(
     tx,
-    sql`select id, calendar_id, person_id, status::text as status, seats, offer, offer_expires_at,
-          contact_phone_e164, contact_email, sms_ok
+    sql`select id, calendar_id, appointment_id, person_id, status::text as status, seats, wanted_to, offer,
+          offer_expires_at, contact_phone_e164, contact_email, sms_ok
         from app.waitlist_entries where id = ${entryId} and workspace_id = ${workspaceId} for update`,
   );
   return row ?? null;
@@ -381,13 +384,13 @@ async function lockEntry(tx: Tx, workspaceId: string, entryId: string): Promise<
 export const waitlistExpire = defineCommand({
   name: 'waitlist.expire',
   description:
-    'Worker: a waitlist offer ran out. The time goes to the next person; if someone else took it meanwhile, they wait again.',
+    'Worker: a waitlist offer ran out, or the window of time someone waited for has passed. A lapsed offer’s time goes to the next person; if someone else took it meanwhile, they wait again while their window lasts.',
   risk: 1,
   input: WaitlistExpireInput,
   output: WaitlistExpireOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['waitlist.offer_expired'],
+  emits: ['waitlist.offer_expired', 'waitlist.window_passed'],
   actors: ['system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
@@ -399,13 +402,43 @@ export const waitlistExpire = defineCommand({
       expired: boolean,
       expiresAt: string | null = null,
     ) => ({ status, expired, expiresAt, fromAppointmentId: offer?.fromAppointmentId ?? null });
+    const now = await dbNow(ctx.tx);
+    // Someone waiting for a window of time (not a session) stops waiting once all of it has passed.
+    const windowEnd = !e.appointment_id && e.wanted_to ? new Date(e.wanted_to).getTime() : null;
+    const windowOver = windowEnd !== null && windowEnd <= now;
+    if (e.status === 'waiting' && windowEnd !== null) {
+      if (!windowOver) return out('waiting', false, iso(windowEnd));
+      await ctx.tx
+        .update(waitlistEntries)
+        .set({ status: 'expired', offerExpiresAt: null })
+        .where(eq(waitlistEntries.id, e.id));
+      const calendar = await loadCalendar(ctx.tx, ws, e.calendar_id);
+      const person = await requirePerson(ctx.tx, ws, e.person_id);
+      // Nobody is told: the times they asked for came and went without an opening.
+      await ctx.emit({
+        type: 'waitlist.window_passed',
+        entityType: 'calendar',
+        entityId: calendar.id,
+        payload: { entryId: e.id, calendarId: calendar.id, personId: e.person_id },
+        before: { status: 'waiting' },
+        after: {
+          customer: displayName(person),
+          calendar: calendar.name,
+          status: 'expired',
+          reason: 'window_passed',
+        },
+      });
+      // An offer they let go of earlier was passed on then; there's nothing to pass on now.
+      return { ...out('expired', true), fromAppointmentId: null };
+    }
     if (e.status !== 'offered') return out(e.status, false);
     const until = e.offer_expires_at ? new Date(e.offer_expires_at).getTime() : 0;
-    if (until > (await dbNow(ctx.tx))) return out('offered', false, iso(until));
+    if (until > now) return out('offered', false, iso(until));
     const calendar = await loadCalendar(ctx.tx, ws, e.calendar_id);
-    // Still free: they let it lapse, and it goes to the next person. Taken: they didn't lose their turn.
+    // Still free: they let it lapse, and it goes to the next person. Taken: they didn't lose their turn, unless
+    // the window they wanted has passed meanwhile.
     const free = offer ? await offerStillOpen(ctx.tx, calendar, offer, e.seats) : false;
-    const next = free ? ('expired' as const) : ('waiting' as const);
+    const next = free || windowOver ? ('expired' as const) : ('waiting' as const);
     await ctx.tx
       .update(waitlistEntries)
       .set({ status: next, offerExpiresAt: null })
@@ -419,12 +452,13 @@ export const waitlistExpire = defineCommand({
         entryId: e.id,
         calendarId: calendar.id,
         personId: e.person_id,
-        returned: !free,
+        returned: next === 'waiting',
       },
       before: { status: 'offered' },
       after: { customer: displayName(person), calendar: calendar.name, status: next },
     });
-    return out(next, true);
+    // Only a time still free goes on to the next person.
+    return free ? out(next, true) : { ...out(next, true), fromAppointmentId: null };
   },
 });
 

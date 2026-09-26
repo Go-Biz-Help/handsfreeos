@@ -2,8 +2,8 @@
  * The waitlist on the real database, through the public routes: a freed seat in a session books the oldest
  * waiting customer that fits (and tells them), a seat moved to another session gets a notice with its new
  * link, and a freed 1:1 time is offered with a link that shows it, books it once, runs out to the next person,
- * and keeps someone's place when another customer took the time first. Cancelling repeat visits offers each
- * freed time the same way.
+ * and keeps someone's place when another customer took the time first. A wait for a window of time ends
+ * quietly once the window has passed. Cancelling repeat visits offers each freed time the same way.
  */
 import {
   localDateOf,
@@ -16,7 +16,7 @@ import {
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { offerExpireKey } from '../src/booking/waitlist';
+import { offerExpireKey, windowEndKey } from '../src/booking/waitlist';
 import { dayShort } from '../src/booking/when';
 import {
   admin,
@@ -25,10 +25,12 @@ import {
   CHI,
   customer,
   drain,
+  emailsTo,
   errorOf,
   get,
   HOUR,
   iso,
+  jobRow,
   MIN,
   makeCalendar,
   makeWorld,
@@ -306,6 +308,56 @@ describe('offers for a freed 1:1 time', () => {
       offer: { startsAt: iso(t) },
     });
     await waitForMail(pia.email, `A time opened: Tune-up line on ${dayShort(t, CHI)} at 2:00 PM`);
+  });
+});
+
+describe('a window of time that has passed', () => {
+  it('stops waiting once the window is over, and nobody is told', async () => {
+    const t = at(7, '14:00');
+    const uma = customer('Uma');
+    await joinWaitlist(line.slug, { ...uma, wantedFrom: iso(t - HOUR), wantedTo: iso(t + HOUR) });
+    await drain(w);
+    const entry = await entryOf(uma.email);
+    // Armed for the moment the window ends.
+    const armed = await jobRow(windowEndKey(entry.id));
+    expect(armed?.status).toBe('pending');
+    expect(new Date(armed!.run_at).getTime()).toBe(t + HOUR);
+    const sent = await emailsTo(w, uma.email);
+
+    // The afternoon comes and goes with no opening.
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '2 hours',
+            wanted_to = now() - interval '1 minute'
+          where id = ${entry.id}`,
+    );
+    await runDue(w, [windowEndKey(entry.id)]);
+    expect((await entryOf(uma.email)).status).toBe('expired');
+    expect(await emailsTo(w, uma.email)).toEqual(sent);
+  });
+
+  it('ends a lapsed offer’s wait when the time was taken and the window is over too', async () => {
+    const t = at(8, '14:00');
+    const vic = await bookOnline(w, line.slug, t, customer('Vic'));
+    const wes = customer('Wes');
+    await joinWaitlist(line.slug, { ...wes, wantedFrom: iso(t - HOUR), wantedTo: iso(t + HOUR) });
+    await drain(w);
+    expect((await post(w, `/public/manage/${vic.manageToken}/cancel`, {})).statusCode).toBe(200);
+    await drain(w);
+    const held = await entryOf(wes.email);
+    expect(held.status).toBe('offered');
+
+    // Someone books the time on the page first; then Wes's hold and his whole window run out.
+    await bookOnline(w, line.slug, t, customer('Xan'));
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '2 hours',
+            wanted_to = now() - interval '1 minute', offer_expires_at = now() - interval '1 minute'
+          where id = ${held.id}`,
+    );
+    await runDue(w, [offerExpireKey(held.id)]);
+    // With time left in the window he'd wait again (as Lou did); with none, the wait is over.
+    expect((await entryOf(wes.email)).status).toBe('expired');
   });
 });
 

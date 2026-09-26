@@ -28,7 +28,9 @@ import {
   timeOffAdd,
   timelineList,
   waitlistAdd,
+  waitlistExpire,
   waitlistList,
+  waitlistPromote,
   waitlistRemove,
 } from '../src/server';
 import {
@@ -642,5 +644,141 @@ describe('series, sessions and waitlists', () => {
           where event_type = 'waitlist.removed' and payload ->> 'entryId' = ${first.entryId}`,
     );
     expect(removed).toEqual({ entity_type: 'calendar', entity_id: cal.id });
+  });
+
+  it('won’t take someone off who is already booked from the waitlist, and leaves them booked', async () => {
+    const cal = await makeCalendar(t, 'Class of one, again', {
+      public: true,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      waitlist: { enabled: true },
+    });
+    const day = nextWeekday(4, 10);
+    const { appointmentId } = await run(
+      sessionPublish,
+      {
+        workspaceId: t.wsId,
+        calendarId: cal.id,
+        startsAt: isoAt(day, '10:00'),
+        userIds: [t.owner.id],
+      },
+      t.owner,
+    );
+    const [cat, dan] = [await customer(t, 'Cat'), await customer(t, 'Dan')];
+    await run(
+      appointmentAddAttendee,
+      { workspaceId: t.wsId, appointmentId, personId: cat },
+      t.owner,
+    );
+    const entry = await run(
+      waitlistAdd,
+      { workspaceId: t.wsId, calendarId: cal.id, appointmentId, personId: dan },
+      t.owner,
+    );
+    await run(
+      appointmentRemoveAttendee,
+      { workspaceId: t.wsId, appointmentId, personId: cat },
+      t.owner,
+    );
+    // The worker hands Dan the freed seat, as a customer taking their offer books theirs.
+    const promoted = await runSystem(
+      waitlistPromote,
+      { workspaceId: t.wsId, appointmentId },
+      t.scope,
+    );
+    expect(promoted.booked).toEqual([
+      expect.objectContaining({ entryId: entry.entryId, personId: dan }),
+    ]);
+    // A Remove pressed on a list that still showed Dan waiting.
+    await expectHfos(
+      () => run(waitlistRemove, { workspaceId: t.wsId, entryId: entry.entryId }, t.owner),
+      'already_booked',
+      409,
+    );
+    const [after] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.waitlist_entries where id = ${entry.entryId}`,
+    );
+    expect(after!.status).toBe('booked');
+    const [seat] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.appointment_attendees
+          where appointment_id = ${appointmentId} and person_id = ${dan}`,
+    );
+    expect(seat!.status).toBe('booked');
+  });
+
+  it('ends a wait for a window of time once all of it has passed, and the list leaves it out', async () => {
+    const cal = await makeCalendar(t, 'Morning line', {
+      team: { members: [{ userId: t.owner.id }] },
+      waitlist: { enabled: true },
+    });
+    const day = nextWeekday(5, 10);
+    const [fay, gus] = [await customer(t, 'Fay'), await customer(t, 'Gus')];
+    const want = (personId: string) =>
+      run(
+        waitlistAdd,
+        {
+          workspaceId: t.wsId,
+          calendarId: cal.id,
+          personId,
+          wantedFrom: isoAt(day, '09:00'),
+          wantedTo: isoAt(day, '12:00'),
+        },
+        t.owner,
+      );
+    const passed = await want(fay);
+    const still = await want(gus);
+    const list = async () =>
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items.map(
+        (e) => e.id,
+      );
+    const expire = () =>
+      runSystem(waitlistExpire, { workspaceId: t.wsId, entryId: passed.entryId }, t.scope);
+    // Still to come: nothing ends yet, and the worker hears when it will.
+    expect(await expire()).toEqual({
+      status: 'waiting',
+      expired: false,
+      expiresAt: isoAt(day, '12:00'),
+      fromAppointmentId: null,
+    });
+
+    // Fay's morning comes and goes with no opening.
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '4 hours',
+            wanted_to = now() - interval '1 minute'
+          where id = ${passed.entryId}`,
+    );
+    // Off the list at once, before the worker gets to it.
+    expect(await list()).toEqual([still.entryId]);
+    expect(await expire()).toEqual({
+      status: 'expired',
+      expired: true,
+      expiresAt: null,
+      fromAppointmentId: null,
+    });
+    const statuses = await rows<{ id: string; status: string }>(
+      admin(),
+      sql`select id, status::text as status from app.waitlist_entries where calendar_id = ${cal.id}`,
+    );
+    expect(Object.fromEntries(statuses.map((r) => [r.id, r.status]))).toEqual({
+      [passed.entryId]: 'expired',
+      [still.entryId]: 'waiting',
+    });
+    const [ended] = await rows<{ entity_type: string; action: string; after: unknown }>(
+      admin(),
+      sql`select e.entity_type, l.action, l.after from app.events e
+          join app.audit_logs l on l.event_id = e.id
+          where e.event_type = 'waitlist.window_passed' and e.payload ->> 'entryId' = ${passed.entryId}`,
+    );
+    expect(ended).toMatchObject({
+      entity_type: 'calendar',
+      action: 'waitlist.expire',
+      after: { customer: 'Fay Customer', status: 'expired', reason: 'window_passed' },
+    });
+    // Done once: running it again changes nothing.
+    expect(await expire()).toMatchObject({ status: 'expired', expired: false });
+    expect(await list()).toEqual([still.entryId]);
   });
 });

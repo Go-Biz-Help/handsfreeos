@@ -1378,10 +1378,15 @@ function reminderSentence(e: AuditEntry): string {
   return `sent ${customer} the ${noun}${about} by ${email ? 'email' : 'text'}${email && why ? ` (${why})` : ''}`;
 }
 
-/** waitlist.offer_expired: the time went back to the waitlist, or they wait again (someone else took it). */
+/**
+ * waitlist.offer_expired: the time went back to the waitlist, or they wait again (someone else took it).
+ * waitlist.window_passed: the window of time they waited for is over.
+ */
 function offerExpiredSentence(e: AuditEntry): string {
   const who = s(e.after?.customer) || 'a customer';
   const cal = s(e.after?.calendar) ? ` for ${s(e.after?.calendar)}` : '';
+  if (s(e.after?.reason) === 'window_passed')
+    return `took ${who} off the waitlist${cal}: the times they wanted have passed`;
   return s(e.after?.status) === 'waiting'
     ? `put ${who} back on the waitlist${cal}: someone else took the time before their offer ran out`
     : `ended ${who}’s waitlist offer${cal}: it wasn’t claimed in time`;

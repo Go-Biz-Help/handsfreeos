@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
-import { executeCommand, waitlistPromote } from '@hfos/core/server';
-import { appointments } from '@hfos/db/schema';
-import { offerFreedTime } from '../booking/waitlist';
+import { executeCommand, scheduleJob, waitlistPromote } from '@hfos/core/server';
+import { appointments, waitlistEntries } from '@hfos/db/schema';
+import { offerFreedTime, WINDOW_END_JOB, windowEndKey } from '../booking/waitlist';
 import { systemActor, tenantOf, workerMeta } from '../services';
 import type { EventHandler } from './types';
 
@@ -31,4 +31,28 @@ export const onSeatFreed: EventHandler = async (ctx) => {
     return;
   }
   await offerFreedTime(ctx, scope, appointmentId, meta, Date.now());
+};
+
+/**
+ * Someone started waiting for a window of time (staff, the booking page or the AI teammate put them there): a
+ * job at the window's end stops their wait once all of it has passed, so the waitlist doesn't fill up with times
+ * long gone. Nobody waiting for a session is touched.
+ */
+export const onWaitlistAdded: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const entryId = String((ctx.event.payload as { entryId?: unknown } | null)?.entryId ?? '');
+  if (!entryId) return;
+  const [e] = await ctx.tx
+    .select({ appointmentId: waitlistEntries.appointmentId, wantedTo: waitlistEntries.wantedTo })
+    .from(waitlistEntries)
+    .where(eq(waitlistEntries.id, entryId));
+  if (!e || e.appointmentId || !e.wantedTo) return;
+  await scheduleJob(ctx.tx, {
+    kind: WINDOW_END_JOB,
+    dedupeKey: windowEndKey(entryId),
+    runAt: e.wantedTo,
+    payload: { entryId },
+    workspaceId: scope.workspaceId,
+    organizationId: scope.organizationId,
+  });
 };

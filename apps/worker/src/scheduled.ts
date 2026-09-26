@@ -23,7 +23,7 @@ import { contactAiJobs } from './contact-ai/index';
 import { appointmentNotice } from './booking/notices';
 import { appointmentReminder } from './booking/reminders';
 import { depositJobs } from './booking/deposit';
-import { waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
+import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
@@ -298,6 +298,8 @@ export const jobs: JobMap = {
   // A time held while a customer pays a deposit, given back when nobody does (booking/deposit.ts).
   ...depositJobs,
   'waitlist.offer_expire': waitlistOfferExpire,
+  // A wait for a window of time, ended once the window has passed: the same command as an offer running out.
+  [WINDOW_END_JOB]: waitlistOfferExpire,
   'knowledge.scan': knowledgeScanJob,
   'knowledge.document': knowledgeDocumentJob,
   // Workflows: each run's cursor, schedules, date triggers, releasing held runs, pruning old step logs.
