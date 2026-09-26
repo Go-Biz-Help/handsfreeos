@@ -1,7 +1,8 @@
 /**
  * Opinly, from the browser. The pixel (`components/opinly.tsx`) defines `window.opinly` once it has loaded; an ad
- * blocker means it never does. Every call goes through here so that a call made while it is still loading waits for
- * it, a call it never gets is dropped quietly, and nothing it does can break the page that made the call.
+ * blocker, `next dev` or a preview means it never does. Every call goes through here so that a call made while it is
+ * still loading waits for it, a call it never gets is dropped quietly, and nothing it does can break the page that
+ * made the call.
  */
 
 interface Pixel {
