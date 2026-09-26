@@ -19,7 +19,37 @@ export interface AnthropicOptions {
   readonly timeoutMs?: number;
   /** Tests pass a recorded fetch. */
   readonly fetch?: typeof fetch;
+  /**
+   * Let the model search tools marked `deferred` (Anthropic's tool search), when the model has it. Worth it
+   * only with a long list of tools; see `searchesTools`.
+   */
+  readonly toolSearch?: boolean;
 }
+
+/**
+ * The models Anthropic's tool search runs on (platform.claude.com, "Tool search tool", Model compatibility).
+ * Claude Sonnet 5 isn't one: with it, deferred tools are simply sent in full.
+ */
+const TOOL_SEARCH_MODELS = [
+  'claude-opus-5',
+  'claude-fable-5',
+  'claude-mythos-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-opus-4-6',
+  'claude-opus-4-5',
+  'claude-sonnet-4-6',
+  'claude-sonnet-4-5',
+  'claude-haiku-4-5',
+];
+export const searchesTools = (model: string): boolean =>
+  TOOL_SEARCH_MODELS.some((m) => model === m || model.startsWith(`${m}-`));
+
+/** BM25: the model searches in plain words, which is how the tools here are described. */
+const TOOL_SEARCH = {
+  type: 'tool_search_tool_bm25_20251119',
+  name: 'tool_search_tool_bm25',
+} as const satisfies Anthropic.ToolSearchToolBm25_20251119;
 
 /**
  * Claude through the Messages API, streamed. Temperature is left alone: Sonnet 5 refuses it. A request with
@@ -29,10 +59,12 @@ export interface AnthropicOptions {
 export class AnthropicProvider implements AiProvider {
   readonly id = 'anthropic';
   readonly model: string;
+  readonly toolSearch: boolean;
   private readonly client: Anthropic;
 
   constructor(options: AnthropicOptions) {
     this.model = options.model;
+    this.toolSearch = options.toolSearch === true && searchesTools(options.model);
     this.client = new Anthropic({
       apiKey: options.apiKey,
       maxRetries: options.maxRetries ?? 2,
@@ -47,12 +79,16 @@ export class AnthropicProvider implements AiProvider {
       { type: 'text', text: request.system, cache_control: { type: 'ephemeral' } },
     ];
     if (request.context) system.push({ type: 'text', text: request.context });
-    const tools: Anthropic.Tool[] = (request.tools ?? []).map((t) => ({
+    // Deferred tools reach the model only through its search; the search tool itself is never deferred.
+    const searching = this.toolSearch && (request.tools ?? []).some((t) => t.deferred);
+    const tools: Anthropic.ToolUnion[] = (request.tools ?? []).map((t) => ({
       name: t.name,
       description: t.description,
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
       ...(t.strict ? { strict: true } : {}),
+      ...(searching && t.deferred ? { defer_loading: true } : {}),
     }));
+    if (searching) tools.unshift(TOOL_SEARCH);
     try {
       const stream = this.client.messages.stream(
         {
@@ -113,6 +149,9 @@ function toBlock(c: AiContent): Anthropic.ContentBlockParam {
       };
     case 'image':
       return { type: 'image', source: { type: 'base64', media_type: c.mediaType, data: c.data } };
+    case 'passthrough':
+      // A thinking, server tool use or tool search result block as the API sent it, signature and all.
+      return c.block as unknown as Anthropic.ContentBlockParam;
   }
 }
 
@@ -120,6 +159,7 @@ const STOP: Record<string, AiStopReason> = {
   end_turn: 'end_turn',
   stop_sequence: 'end_turn',
   tool_use: 'tool_use',
+  pause_turn: 'pause_turn',
   max_tokens: 'max_tokens',
   refusal: 'refusal',
 };
@@ -127,19 +167,32 @@ const STOP: Record<string, AiStopReason> = {
 function fromAnthropic(message: Anthropic.Message): AiTurn {
   let text = '';
   const toolCalls: AiTurn['toolCalls'][number][] = [];
+  const content: AiContent[] = [];
   for (const block of message.content) {
-    if (block.type === 'text') text += block.text;
-    else if (block.type === 'tool_use')
-      toolCalls.push({
+    if (block.type === 'text') {
+      text += block.text;
+      content.push({ type: 'text', text: block.text });
+    } else if (block.type === 'tool_use') {
+      const call = {
         id: block.id,
         name: block.name,
         arguments: (block.input ?? {}) as Record<string, unknown>,
-      });
+      };
+      toolCalls.push(call);
+      content.push({ type: 'tool_call', ...call });
+    } else if (
+      block.type === 'thinking' ||
+      block.type === 'redacted_thinking' ||
+      block.type === 'server_tool_use' ||
+      block.type === 'tool_search_tool_result'
+    )
+      content.push({ type: 'passthrough', block: { ...block } });
   }
   const u = message.usage;
   return {
     text,
     toolCalls,
+    content,
     stopReason: STOP[message.stop_reason ?? ''] ?? 'other',
     usage: {
       inputTokens: u.input_tokens,

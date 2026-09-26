@@ -16,6 +16,7 @@ import {
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
+import { sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -649,6 +650,23 @@ describe('how you get paid', () => {
     const early = await prepare('update_money_settings', { terms: 'due_on_receipt' }, owner);
     expect(early.card.warnings[0]!.text).toContain('before the invoice');
   });
+
+  it('still saves once invoices have gone out and the counter has moved past the saved number', async () => {
+    // Sending an invoice moves the counter on; the saved setting still says where it started. Saving anything else
+    // must not trip "the next number only moves forward" over a number the person never touched.
+    await testDbs().admin.db.execute(
+      sql`insert into app.document_counters (workspace_id, kind, next_number)
+          values (${workspaceId}, 'invoice', 1500)
+          on conflict (workspace_id, kind) do update set next_number = 1500`,
+    );
+    const { parsed, tool } = await prepare('update_money_settings', { taxRatePercent: 6 }, owner);
+    await confirm(tool!, parsed, owner);
+    const after = await q<{ settings: { tax: { rateBp: number } }; nextInvoiceNumber: string }>(
+      'money.settings',
+    );
+    expect(after.settings.tax.rateBp).toBe(600);
+    expect(after.nextInvoiceNumber).toMatch(/1500$/);
+  });
 });
 
 describe('what Home watches for', () => {
@@ -675,6 +693,18 @@ describe('what Home watches for', () => {
     );
     expect(nudges.card.confirmLabel).toBe('');
     expect(nudges.card.warnings[0]!.text).toContain('read and agreed');
+  });
+
+  it('won’t switch off what the screen always shows', async () => {
+    const locked = await prepare(
+      'update_action_center_settings',
+      { kindsOff: ['ai_approval', 'overdue_task'] },
+      owner,
+    );
+    expect(locked.card.confirmLabel).toBe('');
+    expect(locked.card.warnings[0]!.text).toContain('Drafts awaiting review is always on');
+    const after = await q<{ settings: { kinds: Record<string, boolean> } }>('attention.settings');
+    expect(after.settings.kinds['ai_approval']).not.toBe(false);
   });
 });
 
@@ -730,6 +760,68 @@ describe('the AI teammate', () => {
     expect(after.teammate.config.book.enabled).toBe(false);
     expect(after.teammate.name).toBe(before.teammate.name);
     expect(after.teammate.config.answer.enabled).toBe(before.teammate.config.answer.enabled);
+  });
+
+  it('shows every change on the card: questions, when it isn’t sure, and where it books', async () => {
+    const { items } = await q<{ items: { id: string; name: string }[] }>('calendar.list');
+    const calls = items.find((c) => c.name === 'Service calls')!;
+    const { card } = await prepare(
+      'manage_ai_teammate',
+      {
+        action: 'change',
+        answersQuestions: false,
+        handOffWhenUnsure: false,
+        bookableCalendarIds: [calls.id],
+      },
+      owner,
+    );
+    expect(card.fields).toContainEqual({ label: 'Answers questions', value: 'No' });
+    expect(card.fields).toContainEqual({ label: 'When it isn’t sure', value: 'Takes a message' });
+    expect(card.fields).toContainEqual({ label: 'Books on', value: 'Service calls' });
+  });
+
+  it('keeps Respond and the New lead greeting apart, and says how they go together', async () => {
+    type Respond = { enabled: boolean; newLeads: { enabled: boolean } };
+    const respond = async () =>
+      (await q<{ teammate: { config: { respond: Respond } } }>('ai_teammate.get')).teammate.config
+        .respond;
+    const off = await prepare(
+      'manage_ai_teammate',
+      { action: 'change', repliesToLeads: false },
+      owner,
+    );
+    expect(off.card.fields).toContainEqual({ label: 'Respond', value: 'Off' });
+    expect(off.card.warnings[0]!.text).toBe(
+      'New leads get no first message while Respond is off, even with New lead greeting on. Ava still answers people who write in.',
+    );
+    await confirm(off.tool!, off.parsed, owner);
+    // Only the section's own switch: the greeting inside it stays as it was.
+    expect(await respond()).toMatchObject({ enabled: false, newLeads: { enabled: true } });
+
+    const greetingOff = await prepare(
+      'update_automations',
+      { turnOff: ['new_lead_greeting'] },
+      owner,
+    );
+    await confirm(greetingOff.tool!, greetingOff.parsed, owner);
+    expect(await respond()).toMatchObject({ enabled: false, newLeads: { enabled: false } });
+    const greetingOn = await prepare(
+      'update_automations',
+      { turnOn: ['new_lead_greeting'] },
+      owner,
+    );
+    expect(greetingOn.card.warnings.map((w) => w.text)).toContain(
+      'Not working until set up: New lead greeting: Turn on Respond for your AI teammate to start.',
+    );
+
+    const on = await prepare(
+      'manage_ai_teammate',
+      { action: 'change', repliesToLeads: true },
+      owner,
+    );
+    expect(on.card.warnings[0]!.text).toContain('only once New lead greeting is on too');
+    await confirm(on.tool!, on.parsed, owner);
+    expect(await respond()).toMatchObject({ enabled: true, newLeads: { enabled: false } });
   });
 });
 

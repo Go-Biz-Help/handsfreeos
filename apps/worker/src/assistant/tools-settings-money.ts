@@ -12,6 +12,9 @@
 
 import {
   applyTeammatePatch,
+  AUTOMATIONS,
+  numberingAtCounter,
+  type AutomationDef,
   type AttentionSettings,
   type MoneySettings,
   type TeammateConfig,
@@ -45,7 +48,11 @@ const TERMS_WORDS: Record<string, string> = {
 };
 
 const moneySettingsOf = (db: Db, ctx: ToolContext) =>
-  query<{ settings: MoneySettings }>(db, ctx, 'money.settings');
+  query<{ settings: MoneySettings; nextEstimateNumber: string; nextInvoiceNumber: string }>(
+    db,
+    ctx,
+    'money.settings',
+  );
 
 /** The whole settings document, with only what was asked for changed. */
 function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
@@ -154,7 +161,16 @@ const updateMoneySettings: SettingsConfirmTool = {
   },
 
   async commit(db, ctx, args) {
-    const { settings } = await moneySettingsOf(db, ctx);
+    const got = await moneySettingsOf(db, ctx);
+    // The whole document is saved, so its numbering starts where documents really are: sending one moves the
+    // counter, not the settings, and a next number behind the counter is refused.
+    const settings: MoneySettings = {
+      ...got.settings,
+      numbering: {
+        estimate: numberingAtCounter(got.settings.numbering.estimate, got.nextEstimateNumber),
+        invoice: numberingAtCounter(got.settings.numbering.invoice, got.nextInvoiceNumber),
+      },
+    };
     await command(db, ctx, 'money.save_settings', {
       settings: nextMoneySettings(settings, args),
     });
@@ -314,9 +330,18 @@ const managePaymentAccount: SettingsConfirmTool = {
 const attentionOf = (db: Db, ctx: ToolContext) =>
   query<{ settings: AttentionSettings }>(db, ctx, 'attention.settings');
 
+/** What Settings → Automations shows without a switch (Drafts awaiting review, Connection broke), by kind. */
+const ALWAYS_WATCHED: ReadonlyMap<string, string> = new Map(
+  (AUTOMATIONS as readonly AutomationDef[]).flatMap((a) =>
+    a.locked && a.binding.store === 'attention_kind'
+      ? a.binding.kinds.map((k) => [k, a.label] as const)
+      : [],
+  ),
+);
+
 function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
   const on = list<string>(args['kindsOn']) ?? [];
-  const off = list<string>(args['kindsOff']) ?? [];
+  const off = (list<string>(args['kindsOff']) ?? []).filter((k) => !ALWAYS_WATCHED.has(k));
   const kinds = { ...now.kinds } as Record<string, boolean>;
   for (const k of on) kinds[k] = true;
   for (const k of off) kinds[k] = false;
@@ -406,26 +431,30 @@ const updateActionCenterSettings: SettingsConfirmTool = {
       fields.push({ label: 'Reply C to confirm', value: next.replyToConfirm ? 'On' : 'Off' });
     const nudgeBlocked =
       bool(args['followUpOnQuietLeads']) === true && !settings.auto.nudgeReviewedAt;
+    // The screen has no switch for these, so a change that turns one off can't be saved here either.
+    const lockedOff = [...new Set((off ?? []).flatMap((k) => ALWAYS_WATCHED.get(k) ?? []))];
+    const why = lockedOff.length
+      ? `${lockedOff.join(' and ')} ${lockedOff.length === 1 ? 'is' : 'are'} always on; Settings → Automations has no switch for ${lockedOff.length === 1 ? 'it' : 'them'}.`
+      : nudgeBlocked
+        ? 'Automatic follow-ups can only be turned on from Settings → Automations, where the message is shown to read first.'
+        : null;
     return {
       card: settingsCard(toolCallId, 'update_action_center_settings', {
         title: 'Change what Home watches for',
         fields,
-        confirmLabel: nudgeBlocked ? '' : 'Save the change',
-        warnings: nudgeBlocked
-          ? [
-              {
-                kind: 'blocked',
-                text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Automations.',
-              },
-            ]
-          : [],
+        confirmLabel: why ? '' : 'Save the change',
+        warnings: lockedOff.length
+          ? [{ kind: 'blocked', text: why! }]
+          : nudgeBlocked
+            ? [
+                {
+                  kind: 'blocked',
+                  text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Automations.',
+                },
+              ]
+            : [],
       }),
-      result: nudgeBlocked
-        ? {
-            blocked: true,
-            why: 'Automatic follow-ups can only be turned on from Settings → Automations, where the message is shown to read first.',
-          }
-        : { waiting: true, changes: fields.map((f) => f.label) },
+      result: why ? { blocked: true, why } : { waiting: true, changes: fields.map((f) => f.label) },
     };
   },
 
@@ -533,6 +562,22 @@ const manageAiTeammate: SettingsConfirmTool = {
       };
     }
     const creating = act === 'create';
+    // Respond's switch covers its whole section; the New lead greeting is only the first message inside it.
+    const respond = bool(args['repliesToLeads']);
+    const respondNote =
+      respond === false
+        ? `New leads get no first message while Respond is off, even with New lead greeting on. ${str(args['name']) ?? teammate?.name ?? 'It'} still answers people who write in.`
+        : respond && teammate && !teammate.config.respond.newLeads.enabled
+          ? 'New leads get a first message only once New lead greeting is on too, in Settings → Automations.'
+          : null;
+    // Calendars by name, so the person sees where it may book rather than ids.
+    const calendarIds = list<string>(args['bookableCalendarIds']);
+    const calendarNames = calendarIds
+      ? await query<{ items: { id: string; name: string }[] }>(db, ctx, 'calendar.list').then(
+          ({ items }) =>
+            calendarIds.map((id) => items.find((c) => c.id === id)?.name ?? 'A calendar'),
+        )
+      : null;
     const fields: Field[] = [
       { label: 'Teammate', value: str(args['name']) ?? teammate?.name ?? '' },
       ...(str(args['disclosure'])
@@ -552,9 +597,26 @@ const manageAiTeammate: SettingsConfirmTool = {
       ...(bool(args['answersWebsiteChat']) === undefined
         ? []
         : [{ label: 'Answers website chat', value: args['answersWebsiteChat'] ? 'Yes' : 'No' }]),
+      ...(bool(args['repliesToLeads']) === undefined
+        ? []
+        : [{ label: 'Respond', value: args['repliesToLeads'] ? 'On' : 'Off' }]),
+      ...(bool(args['answersQuestions']) === undefined
+        ? []
+        : [{ label: 'Answers questions', value: args['answersQuestions'] ? 'Yes' : 'No' }]),
+      ...(bool(args['handOffWhenUnsure']) === undefined
+        ? []
+        : [
+            {
+              label: 'When it isn’t sure',
+              value: args['handOffWhenUnsure'] ? 'Hands it to a person' : 'Takes a message',
+            },
+          ]),
       ...(bool(args['booksVisits']) === undefined
         ? []
         : [{ label: 'Books visits', value: args['booksVisits'] ? 'Yes' : 'No' }]),
+      ...(calendarNames
+        ? [{ label: 'Books on', value: calendarNames.join(', ') || 'No calendars' }]
+        : []),
       ...(bool(args['followsUp']) === undefined
         ? []
         : [{ label: 'Follows up', value: args['followsUp'] ? 'Yes' : 'No' }]),
@@ -587,14 +649,17 @@ const manageAiTeammate: SettingsConfirmTool = {
           : `Change ${teammate?.name ?? 'your AI teammate'}`,
         fields,
         confirmLabel: creating ? 'Set it up' : 'Save the change',
-        warnings: creating
-          ? [
-              {
-                kind: 'note',
-                text: 'It starts off. Put it on training wheels first, so every message waits for you.',
-              },
-            ]
-          : [],
+        warnings: [
+          ...(creating
+            ? [
+                {
+                  kind: 'note',
+                  text: 'It starts off. Put it on training wheels first, so every message waits for you.',
+                },
+              ]
+            : []),
+          ...(respondNote ? [{ kind: 'note', text: respondNote }] : []),
+        ],
       }),
       result: { waiting: true, creating },
     };

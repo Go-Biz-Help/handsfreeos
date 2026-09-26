@@ -1,6 +1,7 @@
 /**
- * Texts that wait for quiet hours to end (M10): a person's "Send at 8:00 AM". message.send keeps the text in its
- * conversation as scheduled, and `message.scheduled` queues `message.send_scheduled` for the moment quiet hours end.
+ * Texts that wait for quiet hours to end (M10): a person's "Send at 8:00 AM", or a failed text they tried again in
+ * quiet hours (message.retry). The command keeps the text in its conversation as scheduled, and
+ * `message.scheduled` queues `message.send_scheduled` for the moment quiet hours end.
  * The job asks message.release_scheduled, which reads the text again under its lock and runs every check a text
  * passes as of then — the way the Action Center's held texts go out — before handing it to the sender
  * (`message.queued`), or records why it didn't go. Quiet hours that came round again make it wait again. Cancelling

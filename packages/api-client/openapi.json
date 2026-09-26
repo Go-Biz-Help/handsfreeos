@@ -1200,7 +1200,7 @@
     "/v1/commands/user.update_profile": {
       "post": {
         "operationId": "command_user_update_profile",
-        "summary": "Update your own name, photo or preferences.",
+        "summary": "Update your own name, photo or preferences. Each settings key is replaced whole; `expectedSettings` says what the caller last read, and a key that has changed since refuses the save (409 settings_changed).",
         "tags": [
           "commands"
         ],
@@ -1230,6 +1230,13 @@
                     ]
                   },
                   "settings": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "expectedSettings": {
                     "type": "object",
                     "propertyNames": {
                       "type": "string"
@@ -9126,7 +9133,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires inbox.use. Emits message.queued.",
+        "description": "Risk level 2. Requires inbox.use. Emits message.queued, message.scheduled.",
         "requestBody": {
           "required": true,
           "content": {
@@ -9165,6 +9172,11 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "scheduledFor": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
                     }
                   },
                   "required": [
@@ -9181,7 +9193,7 @@
     "/v1/commands/message.cancel_scheduled": {
       "post": {
         "operationId": "command_message_cancel_scheduled",
-        "summary": "Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.",
+        "summary": "Cancel a text waiting for quiet hours to end. It never goes: a new text leaves the conversation, and a failed text that was tried again goes back as it was, not delivered.",
         "tags": [
           "commands"
         ],
@@ -9227,11 +9239,15 @@
                     },
                     "changed": {
                       "type": "boolean"
+                    },
+                    "stays": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "messageId",
-                    "changed"
+                    "changed",
+                    "stays"
                   ],
                   "additionalProperties": false
                 }
@@ -15538,6 +15554,34 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 1000
+                  },
+                  "leadId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "customRecordId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "notify": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -15623,7 +15667,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires appointments.write. Emits series.cancelled.",
+        "description": "Risk level 2. Requires appointments.write. Emits series.cancelled, waitlist.seat_freed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -15814,7 +15858,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires appointments.write. Emits waitlist.removed.",
+        "description": "Risk level 1. Requires appointments.write. Emits waitlist.removed, waitlist.seat_freed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -60417,11 +60461,15 @@
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "triedAgain": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "message",
-                    "conversationId"
+                    "conversationId",
+                    "triedAgain"
                   ],
                   "additionalProperties": false
                 }
@@ -66121,6 +66169,194 @@
                   },
                   "required": [
                     "appointment"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/waitlist.list": {
+      "post": {
+        "operationId": "query_waitlist_list",
+        "summary": "Who is on a calendar’s waitlist, in line order: for a full session, or for a window of time they want.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "calendarId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "calendarId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "seats": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "waiting",
+                              "offered"
+                            ]
+                          },
+                          "position": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "appointment": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "startsAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "endsAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "title",
+                                  "startsAt",
+                                  "endsAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "wantedFrom": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "wantedTo": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "offerExpiresAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "personId",
+                          "fullName",
+                          "seats",
+                          "status",
+                          "position",
+                          "appointment",
+                          "wantedFrom",
+                          "wantedTo",
+                          "offerExpiresAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "timezone",
+                    "items"
                   ],
                   "additionalProperties": false
                 }

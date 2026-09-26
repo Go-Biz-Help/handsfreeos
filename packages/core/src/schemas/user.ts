@@ -7,6 +7,11 @@ export const UserUpdateProfileInput = z
     fullName: displayName.optional(),
     avatarUrl: z.url().max(2048).nullable().optional(),
     settings: settings.optional(),
+    /**
+     * Top-level settings keys as the caller last read them (null: not set), such as `menu`. If any of them is
+     * different now, nothing is saved (409 settings_changed), so a save made on an old copy can’t undo a newer one.
+     */
+    expectedSettings: settings.optional(),
   })
   .refine(
     (v) => v.fullName !== undefined || v.avatarUrl !== undefined || v.settings !== undefined,

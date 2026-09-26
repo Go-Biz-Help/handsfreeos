@@ -9,12 +9,14 @@ import {
   emailFromLabel,
   emailNote as emailNoteWords,
   emailSubjectOf,
+  fillReplyTemplate,
   photosSavedLine,
   quietLine as quietLineOf,
   quietQuestion,
   SENT_WORDS,
   sendLabel,
   switchRefusal,
+  TEMPLATE_PICKER_WORDS,
   TEXTING_STATUS_LINK,
   textFromLine,
   textNote as textNoteWords,
@@ -56,6 +58,7 @@ import { AttachmentChip } from './attachment-chip';
 import { ChannelIcon, QuietStrip, SegmentCounter, Words } from './bits';
 import type { PendingText } from './hooks';
 import { newRichDraft, RichEditor } from './rich-editor';
+import { TemplatePicker, type PickedTemplate } from './template-picker';
 
 /** A text in quiet hours: ask first, send now anyway, or hold it until quiet hours end. */
 type QuietChoice = 'ask' | 'now' | 'later';
@@ -410,6 +413,38 @@ export function Composer({
     setFiles((all) => all.filter((x) => x.fileId !== fileId));
   }
 
+  /**
+   * A saved template into the box where the cursor is, filled for this customer; an email's subject too, when
+   * there isn't one yet. What it can't fill stays in the words, and a note says what is left.
+   */
+  function insertTemplate(t: PickedTemplate) {
+    const who = {
+      firstName: target.firstName,
+      email: target.email,
+      phone: target.phoneDisplay || null,
+      businessName: target.businessName,
+    };
+    const body = fillReplyTemplate(t.body, who);
+    const from = area.current?.selectionStart ?? text.length;
+    const to = area.current?.selectionEnd ?? from;
+    setText(text.slice(0, from) + body.text + text.slice(to));
+    const left = [...body.left];
+    // A reply keeps its "Re:" subject, so it stays in the customer's thread.
+    if (email && t.subject && !subjectValue.trim()) {
+      const s = fillReplyTemplate(t.subject, who);
+      setSubject(s.text);
+      for (const l of s.left) if (!left.includes(l)) left.push(l);
+    }
+    if (left.length) toast.info(TEMPLATE_PICKER_WORDS.left(left));
+    requestAnimationFrame(() => area.current?.focus());
+    // Counted so the library sorts itself by what the business says most; a lost count loses nothing.
+    void apiBrowser()
+      .POST('/v1/commands/template.used', {
+        body: { workspaceId: target.workspaceId, templateId: t.id },
+      })
+      .catch(() => null);
+  }
+
   async function attach(list: FileList | null) {
     if (!list || !target.personId) return;
     setUploading(true);
@@ -710,6 +745,13 @@ export function Composer({
               <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
             </button>
           )}
+          <TemplatePicker
+            workspaceId={target.workspaceId}
+            email={email}
+            disabled={off}
+            onPick={insertTemplate}
+            size="phone"
+          />
           <textarea
             ref={area}
             rows={1}
@@ -955,6 +997,12 @@ export function Composer({
               {uploading ? null : <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />}
             </Button>
           )}
+          <TemplatePicker
+            workspaceId={target.workspaceId}
+            email={email}
+            disabled={off}
+            onPick={insertTemplate}
+          />
           {chat || email ? null : (
             <Button
               variant="ghost"

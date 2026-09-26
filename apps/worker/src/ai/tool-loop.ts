@@ -21,6 +21,7 @@ import {
   type AiContent,
   type AiMessage,
   type AiProvider,
+  type AiStopReason,
   type AiToolCall,
   type AiToolDefinition,
   type AiUsage,
@@ -92,6 +93,8 @@ export interface ToolLoopResult {
   readonly error?: unknown;
   /** The provider was busy (rate limited, overloaded or unreachable), so trying again later may work. */
   readonly retryable: boolean;
+  /** Why the model's last turn stopped: `refusal` when it declined, `max_tokens` when it ran out of room. */
+  readonly lastStop: AiStopReason | null;
 }
 
 /** A tool's error in words the model can pass on (never a stack or SQL). */
@@ -106,6 +109,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
   let text = '';
   let usage: AiUsage = emptyUsage;
   let rounds = 0;
+  let lastStop: AiStopReason | null = null;
   const end = (stoppedBy: ToolLoopStop, error?: unknown): ToolLoopResult => ({
     text,
     messages,
@@ -115,7 +119,20 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
     toolCalls,
     error,
     retryable: error instanceof AiProviderError && error.retryable,
+    lastStop,
   });
+
+  /** A turn the provider paused is carried on by the next response, so that one joins it: one turn, not two. */
+  let paused = false;
+  const said = (content: string | readonly AiContent[]) => {
+    const last = messages[messages.length - 1];
+    if (paused && last?.role === 'assistant' && Array.isArray(last.content)) {
+      const more: readonly AiContent[] =
+        typeof content === 'string' ? [{ type: 'text', text: content }] : content;
+      messages[messages.length - 1] = { role: 'assistant', content: [...last.content, ...more] };
+    } else messages.push({ role: 'assistant', content });
+    paused = false;
+  };
 
   try {
     for (;;) {
@@ -137,13 +154,22 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         },
       );
       usage = addUsage(usage, turn.usage);
+      lastStop = turn.stopReason;
       await input.onTurnUsage?.(turn.usage);
+      // The provider paused a long turn of its own tools (a tool search): the turn goes back as it came and the
+      // model carries on from there. It counts as a round, so it can't go on for ever.
+      if (turn.stopReason === 'pause_turn' && turn.content?.length) {
+        if (++rounds > input.maxRounds) return end('max_rounds');
+        said(turn.content);
+        paused = true;
+        continue;
+      }
       if (turn.stopReason !== 'tool_use' || turn.toolCalls.length === 0) {
-        if (turn.text) messages.push({ role: 'assistant', content: turn.text });
+        if (turn.text) said(turn.text);
         return end('end_turn');
       }
       if (++rounds > input.maxRounds) {
-        if (turn.text) messages.push({ role: 'assistant', content: turn.text });
+        if (turn.text) said(turn.text);
         return end('max_rounds');
       }
       const calls: AiContent[] = turn.toolCalls.map((c) => ({
@@ -152,10 +178,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         name: c.name,
         arguments: c.arguments,
       }));
-      messages.push({
-        role: 'assistant',
-        content: turn.text ? [{ type: 'text', text: turn.text }, ...calls] : calls,
-      });
+      // The turn as the model gave it when the provider kept it, so its reasoning goes back unchanged.
+      said(turn.content ?? (turn.text ? [{ type: 'text', text: turn.text }, ...calls] : calls));
       const results: AiContent[] = [];
       let stop = false;
       for (const call of turn.toolCalls) {

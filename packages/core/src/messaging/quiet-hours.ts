@@ -66,10 +66,11 @@ export function quietHoursEndAt(
 }
 
 /**
- * A text held until quiet hours end ("Send at 8:00 AM", message.send with sendAfterQuietHours): it stays queued,
+ * A text held until quiet hours end ("Send at 8:00 AM", message.send with sendAfterQuietHours, or a failed text
+ * tried again in quiet hours, message.retry): it stays queued,
  * `error_code` holds this note, and `occurred_at` is when it goes. The worker sends it then, after every check a text
  * passes; until then it can be cancelled, and the note turns to CANCELLED_TEXT (it never goes, and leaves the
- * conversation).
+ * conversation). A failed text tried again goes back to how it was instead (`failed_attempt`).
  */
 export const SCHEDULED_TEXT = 'scheduled';
 export const CANCELLED_TEXT = 'cancelled';

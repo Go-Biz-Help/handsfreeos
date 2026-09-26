@@ -605,6 +605,7 @@ export const syncedTables = {
       read_at: column.text,
       rich: column.text,
       button_reply: column.text,
+      failed_attempt: column.text,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -1940,6 +1941,8 @@ export interface MessagesRow {
   readonly rich: string | null;
   /** jsonb: JSON text here */
   readonly button_reply: string | null;
+  /** jsonb: JSON text here */
+  readonly failed_attempt: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */

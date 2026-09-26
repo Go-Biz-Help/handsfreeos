@@ -138,7 +138,8 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
   const [draft, setDraft] = useState<Menu>(menu);
   const [busy, setBusy] = useState(false);
 
-  // Each opening starts from what is saved now (another tab, or Cancel, may have changed it).
+  // Each opening starts from what is saved now (another tab, or Cancel, may have changed it), and so does the
+  // editor when a save finds a newer menu than the one it was arranged on.
   useEffect(() => {
     if (editorOpen) setDraft(menu);
   }, [editorOpen, menu]);
@@ -159,9 +160,10 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
   async function onSave() {
     setBusy(true);
     try {
-      await save(draft);
-      toast.success(MENU_WORDS.saved);
-      closeEditor();
+      if (await save(draft)) {
+        toast.success(MENU_WORDS.saved);
+        closeEditor();
+      } else toast.info(MENU_WORDS.changedMeanwhile);
     } catch {
       // The provider said so and put the sidebar back; the editor keeps the arrangement to try again.
     } finally {

@@ -17,11 +17,22 @@ import {
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
-import { contextText, SYSTEM, type PromptContext } from './prompt';
+import { alwaysLoaded, contextText, SYSTEM, TOOL_SEARCH_NOTE, type PromptContext } from './prompt';
 import * as store from './store';
+import { billingStepLabels } from './tools-billing';
+import { contentStepLabels } from './tools-content';
+import { extraStepLabels } from './tools-extra';
+import { inboxCrmStepLabels } from './tools-inbox-crm';
+import { schedulingStepLabels } from './tools-scheduling';
+import { setupStepLabels } from './tools-setup';
 
 /** One question never runs more tool rounds than this; the answer says it stopped short. */
 const MAX_ROUNDS = 8;
+/**
+ * Per model call. The Assistant's model thinks before every answer and the thinking counts toward this, so it
+ * is sized for that as well as a short reply and a round of tool calls.
+ */
+const MAX_TOKENS = 16_000;
 
 export interface ToolContext {
   readonly actor: HumanActor;
@@ -147,7 +158,16 @@ const STEP_LABEL: Record<string, string> = {
   update_my_account: 'Changing your account',
   update_my_hours: 'Changing your hours',
 };
-const stepLabel = (tool: string) => STEP_LABEL[tool] ?? 'Preparing it for your OK';
+const MORE_STEP_LABELS: Record<string, string> = {
+  ...inboxCrmStepLabels,
+  ...schedulingStepLabels,
+  ...billingStepLabels,
+  ...contentStepLabels,
+  ...setupStepLabels,
+  ...extraStepLabels,
+};
+const stepLabel = (tool: string) =>
+  STEP_LABEL[tool] ?? MORE_STEP_LABELS[tool] ?? 'Preparing it for your OK';
 
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
@@ -209,10 +229,14 @@ export async function ask(
     timezone: input.prompt.timezone,
   };
   const offered = new Map(input.tools.map((t) => [t.name, t]));
+  // With tool search, only the tools the instructions name stay loaded; the model finds the rest when needed.
+  const searching = deps.provider.toolSearch === true;
+  const loaded = alwaysLoaded(input.tools.map((t) => t.name));
   const toolDefs = input.tools.map((t) => ({
     name: t.name,
     description: t.description,
     inputSchema: toolInputSchema(t),
+    ...(searching && !loaded.has(t.name) ? { deferred: true } : {}),
   }));
   const messages = modelMessages(await store.history(deps.db, scope, run.threadId));
   const cards: AssistantCard[] = [];
@@ -293,12 +317,12 @@ export async function ask(
   try {
     const loop = await runToolLoop({
       provider: deps.provider,
-      system: SYSTEM,
+      system: searching ? `${SYSTEM}\n\n${TOOL_SEARCH_NOTE}` : SYSTEM,
       context: contextText(input.prompt),
       messages,
       tools: toolDefs,
       maxRounds: MAX_ROUNDS,
-      maxTokens: 2048,
+      maxTokens: MAX_TOKENS,
       execute,
       onText: (delta) => emit({ type: 'text', delta }),
       signal,
@@ -309,6 +333,18 @@ export async function ask(
     if (loop.stoppedBy === 'max_rounds') {
       const note =
         '\n\nThat took more steps than I can take in one go. Ask again with a smaller piece of it.';
+      text += note;
+      emit({ type: 'text', delta: note });
+    }
+    // A decline or an answer that ran out of room ends with nothing said; the person still gets words.
+    const unsaid =
+      loop.lastStop === 'refusal'
+        ? 'I can’t help with that one.'
+        : loop.lastStop === 'max_tokens'
+          ? 'That answer ran too long. Ask again with a smaller piece of it.'
+          : null;
+    if (unsaid && loop.stoppedBy === 'end_turn') {
+      const note = text ? `\n\n${unsaid}` : unsaid;
       text += note;
       emit({ type: 'text', delta: note });
     }

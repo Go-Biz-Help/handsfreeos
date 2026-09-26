@@ -20,6 +20,7 @@ import {
   attendeeCancelOnline,
   attendeeRescheduleOnline,
   calendarSetStatus,
+  leadCreate,
   pipelineList,
   seriesCancel,
   seriesCreate,
@@ -27,6 +28,9 @@ import {
   timeOffAdd,
   timelineList,
   waitlistAdd,
+  waitlistExpire,
+  waitlistList,
+  waitlistPromote,
   waitlistRemove,
 } from '../src/server';
 import {
@@ -39,6 +43,7 @@ import {
   expectHfos,
   isoAt,
   makeCalendar,
+  MIN,
   nextPhone,
   nextWeekday,
   run,
@@ -469,6 +474,43 @@ describe('series, sessions and waitlists', () => {
     expect(left.map((r) => r.status)).toEqual(['scheduled', 'cancelled', 'cancelled']);
   });
 
+  it('books a series from a lead’s page with every visit on the lead, and asks for the first confirmation', async () => {
+    // New appointment's Repeats: booked from a lead, and with Tell ticked.
+    const cal = await makeCalendar(t, 'Filter changes', {
+      team: { members: [{ userId: t.priya.id }] },
+    });
+    const person = await customer(t, 'Rene');
+    const { leadId } = await run(
+      leadCreate,
+      { workspaceId: t.wsId, title: 'Filter plan', personId: person },
+      t.owner,
+    );
+    const made = await run(
+      seriesCreate,
+      {
+        workspaceId: t.wsId,
+        calendarId: cal.id,
+        firstDate: nextWeekday(2, 7),
+        rule: { freq: 'weekly', interval: 2, count: 3, localTime: '09:00' },
+        personId: person,
+        leadId,
+        notify: true,
+      },
+      t.owner,
+    );
+    expect(made.appointmentIds).toHaveLength(3);
+    const leads = await rows<{ lead_id: string | null }>(
+      admin(),
+      sql`select lead_id from app.appointments where series_id = ${made.seriesId}`,
+    );
+    expect(leads.map((r) => r.lead_id)).toEqual([leadId, leadId, leadId]);
+    const [event] = await rows<{ payload: { notify?: boolean } }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'series.created' and entity_id = ${made.seriesId}`,
+    );
+    expect(event!.payload.notify).toBe(true);
+  });
+
   it('keeps a waitlist on a full session and signals when a seat opens', async () => {
     const cal = await makeCalendar(t, 'Class of one', {
       public: true,
@@ -516,6 +558,21 @@ describe('series, sessions and waitlists', () => {
       t.owner,
     );
     expect(entry.position).toBe(1);
+    expect(
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items,
+    ).toEqual([
+      expect.objectContaining({
+        id: entry.entryId,
+        personId: ben,
+        fullName: 'Ben Customer',
+        status: 'waiting',
+        appointment: expect.objectContaining({
+          id: session.appointmentId,
+          startsAt: isoAt(day, '10:00'),
+        }),
+        wantedFrom: null,
+      }),
+    ]);
     const left = await run(
       appointmentRemoveAttendee,
       { workspaceId: t.wsId, appointmentId: session.appointmentId, personId: ann },
@@ -534,5 +591,375 @@ describe('series, sessions and waitlists', () => {
     );
     expect(status!.status).toBe('removed');
     expect(localDateOf(Date.parse(isoAt(day, '10:00')), CHI)).toBe(day);
+  });
+
+  it('lists who waits for a window of time, which no appointment shows, and takes them off', async () => {
+    const cal = await makeCalendar(t, 'Tune-up line', {
+      team: { members: [{ userId: t.owner.id }] },
+      waitlist: { enabled: true },
+    });
+    const day = nextWeekday(3, 10);
+    const [dee, eli] = [await customer(t, 'Dee'), await customer(t, 'Eli')];
+    const want = (personId: string, from: string, to: string) =>
+      run(
+        waitlistAdd,
+        {
+          workspaceId: t.wsId,
+          calendarId: cal.id,
+          personId,
+          wantedFrom: isoAt(day, from),
+          wantedTo: isoAt(day, to),
+        },
+        t.owner,
+      );
+    const first = await want(dee, '09:00', '12:00');
+    const second = await want(eli, '13:00', '15:00');
+    const list = () => ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner);
+    expect(await list()).toEqual({
+      timezone: CHI,
+      items: [
+        expect.objectContaining({
+          id: first.entryId,
+          personId: dee,
+          fullName: 'Dee Customer',
+          status: 'waiting',
+          position: 1,
+          appointment: null,
+          wantedFrom: isoAt(day, '09:00'),
+          wantedTo: isoAt(day, '12:00'),
+          offerExpiresAt: null,
+        }),
+        expect.objectContaining({ id: second.entryId, position: 2 }),
+      ],
+    });
+    // A teammate who only reads sees them too.
+    expect(
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.member)).items,
+    ).toHaveLength(2);
+
+    await run(waitlistRemove, { workspaceId: t.wsId, entryId: first.entryId }, t.owner);
+    expect((await list()).items.map((e) => e.id)).toEqual([second.entryId]);
+    const [removed] = await rows<{ entity_type: string; entity_id: string }>(
+      admin(),
+      sql`select entity_type, entity_id from app.events
+          where event_type = 'waitlist.removed' and payload ->> 'entryId' = ${first.entryId}`,
+    );
+    expect(removed).toEqual({ entity_type: 'calendar', entity_id: cal.id });
+  });
+
+  it('won’t take someone off who is already booked from the waitlist, and leaves them booked', async () => {
+    const cal = await makeCalendar(t, 'Class of one, again', {
+      public: true,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      waitlist: { enabled: true },
+    });
+    const day = nextWeekday(4, 10);
+    const { appointmentId } = await run(
+      sessionPublish,
+      {
+        workspaceId: t.wsId,
+        calendarId: cal.id,
+        startsAt: isoAt(day, '10:00'),
+        userIds: [t.owner.id],
+      },
+      t.owner,
+    );
+    const [cat, dan] = [await customer(t, 'Cat'), await customer(t, 'Dan')];
+    await run(
+      appointmentAddAttendee,
+      { workspaceId: t.wsId, appointmentId, personId: cat },
+      t.owner,
+    );
+    const entry = await run(
+      waitlistAdd,
+      { workspaceId: t.wsId, calendarId: cal.id, appointmentId, personId: dan },
+      t.owner,
+    );
+    await run(
+      appointmentRemoveAttendee,
+      { workspaceId: t.wsId, appointmentId, personId: cat },
+      t.owner,
+    );
+    // The worker hands Dan the freed seat, as a customer taking their offer books theirs.
+    const promoted = await runSystem(
+      waitlistPromote,
+      { workspaceId: t.wsId, appointmentId },
+      t.scope,
+    );
+    expect(promoted.booked).toEqual([
+      expect.objectContaining({ entryId: entry.entryId, personId: dan }),
+    ]);
+    // A Remove pressed on a list that still showed Dan waiting.
+    await expectHfos(
+      () => run(waitlistRemove, { workspaceId: t.wsId, entryId: entry.entryId }, t.owner),
+      'already_booked',
+      409,
+    );
+    const [after] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.waitlist_entries where id = ${entry.entryId}`,
+    );
+    expect(after!.status).toBe('booked');
+    const [seat] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text as status from app.appointment_attendees
+          where appointment_id = ${appointmentId} and person_id = ${dan}`,
+    );
+    expect(seat!.status).toBe('booked');
+  });
+
+  it('ends a wait for a window of time once all of it has passed, and the list leaves it out', async () => {
+    const cal = await makeCalendar(t, 'Morning line', {
+      team: { members: [{ userId: t.owner.id }] },
+      waitlist: { enabled: true },
+    });
+    const day = nextWeekday(5, 10);
+    const [fay, gus] = [await customer(t, 'Fay'), await customer(t, 'Gus')];
+    const want = (personId: string) =>
+      run(
+        waitlistAdd,
+        {
+          workspaceId: t.wsId,
+          calendarId: cal.id,
+          personId,
+          wantedFrom: isoAt(day, '09:00'),
+          wantedTo: isoAt(day, '12:00'),
+        },
+        t.owner,
+      );
+    const passed = await want(fay);
+    const still = await want(gus);
+    const list = async () =>
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items.map(
+        (e) => e.id,
+      );
+    const expire = () =>
+      runSystem(waitlistExpire, { workspaceId: t.wsId, entryId: passed.entryId }, t.scope);
+    // Still to come: nothing ends yet, and the worker hears when it will.
+    expect(await expire()).toEqual({
+      status: 'waiting',
+      expired: false,
+      expiresAt: isoAt(day, '12:00'),
+      fromAppointmentId: null,
+    });
+
+    // Fay's morning comes and goes with no opening.
+    await rows(
+      admin(),
+      sql`update app.waitlist_entries set wanted_from = now() - interval '4 hours',
+            wanted_to = now() - interval '1 minute'
+          where id = ${passed.entryId}`,
+    );
+    // Off the list at once, before the worker gets to it.
+    expect(await list()).toEqual([still.entryId]);
+    expect(await expire()).toEqual({
+      status: 'expired',
+      expired: true,
+      expiresAt: null,
+      fromAppointmentId: null,
+    });
+    const statuses = await rows<{ id: string; status: string }>(
+      admin(),
+      sql`select id, status::text as status from app.waitlist_entries where calendar_id = ${cal.id}`,
+    );
+    expect(Object.fromEntries(statuses.map((r) => [r.id, r.status]))).toEqual({
+      [passed.entryId]: 'expired',
+      [still.entryId]: 'waiting',
+    });
+    const [ended] = await rows<{ entity_type: string; action: string; after: unknown }>(
+      admin(),
+      sql`select e.entity_type, l.action, l.after from app.events e
+          join app.audit_logs l on l.event_id = e.id
+          where e.event_type = 'waitlist.window_passed' and e.payload ->> 'entryId' = ${passed.entryId}`,
+    );
+    expect(ended).toMatchObject({
+      entity_type: 'calendar',
+      action: 'waitlist.expire',
+      after: { customer: 'Fay Customer', status: 'expired', reason: 'window_passed' },
+    });
+    // Done once: running it again changes nothing.
+    expect(await expire()).toMatchObject({ status: 'expired', expired: false });
+    expect(await list()).toEqual([still.entryId]);
+  });
+
+  it('won’t put someone on the waitlist for times that have passed, as the booking page won’t', async () => {
+    const cal = await makeCalendar(t, 'Late line', {
+      team: { members: [{ userId: t.owner.id }] },
+      waitlist: { enabled: true },
+    });
+    const gil = await customer(t, 'Gil');
+    const want = (wantedFrom: string, wantedTo: string) =>
+      run(
+        waitlistAdd,
+        { workspaceId: t.wsId, calendarId: cal.id, personId: gil, wantedFrom, wantedTo },
+        t.owner,
+      );
+    const hoursFromNow = (h: number) => new Date(Date.now() + h * 60 * MIN).toISOString();
+    // This morning, already over: it would only expire at once.
+    const gone = await expectHfos(
+      () => want(hoursFromNow(-5), hoursFromNow(-1)),
+      'validation',
+      400,
+    );
+    expect(gone.message).toBe('Pick times that haven’t passed.');
+    expect(gone.details).toEqual([
+      { path: 'wantedTo', message: 'Pick times that haven’t passed.' },
+    ]);
+    const day = nextWeekday(2, 10);
+    const backwards = await expectHfos(
+      () => want(isoAt(day, '12:00'), isoAt(day, '09:00')),
+      'validation',
+      400,
+    );
+    expect(backwards.message).toBe('End after the start.');
+    // Under way with some of it still to come: that's a wait worth keeping.
+    const now = await want(hoursFromNow(-1), hoursFromNow(2));
+    expect(
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items.map(
+        (e) => e.id,
+      ),
+    ).toEqual([now.entryId]);
+
+    // Nor a session that has already started.
+    const classes = await makeCalendar(t, 'Started class', {
+      public: true,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      waitlist: { enabled: true },
+    });
+    const { appointmentId } = await run(
+      sessionPublish,
+      {
+        workspaceId: t.wsId,
+        calendarId: classes.id,
+        startsAt: isoAt(nextWeekday(5, 10), '15:00'),
+        userIds: [t.owner.id],
+      },
+      t.owner,
+    );
+    // It ran earlier today (still marked scheduled: nobody has said how it went).
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '3 hours',
+            ends_at = now() - interval '2 hours'
+          where id = ${appointmentId}`,
+    );
+    await expectHfos(
+      () =>
+        run(
+          waitlistAdd,
+          { workspaceId: t.wsId, calendarId: classes.id, appointmentId, personId: gil },
+          t.owner,
+        ),
+      'session_started',
+      409,
+    );
+  });
+
+  it('ends a wait for a session once it is cancelled or starts, and the lists leave it out', async () => {
+    const cal = await makeCalendar(t, 'Evening class', {
+      public: true,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      waitlist: { enabled: true },
+    });
+    const publish = async (day: string) =>
+      (
+        await run(
+          sessionPublish,
+          {
+            workspaceId: t.wsId,
+            calendarId: cal.id,
+            startsAt: isoAt(day, '14:00'),
+            userIds: [t.owner.id],
+          },
+          t.owner,
+        )
+      ).appointmentId;
+    const [monday, wednesday] = [nextWeekday(1, 10), nextWeekday(3, 10)];
+    const [called, started] = [await publish(monday), await publish(wednesday)];
+    const [hal, ivy] = [await customer(t, 'Hal'), await customer(t, 'Ivy')];
+    const wait = (appointmentId: string, personId: string) =>
+      run(
+        waitlistAdd,
+        { workspaceId: t.wsId, calendarId: cal.id, appointmentId, personId },
+        t.owner,
+      );
+    const halWaits = await wait(called, hal);
+    const ivyWaits = await wait(started, ivy);
+    const list = async () =>
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items.map(
+        (e) => e.id,
+      );
+    const onSheet = async (appointmentId: string) =>
+      (
+        await ask(appointmentGet, { workspaceId: t.wsId, appointmentId }, t.owner)
+      ).appointment.waitlist.map((w) => w.id);
+    const expire = (entryId: string) =>
+      runSystem(waitlistExpire, { workspaceId: t.wsId, entryId }, t.scope);
+    const ended = async (entryId: string) =>
+      (
+        await rows<{ entity_type: string; entity_id: string; action: string; after: unknown }>(
+          admin(),
+          sql`select e.entity_type, e.entity_id, l.action, l.after from app.events e
+              join app.audit_logs l on l.event_id = e.id
+              where e.event_type = 'waitlist.session_passed' and e.payload ->> 'entryId' = ${entryId}`,
+        )
+      )[0];
+    // Still ahead: nothing ends yet, and the worker hears it ends when the session starts.
+    expect(await expire(halWaits.entryId)).toEqual({
+      status: 'waiting',
+      expired: false,
+      expiresAt: isoAt(monday, '14:00'),
+      fromAppointmentId: null,
+    });
+    expect(await list()).toEqual([halWaits.entryId, ivyWaits.entryId]);
+    expect(await onSheet(called)).toEqual([halWaits.entryId]);
+
+    // Monday's class is called off: Hal is off the lists at once, before the worker gets to him.
+    await run(
+      appointmentCancel,
+      { workspaceId: t.wsId, appointmentId: called, notify: false },
+      t.owner,
+    );
+    expect(await list()).toEqual([ivyWaits.entryId]);
+    expect(await onSheet(called)).toEqual([]);
+    expect(await expire(halWaits.entryId)).toEqual({
+      status: 'expired',
+      expired: true,
+      expiresAt: null,
+      fromAppointmentId: null,
+    });
+    expect(await ended(halWaits.entryId)).toMatchObject({
+      entity_type: 'appointment',
+      entity_id: called,
+      action: 'waitlist.expire',
+      after: { customer: 'Hal Customer', status: 'expired', reason: 'session_cancelled' },
+    });
+
+    // Wednesday's class starts with nobody freeing a seat.
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '10 minutes',
+            ends_at = now() + interval '50 minutes'
+          where id = ${started}`,
+    );
+    expect(await list()).toEqual([]);
+    expect(await onSheet(started)).toEqual([]);
+    expect(await expire(ivyWaits.entryId)).toMatchObject({ status: 'expired', expired: true });
+    expect(await ended(ivyWaits.entryId)).toMatchObject({
+      after: { customer: 'Ivy Customer', status: 'expired', reason: 'session_started' },
+    });
+    const statuses = await rows<{ id: string; status: string }>(
+      admin(),
+      sql`select id, status::text as status from app.waitlist_entries where calendar_id = ${cal.id}`,
+    );
+    expect(Object.fromEntries(statuses.map((r) => [r.id, r.status]))).toEqual({
+      [halWaits.entryId]: 'expired',
+      [ivyWaits.entryId]: 'expired',
+    });
+    // Done once: running it again changes nothing.
+    expect(await expire(ivyWaits.entryId)).toMatchObject({ status: 'expired', expired: false });
   });
 });

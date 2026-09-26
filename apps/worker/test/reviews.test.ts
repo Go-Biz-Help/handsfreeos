@@ -334,6 +334,22 @@ describe('answering', () => {
     );
     expect(kept!.reply_body).toContain('Sorry about that');
   }, 60_000);
+
+  it('won’t keep an answer that can’t go up, so none sits here looking sent', async () => {
+    const got = await ask<{ reviews: { id: string; authorName: string | null }[] }>(reviewList, {
+      workspaceId,
+    });
+    // Facebook doesn't let apps answer.
+    const maria = got.reviews.find((r) => r.authorName === 'Maria Alvarez')!;
+    await expect(
+      run(reviewReply, { workspaceId, reviewId: maria.id, body: 'Thank you, Maria!' }),
+    ).rejects.toThrow(/answered on Facebook itself/);
+    const [kept] = await rows<{ reply_body: string | null }>(
+      admin(),
+      sql`select reply_body from app.reviews where id = ${maria.id}::uuid`,
+    );
+    expect(kept!.reply_body).toBeNull();
+  }, 60_000);
 });
 
 describe('leaving', () => {

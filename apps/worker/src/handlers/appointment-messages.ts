@@ -11,7 +11,8 @@
  *   booking, so its notice carries the new link); the reminders re-armed.
  * - appointment.reassigned: a notice when asked.
  * - appointment.cancelled, attendee.cancelled, attendee.removed: a notice; the team hears about online ones.
- * - series.created: the reminders for every occurrence's customers.
+ * - series.created: the reminders for every occurrence's customers, and the first visit's confirmation when asked.
+ * - series.cancelled: one notice to each customer when asked, about their first visit and how many went with it.
  * - attendee.confirmed: a short thank-you when the customer confirmed by text (onConfirmedThanks).
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
@@ -118,6 +119,17 @@ export const onBookedTeamEmail: EventHandler = async (ctx) => {
   await emailTeam(ctx, 'booked', id, { fromWaitlist: p['fromWaitlist'] === true });
 };
 
+/**
+ * series.created: the first visit's confirmation when staff asked, as for one visit. Each later visit has its own
+ * reminders; a series the AI teammate books confirms through its first visit's appointment.booked instead.
+ */
+export const onSeriesConfirm: EventHandler = async (ctx) => {
+  const p = payloadOf(ctx);
+  const first = strings(p['appointmentIds'])[0];
+  if (!first || p['notify'] !== true) return;
+  await notice(ctx, await bookedAttendees(ctx.tx, first), 'confirmation');
+};
+
 /** attendee.added: a confirmation when staff asked. */
 export const onAddedConfirm: EventHandler = async (ctx) => {
   const p = payloadOf(ctx);
@@ -200,6 +212,40 @@ export const onCancelledNotice: EventHandler = async (ctx) => {
         ? [one]
         : [];
   await notice(ctx, ids, 'cancelled', { byCustomer: byCustomer(p) });
+};
+
+/**
+ * series.cancelled: when staff asked, each customer hears once — their first cancelled visit, and how many after
+ * it went too — rather than a text for every visit.
+ */
+export const onSeriesCancelledNotice: EventHandler = async (ctx) => {
+  const p = payloadOf(ctx);
+  if (p['notify'] !== true) return;
+  const appointmentIds = strings(p['appointmentIds']);
+  const personIds = strings(p['personIds']);
+  if (appointmentIds.length === 0 || personIds.length === 0) return;
+  const seats = await ctx.tx
+    .select({
+      id: appointmentAttendees.id,
+      appointmentId: appointmentAttendees.appointmentId,
+      personId: appointmentAttendees.personId,
+    })
+    .from(appointmentAttendees)
+    .where(
+      and(
+        inArray(appointmentAttendees.appointmentId, appointmentIds),
+        inArray(appointmentAttendees.personId, personIds),
+        eq(appointmentAttendees.status, 'cancelled'),
+      ),
+    );
+  // The payload lists the visits soonest first.
+  const order = new Map(appointmentIds.map((id, i) => [id, i]));
+  const byPerson = new Map<string, typeof seats>();
+  for (const s of seats) byPerson.set(s.personId, [...(byPerson.get(s.personId) ?? []), s]);
+  for (const mine of byPerson.values()) {
+    mine.sort((a, b) => order.get(a.appointmentId)! - order.get(b.appointmentId)!);
+    await notice(ctx, [mine[0]!.id], 'cancelled', { laterToo: mine.length - 1 });
+  }
 };
 
 /** appointment.cancelled and attendee.cancelled: the people on it hear when a customer cancelled online. */

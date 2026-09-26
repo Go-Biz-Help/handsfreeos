@@ -62,7 +62,7 @@ export interface WorkerEnv {
    * the team and going to voicemail; `fake` is the stand-in for development and tests.
    */
   readonly voiceAgent: 'deepgram' | 'fake' | 'off';
-  /** The model that thinks on a call; unset uses ASSISTANT_MODEL. A faster one keeps the pauses short. */
+  /** The model that thinks on a call; unset uses AI_MODEL. A faster one keeps the pauses short. */
   readonly voiceModel: string | null;
   /**
    * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
@@ -191,7 +191,22 @@ export interface WorkerEnv {
   /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
   readonly assistantProvider: 'anthropic' | 'scripted' | 'none';
   readonly anthropicApiKey: string | null;
+  /**
+   * The model behind Ask HandsFreeOS, the team's own helper. It has far more tools than anything else here, so
+   * it gets the stronger model; it isn't billed to the business, so its price is HandsFreeOS's own.
+   */
   readonly assistantModel: string;
+  /**
+   * The model for everything else: the AI teammate, calls (unless VOICE_MODEL), workflow steps, the builders and
+   * the knowledge base. Customers wait on these, and businesses pay for them at the card's AI rates.
+   */
+  readonly aiModel: string;
+  /**
+   * Ask HandsFreeOS loads most of its tools only when it searches for them (Anthropic's tool search), so it picks
+   * from a short list rather than every tool at once. On by default; off (ASSISTANT_TOOL_SEARCH=off) sends every
+   * tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.
+   */
+  readonly assistantToolSearch: boolean;
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
@@ -432,6 +447,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     throw new Error('ASSISTANT_PROVIDER=scripted is for development and tests only');
   if (assistantProvider === 'anthropic' && !anthropicApiKey)
     throw new Error('ANTHROPIC_API_KEY is required with ASSISTANT_PROVIDER=anthropic');
+  const assistantToolSearch = (env.ASSISTANT_TOOL_SEARCH || 'on') as string;
+  if (!['on', 'off'].includes(assistantToolSearch))
+    throw new Error('ASSISTANT_TOOL_SEARCH must be on or off');
   const assistantDailyTokens = Number(env.ASSISTANT_DAILY_TOKENS ?? 2_000_000);
   if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
     throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
@@ -589,7 +607,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     paymentsFakeSettleMs: fakeSettleMs,
     assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
     anthropicApiKey,
-    assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',
+    assistantModel: env.ASSISTANT_MODEL || 'claude-opus-5-5',
+    aiModel: env.AI_MODEL || 'claude-sonnet-5',
+    assistantToolSearch: assistantToolSearch === 'on',
     assistantDailyTokens,
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,

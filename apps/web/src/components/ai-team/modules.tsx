@@ -497,7 +497,7 @@ function RespondModule({ draft, patch, catalogs }: ModuleProps) {
     <>
       <ModuleHeading
         title="Respond"
-        description="Replies to leads who write in, and can send new leads the first message."
+        description="Writes to new leads first, before they’ve written to you. Off, it still answers people who write in, on the channels and hours you set."
         skill={{
           on: r.enabled,
           onChange: (v) => patch({ respond: { enabled: v } }, onOff(v, 'Respond')),

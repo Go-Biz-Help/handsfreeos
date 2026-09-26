@@ -280,6 +280,70 @@ describe('runToolLoop', () => {
     expect(r.usage.inputTokens).toBe(turns[0]!.inputTokens + turns[1]!.inputTokens);
   });
 
+  it('hands a turn back as the model gave it, reasoning first, and says why its last turn stopped', async () => {
+    const reasoning = {
+      type: 'passthrough',
+      block: { type: 'thinking', thinking: '', signature: 's' },
+    } as const;
+    let calls = 0;
+    const thinker: AiProvider = {
+      id: 'thinker',
+      model: 'thinker',
+      stream: async () => {
+        calls++;
+        if (calls === 1)
+          return {
+            text: '',
+            toolCalls: [{ id: 'c1', name: 'look_up', arguments: {} }],
+            content: [reasoning, { type: 'tool_call', id: 'c1', name: 'look_up', arguments: {} }],
+            stopReason: 'tool_use',
+            usage: emptyUsage,
+          };
+        return { text: '', toolCalls: [], stopReason: 'refusal', usage: emptyUsage };
+      },
+    };
+    const { provider, requests } = recorded(thinker);
+    const out = await loop({
+      provider,
+      messages: question('What does it cost?'),
+      execute: async () => ({ content: { price: 90 } }),
+    });
+    expect(requests[1]!.messages[1]).toEqual({
+      role: 'assistant',
+      content: [reasoning, { type: 'tool_call', id: 'c1', name: 'look_up', arguments: {} }],
+    });
+    expect(out.stoppedBy).toBe('end_turn');
+    expect(out.lastStop).toBe('refusal');
+  });
+
+  it('carries on a turn the provider paused, as one turn', async () => {
+    const search = { type: 'passthrough', block: { type: 'server_tool_use', id: 's1' } } as const;
+    let calls = 0;
+    const pauses: AiProvider = {
+      id: 'pauses',
+      model: 'pauses',
+      stream: async () =>
+        ++calls === 1
+          ? {
+              text: '',
+              toolCalls: [],
+              content: [search],
+              stopReason: 'pause_turn',
+              usage: emptyUsage,
+            }
+          : { text: 'Found it.', toolCalls: [], stopReason: 'end_turn', usage: emptyUsage },
+    };
+    const { provider, requests } = recorded(pauses);
+    const out = await loop({ provider, messages: question('Refund Mike') });
+    // The paused turn went back as it came, at the end, for the model to carry on from.
+    expect(requests[1]!.messages.at(-1)).toEqual({ role: 'assistant', content: [search] });
+    expect(out.messages.at(-1)).toEqual({
+      role: 'assistant',
+      content: [search, { type: 'text', text: 'Found it.' }],
+    });
+    expect(out.stoppedBy).toBe('end_turn');
+  });
+
   it('ends on a failure, marking a busy provider as worth trying again', async () => {
     const busy: AiProvider = {
       id: 'busy',

@@ -120,8 +120,9 @@ export default function SupportPage() {
               title: 'Stop the AI answering for now',
               body: (
                 <>
-                  Settings → AI teammate → put it back to asking first. It then drafts every message
-                  and waits for a person, including for the kinds of reply it had earned.
+                  Open AI teammate in the side menu and set its Status to Training wheels. It then
+                  drafts every message and waits for a person, including for the kinds of reply it
+                  had earned.
                 </>
               ),
             },

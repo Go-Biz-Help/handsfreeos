@@ -1,8 +1,10 @@
 /**
  * Waitlist offers for a freed 1:1 time, the worker's side: making the offer (never during quiet hours: then
  * at their end), telling the customer by text or email with the offer's link, and moving on when the offer
- * runs out. The core commands hold the rules (waitlist.offer, waitlist.expire); a seat freed in a session is
- * booked straight away by waitlist.promote instead (handlers/waitlist.ts).
+ * runs out, and ending a wait for a window of time once it has passed, or for a session once it starts or is
+ * cancelled. The core commands hold the rules
+ * (waitlist.offer, waitlist.expire); a seat freed in a session is booked straight away by waitlist.promote
+ * instead (handlers/waitlist.ts).
  */
 import { eq } from 'drizzle-orm';
 import {
@@ -34,6 +36,12 @@ import { offerEmail, offerText } from './messages';
 import { businessOf } from './visit';
 
 export const offerExpireKey = (entryId: string): string => `waitlist-offer:${entryId}`;
+/**
+ * The job that ends a wait when the window of time ends or the session starts, or at once when the session is
+ * cancelled (handlers/waitlist.ts arms it).
+ */
+export const WINDOW_END_JOB = 'waitlist.window_end';
+export const windowEndKey = (entryId: string): string => `waitlist-window:${entryId}`;
 
 /** Offers a freed 1:1 time to the next person waiting for it, and tells them; in quiet hours, when they end. */
 export async function offerFreedTime(
@@ -173,7 +181,12 @@ export const waitlistOfferJob: JobHandler = async (ctx) => {
   );
 };
 
-/** An offer's time is up: it lapses, and the time goes to the next person waiting when it's still free. */
+/**
+ * An offer's time is up: it lapses, and the time goes to the next person waiting when it's still free. The same
+ * job ends a wait for a window of time once the window is over, or for a session once it starts or is cancelled
+ * (WINDOW_END_JOB): the entry expires, quietly. A window that ends while its offer still stands waits for the
+ * offer.
+ */
 export const waitlistOfferExpire: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const entryId = String(ctx.job.payload['entryId'] ?? '');

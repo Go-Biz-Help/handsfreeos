@@ -7,6 +7,8 @@
  *   a business or an agency over: ownership.test.ts.)
  * - **The Assistant's consent:** kept with the wording version and the time, once per wording; account.me says whether
  *   the consent step still shows; one OK covers every app.
+ * - **Saving on what was read:** a settings save that says what it expected (the side menu) is refused when a newer
+ *   one was saved since, checked with the row locked, so of two saves made on the same menu only one lands.
  */
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
@@ -15,6 +17,7 @@ import { events, organizationMemberships, users, workspaceMemberships } from '@h
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import { DEFAULT_MENU, menuOf, moveKey, storedMenu, SUGGESTED_MENU } from '../src/account/menu';
 import { ASSISTANT_CONSENT_VERSION, assistantConsentOf } from '../src/assistant/consent';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
@@ -336,5 +339,78 @@ describe('the Assistant’s consent', () => {
       phoneMeta(),
     );
     expect(out.output.changed).toBe(true);
+  });
+});
+
+describe('saving your own settings on what you last read', () => {
+  const settingsOf = async (u: TestUser) =>
+    (await executeQuery(api(), me, {}, human(u), meta())).user.settings;
+
+  it('refuses a menu saved on an older copy, and keeps the newer one', async () => {
+    const u = await createTestUser('acct-menu-race');
+    // Never arranged: the editor says so with null.
+    const first = storedMenu(moveKey(DEFAULT_MENU, 'audit', 'hidden'));
+    await run(
+      userUpdateProfile,
+      { settings: { menu: first }, expectedSettings: { menu: null } },
+      u,
+    );
+    // The Assistant saves a newer menu meanwhile.
+    const newer = storedMenu(SUGGESTED_MENU);
+    await run(userUpdateProfile, { settings: { menu: newer } }, u);
+    // The editor, still on the first menu, tries to save over it.
+    const stale = storedMenu(moveKey(menuOf({ menu: first }), 'ideas', 'hidden'));
+    const err = await expectHfos(
+      () =>
+        run(userUpdateProfile, { settings: { menu: stale }, expectedSettings: { menu: first } }, u),
+      'conflict',
+      'settings_changed',
+    );
+    expect(err.status).toBe(409);
+    expect(err.message).toContain('nothing was saved');
+    expect((await settingsOf(u))['menu']).toEqual(newer);
+    // Made on what is saved now (its keys in any order), it goes through.
+    const reordered = { hidden: newer.hidden, entries: newer.entries, v: newer.v };
+    await run(
+      userUpdateProfile,
+      { settings: { menu: stale }, expectedSettings: { menu: reordered } },
+      u,
+    );
+    expect((await settingsOf(u))['menu']).toEqual(stale);
+    // Saying it was never arranged, once it has been, is refused too.
+    await expectHfos(
+      () =>
+        run(userUpdateProfile, { settings: { menu: first }, expectedSettings: { menu: null } }, u),
+      'conflict',
+      'settings_changed',
+    );
+  });
+
+  it('lets only one of two saves made on the same menu land', async () => {
+    const u = await createTestUser('acct-menu-both');
+    const base = storedMenu(DEFAULT_MENU);
+    await run(userUpdateProfile, { settings: { menu: base } }, u);
+    const a = storedMenu(moveKey(DEFAULT_MENU, 'audit', 'hidden'));
+    const b = storedMenu(moveKey(DEFAULT_MENU, 'ideas', 'hidden'));
+    const results = await Promise.allSettled(
+      [a, b].map((menu) =>
+        run(userUpdateProfile, { settings: { menu }, expectedSettings: { menu: base } }, u),
+      ),
+    );
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const refused = results.find((r) => r.status === 'rejected');
+    expect((refused?.reason as HfosError).rule).toBe('settings_changed');
+    const won = results[0]!.status === 'fulfilled' ? a : b;
+    expect((await settingsOf(u))['menu']).toEqual(won);
+  });
+
+  it('saves as before when nothing is expected, keeping the other keys', async () => {
+    const u = await createTestUser('acct-menu-plain');
+    await run(userUpdateProfile, { settings: { theme: 'dark' } }, u);
+    await run(userUpdateProfile, { settings: { menu: storedMenu(SUGGESTED_MENU) } }, u);
+    expect(await settingsOf(u)).toMatchObject({
+      theme: 'dark',
+      menu: storedMenu(SUGGESTED_MENU),
+    });
   });
 });

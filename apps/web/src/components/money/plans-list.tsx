@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import type { PlanRow, SubscriptionRow } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { CustomerCell, ListNote, RowLink, Td, Th } from './list-bits';
+import { PlanNameButton } from './plan-editor';
 import { PlanVisitsButton, type ServiceChoice } from './plan-visits';
 import { StatusBadge } from './status-badge';
 
@@ -52,8 +53,10 @@ export function PlansList({
       {live.length === 0 ? (
         <Card>
           <EmptyState title="No plans yet">
-            A maintenance plan bills itself every month or every year. Add one in Settings →
-            Products.
+            A maintenance plan bills itself every month or every year.{' '}
+            {canManage
+              ? 'Press New plan to add the first one.'
+              : 'Someone who manages the money adds them here.'}
           </EmptyState>
         </Card>
       ) : (
@@ -76,7 +79,9 @@ export function PlansList({
                   p.interval === 'month' && p.intervalCount === 1 ? p.priceCents * members : null;
                 return (
                   <tr key={p.id} data-testid={`plan-row-${p.name}`}>
-                    <Td className="font-semibold">{p.name}</Td>
+                    <Td className="font-semibold">
+                      <PlanNameButton workspaceId={workspaceId} plan={p} canManage={canManage} />
+                    </Td>
                     <Td className="whitespace-nowrap tabular-nums">
                       {planPriceLabel(p.priceCents, p.interval, p.intervalCount)}
                     </Td>
@@ -136,7 +141,14 @@ export function PlansList({
                   className="flex flex-col gap-1.5 border-t border-border px-4 py-3.5 first:border-t-0"
                 >
                   <span className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-[15px] font-semibold">{p.name}</span>
+                    <span className="truncate text-[15px] font-semibold">
+                      <PlanNameButton
+                        workspaceId={workspaceId}
+                        plan={p}
+                        canManage={canManage}
+                        card
+                      />
+                    </span>
                     <span className="whitespace-nowrap text-[13px] tabular-nums text-text-2">
                       {planPriceLabel(p.priceCents, p.interval, p.intervalCount)}
                     </span>
@@ -184,8 +196,8 @@ export function PlansList({
             <EmptyState title="Nobody matches">Try another status or account.</EmptyState>
           ) : (
             <EmptyState title="Nobody is on a plan yet">
-              Start a customer on a plan from their record. It bills itself through the account you
-              are paid into.
+              Press Put someone on a plan, or Put on a plan in a customer’s Money tab. It bills
+              itself through the account you are paid into.
             </EmptyState>
           )}
         </Card>

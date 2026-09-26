@@ -30,6 +30,13 @@ export const BOOKED_SOON_DAYS = 30;
 export const EMAILED_RECENTLY_DAYS = 14;
 export const CALLED_RECENTLY_DAYS = 14;
 
+/**
+ * Why a won or lost stage can't pick a campaign's people: it picks open deals only. campaign.create and the
+ * Assistant's start_campaign say the same.
+ */
+export const closedStageWords = (stage: { readonly name: string; readonly kind: string }) =>
+  `“${stage.name}” is a ${stage.kind} stage. A campaign picks people with an open deal, so choose open stages.`;
+
 export interface AudienceFacts {
   readonly hasPhone: boolean;
   readonly optedIn: boolean;

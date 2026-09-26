@@ -8,6 +8,7 @@ import {
   readFilters,
   subscriptionListBody,
 } from '@/components/money/list-options';
+import { NewPlanButton } from '@/components/money/plan-editor';
 import { StartPlanDialog } from '@/components/money/plan-start';
 import { PlansList } from '@/components/money/plans-list';
 import { MoneyActions, MoneySubnav } from '@/components/money/subnav';
@@ -76,6 +77,13 @@ export default async function PlansPage({
               connections={connections}
             />
           </>
+        ) : null}
+        {/* Selling a new kind of plan is for whoever manages money, as changing one is. */}
+        {shell.canManage ? (
+          <NewPlanButton
+            workspaceId={workspaceId}
+            taxableByDefault={shell.settings.tax.newProductsTaxable}
+          />
         ) : null}
       </MoneySubnav>
       <PlansList

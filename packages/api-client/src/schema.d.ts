@@ -3907,7 +3907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Cancel a text waiting for quiet hours to end. It never goes, and leaves the conversation.
+         * Cancel a text waiting for quiet hours to end. It never goes: a new text leaves the conversation, and a failed text that was tried again goes back as it was, not delivered.
          * @description Risk level 1. Requires inbox.use. Emits message.schedule_cancelled. Can wait on a phone with no signal.
          */
         post: operations["command_message_cancel_scheduled"];
@@ -3928,7 +3928,7 @@ export interface paths {
         put?: never;
         /**
          * Send a text or email that did not go out one more time.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.scheduled.
          */
         post: operations["command_message_retry"];
         delete?: never;
@@ -5808,7 +5808,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel one occurrence of a series, it and the ones after it, or every upcoming one.
-         * @description Risk level 2. Requires appointments.write. Emits series.cancelled.
+         * @description Risk level 2. Requires appointments.write. Emits series.cancelled, waitlist.seat_freed.
          */
         post: operations["command_series_cancel"];
         delete?: never;
@@ -6887,7 +6887,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Update your own name, photo or preferences.
+         * Update your own name, photo or preferences. Each settings key is replaced whole; `expectedSettings` says what the caller last read, and a key that has changed since refuses the save (409 settings_changed).
          * @description Risk level 1. Emits user.profile_updated.
          */
         post: operations["command_user_update_profile"];
@@ -6928,7 +6928,7 @@ export interface paths {
         put?: never;
         /**
          * Take someone off a waitlist.
-         * @description Risk level 1. Requires appointments.write. Emits waitlist.removed.
+         * @description Risk level 1. Requires appointments.write. Emits waitlist.removed, waitlist.seat_freed.
          */
         post: operations["command_waitlist_remove"];
         delete?: never;
@@ -10411,6 +10411,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_user_phone_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/waitlist.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who is on a calendar’s waitlist, in line order: for a full session, or for a window of time they want.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_waitlist_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19385,6 +19405,7 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         messageId: string;
+                        stays: boolean;
                     };
                 };
             };
@@ -19417,6 +19438,8 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         messageId: string;
+                        /** Format: date-time */
+                        scheduledFor?: string;
                     };
                 };
             };
@@ -23413,8 +23436,10 @@ export interface operations {
                     /** Format: uuid */
                     calendarId: string;
                     capacity?: number;
+                    customRecordId?: string | null;
                     durationMinutes?: number;
                     firstDate: string;
+                    leadId?: string | null;
                     location?: {
                         /** @default null */
                         address?: string | null;
@@ -23426,6 +23451,8 @@ export interface operations {
                         postalCode?: string | null;
                     };
                     notes?: string | null;
+                    /** @default false */
+                    notify?: boolean;
                     /** @default 1 */
                     partySize?: number;
                     personId?: string | null;
@@ -25440,6 +25467,9 @@ export interface operations {
             content: {
                 "application/json": {
                     avatarUrl?: string | null;
+                    expectedSettings?: {
+                        [key: string]: unknown;
+                    };
                     fullName?: string;
                     settings?: {
                         [key: string]: unknown;
@@ -34724,6 +34754,7 @@ export interface operations {
                             type: "message" | "call";
                             via: ("microsoft" | "google") | null;
                         };
+                        triedAgain: boolean;
                     };
                 };
             };
@@ -38010,6 +38041,62 @@ export interface operations {
                             lastVerificationAt: string | null;
                             verifiedAt: string | null;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_waitlist_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    calendarId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            appointment: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                                title: string;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            offerExpiresAt: string | null;
+                            /** Format: uuid */
+                            personId: string;
+                            position: number;
+                            seats: number;
+                            /** @enum {string} */
+                            status: "waiting" | "offered";
+                            wantedFrom: string | null;
+                            wantedTo: string | null;
+                        }[];
+                        timezone: string;
                     };
                 };
             };

@@ -41,6 +41,18 @@ import { calendarConfig } from './config-cache';
 import { CustomerPicker, type PickedCustomer } from './customer-picker';
 import { TellField, useTextingReady } from './tell-field';
 
+/**
+ * Repeating a visit, when the calendar's Repeats section lets staff (Staff can repeat visits). Weekly repeats fall
+ * on the first visit's weekday; monthly ones on its date. The calendar caps how many.
+ */
+const REPEATS = {
+  none: { label: 'Doesn’t repeat', freq: null, interval: 1 },
+  week: { label: 'Every week', freq: 'weekly', interval: 1 },
+  twoWeeks: { label: 'Every 2 weeks', freq: 'weekly', interval: 2 },
+  month: { label: 'Every month', freq: 'monthly_date', interval: 1 },
+} as const;
+type RepeatKey = keyof typeof REPEATS;
+
 const LOCATION_LABEL: Record<LocationKind, string> = {
   customer_address: 'Customer’s address',
   business: 'Business',
@@ -111,7 +123,8 @@ export interface AppointmentPrefill {
  * busy, time off, buffers, a past time) come back from the server and can be booked over with "Book
  * anyway"; another appointment at the same time never can. Times are the workspace's zone, labelled. Tell
  * (ticked by default) sends the customer a confirmation; the reminders follow the calendar's settings either
- * way.
+ * way. When the calendar lets staff repeat visits, Repeats books the same visit weekly, fortnightly or monthly,
+ * and the dates that don't fit are listed rather than booked over.
  */
 export function AppointmentDialog({
   workspaceId,
@@ -154,6 +167,8 @@ export function AppointmentDialog({
   const [duration, setDuration] = useState(60);
   const [locationIdx, setLocationIdx] = useState(0);
   const [tell, setTell] = useState(true);
+  const [repeat, setRepeat] = useState<RepeatKey>('none');
+  const [visits, setVisits] = useState(6);
   const [warnings, setWarnings] = useState<AppointmentWarning[] | null>(null);
   /** A 409 resource_full: its message and the nearest open times. Never booked over. */
   const [full, setFull] = useState<{ message: string; times: string[] } | null>(null);
@@ -280,6 +295,12 @@ export function AppointmentDialog({
           ? 'Everyone it needs'
           : 'Let the calendar choose';
   const withChoice = who || (mode === 'fixed' && team.length ? team[0]! : '');
+  // Group sessions are repeated where they're published, not here.
+  const maxVisits = current?.recurring.maxOccurrences ?? 12;
+  const canRepeat =
+    !!current?.recurring.staffSeries && current.schedule.mode !== 'sessions' && maxVisits >= 2;
+  const repeating = canRepeat && repeat !== 'none';
+  const visitCount = Math.min(visits, maxVisits);
   // A fresh time offered after a full resource can fall between the quarter hours.
   const timeOptions = timeOptionsWith(time);
 
@@ -292,24 +313,30 @@ export function AppointmentDialog({
       setFull(null);
     };
 
+  /** Where the visit is, as the commands take it. */
+  function location(): AppointmentLocationIn | undefined {
+    return place
+      ? {
+          kind: place.kind,
+          address:
+            place.kind === 'customer_address'
+              ? address.trim() || null
+              : place.kind === 'business'
+                ? place.address
+                : null,
+          meetingUrl: place.kind === 'virtual' ? place.meetingUrl : null,
+          postalCode: place.kind === 'customer_address' ? postalCode : null,
+        }
+      : undefined;
+  }
+
   async function book() {
     if (!current) return;
+    if (repeating) return bookSeries();
     setBusy(true);
     setError(null);
     try {
-      const location: AppointmentLocationIn | undefined = place
-        ? {
-            kind: place.kind,
-            address:
-              place.kind === 'customer_address'
-                ? address.trim() || null
-                : place.kind === 'business'
-                  ? place.address
-                  : null,
-            meetingUrl: place.kind === 'virtual' ? place.meetingUrl : null,
-            postalCode: place.kind === 'customer_address' ? postalCode : null,
-          }
-        : undefined;
+      const where = location();
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/appointment.create', {
           body: {
@@ -321,7 +348,7 @@ export function AppointmentDialog({
             ...(withChoice && !many && !staffless ? { userIds: [withChoice] } : {}),
             personId: person?.id ?? null,
             partySize: 1,
-            ...(location ? { location } : {}),
+            ...(where ? { location: where } : {}),
             leadId: prefill.leadId ?? null,
             customRecordId: prefill.customRecordId ?? null,
             acknowledgeWarnings: !!warnings,
@@ -346,6 +373,65 @@ export function AppointmentDialog({
         setWarnings(null);
         setFull({ message: e.message, times: freshTimes(e.details) });
       } else setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The same visit, repeated: every date that fits is booked, and the ones that don't are listed. */
+  async function bookSeries() {
+    const rule = REPEATS[repeat];
+    if (!rule.freq) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/series.create', {
+          body: {
+            workspaceId,
+            calendarId,
+            firstDate: date,
+            rule: {
+              freq: rule.freq,
+              interval: rule.interval,
+              weekdays: [],
+              count: visitCount,
+              until: null,
+              localTime: minutesToClock(time),
+            },
+            durationMinutes: length,
+            serviceId: service?.id ?? null,
+            ...(withChoice && !many && !staffless ? { userIds: [withChoice] } : {}),
+            personId: person?.id ?? null,
+            partySize: 1,
+            ...(location() ? { location: location() } : {}),
+            leadId: prefill.leadId ?? null,
+            customRecordId: prefill.customRecordId ?? null,
+            notify: tell,
+          },
+        }),
+      );
+      const title = service?.name ?? calendars?.find((c) => c.id === calendarId)?.name ?? 'It';
+      const startsAt = new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString();
+      const booked = out.appointmentIds.length;
+      toast.success(
+        `Booked ${booked === 1 ? '1 visit' : `${booked} visits`} of ${title}, ${REPEATS[repeat].label.toLowerCase()} from ${fmtAt(startsAt, timeZone)}.`,
+      );
+      if (out.skipped.length)
+        toast.warning(
+          `${out.skipped.length === 1 ? 'One date didn’t fit and wasn’t booked' : `${out.skipped.length} dates didn’t fit and weren’t booked`}: ${out.skipped
+            .map((k) => `${fmtAt(k.startsAt, timeZone)} (${k.reason})`)
+            .join('; ')}.`,
+          { duration: 12_000 },
+        );
+      onBooked({
+        appointmentId: out.appointmentIds[0]!,
+        startsAt,
+        endsAt: new Date(Date.parse(startsAt) + length * 60_000).toISOString(),
+        userIds: [],
+      });
+    } catch (e) {
+      setError(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -487,6 +573,40 @@ export function AppointmentDialog({
                 </Select>
               </Field>
             </div>
+            {canRepeat ? (
+              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-2.5">
+                <Field label="Repeats" htmlFor="appt-repeat" className="min-w-0">
+                  <Select
+                    id="appt-repeat"
+                    value={repeat}
+                    onChange={(e) => change(setRepeat)(e.target.value as RepeatKey)}
+                    data-testid="appointment-repeat"
+                  >
+                    {(Object.keys(REPEATS) as RepeatKey[]).map((k) => (
+                      <option key={k} value={k}>
+                        {REPEATS[k].label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {repeating ? (
+                  <Field label="How many visits" htmlFor="appt-visits" className="min-w-0">
+                    <Select
+                      id="appt-visits"
+                      value={String(visitCount)}
+                      onChange={(e) => change(setVisits)(Number(e.target.value))}
+                      data-testid="appointment-visits"
+                    >
+                      {Array.from({ length: maxVisits - 1 }, (_, i) => i + 2).map((n) => (
+                        <option key={n} value={n}>
+                          {n} visits
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
+              </div>
+            ) : null}
             {places.length ? (
               <div className="min-w-0">
                 <Label htmlFor="appt-place">Location</Label>
@@ -598,7 +718,7 @@ export function AppointmentDialog({
             onClick={() => void book()}
             data-testid="appointment-book"
           >
-            {warnings ? 'Book anyway' : 'Book'}
+            {warnings ? 'Book anyway' : repeating ? `Book ${visitCount} visits` : 'Book'}
           </Button>
         </div>
       </DialogContent>

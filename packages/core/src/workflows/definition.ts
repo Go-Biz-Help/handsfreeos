@@ -144,6 +144,54 @@ export const TRIGGER_EVENT_KEYS = Object.keys(TRIGGER_EVENTS) as [
   TriggerEventKey,
   ...TriggerEventKey[],
 ];
+
+/**
+ * The trigger picker's headings, with every event under exactly one (test/workflow-trigger-groups.test.ts). The
+ * picker once sorted events by name and left the AI teammate's hand-off, money and forms out, so nobody could
+ * pick them — while the Estimate follow-up recipe started from one of them.
+ */
+export const TRIGGER_EVENT_GROUPS: readonly {
+  readonly label: string;
+  readonly events: readonly TriggerEventKey[];
+}[] = [
+  {
+    label: 'Leads',
+    events: ['lead.created', 'lead.stage_changed', 'lead.assigned', 'lead.qualified'],
+  },
+  {
+    label: 'Appointments',
+    events: [
+      'appointment.booked',
+      'appointment.rescheduled',
+      'appointment.cancelled',
+      'appointment.completed',
+      'appointment.no_show',
+    ],
+  },
+  {
+    label: 'Messages and calls',
+    events: [
+      'message.received',
+      'call.missed',
+      'call.voicemail_left',
+      'call.completed',
+      'ai_teammate.handed_off',
+    ],
+  },
+  { label: 'Customers', events: ['person.created', 'person.updated', 'record.tags_changed'] },
+  {
+    label: 'Money',
+    events: [
+      'estimate.sent',
+      'estimate.accepted',
+      'estimate.declined',
+      'invoice.paid',
+      'invoice.overdue',
+    ],
+  },
+  { label: 'Forms', events: ['form.submitted'] },
+  { label: 'Tasks', events: ['task.completed'] },
+];
 export const TriggerEvent = z.enum(TRIGGER_EVENT_KEYS);
 
 export function triggerEventDef(key: TriggerEventKey): TriggerEventDef {

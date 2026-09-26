@@ -585,7 +585,7 @@ function WhenQualified({
         />
       </SetRow>
       <Note icon={Workflow} className="mt-2">
-        Workflows can start from this too, with the new trigger “A lead qualifies”.
+        Workflows can start from this too, with the trigger “A lead is qualified”.
       </Note>
     </div>
   );

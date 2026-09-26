@@ -63,6 +63,7 @@ import {
   WaitlistJoinForCustomerOutput,
 } from '../schemas/ai-team';
 import { announceBooked, checkExisting } from './appointment';
+import { wantedWindowIssue } from './waitlist-online';
 import {
   estimateAnswerForCustomer,
   estimateCreateForCustomer,
@@ -545,13 +546,14 @@ export const waitlistJoinForCustomer = defineCommand({
       const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
       if (appt.calendarId !== calendar.id) throw HfosError.notFound('Appointment not found.');
       requireScheduled(appt);
+      // The same rules and words as the booking page and the team's own waitlist.add.
+      if (appt.startsAt.getTime() <= Date.now())
+        throw HfosError.rule('session_started', 409, 'This session has already started.');
     } else {
       wantedFrom = new Date(input.wantedFrom!);
       wantedTo = new Date(input.wantedTo!);
-      if (wantedTo.getTime() <= wantedFrom.getTime())
-        throw HfosError.validation([{ path: 'wantedTo', message: 'End after the start.' }]);
-      if (wantedTo.getTime() <= Date.now())
-        throw HfosError.validation([{ path: 'wantedTo', message: 'Pick a time still to come.' }]);
+      const issue = wantedWindowIssue(wantedFrom.getTime(), wantedTo.getTime(), Date.now());
+      if (issue) throw HfosError.validation([{ path: 'wantedTo', message: issue }], issue);
     }
     await lockBooking(ctx.tx, calendar.id, []);
     // Already waiting for the same session, or for a window that overlaps this one: that place stands.

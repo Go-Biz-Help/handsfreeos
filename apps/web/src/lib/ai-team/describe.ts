@@ -162,7 +162,7 @@ export function moduleSummary(
       const r = config.respond;
       if (!r.enabled)
         return catalogs.newLeadTextWorkflows.length ? 'Off · a workflow does it' : 'Off';
-      if (!r.newLeads.enabled) return 'Replies · no first message';
+      if (!r.newLeads.enabled) return 'No first message';
       return `First ${r.newLeads.channel === 'sms' ? 'text' : 'email'} ${r.newLeads.delayMinutes ? `after ${shortDuration(r.newLeads.delayMinutes)}` : 'right away'}`;
     }
     case 'answer':

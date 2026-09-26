@@ -795,6 +795,11 @@ export const SeriesCreateInput = z.object({
   location: AppointmentLocation.optional(),
   /** Sessions-mode calendars publish sessions with this many seats. */
   capacity: z.int().min(1).max(1000).optional(),
+  /** Booked from a lead's page, or a pet's, vehicle's or property's (0101): every visit carries it. */
+  leadId: uuid.nullable().optional(),
+  customRecordId: uuid.nullable().optional(),
+  /** Send the customer the first visit's confirmation; the reminders follow the calendar either way. */
+  notify: z.boolean().default(false),
 });
 export const SeriesCreateOutput = z.object({
   seriesId: uuid,
@@ -837,6 +842,31 @@ export const WaitlistAddInput = z
 export const WaitlistAddOutput = z.object({ entryId: uuid, position: z.int() });
 export const WaitlistRemoveInput = z.object({ workspaceId: uuid, entryId: uuid });
 export const WaitlistRemoveOutput = z.object({ entryId: uuid });
+export const WaitlistListInput = z.object({ workspaceId: uuid, calendarId: uuid });
+export const WaitlistListOutput = z.object({
+  /** The calendar's time zone, for showing the times. */
+  timezone: z.string(),
+  /** Everyone still waiting, or holding an offer, in line order. */
+  items: z.array(
+    z.object({
+      id: uuid,
+      personId: uuid,
+      fullName: z.string(),
+      seats: z.int(),
+      status: z.enum(['waiting', 'offered']),
+      position: z.int(),
+      /** The full session they wait for; null when they want a window of time. */
+      appointment: z
+        .object({ id: uuid, title: z.string(), startsAt: isoDateTime, endsAt: isoDateTime })
+        .nullable(),
+      wantedFrom: isoDateTime.nullable(),
+      wantedTo: isoDateTime.nullable(),
+      /** While they hold an offer of a freed time: when it runs out. */
+      offerExpiresAt: isoDateTime.nullable(),
+      createdAt: isoDateTime,
+    }),
+  ),
+});
 
 // ---- Reading appointments ----
 

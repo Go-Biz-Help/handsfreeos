@@ -47,6 +47,8 @@ export interface NoticeOptions {
   readonly movedFrom?: number | null;
   /** The customer did it online. */
   readonly byCustomer?: boolean;
+  /** A cancelled repeat visit: how many of the ones after it went with it. */
+  readonly laterToo?: number;
   /** The held text at the end of quiet hours: a text, or nothing. */
   readonly textOnly?: boolean;
 }
@@ -95,7 +97,7 @@ function compose(
     const i = { ...base, manageUrl: b.manageUrl, first };
     return { text: reassignedText(i), email: reassignedEmail(i) };
   }
-  const i = { ...base, byCustomer: !!o.byCustomer, first };
+  const i = { ...base, byCustomer: !!o.byCustomer, first, laterToo: o.laterToo ?? 0 };
   return { text: cancelledText(i), email: cancelledEmail(i) };
 }
 

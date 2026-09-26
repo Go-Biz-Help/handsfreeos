@@ -11,6 +11,7 @@ import { money, owesWords } from '@hfos/core';
 import { ArrowRight, FilePlus2, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { StartPlanForCustomer } from '@/components/money/plan-start';
 import { StatusBadge } from '@/components/money/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
@@ -148,6 +149,7 @@ export function RecordMoneyTab({
   workspaceId,
   personId,
   personName,
+  personFullName,
   found,
   canBill,
   timeZone,
@@ -155,6 +157,8 @@ export function RecordMoneyTab({
   workspaceId: string;
   personId: string;
   personName: string;
+  /** For the plan dialog, which names who goes on the plan in full. */
+  personFullName?: string;
   found: RecordMoney | null;
   /** Whether they may write one an estimate or an invoice (0106). */
   canBill: boolean;
@@ -186,7 +190,7 @@ export function RecordMoneyTab({
           </p>
         </div>
         {canBill ? (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <ButtonLink
               href={`${base}/estimates/new?person=${personId}`}
               size="sm"
@@ -203,6 +207,11 @@ export function RecordMoneyTab({
               <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
               New invoice
             </ButtonLink>
+            <StartPlanForCustomer
+              workspaceId={workspaceId}
+              personId={personId}
+              fullName={personFullName ?? personName}
+            />
           </div>
         ) : null}
       </div>

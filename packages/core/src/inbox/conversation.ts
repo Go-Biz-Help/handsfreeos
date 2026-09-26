@@ -137,6 +137,8 @@ export const CONVERSATION_DONE = {
   restored: 'Back in the inbox.',
   retrying: 'Sending it again',
   heldCancelled: 'Cancelled. That text won’t go.',
+  /** A failed text sent again in quiet hours, cancelled: it goes back as it was. */
+  retryCancelled: 'Cancelled. It stays as not delivered, and you can send it again later.',
   linked: 'Added to Customers and linked',
 } as const;
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AiProvider } from '@hfos/ai';
+import { emptyUsage, type AiProvider, type AiRequest } from '@hfos/ai';
 import {
   addDays,
   appointmentCreate,
@@ -539,6 +539,103 @@ describe('the Assistant on the calendar', () => {
     expect(
       (await appointments()).filter((a) => a.status === 'scheduled' && a.source === 'assistant'),
     ).toHaveLength(0);
+  });
+
+  it('with tool search, keeps the tools its instructions name loaded and lets it find the rest', async () => {
+    const db = testDbs().worker.db;
+    const page = { type: 'person' as const, id: mikeId };
+    const context = await questionContext(db, actor(member), workspaceId, page, randomUUID());
+    const sent: AiRequest[] = [];
+    const ask = async (toolSearch: boolean) => {
+      const provider: AiProvider = {
+        id: 'searches',
+        model: 'claude-opus-5-5',
+        ...(toolSearch ? { toolSearch } : {}),
+        stream: async (request) => {
+          sent.push(request);
+          return { text: 'Done.', toolCalls: [], stopReason: 'end_turn', usage: emptyUsage };
+        },
+      };
+      await runQuestion(
+        {
+          db,
+          provider,
+          tools: createToolExecutor(db),
+          dailyTokens: 5e6,
+          log: pino({ level: 'silent' }),
+        },
+        {
+          actor: actor(member),
+          workspaceId,
+          organizationId,
+          text: 'What’s on today?',
+          page,
+          tools: context.tools,
+          prompt: context.prompt,
+        },
+        () => undefined,
+        new AbortController().signal,
+      );
+      return sent.at(-1)!;
+    };
+
+    const searching = await ask(true);
+    const loaded = searching.tools!.filter((t) => !t.deferred).map((t) => t.name);
+    // What the instructions tell it to call, and the everyday look-ups.
+    expect(loaded).toEqual(
+      expect.arrayContaining([
+        'find_availability',
+        'book_appointment',
+        'search_customers',
+        'get_settings',
+      ]),
+    );
+    expect(loaded.length).toBeLessThanOrEqual(30);
+    expect(searching.tools!.length).toBeGreaterThan(loaded.length + 50);
+    expect(searching.system).toContain('search for the tool in plain words');
+
+    const plain = await ask(false);
+    expect(plain.tools!.some((t) => t.deferred)).toBe(false);
+    expect(plain.system).not.toContain('search for the tool');
+  });
+
+  it('still answers in words when the model declines or runs out of room', async () => {
+    const db = testDbs().worker.db;
+    const page = { type: 'person' as const, id: mikeId };
+    const context = await questionContext(db, actor(member), workspaceId, page, randomUUID());
+    for (const [stopReason, said] of [
+      ['refusal', 'I can’t help with that one.'],
+      ['max_tokens', 'That answer ran too long. Ask again with a smaller piece of it.'],
+    ] as const) {
+      const provider: AiProvider = {
+        id: 'declines',
+        model: 'claude-opus-5-5',
+        stream: async () => ({ text: '', toolCalls: [], stopReason, usage: emptyUsage }),
+      };
+      const events: AssistantEvent[] = [];
+      await runQuestion(
+        {
+          db,
+          provider,
+          tools: createToolExecutor(db),
+          dailyTokens: 5e6,
+          log: pino({ level: 'silent' }),
+        },
+        {
+          actor: actor(member),
+          workspaceId,
+          organizationId,
+          text: 'Book him for a tune-up tomorrow at 3 pm',
+          page,
+          tools: context.tools,
+          prompt: context.prompt,
+        },
+        (e) => events.push(e),
+        new AbortController().signal,
+      );
+      expect(textOf(events)).toBe(said);
+      expect(events.at(-1)!.type).toBe('done');
+    }
   });
 
   it('offers a bed’s open times and books one with nobody on the card', async () => {

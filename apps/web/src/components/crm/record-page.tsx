@@ -576,6 +576,7 @@ export function RecordPage(props: RecordPageProps) {
                 workspaceId={workspaceId}
                 personId={person.id}
                 personName={firstName(person.fullName)}
+                personFullName={person.fullName}
                 found={recordMoney}
                 canBill={canBill}
                 timeZone={props.timeZone ?? 'UTC'}
