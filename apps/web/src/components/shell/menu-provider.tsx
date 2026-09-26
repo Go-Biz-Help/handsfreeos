@@ -12,11 +12,14 @@ import {
 import { toast } from 'sonner';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
-const CHANGED = 'hfos:my-settings-changed';
+export const MY_SETTINGS_CHANGED = 'hfos:my-settings-changed';
 
-/** Tells the menu that the person's own settings were saved from elsewhere on the page (the Assistant). */
+/**
+ * Tells the menu and the theme that the person's own settings were saved from elsewhere on the page (the
+ * Assistant).
+ */
 export function mySettingsChanged(): void {
-  window.dispatchEvent(new Event(CHANGED));
+  window.dispatchEvent(new Event(MY_SETTINGS_CHANGED));
 }
 
 interface MenuValue {
@@ -65,8 +68,8 @@ export function MenuProvider({ settings, children }: { settings: unknown; childr
   useEffect(() => {
     // The next page load reads it anyway, so a failed read changes nothing here.
     const onChanged = () => void reload().catch(() => undefined);
-    window.addEventListener(CHANGED, onChanged);
-    return () => window.removeEventListener(CHANGED, onChanged);
+    window.addEventListener(MY_SETTINGS_CHANGED, onChanged);
+    return () => window.removeEventListener(MY_SETTINGS_CHANGED, onChanged);
   }, [reload]);
 
   const save = useCallback(

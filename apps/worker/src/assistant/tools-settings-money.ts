@@ -570,6 +570,14 @@ const manageAiTeammate: SettingsConfirmTool = {
         : respond && teammate && !teammate.config.respond.newLeads.enabled
           ? 'New leads get a first message only once New lead greeting is on too, in Settings → Automations.'
           : null;
+    // Calendars by name, so the person sees where it may book rather than ids.
+    const calendarIds = list<string>(args['bookableCalendarIds']);
+    const calendarNames = calendarIds
+      ? await query<{ items: { id: string; name: string }[] }>(db, ctx, 'calendar.list').then(
+          ({ items }) =>
+            calendarIds.map((id) => items.find((c) => c.id === id)?.name ?? 'A calendar'),
+        )
+      : null;
     const fields: Field[] = [
       { label: 'Teammate', value: str(args['name']) ?? teammate?.name ?? '' },
       ...(str(args['disclosure'])
@@ -592,9 +600,23 @@ const manageAiTeammate: SettingsConfirmTool = {
       ...(bool(args['repliesToLeads']) === undefined
         ? []
         : [{ label: 'Respond', value: args['repliesToLeads'] ? 'On' : 'Off' }]),
+      ...(bool(args['answersQuestions']) === undefined
+        ? []
+        : [{ label: 'Answers questions', value: args['answersQuestions'] ? 'Yes' : 'No' }]),
+      ...(bool(args['handOffWhenUnsure']) === undefined
+        ? []
+        : [
+            {
+              label: 'When it isn’t sure',
+              value: args['handOffWhenUnsure'] ? 'Hands it to a person' : 'Takes a message',
+            },
+          ]),
       ...(bool(args['booksVisits']) === undefined
         ? []
         : [{ label: 'Books visits', value: args['booksVisits'] ? 'Yes' : 'No' }]),
+      ...(calendarNames
+        ? [{ label: 'Books on', value: calendarNames.join(', ') || 'No calendars' }]
+        : []),
       ...(bool(args['followsUp']) === undefined
         ? []
         : [{ label: 'Follows up', value: args['followsUp'] ? 'Yes' : 'No' }]),

@@ -762,6 +762,24 @@ describe('the AI teammate', () => {
     expect(after.teammate.config.answer.enabled).toBe(before.teammate.config.answer.enabled);
   });
 
+  it('shows every change on the card: questions, when it isn’t sure, and where it books', async () => {
+    const { items } = await q<{ items: { id: string; name: string }[] }>('calendar.list');
+    const calls = items.find((c) => c.name === 'Service calls')!;
+    const { card } = await prepare(
+      'manage_ai_teammate',
+      {
+        action: 'change',
+        answersQuestions: false,
+        handOffWhenUnsure: false,
+        bookableCalendarIds: [calls.id],
+      },
+      owner,
+    );
+    expect(card.fields).toContainEqual({ label: 'Answers questions', value: 'No' });
+    expect(card.fields).toContainEqual({ label: 'When it isn’t sure', value: 'Takes a message' });
+    expect(card.fields).toContainEqual({ label: 'Books on', value: 'Service calls' });
+  });
+
   it('keeps Respond and the New lead greeting apart, and says how they go together', async () => {
     type Respond = { enabled: boolean; newLeads: { enabled: boolean } };
     const respond = async () =>
