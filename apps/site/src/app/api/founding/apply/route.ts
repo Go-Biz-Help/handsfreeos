@@ -73,12 +73,12 @@ function trackLead(answer: string, application: Record<string, unknown>, anonId:
   after(() =>
     trackServerEvent({
       event: 'generate_lead',
+      // The same name, fields and id the browser sends (founding-form.tsx), so Opinly merges the two.
       properties: {
-        offer_id: typeof parsed.offerId === 'string' ? parsed.offerId : undefined,
+        offer: typeof parsed.offerId === 'string' ? parsed.offerId : undefined,
         status: typeof parsed.status === 'string' ? parsed.status : undefined,
-        industry: typeof application['industry'] === 'string' ? application['industry'] : undefined,
       },
-      externalEventId: `lead:${applicationId}`,
+      externalEventId: applicationId,
       email: email || undefined,
       anonId:
         typeof anonId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(anonId) ? anonId : undefined,

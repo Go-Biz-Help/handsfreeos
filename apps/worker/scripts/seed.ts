@@ -208,6 +208,7 @@ async function main(): Promise<void> {
     voiceAi: null,
     // The seed never touches a real host; a branded domain in it is the fake's (M17).
     siteHost: createFakeHost(),
+    opinly: null,
     sealer: createSealer(key),
     reminderOverrideMs: null,
     registrationPollMs: 50,

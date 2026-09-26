@@ -36,11 +36,14 @@ that the business keeps its records.
 | Financial info → Other financial info     | Yes       | No     | Optional  | App functionality                     | Invoice, estimate, payment and plan amounts                                                                                                                                                                                                                            |
 | Device or other IDs → Device or other IDs | Yes       | No     | Optional  | App functionality, Analytics          | `src/push/device.ts`: the push token for this install, so notifications arrive; `src/lib/analytics.ts`: a random id for this install that Matomo counts screens by                                                                                                     |
 | App activity → App interactions           | Yes       | No     | Required  | Analytics                             | `src/lib/analytics.ts`: which screens are opened — the route, never an id, a name or anything typed                                                                                                                                                                    |
+| Audio → Voice or sound recordings         | Yes       | No     | Optional  | App functionality                     | `src/voice/`: talking out loud to the Assistant, or on a test call of the AI teammate. Processed ephemerally: turned into words and not kept                                                                                                                           |
 
-Voicemails are the row that isn't here, and the reason matters. Google's "collect" means data leaving the phone. A
-voicemail travels the other way: the carrier records it when a customer leaves a message, the app fetches it from
-storage and plays it (`src/components/inbox/voicemail-player.tsx`, `expo-audio`). The app records nothing and asks for
-no microphone permission on either platform, so **Audio files → No**.
+Voice recordings are in the table because talking out loud sends them off the phone, which is what Google's "collect"
+means, even though nothing keeps them: the Assistant's mic, and Talk out loud on a test call, record what the person
+says one turn at a time and send it to HandsFreeOS to be turned into words (`src/voice/`). Each recording is deleted
+from the phone once it's been heard, and neither HandsFreeOS nor the speech service it uses keeps it, so the form's
+"processed ephemerally" answer is yes. Voicemails are different: they travel the other way, recorded by the carrier and
+only played by the app (`src/components/inbox/voicemail-player.tsx`), which is data arriving, not data collected.
 
 ## Data **not** collected
 
@@ -56,7 +59,7 @@ no microphone permission on either platform, so **Audio files → No**.
 | Web browsing                                                                        | No     | No in-app browser                                                                                                         |
 | App info and performance (crash logs, diagnostics, other)                           | No     | No crash reporter. Nothing is sent when the app fails                                                                     |
 | Files and docs                                                                      | No     | Files a person attaches are already the business's records, counted under Photos above                                    |
-| Audio files → Voice or sound recordings, music, other audio                         | No     | The app records nothing. It plays voicemails the carrier recorded, which is data arriving, not data collected             |
+| Audio files → Music, other audio                                                    | No     | The app records only voice, above. Voicemails it plays are data arriving, not data collected                              |
 
 ## Not in Data safety, but asked next to it
 

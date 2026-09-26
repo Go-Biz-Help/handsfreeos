@@ -14,6 +14,7 @@ import type { ProviderAccount } from '../src/telephony/provider';
 const log = pino({ level: 'silent' });
 const account = {} as ProviderAccount;
 const REPLY = {
+  metadata: { duration: 30 },
   results: { utterances: [{ channel: 0, start: 0, transcript: 'Hi, it’s Mike. Call me back.' }] },
 };
 
@@ -62,7 +63,19 @@ describe('Deepgram, given a recording', () => {
       status: 'completed',
       // A voicemail is the caller alone, so all of it is the customer's channel (2).
       sentences: [{ channel: 2, text: 'Hi, it’s Mike. Call me back.' }],
+      // Half a minute of audio, which the business pays for at 1.5×.
+      billedMinutes: 0.5,
     });
+  });
+
+  it('bills a two-sided recording for each side, as Deepgram does', async () => {
+    const started = await transcriber().submit(account, {
+      url: 'https://storage.test/telephony/call.wav',
+      audio: null,
+      recordingSid: 'RE3',
+      channels: 2,
+    });
+    expect(started).toMatchObject({ status: 'completed', billedMinutes: 1 });
   });
 
   it('posts the carrier’s own bytes when our copy never got stored', async () => {

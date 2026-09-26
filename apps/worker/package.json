@@ -20,6 +20,7 @@
     "@fastify/websocket": "^11.3.1",
     "@hfos/ai": "workspace:*",
     "@hfos/db": "workspace:*",
+    "@opinly/backend": "^1.6.0",
     "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.0",
     "expo-server-sdk": "^7.2.0",

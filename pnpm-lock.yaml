@@ -580,6 +580,9 @@ importers:
       '@hfos/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@opinly/backend':
+        specifier: ^1.6.0
+        version: 1.6.0
       '@supabase/supabase-js':
         specifier: ^2.116.0
         version: 2.116.0
@@ -2519,6 +2522,10 @@ packages:
     peerDependenciesMeta:
       '@sqlite.org/sqlite-wasm':
         optional: true
+
+  '@opinly/backend@1.6.0':
+    resolution: {integrity: sha512-pqSUoTLXBMSJrNMK5wCDupHzRdqyYnrKtZRjWGGaM8xaJNML/b7u7rpYgjdfN1mRLk9tBDEa95bPd0e+b7m3zA==}
+    engines: {node: '>=20.19'}
 
   '@oxc-project/types@0.149.0':
     resolution: {integrity: sha512-Efcc+iF0j3Bf67YjEqIqWXbX5XddXoK/Mw4K1/JuXwRCZ8N16VR7iT23nlCc9XrveFVh/E5Rqs2StT0V8v9LdA==}
@@ -9905,6 +9912,10 @@ snapshots:
     dependencies:
       react: 19.2.3
       react-native: 0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/jest-preset@0.86.3(@babel/core@7.29.7(supports-color@10.2.2))(react@19.2.3)(supports-color@10.2.2))(@react-native/metro-config@0.87.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.3)(supports-color@10.2.2)
+
+  '@opinly/backend@1.6.0':
+    dependencies:
+      openapi-fetch: 0.17.0
 
   '@oxc-project/types@0.149.0': {}
 

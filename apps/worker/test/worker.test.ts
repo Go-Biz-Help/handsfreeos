@@ -109,6 +109,17 @@ describe('env', () => {
     expect(backoffMs(3)).toBe(20_000);
     expect(backoffMs(20)).toBe(600_000);
   });
+
+  it("takes Opinly's secret key, and refuses the website's publishable one", () => {
+    const base = {
+      DATABASE_URL_WORKER: 'postgresql://hfos_worker:x@h/db',
+      SMTP_URL: 'smtp://h',
+      WORKER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+    };
+    expect(readEnv(base).opinlyApiKey).toBeNull();
+    expect(readEnv({ ...base, OPINLY_API_KEY: ' sk-abc ' }).opinlyApiKey).toBe('sk-abc');
+    expect(() => readEnv({ ...base, OPINLY_API_KEY: 'pk-abc' })).toThrow(/sk- key/);
+  });
 });
 
 describe('invitation emails', () => {

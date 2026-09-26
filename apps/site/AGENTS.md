@@ -59,7 +59,7 @@ JSON, not HTML. Everything that talks to Opinly is in `src/lib/opinly/`:
 
 - **`client.ts` is `server-only`.** `OPINLY_API_KEY` is a secret (`sk-`) that can also record events and
   purchases in our name, so no client component may import it, and nothing it returns carries the key. The
-  pixel's publishable `pk-` key in `components/opinly-pixel.tsx` is the only Opinly key a browser sees.
+  pixel's publishable `pk-` key in `components/opinly.tsx` is the only Opinly key a browser sees.
 - **Every response is cached under the tag `opinly`**, for an hour at most. `/api/opinly-webhook` (Svix,
   `OPINLY_WEBHOOK_SIGNING_SECRET`) drops the tag with `revalidateTag('opinly', { expire: 0 })` and revalidates
   the changed paths the moment Opinly publishes. Both halves matter: paths alone do nothing for pages rendered
@@ -74,9 +74,11 @@ JSON, not HTML. Everything that talks to Opinly is in `src/lib/opinly/`:
 - **`render.tsx` renders the body**: the title is the page's only `<h1>` (body headings shift down), links to
   our own pages lose Opinly's default `nofollow`, colour marks are dropped so text reads in dark mode, and
   unsafe link schemes are removed.
-- **Analytics**: the pixel is in every page's `<head>`. The founding form identifies the visitor and sends a
-  `generate_lead` from the browser and from `api/founding/apply` (same `externalEventId`, so they merge). The
-  worker sends `sign_up`, `begin_checkout` and `purchase` (`apps/worker/src/analytics/opinly.ts`).
+- **Analytics**: the pixel (`components/opinly.tsx`) loads on every page of the live site only, like Matomo;
+  browser calls go through `lib/opinly/pixel.ts`. The founding form identifies the visitor and sends a
+  `generate_lead` from the browser and from `api/founding/apply` (same `externalEventId`, the application id, so
+  they merge). The worker sends `sign_up`, `begin_checkout` and `purchase` (`apps/worker/src/opinly.ts` and
+  `founding/checkout.ts`).
   `components/signup-link-visitor.tsx` adds the pixel's visitor id to every link to the app's sign-up as
   `?oa=`; the sign-up form keeps it on the account, and the worker sends it with those events, so they land on
   the exact visit. `/privacy` says all of this; change one and change the other.

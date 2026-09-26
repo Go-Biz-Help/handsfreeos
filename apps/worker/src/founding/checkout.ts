@@ -27,7 +27,7 @@ import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { DeliveryProcessor, ProcessorMap } from '../deliveries';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
-import { queueConversionFrom } from '../analytics/opinly';
+import { queueOpinlyEventFrom, visitorIdFor } from '../opinly';
 import { errorMessage } from '../outbox';
 import { PaymentError, PlatformUnsupportedError, type CheckoutEvent } from '../payments/provider';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
@@ -37,11 +37,15 @@ export const FOUNDING_JOBS = {
   checkout: 'founding.checkout',
   /** Global, hourly: reservations that ran out go back (private.founding_expire_reservations). */
   expire: 'founding.expire',
+  /** One paid checkout: tell the website's analytics, so the payment is credited to what brought them (opinly.ts). */
+  purchase: 'founding.report_purchase',
 } as const;
 
 export const FOUNDING_EXPIRE_KEY = 'sweep:founding_reservations';
 export const checkoutJobKey = (checkoutId: string): string =>
   `${FOUNDING_JOBS.checkout}:${checkoutId}`;
+export const purchaseJobKey = (checkoutId: string): string =>
+  `${FOUNDING_JOBS.purchase}:${checkoutId}`;
 
 /** The webhook delivery kind a checkout event is stored under, beside Stripe's Connect kinds. */
 export const FOUNDING_CHECKOUT_KIND = 'founding_checkout';
@@ -87,12 +91,12 @@ const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
   );
 
 /** What a founding seat looks like to Opinly: one item, priced in dollars. Stripe is always asked in USD. */
-const seatProperties = (c: CheckoutRow, cents: number, checkoutId: string) => {
+const seatProperties = (c: CheckoutRow, cents: number) => {
   const value = cents / 100;
   return {
     value,
     currency: 'USD',
-    transaction_id: checkoutId,
+    offer: c.offer_id,
     items: [{ item_id: c.offer_id, item_name: c.offer_name, price: value, quantity: 1 }],
   };
 };
@@ -168,10 +172,11 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       systemActor(scope),
       workerMeta(),
     );
-    // The page exists: somebody is at the till. Told to Opinly when it is switched on (analytics/opinly.ts).
-    await queueConversionFrom(ctx, scope, {
+    // The page exists: somebody is at the till. Told to Opinly when it has a key (opinly.ts); the sale itself is
+    // `founding.paid`, below.
+    await queueOpinlyEventFrom(ctx, scope, {
       event: 'begin_checkout',
-      properties: seatProperties(c, Number(c.amount_cents), checkoutId),
+      properties: seatProperties(c, Number(c.amount_cents)),
       externalEventId: `begin_checkout:${checkoutId}`,
       userId: c.requested_by,
     });
@@ -199,6 +204,72 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
   }
 };
 
+/**
+ * A seat was paid for (`founding.paid`, said once per checkout, stranded or not: the money is in either way). The
+ * report is a job for the reason the page is: Opinly can be down or slow, and a job retries one thing with backoff
+ * rather than holding up the event. Nothing is queued without a key.
+ */
+export const onFoundingPaid: EventHandler = async (ctx) => {
+  const { workspaceId, organizationId } = ctx.scope;
+  const checkoutId = ctx.event.entityId;
+  const payload = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  const paidCents = Number(payload['paidCents'] ?? 0);
+  if (!ctx.opinly || !workspaceId || !organizationId || !checkoutId || !(paidCents > 0)) return;
+  await scheduleJob(ctx.tx, {
+    kind: FOUNDING_JOBS.purchase,
+    dedupeKey: purchaseJobKey(checkoutId),
+    runAt: new Date(),
+    payload: { checkoutId, paidCents, offerId: payload['offerId'] ?? null },
+    workspaceId,
+    organizationId,
+  });
+};
+
+/**
+ * One paid seat, reported to Opinly as a `purchase` of what Stripe actually took. The checkout is the dedup key, so
+ * a retry is still one purchase.
+ *
+ * The address is the one the application was made with on the website, because that is the one the website matched
+ * to the visit: somebody who pays from an account with another address is still credited to the ad that brought
+ * them. A seat staff gave out with no application falls back to the address of whoever paid. When the payer signed
+ * up through a website link, the visitor id kept on their sign-in goes too, which matches the visit exactly.
+ */
+export const reportFoundingPurchase: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const checkoutId = String(ctx.job.payload['checkoutId'] ?? '');
+  const paidCents = Number(ctx.job.payload['paidCents'] ?? 0);
+  const offerId = ctx.job.payload['offerId'];
+  if (!ctx.opinly || !checkoutId || !(paidCents > 0)) return;
+  const [c] = await asWorker(ctx.db, scope, (tx) =>
+    rows<{ email: string | null; requested_by: string | null }>(
+      tx,
+      sql`select coalesce(
+              (select a.email::text from platform.founding_applications a
+                where a.grant_id = c.grant_id order by a.created_at limit 1),
+              u.email::text) as email,
+            c.requested_by::text as requested_by
+          from platform.founding_checkouts c
+          left join app.users u on u.id = c.requested_by
+          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
+    ),
+  );
+  if (!c) return;
+  const anonId = await visitorIdFor(ctx, c.requested_by);
+  await ctx.opinly.track(
+    'purchase',
+    {
+      value: paidCents / 100,
+      currency: 'USD',
+      ...(typeof offerId === 'string' ? { offer: offerId } : {}),
+    },
+    {
+      externalEventId: checkoutId,
+      ...(c.email ? { email: c.email } : {}),
+      ...(anonId ? { anonId } : {}),
+    },
+  );
+};
+
 /** Hourly: seats whose reservation ran out, with nothing under way on them, go back (0093). */
 export const expireFoundingReservations: JobHandler = async (ctx) => {
   const [row] = await asWorker(ctx.db, {}, (tx) =>
@@ -212,6 +283,7 @@ export const expireFoundingReservations: JobHandler = async (ctx) => {
 export const foundingJobs: JobMap = {
   [FOUNDING_JOBS.checkout]: runFoundingCheckout,
   [FOUNDING_JOBS.expire]: expireFoundingReservations,
+  [FOUNDING_JOBS.purchase]: reportFoundingPurchase,
 };
 
 /**
@@ -277,22 +349,6 @@ export const onFoundingCheckoutEvent: DeliveryProcessor = async (ctx) => {
         { checkoutId: event.checkoutId, paymentRef: event.paymentRef },
         'a founding seat was paid for and could not be turned on: refund it or find the seat',
       );
-    // A seat turned on is the sale. Only the first time (`already` is Stripe sending it again), and keyed on
-    // the checkout, which is the order number here: a repeat from anywhere merges into this one.
-    if (done.output.outcome === 'activated' && ctx.analytics) {
-      const [c] = await checkoutRow(ctx, scope, event.checkoutId).catch(() => []);
-      if (c)
-        await queueConversionFrom(ctx, scope, {
-          event: 'purchase',
-          properties: seatProperties(
-            c,
-            event.amountTotal ?? Number(c.amount_cents),
-            event.checkoutId,
-          ),
-          externalEventId: event.checkoutId,
-          userId: c.requested_by,
-        });
-    }
     return;
   }
   await executeCommand(

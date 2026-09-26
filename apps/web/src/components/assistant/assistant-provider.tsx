@@ -131,7 +131,11 @@ export interface AssistantValue {
   setOpen(open: boolean): void;
   toggle(): void;
   setView(view: View): void;
-  ask(text: string): void;
+  /**
+   * Asks a question; `spoken` when it was said out loud, so the answer is written to be heard. Answers whether it
+   * went (not while another answer is coming, or before the person's OK).
+   */
+  ask(text: string, opts?: { readonly spoken?: boolean }): boolean;
   /** Asks an answer's question again (Try again). */
   retry(answerKey: string): void;
   stop(): void;
@@ -168,7 +172,7 @@ const NONE: AssistantValue = {
   setOpen: noop,
   toggle: noop,
   setView: noop,
-  ask: noop,
+  ask: () => false,
   retry: noop,
   stop: noop,
   newChat: noop,
@@ -359,14 +363,14 @@ export function AssistantProvider({
   }, []);
 
   const ask = useCallback(
-    (raw: string) => {
+    (raw: string, opts: { readonly spoken?: boolean } = {}): boolean => {
       const text = raw.trim();
-      if (!text || !enabled || streamRef.current) return;
+      if (!text || !enabled || streamRef.current) return false;
       // Nothing goes to the AI service before the person's OK: the question waits for it.
       if (consentNeeded) {
         waitingQuestionRef.current = text;
         setView('chat');
-        return;
+        return false;
       }
       const now = new Date().toISOString();
       const userKey = `q-${crypto.randomUUID()}`;
@@ -455,6 +459,7 @@ export function AssistantProvider({
               ...(current ? { threadId: current } : {}),
               text,
               page: pageRef.current,
+              ...(opts.spoken ? { spoken: true } : {}),
             },
             onEvent,
             controller.signal,
@@ -498,6 +503,7 @@ export function AssistantProvider({
           }
         }
       })();
+      return true;
     },
     [consentNeeded, enabled, patchAnswer, setCall, setThread, workspaceId],
   );

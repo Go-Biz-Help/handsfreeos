@@ -3,7 +3,6 @@ import type { AiProvider } from '@hfos/ai';
 import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
-import type { AnalyticsService } from './analytics/opinly';
 import type { AuthAdmin } from './account/auth-admin';
 import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
@@ -20,6 +19,7 @@ import type { PushServices } from './push/index';
 import type { ReviewServices } from './reviews/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
+import type { Opinly } from './opinly';
 import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
@@ -65,6 +65,11 @@ export interface WorkerServices {
    * handler checks: the feature is absent rather than present and failing.
    */
   readonly siteHost: SiteHost | null;
+  /**
+   * The website's marketing analytics, told about the money it cannot see from a browser (opinly.ts). **Null
+   * without OPINLY_API_KEY**, and every handler checks: nothing is queued, rather than queued and refused.
+   */
+  readonly opinly: Opinly | null;
   readonly sealer: Sealer;
   /** Tests and local demos shorten the reply reminder; production uses each workspace's setting. */
   readonly reminderOverrideMs: number | null;
@@ -105,8 +110,6 @@ export interface WorkerServices {
    * (account/auth-admin.ts). Missing without SUPABASE_URL and SUPABASE_SECRET_KEY; that job then waits and retries.
    */
   readonly authAdmin?: AuthAdmin;
-  /** Sign-ups and paid seats, told to Opinly (analytics/opinly.ts). Absent without a key: nothing is queued. */
-  readonly analytics?: AnalyticsService;
   /** HandsFreeOS's own support desk: the addresses its mail arrives on and sends from. */
   readonly support: SupportServices;
   /**

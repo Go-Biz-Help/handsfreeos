@@ -11,6 +11,8 @@ export interface AskBody {
   readonly threadId?: string;
   readonly text: string;
   readonly page: PageRecord | null;
+  /** Asked out loud: the answer is written to be heard. */
+  readonly spoken?: boolean;
 }
 
 /** Where a card stands after Confirm, Cancel or Undo. */

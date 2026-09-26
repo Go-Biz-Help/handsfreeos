@@ -11,7 +11,7 @@
  * all day and lost them to a 502 does not write them again.
  */
 import { useState } from 'react';
-import { anonId, withPixel } from '@/lib/opinly/pixel';
+import { anonId, identify, track } from '@/lib/opinly/pixel';
 
 /**
  * `ui.tsx`'s Button renders a Link — it is for navigation. A form needs a real submit control, so this is
@@ -35,6 +35,7 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
+    const email = String(data.get('email') ?? '');
     setState({ kind: 'sending' });
     try {
       const res = await fetch('/api/founding/apply', {
@@ -44,7 +45,7 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
           offerId,
           businessName: String(data.get('businessName') ?? ''),
           contactName: String(data.get('contactName') ?? ''),
-          email: String(data.get('email') ?? ''),
+          email,
           phone: String(data.get('phone') ?? ''),
           industry: String(data.get('industry') ?? ''),
           note: String(data.get('note') ?? ''),
@@ -65,24 +66,22 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
         });
         return;
       }
-      const body = (await res.json()) as { status?: string; applicationId?: string };
-      // A lead, and now a person: the visit that brought them here is theirs from here on. The server sends
-      // the same lead with the same id, so the two merge into one however many arrive.
-      const email = String(data.get('email') ?? '').trim();
-      if (body.applicationId) {
-        const applicationId = body.applicationId;
-        withPixel((pixel) => {
-          if (email) pixel.identify({ email });
-          pixel.track(
-            'generate_lead',
-            { offer_id: offerId, status: body.status ?? 'pending' },
-            { externalEventId: `lead:${applicationId}` },
-          );
-        });
-      }
+      const body = (await res.json()) as { applicationId?: string; status?: string };
       // The form is reset only once the answer is in, so a failure never costs somebody their words.
       form.reset();
       setState({ kind: 'done', waitlisted: body.status === 'waitlisted' });
+      /**
+       * The site sells nothing, so an application is the conversion that matters. Only a real one has an id: the
+       * honeypot's answer does not. The worker gives a second press of the button the same id, so it counts once.
+       */
+      if (body.applicationId) {
+        identify({ email });
+        track(
+          'generate_lead',
+          { offer: offerId, status: body.status },
+          { externalEventId: body.applicationId },
+        );
+      }
     } catch {
       setState({
         kind: 'error',

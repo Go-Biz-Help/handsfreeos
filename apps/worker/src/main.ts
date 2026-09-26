@@ -38,10 +38,10 @@ import { createSiteHost } from './hosting';
 import { createDriveTimer } from './geo/driving';
 import { createSpeech, createVoiceAi } from './voice-agent/index';
 import { createGeocoder } from './geo/geocoder';
+import { createOpinly } from './opinly';
 import { createTranscriber } from './telephony/transcriber';
 import { createWorkflowAi } from './workflows/ai-runner';
 import type { EngineServices } from './workflows/types';
-import { createAnalytics } from './analytics/opinly';
 
 loadEnv();
 const env = readEnv();
@@ -77,6 +77,13 @@ const services: EngineServices = {
   speech: createSpeech(env, log),
   voiceAi: createVoiceAi(env),
   siteHost: createSiteHost(env),
+  // With Supabase's admin key it can also read the website visitor a person signed up as (opinly.ts).
+  opinly: createOpinly(
+    env.opinlyApiKey,
+    env.supabaseUrl && env.supabaseSecretKey
+      ? { url: env.supabaseUrl, secretKey: env.supabaseSecretKey }
+      : null,
+  ),
   wallet,
   sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
   reminderOverrideMs: env.reminderOverrideMs,
@@ -114,8 +121,6 @@ const services: EngineServices = {
   ...(env.supabaseUrl && env.supabaseSecretKey
     ? { authAdmin: createAuthAdmin(env.supabaseUrl, env.supabaseSecretKey) }
     : {}),
-  // Sign-ups and paid seats, told to Opinly so a sale is credited to the post that brought them in.
-  ...createAnalytics(env),
   // Workflow AI steps and AI-sorted branches answer from that model, grounded in the knowledge base.
   workflowAi: createWorkflowAi({ db: handle.db, ai, log, wallet }),
   // HandsFreeOS's own support desk (M13): where its mail arrives, and who it goes out as.

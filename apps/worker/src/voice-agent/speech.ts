@@ -7,6 +7,10 @@
  *   the caller starts talking (so the teammate stops mid-sentence), and when they've finished a thought.
  * - `speak` turns one sentence into audio, streamed, so the first words play while the rest is still made.
  *
+ * Voice mode on the web and the phone (the Assistant, and the test console on a call) uses the same services for
+ * whole clips instead of a live stream: `transcribe` reads one recording the app made, and `voiceClip` answers
+ * with a file the app plays (MP3).
+ *
  * `deepgram` (deepgram-speech.ts) is the real one; `fake` (fake-speech.ts) is the stand-in for tests, which
  * treats the audio it's sent as the words themselves.
  */
@@ -45,11 +49,32 @@ export interface SpeakOptions {
   readonly signal?: AbortSignal;
 }
 
+/** Words heard in one recording. */
+export interface HeardClip {
+  readonly text: string;
+  readonly language: string | null;
+  /** How long the recording was: what hearing it is billed on. */
+  readonly seconds: number;
+}
+
+/** One clip of speech, as a file a browser or a phone plays. */
+export interface VoiceClip {
+  readonly contentType: string;
+  readonly audio: Buffer;
+}
+
 export interface SpeechServices {
   readonly name: 'deepgram' | 'fake';
   listen(handlers: ListenHandlers): Promise<Listening>;
   /** 8 kHz μ-law audio of `text`, in pieces as they're made. */
   speak(text: string, options: SpeakOptions): AsyncIterable<Buffer>;
+  /** The words in one recording (`contentType` is its own: audio/webm, audio/mp4…). */
+  transcribe(
+    audio: Buffer,
+    options: { readonly contentType: string; readonly signal?: AbortSignal },
+  ): Promise<HeardClip>;
+  /** `text` said in one clip. */
+  voiceClip(text: string, options: SpeakOptions): Promise<VoiceClip>;
 }
 
 /**

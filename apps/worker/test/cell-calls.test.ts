@@ -424,6 +424,14 @@ describe('calling a customer through your own cell', () => {
     expect(await s.store.exists('telephony', done.recordingObjectPath!)).toBe(true);
     expect(s.transcriber.asked).toContain(recordingSid);
     expect(s.telephony.deleted).toContain(recordingSid);
+    // Hearing the recording is the business's to pay for, each side of it counted (the stand-in's half a minute).
+    const used = await rows<{ rate_key: string; quantity: string; source: string }>(
+      admin(),
+      sql`select rate_key, quantity::text, source from app.speech_usage where ref = ${recordingSid}`,
+    );
+    expect(used.map((u) => [u.rate_key, Number(u.quantity), u.source])).toEqual([
+      ['speech.recording.minute', 1, 'transcript'],
+    ]);
     const [entry] = await admin()
       .select()
       .from(activities)
