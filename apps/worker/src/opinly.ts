@@ -83,6 +83,31 @@ export async function visitorIdFor(
   }
 }
 
+/**
+ * Who a founding checkout was for, as the website knows them: the address the application was made with there
+ * (the one the pixel matched to the visit), else the address of whoever is paying, and the paying account's id.
+ */
+export async function foundingContact(
+  db: Db,
+  scope: Scope,
+  checkoutId: string,
+): Promise<{ email: string | null; requestedBy: string | null } | null> {
+  const [c] = await asWorker(db, scope, (tx) =>
+    rows<{ email: string | null; requested_by: string | null }>(
+      tx,
+      sql`select coalesce(
+              (select a.email::text from platform.founding_applications a
+                where a.grant_id = c.grant_id order by a.created_at limit 1),
+              u.email::text) as email,
+            c.requested_by::text as requested_by
+          from platform.founding_checkouts c
+          left join app.users u on u.id = c.requested_by
+          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
+    ),
+  );
+  return c ? { email: c.email, requestedBy: c.requested_by } : null;
+}
+
 export const OPINLY_JOBS = {
   /** One event about one person, sent with their email and visitor id (sign-ups, checkouts opened). */
   track: 'opinly.track',
@@ -95,6 +120,8 @@ export interface QueuedEvent {
   readonly externalEventId: string;
   /** Whose event it is. Their email and visitor id are read when it is sent, so the jobs table holds neither. */
   readonly userId: string | null;
+  /** A founding checkout's event goes with the address the application used, as its purchase does. */
+  readonly checkoutId?: string;
 }
 
 type Scope = { readonly workspaceId: string | null; readonly organizationId: string | null };
@@ -147,7 +174,17 @@ export const sendOpinlyEvent: JobHandler = async (ctx) => {
   const p = ctx.job.payload as Partial<QueuedEvent>;
   if (!p.event || !p.externalEventId) return;
   let email: string | undefined;
-  if (p.userId) {
+  if (p.checkoutId) {
+    const contact = await foundingContact(
+      ctx.db,
+      {
+        workspaceId: ctx.scope.workspaceId ?? null,
+        organizationId: ctx.scope.organizationId ?? null,
+      },
+      p.checkoutId,
+    );
+    email = contact?.email || undefined;
+  } else if (p.userId) {
     const [user] = await asWorker(ctx.db, ctx.scope, (tx) =>
       rows<{ email: string | null }>(
         tx,

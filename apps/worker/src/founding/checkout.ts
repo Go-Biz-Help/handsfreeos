@@ -27,7 +27,7 @@ import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { DeliveryProcessor, ProcessorMap } from '../deliveries';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
-import { queueOpinlyEventFrom, visitorIdFor } from '../opinly';
+import { foundingContact, queueOpinlyEventFrom, visitorIdFor } from '../opinly';
 import { errorMessage } from '../outbox';
 import { PaymentError, PlatformUnsupportedError, type CheckoutEvent } from '../payments/provider';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
@@ -179,6 +179,7 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       properties: seatProperties(c, Number(c.amount_cents)),
       externalEventId: `begin_checkout:${checkoutId}`,
       userId: c.requested_by,
+      checkoutId,
     });
   } catch (e) {
     // Stripe isn't set up on this server, or said no to the request itself: the person is told, not left waiting.
@@ -240,21 +241,9 @@ export const reportFoundingPurchase: JobHandler = async (ctx) => {
   const paidCents = Number(ctx.job.payload['paidCents'] ?? 0);
   const offerId = ctx.job.payload['offerId'];
   if (!ctx.opinly || !checkoutId || !(paidCents > 0)) return;
-  const [c] = await asWorker(ctx.db, scope, (tx) =>
-    rows<{ email: string | null; requested_by: string | null }>(
-      tx,
-      sql`select coalesce(
-              (select a.email::text from platform.founding_applications a
-                where a.grant_id = c.grant_id order by a.created_at limit 1),
-              u.email::text) as email,
-            c.requested_by::text as requested_by
-          from platform.founding_checkouts c
-          left join app.users u on u.id = c.requested_by
-          where c.id = ${checkoutId}::uuid and c.workspace_id = ${scope.workspaceId}::uuid`,
-    ),
-  );
+  const c = await foundingContact(ctx.db, scope, checkoutId);
   if (!c) return;
-  const anonId = await visitorIdFor(ctx, c.requested_by);
+  const anonId = await visitorIdFor(ctx, c.requestedBy);
   await ctx.opinly.track(
     'purchase',
     {
