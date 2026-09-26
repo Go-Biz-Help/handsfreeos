@@ -3,6 +3,8 @@ import { CONVERSATION_DONE, handBackToast, takeOverToast } from '@hfos/core';
 import { toast } from '@/components/ui/toast';
 import { change } from '@/changes';
 
+import { cancelHeldHere } from './outbox';
+
 /**
  * What a person does to a conversation on the phone, each a change that can wait for signal (`conversation.*` go any
  * time; handing back to the AI teammate is fresh for 30 minutes), with the conversation's synced row updated at once
@@ -118,21 +120,26 @@ export function conversationActions(ref: ConversationRef) {
           }),
         handBackToast(teammateName, who),
       ),
-    cancelHeld: (messageId: string) =>
-      run(
+    /** A new text leaves the thread; a failed text tried again goes back as it was, not delivered. */
+    cancelHeld: async (messageId: string) => {
+      let stays = false;
+      const done = await run(
         () =>
           change(
             'message.cancel_scheduled',
             { workspaceId: ref.workspaceId, messageId },
             {
-              optimistic: (tx) =>
-                tx.execute("UPDATE messages SET error_code = 'cancelled' WHERE id = ?", [
-                  messageId,
-                ]),
+              optimistic: async (tx) => {
+                stays = await cancelHeldHere(tx, messageId);
+              },
             },
           ),
-        CONVERSATION_DONE.heldCancelled,
-      ),
+        null,
+      );
+      if (done)
+        toast.show(stays ? CONVERSATION_DONE.retryCancelled : CONVERSATION_DONE.heldCancelled);
+      return done;
+    },
   };
 }
 

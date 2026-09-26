@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import {
+  CANCELLED_TEXT,
   carrierHasDetails,
   executeCommand,
   FAMILY_KINDS,
@@ -18,6 +19,7 @@ import {
   rcsSending,
   registrationUpdateStatus,
   scheduleJob,
+  SCHEDULED_TEXT,
   WALLET_REFUSALS,
   walletRoom,
   type RegistrationFamily,
@@ -559,7 +561,16 @@ export const onConversationLinked: EventHandler = async (ctx) => {
   const earlier = await ctx.tx
     .select()
     .from(messages)
-    .where(and(eq(messages.conversationId, ctx.event.entityId), isNull(messages.activityId)))
+    .where(
+      and(
+        eq(messages.conversationId, ctx.event.entityId),
+        isNull(messages.activityId),
+        // Not a text still held for quiet hours: it joins the timeline, and becomes the conversation's latest,
+        // when it goes (message.release_scheduled). Nor one cancelled before it went: it never did.
+        sql`not (${messages.status} = 'queued' and ${messages.errorCode} is not distinct from ${SCHEDULED_TEXT})`,
+        sql`${messages.errorCode} is distinct from ${CANCELLED_TEXT}`,
+      ),
+    )
     .orderBy(asc(messages.occurredAt));
   for (const m of earlier) {
     const [a] = await ctx.tx

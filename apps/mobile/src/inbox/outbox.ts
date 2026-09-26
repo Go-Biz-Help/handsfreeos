@@ -1,6 +1,6 @@
 import { richSummary, type ConversationShape } from '@hfos/core';
 
-import type { OutboxRow } from '@/changes/outbox';
+import type { OutboxRow, SqlRunner } from '@/changes/outbox';
 import { isStale } from '@/changes/rules';
 
 /**
@@ -223,7 +223,46 @@ export function pendingReplies(
   return out;
 }
 
-/** Held texts this phone cancelled, while the cancel is on its way: the thread leaves them out at once. */
+/**
+ * Cancel on a held text, on this phone's copy at once, as message.cancel_scheduled does it: a new text never went, so
+ * it leaves the thread; a failed text tried again in quiet hours goes back as it was (`failed_attempt`), not delivered,
+ * with its reason and at its time. Says whether it stays, for the words.
+ */
+export async function cancelHeldHere(tx: SqlRunner, messageId: string): Promise<boolean> {
+  const m = await tx.getOptional<{ failed_attempt: string | null }>(
+    'SELECT failed_attempt FROM messages WHERE id = ?',
+    [messageId],
+  );
+  const was = attemptOf(m?.failed_attempt ?? null);
+  if (!was) {
+    await tx.execute("UPDATE messages SET error_code = 'cancelled' WHERE id = ?", [messageId]);
+    return false;
+  }
+  await tx.execute(
+    'UPDATE messages SET status = ?, error_code = ?, error_message = ?, occurred_at = ?, failed_attempt = NULL WHERE id = ?',
+    [was.status, was.errorCode, was.errorMessage, was.occurredAt, messageId],
+  );
+  return true;
+}
+
+/** How a failed text stood before it was tried again in quiet hours, from its synced `failed_attempt`. */
+function attemptOf(json: string | null) {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json) as Record<string, unknown>;
+    const status = str(v.status);
+    const occurredAt = str(v.occurredAt);
+    if (!status || !occurredAt) return null;
+    return { status, errorCode: str(v.errorCode), errorMessage: str(v.errorMessage), occurredAt };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Held texts this phone cancelled, while the cancel is on its way: the thread leaves them out at once. (A failed text
+ * tried again isn't held any more once cancelled here: it's back, not delivered.)
+ */
 export function cancelledHere(rows: readonly OutboxRow[]): ReadonlySet<string> {
   const ids = new Set<string>();
   for (const row of rows)

@@ -4,10 +4,13 @@
  * - It goes then, through the same sender as every text, credited to the person who wrote it.
  * - Cancelled, the job runs at once and the text ends there, never reaching the carrier.
  * - A failed text tried again in quiet hours, then cancelled, goes back as it was, and the job leaves it be.
+ * - Linking the conversation to a customer leaves held and cancelled texts off their timeline: the held one joins
+ *   it when it goes, and becomes the conversation's latest then.
  */
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
+  conversationLinkPerson,
   executeCommand,
   localMinutes,
   messageCancelScheduled,
@@ -23,7 +26,7 @@ import {
   type SystemActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { activities, messages } from '@hfos/db/schema';
+import { activities, conversations, messages } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
@@ -304,5 +307,90 @@ describe('a text held until quiet hours end', () => {
     expect(s.telephony.sent).toHaveLength(sentBefore);
     expect((await heldJob(sent.messageId))!.status).toBe('done');
     await quiet(false);
+  });
+});
+
+describe('a conversation linked to a customer while a text waits', () => {
+  it('leaves held and cancelled texts off the timeline; the held one joins it when it goes', async () => {
+    await quiet(true);
+    // A number nobody knows yet.
+    const toPhone = `(713) 555-${String(1000 + Math.floor(Math.random() * 8999))}`;
+    const body = 'Your tech is on the way at 8.';
+    const held = (
+      await executeCommand(
+        api(),
+        messageSend,
+        { workspaceId, toPhone, body, sendAfterQuietHours: true },
+        actor(marco),
+        meta(),
+      )
+    ).output;
+    const dropped = (
+      await executeCommand(
+        api(),
+        messageSend,
+        { workspaceId, toPhone, body: 'Never mind that', sendAfterQuietHours: true },
+        actor(marco),
+        meta(),
+      )
+    ).output;
+    await executeCommand(
+      api(),
+      messageCancelScheduled,
+      { workspaceId, messageId: dropped.messageId },
+      actor(marco),
+      meta(),
+    );
+    await drain();
+
+    // Someone works out who it is.
+    const joId = (
+      await executeCommand(
+        api(),
+        personCreate,
+        { workspaceId, firstName: 'Jo', lastName: 'Park' },
+        actor(dale),
+        meta(),
+      )
+    ).output.personId;
+    await executeCommand(
+      api(),
+      conversationLinkPerson,
+      { workspaceId, conversationId: held.conversationId, personId: joId },
+      actor(dale),
+      meta(),
+    );
+    await drain();
+    const entriesFor = (messageId: string) =>
+      rows<{ id: string }>(
+        admin(),
+        sql`select id from app.activities where person_id = ${joId} and meta->>'messageId' = ${messageId}`,
+      );
+    expect(await entriesFor(held.messageId)).toHaveLength(0);
+    expect(await entriesFor(dropped.messageId)).toHaveLength(0);
+
+    // Morning: it goes, and joins her timeline and the conversation then.
+    await quiet(false);
+    await admin()
+      .update(messages)
+      .set({ occurredAt: new Date(Date.now() - 1000) })
+      .where(eq(messages.id, held.messageId));
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set run_at = now() where id = ${(await heldJob(held.messageId))!.id}`,
+    );
+    await drain();
+    const [row] = await admin().select().from(messages).where(eq(messages.id, held.messageId));
+    expect(row).toMatchObject({ errorCode: null });
+    expect(row!.providerMessageId).toBeTruthy();
+    const entries = await entriesFor(held.messageId);
+    expect(entries).toHaveLength(1);
+    expect(row!.activityId).toBe(entries[0]!.id);
+    const [conv] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, held.conversationId));
+    expect(conv).toMatchObject({ personId: joId, lastPreview: body, lastDirection: 'outbound' });
+    expect(await entriesFor(dropped.messageId)).toHaveLength(0);
   });
 });
