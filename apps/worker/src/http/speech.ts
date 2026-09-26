@@ -12,11 +12,17 @@
  * and the apps say talking out loud isn't set up. Nothing is kept: the recording and the clip exist only for the
  * request. Each person has a generous allowance, counted in memory per machine like the chat's limits, so a
  * runaway loop can't run up the speech bill: 429 `rate_limited` past it.
+ *
+ * What's heard and said is the business's to pay for, at 1.5× (money/speech-usage.ts): each clip is added to its
+ * running total, and a business whose balance has run out (with the wallet enforced) is refused with 402
+ * `wallet_empty`, as the rest of the AI is.
  */
 import {
   audioTypeOf,
   HfosError,
   loadTeammate,
+  WALLET_REFUSALS,
+  walletRoom,
   SPEECH_CLIP_MAX_BYTES,
   SpeechSayInput,
   type PhoneVoice,
@@ -26,6 +32,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { runtimeConfigOf } from '../ai-team/config';
 import { KeyedLimiter } from '../chat/limiter';
+import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
+import type { TenantScope } from '../services';
 import type { RateRule } from './booking';
 import { authenticate, hasPermission, header, parseBody, type HttpDeps } from './common';
 
@@ -61,20 +69,38 @@ async function requireVoice(deps: HttpDeps, userId: string, workspaceId: string)
   throw HfosError.forbidden();
 }
 
+/** A business's organization never changes, so it's looked up once per machine. */
+const organizations = new Map<string, string>();
+
+/** The business as the worker acts in it, or not found. */
+async function scopeOf(deps: HttpDeps, workspaceId: string): Promise<TenantScope> {
+  let organizationId = organizations.get(workspaceId);
+  if (!organizationId) {
+    const [ws] = await asWorker(deps.httpDb, { workspaceId }, (tx) =>
+      rows<{ organization_id: string }>(
+        tx,
+        sql`select organization_id from app.workspaces where id = ${workspaceId}`,
+      ),
+    );
+    if (!ws) throw HfosError.notFound('Workspace not found.');
+    organizationId = ws.organization_id;
+    if (organizations.size > 5000) organizations.clear();
+    organizations.set(workspaceId, organizationId);
+  }
+  return { workspaceId, organizationId };
+}
+
+/** Talking out loud is AI the business pays for: with its balance run out (and enforced), it stops. */
+async function requireBalance(deps: HttpDeps, scope: TenantScope): Promise<void> {
+  const room = await asWorker(deps.httpDb, scope, (tx) =>
+    walletRoom(tx, scope.workspaceId, 'ai', (m, e) => deps.log.error({ err: e }, m)),
+  );
+  if (!room.allowed) throw HfosError.rule('wallet_empty', 402, WALLET_REFUSALS.ai);
+}
+
 /** The AI teammate's saved phone voice, or the default when it has none. */
-async function teammateVoice(deps: HttpDeps, workspaceId: string): Promise<PhoneVoice> {
-  const [ws] = await asWorker(deps.httpDb, { workspaceId }, (tx) =>
-    rows<{ organization_id: string }>(
-      tx,
-      sql`select organization_id from app.workspaces where id = ${workspaceId}`,
-    ),
-  );
-  if (!ws) return 'warm';
-  const row = await asWorker(
-    deps.httpDb,
-    { workspaceId, organizationId: ws.organization_id },
-    (tx) => loadTeammate(tx, workspaceId),
-  );
+async function teammateVoice(deps: HttpDeps, scope: TenantScope): Promise<PhoneVoice> {
+  const row = await asWorker(deps.httpDb, scope, (tx) => loadTeammate(tx, scope.workspaceId));
   return row ? runtimeConfigOf(row.config).phone.voice : 'warm';
 }
 
@@ -99,6 +125,8 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
       const speech = deps.speech;
       if (!speech) throw notConfigured();
       allow('hear', actor.userId);
+      const scope = await scopeOf(deps, workspaceId);
+      await requireBalance(deps, scope);
       const raw = header(req, 'content-type');
       // The stand-in takes words as text/plain, which is how tests talk to it; a real listener needs audio.
       const contentType =
@@ -114,8 +142,9 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
             : Buffer.alloc(0);
       if (!audio.length)
         throw HfosError.validation([{ path: 'body', message: 'Nothing was recorded.' }]);
+      let heard;
       try {
-        return await speech.transcribe(audio, {
+        heard = await speech.transcribe(audio, {
           contentType,
           signal: AbortSignal.timeout(CLIP_TIMEOUT_MS),
         });
@@ -123,6 +152,10 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
         deps.log.warn({ err: e, contentType, bytes: audio.length }, 'couldn’t hear a recording');
         throw HfosError.rule('speech_failed', 502, 'Couldn’t hear that. Try again.');
       }
+      await noteSpeech({ db: deps.httpDb, log: deps.log }, scope, [
+        { key: 'speech.recording.minute', quantity: speechMinutes(heard.seconds), source: 'talk' },
+      ]);
+      return { text: heard.text, language: heard.language };
     });
 
     scope.post('/v1/speech/say', async (req, reply) => {
@@ -132,13 +165,18 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
       const speech = deps.speech;
       if (!speech) throw notConfigured();
       allow('say', actor.userId);
-      const voice = input.voice ?? (await teammateVoice(deps, input.workspaceId));
+      const scope = await scopeOf(deps, input.workspaceId);
+      await requireBalance(deps, scope);
+      const voice = input.voice ?? (await teammateVoice(deps, scope));
       try {
         const clip = await speech.voiceClip(input.text, {
           voice,
           language: input.language,
           signal: AbortSignal.timeout(CLIP_TIMEOUT_MS),
         });
+        await noteSpeech({ db: deps.httpDb, log: deps.log }, scope, [
+          { key: 'speech.voice.kchar', quantity: speechKchars(input.text), source: 'talk' },
+        ]);
         return reply.header('cache-control', 'no-store').type(clip.contentType).send(clip.audio);
       } catch (e) {
         deps.log.warn({ err: e, voice }, 'couldn’t say a clip');

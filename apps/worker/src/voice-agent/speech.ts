@@ -53,6 +53,8 @@ export interface SpeakOptions {
 export interface HeardClip {
   readonly text: string;
   readonly language: string | null;
+  /** How long the recording was: what hearing it is billed on. */
+  readonly seconds: number;
 }
 
 /** One clip of speech, as a file a browser or a phone plays. */

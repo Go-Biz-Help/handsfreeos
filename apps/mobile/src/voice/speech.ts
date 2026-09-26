@@ -13,7 +13,13 @@ import { isTestOffline, networkSnapshot } from '@/lib/network';
  * with none the screen says so: nothing is queued.
  */
 
-export type SpeechFailure = 'no_signal' | 'not_configured' | 'unauthenticated' | 'failed';
+export type SpeechFailure =
+  | 'no_signal'
+  | 'not_configured'
+  | 'unauthenticated'
+  /** The business's balance has run out: the AI, its voice included, waits for a top-up. */
+  | 'no_balance'
+  | 'failed';
 
 export class SpeechError extends Error {
   constructor(
@@ -42,7 +48,9 @@ function refusal(status: number, body: string): SpeechError {
       ? 'not_configured'
       : status === 401 || status === 403
         ? 'unauthenticated'
-        : 'failed';
+        : status === 402
+          ? 'no_balance'
+          : 'failed';
   return new SpeechError(
     failure === 'not_configured' ? NOT_SET_UP : (err?.message ?? 'Couldn’t hear that. Try again.'),
     failure,

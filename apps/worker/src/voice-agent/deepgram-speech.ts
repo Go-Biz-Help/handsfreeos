@@ -65,6 +65,7 @@ export function listenParams(): URLSearchParams {
 }
 
 interface DeepgramClipReply {
+  readonly metadata?: { readonly duration?: number };
   readonly results?: {
     readonly channels?: readonly {
       readonly detected_language?: string;
@@ -89,9 +90,11 @@ export function clipListenParams(): URLSearchParams {
 export function heardClipOf(reply: DeepgramClipReply): HeardClip {
   const channel = reply.results?.channels?.[0];
   const alt = channel?.alternatives?.[0];
+  const seconds = Number(reply.metadata?.duration);
   return {
     text: (alt?.transcript ?? '').trim(),
     language: alt?.languages?.[0] ?? channel?.detected_language ?? null,
+    seconds: Number.isFinite(seconds) && seconds > 0 ? seconds : 0,
   };
 }
 

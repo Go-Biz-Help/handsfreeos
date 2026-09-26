@@ -48,6 +48,10 @@ interface Piece {
   audio: Promise<string | null> | null;
 }
 
+/** Talking out loud has to stop for now: it isn't set up, or the business's balance has run out. */
+const stopsVoice = (e: unknown): e is SpeechError =>
+  e instanceof SpeechError && (e.failure === 'not_configured' || e.failure === 'no_balance');
+
 const PIECE_MAX = 280;
 /** How often the recorder's meter is read. */
 const TICK_MS = 100;
@@ -234,7 +238,7 @@ export class VoiceSession {
       return heard.text;
     } catch (e) {
       if (gen !== this.gen || !this.on) return null;
-      if (e instanceof SpeechError && e.failure === 'not_configured') this.stop(e.message);
+      if (stopsVoice(e)) this.stop(e.message);
       else if (e instanceof SpeechError && e.failure === 'no_signal')
         this.set('idle', VOICE_WORDS.needsSignal);
       else this.set('idle', e instanceof Error ? e.message : VOICE_WORDS.failed);
@@ -348,8 +352,7 @@ export class VoiceSession {
         signal,
       );
     } catch (e) {
-      if (!signal.aborted && this.on && e instanceof SpeechError && e.failure === 'not_configured')
-        this.stop(e.message);
+      if (!signal.aborted && this.on && stopsVoice(e)) this.stop(e.message);
       return null;
     }
   }

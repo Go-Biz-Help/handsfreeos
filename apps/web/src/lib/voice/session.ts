@@ -19,7 +19,7 @@ import {
   type PhoneVoice,
 } from '@hfos/core';
 import { errorMessage } from '../api/client';
-import { hear, say, speechNotConfigured } from './speech';
+import { hear, say, speechStops } from './speech';
 
 /** off: voice mode is off; idle: on, and waiting for a tap; then what it's doing. */
 export type VoicePhase = 'off' | 'idle' | 'listening' | 'hearing' | 'thinking' | 'speaking';
@@ -258,7 +258,8 @@ export class VoiceSession {
       return heard.text;
     } catch (e) {
       if (gen !== this.gen || !this.on) return null;
-      if (speechNotConfigured(e)) this.stop(VOICE_WORDS.notConfigured);
+      const stops = speechStops(e);
+      if (stops) this.stop(stops);
       else this.set('idle', errorMessage(e));
       return null;
     }
@@ -364,8 +365,8 @@ export class VoiceSession {
       );
       return await ctx.decodeAudioData(audio);
     } catch (e) {
-      if (!signal.aborted && this.on && speechNotConfigured(e))
-        this.stop(VOICE_WORDS.notConfigured);
+      const stops = signal.aborted || !this.on ? null : speechStops(e);
+      if (stops) this.stop(stops);
       return null;
     }
   }

@@ -5895,7 +5895,7 @@ The Assistant is the **Ask HandsFreeOS** panel in every workspace. It answers qu
 
 Everything else in HandsFreeOS works without the key. The Assistant's database tables (migration `20260914000100_assistant.sql`) are already applied to the hosted project, so there is nothing to do in Supabase.
 
-**Talking out loud.** The mic beside the box, on the web and in the phone app, lets people ask out loud and hear the answer, hands-free: it listens, answers in its own voice, and listens again until they turn it off. When a card waits for their OK it asks "Should I go ahead?", and a plain yes or no confirms or cancels it, the same as the buttons. Deepgram hears and speaks, with the worker's `DEEPGRAM_API_KEY` (the key call transcripts already use); without it the mic says talking out loud isn't set up. Recordings aren't kept. The phone app asks for the microphone the first time someone taps a mic, so it needs a new build from the stores, not an over-the-air update.
+**Talking out loud.** The mic beside the box, on the web and in the phone app, lets people ask out loud and hear the answer, hands-free: it listens, answers in its own voice, and listens again until they turn it off. When a card waits for their OK it asks "Should I go ahead?", and a plain yes or no confirms or cancels it, the same as the buttons. Deepgram hears and speaks, with the worker's `DEEPGRAM_API_KEY` (the key call transcripts already use); without it the mic says talking out loud isn't set up. Recordings aren't kept. What it hears and says comes out of the business's usage balance at 1.5× (see "Usage balances: what businesses pay us"). The phone app asks for the microphone the first time someone taps a mic, so it needs a new build from the stores, not an over-the-air update.
 
 ### Before you start
 
@@ -8183,6 +8183,17 @@ business hears a word about it.
 is a one-line commit somebody reviewed.
 
 The wallet needs migrations `20260930000700_usage_rate_card.sql` through `20260930001200_support_can_credit_a_balance.sql`. See "Apply new migrations".
+
+**The AI's hearing and voice (Deepgram) is on the balance too, at 1.5×.** Three lines on the rate card: minutes
+the AI listens on a live call (`speech.live.minute`), minutes of audio turned into words — talking out loud to
+the Assistant or on a test call, and call and voicemail transcripts — (`speech.recording.minute`), and thousands
+of characters the AI says out loud (`speech.voice.kchar`). One sentence costs a small fraction of a cent, so each
+use is written to `app.speech_usage` and the worker's `speech.charge` job, every 15 minutes, bills each
+business's running total once it's worth 25¢ or a day old: one statement line per kind, priced by the card and
+rounded once. With `WALLET_MODE` off nothing is billed and the totals wait. A business whose balance has run out
+(stage `enforce`) can't talk out loud any more, the same as the rest of the AI. Needs
+`20261009000100_speech_is_counted_in_characters.sql` and `20261009000200_speech_on_the_wallet.sql`. Transcripts
+made by Twilio (the fallback without a Deepgram key) are not on the balance.
 
 ### Part 0: The Stripe account the money lands in
 

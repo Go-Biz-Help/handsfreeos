@@ -3,7 +3,7 @@
  * Talking out loud's connection to the worker (@hfos/core's voice/index.ts has the contract): a recording goes
  * to POST /v1/speech/hear and comes back as words, and words go to POST /v1/speech/say and come back as audio.
  */
-import { heardSpeechOf, type HeardSpeech, type PhoneVoice } from '@hfos/core';
+import { heardSpeechOf, VOICE_WORDS, type HeardSpeech, type PhoneVoice } from '@hfos/core';
 import { ApiError } from '../api/errors';
 import { publicEnv } from '../env';
 import { supabaseBrowser } from '../supabase/client';
@@ -45,6 +45,14 @@ async function post(path: string, init: RequestInit, signal?: AbortSignal): Prom
 /** The worker has nobody to listen and speak (no Deepgram key). */
 export const speechNotConfigured = (e: unknown): boolean =>
   e instanceof ApiError && (e.rule === 'speech_not_configured' || e.status === 404);
+
+/** Talking out loud has to stop for now: it isn't set up, or the business's balance has run out. Its words, or null. */
+export function speechStops(e: unknown): string | null {
+  if (!(e instanceof ApiError)) return null;
+  if (speechNotConfigured(e)) return VOICE_WORDS.notConfigured;
+  if (e.status === 402) return e.message;
+  return null;
+}
 
 /** The words in one recording. */
 export async function hear(

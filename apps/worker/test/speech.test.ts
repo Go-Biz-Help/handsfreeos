@@ -6,7 +6,14 @@
  */
 import { createTokenVerifier } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, signInTestUser, testDbs, testEnv } from '@hfos/db/testing';
+import {
+  asService,
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  testEnv,
+} from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildHttpServer } from '../src/http/server';
@@ -159,6 +166,55 @@ describe('saying a clip', () => {
   });
 });
 
+describe('what it costs', () => {
+  const tally = () =>
+    rows<{ rate_key: string; quantity: string; source: string }>(
+      admin(),
+      sql`select rate_key, quantity::text, source from app.speech_usage
+          where workspace_id = ${w.workspaceId} order by created_at`,
+    );
+
+  it('adds what was heard and said to the business’s running totals', async () => {
+    const before = (await tally()).length;
+    // Five words is two seconds to the stand-in.
+    await hear(ownerToken, 'Do you have Thursday open?');
+    await say(ownerToken, { text: 'Yes, Thursday at 10.' });
+    const added = (await tally()).slice(before);
+    expect(added.map((r) => [r.rate_key, r.source])).toEqual([
+      ['speech.recording.minute', 'talk'],
+      ['speech.voice.kchar', 'talk'],
+    ]);
+    expect(Number(added[0]!.quantity)).toBeCloseTo(2 / 60, 5);
+    // 20 characters, in thousands.
+    expect(Number(added[1]!.quantity)).toBe(0.02);
+  });
+
+  it('stops when the balance has run out and the wallet is enforced, as the rest of the AI does', async () => {
+    const scope = { workspaceId: w.workspaceId, organizationId: w.organizationId };
+    await asService(scope)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.usage_wallets (workspace_id, organization_id, stage, overdraft_cents)
+            values (${w.workspaceId}, ${w.organizationId}, 'enforce', 0)
+            on conflict (workspace_id) do update set stage = 'enforce', overdraft_cents = 0`,
+      ),
+    );
+    try {
+      for (const res of [await hear(ownerToken, 'Hi'), await say(ownerToken, { text: 'Hi' })]) {
+        expect(res.statusCode).toBe(402);
+        expect(res.json()).toMatchObject({ error: { rule: 'wallet_empty' } });
+      }
+    } finally {
+      await asService(scope)((tx) =>
+        rows(
+          tx,
+          sql`update app.usage_wallets set stage = 'off' where workspace_id = ${w.workspaceId}`,
+        ),
+      );
+    }
+  });
+});
+
 describe('the allowance', () => {
   it('stops someone talking far more than a person can, and counts each person apart', async () => {
     expect((await hear(ownerToken, 'One', 'text/plain', tight)).statusCode).toBe(200);
@@ -197,8 +253,10 @@ describe('Deepgram’s side', () => {
           channels: [{ alternatives: [{ transcript: ' Hola. ', languages: ['es'] }] }],
         },
       }),
-    ).toEqual({ text: 'Hola.', language: 'es' });
-    expect(heardClipOf({})).toEqual({ text: '', language: null });
+    ).toEqual({ text: 'Hola.', language: 'es', seconds: 0 });
+    // How long the recording was is what hearing it is billed on.
+    expect(heardClipOf({ metadata: { duration: 3.2 } }).seconds).toBe(3.2);
+    expect(heardClipOf({})).toEqual({ text: '', language: null, seconds: 0 });
   });
 
   it('the stand-in’s clip is a real, quiet WAV', () => {

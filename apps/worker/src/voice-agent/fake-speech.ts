@@ -89,7 +89,13 @@ export function createFakeSpeech(): SpeechServices & {
         options.contentType === 'text/plain' ? audio.toString('utf8').trim() : FAKE_HEARD;
       heard.push(said);
       const es = /^\[es\]\s*/.exec(said);
-      return { text: es ? said.slice(es[0].length) : said, language: es ? 'es' : 'en' };
+      const words = said.split(/\s+/).filter(Boolean).length;
+      return {
+        text: es ? said.slice(es[0].length) : said,
+        language: es ? 'es' : 'en',
+        // About how long it takes to say: what hearing it is billed on.
+        seconds: options.contentType === 'text/plain' ? Math.max(1, words * 0.4) : 2,
+      };
     },
 
     async voiceClip(text, options): Promise<VoiceClip> {

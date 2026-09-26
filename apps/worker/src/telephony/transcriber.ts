@@ -56,7 +56,15 @@ export interface TranscribeRequest {
  * here so the job can settle at once where it can, and poll only where it must.
  */
 export type TranscribeStarted =
-  | { readonly status: 'completed'; readonly sentences: TranscriptSentence[] }
+  | {
+      readonly status: 'completed';
+      readonly sentences: TranscriptSentence[];
+      /**
+       * The minutes of audio the transcriber bills us for (each channel counts), when it says: the business pays
+       * for them at 1.5× (money/speech-usage.ts). Deepgram's; Twilio's are in its own bill.
+       */
+      readonly billedMinutes?: number;
+    }
   | { readonly status: 'working'; readonly jobId: string };
 
 export interface TranscriptSentence {

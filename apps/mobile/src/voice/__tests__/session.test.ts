@@ -160,6 +160,17 @@ describe('speaking', () => {
     expect(s.phase).toBe('idle');
   });
 
+  it('turns itself off, and says why, when the business’s balance has run out', async () => {
+    const words =
+      'Your balance has run out, so the AI has paused. Top up and it picks up where it left off.';
+    mockSay.mockRejectedValue(new SpeechError(words, 'no_balance', 402));
+    const s = newSession();
+    await s.start();
+    s.speak('Hello.');
+    await pass(50);
+    expect(s.getSnapshot()).toEqual({ phase: 'off', error: words });
+  });
+
   it('turns itself off when talking out loud isn’t set up', async () => {
     mockSay.mockRejectedValue(
       new SpeechError('Talking out loud isn’t set up yet.', 'not_configured', 503),
