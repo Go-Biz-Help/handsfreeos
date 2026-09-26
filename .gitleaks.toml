@@ -46,3 +46,7 @@ regex = '''WORKER_ENCRYPTION_KEYS?(_PREVIOUS)?\s*[=:]\s*['"]?[A-Za-z0-9+/]{43}='
 [allowlist]
 # Design prototypes carry made-up sample tokens; the lockfile carries integrity hashes.
 paths = ['''pnpm-lock\.yaml''', '''\.gitleaks\.toml''', '''design/.*\.dc\.html$''']
+# Opinly's publishable pixel key (apps/site/src/components/opinly-pixel.tsx). Public by design: it can only send
+# analytics events, and Opinly has it pasted into every page's HTML. Only this exact value is let through — the
+# secret sk- key is a different value and is still caught.
+regexes = ['''^pk-4URAEI_KUurk_6J8t-fX_Hg2OjhEeT1fjYPs4h5$''']
