@@ -22,7 +22,13 @@ export type AiContent =
       readonly type: 'image';
       readonly mediaType: AiImageType;
       readonly data: string;
-    };
+    }
+  /**
+   * The model's reasoning from an earlier turn of the same tool loop, exactly as the provider sent it. Nothing
+   * here reads or shows it: it goes back unchanged on the next call, because newer Claude models tie it to the
+   * conversation and a loop that drops or edits it can be refused.
+   */
+  | { readonly type: 'reasoning'; readonly block: Readonly<Record<string, unknown>> };
 
 /** The image types models take. */
 export const AI_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
@@ -96,6 +102,11 @@ export type AiStopReason = 'end_turn' | 'tool_use' | 'max_tokens' | 'refusal' | 
 export interface AiTurn {
   readonly text: string;
   readonly toolCalls: readonly AiToolCall[];
+  /**
+   * The whole turn in the model's order, reasoning included: what a tool loop hands back before the tools'
+   * results. Stand-ins that don't reason leave it out.
+   */
+  readonly content?: readonly AiContent[];
   readonly stopReason: AiStopReason;
   readonly usage: AiUsage;
 }

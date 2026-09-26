@@ -280,6 +280,42 @@ describe('runToolLoop', () => {
     expect(r.usage.inputTokens).toBe(turns[0]!.inputTokens + turns[1]!.inputTokens);
   });
 
+  it('hands a turn back as the model gave it, reasoning first, and says why its last turn stopped', async () => {
+    const reasoning = {
+      type: 'reasoning',
+      block: { type: 'thinking', thinking: '', signature: 's' },
+    } as const;
+    let calls = 0;
+    const thinker: AiProvider = {
+      id: 'thinker',
+      model: 'thinker',
+      stream: async () => {
+        calls++;
+        if (calls === 1)
+          return {
+            text: '',
+            toolCalls: [{ id: 'c1', name: 'look_up', arguments: {} }],
+            content: [reasoning, { type: 'tool_call', id: 'c1', name: 'look_up', arguments: {} }],
+            stopReason: 'tool_use',
+            usage: emptyUsage,
+          };
+        return { text: '', toolCalls: [], stopReason: 'refusal', usage: emptyUsage };
+      },
+    };
+    const { provider, requests } = recorded(thinker);
+    const out = await loop({
+      provider,
+      messages: question('What does it cost?'),
+      execute: async () => ({ content: { price: 90 } }),
+    });
+    expect(requests[1]!.messages[1]).toEqual({
+      role: 'assistant',
+      content: [reasoning, { type: 'tool_call', id: 'c1', name: 'look_up', arguments: {} }],
+    });
+    expect(out.stoppedBy).toBe('end_turn');
+    expect(out.lastStop).toBe('refusal');
+  });
+
   it('ends on a failure, marking a busy provider as worth trying again', async () => {
     const busy: AiProvider = {
       id: 'busy',

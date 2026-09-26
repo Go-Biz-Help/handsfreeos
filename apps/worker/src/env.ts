@@ -62,7 +62,7 @@ export interface WorkerEnv {
    * the team and going to voicemail; `fake` is the stand-in for development and tests.
    */
   readonly voiceAgent: 'deepgram' | 'fake' | 'off';
-  /** The model that thinks on a call; unset uses ASSISTANT_MODEL. A faster one keeps the pauses short. */
+  /** The model that thinks on a call; unset uses AI_MODEL. A faster one keeps the pauses short. */
   readonly voiceModel: string | null;
   /**
    * Where a business's own domain is served from (M17). `vercel` is where the web app lives; `fake` is the
@@ -186,7 +186,16 @@ export interface WorkerEnv {
   /** The Assistant: Claude, a scripted stand-in for tests, or none (the panel says it isn't set up). */
   readonly assistantProvider: 'anthropic' | 'scripted' | 'none';
   readonly anthropicApiKey: string | null;
+  /**
+   * The model behind Ask HandsFreeOS, the team's own helper. It has far more tools than anything else here, so
+   * it gets the stronger model; it isn't billed to the business, so its price is HandsFreeOS's own.
+   */
   readonly assistantModel: string;
+  /**
+   * The model for everything else: the AI teammate, calls (unless VOICE_MODEL), workflow steps, the builders and
+   * the knowledge base. Customers wait on these, and businesses pay for them at the card's AI rates.
+   */
+  readonly aiModel: string;
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
@@ -575,7 +584,8 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     paymentsFakeSettleMs: fakeSettleMs,
     assistantProvider: assistantProvider as WorkerEnv['assistantProvider'],
     anthropicApiKey,
-    assistantModel: env.ASSISTANT_MODEL || 'claude-sonnet-5',
+    assistantModel: env.ASSISTANT_MODEL || 'claude-opus-5-5',
+    aiModel: env.AI_MODEL || 'claude-sonnet-5',
     assistantDailyTokens,
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,

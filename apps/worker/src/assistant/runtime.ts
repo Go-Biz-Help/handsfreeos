@@ -28,6 +28,11 @@ import { setupStepLabels } from './tools-setup';
 
 /** One question never runs more tool rounds than this; the answer says it stopped short. */
 const MAX_ROUNDS = 8;
+/**
+ * Per model call. The Assistant's model thinks before every answer and the thinking counts toward this, so it
+ * is sized for that as well as a short reply and a round of tool calls.
+ */
+const MAX_TOKENS = 16_000;
 
 export interface ToolContext {
   readonly actor: HumanActor;
@@ -313,7 +318,7 @@ export async function ask(
       messages,
       tools: toolDefs,
       maxRounds: MAX_ROUNDS,
-      maxTokens: 2048,
+      maxTokens: MAX_TOKENS,
       execute,
       onText: (delta) => emit({ type: 'text', delta }),
       signal,
@@ -324,6 +329,18 @@ export async function ask(
     if (loop.stoppedBy === 'max_rounds') {
       const note =
         '\n\nThat took more steps than I can take in one go. Ask again with a smaller piece of it.';
+      text += note;
+      emit({ type: 'text', delta: note });
+    }
+    // A decline or an answer that ran out of room ends with nothing said; the person still gets words.
+    const unsaid =
+      loop.lastStop === 'refusal'
+        ? 'I can’t help with that one.'
+        : loop.lastStop === 'max_tokens'
+          ? 'That answer ran too long. Ask again with a smaller piece of it.'
+          : null;
+    if (unsaid && loop.stoppedBy === 'end_turn') {
+      const note = text ? `\n\n${unsaid}` : unsaid;
       text += note;
       emit({ type: 'text', delta: note });
     }

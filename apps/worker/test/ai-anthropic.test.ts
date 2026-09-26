@@ -181,6 +181,15 @@ describe('AnthropicProvider', () => {
     expect(turn).toEqual({
       text: 'Looking that up.',
       toolCalls: [{ id: 'toolu_test_1', name: 'search_customers', arguments: { query: 'Mike' } }],
+      content: [
+        { type: 'text', text: 'Looking that up.' },
+        {
+          type: 'tool_call',
+          id: 'toolu_test_1',
+          name: 'search_customers',
+          arguments: { query: 'Mike' },
+        },
+      ],
       stopReason: 'tool_use',
       usage: { inputTokens: 120, outputTokens: 30, cacheReadTokens: 900, cacheWriteTokens: 0 },
     });
@@ -212,6 +221,68 @@ describe('AnthropicProvider', () => {
         content: [{ type: 'tool_result', tool_use_id: 'toolu_0', content: '[]', is_error: true }],
       },
     ]);
+  });
+
+  it('keeps the model’s reasoning in order and hands it back exactly as it came', async () => {
+    // Opus 5.5 thinks before every answer and ties that thinking to the conversation.
+    const [start, ...rest] = TOOL_TURN;
+    const thinking = [
+      [
+        'content_block_start',
+        {
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'thinking', thinking: '', signature: '' },
+        },
+      ],
+      [
+        'content_block_delta',
+        {
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'signature_delta', signature: 'sig-1' },
+        },
+      ],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+    ] as const;
+    // The fixture's own blocks move up one.
+    const shifted = rest.map(([event, data]) => {
+      const d = data as { index?: number };
+      return [event, d.index === undefined ? data : { ...d, index: d.index + 1 }] as const;
+    });
+    const { sent, fetch } = recording(() => sse([start, ...thinking, ...shifted]));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-opus-5-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const turn = await provider.stream(REQUEST);
+    const reasoning = { type: 'thinking', thinking: '', signature: 'sig-1' };
+    expect(turn.content![0]).toEqual({ type: 'reasoning', block: reasoning });
+    expect(turn.content!.map((c) => c.type)).toEqual(['reasoning', 'text', 'tool_call']);
+
+    await provider.stream({
+      ...REQUEST,
+      messages: [
+        ...REQUEST.messages,
+        { role: 'assistant', content: turn.content! },
+        {
+          role: 'user',
+          content: [{ type: 'tool_result', callId: 'toolu_test_1', content: '[]' }],
+        },
+      ],
+    });
+    const replayed = (sent[1]!.body['messages'] as { content: unknown[] }[])[3]!;
+    expect(replayed.content).toEqual([
+      reasoning,
+      { type: 'text', text: 'Looking that up.' },
+      { type: 'tool_use', id: 'toolu_test_1', name: 'search_customers', input: { query: 'Mike' } },
+    ]);
+    // Nothing Opus 5.5 refuses: no thinking switch, no forced tool, no temperature.
+    expect(sent[1]!.body).not.toHaveProperty('thinking');
+    expect(sent[1]!.body).not.toHaveProperty('tool_choice');
+    expect(sent[1]!.body).not.toHaveProperty('temperature');
   });
 
   it('turns API errors into codes the runtime can act on', async () => {

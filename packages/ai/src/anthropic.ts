@@ -113,6 +113,9 @@ function toBlock(c: AiContent): Anthropic.ContentBlockParam {
       };
     case 'image':
       return { type: 'image', source: { type: 'base64', media_type: c.mediaType, data: c.data } };
+    case 'reasoning':
+      // A thinking or redacted_thinking block as the API sent it, signature and all.
+      return c.block as unknown as Anthropic.ContentBlockParam;
   }
 }
 
@@ -127,19 +130,27 @@ const STOP: Record<string, AiStopReason> = {
 function fromAnthropic(message: Anthropic.Message): AiTurn {
   let text = '';
   const toolCalls: AiTurn['toolCalls'][number][] = [];
+  const content: AiContent[] = [];
   for (const block of message.content) {
-    if (block.type === 'text') text += block.text;
-    else if (block.type === 'tool_use')
-      toolCalls.push({
+    if (block.type === 'text') {
+      text += block.text;
+      content.push({ type: 'text', text: block.text });
+    } else if (block.type === 'tool_use') {
+      const call = {
         id: block.id,
         name: block.name,
         arguments: (block.input ?? {}) as Record<string, unknown>,
-      });
+      };
+      toolCalls.push(call);
+      content.push({ type: 'tool_call', ...call });
+    } else if (block.type === 'thinking' || block.type === 'redacted_thinking')
+      content.push({ type: 'reasoning', block: { ...block } });
   }
   const u = message.usage;
   return {
     text,
     toolCalls,
+    content,
     stopReason: STOP[message.stop_reason ?? ''] ?? 'other',
     usage: {
       inputTokens: u.input_tokens,

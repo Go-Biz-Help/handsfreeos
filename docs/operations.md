@@ -56,7 +56,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Postmark (Platform plan recommended)                                | Business email, customers' replies, platform mail and sign-in email                                                                                                                                     | $18 a month for 10,000 emails on Platform ($16.50 on Pro, which allows only 10 domains)                                                                                                                                            | "Email: Postmark"                           |
 | Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                                                                                                                 | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                  | "Connected mailboxes: Outlook and Gmail"    |
 | Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                            | "Connected mailboxes: Outlook and Gmail"    |
-| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. With Claude Sonnet 5, $2 per million tokens sent and $10 per million tokens written back. HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $20 a day per workspace. | "The Assistant: Anthropic"                  |
+| Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. Ask HandsFreeOS uses Claude Opus 5.5 ($4 per million tokens sent, $20 per million written back); everything else uses Claude Sonnet 5 ($2 and $10). HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $40 a day per workspace. | "The Assistant: Anthropic"                  |
 | GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                                                                                                                      | No new cost                                                                                                                                                                                                                        | "Hosting: the API and the worker on Fly.io" |
 | Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                          | Several sections                            |
 | Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                | "The public website on Vercel"              |
@@ -1447,7 +1447,7 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `GOOGLE_MAPS_SERVER_KEY`              | For service areas by distance or drawn on a map, and On my way's arrival time | The worker starts, and only ZIP-code service areas work: the teammate and the booking page can't place a street address. On my way texts a rough arrival time instead of Google's driving time.                                                                                                                                                                                 | Google Cloud, **APIs & Services** → **Credentials**: an API key restricted to the **Geocoding API** and the **Routes API** (no referrer restriction; it is used from the worker). Worker only.                                                     |
 | `GEOCODER`                            | No                                                                            | Who finds where an address is: `google` (the default once `GOOGLE_MAPS_SERVER_KEY` is set), `off` (the default without one), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                              | Leave unset. Worker only.                                                                                                                                                                                                                          |
 | `VOICE_AGENT`                         | No                                                                            | Who listens and speaks when the AI teammate answers a call live (M18 step 5): `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `off` (the default without one: every call rings the team and goes to voicemail, as before), or `fake` for development. Production refuses `fake`.                                                                                       | Leave unset: the same Deepgram key as transcripts. Worker only.                                                                                                                                                                                    |
-| `VOICE_MODEL`                         | No                                                                            | The model the teammate thinks with on a call. Unset uses `ASSISTANT_MODEL`. A faster model keeps the pauses on a call short.                                                                                                                                                                                                                                                    | A Claude model id. Worker only.                                                                                                                                                                                                                    |
+| `VOICE_MODEL`                         | No                                                                            | The model the teammate thinks with on a call. Unset uses `AI_MODEL`. A faster model keeps the pauses on a call short.                                                                                                                                                                                                                                                        | A Claude model id. Worker only.                                                                                                                                                                                                                    |
 | `WALLET_MODE`                         | No                                                                            | How far the usage wallet (M16) has gone: `off` (the default) records nothing; `shadow` prices and records every text, call and AI request and never warns or stops anything; `on` warns, and enforces for the businesses whose own flag is set.                                                                                                                                 | Leave `off` until the shadow week. Worker only.                                                                                                                                                                                                    |
 | `VERCEL_TOKEN`                        | Only for branded domains (a business’s own web address)                       | The worker starts and its `worker started` line shows `"siteHost":"off"`. **Settings** → **Workspace** offers nothing, which is the honest answer — a domain added with no host behind it would wait forever for records nobody fetches.                                                                                                                                        | Vercel, **Account Settings** → **Tokens**, scoped to the team owning the web app project. See "A business’s own web address". Worker only.                                                                                                         |
 | `VERCEL_PROJECT_ID`                   | With `VERCEL_TOKEN`                                                           | The worker refuses to start with a token and no project id.                                                                                                                                                                                                                                                                                                                     | The **web app** project’s **Settings** → **General** → **Project ID** (starts `prj_`). Not the public website’s project. Worker only.                                                                                                              |
@@ -1496,7 +1496,8 @@ The defaults are right in production. Setting some of these changes real behavio
 | `SQUARE_ENVIRONMENT`                       | `live` in production                                                       | Production refuses `test`. `test` points every Square call at the sandbox.                                                                                                    |
 | `PAYMENTS_FAKE_SETTLE_MS`                  | Not set: a stand-in bank transfer settles only when asked                  | Local development only. It does nothing with the real providers.                                                                                                              |
 | `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                    |
-| `ASSISTANT_MODEL`                          | `claude-sonnet-5`                                                          | The Claude model the Assistant uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                            |
+| `ASSISTANT_MODEL`                          | `claude-opus-5-5`                                                          | The Claude model Ask HandsFreeOS (the team's own helper) uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                   |
+| `AI_MODEL`                                 | `claude-sonnet-5`                                                          | The Claude model for everything else: the AI teammate, calls (unless `VOICE_MODEL`), workflow AI steps, the builders and the knowledge base. See "Change the model".          |
 | `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes, with the same number on `handsfreeos-api`.                                                |
 | `PUSH_PROVIDER`                            | `expo` when `EXPO_ACCESS_TOKEN` is set, otherwise `none`                   | Production refuses `fake`, the stand-in for local development and tests. `none` turns push off even with a token.                                                             |
 
@@ -5906,16 +5907,18 @@ You need:
 
 ### What it costs
 
-Anthropic charges by the token. A token is a small piece of text, about four characters of English. The Assistant uses Claude Sonnet 5 (`claude-sonnet-5`). Anthropic's prices in September 2026:
+Anthropic charges by the token. A token is a small piece of text, about four characters of English. Ask HandsFreeOS, the team's own helper, uses Claude Opus 5.5 (`claude-opus-5-5`): it has far more tools to choose from than anything else in HandsFreeOS. Everything else (the AI teammate, calls, workflow AI steps, the builders and the knowledge base) uses Claude Sonnet 5 (`claude-sonnet-5`). Anthropic's prices in September 2026:
 
-| Kind of token | What it is                                                                                                                | Price per million tokens |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Input         | What HandsFreeOS sends: the question, the chat so far and background about the workspace                                  | $2                       |
-| Output        | What Claude writes back                                                                                                   | $10                      |
-| Cache write   | The Assistant's fixed instructions and list of tools, kept at Anthropic for 5 minutes so the next question can reuse them | $2.50                    |
-| Cache read    | Those instructions and tools, reused within the 5 minutes                                                                 | $0.20                    |
+| Kind of token | What it is                                                                                                                | Opus 5.5, per million tokens | Sonnet 5, per million tokens |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------- |
+| Input         | What HandsFreeOS sends: the question, the chat so far and background about the workspace                                  | $4                           | $2                           |
+| Output        | What Claude writes back, its thinking included                                                                            | $20                          | $10                          |
+| Cache write   | The Assistant's fixed instructions and list of tools, kept at Anthropic for 5 minutes so the next question can reuse them | $5                           | $2.50                        |
+| Cache read    | Those instructions and tools, reused within the 5 minutes                                                                 | $0.20                        | $0.20                        |
 
-HandsFreeOS limits each workspace to 2,000,000 tokens a day, counting all four kinds (see "Change the daily limit" below). Even if every one of them were an output token, that is $20 a day per workspace. The monthly spend limit you set in Anthropic's console is the hard stop for the whole bill.
+Businesses don't pay for Ask HandsFreeOS: its tokens are HandsFreeOS's own cost. Everything on Sonnet 5 is charged to the business's balance at the rate card's AI prices.
+
+HandsFreeOS limits each workspace to 2,000,000 tokens a day, counting all four kinds (see "Change the daily limit" below). Even if every one of them were an Opus 5.5 output token, that is $40 a day per workspace. The monthly spend limit you set in Anthropic's console is the hard stop for the whole bill.
 
 ### Make the account and set a spend limit
 
@@ -5980,7 +5983,7 @@ Anthropic recommends a service account for a key that a server uses, rather than
    curl -s -H "x-api-key: $T" -H "anthropic-version: 2023-06-01" https://api.anthropic.com/v1/models
    ```
 
-   You should see `claude-sonnet-5` in the reply. If the reply says `authentication_error`, the key is wrong or was cut short: copy it again and repeat steps 6 and 7. If the reply mentions `anthropic-workspace-id`, the key covers more than one workspace: make a new key with `HandsFreeOS` as its workspace, and delete this one.
+   You should see `claude-opus-5-5` and `claude-sonnet-5` in the reply. If the reply says `authentication_error`, the key is wrong or was cut short: copy it again and repeat steps 6 and 7. If the reply mentions `anthropic-workspace-id`, the key covers more than one workspace: make a new key with `HandsFreeOS` as its workspace, and delete this one.
 
 8. Clear the variable.
 
@@ -6135,7 +6138,14 @@ Each extra million tokens a day can add up to $10 a day per workspace. Raise the
 
 ### Change the model
 
-The Assistant uses Claude Sonnet 5 (`claude-sonnet-5`) unless `ASSISTANT_MODEL` names another model. HandsFreeOS was built and tested with Claude Sonnet 5, so try any other model on your laptop first ("Trying the Assistant" in "Local development"). Anthropic lists the model IDs at `https://platform.claude.com/docs/en/models/overview`. For example, `claude-opus-5` costs $5 per million input tokens and $25 per million output tokens, and `claude-haiku-4-5` costs $1 and $5.
+Two settings choose the models:
+
+- `ASSISTANT_MODEL` is Ask HandsFreeOS, the team's own helper. It is Claude Opus 5.5 (`claude-opus-5-5`) unless set.
+- `AI_MODEL` is everything else: the AI teammate, calls (unless `VOICE_MODEL` names a model of their own), workflow AI steps, the builders and the knowledge base. It is Claude Sonnet 5 (`claude-sonnet-5`) unless set. Customers wait on these, so a faster model matters more here than a stronger one.
+
+Try any other model on your laptop first ("Trying the Assistant" in "Local development"). Anthropic lists the model IDs at `https://platform.claude.com/docs/en/models/overview`. For example, `claude-opus-5` costs $5 per million input tokens and $25 per million output tokens, and `claude-haiku-4-5` costs $1 and $5.
+
+Businesses pay for `AI_MODEL`'s tokens at the rate card's AI prices, which are set for Claude Sonnet 5. Before moving `AI_MODEL` to a dearer model, raise the card's `ai.` lines to match, or businesses are charged less than the tokens cost.
 
 The worker does not check the ID when it starts. With a mistyped ID it starts normally, then every question fails with `not_found_error` in the log (see "When a question fails").
 
@@ -6145,7 +6155,7 @@ The worker does not check the ID when it starts. With a mistyped ID it starts no
    fly secrets import --app handsfreeos-worker
    ```
 
-2. Paste the line with the model ID, then press Return and Control-D.
+2. Paste the line with the model ID, then press Return and Control-D. Use `AI_MODEL=` instead to change everything else.
 
    ```text
    ASSISTANT_MODEL=claude-opus-5
@@ -6157,10 +6167,10 @@ The worker does not check the ID when it starts. With a mistyped ID it starts no
 
    You should see an answer.
 
-To go back to Claude Sonnet 5:
+To go back to the models HandsFreeOS ships with:
 
 ```bash
-fly secrets unset --app handsfreeos-worker ASSISTANT_MODEL
+fly secrets unset --app handsfreeos-worker ASSISTANT_MODEL AI_MODEL
 ```
 
 The daily limit counts tokens, not dollars, so a more expensive model spends more for the same limit.
@@ -7144,9 +7154,9 @@ The `worker started` line in the `pnpm dev` window says which model the worker u
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `"none"`      | No model. AI steps take their fallback, a website scan turns each page into one suggested article, and **Describe** and **Try it** say "The AI isn’t set up yet." | The default: no `ANTHROPIC_API_KEY` and no `ASSISTANT_PROVIDER` in `apps/worker/.env`.                                                                    |
 | `"scripted"`  | The scripted stand-in the browser tests use. It answers from the prompt in the right shape, the same way every time, and costs nothing.                           | Add `ASSISTANT_PROVIDER=scripted` to `apps/worker/.env` and restart `pnpm dev`. It wins over a key in the same file. The worker refuses it in production. |
-| `"anthropic"` | Claude, as in production (`claude-sonnet-5` unless `ASSISTANT_MODEL` names another). It costs money from your Anthropic credits.                                  | Add a local key as in "Trying the Assistant" in "Local development".                                                                                      |
+| `"anthropic"` | Claude, as in production (`ASSISTANT_MODEL` and `AI_MODEL`, as in "Change the model"). It costs money from your Anthropic credits.                               | Add a local key as in "Trying the Assistant" in "Local development".                                                                                      |
 
-The daily limit of 2,000,000 tokens per business applies to all three. `pnpm env:local` keeps the `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL` and `ASSISTANT_DAILY_TOKENS` lines, but removes `ASSISTANT_PROVIDER`, so add it back after each run.
+The daily limit of 2,000,000 tokens per business applies to all three. `pnpm env:local` keeps the `ANTHROPIC_API_KEY`, `ASSISTANT_MODEL`, `AI_MODEL` and `ASSISTANT_DAILY_TOKENS` lines, but removes `ASSISTANT_PROVIDER`, so add it back after each run.
 
 #### See a wait without waiting
 

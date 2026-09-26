@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AiProvider } from '@hfos/ai';
+import { emptyUsage, type AiProvider } from '@hfos/ai';
 import {
   addDays,
   appointmentCreate,
@@ -539,6 +539,45 @@ describe('the Assistant on the calendar', () => {
     expect(
       (await appointments()).filter((a) => a.status === 'scheduled' && a.source === 'assistant'),
     ).toHaveLength(0);
+  });
+
+  it('still answers in words when the model declines or runs out of room', async () => {
+    const db = testDbs().worker.db;
+    const page = { type: 'person' as const, id: mikeId };
+    const context = await questionContext(db, actor(member), workspaceId, page, randomUUID());
+    for (const [stopReason, said] of [
+      ['refusal', 'I can’t help with that one.'],
+      ['max_tokens', 'That answer ran too long. Ask again with a smaller piece of it.'],
+    ] as const) {
+      const provider: AiProvider = {
+        id: 'declines',
+        model: 'claude-opus-5-5',
+        stream: async () => ({ text: '', toolCalls: [], stopReason, usage: emptyUsage }),
+      };
+      const events: AssistantEvent[] = [];
+      await runQuestion(
+        {
+          db,
+          provider,
+          tools: createToolExecutor(db),
+          dailyTokens: 5e6,
+          log: pino({ level: 'silent' }),
+        },
+        {
+          actor: actor(member),
+          workspaceId,
+          organizationId,
+          text: 'Book him for a tune-up tomorrow at 3 pm',
+          page,
+          tools: context.tools,
+          prompt: context.prompt,
+        },
+        (e) => events.push(e),
+        new AbortController().signal,
+      );
+      expect(textOf(events)).toBe(said);
+      expect(events.at(-1)!.type).toBe('done');
+    }
   });
 
   it('offers a bed’s open times and books one with nobody on the card', async () => {

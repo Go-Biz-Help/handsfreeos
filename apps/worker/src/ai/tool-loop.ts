@@ -21,6 +21,7 @@ import {
   type AiContent,
   type AiMessage,
   type AiProvider,
+  type AiStopReason,
   type AiToolCall,
   type AiToolDefinition,
   type AiUsage,
@@ -92,6 +93,8 @@ export interface ToolLoopResult {
   readonly error?: unknown;
   /** The provider was busy (rate limited, overloaded or unreachable), so trying again later may work. */
   readonly retryable: boolean;
+  /** Why the model's last turn stopped: `refusal` when it declined, `max_tokens` when it ran out of room. */
+  readonly lastStop: AiStopReason | null;
 }
 
 /** A tool's error in words the model can pass on (never a stack or SQL). */
@@ -106,6 +109,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
   let text = '';
   let usage: AiUsage = emptyUsage;
   let rounds = 0;
+  let lastStop: AiStopReason | null = null;
   const end = (stoppedBy: ToolLoopStop, error?: unknown): ToolLoopResult => ({
     text,
     messages,
@@ -115,6 +119,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
     toolCalls,
     error,
     retryable: error instanceof AiProviderError && error.retryable,
+    lastStop,
   });
 
   try {
@@ -137,6 +142,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         },
       );
       usage = addUsage(usage, turn.usage);
+      lastStop = turn.stopReason;
       await input.onTurnUsage?.(turn.usage);
       if (turn.stopReason !== 'tool_use' || turn.toolCalls.length === 0) {
         if (turn.text) messages.push({ role: 'assistant', content: turn.text });
@@ -152,9 +158,11 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         name: c.name,
         arguments: c.arguments,
       }));
+      // The turn as the model gave it when the provider kept it, so its reasoning goes back unchanged.
       messages.push({
         role: 'assistant',
-        content: turn.text ? [{ type: 'text', text: turn.text }, ...calls] : calls,
+        content:
+          turn.content ?? (turn.text ? [{ type: 'text', text: turn.text }, ...calls] : calls),
       });
       const results: AiContent[] = [];
       let stop = false;

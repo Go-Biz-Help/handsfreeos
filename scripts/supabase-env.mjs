@@ -49,7 +49,12 @@ const previous = (name) =>
   new RegExp(`^${name}=(.+)$`, 'm').exec(previousWorkerEnv)?.[1]?.trim() || '';
 const encryptionKey = previous('WORKER_ENCRYPTION_KEY') || randomBytes(32).toString('base64');
 const keep = (names) => names.flatMap((n) => (previous(n) ? [`${n}=${previous(n)}`] : []));
-const assistantLines = keep(['ANTHROPIC_API_KEY', 'ASSISTANT_MODEL', 'ASSISTANT_DAILY_TOKENS']);
+const assistantLines = keep([
+  'ANTHROPIC_API_KEY',
+  'ASSISTANT_MODEL',
+  'AI_MODEL',
+  'ASSISTANT_DAILY_TOKENS',
+]);
 // A Deepgram key someone pasted in stays too, the same way: without it the worker falls back to the fake
 // transcriber, and a rerun would quietly stop a local voicemail ever having words.
 const transcriberLines = keep(['DEEPGRAM_API_KEY', 'TRANSCRIBER']);
