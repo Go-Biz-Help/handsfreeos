@@ -367,6 +367,20 @@ describe('phone numbers', () => {
     );
   });
 
+  it('tells someone who sets the numbers up whether a teammate works the inbox, and nobody else', async () => {
+    // Settings → Texting & calls' "who does this ring" (0110): the screen asks as the person saving.
+    const works = (asker: TestUser, who: TestUser, ws: string) =>
+      as(asker)((tx) =>
+        rows<{ ok: boolean }>(tx, sql`select private.works_the_inbox(${who.id}, ${ws}) as ok`),
+      ).then((r) => r[0]!.ok);
+    expect(await works(owner, member, wsA)).toBe(true);
+    expect(await works(admin, member, wsA)).toBe(true);
+    expect(await works(owner, outsider, wsA)).toBe(false);
+    // A member may not set the numbers up, and nobody may ask about another business.
+    expect(await works(member, owner, wsA)).toBe(false);
+    expect(await works(outsider, member, wsA)).toBe(false);
+  });
+
   it('checks a verified user’s permission without switching to that user', async () => {
     const has = (u: TestUser, ws: string, perm: string) =>
       unscoped((tx) =>

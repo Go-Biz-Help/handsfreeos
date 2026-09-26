@@ -29,6 +29,8 @@ interface AreaQuery {
   readonly as: string;
   /** What it needs besides the workspace (migrations are listed by organization). */
   readonly input?: (ctx: ToolContext) => Record<string, unknown>;
+  /** The part of the answer the model needs, when the query says much more. */
+  readonly shape?: (value: unknown) => unknown;
 }
 
 /** What one area is read with: the same queries the screen behind it runs. */
@@ -52,7 +54,19 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'workspace.invitations', as: 'invitations' },
   ],
   tags: [{ name: 'tag.list', as: 'tags' }],
-  texting: [{ name: 'phone.setup_status', as: 'texting' }],
+  texting: [
+    { name: 'phone.setup_status', as: 'texting' },
+    // Who sees which conversations lives on the workspace, not the number.
+    {
+      name: 'workspace.get',
+      as: 'inbox',
+      shape: (v) => ({
+        eachPersonSeesTheirOwn:
+          (v as { workspace?: { inboxPerPerson?: boolean } } | null)?.workspace?.inboxPerPerson ??
+          false,
+      }),
+    },
+  ],
   email: [{ name: 'email.setup_status', as: 'email' }],
   website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
   templates: [{ name: 'template.list', as: 'templates' }],
@@ -96,7 +110,8 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
   const parts = await Promise.all(
     QUERIES[info.area].map(async (q) => {
       const value = await query<unknown>(db, ctx, q.name, q.input?.(ctx)).catch(() => null);
-      return [q.as, q.as === 'me' ? meShape(value) : value] as const;
+      const shaped = value === null ? null : q.shape ? q.shape(value) : value;
+      return [q.as, q.as === 'me' ? meShape(value) : shaped] as const;
     }),
   );
   const missing = parts.filter(([, v]) => v === null).map(([as]) => as);

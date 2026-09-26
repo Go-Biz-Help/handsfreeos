@@ -355,9 +355,10 @@ export const phoneNumberSetMembers = defineCommand({
     for (const userId of wanted) {
       if (!(await isWorkspaceUser(ctx.tx, workspaceId, userId)))
         throw HfosError.rule('not_in_workspace', 409, 'That person is not in this business.');
+      // Asked of someone who sets the numbers up, about their own business only (0110).
       const [ok] = await rows<{ can: boolean }>(
         ctx.tx,
-        sql`select private.user_has_permission(${userId}::uuid, ${workspaceId}::uuid, 'inbox.use') as can`,
+        sql`select private.works_the_inbox(${userId}::uuid, ${workspaceId}::uuid) as can`,
       );
       if (!ok?.can)
         throw HfosError.rule(

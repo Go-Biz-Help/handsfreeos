@@ -340,7 +340,7 @@ export const assistantTools = [
   define({
     name: 'settings_help',
     description:
-      'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, topping up the balance, importing a spreadsheet, moving in from another system, or deleting their account; and for what is only set up on the screen (fields, kinds of records, templates, permissions). Returns the exact way to the screen, what is on it and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
+      'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, topping up the balance, importing a spreadsheet, moving in from another system, or deleting their account. Returns the exact way to the screen, what is on it and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup they are asking about'),
     }),

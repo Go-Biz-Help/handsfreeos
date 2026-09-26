@@ -139,7 +139,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/workspace',
     permission: 'channels.manage',
-    canChange: [],
+    canChange: ['add your own web address, check it, or stop using it'],
     handovers: [
       {
         what: 'use your own domain for your forms, payment links, estimates, invoices and booking page',
@@ -165,18 +165,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/permissions',
     permission: 'permissions.manage',
-    canChange: [],
-    handovers: [
-      {
-        what: 'change what admins or members may do',
-        why: 'who may do what is the owner’s call, and it is set on the screen, not from here',
-        steps: [
-          'Open Settings → Permissions (only an owner sees it).',
-          'Tick or untick what Admins and Members may do in each card.',
-          'For one person only, open Members, press ⋯ beside them and choose Permissions.',
-        ],
-      },
+    canChange: [
+      'turn one permission on or off for admins or members',
+      'set what one person may do',
+      'put a role or a person back to the defaults',
     ],
+    handovers: [],
   },
   pipelines: {
     label: 'Pipelines',
@@ -218,18 +212,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/fields',
     permission: 'fields.manage',
-    canChange: [],
-    handovers: [
-      {
-        what: 'add or change a field',
-        why: 'fields are set up on the screen; I can’t make them from here yet',
-        steps: [
-          'Open Settings → Fields.',
-          'Pick what it is for under Fields for, and press Add field.',
-          'Name it, say what it holds, and save.',
-        ],
-      },
+    canChange: [
+      'add a field to customers, companies or a kind of record',
+      'rename it, or change its choices, help line or whether it shows when empty',
+      'retire a field',
     ],
+    handovers: [],
   },
   relationships: {
     label: 'Relationships',
@@ -238,18 +226,11 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     onScreen: ['Kinds of records: New kind of record', 'Relationship types: New relationship type'],
     path: '/settings/relationships',
     permission: 'fields.manage',
-    canChange: [],
-    handovers: [
-      {
-        what: 'add a kind of record, or a way records relate',
-        why: 'these are set up on the screen; I can’t make them from here yet',
-        steps: [
-          'Open Settings → Relationships.',
-          'Press New kind of record, or New relationship type.',
-          'Name it and save; its fields are then under Settings → Fields.',
-        ],
-      },
+    canChange: [
+      'add, change, archive or bring back a kind of record, with its first fields and its tie to customers',
+      'set up, rename, archive or bring back a relationship type, and how many each end may have',
     ],
+    handovers: [],
   },
   calendars: {
     label: 'Calendars',
@@ -399,6 +380,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'what the customer sees when a call is forwarded',
       'quiet hours, and when to remind the team a customer is waiting',
       'fill in and send the carrier registration',
+      'name a number, or make it the default',
+      'choose who a number rings',
+      'choose whether each person sees only their own conversations',
+      'pause or turn on RCS, choose its number, check it, or disconnect it',
     ],
     handovers: [
       {
@@ -408,6 +393,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Send the registration (I can fill it in with you).',
           'Wait for the carriers: Carrier registration on Settings → Texting & calls shows where it stands.',
           'Texting turns on by itself once they approve it.',
+        ],
+      },
+      {
+        what: 'connect an RCS sender',
+        why: 'the sender is made in your own Twilio account, which only you sign in to',
+        steps: [
+          'Make the RCS sender in your Twilio account.',
+          'Open Settings → Texting & calls and, in RCS messaging, press Connect RCS sender.',
+          'Paste the sender’s id. After that I can pause it, choose its number or check it for you.',
         ],
       },
     ],
@@ -429,6 +423,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'add or change a sending address',
       'add or remove your own sending domain, and check it',
       'unblock an address',
+      'block an address',
+      'file mail from someone not in Customers under a customer, or dismiss it',
     ],
     handovers: [
       {
@@ -494,17 +490,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/templates',
     permission: 'templates.manage',
-    canChange: [],
-    handovers: [
-      {
-        what: 'add or change a template',
-        why: 'templates are written on the screen; I can’t save them from here yet',
-        steps: [
-          'Open Settings → Templates and press New template.',
-          'Pick Text or Email, write it, and put it in a folder if you like.',
-        ],
-      },
-    ],
+    canChange: ['add, change, archive or bring back a template'],
+    handovers: [],
   },
   lead_intake: {
     label: 'Lead intake',
@@ -521,6 +508,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'whether a lead opens as well as the customer',
       'which pipeline and stage those leads land in, and what they are filed under',
       'the most leads a day a channel may open',
+      'pause, turn back on, change or retire a website form or connected app',
     ],
     handovers: [
       {
@@ -653,6 +641,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'which channels it answers on, and its hours',
       'what it may do: answer, qualify, book, follow up',
       'its limits, and when it hands a customer to a person',
+      'approve, change or reject what it wrote while it waits for an OK',
     ],
     handovers: [],
     howTo: [
@@ -687,6 +676,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'what you offer, your area, hours and policies',
       'how it should sound, and whether it may quote prices',
       'add a question and answer, a fact or an article',
+      'change, publish, archive or bring back an FAQ, fact, article or document',
+      'accept, edit or reject suggestions, and answer questions customers asked',
+      'scan the website and set its address',
+      'add, change or take off an offer',
     ],
     howTo: [
       'Add an FAQ: Knowledge, press Add an FAQ, then Publish; the same box switches to Article or Fact',

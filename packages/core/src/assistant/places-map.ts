@@ -21,6 +21,8 @@ export interface AppPlace {
   readonly onScreen: readonly string[];
   /** "How do I…", each answered as the clicks. */
   readonly howTo: readonly string[];
+  /** What the Assistant can do here itself, on a card the person confirms. */
+  readonly canChange?: readonly string[];
   /** What people look for here that HandsFreeOS doesn't do, so the Assistant says so rather than invent a button. */
   readonly notHere?: readonly string[];
   /** The screen, under /app/w/<workspaceId> (under /app/org/<orgId> for the agency area). */
@@ -351,6 +353,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'deleting, copying or bringing back an archived workflow',
       'putting many customers on a workflow at once (one at a time from their page)',
     ],
+    canChange: [
+      'rename a workflow or change its description',
+      'archive one',
+      'stop a run, or retry or skip the step it failed on',
+    ],
     path: '/workflows',
   },
   {
@@ -377,6 +384,9 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Go back to an older version: History, Restore, then test and publish again',
       'Rename it: press its name at the top',
     ],
+    canChange: [
+      'rename it or archive it; testing, publishing and bringing back an older version stay yours',
+    ],
     path: '/workflows/[workflowId]',
   },
   {
@@ -396,6 +406,12 @@ export const APP_PLACES: readonly AppPlace[] = [
       'starting at a set time later',
       'copying or deleting a campaign',
       'results beyond who it went to (no replies, bookings or revenue)',
+    ],
+    canChange: [
+      'start one by text, email or calls, with who it reaches and who is left out',
+      'change one person’s text, the email or the call opening, or take someone out',
+      'approve all and send',
+      'pause, resume, change the pace, or stop it',
     ],
     path: '/campaigns',
   },
@@ -418,7 +434,12 @@ export const APP_PLACES: readonly AppPlace[] = [
     notHere: [
       'changing the thank-you message, or being emailed when someone answers',
       'showing a question only after a certain answer',
-      'closing, copying or deleting a form',
+      'deleting a form for good (archive it)',
+    ],
+    canChange: [
+      'rename, copy, archive or bring back a form',
+      'change its link',
+      'delete one person’s answers',
     ],
     path: '/forms',
   },
@@ -436,9 +457,11 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Ask customers for reviews: Workflows, New workflow, the recipe Appointment follow-up + review; the link it sends is Review link on Settings → Workspace',
     ],
     notHere: [
-      'AI-written answers, or asking for reviews from this page',
-      'editing or deleting an answer once posted',
+      'asking for reviews from this page (a workflow does it)',
+      'editing or deleting an answer once it’s posted',
+      'answering a Facebook review here (that’s done on Facebook)',
     ],
+    canChange: ['answer a Google review (it’s public)'],
     path: '/reviews',
   },
   {
@@ -571,8 +594,9 @@ export function placesText(): string {
   return [
     ...APP_PLACES.map((p) => {
       const how = p.howTo.length ? ` How to: ${p.howTo.join('; ')}.` : '';
+      const can = p.canChange?.length ? ` You can: ${p.canChange.join('; ')}.` : '';
       const not = p.notHere?.length ? ` Not in HandsFreeOS: ${p.notHere.join('; ')}.` : '';
-      return `- ${p.label} is at ${placeWay(p)}: ${p.what}. On it: ${p.onScreen.join('; ')}.${how}${not}`;
+      return `- ${p.label} is at ${placeWay(p)}: ${p.what}. On it: ${p.onScreen.join('; ')}.${how}${can}${not}`;
     }),
     'On every page:',
     ...EVERY_PAGE.map((l) => `- ${l}.`),
