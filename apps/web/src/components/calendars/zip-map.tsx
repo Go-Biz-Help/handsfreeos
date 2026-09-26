@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   loadGoogleMaps,
-  mapsMapId,
+  mapLook,
   zipOfPlace,
   zipPlace,
   type FeatureLayer,
@@ -73,7 +73,7 @@ export function ZipMap({
     const m = new maps.Map(el.current, {
       center: US_MIDDLE,
       zoom: 4,
-      mapId: mapsMapId(),
+      ...mapLook(maps),
       disableDefaultUI: true,
       zoomControl: true,
       clickableIcons: false,

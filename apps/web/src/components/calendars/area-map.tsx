@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   loadGoogleMaps,
+  mapLook,
   METERS_PER_MILE,
   type GMap,
   type GoogleMaps,
@@ -67,6 +68,7 @@ export function AreaMap({
   useEffect(() => {
     if (!maps || !el.current || map.current) return;
     map.current = new maps.Map(el.current, {
+      ...mapLook(maps),
       center: startAt.current ?? US_MIDDLE,
       zoom: startAt.current ? 10 : 4,
       disableDefaultUI: true,

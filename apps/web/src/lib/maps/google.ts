@@ -93,6 +93,7 @@ export interface GoogleMaps {
   };
   LatLngBounds: new () => { union(other: unknown): void };
   FeatureType: { POSTAL_CODE: string };
+  ColorScheme?: { LIGHT: string; DARK: string };
   places: Places;
 }
 
@@ -107,8 +108,30 @@ let loading: Promise<GoogleMaps> | null = null;
 
 export const mapsKey = (): string | null => publicEnv.googleMapsBrowserKey;
 
+/** Whether the app looks dark right now: the person's own setting, else the device's. */
+function looksDark(): boolean {
+  if (typeof document === 'undefined') return false;
+  const theme = document.documentElement.getAttribute('data-theme');
+  if (theme) return theme === 'dark';
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+}
+
 /** The map ID whose style turns on Google's ZIP code areas; without one, ZIP areas have no map. */
 export const mapsMapId = (): string | null => publicEnv.googleMapsMapId;
+
+/**
+ * What every map here opens with: the map ID, and the app's light or dark look, which Google draws from the
+ * style's light or dark mode (or its own, without a map ID). Google fixes the look when a map opens.
+ */
+export function mapLook(maps: GoogleMaps): Record<string, unknown> {
+  const mapId = mapsMapId();
+  return {
+    ...(mapId ? { mapId } : {}),
+    ...(maps.ColorScheme
+      ? { colorScheme: looksDark() ? maps.ColorScheme.DARK : maps.ColorScheme.LIGHT }
+      : {}),
+  };
+}
 
 /** Loads the Maps script once; rejects without a key or when Google doesn't answer. */
 export function loadGoogleMaps(): Promise<GoogleMaps> {
