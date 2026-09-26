@@ -197,6 +197,23 @@ describe('telling when a turn ends', () => {
     expect(run(d, 550, 1100, -60)).toBe('done');
   });
 
+  it('hears talking that starts after complete silence, however evenly they talk', () => {
+    // A microphone that reads nothing at all (a stand-in one, or one that goes silent between turns), and then
+    // words that rise and fall by less than the margin: the quietest of them is not the room.
+    const d = createTurnDetector({ marginDb: 12, speechMs: 150 });
+    expect(run(d, 0, 2500, -120)).toBe('waiting');
+    let state = d.feed(-24, 2550);
+    for (let t = 2600; t <= 3200; t += 50) state = d.feed(t % 200 < 100 ? -24 : -15, t);
+    expect(state).toBe('talking');
+    // The same after some talking too short to count, then a whole window of nothing.
+    const later = createTurnDetector({ marginDb: 12, speechMs: 150 });
+    expect(run(later, 0, 50, -20)).toBe('waiting');
+    expect(run(later, 100, 3000, -120)).toBe('waiting');
+    state = later.feed(-24, 3150);
+    for (let t = 3200; t <= 3800; t += 50) state = later.feed(t % 200 < 100 ? -24 : -15, t);
+    expect(state).toBe('talking');
+  });
+
   it('something quieter than talking at the start waits for the room to be known', () => {
     const d = createTurnDetector({ speechMs: 150 });
     expect(run(d, 0, 400, -40)).toBe('waiting');
