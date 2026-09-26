@@ -20,6 +20,7 @@ import {
   attendeeCancelOnline,
   attendeeRescheduleOnline,
   calendarSetStatus,
+  leadCreate,
   pipelineList,
   seriesCancel,
   seriesCreate,
@@ -467,6 +468,43 @@ describe('series, sessions and waitlists', () => {
       sql`select status::text as status from app.appointments where series_id = ${made.seriesId} order by occurrence`,
     );
     expect(left.map((r) => r.status)).toEqual(['scheduled', 'cancelled', 'cancelled']);
+  });
+
+  it('books a series from a lead’s page with every visit on the lead, and asks for the first confirmation', async () => {
+    // New appointment's Repeats: booked from a lead, and with Tell ticked.
+    const cal = await makeCalendar(t, 'Filter changes', {
+      team: { members: [{ userId: t.priya.id }] },
+    });
+    const person = await customer(t, 'Rene');
+    const { leadId } = await run(
+      leadCreate,
+      { workspaceId: t.wsId, title: 'Filter plan', personId: person },
+      t.owner,
+    );
+    const made = await run(
+      seriesCreate,
+      {
+        workspaceId: t.wsId,
+        calendarId: cal.id,
+        firstDate: nextWeekday(2, 7),
+        rule: { freq: 'weekly', interval: 2, count: 3, localTime: '09:00' },
+        personId: person,
+        leadId,
+        notify: true,
+      },
+      t.owner,
+    );
+    expect(made.appointmentIds).toHaveLength(3);
+    const leads = await rows<{ lead_id: string | null }>(
+      admin(),
+      sql`select lead_id from app.appointments where series_id = ${made.seriesId}`,
+    );
+    expect(leads.map((r) => r.lead_id)).toEqual([leadId, leadId, leadId]);
+    const [event] = await rows<{ payload: { notify?: boolean } }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'series.created' and entity_id = ${made.seriesId}`,
+    );
+    expect(event!.payload.notify).toBe(true);
   });
 
   it('keeps a waitlist on a full session and signals when a seat opens', async () => {

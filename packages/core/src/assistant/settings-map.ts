@@ -486,11 +486,11 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   templates: {
     label: 'Templates',
-    what: 'saved wording for texts and emails, in folders',
+    what: 'saved wording for texts and emails, in folders, that the inbox’s reply box can put in',
     where: ['Settings', 'Templates'],
     onScreen: ['Templates: by folder, with New template (Name, Send as, Subject, Message, Folder)'],
-    notHere: [
-      'putting a template into a reply: the inbox’s reply box doesn’t offer them yet, so copy the words across',
+    howTo: [
+      'Use one in a reply: open the conversation in Inbox, press Insert a template beside the paperclip, then pick it',
     ],
     path: '/settings/templates',
     permission: 'templates.manage',

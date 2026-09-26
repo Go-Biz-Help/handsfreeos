@@ -384,3 +384,34 @@ test('Money → Plans: Square says what it will not do, and disconnecting asks a
   await page.goto(planUrl(owner, subscriptionId));
   await expect(page.getByTestId('plan-status')).toHaveText('Cancelled');
 });
+
+test('Money → Plans: a plan made, changed and no longer sold, all from the page', async ({
+  page,
+}) => {
+  // The catalogue once had no screen at all: the empty page pointed at Settings → Products, which pointed back.
+  const owner = await ownerWithSite(page, 'plans-new', 'Lone Star Catalogue HVAC');
+  await page.goto(`/app/w/${owner.workspaceId}/money/plans`);
+  await expect(page.getByText('Press New plan to add the first one.')).toBeVisible();
+
+  await page.getByTestId('plan-new').click();
+  await page.getByTestId('plan-editor-name').fill('Comfort Club');
+  await page.getByTestId('plan-editor-price').fill('29');
+  await page.getByTestId('plan-editor-includes').fill('Two tune-ups a year\n15% off repairs');
+  await page.getByTestId('plan-editor-save').click();
+  await expect(page.getByTestId('plans-table')).toContainText('Comfort Club');
+  await expect(page.getByTestId('plans-table')).toContainText('$29 a month');
+  await expect(page.getByTestId('plans-table')).toContainText(
+    'Two tune-ups a year, 15% off repairs',
+  );
+
+  await page.getByTestId('plan-edit-Comfort Club').click();
+  await page.getByTestId('plan-editor-price').fill('290');
+  await page.getByTestId('plan-editor-every').selectOption({ label: 'Every year' });
+  await page.getByTestId('plan-editor-save').click();
+  await expect(page.getByTestId('plans-table')).toContainText('$290 a year');
+
+  await page.getByTestId('plan-edit-Comfort Club').click();
+  await page.getByTestId('plan-editor-archive').click();
+  await expect(page.getByTestId('plans-table')).toBeHidden();
+  await expect(page.getByText('No plans yet')).toBeVisible();
+});

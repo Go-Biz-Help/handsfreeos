@@ -12,7 +12,7 @@
 import { money } from '@hfos/core';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
@@ -49,6 +49,8 @@ export function StartPlanDialog({
   connections,
   person,
   trigger,
+  label = 'Put someone on a plan',
+  size = 'md',
 }: {
   workspaceId: string;
   plans: readonly PlanRow[];
@@ -56,6 +58,9 @@ export function StartPlanDialog({
   /** Fixed on a customer's own page; picked here on the Plans page. */
   person?: PickedPerson;
   trigger?: 'button' | 'none';
+  /** The button's words and size: "Put on a plan", small, in a customer's Money tab. */
+  label?: string;
+  size?: 'sm' | 'md';
 }) {
   const router = useRouter();
   const live = plans.filter((p) => !p.archivedAt);
@@ -101,12 +106,13 @@ export function StartPlanDialog({
       {trigger === 'none' ? null : (
         <Button
           variant="secondary"
-          className="max-md:h-11 max-md:flex-1"
+          size={size}
+          className={size === 'md' ? 'max-md:h-11 max-md:flex-1' : undefined}
           onClick={() => setOpen(true)}
           data-testid="plan-start"
         >
-          <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          Put someone on a plan
+          <Plus className={size === 'md' ? 'h-[18px] w-[18px]' : 'h-3.5 w-3.5'} strokeWidth={1.5} />
+          {label}
         </Button>
       )}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -226,5 +232,53 @@ export function StartPlanDialog({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/**
+ * "Put on a plan" in a customer's Money tab: the same dialog with the customer already chosen. The catalogue and
+ * the accounts are read when the tab opens, and a business that sells no plans gets no button.
+ */
+export function StartPlanForCustomer({
+  workspaceId,
+  personId,
+  fullName,
+}: {
+  workspaceId: string;
+  personId: string;
+  fullName: string;
+}) {
+  const [found, setFound] = useState<{
+    plans: PlanRow[];
+    connections: PaymentConnectionRow[];
+  } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const api = apiBrowser();
+    void Promise.all([
+      api.POST('/v1/queries/plan.list', { body: { workspaceId } }).then((r) => unwrap(r).plans),
+      api
+        .POST('/v1/queries/payment_connection.list', { body: { workspaceId } })
+        .then((r) => unwrap(r).connections.filter((c) => c.externalAccountId !== null)),
+    ])
+      .then(([plans, connections]) => {
+        if (live) setFound({ plans, connections });
+      })
+      // Someone who may not see the catalogue simply gets no button.
+      .catch(() => null);
+    return () => {
+      live = false;
+    };
+  }, [workspaceId]);
+  if (!found || !found.plans.some((p) => !p.archivedAt)) return null;
+  return (
+    <StartPlanDialog
+      workspaceId={workspaceId}
+      plans={found.plans}
+      connections={found.connections}
+      person={{ id: personId, fullName, email: null, phone: null }}
+      label="Put on a plan"
+      size="sm"
+    />
   );
 }

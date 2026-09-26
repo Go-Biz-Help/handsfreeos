@@ -11,7 +11,7 @@
  *   booking, so its notice carries the new link); the reminders re-armed.
  * - appointment.reassigned: a notice when asked.
  * - appointment.cancelled, attendee.cancelled, attendee.removed: a notice; the team hears about online ones.
- * - series.created: the reminders for every occurrence's customers.
+ * - series.created: the reminders for every occurrence's customers, and the first visit's confirmation when asked.
  * - attendee.confirmed: a short thank-you when the customer confirmed by text (onConfirmedThanks).
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
@@ -116,6 +116,17 @@ export const onBookedTeamEmail: EventHandler = async (ctx) => {
   const id = str(p['attendeeId']);
   if (!id || !(await onlineOnes(ctx.tx, [id])).has(id)) return;
   await emailTeam(ctx, 'booked', id, { fromWaitlist: p['fromWaitlist'] === true });
+};
+
+/**
+ * series.created: the first visit's confirmation when staff asked, as for one visit. Each later visit has its own
+ * reminders; a series the AI teammate books confirms through its first visit's appointment.booked instead.
+ */
+export const onSeriesConfirm: EventHandler = async (ctx) => {
+  const p = payloadOf(ctx);
+  const first = strings(p['appointmentIds'])[0];
+  if (!first || p['notify'] !== true) return;
+  await notice(ctx, await bookedAttendees(ctx.tx, first), 'confirmation');
 };
 
 /** attendee.added: a confirmation when staff asked. */

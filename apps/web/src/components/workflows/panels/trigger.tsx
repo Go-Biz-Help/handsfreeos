@@ -2,6 +2,7 @@
 import {
   DATE_ANCHORS,
   emptyGroup,
+  TRIGGER_EVENT_GROUPS,
   TRIGGER_EVENTS,
   type ConditionGroup,
   type DateAnchorKey,
@@ -44,14 +45,6 @@ const DEFAULTS: Record<TriggerKind, TriggerInput> = {
   webhook: { kind: 'webhook', personBy: 'phone_or_email', createPerson: true },
   manual: { kind: 'manual' },
 };
-
-const EVENT_GROUPS: readonly { label: string; test: (k: string) => boolean }[] = [
-  { label: 'Leads', test: (k) => k.startsWith('lead.') },
-  { label: 'Appointments', test: (k) => k.startsWith('appointment.') },
-  { label: 'Messages and calls', test: (k) => k.startsWith('message.') || k.startsWith('call.') },
-  { label: 'Customers', test: (k) => k.startsWith('person.') || k.startsWith('record.') },
-  { label: 'Tasks', test: (k) => k.startsWith('task.') },
-];
 
 /** "Europe/London" reads as "Europe/London"; the common US zones read as their names. */
 function zoneName(tz: string): string {
@@ -297,8 +290,8 @@ export function TriggerPanel() {
 
       {t.kind === 'manual' ? (
         <Note>
-          Start it from a customer’s page, from the Assistant, or for many customers at once. It
-          never starts on its own.
+          Start it from a customer’s or a lead’s page with Add to workflow…, or ask the Assistant.
+          It starts for one customer at a time, and never on its own.
         </Note>
       ) : null}
     </div>
@@ -315,7 +308,6 @@ function EventFields({
   setGroup: (key: 'filters', group: ConditionGroup) => ApplyOutcome;
 }) {
   const { readOnly } = useEditor();
-  const keys = Object.keys(TRIGGER_EVENTS) as TriggerEventKey[];
   return (
     <>
       <PanelField label="Event" htmlFor="trigger-event">
@@ -329,9 +321,9 @@ function EventFields({
             set({ ...t, event: e.target.value as TriggerEventKey }, 'Change what starts it')
           }
         >
-          {EVENT_GROUPS.map((g) => (
+          {TRIGGER_EVENT_GROUPS.map((g) => (
             <optgroup key={g.label} label={g.label}>
-              {keys.filter(g.test).map((k) => (
+              {g.events.map((k) => (
                 <option key={k} value={k}>
                   {TRIGGER_EVENTS[k].label}
                 </option>

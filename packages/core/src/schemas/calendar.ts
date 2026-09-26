@@ -795,6 +795,11 @@ export const SeriesCreateInput = z.object({
   location: AppointmentLocation.optional(),
   /** Sessions-mode calendars publish sessions with this many seats. */
   capacity: z.int().min(1).max(1000).optional(),
+  /** Booked from a lead's page, or a pet's, vehicle's or property's (0101): every visit carries it. */
+  leadId: uuid.nullable().optional(),
+  customRecordId: uuid.nullable().optional(),
+  /** Send the customer the first visit's confirmation; the reminders follow the calendar either way. */
+  notify: z.boolean().default(false),
 });
 export const SeriesCreateOutput = z.object({
   seriesId: uuid,

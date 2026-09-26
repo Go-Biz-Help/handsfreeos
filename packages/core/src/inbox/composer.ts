@@ -1,10 +1,11 @@
 /**
  * What the composer says, the same on the web and the phone (M10): why a text or an email can't go (and what the box
  * says then), who it writes to, the From line, photos going to the customer's files, a text's length, quiet hours and
- * their question, and what sending did. Browser-safe.
+ * their question, what sending did, and a saved template filled in for the customer. Browser-safe.
  */
 import { formatClock } from '../messaging/quiet-hours';
 import { smsSegments } from '../messaging/sms';
+import { render } from '../workflows/templates';
 import { heldWhen } from './time';
 
 /** A sentence with a word or two in bold: plain text, or `{ strong }`. */
@@ -386,4 +387,53 @@ export const PHOTO_CHOICE_WORDS = {
   library: 'Choose from your photos',
   remove: (n: number) => `Remove photo ${n}`,
   noCamera: 'Allow HandsFreeOS to use the camera in Settings to take photos.',
+} as const;
+
+// ---- Templates in the reply box ----
+
+/** What a reply fills a template's placeholders from: the customer and the business it is written to and from. */
+export interface ReplyTemplateValues {
+  readonly firstName: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly businessName?: string | null;
+}
+
+/**
+ * A saved template's words (Settings → Templates), ready for the reply box: `{{person.first_name}}` becomes
+ * "Mike", `{{person.first_name | default:"there"}}` becomes "there" for a stranger, and a placeholder a reply
+ * can't fill (a lead's title, a booking link) stays as it is, so the person sees what is left to write instead of
+ * a gap. `left` names those, for the note under the box.
+ */
+export function fillReplyTemplate(
+  words: string,
+  v: ReplyTemplateValues,
+): { readonly text: string; readonly left: readonly string[] } {
+  const values = {
+    person: { first_name: v.firstName, email: v.email ?? null, phone: v.phone ?? null },
+    business: { name: v.businessName ?? null },
+  };
+  const left: string[] = [];
+  const text = words.replace(/\{\{[^{}]*\}\}/g, (tag) => {
+    const out = render(tag, values);
+    if (!out.missing.length) return out.text;
+    for (const m of out.missing) if (!left.includes(m)) left.push(m);
+    return tag;
+  });
+  return { text, left };
+}
+
+/** The template button beside the paperclip, and its list. */
+export const TEMPLATE_PICKER_WORDS = {
+  button: 'Insert a template',
+  search: 'Find a template',
+  loading: 'Loading…',
+  none: (email: boolean) => (email ? 'No email templates yet' : 'No text templates yet'),
+  noneHint: 'Write them in Settings → Templates.',
+  noMatch: 'Nothing matches',
+  /** Templates filed in no folder. */
+  noFolder: 'Everything else',
+  /** "Fill in {{lead.title}} before you send it." */
+  left: (placeholders: readonly string[]) =>
+    `Fill in ${placeholders.map((p) => `{{${p}}}`).join(', ')} before you send it.`,
 } as const;

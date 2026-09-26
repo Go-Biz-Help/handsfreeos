@@ -23413,8 +23413,10 @@ export interface operations {
                     /** Format: uuid */
                     calendarId: string;
                     capacity?: number;
+                    customRecordId?: string | null;
                     durationMinutes?: number;
                     firstDate: string;
+                    leadId?: string | null;
                     location?: {
                         /** @default null */
                         address?: string | null;
@@ -23426,6 +23428,8 @@ export interface operations {
                         postalCode?: string | null;
                     };
                     notes?: string | null;
+                    /** @default false */
+                    notify?: boolean;
                     /** @default 1 */
                     partySize?: number;
                     personId?: string | null;

@@ -77,13 +77,14 @@ export const APP_PLACES: readonly AppPlace[] = [
       'At the top: which line to answer on, Assign, Snooze, Close (or Reopen), Customer details, and ⋯ with Call, Open customer (or Add as a new person), Hand to (the AI teammate’s name), Mark as unread, Close every line, Copy phone number, Archive this conversation',
       'Banners when the AI teammate has it: Take over, Take it, or Hand back',
       'The AI teammate’s drafts in the thread: Approve and send, Edit, Reject…',
-      'The reply box: Text or Email, Cc and Subject for email, the paperclip for a photo or file, Add buttons or a card, then Send text or Send email; in quiet hours it offers Send at the time they end',
+      'The reply box: Text or Email, Cc and Subject for email, the paperclip for a photo or file, Insert a template, Add buttons or a card, then Send text or Send email; in quiet hours it offers Send at the time they end',
       'Beside it: their name, number, email and tags (press one to change it), Call, Open customer, Edit all details, Open lead (its stage, Set next action, or Start one), Add a note, Open tasks (Add task), Next visits (Book a visit), and Money (New estimate, New invoice)',
       'For a number that isn’t a customer: Add customer, or Or link to an existing customer',
     ],
     howTo: [
       'Reply by email instead of text: in the reply box, switch Text to Email',
       'Send a photo: the paperclip in the reply box (the conversation needs to be a customer)',
+      'Use a saved template: Insert a template beside the paperclip, then pick one; the customer’s name goes in for them, and anything it can’t fill is left to type',
       'Leave a note only the team sees: Add a note beside the conversation, then Add note',
       'Give a conversation to someone: Assign at the top',
       'Give it to the AI teammate: ⋯, then Hand to (its name); take it back with Take over',
@@ -93,7 +94,6 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Archive it: ⋯, then Archive this conversation (Bring it back undoes it)',
     ],
     notHere: [
-      'putting a saved template into a reply (Settings → Templates keeps the wording, but the reply box doesn’t offer it)',
       'sending later, except after quiet hours',
       'an AI rewrite button, emoji or formatting',
       'a note inside the reply box (notes go in Add a note beside it)',
@@ -146,6 +146,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Add a task for them: their page, press Task, then New task',
       'Upload a photo or file: their page, press File, then Choose file',
       'Write them an estimate or invoice: their page, Money tab, New estimate or New invoice',
+      'Put them on a maintenance plan: their page, Money tab, Put on a plan',
       'Put them on a workflow: their page, press Add to workflow…, pick one, then Add (their name); only published workflows that start By hand are offered',
       'Take them off a workflow: their page, the Workflows card, Remove',
       'Choose who looks after them: their page, the Assigned to card',
@@ -212,9 +213,9 @@ export const APP_PLACES: readonly AppPlace[] = [
     howTo: [
       'Book an appointment: Calendar, press New appointment (or an empty time), fill in Customer, Calendar, Service, With, Date, Start, Length and Location, then Book; untick Tell (their name) to book without messaging them',
       'See one person’s week: Calendar, Week, then pick them in Person',
+      'Book repeat visits: in New appointment, pick Every week, Every 2 weeks or Every month under Repeats and how many visits, then Book; Repeats shows when the calendar’s Repeats section has Staff can repeat visits on, and dates that don’t fit are listed, not booked',
     ],
     notHere: [
-      'a repeat or series option when booking by hand',
       'adding a new customer from the booking box (add them in Customers first)',
       'blocking time from the calendar itself (time off is Settings → My calendar, Add time off)',
     ],
@@ -316,16 +317,19 @@ export const APP_PLACES: readonly AppPlace[] = [
     what: 'maintenance plans that bill themselves, and who is on one',
     where: ['Money', 'Plans'],
     onScreen: [
-      'Put someone on a plan, beside the filters',
-      'The plans, with Set visits for each',
+      'Put someone on a plan and New plan, beside the filters',
+      'The plans: press a plan’s name to change it (Name, Price, Bills, What it includes, Charge sales tax on it) or Stop selling it; Set visits for each',
       'Who is on a plan; pressing someone opens their plan: Ask for a new card, Copy link, Pause (or Start it again), Cancel the plan',
     ],
     howTo: [
       'Put a customer on a plan: Money → Plans, press Put someone on a plan, pick the customer, the plan and the account, then Start the plan, and send them the link from their plan',
       'Pause or cancel someone’s plan: Money → Plans, press them, then Pause or Cancel the plan',
       'Change the card on a plan: press them, then Ask for a new card',
+      'Make a new plan to sell: Money → Plans, press New plan, then Add plan (whoever manages money)',
+      'Change a plan’s price or what it includes: Money → Plans, press its name, then Save; people already on it keep what they signed up for',
+      'Stop selling a plan: press its name, then Stop selling it; anyone on it stays on it',
+      'Put one customer on a plan from their page: their Money tab, Put on a plan',
     ],
-    notHere: ['making a new kind of plan: no screen does this today, whatever the empty page says'],
     path: '/money/plans',
   },
   {
@@ -363,6 +367,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     ],
     howTo: [
       'Change what starts it: open it, Steps, press the When card at the top',
+      'Start one when an estimate goes out, is approved or declined, an invoice is paid or overdue, a form is answered, or the AI teammate hands over: the When card, Event, then Money, Forms, or Messages and calls',
       'Add a step: press the + between two steps',
       'Delete, copy or move a step: press the step, then its ⋯',
       'Stop it when the customer replies: Settings, then Stop the run when they, Reply by text or email',

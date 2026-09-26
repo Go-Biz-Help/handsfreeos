@@ -15,7 +15,9 @@ import {
   messageSend,
   personCreate,
   resourceCreate,
+  seriesCreate,
   smsSegments,
+  weekdayOf,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
@@ -302,6 +304,40 @@ describe('confirmations', () => {
     expect(state.confirmation).toBeNull();
     expect(state.reminders['before_120']).toMatchObject({ status: 'scheduled' });
     expect((await mailTo(w.owner.email)).some((m) => m.Subject.includes('Staffbook'))).toBe(false);
+  });
+
+  it('a repeat booked by staff confirms its first visit when asked, and stays quiet when not', async () => {
+    // New appointment's Repeats, with Tell ticked and not.
+    const person = async (first: string) => {
+      const phone = nextPhone();
+      const { personId } = await run(w, personCreate, {
+        workspaceId: w.workspaceId,
+        firstName: first,
+        lastName: 'Series',
+        phone,
+      });
+      return { personId, phone };
+    };
+    const told = await person('Uma');
+    const quiet = await person('Vic');
+    // A Tuesday a week or more out, so each visit is a weekday in the calendar's hours.
+    let first = localDateOf(at(8, '12:00'), CHI);
+    while (weekdayOf(first) !== 2) first = addDays(first, 1);
+    const repeat = (personId: string, localTime: string, notify?: boolean) =>
+      run(w, seriesCreate, {
+        workspaceId: w.workspaceId,
+        calendarId: cal.id,
+        firstDate: first,
+        rule: { freq: 'weekly', count: 3, localTime },
+        personId,
+        ...(notify === undefined ? {} : { notify }),
+      });
+    expect((await repeat(told.personId, '13:00', true)).appointmentIds).toHaveLength(3);
+    expect((await repeat(quiet.personId, '15:00')).appointmentIds).toHaveLength(3);
+    await drain(w);
+    expect(textsTo(w, told.phone)).toHaveLength(1);
+    expect(textsTo(w, told.phone)[0]!.body).toContain("You're booked for an AC tune-up");
+    expect(textsTo(w, quiet.phone)).toEqual([]);
   });
 });
 

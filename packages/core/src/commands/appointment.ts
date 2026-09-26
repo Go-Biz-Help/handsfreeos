@@ -826,6 +826,8 @@ export const seriesCreate = defineCommand({
     const { config } = calendar;
     if (!config.recurring.staffSeries)
       throw HfosError.rule('series_off', 409, 'Repeats are off for this calendar.');
+    if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
+    if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const sessions = config.schedule.mode === 'sessions';
     const occurrences = expandRecurrence(input.rule, input.firstDate, calendar.timeZone).slice(
       0,
@@ -873,6 +875,8 @@ export const seriesCreate = defineCommand({
           title: input.title,
           notes: input.notes,
           location: input.location,
+          leadId: input.leadId,
+          customRecordId: input.customRecordId,
           source: 'series',
           seriesId: series!.id,
           occurrence: occ.index + 1,
@@ -908,6 +912,8 @@ export const seriesCreate = defineCommand({
         calendarId: calendar.id,
         appointmentIds: created,
         skipped: skipped.length,
+        // The first visit's confirmation (handlers/appointment-messages.ts); the reminders go either way.
+        notify: input.notify,
       },
       after: {
         ...(await appointmentSnapshot(ctx.tx, first)),
