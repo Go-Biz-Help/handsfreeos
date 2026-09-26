@@ -470,6 +470,7 @@ describe('registry', () => {
       'founding.restore',
       'founding.set_cap',
       'founding.set_status',
+      'phone_model.set',
       'money.save_settings',
       'push_device.register',
       'push_device.remove',

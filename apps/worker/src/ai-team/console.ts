@@ -14,7 +14,7 @@
  *   first request has no messages and gets the greeting (the pick-up, or the opening of a call it places to confirm
  *   a visit, ring back a missed call, follow up a quote or for a campaign); then each turn has the phone's tools and
  *   words, and a hand-off connects them to the team, which ends the call, as a goodbye does. It thinks with the
- *   call's model (VOICE_MODEL), and a reply it would start saying while it's still written (voice-agent/
+ *   model the business's calls do (its phone model, else VOICE_MODEL), and a reply it would start saying while it's still written (voice-agent/
  *   early-speech.ts) says so, with how long the first words took.
  */
 import type { AiMessage, AiProvider, AiToolCall, AiUsage } from '@hfos/ai';
@@ -69,6 +69,7 @@ import { fallbackOpening } from '../automations/campaigns';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { systemActor, type TenantScope } from '../services';
 import { EarlySpeech, streamSpoken } from '../voice-agent/early-speech';
+import { callModel } from '../voice-agent/index';
 import {
   alreadySaid,
   CANT_GO_ON,
@@ -115,6 +116,8 @@ export interface ConsoleDeps {
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
   /** The model that thinks on a call (VOICE_MODEL), when it isn't the usual one. */
   readonly voiceAi?: AiProvider | null;
+  /** The AI with a model named at run time: the business's phone model, when support picked one. */
+  readonly aiModel?: ((model: string) => AiProvider) | null;
   readonly webUrl: string;
   readonly log: Logger;
   /** The test chat's tokens are real tokens: a business trying its teammate out is charged for it like anything else. */
@@ -200,16 +203,16 @@ export async function prepareTest(
       },
     ]);
   const [ws] = await asWorker(deps.db, { workspaceId: input.workspaceId }, (tx) =>
-    rows<{ organization_id: string; timezone: string | null }>(
+    rows<{ organization_id: string; timezone: string | null; phone_model: string | null }>(
       tx,
-      sql`select organization_id, timezone from app.workspaces where id = ${input.workspaceId}`,
+      sql`select organization_id, timezone, phone_model from app.workspaces where id = ${input.workspaceId}`,
     ),
   );
   if (!ws) throw HfosError.notFound('Workspace not found.');
   const scope: TenantScope = { workspaceId: input.workspaceId, organizationId: ws.organization_id };
   const timeZone = ws.timezone || 'UTC';
   const now = input.at ? Date.parse(input.at) : Date.now();
-  const provider = (input.channel === 'phone' ? deps.voiceAi : null) ?? deps.ai.provider;
+  const provider = input.channel === 'phone' ? callModel(deps, ws.phone_model) : deps.ai.provider;
   if (!provider)
     throw HfosError.rule(
       'ai_not_configured',

@@ -3,6 +3,7 @@
  * and the admin side (businesses, health, looking at a business read-only). Browser-safe.
  */
 import { z } from 'zod';
+import { PHONE_MODELS } from '../ai-team/config';
 import { displayName, email, isoDateTime, uuid } from './common';
 
 export const TicketStatusValue = z.enum(['new', 'open', 'waiting_on_customer', 'solved', 'closed']);
@@ -289,8 +290,14 @@ export const BusinessListOutput = z.object({
 });
 
 export const BusinessGetInput = z.object({ workspaceId: uuid });
+
+/** A model support can pick for a business's calls; null is the worker's own (VOICE_MODEL). */
+export const PhoneModelValue = z.enum(PHONE_MODELS);
+
 export const BusinessGetOutput = z.object({
   business: BusinessRow,
+  /** The model its calls think with, when support picked one; null is the worker's VOICE_MODEL. */
+  phoneModel: PhoneModelValue.nullable(),
   people: z.array(
     z.object({
       userId: uuid,
@@ -370,6 +377,20 @@ export const WalletSetStageOutput = z.object({
   was: WalletStageValue,
   stage: WalletStageValue,
   /** False when it was already there, so a double-click is visibly a no-op rather than a second decision. */
+  changed: z.boolean(),
+});
+
+export const PhoneModelSetInput = z.object({
+  workspaceId: uuid,
+  /** Null puts it back on the worker's VOICE_MODEL. */
+  model: PhoneModelValue.nullable(),
+});
+
+export const PhoneModelSetOutput = z.object({
+  workspaceId: uuid,
+  was: PhoneModelValue.nullable(),
+  model: PhoneModelValue.nullable(),
+  /** False when it was already that, so a double-click is visibly a no-op. */
   changed: z.boolean(),
 });
 

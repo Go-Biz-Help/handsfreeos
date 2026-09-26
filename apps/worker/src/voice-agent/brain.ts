@@ -16,7 +16,7 @@
  * - `finishCall`: the words of the call on the call's record (the timeline and the inbox show them, and the next
  *   text reply reads them), and the run closed.
  */
-import type { AiUsage } from '@hfos/ai';
+import type { AiProvider, AiUsage } from '@hfos/ai';
 import {
   callAttachTranscript,
   callRecord,
@@ -70,6 +70,7 @@ import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import type { ProviderAccount } from '../telephony/provider';
 import { EarlySpeech, streamSpoken } from './early-speech';
+import { callModel } from './index';
 import {
   alreadySaid,
   CANT_GO_ON,
@@ -99,6 +100,7 @@ export type BrainDeps = Pick<
   | 'log'
   | 'ai'
   | 'voiceAi'
+  | 'aiModel'
   | 'wallet'
   | 'moneyLinks'
   | 'geocoder'
@@ -116,6 +118,8 @@ export interface PreparedCall {
   readonly conversationId: string;
   readonly teammate: TeammateRow;
   readonly config: TeammateConfig;
+  /** What thinks on this call: the business's phone model (callModel). */
+  readonly provider: AiProvider;
   readonly runId: string;
   readonly training: boolean;
   /** Someone on the team looks after this customer: it answers questions and connects the rest. */
@@ -186,8 +190,7 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
     workspaceId: ticket.workspaceId,
     organizationId: ticket.organizationId,
   };
-  const provider = deps.voiceAi ?? deps.ai.provider;
-  if (!provider) return { ok: false, why: 'no AI provider' };
+  if (!callModel(deps, null)) return { ok: false, why: 'no AI provider' };
   const meta = workerMeta(null, null);
   // A call it placed already has its record (the place job made it): this finds it by the call's sid.
   const placed = !!ticket.aiCallId;
@@ -258,6 +261,11 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
       const mine = conv.handledBy === 'ai' && conv.aiTeammateId === teammate.id;
       const free = conv.handledBy === 'none' && !conv.assigneeUserId;
       const epoch = free ? conv.aiEpoch + 1 : conv.aiEpoch;
+      const [ws] = await rows<{ phone_model: string | null }>(
+        tx,
+        sql`select phone_model from app.workspaces where id = ${scope.workspaceId}`,
+      );
+      const provider = callModel(deps, ws?.phone_model ?? null)!;
       await closeStaleCallRuns(tx, conv.id);
       const [made] = await rows<{ id: string }>(
         tx,
@@ -325,6 +333,7 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
           conversationId: conv.id,
           teammate,
           config,
+          provider,
           runId: made.id,
           training: teammate.status === 'training',
           personHasIt: !mine && !free,
@@ -420,9 +429,7 @@ export async function thinkTurn(
         : CONNECTING[tongue(language)],
     );
 
-  const provider = deps.voiceAi ?? deps.ai.provider;
-  if (!provider)
-    return transfer(language, 'error', 'The AI isn’t set up, so it couldn’t answer the call.');
+  const provider = call.provider;
   const rc: RunContext = {
     ...call.rc,
     batch,

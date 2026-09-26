@@ -80,6 +80,8 @@ export const workspaces = app.table('workspaces', {
   deletionRequestedBy: uuid('deletion_requested_by').references(() => users.id, {
     onDelete: 'set null',
   }),
+  /** The model its calls think with, picked by support in /admin; null is the worker's VOICE_MODEL. */
+  phoneModel: text('phone_model'),
   ...timestamps(),
 });
 

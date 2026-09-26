@@ -206,6 +206,7 @@ async function main(): Promise<void> {
     driving: roughDriveTimer,
     speech: createFakeSpeech(),
     voiceAi: null,
+    aiModel: null,
     // The seed never touches a real host; a branded domain in it is the fake's (M17).
     siteHost: createFakeHost(),
     opinly: null,

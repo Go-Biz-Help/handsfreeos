@@ -107,8 +107,11 @@ beforeAll(async () => {
   );
   accountSid = a!.account_sid;
   // An app on the world's services as they are now (the scripted model), listening for the websocket.
+  const usual = w.s.ai.provider!;
   app = await buildHttpServer({
     ...w.s,
+    // The model support picked for the business: the same stand-in, under that model's name.
+    aiModel: (model) => ({ id: usual.id, model, stream: (r, o) => usual.stream(r, o) }),
     httpDb: testDbs().worker.db,
     verifyToken: null,
     webOrigins: ['http://localhost:3000'],
@@ -414,6 +417,33 @@ describe('a call', () => {
     call.hangUp();
     const done = await waitForRun(callSid, 'done');
     expect(done.transcript).toContain(`Ava: Sure thing. ${rewrite}`);
+  });
+
+  it('thinks with the model support picked for the business', async () => {
+    const setModel = (model: string | null) =>
+      rows(
+        admin(),
+        sql`update app.workspaces set phone_model = ${model} where id = ${w.workspaceId}`,
+      );
+    await setModel('claude-haiku-4-5');
+    try {
+      const { xml, callSid } = await callIn();
+      const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+      await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+      const before = call.said.length;
+      call.speak('Are you open on Saturdays?');
+      await waitFor('the answer', () => call.said.slice(before).includes('Yes, we are.'));
+      call.hangUp();
+      await waitForRun(callSid, 'done');
+      const [run] = await rows<{ model: string }>(
+        admin(),
+        sql`select r.model from app.ai_teammate_runs r join app.calls c on c.id = r.call_id
+            where c.provider_sid = ${callSid}`,
+      );
+      expect(run!.model).toBe('claude-haiku-4-5');
+    } finally {
+      await setModel(null);
+    }
   });
 
   it('stops talking when the caller talks over it', async () => {

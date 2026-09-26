@@ -34447,6 +34447,105 @@
         }
       }
     },
+    "/v1/commands/phone_model.set": {
+      "post": {
+        "operationId": "command_phone_model_set",
+        "summary": "Support: pick the model the AI teammate thinks with on one business’s calls, or put it back on the default.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires platform.ai.manage. Emits phone_model.changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "claude-haiku-4-5"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "model"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "was": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "claude-haiku-4-5"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "model": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "claude-haiku-4-5"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "was",
+                    "model",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/money.save_settings": {
       "post": {
         "operationId": "command_money_save_settings",
@@ -47600,6 +47699,19 @@
                       ],
                       "additionalProperties": false
                     },
+                    "phoneModel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "claude-haiku-4-5"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "people": {
                       "type": "array",
                       "items": {
@@ -47755,6 +47867,7 @@
                   },
                   "required": [
                     "business",
+                    "phoneModel",
                     "people",
                     "counts",
                     "tickets",
