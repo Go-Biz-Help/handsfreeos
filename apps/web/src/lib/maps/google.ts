@@ -27,16 +27,45 @@ export interface GMap {
 export interface GShape {
   setMap(m: GMap | null): void;
 }
+interface FormattableText {
+  text: string;
+}
+interface PlacePrediction {
+  text: FormattableText;
+  mainText: FormattableText | null;
+  secondaryText: FormattableText | null;
+  toPlace(): {
+    fetchFields(req: { fields: string[] }): Promise<unknown>;
+    location?: LatLng | null;
+    formattedAddress?: string | null;
+  };
+}
+/** Places API (New): suggestions as someone types, one billing session from the first letter to the pick. */
+interface Places {
+  AutocompleteSessionToken: new () => object;
+  AutocompleteSuggestion: {
+    fetchAutocompleteSuggestions(req: {
+      input: string;
+      sessionToken: object;
+      includedRegionCodes?: string[];
+    }): Promise<{ suggestions: { placePrediction: PlacePrediction | null }[] }>;
+  };
+}
 export interface GoogleMaps {
   Map: new (el: HTMLElement, opts: Record<string, unknown>) => GMap;
   Circle: new (opts: Record<string, unknown>) => GShape & { getBounds(): unknown };
-  Polygon: new (opts: Record<string, unknown>) => GShape;
-  Marker: new (opts: Record<string, unknown>) => GShape;
+  Polygon: new (opts: Record<string, unknown>) => GShape & {
+    setPaths(p: readonly LatLngLiteral[]): void;
+  };
+  Marker: new (opts: Record<string, unknown>) => GShape & {
+    addListener(name: 'drag' | 'dragend', fn: (e: { latLng: LatLng | null }) => void): unknown;
+  };
   Geocoder: new () => {
     geocode(req: {
       address: string;
     }): Promise<{ results: { geometry: { location: LatLng }; formatted_address: string }[] }>;
   };
+  places: Places;
 }
 
 declare global {
@@ -65,6 +94,7 @@ export function loadGoogleMaps(): Promise<GoogleMaps> {
     script.src = `https://maps.googleapis.com/maps/api/js?${new URLSearchParams({
       key,
       v: 'weekly',
+      libraries: 'places',
       callback: '__hfosMapsReady',
     })}`;
     script.async = true;
@@ -93,6 +123,57 @@ export async function findPlace(
   } catch {
     return null;
   }
+}
+
+export interface AddressSuggestion {
+  /** "1500 Marilla St" */
+  readonly main: string;
+  /** "Dallas, TX, USA" */
+  readonly more: string;
+  /** Where it is, and Google's name for it. Ends the typing session it came from. */
+  readonly place: () => Promise<{ point: LatLngLiteral; formatted: string } | null>;
+}
+
+/**
+ * US addresses matching what's typed so far, from Places API (New), which the browser key needs turned on. Each
+ * search keeps one session token until a suggestion is picked, so Google bills the typing and the pick as one
+ * lookup. Rejects when Places isn't available; the Find button (the Geocoder) still works then.
+ */
+export function addressSearch(): (input: string) => Promise<AddressSuggestion[]> {
+  let session: object | null = null;
+  return async (input) => {
+    const { places } = await loadGoogleMaps();
+    const sessionToken = (session ??= new places.AutocompleteSessionToken());
+    const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+      input,
+      sessionToken,
+      includedRegionCodes: ['us'],
+    });
+    return suggestions.flatMap(({ placePrediction: p }) =>
+      p
+        ? [
+            {
+              main: p.mainText?.text ?? p.text.text,
+              more: p.secondaryText?.text ?? '',
+              place: async () => {
+                if (session === sessionToken) session = null;
+                const place = p.toPlace();
+                try {
+                  await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+                } catch {
+                  return null;
+                }
+                if (!place.location) return null;
+                return {
+                  point: { lat: place.location.lat(), lng: place.location.lng() },
+                  formatted: place.formattedAddress ?? p.text.text,
+                };
+              },
+            },
+          ]
+        : [],
+    );
+  };
 }
 
 export const METERS_PER_MILE = 1609.344;

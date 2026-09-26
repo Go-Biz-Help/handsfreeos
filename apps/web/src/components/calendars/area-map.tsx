@@ -13,7 +13,8 @@ const US_MIDDLE: LatLngLiteral = { lat: 39.5, lng: -98.35 };
 
 /**
  * The map in a service area's dialog (M18). A distance area shows its circle; a drawn area adds a corner where
- * you click and shows the shape so far. `focus` moves the map there (an address someone looked up).
+ * you click, moves one you drag, and shows the shape so far. `focus` moves the map there (an address someone
+ * looked up).
  */
 export function AreaMap({
   kind,
@@ -22,6 +23,7 @@ export function AreaMap({
   corners,
   focus,
   onCorner,
+  onMoveCorner,
 }: {
   kind: 'radius' | 'polygon';
   center: LatLngLiteral | null;
@@ -29,6 +31,7 @@ export function AreaMap({
   corners: readonly LatLngLiteral[];
   focus: LatLngLiteral | null;
   onCorner?: (p: LatLngLiteral) => void;
+  onMoveCorner?: (i: number, p: LatLngLiteral) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const [maps, setMaps] = useState<GoogleMaps | null>(null);
@@ -37,6 +40,8 @@ export function AreaMap({
   const shapes = useRef<GShape[]>([]);
   const cornerRef = useRef(onCorner);
   cornerRef.current = onCorner;
+  const moveRef = useRef(onMoveCorner);
+  moveRef.current = onMoveCorner;
 
   useEffect(() => {
     let live = true;
@@ -96,17 +101,36 @@ export function AreaMap({
       map.current.fitBounds(circle.getBounds());
     }
     if (kind === 'polygon') {
-      if (corners.length >= 2)
-        shapes.current.push(new maps.Polygon({ ...style, map: map.current, paths: corners }));
-      for (const [i, c] of corners.entries())
-        shapes.current.push(
-          new maps.Marker({
-            map: map.current,
-            position: c,
-            label: String(i + 1),
-            clickable: false,
-          }),
-        );
+      const shape =
+        corners.length >= 2
+          ? new maps.Polygon({ ...style, map: map.current, paths: corners })
+          : null;
+      if (shape) shapes.current.push(shape);
+      const movable = !!moveRef.current;
+      for (const [i, c] of corners.entries()) {
+        const pin = new maps.Marker({
+          map: map.current,
+          position: c,
+          label: String(i + 1),
+          title: movable ? `Corner ${i + 1}. Drag to move it.` : `Corner ${i + 1}`,
+          clickable: movable,
+          draggable: movable,
+        });
+        if (movable) {
+          // The shape follows the corner while it moves; the corner is kept where it's let go.
+          const at = (e: { latLng: { lat(): number; lng(): number } | null }) =>
+            e.latLng ? { lat: e.latLng.lat(), lng: e.latLng.lng() } : null;
+          pin.addListener('drag', (e) => {
+            const p = at(e);
+            if (p && shape) shape.setPaths(corners.map((x, j) => (j === i ? p : x)));
+          });
+          pin.addListener('dragend', (e) => {
+            const p = at(e);
+            if (p) moveRef.current?.(i, p);
+          });
+        }
+        shapes.current.push(pin);
+      }
     }
   }, [maps, kind, center, miles, corners]);
 
@@ -121,7 +145,11 @@ export function AreaMap({
       ref={el}
       className="h-[260px] w-full overflow-hidden rounded-md border border-border bg-card-2"
       data-testid="area-map"
-      aria-label={kind === 'polygon' ? 'Map: click to add a corner' : 'Map of the area'}
+      aria-label={
+        kind === 'polygon'
+          ? 'Map: click to add a corner, drag a corner to move it'
+          : 'Map of the area'
+      }
     />
   );
 }

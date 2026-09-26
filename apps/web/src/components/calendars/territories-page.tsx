@@ -16,6 +16,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { TerritoryItem } from '@/lib/api/types';
 import { findPlace, mapsKey, type LatLngLiteral } from '@/lib/maps/google';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { AddressInput } from './address-input';
 import { AreaMap } from './area-map';
 
 /** Five-digit ZIP codes found in some text ("77002, 77003 77004"). */
@@ -261,20 +262,24 @@ function TerritoryDialog({
   const milesValue = Number(miles);
   const milesOk = Number.isFinite(milesValue) && milesValue >= 0.1 && milesValue <= 250;
 
+  /** An address found, typed and Found or picked from Google's suggestions: the map goes there. */
+  function goTo(found: { point: LatLngLiteral; formatted: string } | null) {
+    if (!found) {
+      toast.error('That address wasn’t found on the map. Check it and try again.');
+      return;
+    }
+    setFocus(found.point);
+    if (kind === 'radius') {
+      setCenter(found.point);
+      setAddress(found.formatted);
+    }
+  }
+
   async function find() {
     if (!address.trim()) return;
     setFinding(true);
     try {
-      const found = await findPlace(address.trim());
-      if (!found) {
-        toast.error('That address wasn’t found on the map. Check it and try again.');
-        return;
-      }
-      setFocus(found.point);
-      if (kind === 'radius') {
-        setCenter(found.point);
-        setAddress(found.formatted);
-      }
+      goTo(await findPlace(address.trim()));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -387,23 +392,17 @@ function TerritoryDialog({
                 htmlFor="territory-address"
                 hint={
                   kind === 'radius'
-                    ? 'Usually your shop or office. Find it, then set how far you go.'
-                    : 'Then click the map to add each corner of the area, in order.'
+                    ? 'Usually your shop or office. Start typing and pick it (or press Find), then set how far you go.'
+                    : 'Then click the map to add each corner of the area, in order. Drag a corner to move it.'
                 }
               >
                 <div className="flex gap-2">
-                  <Input
+                  <AddressInput
                     id="territory-address"
                     value={address}
-                    maxLength={300}
-                    placeholder="1500 Marilla St, Dallas, TX"
-                    onChange={(e) => setAddress(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void find();
-                      }
-                    }}
+                    onChange={setAddress}
+                    onPick={goTo}
+                    onFind={() => void find()}
                   />
                   <Button
                     type="button"
@@ -436,6 +435,11 @@ function TerritoryDialog({
                 onCorner={
                   kind === 'polygon'
                     ? (p) => setCorners((cs) => (cs.length >= 200 ? cs : [...cs, p]))
+                    : undefined
+                }
+                onMoveCorner={
+                  kind === 'polygon'
+                    ? (i, p) => setCorners((cs) => cs.map((c, j) => (j === i ? p : c)))
                     : undefined
                 }
               />
