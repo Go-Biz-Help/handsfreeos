@@ -5,6 +5,7 @@ import {
   TEST_CALL_GOAL_MAX,
   TEST_CALL_REASONS,
   TEST_CHANNEL_NAMES,
+  restToSay,
   testSamples,
   testVerb,
   type AiCallPurpose,
@@ -83,6 +84,8 @@ interface Turn {
   readonly ms: number | null;
   /** A call's reply started being said this long in, while the rest was written. */
   readonly firstWordsMs: number | null;
+  /** On a call, the reply's sentences a real call says while the rest is written, as they come. */
+  readonly early: readonly string[];
   readonly error: string | null;
 }
 
@@ -149,6 +152,11 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
       return t;
     case 'delta':
       return { ...t, reply: t.reply + e.text };
+    // The words it's saying show as they're said; the reply replaces them once it's done.
+    case 'say': {
+      const early = [...t.early, e.text];
+      return { ...t, early, reply: early.join(' ') };
+    }
     case 'context':
       return {
         ...t,
@@ -295,6 +303,8 @@ export function TestConsole({
   const talking = voiceSnap.phase !== 'off';
   /** The turns already read out (or not to be), so each reply is said once. */
   const said = useRef(new Set<string>());
+  /** For the reply being written: how many of its early sentences have been said, and in which turn of the voice. */
+  const saying = useRef<{ id: string; count: number; generation: number } | null>(null);
   const chatRef = useRef<HTMLDivElement | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
   const phone = channel === 'phone';
@@ -402,6 +412,7 @@ export function TestConsole({
       toolSteps: 0,
       ms: null,
       firstWordsMs: null,
+      early: [],
       error: null,
     };
     setTurns([...before, turn]);
@@ -474,17 +485,37 @@ export function TestConsole({
     if (!busy) void listenTurn();
   }
 
-  // Out loud, each reply is said in the teammate's voice as soon as it's done, then it listens for the answer,
+  // Out loud, a reply starts being said while it's written, a checked sentence at a time, as a real call says it;
+  // talking over it stops it.
+  useEffect(() => {
+    if (!phone || !talking || !last || last.done || said.current.has(last.id)) return;
+    const s = saying.current?.id === last.id ? saying.current : null;
+    const count = s?.count ?? 0;
+    if (last.early.length <= count) return;
+    if (s && voice.generation !== s.generation) {
+      said.current.add(last.id);
+      return;
+    }
+    voice.hold(true);
+    for (const sentence of last.early.slice(count)) voice.speak(sentence);
+    saying.current = { id: last.id, count: last.early.length, generation: voice.generation };
+  }, [phone, talking, last, voice]);
+
+  // Then the rest of it once it's done (all of it when nothing was said early), and it listens for the answer,
   // until the call ends.
   useEffect(() => {
     if (!phone || !talking || !last?.done || said.current.has(last.id)) return;
     said.current.add(last.id);
+    voice.hold(false);
     if (last.error) {
       voice.idle(last.error);
       return;
     }
+    const s = saying.current?.id === last.id ? saying.current : null;
+    // They talked over the start of it: the rest isn't said either.
+    if (s && voice.generation !== s.generation) return;
     const cut = voice.generation;
-    const reply = last.reply.trim();
+    const reply = restToSay(s ? last.early.slice(0, s.count) : [], last.reply);
     const ended = last.ended;
     void (async () => {
       if (reply) voice.speak(reply);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseTestEvent,
   readTestEvents,
+  restToSay,
   TestConsoleInput,
   testSamples,
   testVerb,
@@ -93,6 +94,27 @@ describe('the stream', () => {
       kind: 'note',
     });
     expect(parseTestEvent({ type: 'mystery' })).toBeNull();
+  });
+
+  it('reads a sentence said while the reply is written, and skips an empty one', () => {
+    expect(parseTestEvent({ type: 'say', text: 'We’re open eight to five.' })).toEqual({
+      type: 'say',
+      text: 'We’re open eight to five.',
+    });
+    expect(parseTestEvent({ type: 'say', text: ' ' })).toBeNull();
+  });
+
+  it('says only the rest of a reply that was started early, or all of one that changed', () => {
+    const said = ['Yes, we are.', 'We open at nine.'];
+    expect(restToSay(said, 'Yes, we are.  We open at nine.\nAnything else?')).toBe(
+      'Anything else?',
+    );
+    expect(restToSay(said, 'Yes, we are. We open at nine.')).toBe('');
+    expect(restToSay([], 'Hi there.')).toBe('Hi there.');
+    // A hand-off after the early words: its own line is said whole.
+    expect(restToSay(said, 'One moment, I’ll connect you with the team.')).toBe(
+      'One moment, I’ll connect you with the team.',
+    );
   });
 
   it('splits a stream into whole events, whatever its line endings', () => {

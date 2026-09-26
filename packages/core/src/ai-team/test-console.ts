@@ -28,6 +28,9 @@
  *   the connection open and are ignored. Every `at` is ISO 8601.
  *     { type: 'started', runId, at }
  *     { type: 'delta', text }                     the reply grows by `text`
+ *     { type: 'say', text }                       a phone test: a sentence of the reply, checked, that a real call
+ *                                                 says now while the rest is written (out loud, the console says it
+ *                                                 too); `done`'s reply has all of it
  *     { type: 'context', title, detail, at }      what it read first ("Read who he is")
  *     { type: 'knowledge', query, items: { id, title }[], at }
  *     { type: 'tool', name, title, detail, at }   a look-up (name is a TeammateToolName)
@@ -155,6 +158,8 @@ export type TestOutcome = (typeof TEST_OUTCOMES)[number];
 export type TestEvent =
   | { readonly type: 'started'; readonly runId: string; readonly at: string }
   | { readonly type: 'delta'; readonly text: string }
+  /** A phone test: a checked sentence of the reply that a real call says now, while it writes the rest. */
+  | { readonly type: 'say'; readonly text: string }
   | {
       readonly type: 'context' | 'note';
       readonly title: string;
@@ -218,6 +223,10 @@ export function parseTestEvent(raw: unknown): TestEvent | null {
     case 'started': {
       const runId = words(raw.runId);
       return runId ? { type: 'started', runId, at } : null;
+    }
+    case 'say': {
+      const text = words(raw.text);
+      return text ? { type: 'say', text } : null;
     }
     case 'delta': {
       const text = str(raw.text);
@@ -327,6 +336,17 @@ export function readTestEvents(buffer: string): { events: TestEvent[]; rest: str
 }
 
 // ---- The console's words, the same on the web and the phone ----
+
+/**
+ * What's left to say of a call's reply once these sentences were said while it was written (`say` events): the
+ * reply after them, or all of it when it doesn't start with them (a rewrite, or connecting them to the team).
+ */
+export function restToSay(said: readonly string[], reply: string): string {
+  const whole = reply.replace(/\s+/g, ' ').trim();
+  const start = said.join(' ').replace(/\s+/g, ' ').trim();
+  if (!start || !whole.startsWith(start)) return whole;
+  return whole.slice(start.length).trim();
+}
 
 /** Why it calls, as the console's picker says it. */
 export const TEST_CALL_REASONS: Readonly<Record<AiCallPurpose, string>> = {

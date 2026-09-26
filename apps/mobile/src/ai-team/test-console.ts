@@ -69,6 +69,8 @@ export interface Turn {
   readonly ms: number | null;
   /** A call's reply started being said this long in, while the rest was written. */
   readonly firstWordsMs: number | null;
+  /** On a call, the reply's sentences a real call says while the rest is written, as they come. */
+  readonly early: readonly string[];
   readonly error: string | null;
 }
 
@@ -124,6 +126,7 @@ export function newTurn(o: {
     toolSteps: 0,
     ms: null,
     firstWordsMs: null,
+    early: [],
     error: null,
   };
 }
@@ -167,6 +170,11 @@ export function stepTurn(t: Turn, e: TestEvent, now = new Date().toISOString()):
       return t;
     case 'delta':
       return { ...t, reply: t.reply + e.text };
+    // The words it's saying show as they're said; the reply replaces them once it's done.
+    case 'say': {
+      const early = [...t.early, e.text];
+      return { ...t, early, reply: early.join(' ') };
+    }
     case 'context':
       return { ...t, log: [...t.log, line(e.at, 'run', 'who', e.title, { detail: e.detail })] };
     case 'note':

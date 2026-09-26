@@ -20,6 +20,8 @@ type Answer = (body: TestConsoleBody) => readonly TestEvent[];
 const mockAnswer = jest.fn<readonly TestEvent[], [TestConsoleBody]>();
 const mockBodies: TestConsoleBody[] = [];
 let mockOffline = false;
+/** While set, a caller's reply's `done` waits for it: what's said before is said while it's still written. */
+let mockBeforeDone: Promise<void> | null = null;
 jest.mock('@/ai-team/test-stream', () => {
   const actual = jest.requireActual('@/ai-team/test-stream') as typeof TestStream;
   return {
@@ -27,7 +29,10 @@ jest.mock('@/ai-team/test-stream', () => {
     streamTest: async (body: TestConsoleBody, onEvent: (e: TestEvent) => void) => {
       mockBodies.push(body);
       if (mockOffline) throw new actual.TestConsoleError(actual.NO_SIGNAL, 'no_signal');
-      for (const e of mockAnswer(body)) onEvent(e);
+      for (const e of mockAnswer(body)) {
+        if (e.type === 'done' && body.messages.length && mockBeforeDone) await mockBeforeDone;
+        onEvent(e);
+      }
     },
   };
 });
@@ -219,6 +224,47 @@ describe('a test call', () => {
         'Thursday at 10 works.',
       ),
     );
+
+    await fireEvent.press(screen.getByTestId('voice-stop'));
+    await waitFor(() => expect(screen.queryByTestId('voice-bar')).toBeNull());
+  }, 20_000);
+
+  it('talks out loud while the reply is written, then says only the rest', async () => {
+    answer((body) =>
+      body.messages.length
+        ? [
+            { type: 'say', text: 'Thursday at 10 works.' },
+            done('Thursday at 10 works. Shall I book it?', { firstWordsMs: 400 }),
+          ]
+        : [done('Thanks for calling Lone Star.')],
+    );
+    audio.__recorder.meter = (ms) => (ms > 100 && ms < 600 ? -20 : -60);
+    mockHear.mockResolvedValue({ text: 'Can I book Thursday?', language: 'en' });
+    mockSay.mockReset();
+    let clips = 0;
+    mockSay.mockImplementation(async () => `file:///cache/clip-${++clips}.mp3`);
+    const said = () => mockSay.mock.calls.map((c) => (c[0] as { text: string }).text);
+    await render(<Harness />);
+    await choose('test-channel-phone');
+    await fireEvent.press(screen.getByTestId('test-console-talk'));
+    await waitFor(() => expect(screen.getByTestId('voice-bar')).toBeTruthy());
+
+    let release = () => {};
+    mockBeforeDone = new Promise((resolve) => {
+      release = resolve;
+    });
+    try {
+      await fireEvent.press(screen.getByTestId('test-console-start-call'));
+      await waitFor(() => expect(mockBodies).toHaveLength(2), { timeout: 8000 });
+      // The reply isn't done, and its first sentence is already being said.
+      await waitFor(() => expect(said()).toContain('Thursday at 10 works.'));
+      expect(said()).not.toContain('Shall I book it?');
+    } finally {
+      mockBeforeDone = null;
+      release();
+    }
+    await waitFor(() => expect(said()).toContain('Shall I book it?'));
+    expect(said()).not.toContain('Thursday at 10 works. Shall I book it?');
 
     await fireEvent.press(screen.getByTestId('voice-stop'));
     await waitFor(() => expect(screen.queryByTestId('voice-bar')).toBeNull());
