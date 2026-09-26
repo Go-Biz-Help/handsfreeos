@@ -1,6 +1,6 @@
 /**
- * The usage rate card (Milestone 16, "The wallet"): what a text, a minute of talking, a phone number or a
- * million AI tokens costs a business. Pure and browser-safe, so the same rate reads the same on the usage page,
+ * The usage rate card (Milestone 16, "The wallet"): what a text, a minute of talking, a phone number, a
+ * million AI tokens or the AI's hearing and speaking costs a business. Pure and browser-safe, so the same rate reads the same on the usage page,
  * in the ledger and in the worker that prices an event.
  *
  * **The shape lives here; the numbers live in the database.** `platform.usage_rates` is a table and not a
@@ -28,8 +28,9 @@ const BP_SCALE = 10_000;
  * Everything a business can be charged for. A key names the thing **and the direction**, because inbound and
  * outbound cost us different amounts and a card that blurs them cannot be checked against a carrier's invoice.
  *
- * `voice.transcription` is deliberately **not** here: at Deepgram's price a three-minute call costs two cents to
- * transcribe, which is cheaper to bundle into the plan than to meter, bill, reconcile and gate (see 2.2).
+ * Speech (Deepgram) was once left out as too cheap to meter. It isn't any more: talking out loud and the AI
+ * answering calls live use far more of it than transcripts did, so every use is tallied and billed at 1.5×, in
+ * running totals rather than per clip, because one sentence costs a small fraction of a cent.
  */
 export const USAGE_KEYS = [
   // ---------- phone numbers, per month ----------
@@ -52,6 +53,16 @@ export const USAGE_KEYS = [
   'ai.output.mtok',
   'ai.cache_read.mtok',
   'ai.cache_write.mtok',
+  // ---------- the AI's hearing and voice (Deepgram) ----------
+  /** Listening live while the AI teammate is on a phone call, per minute of the call. */
+  'speech.live.minute',
+  /**
+   * Turning a recording into words, per minute of audio: talking out loud to the Assistant or on a test call,
+   * and call and voicemail transcripts (each side of a two-sided recording counts).
+   */
+  'speech.recording.minute',
+  /** The AI speaking, per thousand characters it says: on calls, and when talking out loud. */
+  'speech.voice.kchar',
   /**
    * A model with no line of its own. Deliberately dear: a new model has to be priced on purpose, and a card
    * that silently bills an unknown one at nothing is how a month of AI goes out free.
@@ -64,7 +75,7 @@ export const isUsageKey = (value: unknown): value is UsageKey =>
   typeof value === 'string' && (USAGE_KEYS as readonly string[]).includes(value);
 
 /** What a quantity counts. The unit is the card's, not the caller's: passing minutes for an `mtok` key is a bug. */
-export const USAGE_UNITS = ['month', 'segment', 'message', 'minute', 'mtok'] as const;
+export const USAGE_UNITS = ['month', 'segment', 'message', 'minute', 'mtok', 'kchar'] as const;
 export type UsageUnit = (typeof USAGE_UNITS)[number];
 
 export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
@@ -81,6 +92,9 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'ai.output.mtok': 'mtok',
   'ai.cache_read.mtok': 'mtok',
   'ai.cache_write.mtok': 'mtok',
+  'speech.live.minute': 'minute',
+  'speech.recording.minute': 'minute',
+  'speech.voice.kchar': 'kchar',
   'ai.unknown.mtok': 'mtok',
 };
 
@@ -318,6 +332,32 @@ export const SEED_RATES: readonly {
     minChargeCents: 0,
     roundUpTo: 'none',
     notes: 'claude-sonnet-5 cache write, a quarter more than input. Charged $3.75.',
+  },
+  {
+    key: 'speech.live.minute',
+    costMicros: 9_200,
+    markupBp: 15_000,
+    minChargeCents: 2,
+    roundUpTo: 'none',
+    notes:
+      'Deepgram Nova-3 streaming, English and Spanish, $0.0092 a minute. Charged 1.38¢, billed in running totals.',
+  },
+  {
+    key: 'speech.recording.minute',
+    costMicros: 5_200,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes:
+      'Deepgram Nova-3 pre-recorded, English and Spanish, $0.0052 a minute. Charged 0.78¢, billed in running totals.',
+  },
+  {
+    key: 'speech.voice.kchar',
+    costMicros: 30_000,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes: 'Deepgram Aura 2, $0.030 per 1,000 characters. Charged 4.5¢, billed in running totals.',
   },
   {
     key: 'ai.unknown.mtok',

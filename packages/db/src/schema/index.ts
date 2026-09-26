@@ -4578,6 +4578,7 @@ export const usageUnit = platform.enum('usage_unit', [
   'message',
   'minute',
   'mtok',
+  'kchar',
 ]);
 export const usageRounding = platform.enum('usage_rounding', ['none', 'minute', 'six_seconds']);
 
@@ -4720,6 +4721,23 @@ export const usageLedger = app.table('usage_ledger', {
   }),
   meta: jsonb('meta').notNull().default({}),
   occurredAt: ts('occurred_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
+ * The AI's hearing and voice (Deepgram), one use at a time, in exact quantities: a sentence costs a fraction of a
+ * cent, so the worker bills these in batches (money/speech-usage.ts) rather than a ledger row each.
+ */
+export const speechUsage = app.table('speech_usage', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  rateKey: text('rate_key').notNull(),
+  quantity: numeric('quantity').notNull(),
+  source: text('source').notNull(),
+  ref: text('ref'),
+  batchId: uuid('batch_id'),
+  chargedAt: ts('charged_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
@@ -5804,6 +5822,7 @@ export const tables = {
   usageRates,
   usageWallets,
   usageLedger,
+  speechUsage,
   walletRecharges,
 
   migrationConnections,

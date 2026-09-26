@@ -61,6 +61,14 @@ export const aiUsageKey = (aiUsageId: string): string => `ai:${need(aiUsageId, '
 export const assistantUsageKey = (runId: string): string =>
   `assistant:${need(runId, 'assistant run id')}`;
 
+/**
+ * One running total of speech, for one price line: everything a business heard and said since the last one,
+ * claimed as a batch before it's charged. The batch's id is the key, so a sweep that charges it twice (a crash
+ * between charging and marking it charged) counts it once.
+ */
+export const speechUsageKey = (batchId: string, rateKey: string): string =>
+  `speech:${need(batchId, 'speech batch id')}:${need(rateKey, 'rate key')}`;
+
 /** One top-up. The recharge row's id, which is written before the provider is ever called. */
 export const topUpUsageKey = (rechargeId: string): string =>
   `topup:${need(rechargeId, 'recharge id')}`;

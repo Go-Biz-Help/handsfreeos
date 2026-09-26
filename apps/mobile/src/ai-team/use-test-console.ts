@@ -9,6 +9,8 @@ import {
 import * as Crypto from 'expo-crypto';
 import * as React from 'react';
 
+import { useVoice } from '@/voice/use-voice';
+
 import { firstName, historyOf, newTurn, stepTurn, type Turn } from './test-console';
 import { streamTest, TestConsoleError, type TestFailure } from './test-stream';
 
@@ -22,6 +24,9 @@ export interface TestPerson {
  * The phone's test console: who to be, how (text, chat, email, or a call either way and why), when, and the turns
  * so far. Each turn goes to the worker (`streamTest`) and grows as its events come back. Changing who, how or why
  * starts over, as the web's does. Nothing is kept on the phone: a test isn't a change.
+ *
+ * On a call, talking out loud plays it for real, as on the web: the manager says what the caller says, and hears
+ * each reply in the teammate's own phone voice, then it listens again, until the call ends.
  */
 export function useTestConsole(workspaceId: string, name: string) {
   const [person, setPersonRaw] = React.useState<TestPerson | null>(null);
@@ -38,6 +43,11 @@ export function useTestConsole(workspaceId: string, name: string) {
   /** Why the console can't be used at all (no signal, not in this build, the route isn't there). */
   const [failure, setFailure] = React.useState<TestFailure | null>(null);
   const abort = React.useRef<AbortController | null>(null);
+  // The saved settings are what's tested, so it speaks in the teammate's saved voice (null asks the worker).
+  const { session: voice, snap: voiceSnap } = useVoice(workspaceId, null);
+  const talking = voiceSnap.phase !== 'off';
+  /** The turns already read out (or not to be), so each reply is said once. */
+  const said = React.useRef(new Set<string>());
 
   const phone = channel === 'phone';
   const outbound = phone && direction === 'outbound';
@@ -74,13 +84,20 @@ export function useTestConsole(workspaceId: string, name: string) {
     abort.current?.abort();
     abort.current = null;
     setBusy(false);
-  }, []);
+    voice.quiet();
+  }, [voice]);
 
   const startOver = React.useCallback(() => {
     stop();
+    said.current.clear();
     setTurns([]);
     setFailure(null);
   }, [stop]);
+
+  // Talking out loud is for calls.
+  React.useEffect(() => {
+    if (!phone) voice.stop();
+  }, [phone, voice]);
 
   /** Changing who, how or why starts the test over. */
   const restarting =
@@ -99,6 +116,9 @@ export function useTestConsole(workspaceId: string, name: string) {
     const kind = phone ? (message ? 'call' : 'greeting') : 'written';
     if ((kind !== 'greeting' && !message) || (busy && !restart)) return;
     if (restart) stop();
+    // Typed while it listened or spoke: that turn is the one going now.
+    if (voice.phase === 'listening' || voice.phase === 'speaking') voice.quiet();
+    voice.thinking();
     const before = restart ? [] : turns;
     const id = Crypto.randomUUID();
     setTurns([
@@ -148,6 +168,8 @@ export function useTestConsole(workspaceId: string, name: string) {
         setFailure(failed.failure);
         setTurns((xs) => xs.filter((x) => x.id !== id));
         if (message) setText((typed) => typed || message);
+        // The screen says why; there's nothing to answer out loud.
+        voice.idle();
       } else
         update(id, (t) => ({
           ...t,
@@ -164,6 +186,57 @@ export function useTestConsole(workspaceId: string, name: string) {
 
   const send = (raw: string) => void run(raw);
   const startCall = () => void run('', true);
+  /** The latest `send`, for a turn heard after the screen has moved on. */
+  const sendRef = React.useRef(send);
+  sendRef.current = send;
+
+  /** Hears what the caller says, and says it. */
+  const listenTurn = React.useCallback(async () => {
+    const words = await voice.listen();
+    if (words) sendRef.current(words);
+  }, [voice]);
+
+  // Out loud, each reply is said in the teammate's voice as soon as it's done, then it listens for the answer,
+  // until the call ends.
+  React.useEffect(() => {
+    if (!phone || !talking || !last?.done || said.current.has(last.id)) return;
+    said.current.add(last.id);
+    if (last.error) {
+      voice.idle(last.error);
+      return;
+    }
+    const cut = voice.generation;
+    const reply = last.reply.trim();
+    const ended = last.ended;
+    void (async () => {
+      if (reply) voice.speak(reply);
+      await voice.finishSpeaking();
+      if (!voice.on || voice.generation !== cut) return;
+      if (ended) voice.idle();
+      else await listenTurn();
+    })();
+  }, [phone, talking, last, voice, listenTurn]);
+
+  async function toggleTalk() {
+    if (talking) {
+      voice.stop();
+      return;
+    }
+    if (!(await voice.start())) return;
+    // What's already on screen isn't read out: it starts with what comes next.
+    for (const t of turns) if (t.done) said.current.add(t.id);
+    if (onCall && !callOver && !busy) void listenTurn();
+  }
+
+  /** Talk: listen now, or start the call when there's none going. */
+  function talkNow() {
+    if (!onCall || callOver) {
+      if (!cantCall) startCall();
+      else voice.idle(cantCall);
+      return;
+    }
+    if (!busy) void listenTurn();
+  }
 
   return {
     person,
@@ -196,6 +269,12 @@ export function useTestConsole(workspaceId: string, name: string) {
     startCall,
     stop,
     startOver,
+    /** Talking out loud on a call. */
+    voice,
+    voiceSnap,
+    talking,
+    toggleTalk,
+    talkNow,
   };
 }
 

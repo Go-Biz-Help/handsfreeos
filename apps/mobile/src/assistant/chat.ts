@@ -157,7 +157,11 @@ export interface AssistantChat {
   /** Null until the phone knows whether the person has said OK. */
   readonly consentNeeded: boolean | null;
   giveConsent(): Promise<void>;
-  ask(text: string): void;
+  /**
+   * Asks a question; `spoken` when it was said out loud, so the answer is written to be heard. Answers whether it
+   * went (not while another answer is coming, or before the person's OK).
+   */
+  ask(text: string, opts?: { readonly spoken?: boolean }): boolean;
   retry(answerKey: string): void;
   stop(): void;
   newChat(): void;
@@ -234,13 +238,13 @@ export function useAssistantChat(
   }, []);
 
   const ask = React.useCallback(
-    (raw: string) => {
+    (raw: string, opts: { readonly spoken?: boolean } = {}): boolean => {
       const text = raw.trim();
-      if (!text || streamRef.current) return;
+      if (!text || streamRef.current) return false;
       // Nothing goes to the AI service before the person's OK: the question waits for it.
       if (consentNeeded) {
         waitingQuestion.current = text;
-        return;
+        return false;
       }
       const now = new Date().toISOString();
       const userKey = newKey('q');
@@ -328,6 +332,7 @@ export function useAssistantChat(
               ...(current ? { threadId: current } : {}),
               text,
               page: pageRef.current,
+              ...(opts.spoken ? { spoken: true } : {}),
             },
             onEvent,
             controller.signal,
@@ -372,6 +377,7 @@ export function useAssistantChat(
           }
         }
       })();
+      return true;
     },
     [consentNeeded, patchAnswer, setCall, setThread, userId, workspaceId],
   );
