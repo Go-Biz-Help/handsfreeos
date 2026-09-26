@@ -6,11 +6,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { toast } from 'sonner';
-import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 export const MY_SETTINGS_CHANGED = 'hfos:my-settings-changed';
 
@@ -45,21 +46,30 @@ const MenuContext = createContext<MenuValue>({
 
 export const useMenu = (): MenuValue => useContext(MenuContext);
 
+/** `settings.menu` exactly as saved, or null when the person never arranged it. */
+const savedMenuOf = (settings: unknown): unknown =>
+  typeof settings === 'object' && settings !== null && !Array.isArray(settings)
+    ? ((settings as Record<string, unknown>)['menu'] ?? null)
+    : null;
+
 /**
  * The person's own side menu. Seeded from their settings on the server, so the
  * first paint is already their menu; a save sends `settings.menu` whole (user.update_profile replaces a top-level
  * key) and every menu on the page — the sidebar, the phone's drawer and the editor — follows at once. It reads
- * the saved menu again when the Assistant changes their settings, and before every save, so a menu saved
- * elsewhere is never overwritten with an older one. The editor itself (menu-editor.tsx) is rendered by the
- * workspace layout inside this provider.
+ * the saved menu again when the Assistant changes their settings. Each save also says which saved menu it was
+ * arranged on, and the server refuses it if a newer one was saved elsewhere since, so an older menu never
+ * overwrites it. The editor itself (menu-editor.tsx) is rendered by the workspace layout inside this provider.
  */
 export function MenuProvider({ settings, children }: { settings: unknown; children: ReactNode }) {
   const [menu, setMenu] = useState<Menu>(() => menuOf(settings));
   const [editorOpen, setEditorOpen] = useState(false);
+  // What the drawn menu was read from, exactly as saved: the save sends it back for the server to check.
+  const savedAs = useRef<unknown>(savedMenuOf(settings));
 
   /** The menu as saved now, drawn if it differs. */
   const reload = useCallback(async () => {
     const me = unwrap(await apiBrowser().POST('/v1/queries/account.me', { body: {} }));
+    savedAs.current = savedMenuOf(me.user.settings);
     const saved = menuOf(me.user.settings);
     setMenu((now) => (sameMenu(now, saved) ? now : saved));
     return saved;
@@ -76,26 +86,29 @@ export function MenuProvider({ settings, children }: { settings: unknown; childr
     async (next: Menu) => {
       const before = menu;
       if (sameMenu(before, next)) return true;
-      let saved: Menu;
-      try {
-        saved = await reload();
-      } catch (e) {
-        toast.error(errorMessage(e));
-        throw e;
-      }
-      // Saved from the Assistant or another device since this menu was drawn: the whole menu is replaced on
-      // save, so saving now would undo that.
-      if (!sameMenu(saved, before)) return false;
+      const stored = storedMenu(next);
       setMenu(next);
       try {
         unwrap(
           await apiBrowser().POST('/v1/commands/user.update_profile', {
-            body: { settings: { menu: storedMenu(next) } },
+            body: { settings: { menu: stored }, expectedSettings: { menu: savedAs.current } },
           }),
         );
+        savedAs.current = stored;
         return true;
       } catch (e) {
         setMenu(before);
+        // Saved from the Assistant or another device since this menu was drawn: nothing was saved, and that
+        // menu is drawn instead.
+        if (e instanceof ApiError && e.rule === 'settings_changed') {
+          try {
+            await reload();
+            return false;
+          } catch (again) {
+            toast.error(errorMessage(again));
+            throw again;
+          }
+        }
         toast.error(errorMessage(e));
         throw e;
       }

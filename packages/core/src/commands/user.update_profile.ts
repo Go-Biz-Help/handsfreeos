@@ -2,12 +2,14 @@ import { eq } from 'drizzle-orm';
 import { users } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
+import { canonicalJson } from '../kernel/receipts';
 import { UserUpdateProfileInput, UserUpdateProfileOutput } from '../schemas/user';
 import { requireHuman } from '../kernel/actor';
 
 export const userUpdateProfile = defineCommand({
   name: 'user.update_profile',
-  description: 'Update your own name, photo or preferences.',
+  description:
+    'Update your own name, photo or preferences. Each settings key is replaced whole; `expectedSettings` says what the caller last read, and a key that has changed since refuses the save (409 settings_changed).',
   risk: 1,
   input: UserUpdateProfileInput,
   output: UserUpdateProfileOutput,
@@ -15,11 +17,20 @@ export const userUpdateProfile = defineCommand({
   scope: () => ({ kind: 'account' }),
   emits: ['user.profile_updated'],
   async handler(ctx, input) {
+    // Locked until this saves: settings are written back whole, so two saves at once (the menu editor and the
+    // Assistant) wait their turn, and each checks what it expected against what the other just saved.
     const [current] = await ctx.tx
       .select()
       .from(users)
-      .where(eq(users.id, requireHuman(ctx).userId));
+      .where(eq(users.id, requireHuman(ctx).userId))
+      .for('update');
     if (!current) throw HfosError.notFound('Profile not found.');
+    for (const [key, expected] of Object.entries(input.expectedSettings ?? {}))
+      if (canonicalJson(current.settings[key] ?? null) !== canonicalJson(expected ?? null))
+        throw HfosError.conflict(
+          'That was changed somewhere else in the meantime, so nothing was saved. Look at it again, then save.',
+          'settings_changed',
+        );
     const patch: {
       fullName?: string;
       avatarUrl?: string | null;

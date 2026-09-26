@@ -811,7 +811,7 @@ describe('the AI teammate', () => {
       owner,
     );
     expect(greetingOn.card.warnings.map((w) => w.text)).toContain(
-      'Not working until set up: New lead greeting: Turn on Respond on the AI teammate’s page to start.',
+      'Not working until set up: New lead greeting: Turn on Respond for your AI teammate to start.',
     );
 
     const on = await prepare(

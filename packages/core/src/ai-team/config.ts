@@ -60,7 +60,10 @@ const Channels = z.object({
 // ---- Skills ----
 
 const Respond = z.object({
-  /** Replies to leads who write in. */
+  /**
+   * The switch on the whole section: off, new leads get no first message. Replies to people who write in don’t
+   * depend on it (channels, hours and status decide those).
+   */
   enabled: z.boolean().default(true),
   /** Messages new leads first: a text when consent allows it, otherwise an email. */
   newLeads: z

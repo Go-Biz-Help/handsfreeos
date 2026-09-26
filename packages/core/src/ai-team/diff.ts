@@ -120,7 +120,8 @@ export function diffTeammateConfigs(
   if (a.phone.greeting !== b.phone.greeting) lines.push('Phone greeting changed');
 
   // Respond and answer
-  change('Replies to leads', a.respond.enabled, b.respond.enabled, onOff);
+  // The Respond section’s switch: it gates the first message to new leads, not replies to people who write in.
+  change('Respond', a.respond.enabled, b.respond.enabled, onOff);
   change('Messages new leads', a.respond.newLeads.enabled, b.respond.newLeads.enabled, onOff);
   change('First message by', a.respond.newLeads.channel, b.respond.newLeads.channel, (v) =>
     v === 'sms' ? 'text' : 'email',

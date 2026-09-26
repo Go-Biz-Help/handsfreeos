@@ -224,6 +224,27 @@ describe('automation rows', () => {
     expect(automationRow(def('day_before_confirmation'), ctx()).needsSetup).toBeNull();
   });
 
+  it('says the New lead greeting isn’t working while the teammate’s Respond switch is off', () => {
+    const quiet = teammate('automatic');
+    (quiet.config['respond'] as Record<string, unknown>)['enabled'] = false;
+    const row = automationRow(def('new_lead_greeting'), ctx({ teammate: quiet }));
+    // Its own switch is still on: only Respond is missing.
+    expect(row).toMatchObject({
+      on: true,
+      working: false,
+      needsSetup: { code: 'respond_on', text: 'Turn on Respond for your AI teammate to start.' },
+    });
+    expect(automationCounts(automationRows(ctx({ teammate: quiet }))).needsSetup).toBe(2);
+    // An AI teammate that's off says that first.
+    const off = { ...quiet, status: 'off' as const };
+    expect(automationRow(def('new_lead_greeting'), ctx({ teammate: off })).needsSetup?.code).toBe(
+      'teammate_on',
+    );
+    expect(
+      automationRow(def('new_lead_greeting'), ctx({ teammate: teammate('automatic') })).working,
+    ).toBe(true);
+  });
+
   it('reads the teammate’s own defaults: greeting new leads and following up on', () => {
     const rows = new Map(
       automationRows(ctx({ teammate: teammate('automatic') })).map((r) => [r.def.id, r.on]),

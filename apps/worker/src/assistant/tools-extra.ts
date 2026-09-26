@@ -704,9 +704,6 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
       if (def.effect === 'texts' || def.effect === 'calls') reaching.push(def.label);
       const after = automationRow(def, at);
       if (after.needsSetup) notes.push(`${def.label}: ${after.needsSetup.text}`);
-      // The greeting is one switch inside the teammate's Respond section, which has a switch of its own.
-      else if (id === 'new_lead_greeting' && state.teammate?.config.respond.enabled === false)
-        notes.push(`${def.label}: Turn on Respond on the AI teammate’s page to start.`);
     }
   }
 
@@ -1058,13 +1055,25 @@ const arrangeMyMenu: SettingsConfirmTool = {
   },
 
   async commit(db, ctx, args) {
-    const me = await meOf(db, ctx);
-    const menu = menuOf(me.user.settings);
-    const { next, refused } = nextMenu(menu, args);
-    if (refused.length) throw HfosError.validation([], alwaysShown(refused));
-    if (sameMenu(menu, next)) throw nothingChanges();
-    // `settings.menu` is replaced whole, the same save the menu editor makes.
-    await command(db, ctx, 'user.update_profile', { settings: { menu: storedMenu(next) } });
+    // Made on the menu as saved now. `settings.menu` is replaced whole, the same save the menu editor makes, so it
+    // says which menu it was made on: one saved in between (the editor, another device) is read again and the
+    // change made on that instead, once.
+    for (let tries = 1; ; tries += 1) {
+      const me = await meOf(db, ctx);
+      const menu = menuOf(me.user.settings);
+      const { next, refused } = nextMenu(menu, args);
+      if (refused.length) throw HfosError.validation([], alwaysShown(refused));
+      if (sameMenu(menu, next)) throw nothingChanges();
+      try {
+        await command(db, ctx, 'user.update_profile', {
+          settings: { menu: storedMenu(next) },
+          expectedSettings: { menu: me.user.settings['menu'] ?? null },
+        });
+        break;
+      } catch (e) {
+        if (tries > 1 || !(e instanceof HfosError && e.rule === 'settings_changed')) throw e;
+      }
+    }
     return {
       outcome: 'Menu saved',
       href: `/app/w/${ctx.workspaceId}/settings`,

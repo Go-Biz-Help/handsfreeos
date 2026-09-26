@@ -5323,6 +5323,13 @@
               "type": "string"
             },
             "additionalProperties": {}
+          },
+          "expectedSettings": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
           }
         }
       }

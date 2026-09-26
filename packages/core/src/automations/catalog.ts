@@ -91,6 +91,8 @@ export const AUTOMATION_REQUIREMENTS = [
   'maintenance_schedule',
   // AI outbound calls: the AI teammate answers the phone (its phone settings are on).
   'voice_on',
+  // The New lead greeting: the switch on the teammate’s whole Respond section is on too.
+  'respond_on',
 ] as const;
 export type AutomationRequirement = (typeof AUTOMATION_REQUIREMENTS)[number];
 
@@ -161,7 +163,7 @@ export const AUTOMATIONS = [
     defaultOn: true,
     binding: { store: 'teammate', path: 'respond.newLeads.enabled' },
     customerFacing: 'ai',
-    needs: ['teammate_on'],
+    needs: ['teammate_on', 'respond_on'],
     adjust: 'new_lead',
   },
   {
