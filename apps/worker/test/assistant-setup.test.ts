@@ -649,7 +649,7 @@ describe('numbers, and who sees which conversations', () => {
 
   /**
    * This once failed for everyone, on the screen too: the command asked private.user_has_permission(), which only
-   * the worker may call. It asks private.works_the_inbox() now (20261009000100_who_a_number_rings.sql).
+   * the worker may call. It asks private.works_the_inbox() now (20261009000300_who_a_number_rings.sql).
    */
   it('rings the people chosen once Confirmed', async () => {
     const args = { action: 'choose_who_it_rings', phoneNumberId: first, userIds: [member.id] };

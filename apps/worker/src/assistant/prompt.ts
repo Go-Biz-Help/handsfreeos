@@ -66,6 +66,10 @@ export function alwaysLoaded(offered: readonly string[]): ReadonlySet<string> {
 }
 const EVERYDAY_TOOLS = ['search_customers', 'get_customer', 'get_settings', 'settings_help'];
 
+/** Voice mode: the answer is read out, and a card waiting for their OK is answered by saying yes or no. */
+export const SPOKEN =
+  'They are talking to you out loud, and your answer is read to them. Write it to be heard: short spoken sentences, no lists, tables, links or symbols, and times and amounts as people say them. When a card waits for their OK, say in one sentence what it will do; they will be asked to say yes or no.';
+
 export interface PromptContext {
   readonly businessName: string;
   readonly personName: string;
@@ -123,6 +127,8 @@ export interface PromptContext {
   }[];
   /** The business profile's brief (quoted) and the rules for what the Assistant says about the business. */
   readonly knowledge?: { readonly brief: string; readonly rules: string } | null;
+  /** They're talking out loud and hear the answer read to them (voice mode). */
+  readonly spoken?: boolean;
   /** The Action Center's top items in Home's order, with their ids (the attention tools act on them). */
   readonly attention?: {
     readonly scope: 'mine' | 'everyone';
@@ -272,6 +278,7 @@ export function contextText(c: PromptContext): string {
         ]
       : []),
     ...(c.page ? pageLines(c.page) : ['No customer, lead or appointment is on screen.']),
+    ...(c.spoken ? [SPOKEN] : []),
   ];
   return lines.join('\n');
 }

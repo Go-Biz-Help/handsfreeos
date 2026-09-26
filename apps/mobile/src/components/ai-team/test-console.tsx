@@ -25,6 +25,7 @@ import {
   Hourglass,
   Info,
   MessageSquare,
+  Mic,
   Phone,
   PhoneCall,
   PhoneIncoming,
@@ -43,6 +44,7 @@ import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
+import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import {
   turnHeading,
   turnMeta,
@@ -62,7 +64,8 @@ import { useColors } from '@/theme';
  * call either way (they call in, or it calls them to confirm a visit, ring back a missed call, follow up a quote or
  * for a campaign), now or at a pretend time. The reply streams in, and "What Ava did" shows what it looked up, the
  * knowledge it used, the checks it passed, and anything it would have done. Look-ups are real, changes are
- * pretend, and nothing is sent. It tests the saved settings: the builder is on the web.
+ * pretend, and nothing is sent. It tests the saved settings: the builder is on the web. On a call, the mic talks
+ * out loud: say what the caller says, and hear the teammate answer in its phone voice.
  */
 
 /** A customer it can be, with what a search matches. */
@@ -229,6 +232,18 @@ export function TestConsoleView({
                 >
                   Start the call
                 </Button>
+                <Button
+                  size="md"
+                  variant={c.talking ? 'primary' : 'secondary'}
+                  icon={Mic}
+                  accessibilityState={{ selected: c.talking }}
+                  accessibilityHint={`Say what the caller says, and hear ${name} answer out loud`}
+                  onPress={() => void c.toggleTalk()}
+                  testID="test-console-talk"
+                >
+                  {c.talking ? 'Talking out loud' : 'Talk out loud'}
+                </Button>
+                <VoiceError snap={c.voiceSnap} className="text-center" />
                 {c.cantCall && c.outbound && !c.person ? (
                   <Button variant="ghost" size="sm" onPress={() => setSetupOpen(true)}>
                     Pick a customer
@@ -245,6 +260,7 @@ export function TestConsoleView({
               </View>
             ) : null}
           </ScrollView>
+          {c.phone ? <VoiceBar session={c.voice} snap={c.voiceSnap} onTalk={c.talkNow} /> : null}
           {c.canWrite ? <Composer c={c} /> : null}
         </View>
       ) : (
@@ -287,7 +303,9 @@ export function TestConsoleView({
         <Text className="min-w-0 flex-1 text-xs leading-[16px] text-text-3">
           Tests don’t count toward training wheels and never reach a customer. It tests the saved
           settings.
-          {c.phone ? ' On a test call nothing rings: you type what they say.' : ''}
+          {c.phone
+            ? ` On a test call nothing rings: type what they say, or tap the mic to say it and hear ${name} answer.`
+            : ''}
         </Text>
       </View>
 
@@ -447,6 +465,24 @@ function Composer({ c }: { c: TestConsoleState }) {
         ))}
       </ScrollView>
       <View className="flex-row items-end gap-1.5 px-2.5">
+        {c.phone ? (
+          <Pressable
+            role="button"
+            accessibilityLabel={c.talking ? 'Stop talking' : 'Talk out loud'}
+            accessibilityState={{ selected: c.talking }}
+            testID="test-console-mic"
+            onPress={() => void c.toggleTalk()}
+            className={cn(
+              'size-11 shrink-0 items-center justify-center rounded-full border active:bg-card-2',
+              c.talking ? 'border-accent bg-accent-soft' : 'border-border-strong',
+            )}
+          >
+            <Icon
+              as={Mic}
+              className={cn('size-[18px]', c.talking ? 'text-accent-text' : 'text-text-2')}
+            />
+          </Pressable>
+        ) : null}
         <View className="min-h-11 min-w-0 flex-1 justify-center rounded-[22px] border border-border-strong bg-card px-4 py-1">
           <TextInput
             value={c.text}

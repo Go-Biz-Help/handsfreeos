@@ -33,6 +33,7 @@ import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { calls, userPhones } from '@hfos/db/schema';
 import type { EventHandler } from '../handlers/types';
 import type { JobContext, JobHandler } from '../jobs';
+import { noteSpeech } from '../money/speech-usage';
 import { errorMessage } from '../outbox';
 import {
   tenantOf,
@@ -365,6 +366,15 @@ export const callTranscribeJob: JobHandler = async (ctx) => {
   // A transcriber that answers in the same call (Deepgram, and the fake) is done here; one that takes the work
   // is read back by `call.transcript`.
   if (started.status === 'completed') {
+    // What it cost to hear is the business's, at 1.5× (money/speech-usage.ts).
+    await noteSpeech(ctx, scope, [
+      {
+        key: 'speech.recording.minute',
+        quantity: started.billedMinutes ?? 0,
+        source: 'transcript',
+        ref: recordingSid,
+      },
+    ]);
     const transcript = await wordsOf(ctx, scope, call, started.sentences);
     await settleTranscript(ctx, scope, target.account, callId, transcript, {
       recordingSid,

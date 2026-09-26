@@ -328,6 +328,8 @@ export const AssistantAskInput = z.object({
   threadId: uuid.optional(),
   text: z.string().trim().min(1).max(4000),
   page: AssistantPageRecord.nullable().default(null),
+  /** They're talking out loud and hear the answer read to them (voice mode): it's written to be said. */
+  spoken: z.boolean().default(false),
 });
 
 export const assistantErrorCode = z.enum([

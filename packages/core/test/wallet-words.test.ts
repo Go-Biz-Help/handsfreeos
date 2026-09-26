@@ -10,6 +10,7 @@ import {
   cardLine,
   MIN_TOPUP_CENTS,
   topUpCapLine,
+  usageQuantityWords,
   type WalletShown,
 } from '../src/money/wallet-words';
 
@@ -99,5 +100,16 @@ describe('where a balance card opens', () => {
         href: `/app/w/${ws}/settings/usage`,
         label: 'Open your balance',
       });
+  });
+});
+
+describe('how much a statement line was for', () => {
+  it('says the thing itself, not the price list’s unit', () => {
+    expect(usageQuantityWords(2.34, 'kchar')).toBe('2,340 characters');
+    expect(usageQuantityWords(0.0012, 'mtok')).toBe('1,200 tokens');
+    expect(usageQuantityWords(12.46, 'minute')).toBe('12.5 minutes');
+    expect(usageQuantityWords(1, 'minute')).toBe('1 minute');
+    expect(usageQuantityWords(3, 'segment')).toBe('3 segments');
+    expect(usageQuantityWords(1, 'month')).toBe('1 month');
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { TerritoryItem } from '@/lib/api/types';
-import { findPlace, mapsKey, type LatLngLiteral } from '@/lib/maps/google';
+import { addressAt, findPlace, mapsKey, type LatLngLiteral } from '@/lib/maps/google';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { AddressInput } from './address-input';
 import { AreaMap } from './area-map';
 
 /** Five-digit ZIP codes found in some text ("77002, 77003 77004"). */
@@ -261,20 +262,38 @@ function TerritoryDialog({
   const milesValue = Number(miles);
   const milesOk = Number.isFinite(milesValue) && milesValue >= 0.1 && milesValue <= 250;
 
+  // Counts changes to a distance area's point and address, so a slow lookup for an older pin never wins.
+  const placed = useRef(0);
+
+  /** An address found, typed and Found or picked from Google's suggestions: the map goes there. */
+  function goTo(found: { point: LatLngLiteral; formatted: string } | null) {
+    if (!found) {
+      toast.error('That address wasn’t found on the map. Check it and try again.');
+      return;
+    }
+    setFocus(found.point);
+    if (kind === 'radius') {
+      placed.current += 1;
+      setCenter(found.point);
+      setAddress(found.formatted);
+    }
+  }
+
+  /** The pin dragged somewhere else: measured from there, named by the address Google has for it. */
+  function moveCenter(p: LatLngLiteral) {
+    const n = (placed.current += 1);
+    setCenter(p);
+    setAddress(`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`);
+    void addressAt(p).then((a) => {
+      if (a && placed.current === n) setAddress(a);
+    });
+  }
+
   async function find() {
     if (!address.trim()) return;
     setFinding(true);
     try {
-      const found = await findPlace(address.trim());
-      if (!found) {
-        toast.error('That address wasn’t found on the map. Check it and try again.');
-        return;
-      }
-      setFocus(found.point);
-      if (kind === 'radius') {
-        setCenter(found.point);
-        setAddress(found.formatted);
-      }
+      goTo(await findPlace(address.trim()));
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -387,23 +406,20 @@ function TerritoryDialog({
                 htmlFor="territory-address"
                 hint={
                   kind === 'radius'
-                    ? 'Usually your shop or office. Find it, then set how far you go.'
-                    : 'Then click the map to add each corner of the area, in order.'
+                    ? 'Usually your shop or office. Start typing and pick it (or press Find), or drag the pin on the map. Then set how far you go.'
+                    : 'Then click the map to add each corner of the area, in order. Drag a corner to move it.'
                 }
               >
                 <div className="flex gap-2">
-                  <Input
+                  <AddressInput
                     id="territory-address"
                     value={address}
-                    maxLength={300}
-                    placeholder="1500 Marilla St, Dallas, TX"
-                    onChange={(e) => setAddress(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void find();
-                      }
+                    onChange={(text) => {
+                      placed.current += 1;
+                      setAddress(text);
                     }}
+                    onPick={goTo}
+                    onFind={() => void find()}
                   />
                   <Button
                     type="button"
@@ -438,6 +454,12 @@ function TerritoryDialog({
                     ? (p) => setCorners((cs) => (cs.length >= 200 ? cs : [...cs, p]))
                     : undefined
                 }
+                onMoveCorner={
+                  kind === 'polygon'
+                    ? (i, p) => setCorners((cs) => cs.map((c, j) => (j === i ? p : c)))
+                    : undefined
+                }
+                onMoveCenter={kind === 'radius' ? moveCenter : undefined}
               />
               {kind === 'polygon' ? (
                 <div className="flex items-center justify-between gap-2">

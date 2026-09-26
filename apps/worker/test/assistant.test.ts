@@ -24,6 +24,8 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
+import type { AiProvider } from '@hfos/ai';
+import { SPOKEN } from '../src/assistant/prompt';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -54,6 +56,7 @@ let app: FastifyInstance;
 async function build(
   assistant: 'scripted' | null,
   dailyTokens = 5_000_000,
+  provider: AiProvider = scriptedAssistant(),
 ): Promise<FastifyInstance> {
   const s = testServices();
   const httpDb = testDbs().worker.db;
@@ -65,9 +68,7 @@ async function build(
       jwtIssuer: `${env.supabaseUrl}/auth/v1`,
     }),
     webOrigins: ['http://localhost:3000'],
-    assistant: assistant
-      ? { provider: scriptedAssistant(), tools: createToolExecutor(httpDb), dailyTokens }
-      : null,
+    assistant: assistant ? { provider, tools: createToolExecutor(httpDb), dailyTokens } : null,
   });
 }
 
@@ -164,6 +165,26 @@ afterAll(async () => {
 describe('the Assistant', () => {
   it('has an executor for every tool it can offer', () => {
     expect(assistantTools.map((t) => t.name).filter((n) => !executorFor(n))).toEqual([]);
+  });
+
+  it('writes its answer to be heard when the question was asked out loud', async () => {
+    const contexts: string[] = [];
+    const inner = scriptedAssistant();
+    const listening = await build('scripted', 5_000_000, {
+      ...inner,
+      stream: (request, options) => {
+        contexts.push(request.context ?? '');
+        return inner.stream(request, options);
+      },
+    });
+    try {
+      await ask(ownerToken, 'What needs attention?', { spoken: true }, listening);
+      expect(contexts.at(-1)).toContain(SPOKEN);
+      await ask(ownerToken, 'What needs attention?', {}, listening);
+      expect(contexts.at(-1)).not.toContain(SPOKEN);
+    } finally {
+      await listening.close();
+    }
   });
 
   it('answers a question with a card built from real records', async () => {

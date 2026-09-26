@@ -22,6 +22,8 @@ export interface AskBody {
   readonly text: string;
   /** The customer, lead or conversation the mark was pressed on, so "text her…" means them. */
   readonly page: PageRecord | null;
+  /** Asked out loud: the answer is written to be heard. */
+  readonly spoken?: boolean;
 }
 
 /** Where a card stands after Confirm, Cancel or Undo. */

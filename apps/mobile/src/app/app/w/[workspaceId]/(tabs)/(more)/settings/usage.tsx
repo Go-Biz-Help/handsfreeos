@@ -6,6 +6,7 @@ import {
   money,
   parseMoney,
   topUpCapLine,
+  usageQuantityWords,
   whenLabel,
   type BalanceTone,
 } from '@hfos/core';
@@ -607,7 +608,9 @@ function Row({
         </Text>
         <Text className="text-[12px] text-text-3" numberOfLines={1}>
           {whenLabel(Date.parse(entry.occurredAt), timeZone)}
-          {entry.quantity !== null && entry.unit ? ` · ${entry.quantity} ${entry.unit}` : ''}
+          {entry.quantity !== null && entry.unit
+            ? ` · ${usageQuantityWords(entry.quantity, entry.unit)}`
+            : ''}
         </Text>
       </View>
       <View className="items-end gap-px">

@@ -292,6 +292,16 @@ export const usagePrices = defineQuery({
       priceOf(card, 'ai.cache_read.mtok', 0.008).amountCents +
       priceOf(card, 'ai.input.mtok', 0.0012).amountCents +
       priceOf(card, 'ai.output.mtok', 0.0005).amountCents;
+    /**
+     * Speech costs a fraction of a cent a minute and is billed in running totals, so it's shown for ten of
+     * something: one minute on its own would read as the floor rather than the price.
+     */
+    const tenOf = (key: UsageKey, what: string, unit: string) => ({
+      key,
+      what,
+      unit,
+      cents: priceOf(card, key, 10).amountCents,
+    });
     return {
       version: card.version,
       items: [
@@ -305,6 +315,9 @@ export const usagePrices = defineQuery({
         say('number.local.month', 'A phone number', 'a month'),
         say('number.tollfree.month', 'A toll-free number', 'a month'),
         { key: null, what: 'An AI reply', unit: 'about', cents: Math.max(1, aiReply) },
+        tenOf('speech.live.minute', 'The AI listening on a call', 'for 10 minutes'),
+        tenOf('speech.recording.minute', 'Talk turned into words', 'for 10 minutes'),
+        tenOf('speech.voice.kchar', 'The AI speaking', 'for 10,000 characters'),
       ],
     };
   },

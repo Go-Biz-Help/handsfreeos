@@ -17,6 +17,7 @@ import {
   numberMonthUsageKey,
   reconcileUsageKey,
   smsUsageKey,
+  speechUsageKey,
   topUpUsageKey,
 } from '../src/money/usage-keys';
 
@@ -81,6 +82,15 @@ describe('the rest', () => {
     expect(assistantUsageKey('r1')).toBe('assistant:r1');
     // An assistant run and an ai_usage row with the same id are different events.
     expect(aiUsageKey('x')).not.toBe(assistantUsageKey('x'));
+  });
+
+  it('names a running total of speech by its batch and its price line', () => {
+    expect(speechUsageKey('b1', 'speech.voice.kchar')).toBe('speech:b1:speech.voice.kchar');
+    // One batch is charged a line per key, so the keys must differ.
+    expect(speechUsageKey('b1', 'speech.live.minute')).not.toBe(
+      speechUsageKey('b1', 'speech.voice.kchar'),
+    );
+    expect(() => speechUsageKey('', 'speech.voice.kchar')).toThrow();
   });
 
   it('names a top-up by the recharge row, which exists before the card is ever charged', () => {

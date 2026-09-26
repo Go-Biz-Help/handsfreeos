@@ -1,6 +1,7 @@
 'use client';
 import {
   AI_CALL_PURPOSES,
+  PHONE_VOICES,
   TEST_CALL_GOAL_MAX,
   TEST_CALL_REASONS,
   TEST_CHANNEL_NAMES,
@@ -20,6 +21,7 @@ import {
   Hourglass,
   Info,
   MessageSquare,
+  Mic,
   Phone,
   PhoneCall,
   PhoneIncoming,
@@ -40,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
+import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { checkViews, firstName, plural, toolName } from '@/lib/ai-team/describe';
 import {
   streamTest,
@@ -51,6 +54,7 @@ import type { RunOutcome } from '@/lib/ai-team/types';
 import { errorMessage } from '@/lib/api/client';
 import { toLocalInputValue } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useVoice } from '@/lib/voice/use-voice';
 import { clockSeconds } from '@/lib/workflows/run-words';
 import { LogRow, type LogLine, type LogTone } from './log';
 import { AiTile, TeammateMark } from './mark';
@@ -233,6 +237,12 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
   }
 }
 
+/** The phone voice in the builder's draft, so a test call sounds like the settings being tested. */
+function draftVoice(config: unknown): (typeof PHONE_VOICES)[number] | null {
+  const phone = (config as { phone?: { voice?: unknown } } | null)?.phone;
+  return PHONE_VOICES.find((v) => v === phone?.voice) ?? null;
+}
+
 /**
  * The test console: a manager writes as a customer (someone in Customers, or an unknown visitor) by text,
  * chat or email, or plays a phone call (they call in, or the teammate calls them to confirm a visit, ring back
@@ -240,6 +250,9 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
  * then what the teammate looked up, the knowledge it used, the checks the reply passed, and anything it would
  * have done. Look-ups are real, changes are simulated, and nothing is sent. Full screen on phones; the phone
  * app has the same console (apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx).
+ *
+ * On a call, Talk out loud plays it for real: the manager says what the caller says, and hears each reply in
+ * the teammate's phone voice (the draft's), then it listens again, until the call ends.
  */
 export function TestConsole({
   open,
@@ -272,6 +285,10 @@ export function TestConsole({
   const [missing, setMissing] = useState(false);
   const [pane, setPane] = useState<'chat' | 'log'>('chat');
   const abort = useRef<AbortController | null>(null);
+  const { session: voice, snap: voiceSnap } = useVoice(workspaceId, draftVoice(config));
+  const talking = voiceSnap.phase !== 'off';
+  /** The turns already read out (or not to be), so each reply is said once. */
+  const said = useRef(new Set<string>());
   const chatRef = useRef<HTMLDivElement | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
   const phone = channel === 'phone';
@@ -307,6 +324,10 @@ export function TestConsole({
   useEffect(() => {
     for (const el of [chatRef.current, logRef.current]) if (el) el.scrollTop = el.scrollHeight;
   }, [turns]);
+  // Talking out loud is for calls.
+  useEffect(() => {
+    if (!phone) voice.stop();
+  }, [phone, voice]);
 
   const update = (id: string, fn: (t: Turn) => Turn) =>
     setTurns((xs) => xs.map((x) => (x.id === id ? fn(x) : x)));
@@ -315,10 +336,12 @@ export function TestConsole({
     abort.current?.abort();
     abort.current = null;
     setBusy(false);
+    voice.quiet();
   }
 
   function startOver() {
     stop();
+    said.current.clear();
     setTurns([]);
   }
 
@@ -336,6 +359,9 @@ export function TestConsole({
     const kind: TurnKind = phone ? (message ? 'call' : 'greeting') : 'written';
     if ((kind !== 'greeting' && !message) || (busy && !restart)) return;
     if (restart) stop();
+    // Typed while it listened or spoke: that turn is the one going now.
+    if (voice.phase === 'listening' || voice.phase === 'speaking') voice.quiet();
+    voice.thinking();
     const id = crypto.randomUUID();
     const before = restart ? [] : turns;
     const history: TestMessage[] = before.flatMap((t) => [
@@ -398,6 +424,7 @@ export function TestConsole({
       if (testConsoleMissing(e)) {
         setMissing(true);
         setTurns((xs) => xs.filter((x) => x.id !== id));
+        voice.stop();
       } else update(id, (t) => ({ ...t, done: true, error: errorMessage(e) }));
     } finally {
       if (abort.current === ctrl) {
@@ -409,6 +436,58 @@ export function TestConsole({
 
   const send = (raw: string) => void run(raw);
   const startCall = () => void run('', true);
+  /** The latest `send`, for a turn heard after the screen has moved on. */
+  const sendRef = useRef(send);
+  sendRef.current = send;
+
+  /** Hears what the caller says, and says it. */
+  async function listenTurn() {
+    const words = await voice.listen();
+    if (words) sendRef.current(words);
+  }
+
+  async function toggleTalk() {
+    if (talking) {
+      voice.stop();
+      return;
+    }
+    if (!(await voice.start())) return;
+    // What's already on screen isn't read out: it starts with what comes next.
+    for (const t of turns) if (t.done) said.current.add(t.id);
+    if (onCall && !callOver && !busy) void listenTurn();
+  }
+
+  /** Talk: listen now, or start the call when there's none going. */
+  function talkNow() {
+    if (!onCall || callOver) {
+      if (!cantCall) startCall();
+      else voice.idle(cantCall);
+      return;
+    }
+    if (!busy) void listenTurn();
+  }
+
+  // Out loud, each reply is said in the teammate's voice as soon as it's done, then it listens for the answer,
+  // until the call ends.
+  useEffect(() => {
+    if (!phone || !talking || !last?.done || said.current.has(last.id)) return;
+    said.current.add(last.id);
+    if (last.error) {
+      voice.idle(last.error);
+      return;
+    }
+    const cut = voice.generation;
+    const reply = last.reply.trim();
+    const ended = last.ended;
+    void (async () => {
+      if (reply) voice.speak(reply);
+      await voice.finishSpeaking();
+      if (!voice.on || voice.generation !== cut) return;
+      if (ended) voice.idle();
+      else await listenTurn();
+    })();
+    // listenTurn reads the latest send through its ref.
+  }, [phone, talking, last, voice]);
 
   const meta = (t: Turn) =>
     t.done
@@ -431,7 +510,10 @@ export function TestConsole({
     <DialogPrimitive.Root
       open={open}
       onOpenChange={(o) => {
-        if (!o) stop();
+        if (!o) {
+          stop();
+          voice.stop();
+        }
         onOpenChange(o);
       }}
     >
@@ -583,6 +665,18 @@ export function TestConsole({
                     data-testid="test-call-goal"
                   />
                 ) : null}
+                <Button
+                  size="sm"
+                  variant={talking ? 'primary' : 'secondary'}
+                  aria-pressed={talking}
+                  title={`Say what the caller says, and hear ${name} answer in its phone voice`}
+                  onClick={() => void toggleTalk()}
+                  data-testid="test-console-talk"
+                >
+                  <Mic className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  {talking ? 'Talking out loud' : 'Talk out loud'}
+                </Button>
+                <VoiceError snap={voiceSnap} className="w-full" />
               </div>
             ) : null}
           </div>
@@ -739,6 +833,7 @@ export function TestConsole({
                       </div>
                     ) : null}
                   </div>
+                  {phone ? <VoiceBar session={voice} snap={voiceSnap} onTalk={talkNow} /> : null}
                   {canWrite ? (
                     <div className="flex-none border-t border-border bg-card px-3.5 pb-3.5 pt-2.5">
                       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -834,7 +929,7 @@ export function TestConsole({
               Tests don’t count toward training wheels and never reach a customer.
               {unsaved ? ' It tests your unsaved changes too.' : ''}{' '}
               {phone
-                ? 'On a test call nothing rings: you type what they say, and read what it would say out loud.'
+                ? `On a test call nothing rings: type what they say, or turn on Talk out loud to say it and hear ${name} answer.`
                 : 'Pick “Website chat” to test as an unknown visitor.'}
             </span>
           </p>

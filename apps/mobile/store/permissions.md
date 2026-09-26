@@ -21,12 +21,13 @@ npx expo prebuild --no-install                  # what the native project says
 Each string is in `app.json` — on the plugin that needs it, not in a list of its own — and says what the app does with
 the thing, in the app's own voice.
 
-| Key                                 | Words shown                                                               | Asked when                                                         | Set by                             |
-| ----------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
-| `NSCameraUsageDescription`          | "HandsFreeOS uses the camera to take photos for your customers' records." | Taking a photo for a customer's record or a reply                  | `expo-image-picker` plugin         |
-| `NSPhotoLibraryUsageDescription`    | "HandsFreeOS adds the photos you choose to your customers' records."      | Choosing a photo already on the phone                              | `expo-image-picker` plugin         |
-| `NSFaceIDUsageDescription`          | "Face ID unlocks HandsFreeOS on this iPhone."                             | Unlocking the app, and confirming anything that reaches a customer | `expo-local-authentication` plugin |
-| `NSPhotoLibraryAddUsageDescription` | "HandsFreeOS saves the QR codes you choose to save to your photos."       | Save Image in the share sheet, after Save the QR code on a form    | `app.json`'s `ios.infoPlist`       |
+| Key                                 | Words shown                                                                                                             | Asked when                                                               | Set by                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
+| `NSCameraUsageDescription`          | "HandsFreeOS uses the camera to take photos for your customers' records."                                               | Taking a photo for a customer's record or a reply                        | `expo-image-picker` plugin                   |
+| `NSPhotoLibraryUsageDescription`    | "HandsFreeOS adds the photos you choose to your customers' records."                                                    | Choosing a photo already on the phone                                    | `expo-image-picker` plugin                   |
+| `NSFaceIDUsageDescription`          | "Face ID unlocks HandsFreeOS on this iPhone."                                                                           | Unlocking the app, and confirming anything that reaches a customer       | `expo-local-authentication` plugin           |
+| `NSPhotoLibraryAddUsageDescription` | "HandsFreeOS saves the QR codes you choose to save to your photos."                                                     | Save Image in the share sheet, after Save the QR code on a form          | `app.json`'s `ios.infoPlist`                 |
+| `NSMicrophoneUsageDescription`      | "HandsFreeOS uses the microphone only while you talk out loud to the Assistant, or to your AI teammate on a test call." | The first tap on a mic: the Assistant's, or Talk out loud on a test call | `expo-audio` and `expo-image-picker` plugins |
 
 **Saving a form's QR code** (M17, `expo-sharing`) hands a PNG to the phone's own share sheet rather than writing to the
 photo library itself, so the app never asks for the photos. iOS's Save Image in that sheet adds the picture to Photos
@@ -34,33 +35,37 @@ on the app's behalf, and asks first with the words above; without them it would 
 has no config plugin for it (its plugin is for receiving shares, which the app doesn't, and isn't in `app.json`), so
 the string sits in `ios.infoPlist`.
 
-### The microphone string, decided
+### The microphone, decided
 
-`expo-audio` is in the app for one job: playing a voicemail a customer left. It records nothing. The step that built
-the inbox found the library had no config plugin, so no microphone string existed and nothing turned `RECORD_AUDIO`
-off on purpose — it only happened to be off. In `expo-audio@57.0.5` the plugin exists, and it is now in `app.json`
-with everything turned down:
+`expo-audio` was in the app for one job, playing a voicemail a customer left, and the app recorded nothing, so it
+asked for no microphone at all. Talking out loud changed that: the Assistant's mic, and **Talk out loud** on a test
+call of the AI teammate, record what the person says, one turn at a time, and send it to HandsFreeOS to be turned into
+words (`src/voice/`). So the app now asks, the first time someone taps a mic and never before, with words that say
+exactly that:
 
 ```json
 [
   "expo-audio",
   {
-    "microphonePermission": false,
-    "recordAudioAndroid": false,
+    "microphonePermission": "HandsFreeOS uses the microphone only while you talk out loud to the Assistant, or to your AI teammate on a test call.",
+    "recordAudioAndroid": true,
     "enableBackgroundPlayback": false,
     "enableBackgroundRecording": false
   }
 ]
 ```
 
-So the honest answer is the one the app deserves: **no microphone purpose string at all**, because there is nothing
-truthful to put in it. A string saying the app may record would be a worse answer than none, and a missing string is
-not a rejection — iOS only rejects an app that _calls_ a microphone API without one, and this app never does. The
-plugin's other defaults matter as much: left alone it would have declared `RECORD_AUDIO`, `FOREGROUND_SERVICE`,
-`FOREGROUND_SERVICE_MEDIA_PLAYBACK` and iOS's `audio` background mode, none of which this app should have.
+`expo-image-picker` carries the same string. It records nothing itself (photos only), but its plugin writes the same
+`NSMicrophoneUsageDescription` key, and set to `false` it deletes the key on iOS and blocks `RECORD_AUDIO` on Android
+whatever `expo-audio` asks for. Both saying the same words means the order the plugins run in doesn't matter.
 
-Proof after a prebuild: no `NSMicrophoneUsageDescription` in `Info.plist`, and `UIBackgroundModes` is `["fetch"]`
-alone (background sync), not `["fetch", "audio"]`.
+What stays off matters as much: no background recording and no background playback, so no `FOREGROUND_SERVICE`, no
+`FOREGROUND_SERVICE_MEDIA_PLAYBACK` or `…_MICROPHONE`, and no iOS `audio` background mode. The microphone records only
+while the screen is open and listening; each recording is deleted once it has been heard, and each clip once it has
+played.
+
+Proof after a prebuild: `NSMicrophoneUsageDescription` in `Info.plist` with the words above, `UIBackgroundModes` still
+`["fetch"]` alone, and `RECORD_AUDIO` in the merged manifest without `tools:node="remove"`.
 
 ### iOS keys that are there but aren't permissions
 
@@ -73,7 +78,7 @@ alone (background sync), not `["fetch", "audio"]`.
 
 ### What iOS is never asked for
 
-No microphone, no contacts, no background location, no calendar, no reminders, no health, no Bluetooth, no tracking
+No contacts, no background location, no calendar, no reminders, no health, no Bluetooth, no tracking
 prompt. Each is absent because nothing in the app calls it — `expo-contacts` is not a dependency, and adding the business
 number to Contacts hands it to the phone's own New Contact screen (`src/inbox/contact-card.ts`).
 
@@ -99,6 +104,7 @@ arrival time.
 | `android.permission.WAKE_LOCK`                                       | `firebase-messaging`               | Waking to receive a push                                                                          |
 | `android.permission.RECEIVE_BOOT_COMPLETED`                          | `expo-notifications`               | Scheduled notifications survive a restart                                                         |
 | `android.permission.MODIFY_AUDIO_SETTINGS`                           | `expo-audio`                       | Playing a voicemail through the right output. Not a runtime permission and not the microphone     |
+| `android.permission.RECORD_AUDIO`                                    | `expo-audio` plugin                | Talking out loud: the Assistant's mic, and Talk out loud on a test call. Asked on the first tap   |
 | `com.google.android.c2dm.permission.RECEIVE`                         | `firebase-messaging`               | Receiving a push from Firebase                                                                    |
 | `com.gobizhelp.handsfreeos.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx`                         | The app's own signature-level permission, so its internal broadcasts can't be read by other apps  |
 
@@ -108,14 +114,13 @@ Each is turned off with `tools:node="remove"`, which the merger honours whatever
 ones are in `app.json`'s `android.blockedPermissions` (from the step that built photos); the rest are in
 `app.config.ts`'s `BLOCKED_PERMISSIONS`, each with its reason beside it in the code.
 
-| Permission                                                                                                                      | Asked for by                                                  | Why it's gone                                                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `android.permission.READ_EXTERNAL_STORAGE`, `…WRITE_EXTERNAL_STORAGE`                                                           | `expo-file-system`, `expo-image-picker` (up to Android 12)    | The app keeps everything in its own folder                                                                                                                                               |
-| `android.permission.RECORD_AUDIO`                                                                                               | would come from `expo-image-picker` and `expo-audio` defaults | The app records nothing                                                                                                                                                                  |
-| `android.permission.SYSTEM_ALERT_WINDOW`                                                                                        | Expo's Android template                                       | It is there so a debug build can draw React Native's dev menu over other apps. A store build has no dev menu, and Play makes you justify "display over other apps"                       |
-| `android.permission.ACCESS_WIFI_STATE`                                                                                          | `expo-network`                                                | Only needed for `getIpAddressAsync`. `src/lib/network.ts` only ever asks whether there is signal                                                                                         |
-| `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`                                                        | `expo-application`, under `expo-notifications`                | Play's install-referrer library, for which ad installed the app. Nothing asks                                                                                                            |
-| `android.permission.READ_APP_BADGE` and 18 launcher-specific badge permissions (Samsung, Huawei, Sony, Oppo, HTC, and the rest) | ShortcutBadger, under `expo-notifications`                    | Nothing sets a count on the launcher icon — not the app, not the worker's push payloads. Twenty permissions for a feature that doesn't exist, and a Play listing shorter by twenty lines |
+| Permission                                                                                                                      | Asked for by                                               | Why it's gone                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `android.permission.READ_EXTERNAL_STORAGE`, `…WRITE_EXTERNAL_STORAGE`                                                           | `expo-file-system`, `expo-image-picker` (up to Android 12) | The app keeps everything in its own folder                                                                                                                                               |
+| `android.permission.SYSTEM_ALERT_WINDOW`                                                                                        | Expo's Android template                                    | It is there so a debug build can draw React Native's dev menu over other apps. A store build has no dev menu, and Play makes you justify "display over other apps"                       |
+| `android.permission.ACCESS_WIFI_STATE`                                                                                          | `expo-network`                                             | Only needed for `getIpAddressAsync`. `src/lib/network.ts` only ever asks whether there is signal                                                                                         |
+| `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE`                                                        | `expo-application`, under `expo-notifications`             | Play's install-referrer library, for which ad installed the app. Nothing asks                                                                                                            |
+| `android.permission.READ_APP_BADGE` and 18 launcher-specific badge permissions (Samsung, Huawei, Sony, Oppo, HTC, and the rest) | ShortcutBadger, under `expo-notifications`                 | Nothing sets a count on the launcher icon — not the app, not the worker's push payloads. Twenty permissions for a feature that doesn't exist, and a Play listing shorter by twenty lines |
 
 ### Never asked for
 
