@@ -89,6 +89,7 @@ import {
   WaitlistRemoveInput,
   WaitlistRemoveOutput,
 } from '../schemas/calendar';
+import { wantedWindowIssue } from './waitlist-online';
 
 const MIN = 60_000;
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -1019,10 +1020,14 @@ export const waitlistAdd = defineCommand({
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     if (!calendar.config.waitlist.enabled)
       throw HfosError.rule('waitlist_off', 409, 'This calendar’s waitlist is off.');
+    const now = await dbNow(ctx.tx);
     if (input.appointmentId) {
       const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
       if (appt.calendarId !== calendar.id) throw HfosError.notFound('Appointment not found.');
       requireScheduled(appt);
+      // A wait for a session ends when it starts (waitlist.expire), as the booking page says.
+      if (appt.startsAt.getTime() <= now)
+        throw HfosError.rule('session_started', 409, 'This session has already started.');
       const [live] = await ctx.tx
         .select({ id: waitlistEntries.id, position: waitlistEntries.position })
         .from(waitlistEntries)
@@ -1034,8 +1039,16 @@ export const waitlistAdd = defineCommand({
           ),
         );
       if (live) return { entryId: live.id, position: live.position };
-    } else if (Date.parse(input.wantedTo!) <= Date.parse(input.wantedFrom!))
-      throw HfosError.validation([{ path: 'wantedTo', message: 'End after the start.' }]);
+    } else {
+      // The booking page's rule: a window of time that has all passed would only expire at once.
+      const issue = wantedWindowIssue(
+        Date.parse(input.wantedFrom!),
+        Date.parse(input.wantedTo!),
+        now,
+      );
+      // The words as the message too, so the Assistant and the API say what's wrong, not only the screen.
+      if (issue) throw HfosError.validation([{ path: 'wantedTo', message: issue }], issue);
+    }
     const contact = await attendeeFromPerson(ctx.tx, ws, input.personId, input.seats, 'staff');
     const [pos] = await rows<{ n: number }>(
       ctx.tx,

@@ -9,7 +9,7 @@ import {
   eq,
   gt,
   inArray,
-  isNotNull,
+  isNull,
   lt,
   ne,
   or,
@@ -630,10 +630,14 @@ export const appointmentGet = defineQuery({
       })
       .from(waitlistEntries)
       .innerJoin(people, eq(people.id, waitlistEntries.personId))
+      .innerJoin(appointments, eq(appointments.id, waitlistEntries.appointmentId))
       .where(
         and(
           eq(waitlistEntries.appointmentId, card.id),
           inArray(waitlistEntries.status, ['waiting', 'offered']),
+          // Nobody waits for a session once it has started or been cancelled, even before the worker says so.
+          eq(appointments.status, 'scheduled'),
+          gt(appointments.startsAt, dsql`now()`),
         ),
       )
       .orderBy(asc(waitlistEntries.position), asc(waitlistEntries.createdAt));
@@ -738,8 +742,12 @@ export const waitlistList = defineQuery({
           eq(waitlistEntries.workspaceId, input.workspaceId),
           eq(waitlistEntries.calendarId, calendar.id),
           inArray(waitlistEntries.status, ['waiting', 'offered']),
-          // A window of time that has all passed is over, even before the worker marks it expired.
-          or(isNotNull(waitlistEntries.appointmentId), gt(waitlistEntries.wantedTo, dsql`now()`)),
+          // A wait is over once the window of time has all passed, or the session has started or been cancelled,
+          // even before the worker marks it expired.
+          or(
+            and(isNull(waitlistEntries.appointmentId), gt(waitlistEntries.wantedTo, dsql`now()`)),
+            and(eq(appointments.status, 'scheduled'), gt(appointments.startsAt, dsql`now()`)),
+          ),
         ),
       )
       .orderBy(asc(waitlistEntries.position), asc(waitlistEntries.createdAt));

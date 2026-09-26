@@ -607,6 +607,61 @@ describe('seats on a group session', () => {
     expect(card).toBeNull();
   });
 
+  it('won’t put someone on the waitlist for times that have passed, and says why', async () => {
+    const before = await waitlistOf(tuneUps);
+    await expect(
+      prepare('manage_waitlist', {
+        action: 'add',
+        calendarId: tuneUps,
+        personId: cyId,
+        wantedFrom: offsetAt(-2, '08:00'),
+        wantedTo: offsetAt(-2, '12:00'),
+      }),
+    ).rejects.toThrow('Pick times that haven’t passed.');
+    await expect(
+      prepare('manage_waitlist', {
+        action: 'add',
+        calendarId: tuneUps,
+        personId: cyId,
+        wantedFrom: offsetAt(6, '17:00'),
+        wantedTo: offsetAt(6, '08:00'),
+      }),
+    ).rejects.toThrow('End after the start.');
+    expect(await waitlistOf(tuneUps)).toEqual(before);
+  });
+
+  it('leaves out someone waiting for a session that was cancelled', async () => {
+    const later = (
+      await run(
+        sessionPublish,
+        { workspaceId, calendarId: classes, startsAt: at(9, '14:00'), acknowledgeWarnings: true },
+        owner,
+      )
+    ).appointmentId;
+    const { entryId } = (await run(
+      byName('waitlist.add'),
+      { workspaceId, calendarId: classes, appointmentId: later, personId: mikeId },
+      owner,
+    )) as { entryId: string };
+    const waiting = async () =>
+      (
+        (await read('get_waitlist', { calendarId: classes })).result['waiting'] as {
+          entryId: string;
+        }[]
+      ).map((w) => w.entryId);
+    expect(await waiting()).toContain(entryId);
+    await run(
+      byName('appointment.cancel'),
+      { workspaceId, appointmentId: later, notify: false },
+      owner,
+    );
+    // Off at once, before the worker has marked the wait over.
+    expect(await waiting()).not.toContain(entryId);
+    expect((await read('get_appointment', { appointmentId: later })).result).toMatchObject({
+      waitlist: [],
+    });
+  });
+
   it('says the waitlist is off rather than adding to it', async () => {
     await expect(
       prepare('manage_waitlist', {

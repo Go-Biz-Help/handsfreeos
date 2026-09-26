@@ -3,14 +3,17 @@
  * waiting customer that fits (and tells them), a seat moved to another session gets a notice with its new
  * link, and a freed 1:1 time is offered with a link that shows it, books it once, runs out to the next person,
  * and keeps someone's place when another customer took the time first. A wait for a window of time ends
- * quietly once the window has passed. Cancelling repeat visits offers each freed time the same way.
+ * quietly once the window has passed, and a wait for a session once it starts or is cancelled. Cancelling repeat
+ * visits offers each freed time the same way.
  */
 import {
+  appointmentCancel,
   localDateOf,
   personCreate,
   seriesCancel,
   seriesCreate,
   sessionPublish,
+  waitlistAdd,
   waitlistRemove,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -358,6 +361,110 @@ describe('a window of time that has passed', () => {
     await runDue(w, [offerExpireKey(held.id)]);
     // With time left in the window he'd wait again (as Lou did); with none, the wait is over.
     expect((await entryOf(wes.email)).status).toBe('expired');
+  });
+});
+
+describe('a session that has started or was cancelled', () => {
+  /** A class with both seats taken, so the only way on is to wait. */
+  const full = async (start: number) => {
+    const session = await publish(start);
+    for (const name of ['Kit', 'Lee'])
+      await bookOnline(w, classes.slug, start, { ...customer(name), sessionId: session });
+    return session;
+  };
+
+  it('stops waiting when the session is cancelled, and nobody is told', async () => {
+    const start = at(12, '11:00');
+    const session = await full(start);
+    const may = customer('May');
+    await joinWaitlist(classes.slug, { ...may, sessionId: session });
+    await drain(w);
+    const entry = await entryOf(may.email);
+    // Armed for the moment the session starts.
+    const armed = await jobRow(windowEndKey(entry.id));
+    expect(armed?.status).toBe('pending');
+    expect(new Date(armed!.run_at).getTime()).toBe(start);
+    const sent = await emailsTo(w, may.email);
+
+    await run(w, appointmentCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: session,
+      notify: false,
+    });
+    await drain(w);
+    expect((await entryOf(may.email)).status).toBe('expired');
+    expect(await emailsTo(w, may.email)).toEqual(sent);
+  });
+
+  it('stops waiting once the session starts', async () => {
+    const session = await full(at(13, '11:00'));
+    const ned = customer('Ned');
+    await joinWaitlist(classes.slug, { ...ned, sessionId: session });
+    await drain(w);
+    const entry = await entryOf(ned.email);
+    const sent = await emailsTo(w, ned.email);
+
+    // The class begins with nobody giving up a seat.
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '10 minutes',
+            ends_at = now() + interval '50 minutes'
+          where id = ${session}`,
+    );
+    await runDue(w, [windowEndKey(entry.id)]);
+    expect((await entryOf(ned.email)).status).toBe('expired');
+    expect(await emailsTo(w, ned.email)).toEqual(sent);
+  });
+
+  it('ends the waits for each session of a cancelled series', async () => {
+    const made = await run(w, seriesCreate, {
+      workspaceId: w.workspaceId,
+      calendarId: classes.id,
+      firstDate: localDateOf(at(15, '11:00'), CHI),
+      rule: { freq: 'weekly', count: 2, localTime: '11:00' },
+      userIds: [w.owner.id],
+    });
+    expect(made.appointmentIds).toHaveLength(2);
+    const entries: string[] = [];
+    for (const [i, appointmentId] of made.appointmentIds.entries()) {
+      const first = ['Ola', 'Pia'][i]!;
+      const { personId } = await run(w, personCreate, {
+        workspaceId: w.workspaceId,
+        firstName: first,
+        lastName: 'Waiting',
+        email: customer(first).email,
+      });
+      entries.push(
+        (
+          await run(w, waitlistAdd, {
+            workspaceId: w.workspaceId,
+            calendarId: classes.id,
+            appointmentId,
+            personId,
+          })
+        ).entryId,
+      );
+    }
+    await drain(w);
+
+    await run(w, seriesCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: made.appointmentIds[0]!,
+      scope: 'all',
+      notify: false,
+    });
+    await drain(w);
+    const statusOf = async (id: string) =>
+      (
+        await rows<{ status: string }>(
+          admin(),
+          sql`select status::text as status from app.waitlist_entries where id = ${id}`,
+        )
+      )[0]!.status;
+    expect([await statusOf(entries[0]!), await statusOf(entries[1]!)]).toEqual([
+      'expired',
+      'expired',
+    ]);
   });
 });
 

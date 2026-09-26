@@ -92,7 +92,7 @@ import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
 import type { HandlerMap } from './types';
-import { onSeatFreed, onWaitlistAdded } from './waitlist';
+import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
 
 /**
  * Event type → handler, or several run in order in one transaction (a retry runs them all again). Events
@@ -221,10 +221,21 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       onArmJobCheck,
     ],
     'appointment.updated': onAppointmentChanged,
-    'appointment.rescheduled': [onAppointmentChanged, onArmReminders, onMovedNotice, onArmJobCheck],
+    'appointment.rescheduled': [
+      onAppointmentChanged,
+      onArmReminders,
+      onMovedNotice,
+      onArmJobCheck,
+      onWaitedForChanged,
+    ],
     'appointment.still_going': onStillGoing,
     'appointment.reassigned': [onAppointmentChanged, onReassignedNotice],
-    'appointment.cancelled': [onAppointmentChanged, onCancelledNotice, onCancelledTeamEmail],
+    'appointment.cancelled': [
+      onAppointmentChanged,
+      onCancelledNotice,
+      onCancelledTeamEmail,
+      onWaitedForChanged,
+    ],
     // Automations' "Referral mentioned": a customer's message or call that might name somebody who needs the
     // business is read by the AI in a job of its own (automations/referrals.ts).
     'message.received': [onMessageReferral, onEngaged],
@@ -258,9 +269,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     'job.status_changed': onJobStatusChanged,
     'session.published': onAppointmentChanged,
     'series.created': [onAppointmentChanged, onArmReminders, onSeriesConfirm],
-    'series.cancelled': [onAppointmentChanged, onSeriesCancelledNotice],
+    'series.cancelled': [onAppointmentChanged, onSeriesCancelledNotice, onWaitedForChanged],
     'waitlist.seat_freed': onSeatFreed,
-    // A wait for a window of time ends with the window (booking/waitlist.ts).
+    // A wait ends with the window of time, or when the session starts or is cancelled (booking/waitlist.ts).
     'waitlist.added': onWaitlistAdded,
     // The knowledge base: website scans and uploaded documents run as jobs (knowledge/scan.ts, document.ts).
     'knowledge_scan.requested': onKnowledgeScanRequested,

@@ -43,6 +43,7 @@ import {
   expectHfos,
   isoAt,
   makeCalendar,
+  MIN,
   nextPhone,
   nextWeekday,
   run,
@@ -780,5 +781,185 @@ describe('series, sessions and waitlists', () => {
     // Done once: running it again changes nothing.
     expect(await expire()).toMatchObject({ status: 'expired', expired: false });
     expect(await list()).toEqual([still.entryId]);
+  });
+
+  it('won’t put someone on the waitlist for times that have passed, as the booking page won’t', async () => {
+    const cal = await makeCalendar(t, 'Late line', {
+      team: { members: [{ userId: t.owner.id }] },
+      waitlist: { enabled: true },
+    });
+    const gil = await customer(t, 'Gil');
+    const want = (wantedFrom: string, wantedTo: string) =>
+      run(
+        waitlistAdd,
+        { workspaceId: t.wsId, calendarId: cal.id, personId: gil, wantedFrom, wantedTo },
+        t.owner,
+      );
+    const hoursFromNow = (h: number) => new Date(Date.now() + h * 60 * MIN).toISOString();
+    // This morning, already over: it would only expire at once.
+    const gone = await expectHfos(
+      () => want(hoursFromNow(-5), hoursFromNow(-1)),
+      'validation',
+      400,
+    );
+    expect(gone.message).toBe('Pick times that haven’t passed.');
+    expect(gone.details).toEqual([
+      { path: 'wantedTo', message: 'Pick times that haven’t passed.' },
+    ]);
+    const day = nextWeekday(2, 10);
+    const backwards = await expectHfos(
+      () => want(isoAt(day, '12:00'), isoAt(day, '09:00')),
+      'validation',
+      400,
+    );
+    expect(backwards.message).toBe('End after the start.');
+    // Under way with some of it still to come: that's a wait worth keeping.
+    const now = await want(hoursFromNow(-1), hoursFromNow(2));
+    expect(
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items.map(
+        (e) => e.id,
+      ),
+    ).toEqual([now.entryId]);
+
+    // Nor a session that has already started.
+    const classes = await makeCalendar(t, 'Started class', {
+      public: true,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      waitlist: { enabled: true },
+    });
+    const { appointmentId } = await run(
+      sessionPublish,
+      {
+        workspaceId: t.wsId,
+        calendarId: classes.id,
+        startsAt: isoAt(nextWeekday(5, 10), '15:00'),
+        userIds: [t.owner.id],
+      },
+      t.owner,
+    );
+    // It ran earlier today (still marked scheduled: nobody has said how it went).
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '3 hours',
+            ends_at = now() - interval '2 hours'
+          where id = ${appointmentId}`,
+    );
+    await expectHfos(
+      () =>
+        run(
+          waitlistAdd,
+          { workspaceId: t.wsId, calendarId: classes.id, appointmentId, personId: gil },
+          t.owner,
+        ),
+      'session_started',
+      409,
+    );
+  });
+
+  it('ends a wait for a session once it is cancelled or starts, and the lists leave it out', async () => {
+    const cal = await makeCalendar(t, 'Evening class', {
+      public: true,
+      team: { members: [{ userId: t.owner.id }] },
+      schedule: { mode: 'sessions' },
+      waitlist: { enabled: true },
+    });
+    const publish = async (day: string) =>
+      (
+        await run(
+          sessionPublish,
+          {
+            workspaceId: t.wsId,
+            calendarId: cal.id,
+            startsAt: isoAt(day, '14:00'),
+            userIds: [t.owner.id],
+          },
+          t.owner,
+        )
+      ).appointmentId;
+    const [monday, wednesday] = [nextWeekday(1, 10), nextWeekday(3, 10)];
+    const [called, started] = [await publish(monday), await publish(wednesday)];
+    const [hal, ivy] = [await customer(t, 'Hal'), await customer(t, 'Ivy')];
+    const wait = (appointmentId: string, personId: string) =>
+      run(
+        waitlistAdd,
+        { workspaceId: t.wsId, calendarId: cal.id, appointmentId, personId },
+        t.owner,
+      );
+    const halWaits = await wait(called, hal);
+    const ivyWaits = await wait(started, ivy);
+    const list = async () =>
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items.map(
+        (e) => e.id,
+      );
+    const onSheet = async (appointmentId: string) =>
+      (
+        await ask(appointmentGet, { workspaceId: t.wsId, appointmentId }, t.owner)
+      ).appointment.waitlist.map((w) => w.id);
+    const expire = (entryId: string) =>
+      runSystem(waitlistExpire, { workspaceId: t.wsId, entryId }, t.scope);
+    const ended = async (entryId: string) =>
+      (
+        await rows<{ entity_type: string; entity_id: string; action: string; after: unknown }>(
+          admin(),
+          sql`select e.entity_type, e.entity_id, l.action, l.after from app.events e
+              join app.audit_logs l on l.event_id = e.id
+              where e.event_type = 'waitlist.session_passed' and e.payload ->> 'entryId' = ${entryId}`,
+        )
+      )[0];
+    // Still ahead: nothing ends yet, and the worker hears it ends when the session starts.
+    expect(await expire(halWaits.entryId)).toEqual({
+      status: 'waiting',
+      expired: false,
+      expiresAt: isoAt(monday, '14:00'),
+      fromAppointmentId: null,
+    });
+    expect(await list()).toEqual([halWaits.entryId, ivyWaits.entryId]);
+    expect(await onSheet(called)).toEqual([halWaits.entryId]);
+
+    // Monday's class is called off: Hal is off the lists at once, before the worker gets to him.
+    await run(
+      appointmentCancel,
+      { workspaceId: t.wsId, appointmentId: called, notify: false },
+      t.owner,
+    );
+    expect(await list()).toEqual([ivyWaits.entryId]);
+    expect(await onSheet(called)).toEqual([]);
+    expect(await expire(halWaits.entryId)).toEqual({
+      status: 'expired',
+      expired: true,
+      expiresAt: null,
+      fromAppointmentId: null,
+    });
+    expect(await ended(halWaits.entryId)).toMatchObject({
+      entity_type: 'appointment',
+      entity_id: called,
+      action: 'waitlist.expire',
+      after: { customer: 'Hal Customer', status: 'expired', reason: 'session_cancelled' },
+    });
+
+    // Wednesday's class starts with nobody freeing a seat.
+    await rows(
+      admin(),
+      sql`update app.appointments set starts_at = now() - interval '10 minutes',
+            ends_at = now() + interval '50 minutes'
+          where id = ${started}`,
+    );
+    expect(await list()).toEqual([]);
+    expect(await onSheet(started)).toEqual([]);
+    expect(await expire(ivyWaits.entryId)).toMatchObject({ status: 'expired', expired: true });
+    expect(await ended(ivyWaits.entryId)).toMatchObject({
+      after: { customer: 'Ivy Customer', status: 'expired', reason: 'session_started' },
+    });
+    const statuses = await rows<{ id: string; status: string }>(
+      admin(),
+      sql`select id, status::text as status from app.waitlist_entries where calendar_id = ${cal.id}`,
+    );
+    expect(Object.fromEntries(statuses.map((r) => [r.id, r.status]))).toEqual({
+      [halWaits.entryId]: 'expired',
+      [ivyWaits.entryId]: 'expired',
+    });
+    // Done once: running it again changes nothing.
+    expect(await expire(ivyWaits.entryId)).toMatchObject({ status: 'expired', expired: false });
   });
 });

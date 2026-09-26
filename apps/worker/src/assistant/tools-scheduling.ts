@@ -1551,8 +1551,8 @@ async function waitlistAddPlan(db: Db, ctx: ToolContext, args: Args) {
     from: Date.parse(String(args['wantedFrom'])),
     to: Date.parse(String(args['wantedTo'])),
   };
-  if (window.to <= window.from)
-    throw HfosError.validation([{ path: 'wantedTo', message: 'End after the start.' }]);
+  // waitlist.add itself refuses a window that ends before it starts or has already passed, in plain words the
+  // Assistant passes on as they are (the dry run in prepare, the command in commit).
   return {
     calendar,
     person,

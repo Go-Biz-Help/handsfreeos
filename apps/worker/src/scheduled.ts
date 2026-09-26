@@ -304,7 +304,8 @@ export const jobs: JobMap = {
   // A time held while a customer pays a deposit, given back when nobody does (booking/deposit.ts).
   ...depositJobs,
   'waitlist.offer_expire': waitlistOfferExpire,
-  // A wait for a window of time, ended once the window has passed: the same command as an offer running out.
+  // A wait ended once its window of time has passed, or its session has started or been cancelled: the same
+  // command as an offer running out.
   [WINDOW_END_JOB]: waitlistOfferExpire,
   'knowledge.scan': knowledgeScanJob,
   'knowledge.document': knowledgeDocumentJob,
