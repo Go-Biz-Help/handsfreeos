@@ -96,6 +96,13 @@ interface Waiting {
   status: string;
   position: number;
 }
+/** One entry of waitlist.list: for a full session, or for a window of time. */
+interface WaitlistEntry extends Waiting {
+  appointment: { id: string; title: string; startsAt: string; endsAt: string } | null;
+  wantedFrom: string | null;
+  wantedTo: string | null;
+  offerExpiresAt: string | null;
+}
 type Appt = Omit<AppointmentOut, 'attendees'> & {
   attendees: Seat[];
   job?: Job | null;
@@ -139,6 +146,14 @@ const calendarOf = (db: Db, ctx: ToolContext, calendarId: unknown) =>
   query<CalendarFull>(db, ctx, 'calendar.get', { calendarId });
 const personOf = async (db: Db, ctx: ToolContext, personId: unknown) =>
   (await query<PersonGet>(db, ctx, 'person.get', { personId })).person;
+const waitlistOf = async (db: Db, ctx: ToolContext, calendarId: unknown) =>
+  (await query<{ items: WaitlistEntry[] }>(db, ctx, 'waitlist.list', { calendarId })).items;
+
+/** "HVAC class · Fri, Sep 18, 10:00–11:00 AM", or "Any time Fri, Sep 18, 9:00 AM–12:00 PM". */
+const waitingFor = (w: WaitlistEntry, tz: string) =>
+  w.appointment
+    ? `${w.appointment.title} · ${rangeLabel(Date.parse(w.appointment.startsAt), Date.parse(w.appointment.endsAt), tz)}`
+    : `Any time ${rangeLabel(Date.parse(w.wantedFrom!), Date.parse(w.wantedTo!), tz)}`;
 
 /** Whether the business can text at all yet (a number, approved by the carriers). */
 async function textingReady(db: Db, ctx: ToolContext): Promise<boolean> {
@@ -530,6 +545,46 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
             changes: r.diff.slice(0, 4),
           })),
       },
+    };
+  },
+
+  async get_waitlist(db, ctx, args) {
+    const { calendar } = await calendarOf(db, ctx, args['calendarId']);
+    const tz = calendar.timezone;
+    const list = await waitlistOf(db, ctx, calendar.id);
+    const offered = (w: WaitlistEntry) =>
+      w.status === 'offered' && w.offerExpiresAt
+        ? `A freed time is offered to them until ${atLabel(Date.parse(w.offerExpiresAt), tz)}`
+        : null;
+    return {
+      result: {
+        calendar: { id: calendar.id, name: calendar.name },
+        waitlistOn: calendar.config.waitlist.enabled,
+        timeZone: tz,
+        waiting: list.map((w) => ({
+          entryId: w.id,
+          personId: w.personId,
+          name: w.fullName,
+          waitingFor: waitingFor(w, tz),
+          ...(w.appointment ? { appointmentId: w.appointment.id } : {}),
+          ...(w.seats > 1 ? { seats: w.seats } : {}),
+          ...(offered(w) ? { offer: offered(w) } : {}),
+        })),
+        ...(list.length ? {} : { note: 'Nobody is waiting.' }),
+      },
+      card: list.length
+        ? {
+            type: 'list',
+            title: `${calendar.name} waitlist`,
+            aside: zoneLabel(tz),
+            items: list.slice(0, 12).map((w) => ({
+              title: `${w.fullName} · ${waitingFor(w, tz)}`,
+              detail: offered(w) ?? (w.seats > 1 ? `Waiting, ${w.seats} seats` : 'Waiting'),
+              tone: w.status === 'offered' ? 'accent' : 'muted',
+              href: `/app/w/${ctx.workspaceId}/settings/calendars/${calendar.id}`,
+            })),
+          }
+        : null,
     };
   },
 };
@@ -1514,22 +1569,38 @@ async function waitlistAddPlan(db: Db, ctx: ToolContext, args: Args) {
   };
 }
 
+/**
+ * Who comes off: someone waiting for a session, found on it, or any entry by its id on its calendar's waitlist
+ * (the only place someone waiting for a window of time shows).
+ */
 async function waitlistRemovePlan(db: Db, ctx: ToolContext, args: Args) {
-  need(args, ['appointmentId']);
+  if (!str(args['appointmentId'])) {
+    need(args, ['calendarId', 'entryId']);
+    const { calendar } = await calendarOf(db, ctx, args['calendarId']);
+    const entry = (await waitlistOf(db, ctx, calendar.id)).find((w) => w.id === args['entryId']);
+    if (!entry) throw HfosError.notFound('They aren’t on this calendar’s waitlist.');
+    return {
+      entry,
+      waitingFor: waitingFor(entry, calendar.timezone),
+      href: entry.appointment
+        ? calendarPath(ctx.workspaceId)
+        : `/app/w/${ctx.workspaceId}/settings/calendars/${calendar.id}`,
+    };
+  }
   const a = await appointmentOf(db, ctx, args['appointmentId']);
   const entry = (a.waitlist ?? []).find((w) =>
     str(args['entryId']) ? w.id === args['entryId'] : w.personId === args['personId'],
   );
   if (!entry) throw HfosError.notFound('They aren’t on this session’s waitlist.');
-  return { a, entry };
+  const { calendar } = await calendarOf(db, ctx, a.calendar.id);
+  const when = rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), calendar.timezone);
+  return { entry, waitingFor: `${whatOf(a)} · ${when}`, href: calendarPath(ctx.workspaceId) };
 }
 
 const manageWaitlist: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     if (args['action'] === 'remove') {
-      const { a, entry } = await waitlistRemovePlan(db, ctx, args);
-      const { calendar } = await calendarOf(db, ctx, a.calendar.id);
-      const tz = calendar.timezone;
+      const { entry, waitingFor: what } = await waitlistRemovePlan(db, ctx, args);
       const first = firstName(entry.fullName);
       return {
         card: card(toolCallId, 'manage_waitlist', {
@@ -1537,16 +1608,23 @@ const manageWaitlist: SettingsConfirmTool = {
           title: `Take ${first} off the waitlist?`,
           fields: [
             { label: 'Customer', value: entry.fullName },
-            {
-              label: 'Waiting for',
-              value: `${whatOf(a)} · ${rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), tz)}`,
-            },
+            { label: 'Waiting for', value: what },
             ...(entry.seats > 1 ? [{ label: 'Seats', value: String(entry.seats) }] : []),
           ],
           confirmLabel: 'Take them off',
-          warnings: [{ kind: 'note', text: `Nothing is sent to ${first}.` }],
+          warnings: [
+            { kind: 'note', text: `Nothing is sent to ${first}.` },
+            ...(entry.status === 'offered'
+              ? [
+                  {
+                    kind: 'note',
+                    text: `The time held for ${first} goes to the next person waiting for it.`,
+                  },
+                ]
+              : []),
+          ],
         }),
-        result: { waiting: true, customer: entry.fullName, session: whatOf(a) },
+        result: { waiting: true, customer: entry.fullName, waitingFor: what },
       };
     }
     const { calendar, person, a, window, seats, input } = await waitlistAddPlan(db, ctx, args);
@@ -1620,11 +1698,11 @@ const manageWaitlist: SettingsConfirmTool = {
   async commit(db, ctx, args) {
     const href = calendarPath(ctx.workspaceId);
     if (args['action'] === 'remove') {
-      const { entry } = await waitlistRemovePlan(db, ctx, args);
+      const { entry, href: where } = await waitlistRemovePlan(db, ctx, args);
       await command(db, ctx, 'waitlist.remove', { entryId: entry.id });
       return {
         outcome: `Took ${firstName(entry.fullName)} off the waitlist.`,
-        href,
+        href: where,
         command: 'waitlist.remove',
       };
     }
@@ -2050,6 +2128,7 @@ export const schedulingStepLabels: Record<string, string> = {
   list_appointments: 'Looking at appointments',
   get_appointment: 'Looking at the appointment',
   get_calendar_settings: 'Looking at the calendar’s settings',
+  get_waitlist: 'Looking at the waitlist',
   update_appointment: 'Getting the change ready',
   update_job_status: 'Getting the job update ready',
   manage_attendees: 'Checking the seats',

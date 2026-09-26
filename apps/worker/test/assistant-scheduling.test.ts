@@ -245,6 +245,7 @@ describe('the scheduling tools', () => {
       [
         'get_appointment',
         'get_calendar_settings',
+        'get_waitlist',
         'list_appointments',
         'manage_attendees',
         'manage_repeat_visits',
@@ -538,6 +539,45 @@ describe('seats on a group session', () => {
     expect(await waitlistOf(tuneUps)).toMatchObject([
       { person_id: anaId, status: 'waiting', appointment_id: null },
     ]);
+  });
+
+  it('lists a calendar’s waitlist, a window of time too, and takes someone off it by the entry id', async () => {
+    // Ana, from the test before, waits for any time on a day: no appointment shows her.
+    const [ana] = await waitlistOf(tuneUps);
+    const { result, card } = await read('get_waitlist', { calendarId: tuneUps });
+    expect(result).toMatchObject({
+      calendar: { id: tuneUps, name: 'Tune-ups' },
+      waitlistOn: true,
+      waiting: [
+        {
+          entryId: ana!.id,
+          personId: anaId,
+          name: 'Ana Lopez',
+          waitingFor: expect.stringMatching(/^Any time /),
+        },
+      ],
+    });
+    expect(card).toMatchObject({ type: 'list', title: 'Tune-ups waitlist' });
+
+    // The entry id alone doesn't say whose waitlist it's on.
+    await expect(
+      prepare('manage_waitlist', { action: 'remove', entryId: ana!.id }),
+    ).rejects.toThrow(/calendarId/);
+    const { card: off, parsed } = await prepare('manage_waitlist', {
+      action: 'remove',
+      calendarId: tuneUps,
+      entryId: ana!.id,
+    });
+    expect(off.title).toBe('Take Ana off the waitlist?');
+    expect(field(off, 'Waiting for')).toMatch(/^Any time /);
+    expect((await waitlistOf(tuneUps))[0]!.status).toBe('waiting');
+    const done = await confirm('manage_waitlist', parsed);
+    expect(done.outcome).toBe('Took Ana off the waitlist.');
+    expect((await waitlistOf(tuneUps)).map((w) => w.status)).toEqual(['removed']);
+    expect((await read('get_waitlist', { calendarId: tuneUps })).result).toMatchObject({
+      waiting: [],
+      note: 'Nobody is waiting.',
+    });
   });
 
   it('says the waitlist is off rather than adding to it', async () => {

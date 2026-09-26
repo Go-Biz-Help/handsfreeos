@@ -28,6 +28,7 @@ import {
   timeOffAdd,
   timelineList,
   waitlistAdd,
+  waitlistList,
   waitlistRemove,
 } from '../src/server';
 import {
@@ -554,6 +555,21 @@ describe('series, sessions and waitlists', () => {
       t.owner,
     );
     expect(entry.position).toBe(1);
+    expect(
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner)).items,
+    ).toEqual([
+      expect.objectContaining({
+        id: entry.entryId,
+        personId: ben,
+        fullName: 'Ben Customer',
+        status: 'waiting',
+        appointment: expect.objectContaining({
+          id: session.appointmentId,
+          startsAt: isoAt(day, '10:00'),
+        }),
+        wantedFrom: null,
+      }),
+    ]);
     const left = await run(
       appointmentRemoveAttendee,
       { workspaceId: t.wsId, appointmentId: session.appointmentId, personId: ann },
@@ -572,5 +588,59 @@ describe('series, sessions and waitlists', () => {
     );
     expect(status!.status).toBe('removed');
     expect(localDateOf(Date.parse(isoAt(day, '10:00')), CHI)).toBe(day);
+  });
+
+  it('lists who waits for a window of time, which no appointment shows, and takes them off', async () => {
+    const cal = await makeCalendar(t, 'Tune-up line', {
+      team: { members: [{ userId: t.owner.id }] },
+      waitlist: { enabled: true },
+    });
+    const day = nextWeekday(3, 10);
+    const [dee, eli] = [await customer(t, 'Dee'), await customer(t, 'Eli')];
+    const want = (personId: string, from: string, to: string) =>
+      run(
+        waitlistAdd,
+        {
+          workspaceId: t.wsId,
+          calendarId: cal.id,
+          personId,
+          wantedFrom: isoAt(day, from),
+          wantedTo: isoAt(day, to),
+        },
+        t.owner,
+      );
+    const first = await want(dee, '09:00', '12:00');
+    const second = await want(eli, '13:00', '15:00');
+    const list = () => ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.owner);
+    expect(await list()).toEqual({
+      timezone: CHI,
+      items: [
+        expect.objectContaining({
+          id: first.entryId,
+          personId: dee,
+          fullName: 'Dee Customer',
+          status: 'waiting',
+          position: 1,
+          appointment: null,
+          wantedFrom: isoAt(day, '09:00'),
+          wantedTo: isoAt(day, '12:00'),
+          offerExpiresAt: null,
+        }),
+        expect.objectContaining({ id: second.entryId, position: 2 }),
+      ],
+    });
+    // A teammate who only reads sees them too.
+    expect(
+      (await ask(waitlistList, { workspaceId: t.wsId, calendarId: cal.id }, t.member)).items,
+    ).toHaveLength(2);
+
+    await run(waitlistRemove, { workspaceId: t.wsId, entryId: first.entryId }, t.owner);
+    expect((await list()).items.map((e) => e.id)).toEqual([second.entryId]);
+    const [removed] = await rows<{ entity_type: string; entity_id: string }>(
+      admin(),
+      sql`select entity_type, entity_id from app.events
+          where event_type = 'waitlist.removed' and payload ->> 'entryId' = ${first.entryId}`,
+    );
+    expect(removed).toEqual({ entity_type: 'calendar', entity_id: cal.id });
   });
 });

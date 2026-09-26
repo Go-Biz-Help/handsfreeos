@@ -16,7 +16,8 @@ import {
 } from '@hfos/core';
 import { ArrowDown, ArrowUp, Info, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { SetRow } from '@/components/settings/set-row';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -34,9 +35,11 @@ import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { CalendarAutomations } from '@/components/workflows/calendar-automations';
-import type { Pipeline, ResourceItem, ServiceItem, TerritoryItem } from '@/lib/api/types';
+import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import type { Ok, Pipeline, ResourceItem, ServiceItem, TerritoryItem } from '@/lib/api/types';
 import { teamSentence, type ModuleKey } from '@/lib/calendar/describe';
-import { fmtLength, TIME_OPTIONS } from '@/lib/calendar/time';
+import { dateOf, fmtAt, fmtLength, fmtWhen, TIME_OPTIONS } from '@/lib/calendar/time';
+import { useLiveVersion } from '@/lib/realtime/live-provider';
 import { WeeklyHoursEditor } from './weekly-hours';
 
 export interface BuilderPerson {
@@ -1176,7 +1179,125 @@ function RepeatsModule({ draft, patch }: ModuleProps) {
 
 const OFFERS = [15, 30, 60, 120, 240, 720, 1440];
 
-function WaitlistModule({ draft, patch }: ModuleProps) {
+type WaitlistEntry = Ok<'/v1/queries/waitlist.list'>['items'][number];
+
+/** "Fri, Sep 18 · 9:00 AM–12:00 PM", or both ends when the window runs over more than a day. */
+function windowLabel(w: WaitlistEntry, timeZone: string): string {
+  const from = w.wantedFrom!;
+  const to = w.wantedTo!;
+  return dateOf(from, timeZone) === dateOf(to, timeZone)
+    ? fmtWhen(from, to, timeZone)
+    : `${fmtAt(from, timeZone)} – ${fmtAt(to, timeZone)}`;
+}
+
+/**
+ * Customers waiting for a window of time. They’re on no appointment, so this is the one place they show.
+ * Remove takes them off right away (waitlist.remove), like Automations’ switches, not with Save.
+ */
+function WaitingForTimes({
+  workspaceId,
+  calendarId,
+  hideWhenEmpty,
+}: {
+  workspaceId: string;
+  calendarId: string;
+  /** The waitlist is off, or the calendar books fixed sessions: nobody new waits for a time. */
+  hideWhenEmpty: boolean;
+}) {
+  const [list, setList] = useState<{ timezone: string; items: WaitlistEntry[] } | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  // Joins, offers and removals are the calendar’s events.
+  const changes = useLiveVersion(['calendar']);
+
+  const load = useCallback(async () => {
+    try {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/queries/waitlist.list', {
+          body: { workspaceId, calendarId },
+        }),
+      );
+      setList({ timezone: out.timezone, items: out.items.filter((e) => !e.appointment) });
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setList((had) => had ?? { timezone: 'UTC', items: [] });
+    }
+  }, [workspaceId, calendarId]);
+
+  useEffect(() => {
+    void load();
+  }, [load, changes]);
+
+  async function remove(e: WaitlistEntry) {
+    const first = firstName(e.fullName);
+    if (!confirm(`Take ${first} off the waitlist?`)) return;
+    setRemoving(e.id);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/waitlist.remove', {
+          body: { workspaceId, entryId: e.id },
+        }),
+      );
+      toast.success(`${first} is off the waitlist.`);
+      await load();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setRemoving(null);
+    }
+  }
+
+  if (hideWhenEmpty && list && !list.items.length) return null;
+  return (
+    <div className="border-t border-border pt-3.5" data-testid="waitlist-times">
+      <div className="text-[13px] font-medium">Waiting for a time</div>
+      <div className="mt-1 max-w-[420px] text-xs text-text-3">
+        Customers who want any opening in a window of time. A time that frees up in their window is
+        offered to them, first come first served.
+      </div>
+      {list === null ? (
+        <p className="mt-3 text-[13px] text-text-3">Loading…</p>
+      ) : !list.items.length ? (
+        <p className="mt-3 text-[13px] text-text-2">Nobody is waiting for a time.</p>
+      ) : (
+        <div className="mt-2">
+          {list.items.map((e) => (
+            <div
+              key={e.id}
+              className="flex items-center gap-3 border-t border-border py-2.5 first:border-t-0"
+              data-testid={`waitlist-entry-${e.id}`}
+            >
+              <Avatar name={e.fullName} seed={e.personId} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[13px] font-medium">
+                  {e.fullName}
+                  {e.seats > 1 ? ` · ${e.seats} people` : ''}
+                </span>
+                <span className="truncate text-xs text-text-3">
+                  {windowLabel(e, list.timezone)}
+                  {e.status === 'offered' && e.offerExpiresAt
+                    ? ` · Offered a time until ${fmtAt(e.offerExpiresAt, list.timezone)}`
+                    : ''}
+                </span>
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-none"
+                disabled={removing === e.id}
+                aria-label={`Take ${firstName(e.fullName)} off the waitlist`}
+                onClick={() => void remove(e)}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WaitlistModule({ workspaceId, calendarId, draft, patch }: ModuleProps) {
   const w = draft.waitlist;
   return (
     <>
@@ -1205,6 +1326,13 @@ function WaitlistModule({ draft, patch }: ModuleProps) {
           onChange={(offerMinutes) => patch({ waitlist: { offerMinutes } })}
         />
       </SetRow>
+      {calendarId ? (
+        <WaitingForTimes
+          workspaceId={workspaceId}
+          calendarId={calendarId}
+          hideWhenEmpty={!w.enabled || draft.schedule.mode === 'sessions'}
+        />
+      ) : null}
     </>
   );
 }

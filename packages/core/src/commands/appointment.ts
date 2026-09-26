@@ -937,7 +937,7 @@ export const seriesCancel = defineCommand({
   output: SeriesCancelOutput,
   permission: 'appointments.write',
   scope: inWorkspace,
-  emits: ['series.cancelled'],
+  emits: ['series.cancelled', 'waitlist.seat_freed'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
@@ -945,7 +945,8 @@ export const seriesCancel = defineCommand({
       throw HfosError.validation([
         { path: 'appointmentId', message: 'This appointment isn’t part of a series.' },
       ]);
-    await lockBooking(ctx.tx, appt.calendarId);
+    const calendar = await loadCalendar(ctx.tx, ws, appt.calendarId);
+    await lockBooking(ctx.tx, calendar.id);
     const now = await dbNow(ctx.tx);
     const scoped =
       input.scope === 'this'
@@ -995,6 +996,9 @@ export const seriesCancel = defineCommand({
       personIds: [...personIds],
       meta: { seriesId: appt.seriesId, cancelled: ids.length, reason: input.reason ?? null },
     });
+    // Each freed 1:1 time goes to the people waiting for it, as when one visit is cancelled (appointment.cancel).
+    for (const a of list)
+      if (a.kind === 'booking' && a.capacity === 1) await signalSeatFreed(ctx, calendar, a);
     return { seriesId: appt.seriesId, cancelled: ids };
   },
 });
@@ -1087,7 +1091,7 @@ export const waitlistRemove = defineCommand({
   output: WaitlistRemoveOutput,
   permission: 'appointments.write',
   scope: inWorkspace,
-  emits: ['waitlist.removed'],
+  emits: ['waitlist.removed', 'waitlist.seat_freed'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const [entry] = await ctx.tx
@@ -1108,6 +1112,15 @@ export const waitlistRemove = defineCommand({
       before: { status: entry.status, position: entry.position },
       after: { status: 'removed' },
     });
+    // Someone taken off while holding an offer lets go of the time, so it goes to the next person waiting for
+    // it, as when an offer runs out (the worker offers it only while it’s still open).
+    const offer =
+      entry.status === 'offered' ? (entry.offer as { fromAppointmentId?: unknown }) : null;
+    if (typeof offer?.fromAppointmentId === 'string') {
+      const calendar = await loadCalendar(ctx.tx, ws, entry.calendarId);
+      const freed = await requireAppointment(ctx.tx, ws, offer.fromAppointmentId);
+      await signalSeatFreed(ctx, calendar, freed);
+    }
     return { entryId: entry.id };
   },
 });

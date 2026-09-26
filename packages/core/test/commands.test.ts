@@ -666,6 +666,7 @@ describe('registry', () => {
       'calendar.availability',
       'appointment.list',
       'appointment.get',
+      'waitlist.list',
       'schedule.team',
       'service.list',
       'resource.list',

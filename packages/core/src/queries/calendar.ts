@@ -74,6 +74,8 @@ import {
   ServiceListOutput,
   TerritoryListInput,
   TerritoryListOutput,
+  WaitlistListInput,
+  WaitlistListOutput,
   type AppointmentOut,
   type CalendarSummary,
 } from '../schemas/calendar';
@@ -688,6 +690,67 @@ export const appointmentGet = defineQuery({
         })),
         createdBy: creator,
       },
+    };
+  },
+});
+
+/**
+ * A calendar’s waitlist, both kinds. Someone waiting for a window of time belongs to no appointment, so this is
+ * the only place they show, and where anyone takes them off (waitlist.remove).
+ */
+export const waitlistList = defineQuery({
+  name: 'waitlist.list',
+  description:
+    'Who is on a calendar’s waitlist, in line order: for a full session, or for a window of time they want.',
+  input: WaitlistListInput,
+  output: WaitlistListOutput,
+  permission: 'workspace.read',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const calendar = await loadCalendar(ctx.tx, input.workspaceId, input.calendarId);
+    const list = await ctx.tx
+      .select({
+        w: waitlistEntries,
+        firstName: people.firstName,
+        lastName: people.lastName,
+        title: appointments.title,
+        startsAt: appointments.startsAt,
+        endsAt: appointments.endsAt,
+      })
+      .from(waitlistEntries)
+      .innerJoin(people, eq(people.id, waitlistEntries.personId))
+      .leftJoin(appointments, eq(appointments.id, waitlistEntries.appointmentId))
+      .where(
+        and(
+          eq(waitlistEntries.workspaceId, input.workspaceId),
+          eq(waitlistEntries.calendarId, calendar.id),
+          inArray(waitlistEntries.status, ['waiting', 'offered']),
+        ),
+      )
+      .orderBy(asc(waitlistEntries.position), asc(waitlistEntries.createdAt));
+    return {
+      timezone: calendar.timeZone,
+      items: list.map(({ w, firstName, lastName, title, startsAt, endsAt }) => ({
+        id: w.id,
+        personId: w.personId,
+        fullName: `${firstName} ${lastName}`.trim() || 'Customer',
+        seats: w.seats,
+        status: w.status as 'waiting' | 'offered',
+        position: w.position,
+        appointment:
+          w.appointmentId && startsAt && endsAt
+            ? {
+                id: w.appointmentId,
+                title: title ?? '',
+                startsAt: startsAt.toISOString(),
+                endsAt: endsAt.toISOString(),
+              }
+            : null,
+        wantedFrom: w.wantedFrom?.toISOString() ?? null,
+        wantedTo: w.wantedTo?.toISOString() ?? null,
+        offerExpiresAt: w.offerExpiresAt?.toISOString() ?? null,
+        createdAt: w.createdAt.toISOString(),
+      })),
     };
   },
 });

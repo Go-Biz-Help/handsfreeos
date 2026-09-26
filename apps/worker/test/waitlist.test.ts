@@ -2,9 +2,17 @@
  * The waitlist on the real database, through the public routes: a freed seat in a session books the oldest
  * waiting customer that fits (and tells them), a seat moved to another session gets a notice with its new
  * link, and a freed 1:1 time is offered with a link that shows it, books it once, runs out to the next person,
- * and keeps someone's place when another customer took the time first.
+ * and keeps someone's place when another customer took the time first. Cancelling repeat visits offers each
+ * freed time the same way.
  */
-import { sessionPublish } from '@hfos/core/server';
+import {
+  localDateOf,
+  personCreate,
+  seriesCancel,
+  seriesCreate,
+  sessionPublish,
+  waitlistRemove,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -275,5 +283,82 @@ describe('offers for a freed 1:1 time', () => {
     );
     await runDue(w, [offerExpireKey(louEntry.id)]);
     expect((await entryOf(lou.email)).status).toBe('waiting');
+  });
+
+  it('passes a held time to the next person when the one holding it is taken off the list', async () => {
+    const t = at(5, '14:00');
+    const nan = await bookOnline(w, line.slug, t, customer('Nan'));
+    const oli = customer('Oli');
+    const pia = customer('Pia');
+    for (const c of [oli, pia])
+      await joinWaitlist(line.slug, { ...c, wantedFrom: iso(t - HOUR), wantedTo: iso(t + HOUR) });
+    await drain(w);
+    expect((await post(w, `/public/manage/${nan.manageToken}/cancel`, {})).statusCode).toBe(200);
+    await drain(w);
+    const held = await entryOf(oli.email);
+    expect(held.status).toBe('offered');
+
+    await run(w, waitlistRemove, { workspaceId: w.workspaceId, entryId: held.id });
+    await drain(w);
+    expect((await entryOf(oli.email)).status).toBe('removed');
+    expect(await entryOf(pia.email)).toMatchObject({
+      status: 'offered',
+      offer: { startsAt: iso(t) },
+    });
+    await waitForMail(pia.email, `A time opened: Tune-up line on ${dayShort(t, CHI)} at 2:00 PM`);
+  });
+});
+
+describe('a cancelled repeat', () => {
+  it('offers each visit it frees to the person waiting for that time, as cancelling one visit does', async () => {
+    const plan = await makeCalendar(w, 'Filter plan', {
+      waitlist: { enabled: true, offerMinutes: 60 },
+    });
+    const { personId } = await run(w, personCreate, {
+      workspaceId: w.workspaceId,
+      firstName: 'Rae',
+      lastName: 'Repeat',
+      email: customer('Rae').email,
+    });
+    // Three weekly visits at 9: the second and third are what Sue and Tom are waiting for.
+    const made = await run(w, seriesCreate, {
+      workspaceId: w.workspaceId,
+      calendarId: plan.id,
+      firstDate: localDateOf(at(9, '09:00'), CHI),
+      rule: { freq: 'weekly', count: 3, localTime: '09:00' },
+      personId,
+    });
+    expect(made.appointmentIds).toHaveLength(3);
+    const sue = customer('Sue');
+    const tom = customer('Tom');
+    await joinWaitlist(plan.slug, {
+      ...sue,
+      wantedFrom: iso(at(16, '08:00')),
+      wantedTo: iso(at(16, '11:00')),
+    });
+    await joinWaitlist(plan.slug, {
+      ...tom,
+      wantedFrom: iso(at(23, '08:00')),
+      wantedTo: iso(at(23, '11:00')),
+    });
+    await drain(w);
+
+    await run(w, seriesCancel, {
+      workspaceId: w.workspaceId,
+      appointmentId: made.appointmentIds[0]!,
+      scope: 'following',
+      notify: false,
+    });
+    await drain(w);
+    expect(await entryOf(sue.email)).toMatchObject({
+      status: 'offered',
+      offer: { startsAt: iso(at(16, '09:00')) },
+    });
+    expect(await entryOf(tom.email)).toMatchObject({
+      status: 'offered',
+      offer: { startsAt: iso(at(23, '09:00')) },
+    });
+    await waitForMail(sue.email, `A time opened: Filter plan on ${dayShort(at(16, '09:00'), CHI)}`);
+    await waitForMail(tom.email, `A time opened: Filter plan on ${dayShort(at(23, '09:00'), CHI)}`);
   });
 });

@@ -68,6 +68,14 @@ export const schedulingTools: readonly AssistantTool[] = [
     autonomy: 'auto',
     permission: 'workspace.read',
   }),
+  define({
+    name: 'get_waitlist',
+    description:
+      'Who is on one calendar’s waitlist, in line order: people waiting for a seat on a full session, and people waiting for a window of time they want (those show on no appointment). Each comes with the entry id manage_waitlist takes to remove them, and whether a freed time is being offered to them now. Calendar ids are in the context and in get_settings (calendars).',
+    input: z.object({ calendarId: uuid }),
+    autonomy: 'auto',
+    permission: 'records.read',
+  }),
 
   // ---------- after it's booked (confirm) ----------
   define({
@@ -174,10 +182,12 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'manage_waitlist',
     description:
-      'A calendar’s waitlist (it must be on; update_calendar_settings turns it on). add: put a customer on it for a full session (appointmentId) or for a window of time they want (wantedFrom and wantedTo); when a seat opens they’re booked in and told, and when a time in their window frees up it’s offered to them. remove: take someone off a session’s waitlist (appointmentId, and personId or the entry id get_appointment lists). Freed seats and times go to the people waiting on their own, first come first served; nobody offers one by hand.',
+      'A calendar’s waitlist (it must be on; update_calendar_settings turns it on). add: put a customer on it for a full session (appointmentId) or for a window of time they want (wantedFrom and wantedTo); when a seat opens they’re booked in and told, and when a time in their window frees up it’s offered to them. remove: take someone off it, by the entry id get_waitlist lists and its calendarId (for a session or a window of time), or by a session’s appointmentId and personId or the entry id get_appointment lists. Freed seats and times go to the people waiting on their own, first come first served; nobody offers one by hand.',
     input: z.object({
       action: z.enum(['add', 'remove']),
-      calendarId: uuid.optional().describe('add: the calendar'),
+      calendarId: uuid
+        .optional()
+        .describe('add: the calendar. remove: the calendar of an entry from get_waitlist'),
       personId: uuid.optional(),
       appointmentId: uuid
         .optional()
@@ -185,7 +195,9 @@ export const schedulingTools: readonly AssistantTool[] = [
       wantedFrom: when.optional().describe('add: the start of the window they want'),
       wantedTo: when.optional().describe('add: the end of the window they want'),
       seats: z.int().min(1).max(100).default(1),
-      entryId: uuid.optional().describe('remove: the waitlist entry, from get_appointment'),
+      entryId: uuid
+        .optional()
+        .describe('remove: the waitlist entry, from get_waitlist or get_appointment'),
     }),
     autonomy: 'confirm',
     permission: 'appointments.write',

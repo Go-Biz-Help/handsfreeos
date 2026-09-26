@@ -263,6 +263,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       `Change who works a calendar, or how it picks: ${ON_A_CALENDAR} Team & assignment`,
       `Set how much notice and how far ahead people can book: ${ON_A_CALENDAR} Booking window`,
       `Turn on the waitlist: ${ON_A_CALENDAR} Waitlist`,
+      `See who is waiting for a time, or take someone off: ${ON_A_CALENDAR} Waitlist, under Waiting for a time`,
       `Allow repeat visits: ${ON_A_CALENDAR} Repeats`,
       `Take a deposit when they book: ${ON_A_CALENDAR} Payments`,
       `Change the confirmation and reminders customers get: ${ON_A_CALENDAR} Notifications`,

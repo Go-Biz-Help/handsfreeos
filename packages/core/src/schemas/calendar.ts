@@ -842,6 +842,31 @@ export const WaitlistAddInput = z
 export const WaitlistAddOutput = z.object({ entryId: uuid, position: z.int() });
 export const WaitlistRemoveInput = z.object({ workspaceId: uuid, entryId: uuid });
 export const WaitlistRemoveOutput = z.object({ entryId: uuid });
+export const WaitlistListInput = z.object({ workspaceId: uuid, calendarId: uuid });
+export const WaitlistListOutput = z.object({
+  /** The calendar's time zone, for showing the times. */
+  timezone: z.string(),
+  /** Everyone still waiting, or holding an offer, in line order. */
+  items: z.array(
+    z.object({
+      id: uuid,
+      personId: uuid,
+      fullName: z.string(),
+      seats: z.int(),
+      status: z.enum(['waiting', 'offered']),
+      position: z.int(),
+      /** The full session they wait for; null when they want a window of time. */
+      appointment: z
+        .object({ id: uuid, title: z.string(), startsAt: isoDateTime, endsAt: isoDateTime })
+        .nullable(),
+      wantedFrom: isoDateTime.nullable(),
+      wantedTo: isoDateTime.nullable(),
+      /** While they hold an offer of a freed time: when it runs out. */
+      offerExpiresAt: isoDateTime.nullable(),
+      createdAt: isoDateTime,
+    }),
+  ),
+});
 
 // ---- Reading appointments ----
 

@@ -279,7 +279,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'move the job along (On the way, Started, Waiting on parts, Done) and the note the customer sees — each texts them',
       'add a customer to a group session, or take one off',
       'book repeat visits, and cancel one visit of a series, it and the ones after, or every upcoming one',
-      'put a customer on a waitlist for a full session or a window of time, or take them off a session’s waitlist',
+      'see who is waiting on a calendar’s waitlist, put a customer on it for a full session or a window of time, or take them off',
     ],
     path: '/calendar',
   },
