@@ -18,11 +18,22 @@ interface LatLng {
 interface MapsEventListener {
   remove(): void;
 }
+/** Google's shading of an area kind (here, ZIP codes), styled per area by its place ID. */
+export interface FeatureLayer {
+  readonly isAvailable: boolean;
+  style: ((o: { feature: { placeId: string } }) => Record<string, unknown> | null) | null;
+  addListener(
+    name: 'click',
+    fn: (e: { features: { placeId: string }[] }) => void,
+  ): MapsEventListener;
+}
 export interface GMap {
   setCenter(c: LatLngLiteral): void;
   setZoom(z: number): void;
   fitBounds(b: unknown): void;
   addListener(name: 'click', fn: (e: { latLng: LatLng | null }) => void): MapsEventListener;
+  addListener(name: 'idle', fn: () => void): MapsEventListener;
+  getFeatureLayer(type: string): FeatureLayer;
 }
 export interface GShape {
   setMap(m: GMap | null): void;
@@ -65,9 +76,23 @@ export interface GoogleMaps {
   };
   Geocoder: new () => {
     geocode(
-      req: { address: string } | { location: LatLngLiteral },
-    ): Promise<{ results: { geometry: { location: LatLng }; formatted_address: string }[] }>;
+      req:
+        | { address: string }
+        | { location: LatLngLiteral }
+        | { placeId: string }
+        | { componentRestrictions: { country: string; postalCode: string } },
+    ): Promise<{
+      results: {
+        geometry: { location: LatLng; viewport: unknown };
+        formatted_address: string;
+        place_id: string;
+        types: string[];
+        address_components: { short_name: string; types: string[] }[];
+      }[];
+    }>;
   };
+  LatLngBounds: new () => { union(other: unknown): void };
+  FeatureType: { POSTAL_CODE: string };
   places: Places;
 }
 
@@ -81,6 +106,9 @@ declare global {
 let loading: Promise<GoogleMaps> | null = null;
 
 export const mapsKey = (): string | null => publicEnv.googleMapsBrowserKey;
+
+/** The map ID whose style turns on Google's ZIP code areas; without one, ZIP areas have no map. */
+export const mapsMapId = (): string | null => publicEnv.googleMapsMapId;
 
 /** Loads the Maps script once; rejects without a key or when Google doesn't answer. */
 export function loadGoogleMaps(): Promise<GoogleMaps> {
@@ -137,6 +165,61 @@ export async function addressAt(point: LatLngLiteral): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// A ZIP code's place and the other way round, kept for the page's life so a territory's ZIPs are looked up once.
+const zipPlaces = new Map<string, Promise<{ placeId: string; viewport: unknown } | null>>();
+const placeZips = new Map<string, Promise<string | null>>();
+
+/** A ZIP code's place on Google's map (to shade it) and its extent (to show it), or null for no such ZIP. */
+export function zipPlace(zip: string): Promise<{ placeId: string; viewport: unknown } | null> {
+  let found = zipPlaces.get(zip);
+  if (!found) {
+    found = (async () => {
+      const maps = await loadGoogleMaps();
+      try {
+        const { results } = await new maps.Geocoder().geocode({
+          componentRestrictions: { country: 'US', postalCode: zip },
+        });
+        const top = results.find((r) => r.types.includes('postal_code'));
+        if (!top) return null;
+        placeZips.set(top.place_id, Promise.resolve(zip));
+        return { placeId: top.place_id, viewport: top.geometry.viewport };
+      } catch {
+        zipPlaces.delete(zip); // No answer this time (or no such ZIP): ask again next time.
+        return null;
+      }
+    })();
+    zipPlaces.set(zip, found);
+  }
+  return found;
+}
+
+/** The ZIP code of an area clicked on the map, from its place ID. */
+export function zipOfPlace(placeId: string): Promise<string | null> {
+  let found = placeZips.get(placeId);
+  if (!found) {
+    found = (async () => {
+      const maps = await loadGoogleMaps();
+      try {
+        const { results } = await new maps.Geocoder().geocode({ placeId });
+        const top = results[0];
+        const zip = top?.address_components.find((c) => c.types.includes('postal_code'));
+        if (!top || !zip || !/^\d{5}$/.test(zip.short_name)) return null;
+        if (!zipPlaces.has(zip.short_name))
+          zipPlaces.set(
+            zip.short_name,
+            Promise.resolve({ placeId, viewport: top.geometry.viewport }),
+          );
+        return zip.short_name;
+      } catch {
+        placeZips.delete(placeId);
+        return null;
+      }
+    })();
+    placeZips.set(placeId, found);
+  }
+  return found;
 }
 
 export interface AddressSuggestion {

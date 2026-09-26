@@ -1,7 +1,7 @@
 'use client';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -14,10 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { TerritoryItem } from '@/lib/api/types';
-import { addressAt, findPlace, mapsKey, type LatLngLiteral } from '@/lib/maps/google';
+import { addressAt, findPlace, mapsKey, mapsMapId, type LatLngLiteral } from '@/lib/maps/google';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { AddressInput } from './address-input';
 import { AreaMap } from './area-map';
+import { ZipMap } from './zip-map';
 
 /** Five-digit ZIP codes found in some text ("77002, 77003 77004"). */
 export function zipsIn(text: string): string[] {
@@ -246,9 +247,11 @@ function TerritoryDialog({
 }) {
   const router = useRouter();
   const withMap = !!mapsKey();
+  const withZipMap = withMap && !!mapsMapId();
   const [name, setName] = useState(territory?.name ?? '');
   const [kind, setKind] = useState<Kind>(territory?.kind ?? 'zip');
   const [zips, setZips] = useState(territory?.postalCodes.join(', ') ?? '');
+  const zipList = useMemo(() => zipsIn(zips), [zips]);
   const [address, setAddress] = useState(territory?.centerAddress ?? '');
   const [center, setCenter] = useState<LatLngLiteral | null>(territory?.center ?? null);
   const [miles, setMiles] = useState(String(territory?.radiusMiles ?? 15));
@@ -277,6 +280,14 @@ function TerritoryDialog({
       setCenter(found.point);
       setAddress(found.formatted);
     }
+  }
+
+  /** A ZIP code clicked on the map: added to the list, or taken off it. */
+  function toggleZip(zip: string) {
+    setZips((text) => {
+      const list = zipsIn(text);
+      return (list.includes(zip) ? list.filter((z) => z !== zip) : [...list, zip]).join(', ');
+    });
   }
 
   /** The pin dragged somewhere else: measured from there, named by the address Google has for it. */
@@ -326,7 +337,7 @@ function TerritoryDialog({
       const body = {
         workspaceId,
         name: name.trim(),
-        postalCodes: kind === 'zip' ? zipsIn(zips) : [],
+        postalCodes: kind === 'zip' ? zipList : [],
         shape,
         userIds,
       };
@@ -346,6 +357,36 @@ function TerritoryDialog({
       setBusy(false);
     }
   }
+
+  const addressField = (
+    <Field
+      label={kind === 'radius' ? 'Measured from' : 'Go to an address'}
+      htmlFor="territory-address"
+      hint={
+        kind === 'radius'
+          ? 'Usually your shop or office. Start typing and pick it (or press Find), or drag the pin on the map. Then set how far you go.'
+          : kind === 'polygon'
+            ? 'Then click the map to add each corner of the area, in order. Drag a corner to move it.'
+            : 'Then click ZIP codes on the map to add or remove them.'
+      }
+    >
+      <div className="flex gap-2">
+        <AddressInput
+          id="territory-address"
+          value={address}
+          onChange={(text) => {
+            placed.current += 1;
+            setAddress(text);
+          }}
+          onPick={goTo}
+          onFind={() => void find()}
+        />
+        <Button type="button" variant="secondary" loading={finding} onClick={() => void find()}>
+          Find
+        </Button>
+      </div>
+    </Field>
+  );
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -387,50 +428,29 @@ function TerritoryDialog({
             ) : null}
           </div>
           {kind === 'zip' ? (
-            <Field
-              label="ZIP codes"
-              htmlFor="territory-zips"
-              hint={`${zipsIn(zips).length} ZIP codes. Separate them with commas, spaces or new lines.`}
-            >
-              <Textarea
-                id="territory-zips"
-                value={zips}
-                className="font-mono text-[13px]"
-                onChange={(e) => setZips(e.target.value)}
-              />
-            </Field>
-          ) : (
             <>
               <Field
-                label={kind === 'radius' ? 'Measured from' : 'Go to an address'}
-                htmlFor="territory-address"
-                hint={
-                  kind === 'radius'
-                    ? 'Usually your shop or office. Start typing and pick it (or press Find), or drag the pin on the map. Then set how far you go.'
-                    : 'Then click the map to add each corner of the area, in order. Drag a corner to move it.'
-                }
+                label="ZIP codes"
+                htmlFor="territory-zips"
+                hint={`${zipList.length} ZIP codes. Separate them with commas, spaces or new lines.`}
               >
-                <div className="flex gap-2">
-                  <AddressInput
-                    id="territory-address"
-                    value={address}
-                    onChange={(text) => {
-                      placed.current += 1;
-                      setAddress(text);
-                    }}
-                    onPick={goTo}
-                    onFind={() => void find()}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    loading={finding}
-                    onClick={() => void find()}
-                  >
-                    Find
-                  </Button>
-                </div>
+                <Textarea
+                  id="territory-zips"
+                  value={zips}
+                  className="font-mono text-[13px]"
+                  onChange={(e) => setZips(e.target.value)}
+                />
               </Field>
+              {withZipMap ? (
+                <>
+                  {addressField}
+                  <ZipMap zips={zipList} focus={focus} onToggle={toggleZip} />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {addressField}
               {kind === 'radius' ? (
                 <Field label="How far, in miles" htmlFor="territory-miles">
                   <Input

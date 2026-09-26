@@ -26,4 +26,6 @@ export const publicEnv = {
    * a map. Without it only ZIP areas are offered.
    */
   googleMapsBrowserKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY || null,
+  /** A map ID whose style has Google's postal code boundaries on, so ZIP areas show (and click) on a map. */
+  googleMapsMapId: process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || null,
 };
