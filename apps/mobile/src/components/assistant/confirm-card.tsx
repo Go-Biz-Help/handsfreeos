@@ -37,7 +37,8 @@ import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import type { CallState } from '@/assistant/chat';
-import { AssistantError, cancelToolCall, confirmToolCall } from '@/assistant/stream';
+import { decideCard } from '@/assistant/decide';
+import { cancelToolCall } from '@/assistant/stream';
 import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -127,26 +128,9 @@ export function ConfirmCard({
   const decide = async (kind: 'confirm' | 'cancel') => {
     setBusy(kind);
     try {
-      const out =
-        kind === 'confirm'
-          ? await confirmToolCall(card.toolCallId, workspaceId, needsReason ? reason : undefined)
-          : await cancelToolCall(card.toolCallId, workspaceId);
-      setCall(card.toolCallId, {
-        status:
-          out.status === 'confirmed'
-            ? 'confirmed'
-            : out.status === 'cancelled'
-              ? 'cancelled'
-              : 'failed',
-        outcome: out.outcome,
-        href: out.href,
-        error: out.error,
-      });
+      await decideCard(workspaceId, setCall, card, kind, needsReason ? reason : undefined);
     } catch (e) {
-      // Answered on another screen, or it lapsed: the card says so.
-      if (e instanceof AssistantError && (e.status === 409 || e.status === 404))
-        setCall(card.toolCallId, { status: 'expired', note: e.message });
-      else toast.error(errorMessage(e));
+      toast.error(errorMessage(e));
     } finally {
       setBusy(null);
     }

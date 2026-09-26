@@ -61,3 +61,5 @@ export * from './inbox/index';
 export * from './migrations/index';
 // Ideas, the roadmap and What's new (0102).
 export * from './ideas/index';
+// Talking out loud: the Assistant's voice mode and the test console's calls.
+export * from './voice/index';

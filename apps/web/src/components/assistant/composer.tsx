@@ -1,11 +1,13 @@
 'use client';
-import { ASSISTANT_WORDS } from '@hfos/core';
-import { ArrowUp, Square } from 'lucide-react';
+import { ASSISTANT_WORDS, VOICE_WORDS } from '@hfos/core';
+import { ArrowUp, Mic, Square } from 'lucide-react';
 import { useEffect, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { useAssistant } from './assistant-provider';
+import { useAssistantVoice } from './voice';
 
 /** The box when the Assistant can't take questions: not set up, or today's limit is spent. */
 function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
@@ -50,9 +52,12 @@ function OffComposer({ phone, paused }: { phone: boolean; paused: boolean }) {
 /**
  * Where the person asks. Return sends where there's a keyboard and a mouse (Shift+Return adds a line); on
  * touch screens Return adds a line and the round button sends. While an answer streams in, Stop replaces Send.
+ * The mic talks out loud instead: it listens, answers out loud, and listens again, until it's turned off.
  */
 export function AssistantComposer({ phone }: { phone: boolean }) {
   const a = useAssistant();
+  const voice = useAssistantVoice();
+  const talking = voice.snap.phase !== 'off';
   const fine = useMatches('(pointer: fine)');
   const ref = a.composerRef;
   const off = a.setup === 'missing' || a.paused;
@@ -86,6 +91,22 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
 
   if (off) return <OffComposer phone={phone} paused={a.paused} />;
 
+  const mic = {
+    title: talking ? VOICE_WORDS.stopTalking : VOICE_WORDS.talkTitle,
+    'aria-label': talking ? VOICE_WORDS.stopTalking : VOICE_WORDS.talkTitle,
+    'aria-pressed': talking,
+    onClick: () => void voice.toggle(),
+    'data-testid': 'assistant-talk',
+  };
+  const bar = (
+    <VoiceBar
+      session={voice.session}
+      snap={voice.snap}
+      onTalk={voice.talk}
+      className="rounded-card border-t-0"
+    />
+  );
+
   const box = {
     ref,
     value: a.draft,
@@ -99,39 +120,53 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
   if (phone)
     return (
       <div
-        className="flex flex-none items-end gap-1.5 border-t border-border bg-card px-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2"
+        className="flex flex-none flex-col gap-2 border-t border-border bg-card px-2.5 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2"
         data-testid="assistant-composer"
       >
-        <textarea
-          {...box}
-          rows={1}
-          placeholder={ASSISTANT_WORDS.placeholder.compact}
-          className="min-h-11 min-w-0 flex-1 resize-none rounded-[22px] border border-border-strong bg-card px-4 py-[10px] text-base leading-[1.4] text-text placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring"
-        />
-        {a.running ? (
+        {bar}
+        <VoiceError snap={voice.snap} className="px-1.5" />
+        <div className="flex items-end gap-1.5">
           <button
             type="button"
-            title="Stop"
-            aria-label="Stop"
-            onClick={a.stop}
-            data-testid="assistant-stop"
-            className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-border-strong text-text-2"
+            {...mic}
+            className={cn(
+              'flex h-11 w-11 flex-none items-center justify-center rounded-full border border-border-strong',
+              talking ? 'border-accent bg-accent-soft text-accent-text' : 'text-text-2',
+            )}
           >
-            <Square className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.5} />
+            <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
           </button>
-        ) : (
-          <button
-            type="button"
-            title="Send"
-            aria-label="Send"
-            disabled={!canSend}
-            onClick={send}
-            data-testid="assistant-send"
-            className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-white disabled:opacity-45"
-          >
-            <ArrowUp className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </button>
-        )}
+          <textarea
+            {...box}
+            rows={1}
+            placeholder={ASSISTANT_WORDS.placeholder.compact}
+            className="min-h-11 min-w-0 flex-1 resize-none rounded-[22px] border border-border-strong bg-card px-4 py-[10px] text-base leading-[1.4] text-text placeholder:text-placeholder focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-ring"
+          />
+          {a.running ? (
+            <button
+              type="button"
+              title="Stop"
+              aria-label="Stop"
+              onClick={a.stop}
+              data-testid="assistant-stop"
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-border-strong text-text-2"
+            >
+              <Square className="h-3.5 w-3.5" fill="currentColor" strokeWidth={1.5} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              title="Send"
+              aria-label="Send"
+              disabled={!canSend}
+              onClick={send}
+              data-testid="assistant-send"
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-white disabled:opacity-45"
+            >
+              <ArrowUp className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </button>
+          )}
+        </div>
       </div>
     );
 
@@ -140,6 +175,7 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
       className="flex flex-none flex-col gap-1.5 border-t border-border bg-card px-3 pb-3 pt-2.5"
       data-testid="assistant-composer"
     >
+      {bar}
       <div className="rounded-card border border-border-strong bg-card transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-[3px] focus-within:ring-ring">
         <textarea
           {...box}
@@ -149,6 +185,14 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 pt-1">
           <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3">{ASSISTANT_WORDS.hint}</span>
+          <Button
+            variant={talking ? 'secondary' : 'ghost'}
+            size="icon"
+            {...mic}
+            className={cn(talking && 'border-accent text-accent-text')}
+          >
+            <Mic className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </Button>
           {a.running ? (
             <Button
               variant="secondary"
@@ -174,6 +218,7 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
           )}
         </div>
       </div>
+      <VoiceError snap={voice.snap} className="px-1" />
     </div>
   );
 }

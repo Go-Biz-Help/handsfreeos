@@ -90,6 +90,8 @@ export { default as MessageSquare } from 'lucide-react-native/icons/message-squa
 export { default as MessageSquareOff } from 'lucide-react-native/icons/message-square-off';
 export { default as MessageSquareText } from 'lucide-react-native/icons/message-square-text';
 export { default as MessagesSquare } from 'lucide-react-native/icons/messages-square';
+export { default as Mic } from 'lucide-react-native/icons/mic';
+export { default as MicOff } from 'lucide-react-native/icons/mic-off';
 export { default as MapPin } from 'lucide-react-native/icons/map-pin';
 export { default as Minus } from 'lucide-react-native/icons/minus';
 export { default as Moon } from 'lucide-react-native/icons/moon';
@@ -142,6 +144,7 @@ export { default as UserRound } from 'lucide-react-native/icons/user-round';
 export { default as Users } from 'lucide-react-native/icons/users';
 export { default as UserX } from 'lucide-react-native/icons/user-x';
 export { default as Voicemail } from 'lucide-react-native/icons/voicemail';
+export { default as Volume2 } from 'lucide-react-native/icons/volume-2';
 export { default as Wallet } from 'lucide-react-native/icons/wallet';
 export { default as WifiOff } from 'lucide-react-native/icons/wifi-off';
 export { default as Wrench } from 'lucide-react-native/icons/wrench';

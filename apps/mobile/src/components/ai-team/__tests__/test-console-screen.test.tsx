@@ -10,7 +10,8 @@ import { TestConsoleView, type TestCustomer } from '../test-console';
 /**
  * The phone's test console with React Native Testing Library, the worker played by a stand-in stream: a written test
  * shows the reply and what it looked up; an incoming call starts with the greeting and a goodbye ends it; an outgoing
- * call needs a customer, and sends which way it goes and why; with no signal it says so and keeps the words.
+ * call needs a customer, and sends which way it goes and why; with no signal it says so and keeps the words; and
+ * talking out loud says each reply in the teammate's voice and sends what the caller says.
  */
 
 jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
@@ -30,6 +31,22 @@ jest.mock('@/ai-team/test-stream', () => {
     },
   };
 });
+
+const mockHear = jest.fn();
+const mockSay = jest.fn();
+jest.mock('@/voice/speech', () => {
+  const actual = jest.requireActual('@/voice/speech');
+  return {
+    ...actual,
+    hear: (...args: unknown[]) => mockHear(...args),
+    say: (...args: unknown[]) => mockSay(...args),
+    forget: jest.fn(),
+  };
+});
+const audio = jest.requireMock('expo-audio') as {
+  __recorder: { meter: (ms: number) => number };
+  __played: string[];
+};
 
 const WS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OMAR: TestCustomer = {
@@ -162,6 +179,49 @@ describe('a test call', () => {
       'Outgoing call · follow up a quote · Now',
     );
   });
+
+  it('talks out loud: says the greeting in its voice, hears the caller, and answers out loud', async () => {
+    answer((body) =>
+      body.messages.length
+        ? [done('Thursday at 10 works. Shall I book it?')]
+        : [done('Thanks for calling Lone Star.')],
+    );
+    // Talking for half a second, then quiet: one turn each time it listens.
+    audio.__recorder.meter = (ms) => (ms > 100 && ms < 600 ? -20 : -60);
+    mockHear.mockResolvedValue({ text: 'Can I book Thursday?', language: 'en' });
+    let clips = 0;
+    mockSay.mockImplementation(async () => `file:///cache/clip-${++clips}.mp3`);
+    await render(<Harness />);
+    await choose('test-channel-phone');
+    await fireEvent.press(screen.getByTestId('test-console-talk'));
+    await waitFor(() => expect(screen.getByTestId('voice-bar')).toBeTruthy());
+
+    await fireEvent.press(screen.getByTestId('test-console-start-call'));
+    await waitFor(() => expect(mockBodies).toHaveLength(2), { timeout: 8000 });
+    expect(mockSay.mock.calls[0]![0]).toMatchObject({
+      workspaceId: WS,
+      text: 'Thanks for calling Lone Star.',
+      voice: null,
+    });
+    expect(audio.__played[0]).toBe('file:///cache/clip-1.mp3');
+    expect(mockBodies[1]!.messages).toEqual([
+      { from: 'teammate', text: 'Thanks for calling Lone Star.' },
+      { from: 'customer', text: 'Can I book Thursday?' },
+    ]);
+    await waitFor(() =>
+      expect(screen.getAllByTestId('test-console-reply')[1]).toHaveTextContent(
+        'Thursday at 10 works. Shall I book it?',
+      ),
+    );
+    await waitFor(() =>
+      expect(mockSay.mock.calls.map((c) => (c[0] as { text: string }).text)).toContain(
+        'Thursday at 10 works.',
+      ),
+    );
+
+    await fireEvent.press(screen.getByTestId('voice-stop'));
+    await waitFor(() => expect(screen.queryByTestId('voice-bar')).toBeNull());
+  }, 20_000);
 
   it('says it needs signal, and keeps what was written', async () => {
     mockOffline = true;

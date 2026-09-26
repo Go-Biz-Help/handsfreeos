@@ -10,11 +10,15 @@
  *
  * Speaking: one request per sentence, answered with the audio as it's made (μ-law at 8 kHz, no container), so
  * the first words play before the last ones exist.
+ *
+ * Voice mode's clips (the web and the phone): a recording is one pre-recorded request, heard in English or
+ * Spanish without being told which, and a clip to play is one Aura 2 request answered as an MP3.
  */
 import type { Logger } from 'pino';
 import WebSocket from 'ws';
 import {
   voiceModel,
+  type HeardClip,
   type HeardWords,
   type ListenHandlers,
   type Listening,
@@ -23,11 +27,14 @@ import {
 } from './speech';
 
 const LISTEN_URL = 'wss://api.deepgram.com/v1/listen';
+const CLIP_LISTEN_URL = 'https://api.deepgram.com/v1/listen';
 const SPEAK_URL = 'https://api.deepgram.com/v1/speak';
 const KEEP_ALIVE_MS = 5_000;
 /** How long a sentence may take to start coming back before it's given up on. */
 const SPEAK_TIMEOUT_MS = 10_000;
 const CONNECT_TIMEOUT_MS = 5_000;
+/** A minute of talking is heard in a few seconds; longer than that and something is wrong. */
+const CLIP_TIMEOUT_MS = 30_000;
 
 interface DeepgramResult {
   readonly type?: string;
@@ -56,6 +63,40 @@ export function listenParams(): URLSearchParams {
     vad_events: 'true',
   });
 }
+
+interface DeepgramClipReply {
+  readonly results?: {
+    readonly channels?: readonly {
+      readonly detected_language?: string;
+      readonly alternatives?: readonly {
+        readonly transcript?: string;
+        readonly languages?: readonly string[];
+      }[];
+    }[];
+  };
+}
+
+export function clipListenParams(): URLSearchParams {
+  return new URLSearchParams({
+    model: 'nova-3',
+    language: 'multi',
+    punctuate: 'true',
+    smart_format: 'true',
+  });
+}
+
+/** A pre-recorded answer as the words heard. */
+export function heardClipOf(reply: DeepgramClipReply): HeardClip {
+  const channel = reply.results?.channels?.[0];
+  const alt = channel?.alternatives?.[0];
+  return {
+    text: (alt?.transcript ?? '').trim(),
+    language: alt?.languages?.[0] ?? channel?.detected_language ?? null,
+  };
+}
+
+const timeoutWith = (ms: number, signal?: AbortSignal) =>
+  signal ? AbortSignal.any([signal, AbortSignal.timeout(ms)]) : AbortSignal.timeout(ms);
 
 /** One of Deepgram's messages, as words heard, or null when it's something else. */
 export function heardOf(m: DeepgramResult): HeardWords | null {
@@ -164,6 +205,38 @@ export function createDeepgramSpeech(deps: {
       }
       for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>)
         yield Buffer.from(chunk);
+    },
+
+    async transcribe(audio, options) {
+      const res = await fetch(`${CLIP_LISTEN_URL}?${clipListenParams().toString()}`, {
+        method: 'POST',
+        headers: { authorization: `Token ${deps.apiKey}`, 'content-type': options.contentType },
+        body: new Uint8Array(audio),
+        signal: timeoutWith(CLIP_TIMEOUT_MS, options.signal),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Deepgram couldn’t hear the clip (${res.status}): ${body.slice(0, 200)}`);
+      }
+      return heardClipOf((await res.json().catch(() => ({}))) as DeepgramClipReply);
+    },
+
+    async voiceClip(text, options) {
+      const params = new URLSearchParams({
+        model: voiceModel(options.voice, options.language),
+        encoding: 'mp3',
+      });
+      const res = await fetch(`${SPEAK_URL}?${params.toString()}`, {
+        method: 'POST',
+        headers: { authorization: `Token ${deps.apiKey}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: timeoutWith(CLIP_TIMEOUT_MS, options.signal),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Deepgram couldn’t speak (${res.status}): ${body.slice(0, 200)}`);
+      }
+      return { contentType: 'audio/mpeg', audio: Buffer.from(await res.arrayBuffer()) };
     },
   };
 }
