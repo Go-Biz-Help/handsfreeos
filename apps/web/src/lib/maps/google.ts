@@ -19,20 +19,23 @@ interface MapsEventListener {
   remove(): void;
 }
 /** Google's shading of an area kind (here, ZIP codes), styled per area by its place ID. */
+export interface PlaceFeature {
+  readonly placeId: string;
+  /** For a ZIP code area, the ZIP code itself. */
+  readonly displayName?: string;
+}
 export interface FeatureLayer {
   readonly isAvailable: boolean;
-  style: ((o: { feature: { placeId: string } }) => Record<string, unknown> | null) | null;
-  addListener(
-    name: 'click',
-    fn: (e: { features: { placeId: string }[] }) => void,
-  ): MapsEventListener;
+  style: ((o: { feature: PlaceFeature }) => Record<string, unknown> | undefined) | null;
+  addListener(name: 'click', fn: (e: { features: PlaceFeature[] }) => void): MapsEventListener;
 }
 export interface GMap {
   setCenter(c: LatLngLiteral): void;
   setZoom(z: number): void;
   fitBounds(b: unknown): void;
   addListener(name: 'click', fn: (e: { latLng: LatLng | null }) => void): MapsEventListener;
-  addListener(name: 'idle', fn: () => void): MapsEventListener;
+  addListener(name: 'idle' | 'mapcapabilities_changed', fn: () => void): MapsEventListener;
+  getMapCapabilities?(): { isDataDrivenStylingAvailable?: boolean };
   getFeatureLayer(type: string): FeatureLayer;
 }
 export interface GShape {
@@ -94,6 +97,7 @@ export interface GoogleMaps {
   LatLngBounds: new () => { union(other: unknown): void };
   FeatureType: { POSTAL_CODE: string };
   ColorScheme?: { LIGHT: string; DARK: string };
+  RenderingType?: { VECTOR: string };
   places: Places;
 }
 
