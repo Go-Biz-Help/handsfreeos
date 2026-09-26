@@ -33562,6 +33562,7 @@ export interface operations {
                      * @enum {string}
                      */
                     status?: "open" | "snoozed" | "closed";
+                    unread?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };

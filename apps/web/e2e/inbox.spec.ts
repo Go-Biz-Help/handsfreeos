@@ -65,6 +65,14 @@ test('texting: set up, send, receive live, assign, snooze, close and STOP', asyn
   expect(Date.now() - started).toBeLessThan(5000);
   await expect(watcher.getByTestId('conversation-list')).toContainText('Is Marco still coming?');
 
+  // The badge goes straight to what is unread; the filter turns off again from the list.
+  await badge.click();
+  await expect(watcher).toHaveURL(/[?&]unread=1/);
+  await expect(watcher.getByTestId('filter-unread')).toHaveAttribute('aria-pressed', 'true');
+  await expect(watcher.getByTestId('conversation-list')).toContainText('Mike Johnson');
+  await watcher.getByTestId('filter-unread').click();
+  await expect(watcher).not.toHaveURL(/unread=1/);
+
   // Opening it reads it: the photo is there and the badge clears.
   await watcher.getByTestId('conversation-list').getByText('Mike Johnson').click();
   await expect(watcher.getByTestId('message-log')).toContainText('Is Marco still coming?');

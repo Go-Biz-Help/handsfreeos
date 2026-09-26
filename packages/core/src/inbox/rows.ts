@@ -287,15 +287,18 @@ export interface InboxFilter {
   readonly channel?: 'sms' | 'email' | 'chat';
   /** Search: a name, the number or address, words from the latest message. */
   readonly q?: string;
+  /** Only threads with something unread (the "Unread" filter). */
+  readonly unread?: boolean;
 }
 
 /**
- * Whether a conversation is in the list, as `inbox.list` decides: its box and status, one that has had a message, and
- * the search (a name, the number or address, the latest message; three digits or more match inside the number).
+ * Whether a conversation is in the list, as `inbox.list` decides: its box and status, one that has had a message,
+ * whether it has anything unread when only those are asked for, and the search (a name, the number or address, the latest message; three digits or more match inside the number).
  */
 export function inInbox(c: ConversationShape, filter: InboxFilter, myUserId: string): boolean {
   if (!c.lastMessageAt || c.status !== filter.status) return false;
   if (filter.channel && c.channel !== filter.channel) return false;
+  if (filter.unread && c.unreadCount <= 0) return false;
   switch (filter.box) {
     case 'mine':
       if (c.assignee?.id !== myUserId) return false;

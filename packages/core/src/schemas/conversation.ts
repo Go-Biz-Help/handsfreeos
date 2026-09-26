@@ -103,6 +103,8 @@ export const InboxListInput = ListInput.extend({
   status: conversationStatus.default('open'),
   channel: conversationChannel.optional(),
   q: z.string().trim().max(100).optional(),
+  /** Only threads with something unread, within the box and status (the "Unread" filter). */
+  unread: z.boolean().optional(),
   /** One customer's conversations in any status (the record page); `status` is ignored with it. */
   personId: uuid.optional(),
 });

@@ -23,8 +23,15 @@ import {
   Star,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 import { NewDot, useWhatsNewUnseen } from '@/components/ideas/whats-new-signal';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
@@ -106,14 +113,47 @@ function anyActive(workspaceId: string, keys: readonly MenuKey[], pathname: stri
   return keys.some((k) => isActive(navItemOf(workspaceId, k), pathname));
 }
 
-/** The count on the Inbox item: open conversations with something unread. */
-export function UnreadCount({ count, className }: { count: number; className?: string }) {
+/**
+ * The count on the Inbox item: open conversations with something unread.
+ *
+ * With `href`, pressing the count itself goes there (the inbox with only the unread ones showing), while the rest of
+ * the row still opens the whole inbox: the count is what someone is looking at when they wonder what it means, and
+ * a thread marked unread months ago can sit hundreds of rows down. It is a press on part of the row rather than a
+ * link of its own, because a link inside a link is not one a browser keeps; the keyboard has the inbox's own Unread
+ * filter.
+ */
+export function UnreadCount({
+  count,
+  className,
+  href,
+  onNavigate,
+}: {
+  count: number;
+  className?: string;
+  href?: string;
+  onNavigate?: () => void;
+}) {
+  const router = useRouter();
   if (count <= 0) return null;
+  const jump = href
+    ? (e: MouseEvent) => {
+        // A new tab or window is the row's to open, as it always was.
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        // Inside the Inbox link or a group's row: this press is the count's, not theirs.
+        e.preventDefault();
+        e.stopPropagation();
+        onNavigate?.();
+        router.push(href);
+      }
+    : undefined;
   return (
     <span
       data-testid="unread-badge"
+      onClick={jump}
+      title={href ? 'Show unread' : undefined}
       className={cn(
         'inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-none text-white',
+        href && 'cursor-pointer transition-shadow hover:ring-2 hover:ring-accent-soft-2',
         className,
       )}
     >
@@ -191,7 +231,7 @@ function GroupFlyout({
   group: MenuGroup;
   workspaceId: string;
   pathname: string;
-  badges: (key: MenuKey) => ReactNode;
+  badges: (key: MenuKey, onNavigate?: () => void) => ReactNode;
   onNavigate?: () => void;
 }) {
   const hoverable = useMatches('(hover: hover) and (pointer: fine)');
@@ -211,6 +251,11 @@ function GroupFlyout({
     stop();
     byHover.current = true;
     setOpen(true);
+  };
+  /** Somewhere was picked: the flyout goes, and so does the drawer it may sit in. */
+  const close = () => {
+    setOpen(false);
+    onNavigate?.();
   };
   // A moment's grace, so crossing the gap between the row and the flyout doesn't shut it.
   const hideSoon = () => {
@@ -246,7 +291,7 @@ function GroupFlyout({
         <Layers className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
         <span className="min-w-0 truncate">{group.label}</span>
         <span className="ml-auto flex items-center gap-1">
-          {group.keys.map((k) => badges(k))}
+          {group.keys.map((k) => badges(k, close))}
           <ChevronRight className="h-4 w-4 flex-none text-text-3" strokeWidth={1.5} />
         </span>
       </Popover.Trigger>
@@ -273,11 +318,8 @@ function GroupFlyout({
                 key={key}
                 item={item}
                 active={isActive(item, pathname)}
-                badge={<span className="ml-auto">{badges(key)}</span>}
-                onNavigate={() => {
-                  setOpen(false);
-                  onNavigate?.();
-                }}
+                badge={<span className="ml-auto">{badges(key, close)}</span>}
+                onNavigate={close}
               />
             );
           })}
@@ -298,7 +340,7 @@ function GroupAccordion({
   group: MenuGroup;
   workspaceId: string;
   pathname: string;
-  badges: (key: MenuKey) => ReactNode;
+  badges: (key: MenuKey, onNavigate?: () => void) => ReactNode;
   onNavigate?: () => void;
 }) {
   const active = anyActive(workspaceId, group.keys, pathname);
@@ -374,9 +416,19 @@ export function NavLinks({
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
   const whatsNew = useWhatsNewUnseen();
-  const badges = (key: MenuKey): ReactNode => {
+  const badges = (key: MenuKey, after = onNavigate): ReactNode => {
     if (key === 'home') return <UrgentCount key="u" count={urgent} />;
-    if (key === 'inbox') return <UnreadCount key="n" count={unread} />;
+    if (key === 'inbox')
+      return (
+        <UnreadCount
+          key="n"
+          count={unread}
+          // "All" (or "Everyone"), because that is what the count counts: a member whose inbox opens on Mine would
+          // otherwise land on a list without the thread the badge is about.
+          href={`${navItemOf(workspaceId, 'inbox').href}?box=all&unread=1`}
+          onNavigate={after}
+        />
+      );
     if (key === 'ideas') return <NewDot key="w" count={whatsNew} />;
     return null;
   };

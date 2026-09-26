@@ -58097,6 +58097,9 @@
                     "type": "string",
                     "maxLength": 100
                   },
+                  "unread": {
+                    "type": "boolean"
+                  },
                   "personId": {
                     "type": "string",
                     "format": "uuid",
