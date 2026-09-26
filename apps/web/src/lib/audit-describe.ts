@@ -355,6 +355,17 @@ function describeAction(e: AuditEntry): string {
       return `connected the Twilio account ${s(e.after?.account)}${e.after?.name ? ` (${s(e.after.name)})` : ''}`;
     case 'twilio_connection.disconnect':
       return `disconnected the Twilio account ${s(e.after?.account)}`;
+    // Phone & texting on or off: the business's own Twilio account, made or closed on request.
+    case 'telephony.enable':
+      return 'turned phone & texting on';
+    case 'telephony.disable':
+      return 'turned phone & texting off';
+    case 'telephony.account_changed':
+      return e.after?.problem
+        ? `left phone & texting on: ${s(e.after.problem)}`
+        : s(e.after?.status) === 'closed'
+          ? `closed the business’s Twilio account${e.after?.account ? ` ${s(e.after.account)}` : ''}`
+          : `opened the business’s Twilio account${e.after?.account ? ` ${s(e.after.account)}` : ''}`;
     case 'twilio_connection.fail':
       return `found Twilio no longer accepts the account ${s(e.after?.account)}`;
     // 0103: RCS. The sender is made in the business's Twilio account; these connect it, pause it and let it go.

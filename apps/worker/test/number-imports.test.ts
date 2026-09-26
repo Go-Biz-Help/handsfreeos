@@ -227,8 +227,7 @@ describe('a GoHighLevel number', () => {
     const [shown] = (await list()).imports.filter((i) => i.id === importId);
     expect(shown!.setup).toBe('waiting_for_transfer');
     expect(shown!.texting).toBe('needs_registration');
-    expect(shown!.transferRequest).toContain(account!.accountSid!);
-    expect(shown!.transferRequest).toMatch(/do not release/i);
+    expect(shown!.destinationAccountSid).toBe(account!.accountSid);
 
     // HighLevel's support sends it. It arrives still pointed at HighLevel.
     const sid = s.telephony.transferIn(e164, account!.accountSid!);
@@ -257,7 +256,6 @@ describe('a GoHighLevel number', () => {
     const [after] = (await list()).imports.filter((i) => i.id === importId);
     expect(after!.setup).toBe('live');
     expect(after!.texting).toBe('needs_registration');
-    expect(after!.transferRequest).toBeNull();
   });
 
   it('says so when the number is not in Twilio, and keeps watching all the same', async () => {

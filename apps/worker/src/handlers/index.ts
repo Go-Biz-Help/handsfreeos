@@ -68,6 +68,10 @@ import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '.
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
 import { onImportCheckRequested, onImportStarted } from '../telephony/imports';
 import {
+  onTelephonyDisableRequested,
+  onTelephonyEnableRequested,
+} from '../telephony/account-switch';
+import {
   onRcsCheckWanted,
   onRcsConnectRequested,
   onRcsDisconnectRequested,
@@ -121,6 +125,9 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // (telephony/imports.ts), started at once and pulled forward when somebody says it should be there.
     'number_import.started': onImportStarted,
     'number_import.check_requested': onImportCheckRequested,
+    // Phone & texting on or off: the business's own Twilio subaccount, made or closed by a job.
+    'telephony.enable_requested': onTelephonyEnableRequested,
+    'telephony.disable_requested': onTelephonyDisableRequested,
     // A business's RCS sender (0103): connecting it, looking again (or switching RCS on or off, which the look
     // puts right in the messaging service's pool) and letting it go are jobs (telephony/rcs.ts).
     'rcs_sender.connect_requested': onRcsConnectRequested,

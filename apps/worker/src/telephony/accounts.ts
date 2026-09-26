@@ -38,7 +38,10 @@ function openAccount(row: AccountRow, sealer: Sealer): ProviderAccount | null {
   };
 }
 
-/** The workspace's subaccount with its secrets opened, or null before the first number is bought. */
+/**
+ * The workspace's subaccount with its secrets opened, or null before the first number is bought — and null
+ * once phone & texting is turned off: a closed subaccount can do nothing, and its secrets are wiped.
+ */
 export async function loadAccount(
   tx: Tx,
   workspaceId: string,
@@ -48,7 +51,7 @@ export async function loadAccount(
     .select()
     .from(telephonyAccounts)
     .where(eq(telephonyAccounts.workspaceId, workspaceId));
-  return row ? openAccount(row, sealer) : null;
+  return row && row.status !== 'closed' ? openAccount(row, sealer) : null;
 }
 
 /**
@@ -64,7 +67,10 @@ export async function ensureAccount(
   let [row] = await run((tx) =>
     tx.select().from(telephonyAccounts).where(eq(telephonyAccounts.workspaceId, scope.workspaceId)),
   );
-  if (!row?.accountSid) {
+  // A business that turned phone & texting off has a closed subaccount behind it, and Twilio never reopens one:
+  // turning it back on (or buying a number) makes a fresh subaccount, with everything made inside the old one
+  // forgotten along with it.
+  if (!row?.accountSid || row.status === 'closed') {
     const [ws] = await run((tx) =>
       tx
         .select({ name: workspaces.name })
@@ -80,6 +86,11 @@ export async function ensureAccount(
       keyId: deps.sealer.keyId,
       webhookBaseUrl: deps.publicUrl,
       status: 'provisioning' as const,
+      messagingServiceSid: null,
+      apiKeySid: null,
+      apiKeySecretEnc: null,
+      twimlAppSid: null,
+      lastError: null,
     };
     [row] = await run((tx) =>
       tx

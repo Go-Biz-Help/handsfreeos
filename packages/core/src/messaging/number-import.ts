@@ -73,32 +73,57 @@ export const ACCOUNT_SID = /^AC[A-Za-z0-9]{8,40}$/;
 export const NUMBER_SID = /^PN[A-Za-z0-9]{8,40}$/;
 export const API_KEY_SID = /^SK[A-Za-z0-9]{8,40}$/;
 
+/** HighLevel's own guide to moving LC Phone numbers to Twilio (US and international). */
+export const HIGHLEVEL_MOVE_GUIDE_URL =
+  'https://help.gohighlevel.com/support/solutions/articles/48001240107-moving-phone-numbers-from-lc-phone-to-twilio-us-international-';
+
+/**
+ * Whether HighLevel can move a number with Account SIDs alone. US and Canadian numbers can; anywhere else,
+ * their support also asks for a Regulatory Bundle SID and an Address SID, which HandsFreeOS does not set up yet.
+ */
+export const movesWithSidsAlone = (e164: string): boolean => e164.startsWith('+1');
+
 /**
  * The request the owner sends to move the number, filled in, ready to copy.
  *
  * Addressed to HighLevel's support for an LC Phone number, and to Twilio's for a number in the business's own
- * account. Both say, in so many words, **do not release it**: a support desk that is asked to "move a number
- * off" an account sometimes releases it, and a released number can go straight back to the carrier.
+ * account. HighLevel's guide asks for the Twilio **Account SID** (HandsFreeOS's parent account), the
+ * **destination sub-account SID** (this business's), the number, and a **preferred cutover window**, so all four
+ * are here. Both say, in so many words, **do not release it**: a support desk asked to "move a number off" an
+ * account sometimes releases it, and a released number can go straight back to the carrier.
  */
 export function transferRequestText(input: {
   readonly source: NumberImportSourceName;
   readonly display: string;
   /** The workspace's own subaccount: where the number is going. */
   readonly toAccountSid: string;
+  /** HandsFreeOS's parent Twilio account, which the subaccount sits under. HighLevel asks for both. */
+  readonly parentAccountSid?: string | null;
   /** The account holding it today, when known (the business's own Twilio account). */
   readonly fromAccountSid?: string | null;
   readonly businessName?: string | null;
+  /** When the business would like it to move: "a weekday after 6 PM Central". */
+  readonly cutoverWindow?: string | null;
 }): string {
   const whose = input.businessName ? ` for ${input.businessName}` : '';
+  const cutover = input.cutoverWindow?.trim();
+  const destination = input.parentAccountSid
+    ? [
+        `Twilio Account SID: ${input.parentAccountSid}`,
+        `Destination sub-account SID: ${input.toAccountSid}`,
+      ]
+    : [`Destination Twilio Account SID: ${input.toAccountSid}`];
   if (input.source === 'highlevel')
     return [
       'Hello,',
       '',
-      `Please transfer my LC Phone number ${input.display} to another Twilio account${whose}.`,
+      `Please move my LC Phone number to my own Twilio account${whose}.`,
       '',
-      `Destination Twilio Account SID: ${input.toAccountSid}`,
+      `Phone number: ${input.display}`,
+      ...destination,
+      ...(cutover ? [`Preferred cutover window: ${cutover}`] : []),
       '',
-      'This is an account-to-account transfer inside Twilio. Please keep the number active and do not release or delete it — it has to stay the same number.',
+      'Please keep the number active and do not release or delete it — it has to stay the same number. Let me know when it is live in the Twilio account.',
       '',
       'Thank you.',
     ].join('\n');
@@ -108,7 +133,10 @@ export function transferRequestText(input: {
     `Please transfer the phone number ${input.display} between my Twilio accounts${whose}.`,
     '',
     ...(input.fromAccountSid ? [`From Account SID: ${input.fromAccountSid}`] : []),
-    `To Account SID: ${input.toAccountSid}`,
+    ...(input.parentAccountSid
+      ? [`To Account SID: ${input.parentAccountSid}`, `To sub-account SID: ${input.toAccountSid}`]
+      : [`To Account SID: ${input.toAccountSid}`]),
+    ...(cutover ? [`Preferred cutover window: ${cutover}`] : []),
     '',
     'The number must stay active and keep the same phone number. Please do not release it.',
     '',

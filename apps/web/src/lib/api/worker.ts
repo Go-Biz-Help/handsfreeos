@@ -261,3 +261,19 @@ export function disconnectTwilio(
 ): Promise<{ connectionId: string }> {
   return workerPost('/v1/telephony/twilio/disconnect', { workspaceId, connectionId });
 }
+
+/** Phone & texting on or off for a business, and its own Twilio Account SID while it is on. */
+export interface PhoneAccountState {
+  readonly state: 'off' | 'turning_on' | 'on';
+  /** This business's own sub-account: what HighLevel or Twilio asks for to move a number here. Null while off. */
+  readonly accountSid: string | null;
+  /** HandsFreeOS's parent Twilio account, which HighLevel asks for beside the sub-account's. */
+  readonly parentAccountSid: string;
+  /** Why it was left on when someone tried to turn it off, in words. */
+  readonly lastError: string | null;
+}
+
+/** Where phone & texting stands for a business (owners and admins; the worker checks). */
+export function phoneAccountState(workspaceId: string): Promise<PhoneAccountState> {
+  return workerPost('/v1/telephony/account', { workspaceId });
+}

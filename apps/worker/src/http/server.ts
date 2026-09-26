@@ -10,6 +10,8 @@ import {
   type FetchedPage,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
+import { telephonyAccounts } from '@hfos/db/schema';
+import { eq } from 'drizzle-orm';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { registerTeammateRoutes } from '../ai-team/routes';
@@ -138,6 +140,7 @@ const AvailableNumbersInput = z
   });
 
 const RcsSendersInput = z.strictObject({ workspaceId: z.uuid() });
+const TelephonyAccountInput = z.strictObject({ workspaceId: z.uuid() });
 
 /**
  * What the registration wizard asks for before it lets a business submit: the three things a carrier's
@@ -308,6 +311,36 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
         state: x.state,
         providerStatus: x.providerStatus,
       })),
+    };
+  });
+
+  /**
+   * Phone & texting on or off, and the business's own Twilio Account SID while it is on: what HighLevel or Twilio
+   * asks for to move a number here. The SID is an identifier, not a secret, but it lives beside sealed ones, so
+   * people read it through here rather than from the table.
+   */
+  app.post('/v1/telephony/account', async (req) => {
+    const actor = await authenticate(deps, req);
+    const input = parseBody(TelephonyAccountInput, req.body);
+    await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
+    const [row] = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+      tx
+        .select({
+          status: telephonyAccounts.status,
+          accountSid: telephonyAccounts.accountSid,
+          lastError: telephonyAccounts.lastError,
+        })
+        .from(telephonyAccounts)
+        .where(eq(telephonyAccounts.workspaceId, input.workspaceId)),
+    );
+    const on = !!row && row.status !== 'closed';
+    return {
+      state: !on ? 'off' : row.status === 'provisioning' ? 'turning_on' : 'on',
+      accountSid: on ? row.accountSid : null,
+      // HandsFreeOS's own parent account, which every business's sits under. HighLevel's move form asks for
+      // it beside the sub-account's. An identifier like the other, never a key.
+      parentAccountSid: deps.telephony.masterAccountSid,
+      lastError: row?.lastError ?? null,
     };
   });
 

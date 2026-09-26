@@ -1,9 +1,9 @@
 import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { numberImports, twilioConnections, workspaces } from '@hfos/db/schema';
+import { numberImports, twilioConnections } from '@hfos/db/schema';
 import { formatPhone } from '../crm/phone';
 import { defineQuery } from '../kernel/define';
-import { numberTypeOf, textingStateOf, transferRequestText } from '../messaging/number-import';
+import { numberTypeOf, textingStateOf } from '../messaging/number-import';
 import { loadRegistrations, numbersOf, readiness } from '../messaging/store';
 import {
   NumberImportListInput,
@@ -59,10 +59,6 @@ export const numberImportList = defineQuery({
     const regs = await loadRegistrations(ctx.tx, input.workspaceId);
     const numbers = await numbersOf(ctx.tx, input.workspaceId);
     const byId = new Map(numbers.map((n) => [n.id, n]));
-    const [ws] = await ctx.tx
-      .select({ name: workspaces.name })
-      .from(workspaces)
-      .where(eq(workspaces.id, input.workspaceId));
 
     const imported = new Set(
       all.filter((r) => r.status === 'waiting' || r.status === 'complete').map((r) => r.e164),
@@ -92,16 +88,6 @@ export const numberImportList = defineQuery({
           carrierName: r.carrierName,
           hostedInTwilio: r.hostedInTwilio,
           destinationAccountSid: r.destinationAccountSid,
-          transferRequest:
-            r.status === 'waiting' && r.destinationAccountSid
-              ? transferRequestText({
-                  source: r.source,
-                  display,
-                  toAccountSid: r.destinationAccountSid,
-                  fromAccountSid: r.sourceAccountSid,
-                  businessName: ws?.name ?? null,
-                })
-              : null,
           phoneNumberId: r.phoneNumberId,
           setup: SETUP[r.status],
           texting: textingStateOf(next),

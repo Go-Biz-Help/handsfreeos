@@ -30,6 +30,7 @@ import {
   type NumberImportInfo,
   type TwilioConnections,
 } from '@/components/settings/number-import';
+import { PhoneAccountCard } from '@/components/settings/phone-account-card';
 import { PortStep, type MigratedNumber, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
@@ -166,7 +167,12 @@ export function TextingPage({
   };
   // Every number on its way here from Twilio or HighLevel, above whatever else the page shows: the request to
   // copy lives on it, and a business checking back comes here for exactly that.
-  const importsCard = <ImportsCard workspaceId={workspaceId} imports={imports} />;
+  const importsCard = (
+    <ImportsCard workspaceId={workspaceId} businessName={businessName} imports={imports} />
+  );
+  // Phone & texting on or off, and the business's Twilio Account SID: first on the page, because moving a
+  // number here starts with giving that SID to HighLevel or Twilio.
+  const accountCard = <PhoneAccountCard workspaceId={workspaceId} />;
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
@@ -197,6 +203,7 @@ export function TextingPage({
   if (adding)
     return (
       <div className="flex flex-col gap-5">
+        {accountCard}
         {importsCard}
         {numbersCard}
         <Card
@@ -251,6 +258,7 @@ export function TextingPage({
   if (status.nextStep === 'ready' && status.number)
     return (
       <div className="flex flex-col gap-5">
+        {accountCard}
         {importsCard}
         {migratedCallout}
         {numbersCard}
@@ -279,6 +287,7 @@ export function TextingPage({
         : 2;
   return (
     <div className="flex flex-col gap-5">
+      {accountCard}
       {importsCard}
       <Card className="max-w-[820px] p-5 md:p-7" data-testid="texting-setup" data-step={step}>
         {status.number && releasable(status.number.status) ? (

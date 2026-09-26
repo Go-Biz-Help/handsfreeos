@@ -106,10 +106,12 @@ export const NumberImportOut = z.object({
   /** What the carrier lookup said. Null until it has been looked up. */
   carrierName: z.string().nullable(),
   hostedInTwilio: z.boolean().nullable(),
-  /** The workspace's own subaccount: where to send the number. Null for the moment it takes to make one. */
+  /**
+   * The workspace's own subaccount: where to send the number. Null for the moment it takes to make one. The
+   * request to copy is written from this on the screen (`transferRequestText`), together with HandsFreeOS's
+   * parent Account SID, which only the worker knows.
+   */
   destinationAccountSid: z.string().nullable(),
-  /** The finished request to copy and send, once the destination is known. */
-  transferRequest: z.string().nullable(),
   phoneNumberId: uuid.nullable(),
   /** The number itself: waiting for the transfer, live here, or stopped. */
   setup: z.enum(['waiting_for_transfer', 'live', 'failed', 'cancelled']),
