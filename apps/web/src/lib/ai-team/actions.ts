@@ -38,6 +38,8 @@ export interface TeammateActions {
     teammateId: string;
     status: TeammateStatus;
   }): Promise<{ progress: TeammateProgress }>;
+  /** Says what a calendar is for (null clears it), leaving its settings as they are. */
+  describeCalendar(input: { calendarId: string; description: string | null }): Promise<void>;
   load(): Promise<TeammateGet>;
   /** One period's runs, from the cursor on. */
   activity(input: { cursor: string | null; since: ActivityPeriod }): Promise<TeammateActivity>;
@@ -72,6 +74,24 @@ export function teammateActions(workspaceId: string): TeammateActions {
           body: { workspaceId, ...input },
         }),
       ),
+    describeCalendar: async ({ calendarId, description }) => {
+      // A save of the settings it has now, with the new description: a new revision, as the calendar page makes.
+      const { calendar } = unwrap(
+        await api().POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } }),
+      );
+      unwrap(
+        await api().POST('/v1/commands/calendar.save', {
+          body: {
+            workspaceId,
+            calendarId,
+            baseRevision: calendar.revision,
+            draft: calendar.config,
+            description,
+            impactDecisions: {},
+          },
+        }),
+      );
+    },
     load: async () =>
       teammateGetOf(
         unwrap(await api().POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })),
