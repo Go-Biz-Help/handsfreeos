@@ -6,7 +6,9 @@
  * - It listens for the whole call. A turn starts when the listener says the caller finished a thought; words
  *   heard while it's thinking wait for the next turn.
  * - It speaks a sentence at a time, and knows a reply has been heard when Twilio plays back the mark sent after
- *   it. The caller talking over it stops it at once (barge-in), except while it says goodbye or connects them.
+ *   it. A reply starts while the model is still writing it: each checked sentence is said as it's ready
+ *   (brain.ts, early-speech.ts), and the rest follows once the turn is done. The caller talking over it stops it
+ *   at once (barge-in), except while it says goodbye or connects them.
  * - Quiet after it spoke: it asks whether they're still there, then says goodbye and hangs up.
  * - A hand-off rings the team on the same call (the transfer TwiML); a goodbye hangs up; the caller hanging up
  *   ends it. However it ends, the call's words are saved and its run closed.
@@ -91,6 +93,19 @@ const REASON_WORDS: Partial<Record<ConversationHandoffReason, string>> = {
   error: 'something went wrong',
 };
 
+/** Something it says: sentences are added as they're ready and said in order. */
+interface Utterance {
+  readonly abort: AbortController;
+  readonly interruptible: boolean;
+  /** Its line in the call's words. */
+  readonly line: number;
+  text: string;
+  /** Every sentence added so far, said one after the other. */
+  voiced: Promise<void>;
+  /** Speaking failed: the rest isn't said. */
+  failed: boolean;
+}
+
 /** "Hi there. How can I help?" → two sentences, spoken one after the other. */
 export function sentencesOf(text: string): string[] {
   return text
@@ -106,8 +121,7 @@ export class CallSession {
   private heard: string[] = [];
   private language: string | null = null;
   private thinking = false;
-  private speaking: { readonly abort: AbortController; readonly interruptible: boolean } | null =
-    null;
+  private speaking: Utterance | null = null;
   private readonly marks = new Map<string, () => void>();
   private markSeq = 0;
   private turn = 0;
@@ -249,6 +263,13 @@ export class CallSession {
     const before = [...this.lines];
     this.lines.push({ who: 'caller', text: said });
     const turn = ++this.turn;
+    // The start of the reply, said while the model is still writing the rest.
+    const early: { utterance: Utterance | null } = { utterance: null };
+    const speak = (sentence: string, ending: boolean) => {
+      if (this.closed) return;
+      early.utterance ??= this.begin({ interruptible: !ending });
+      this.add(early.utterance, sentence);
+    };
     let outcome: TurnOutcome;
     try {
       outcome = await thinkTurn(this.deps, call, {
@@ -256,6 +277,7 @@ export class CallSession {
         lines: before,
         said,
         language: this.language,
+        speak,
       });
     } catch (e) {
       this.log.error({ err: e, turn }, 'a call turn failed');
@@ -269,23 +291,30 @@ export class CallSession {
     }
     this.thinking = false;
     if (this.closed) return;
-    await this.act(outcome);
+    await this.act(outcome, early.utterance);
   }
 
   // ---- doing ----
 
-  private async act(o: TurnOutcome): Promise<void> {
+  private async act(o: TurnOutcome, early: Utterance | null = null): Promise<void> {
     if (this.closed) return;
     if (o.language) this.language = o.language;
+    // What it started saying early: the reply goes on from there, or it finishes before what comes next.
+    let going: Utterance | null = null;
+    if (early && o.kind !== 'transfer' && o.spoken) {
+      for (const sentence of sentencesOf(o.text.slice(o.spoken))) this.add(early, sentence);
+      going = early;
+    } else if (early) await this.end(early);
     if (o.kind === 'say') {
-      const said = await this.say(o.text);
+      const said = going ? await this.end(going) : await this.say(o.text);
       if (said === 'done') this.armQuiet();
       this.maybeTurn();
       return;
     }
     this.clearQuiet();
     if (o.kind === 'end') {
-      await this.say(o.text, { interruptible: false });
+      if (going) await this.end(going);
+      else await this.say(o.text, { interruptible: false });
       this.ending = {
         outcome: 'replied',
         summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}) and said goodbye.`,
@@ -304,44 +333,79 @@ export class CallSession {
     text: string,
     opts: { readonly interruptible?: boolean } = {},
   ): Promise<'done' | 'cut'> {
-    const call = this.call;
-    if (!call || this.closed) return 'cut';
+    if (!this.call || this.closed) return 'cut';
+    const u = this.begin(opts, text);
+    for (const sentence of sentencesOf(text)) this.voice(u, sentence);
+    return this.end(u);
+  }
+
+  /** Starts saying something: its sentences follow (`add`), and `end` waits until they've been heard. */
+  private begin(opts: { readonly interruptible?: boolean }, text = ''): Utterance {
+    const u: Utterance = {
+      abort: new AbortController(),
+      interruptible: opts.interruptible ?? true,
+      line: this.lines.length,
+      text,
+      voiced: Promise.resolve(),
+      failed: false,
+    };
     this.lines.push({ who: 'teammate', text });
-    const abort = new AbortController();
-    this.speaking = { abort, interruptible: opts.interruptible ?? true };
-    try {
-      for (const sentence of sentencesOf(text)) {
-        this.saidText += sentence;
+    this.speaking = u;
+    return u;
+  }
+
+  /** One more sentence of it, said once the ones before it have been. */
+  private add(u: Utterance, sentence: string): void {
+    if (this.closed || u.abort.signal.aborted || u.failed) return;
+    u.text = u.text ? `${u.text} ${sentence}` : sentence;
+    this.lines[u.line] = { who: 'teammate', text: u.text };
+    this.voice(u, sentence);
+  }
+
+  private voice(u: Utterance, sentence: string): void {
+    const call = this.call!;
+    u.voiced = u.voiced.then(async () => {
+      if (u.abort.signal.aborted || u.failed) return;
+      this.saidText += sentence;
+      try {
         for await (const audio of this.deps.speech.speak(sentence, {
           voice: call.config.phone.voice,
           language: this.language,
-          signal: abort.signal,
+          signal: u.abort.signal,
         })) {
-          if (abort.signal.aborted) break;
+          if (u.abort.signal.aborted) break;
           this.link.sendAudio(audio);
         }
-        if (abort.signal.aborted) break;
+      } catch (e) {
+        if (u.abort.signal.aborted) return;
+        u.failed = true;
+        this.log.warn({ err: e }, 'couldn’t speak on a call');
       }
-      if (!abort.signal.aborted) {
+    });
+  }
+
+  /** Waits until all of it has played (Twilio's mark); 'cut' when the caller talked over it or the call ended. */
+  private async end(u: Utterance): Promise<'done' | 'cut'> {
+    try {
+      await u.voiced;
+      if (!u.abort.signal.aborted && !u.failed && !this.closed) {
         const name = `said-${++this.markSeq}`;
         await new Promise<void>((resolve) => {
           const timer = setTimeout(resolve, this.timings.markMs);
           const done = () => {
             clearTimeout(timer);
-            abort.signal.removeEventListener('abort', done);
+            u.abort.signal.removeEventListener('abort', done);
             resolve();
           };
           this.marks.set(name, done);
-          abort.signal.addEventListener('abort', done);
+          u.abort.signal.addEventListener('abort', done);
           this.link.sendMark(name);
         });
       }
-    } catch (e) {
-      if (!abort.signal.aborted) this.log.warn({ err: e }, 'couldn’t speak on a call');
     } finally {
-      if (this.speaking?.abort === abort) this.speaking = null;
+      if (this.speaking === u) this.speaking = null;
     }
-    return abort.signal.aborted || this.closed ? 'cut' : 'done';
+    return u.abort.signal.aborted || this.closed ? 'cut' : 'done';
   }
 
   private armQuiet(): void {

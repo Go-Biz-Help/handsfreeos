@@ -48,6 +48,7 @@ describe('a written turn', () => {
         ended: false,
         toolSteps: 2,
         ms: 1400,
+        firstWordsMs: null,
       },
     ]);
     expect(t.reply).toBe('You’re booked for Thu 10 AM.');
@@ -86,6 +87,7 @@ describe('a call', () => {
         ended: false,
         toolSteps: 0,
         ms: 5,
+        firstWordsMs: null,
       },
     ]);
     expect(t.customer).toBe('');
@@ -103,6 +105,7 @@ describe('a call', () => {
         ended: true,
         toolSteps: 1,
         ms: 10,
+        firstWordsMs: null,
       },
     ]);
     expect(bye).toMatchObject({ ended: true, reply: 'Thanks for calling. Bye now!' });
@@ -118,9 +121,27 @@ describe('a call', () => {
         ended: true,
         toolSteps: 0,
         ms: 10,
+        firstWordsMs: null,
       },
     ]);
     expect(handed.log.at(-1)!.title).toBe('Connected them to the team');
+  });
+
+  it('says when it started talking, for a reply it said while writing it', () => {
+    const t = play(turn('call', 'What time are you open?'), [
+      { type: 'note', title: 'Starts talking', detail: null, at: AT },
+      {
+        type: 'done',
+        outcome: 'replied',
+        reply: 'We’re open eight to five.',
+        draft: false,
+        ended: false,
+        toolSteps: 1,
+        ms: 2400,
+        firstWordsMs: 800,
+      },
+    ]);
+    expect(turnMeta(t)).toBe('1 look-up · talks at 0.8 s · done at 2.4 s');
   });
 
   it('numbers the replies after the greeting', () => {

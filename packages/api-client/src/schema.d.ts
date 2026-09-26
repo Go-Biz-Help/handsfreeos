@@ -4837,6 +4837,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/phone_model.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: pick the model the AI teammate thinks with on one business’s calls, or put it back on the default.
+         * @description Risk level 3. Requires platform.ai.manage. Emits phone_model.changed.
+         */
+        post: operations["command_phone_model_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/phone_number.buy": {
         parameters: {
             query?: never;
@@ -21481,6 +21501,40 @@ export interface operations {
             };
         };
     };
+    command_phone_model_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    model: "claude-haiku-4-5" | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        model: "claude-haiku-4-5" | null;
+                        was: "claude-haiku-4-5" | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_phone_number_buy: {
         parameters: {
             query?: never;
@@ -36253,6 +36307,7 @@ export interface operations {
                             /** Format: uuid */
                             userId: string;
                         }[];
+                        phoneModel: "claude-haiku-4-5" | null;
                         setup: {
                             aiTeammate: boolean;
                             calendar: boolean;

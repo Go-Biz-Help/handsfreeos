@@ -81,6 +81,8 @@ interface Turn {
   readonly log: readonly LogLine[];
   readonly toolSteps: number;
   readonly ms: number | null;
+  /** A call's reply started being said this long in, while the rest was written. */
+  readonly firstWordsMs: number | null;
   readonly error: string | null;
 }
 
@@ -91,6 +93,9 @@ const TOOL_ICONS: Readonly<Record<string, LucideIcon>> = {
   read_call_transcript: PhoneCall,
 };
 const ORDINALS = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'];
+
+/** Seconds, as the console shows them: "1.4 s". */
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 
 function lineAt(
   at: string,
@@ -222,6 +227,7 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
         reply: e.reply ?? t.reply,
         toolSteps: e.toolSteps,
         ms: e.ms,
+        firstWordsMs: e.firstWordsMs,
         log: [...t.log, endLine(t, e, timeZone)],
       };
     case 'error':
@@ -395,6 +401,7 @@ export function TestConsole({
       log: [opened],
       toolSteps: 0,
       ms: null,
+      firstWordsMs: null,
       error: null,
     };
     setTurns([...before, turn]);
@@ -493,7 +500,12 @@ export function TestConsole({
     t.done
       ? [
           plural(t.toolSteps, 'look-up', 'look-ups'),
-          t.ms !== null ? `${(t.ms / 1000).toFixed(1)} s` : null,
+          t.firstWordsMs !== null ? `talks at ${seconds(t.firstWordsMs)}` : null,
+          t.ms !== null
+            ? t.firstWordsMs !== null
+              ? `done at ${seconds(t.ms)}`
+              : seconds(t.ms)
+            : null,
         ]
           .filter(Boolean)
           .join(' · ')

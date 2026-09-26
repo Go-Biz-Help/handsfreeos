@@ -86,6 +86,7 @@ export class AnthropicProvider implements AiProvider {
       description: t.description,
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema,
       ...(t.strict ? { strict: true } : {}),
+      ...(t.streamInput ? { eager_input_streaming: true } : {}),
       ...(searching && t.deferred ? { defer_loading: true } : {}),
     }));
     if (searching) tools.unshift(TOOL_SEARCH);
@@ -112,6 +113,30 @@ export class AnthropicProvider implements AiProvider {
       );
       const onText = options.onText;
       if (onText) stream.on('text', (delta) => onText(delta));
+      const onToolInput = options.onToolInput;
+      if (onToolInput) {
+        const writing = new Map<number, { id: string; name: string; json: string }>();
+        stream.on('streamEvent', (event) => {
+          if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+            const call = { id: event.content_block.id, name: event.content_block.name, json: '' };
+            writing.set(event.index, call);
+            onToolInput({ ...call, done: false });
+          } else if (
+            event.type === 'content_block_delta' &&
+            event.delta.type === 'input_json_delta'
+          ) {
+            const call = writing.get(event.index);
+            if (!call) return;
+            call.json += event.delta.partial_json;
+            onToolInput({ ...call, done: false });
+          } else if (event.type === 'content_block_stop') {
+            const call = writing.get(event.index);
+            if (!call) return;
+            writing.delete(event.index);
+            onToolInput({ ...call, done: true });
+          }
+        });
+      }
       return fromAnthropic(await stream.finalMessage());
     } catch (e) {
       throw providerError(e);

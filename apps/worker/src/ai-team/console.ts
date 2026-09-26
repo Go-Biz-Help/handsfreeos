@@ -13,7 +13,9 @@
  * - A phone test plays a call, one caller turn per request, as the voice agent thinks (voice-agent/brain.ts): its
  *   first request has no messages and gets the greeting (the pick-up, or the opening of a call it places to confirm
  *   a visit, ring back a missed call, follow up a quote or for a campaign); then each turn has the phone's tools and
- *   words, and a hand-off connects them to the team, which ends the call, as a goodbye does.
+ *   words, and a hand-off connects them to the team, which ends the call, as a goodbye does. It thinks with the
+ *   model the business's calls do (its phone model, else VOICE_MODEL), and a reply it would start saying while it's still written (voice-agent/
+ *   early-speech.ts) says so, with how long the first words took.
  */
 import type { AiMessage, AiProvider, AiToolCall, AiUsage } from '@hfos/ai';
 import type { Geocoder } from '../geo/geocoder';
@@ -66,7 +68,10 @@ import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { fallbackOpening } from '../automations/campaigns';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { systemActor, type TenantScope } from '../services';
+import { EarlySpeech, streamSpoken } from '../voice-agent/early-speech';
+import { callModel } from '../voice-agent/index';
 import {
+  alreadySaid,
   CANT_GO_ON,
   CONNECTING,
   greetingOf,
@@ -109,6 +114,10 @@ export type ConsoleEvent = TestEvent;
 export interface ConsoleDeps {
   readonly db: Db;
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
+  /** The model that thinks on a call (VOICE_MODEL), when it isn't the usual one. */
+  readonly voiceAi?: AiProvider | null;
+  /** The AI with a model named at run time: the business's phone model, when support picked one. */
+  readonly aiFor?: ((model: string) => AiProvider) | null;
   readonly webUrl: string;
   readonly log: Logger;
   /** The test chat's tokens are real tokens: a business trying its teammate out is charged for it like anything else. */
@@ -194,16 +203,16 @@ export async function prepareTest(
       },
     ]);
   const [ws] = await asWorker(deps.db, { workspaceId: input.workspaceId }, (tx) =>
-    rows<{ organization_id: string; timezone: string | null }>(
+    rows<{ organization_id: string; timezone: string | null; phone_model: string | null }>(
       tx,
-      sql`select organization_id, timezone from app.workspaces where id = ${input.workspaceId}`,
+      sql`select organization_id, timezone, phone_model from app.workspaces where id = ${input.workspaceId}`,
     ),
   );
   if (!ws) throw HfosError.notFound('Workspace not found.');
   const scope: TenantScope = { workspaceId: input.workspaceId, organizationId: ws.organization_id };
   const timeZone = ws.timezone || 'UTC';
   const now = input.at ? Date.parse(input.at) : Date.now();
-  const provider = deps.ai.provider;
+  const provider = input.channel === 'phone' ? callModel(deps, ws.phone_model) : deps.ai.provider;
   if (!provider)
     throw HfosError.rule(
       'ai_not_configured',
@@ -1358,6 +1367,8 @@ export async function runTest(
   signal: AbortSignal,
 ): Promise<void> {
   const began = Date.now();
+  /** On a call: how long it took until the first words could be said. */
+  let firstWordsMs: number | null = null;
   let steps = 0;
   const checks: unknown[] = [];
   const state = newRunState();
@@ -1401,6 +1412,7 @@ export async function runTest(
       ended,
       toolSteps: steps,
       ms: Date.now() - began,
+      firstWordsMs,
     });
   };
   // A hand-off on a call connects them to the team, and that's the end of the call.
@@ -1499,6 +1511,27 @@ export async function runTest(
       return handOff('the AI limit was reached', theLine(true));
     };
 
+    // In training nothing it holds on a call has happened yet, so it may not say it has.
+    const checked = (words: string) =>
+      checkReply(rc!, phone && training ? { ...state, held: [] } : state, words);
+    // On a call it starts saying a reply while it's still written, as a real call would.
+    const early = phone
+      ? new EarlySpeech({
+          passes: (words) => checked(words).ok,
+          mayStart: () => !state.held.length && !state.moneyAsk,
+          say: (sentence) => {
+            if (firstWordsMs !== null) return;
+            firstWordsMs = Date.now() - began;
+            send({
+              type: 'note',
+              title: 'Starts talking',
+              detail: `On a real call it says “${sentence}” now, checked, while it writes the rest.`,
+              at: nowIso(),
+            });
+          },
+        })
+      : null;
+
     const said = t.input.messages[t.input.messages.length - 1]!.text;
     const loop = await runToolLoop({
       ...base,
@@ -1510,8 +1543,9 @@ export async function runTest(
             : conversationTurn(rc),
         },
       ],
-      tools: tools.map(toolDefinition),
+      tools: tools.map((x) => (phone ? streamSpoken(toolDefinition(x)) : toolDefinition(x))),
       maxRounds: t.config.limits.toolRounds,
+      ...(early ? { onToolInput: early.onToolInput } : {}),
     });
     steps += loop.rounds;
     if (loop.stoppedBy === 'aborted') return await close(null, 'stopped', null, true);
@@ -1536,9 +1570,8 @@ export async function runTest(
       would(hands, 'hand_off', `${toPerson(t)}: it didn’t come up with a reply`);
       return await handOff('no reply', theLine());
     }
-    // In training nothing it holds on a call has happened yet, so it may not say it has.
-    const checked = (words: string) =>
-      checkReply(rc!, phone && training ? { ...state, held: [] } : state, words);
+    // What it already said while writing: a rewrite carries on from there.
+    const saidEarly = early?.said ?? '';
     let verdict = checked(text);
     send(checkEvent(verdict, false));
     checks.push(
@@ -1557,7 +1590,17 @@ export async function runTest(
         ...base,
         messages: [
           ...loop.messages,
-          { role: 'user', content: [{ type: 'text', text: rewriteFeedback(verdict.problems) }] },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: saidEarly
+                  ? `${rewriteFeedback(verdict.problems)}\n${alreadySaid(saidEarly)}`
+                  : rewriteFeedback(verdict.problems),
+              },
+            ],
+          },
         ],
         tools: enders.map(toolDefinition),
         maxRounds: 1,
@@ -1593,7 +1636,10 @@ export async function runTest(
             'On a real call it says the team will confirm by text, and the change waits on Approvals until someone approves it.',
           at: nowIso(),
         });
-      const words = text.trim();
+      const words =
+        saidEarly && !text.trim().startsWith(saidEarly)
+          ? `${saidEarly} ${text.trim()}`
+          : text.trim();
       return await finish(
         'replied',
         words,

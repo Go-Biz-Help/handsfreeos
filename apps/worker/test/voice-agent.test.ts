@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
+import type { AiContent, AiProvider } from '@hfos/ai';
 import type { FastifyInstance } from 'fastify';
 import WebSocket from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -29,6 +30,7 @@ import {
   nextPhone,
   saveTeammate,
   setStatus,
+  teammateRequests,
   teammateWorld,
   useModel,
   type TeammateWorld,
@@ -38,6 +40,19 @@ const V = '/webhooks/twilio/voice';
 
 let w: TeammateWorld;
 let app: FastifyInstance;
+/** While set, the model's answer is held back once it's written: what's said meanwhile was said early. */
+let holdAnswer: Promise<void> | null = null;
+
+/** The model, holding its answers back while a test says so. */
+const held = (inner: AiProvider): AiProvider => ({
+  id: inner.id,
+  model: inner.model,
+  async stream(request, options) {
+    const turn = await inner.stream(request, options);
+    if (holdAnswer) await holdAnswer;
+    return turn;
+  },
+});
 let port: number;
 let accountSid: string;
 
@@ -49,16 +64,41 @@ beforeAll(async () => {
   });
   useModel(
     w,
-    scriptedAi([], {
-      teammate: [
-        {
-          when: /\b(?:bye|that'?s all)\b/i,
-          step: () => ({
-            calls: [{ name: 'end_call', arguments: { message: 'Thanks for calling. Bye now!' } }],
-          }),
-        },
-      ],
-    }),
+    held(
+      scriptedAi([], {
+        teammate: [
+          {
+            when: /\b(?:bye|that'?s all)\b/i,
+            step: () => ({
+              calls: [{ name: 'end_call', arguments: { message: 'Thanks for calling. Bye now!' } }],
+            }),
+          },
+          {
+            when: /\bopen on saturdays?\b/i,
+            step: () => ({
+              calls: [
+                {
+                  name: 'reply',
+                  arguments: { message: 'Yes, we are. We open at nine on Saturdays.' },
+                },
+              ],
+            }),
+          },
+          {
+            // A link that isn't the business's, in its second sentence.
+            when: /\bwebsite\b/i,
+            step: () => ({
+              calls: [
+                {
+                  name: 'reply',
+                  arguments: { message: 'Sure thing. It is at not-ours.example.net for now.' },
+                },
+              ],
+            }),
+          },
+        ],
+      }),
+    ),
   );
   await saveTeammate(w, { phone: { enabled: true, answer: 'always' } });
   const [a] = await rows<{ account_sid: string }>(
@@ -67,8 +107,11 @@ beforeAll(async () => {
   );
   accountSid = a!.account_sid;
   // An app on the world's services as they are now (the scripted model), listening for the websocket.
+  const usual = w.s.ai.provider!;
   app = await buildHttpServer({
     ...w.s,
+    // The model support picked for the business: the same stand-in, under that model's name.
+    aiFor: (model) => ({ id: usual.id, model, stream: (r, o) => usual.stream(r, o) }),
     httpDb: testDbs().worker.db,
     verifyToken: null,
     webOrigins: ['http://localhost:3000'],
@@ -316,6 +359,91 @@ describe('a call', () => {
     // Every character it said, the greeting and the goodbye included.
     expect(Math.round(Number(used[1]!.quantity) * 1000)).toBe(call.said.join('').length);
     expect(Number(used[0]!.quantity)).toBeGreaterThan(0);
+  });
+
+  it('starts saying a reply while the model is still on it, and says it once', async () => {
+    const { xml, callSid } = await callIn();
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    const before = call.said.length;
+    const marks = () => call.events.filter((e) => e === 'mark').length;
+    const heard = marks();
+    let release = () => {};
+    holdAnswer = new Promise((resolve) => {
+      release = resolve;
+    });
+    try {
+      call.speak('Are you open on Saturdays?');
+      // The model's answer isn't back yet, and the caller already hears it.
+      await waitFor('the first words', () => call.said.slice(before).includes('Yes, we are.'));
+      expect(marks()).toBe(heard);
+    } finally {
+      holdAnswer = null;
+      release();
+    }
+    await waitFor('the reply to be heard', () => marks() > heard);
+    expect(call.said.slice(before)).toEqual(['Yes, we are.', 'We open at nine on Saturdays.']);
+    call.hangUp();
+    const done = await waitForRun(callSid, 'done');
+    expect(done.transcript).toContain('Ava: Yes, we are. We open at nine on Saturdays.');
+  });
+
+  it('never says a sentence that fails the check, and the rewrite goes on from what it said', async () => {
+    // The stand-in's one rewrite, whatever the problem.
+    const rewrite = `Sorry about that. I’m Ava, an AI assistant for ${w.label} Booking HVAC. I can only help with your own questions and visits.`;
+    const { xml, callSid } = await callIn();
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    const before = call.said.length;
+    const marks = call.events.filter((e) => e === 'mark').length;
+    call.speak('What is your website?');
+    await waitFor(
+      'the rewrite to be heard',
+      () => call.events.filter((e) => e === 'mark').length > marks,
+    );
+    const said = call.said.slice(before);
+    expect(said[0]).toBe('Sure thing.');
+    expect(said.slice(1).join(' ')).toBe(rewrite);
+    expect(call.said.join(' ')).not.toContain('example.net');
+    // The rewrite knew what the caller had already heard.
+    const feedback = teammateRequests(w)
+      .at(-1)!
+      .messages.flatMap((m): readonly AiContent[] =>
+        typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content,
+      )
+      .flatMap((c) => (c.type === 'text' ? [c.text] : []))
+      .find((t) => t.startsWith('Your reply wasn’t sent.'));
+    expect(feedback).toContain('The caller already heard you say “Sure thing.”');
+    call.hangUp();
+    const done = await waitForRun(callSid, 'done');
+    expect(done.transcript).toContain(`Ava: Sure thing. ${rewrite}`);
+  });
+
+  it('thinks with the model support picked for the business', async () => {
+    const setModel = (model: string | null) =>
+      rows(
+        admin(),
+        sql`update app.workspaces set phone_model = ${model} where id = ${w.workspaceId}`,
+      );
+    await setModel('claude-haiku-4-5');
+    try {
+      const { xml, callSid } = await callIn();
+      const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+      await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+      const before = call.said.length;
+      call.speak('Are you open on Saturdays?');
+      await waitFor('the answer', () => call.said.slice(before).includes('Yes, we are.'));
+      call.hangUp();
+      await waitForRun(callSid, 'done');
+      const [run] = await rows<{ model: string }>(
+        admin(),
+        sql`select r.model from app.ai_teammate_runs r join app.calls c on c.id = r.call_id
+            where c.provider_sid = ${callSid}`,
+      );
+      expect(run!.model).toBe('claude-haiku-4-5');
+    } finally {
+      await setModel(null);
+    }
   });
 
   it('stops talking when the caller talks over it', async () => {

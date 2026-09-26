@@ -15,6 +15,7 @@ import {
   workspaceMemberships,
   workspaces,
 } from '@hfos/db/schema';
+import { PHONE_MODELS } from '../ai-team/config';
 import { HfosError } from '../errors';
 import {
   isUsageKey,
@@ -184,6 +185,7 @@ export const platformBusinessGet = defineQuery({
       .orderBy(desc(tickets.createdAt))
       .limit(20);
     return {
+      phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
       business: {
         workspaceId: row.w.id,
         name: row.w.name,

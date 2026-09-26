@@ -24,6 +24,7 @@ import {
   type AiStopReason,
   type AiToolCall,
   type AiToolDefinition,
+  type AiToolInput,
   type AiUsage,
 } from '@hfos/ai';
 import { HfosError } from '@hfos/core/server';
@@ -67,6 +68,8 @@ export interface ToolLoopInput {
   readonly execute: (call: AiToolCall) => Promise<ToolLoopAnswer>;
   /** Each piece of the model's text as it arrives, from every turn. */
   readonly onText?: (delta: string) => void;
+  /** Each tool call as the model writes it, before it runs; `answer` counts the model's answers from 1. */
+  readonly onToolInput?: (input: AiToolInput, answer: number) => void;
   /** Each model turn's tokens, as soon as the turn ends and before its tools run (awaited). */
   readonly onTurnUsage?: (usage: AiUsage) => void | Promise<void>;
   /** Before every model call, given the tokens the loop has used so far: false ends it (`budget`). */
@@ -109,6 +112,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
   let text = '';
   let usage: AiUsage = emptyUsage;
   let rounds = 0;
+  let answers = 0;
   let lastStop: AiStopReason | null = null;
   const end = (stoppedBy: ToolLoopStop, error?: unknown): ToolLoopResult => ({
     text,
@@ -137,6 +141,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
   try {
     for (;;) {
       if (input.checkBudget && !(await input.checkBudget(usage))) return end('budget');
+      const answer = ++answers;
+      const onToolInput = input.onToolInput;
       const turn = await input.provider.stream(
         {
           system: input.system,
@@ -151,6 +157,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
             text += delta;
             input.onText?.(delta);
           },
+          ...(onToolInput ? { onToolInput: (call: AiToolInput) => onToolInput(call, answer) } : {}),
         },
       );
       usage = addUsage(usage, turn.usage);

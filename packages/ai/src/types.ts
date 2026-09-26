@@ -64,6 +64,11 @@ export interface AiToolDefinition {
   /** The provider holds the call's input to the schema exactly (strict tool use); the schema must allow it. */
   readonly strict?: boolean;
   /**
+   * The call's input streams as the model writes it (`onToolInput`), instead of arriving whole once it's done. The
+   * provider then no longer checks it against the schema, so whoever runs the tool must.
+   */
+  readonly streamInput?: boolean;
+  /**
    * Loaded only when the model searches for it (a provider with `toolSearch`); elsewhere it is an ordinary tool.
    * The model sees these tools' names and descriptions only through its search.
    */
@@ -119,9 +124,23 @@ export interface AiTurn {
   readonly usage: AiUsage;
 }
 
+/** A tool call as the model writes it. */
+export interface AiToolInput {
+  readonly id: string;
+  readonly name: string;
+  /** The input's JSON so far: whole only once `done`. */
+  readonly json: string;
+  readonly done: boolean;
+}
+
 export interface AiStreamOptions {
   /** Called with each new piece of text as it arrives. */
   readonly onText?: (delta: string) => void;
+  /**
+   * Each tool call as it's written, in the answer's order: when it starts (no JSON yet), as each piece arrives, and
+   * when it's done. A tool without `streamInput` may arrive in one piece.
+   */
+  readonly onToolInput?: (input: AiToolInput) => void;
   readonly signal?: AbortSignal;
 }
 

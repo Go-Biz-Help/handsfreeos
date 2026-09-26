@@ -7,6 +7,7 @@ import {
   type AiTurn,
   type ScriptRule,
   messagesLength,
+  writeToolCalls,
 } from '@hfos/ai';
 import { addDays, weekdayOf } from '@hfos/core/server';
 import { DISCLOSE_NOW, REWRITE_MARKER, TEAMMATE_SYSTEM } from '../ai-team/prompt';
@@ -832,6 +833,7 @@ class WorkerScriptedProvider extends ScriptedProvider {
     if (options.signal?.aborted) throw new AiProviderError('Stopped', 'aborted', false);
     const turn = scriptedTeammateTurn(request, this.teammate);
     if (turn.text) options.onText?.(turn.text);
+    writeToolCalls(turn.toolCalls, options.onToolInput);
     return turn;
   }
 }

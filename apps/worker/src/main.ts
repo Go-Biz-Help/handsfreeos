@@ -36,7 +36,7 @@ import { ensurePlatformOwners } from './support/owners';
 import { createTelephony } from './telephony/index';
 import { createSiteHost } from './hosting';
 import { createDriveTimer } from './geo/driving';
-import { createSpeech, createVoiceAi } from './voice-agent/index';
+import { createModelPicker, createSpeech, createVoiceAi } from './voice-agent/index';
 import { createGeocoder } from './geo/geocoder';
 import { createOpinly } from './opinly';
 import { createTranscriber } from './telephony/transcriber';
@@ -76,6 +76,7 @@ const services: EngineServices = {
   driving: createDriveTimer(env, log),
   speech: createSpeech(env, log),
   voiceAi: createVoiceAi(env),
+  aiFor: createModelPicker(env),
   siteHost: createSiteHost(env),
   // With Supabase's admin key it can also read the website visitor a person signed up as (opinly.ts).
   opinly: createOpinly(

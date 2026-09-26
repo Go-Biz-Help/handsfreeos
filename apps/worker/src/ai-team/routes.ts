@@ -18,6 +18,8 @@ export function registerTeammateRoutes(app: FastifyInstance, deps: HttpDeps): vo
     const consoleDeps = {
       db: deps.httpDb,
       ai: deps.ai,
+      voiceAi: deps.voiceAi,
+      aiFor: deps.aiFor,
       webUrl: deps.webUrl,
       log: deps.log,
       wallet: deps.wallet,

@@ -36,10 +36,12 @@
  *     { type: 'check', ok, passed: ReplyRule[], problems: { rule, message }[], rewritten, at }
  *                                                 checkTeammateReply on the final reply
  *     { type: 'note', title, detail, at }         anything else worth a line ("Disclosure line")
- *     { type: 'done', outcome, reply, draft, ended, toolSteps, ms }
+ *     { type: 'done', outcome, reply, draft, ended, toolSteps, ms, firstWordsMs }
  *                                                 outcome: replied, drafted, handed_off or no_reply; draft:
  *                                                 training wheels would hold it for an OK; ended: a phone test's
- *                                                 call is over (it said goodbye, or connected them to the team)
+ *                                                 call is over (it said goodbye, or connected them to the team);
+ *                                                 firstWordsMs: a phone test's reply started being said this long
+ *                                                 in, while the rest was written (null when it wasn't)
  *     { type: 'error', message }                  the run stopped; the message is for people
  *   `detail`, `query` and `reply` may be null. Unknown event types are skipped.
  */
@@ -195,6 +197,8 @@ export type TestEvent =
       readonly ended: boolean;
       readonly toolSteps: number;
       readonly ms: number;
+      /** A phone test: how long until its first words could be said (null: only once the reply was done). */
+      readonly firstWordsMs: number | null;
     }
   | { readonly type: 'error'; readonly message: string };
 
@@ -278,6 +282,10 @@ export function parseTestEvent(raw: unknown): TestEvent | null {
             ended: raw.ended === true,
             toolSteps: num(raw.toolSteps),
             ms: num(raw.ms),
+            firstWordsMs:
+              typeof raw.firstWordsMs === 'number' && Number.isFinite(raw.firstWordsMs)
+                ? raw.firstWordsMs
+                : null,
           }
         : null;
     }

@@ -392,6 +392,17 @@ const HandOff = z.object({
 export const PHONE_ANSWER_MODES = ['no_answer', 'after_hours', 'always'] as const;
 export type PhoneAnswerMode = (typeof PHONE_ANSWER_MODES)[number];
 
+/**
+ * The model that thinks on a business's calls, when HandsFreeOS support picked one for it in /admin (the column
+ * app.workspaces.phone_model; null is the worker's VOICE_MODEL). Only support sets it, so it isn't in the settings
+ * document a business edits.
+ */
+export const PHONE_MODELS = ['claude-haiku-4-5'] as const;
+export type PhoneModel = (typeof PHONE_MODELS)[number];
+export const PHONE_MODEL_LABELS: Readonly<Record<PhoneModel, string>> = {
+  'claude-haiku-4-5': 'Claude Haiku 4.5 (faster)',
+};
+
 /** How it sounds on a call. Each has an English and a Spanish voice, so it can answer in the caller's language. */
 export const PHONE_VOICES = ['warm', 'bright', 'calm', 'deep'] as const;
 export type PhoneVoice = (typeof PHONE_VOICES)[number];

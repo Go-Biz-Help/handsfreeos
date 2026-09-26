@@ -145,6 +145,8 @@ export const ROLE_PERMISSIONS = {
     'platform.health.read',
     'platform.staff.manage',
     'platform.rates.manage',
+    // Which model a business's calls think with (the phone model): HandsFreeOS's AI spend, like the rates.
+    'platform.ai.manage',
     'platform.wallets.adjust',
     'platform.founding.manage',
     'platform.ideas.moderate',

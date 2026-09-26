@@ -40,6 +40,11 @@ export const GOODBYE: Readonly<Record<'en' | 'es', string>> = {
 export const tongue = (language: string | null): 'en' | 'es' =>
   language?.toLowerCase().startsWith('es') ? 'es' : 'en';
 
+/** In the rewrite's feedback when the start of the reply was already said out loud. */
+export function alreadySaid(said: string): string {
+  return `The caller already heard you say “${quoteData(said)}”, so don’t say it again: write only what comes after it.`;
+}
+
 /** Who said what on the call so far. */
 export interface CallLine {
   readonly who: 'caller' | 'teammate';
@@ -57,6 +62,8 @@ export function phoneChannelLines(o: {
     ...(o.outbound ? outboundLines(o.outbound) : []),
     'Channel: a live phone call. What you reply is spoken aloud, so talk the way people do on the phone: one to three short sentences, no lists, no links, no emoji, nothing that only makes sense written down. Say times the way people say them (“Tuesday at two thirty”).',
     'Ask one question at a time. The caller’s words come from speech recognition and may be a little off: when something that matters is unclear (a name, a time, an address), ask them to say it again.',
+    'Every tool step keeps the caller waiting in silence: when the business profile or the knowledge in this context already answers them, reply straight away without looking anything up.',
+    'Your reply starts being said while you write it, so put the answer first.',
     'Never read out a link, an email address or a long number, and never promise to send one yourself: when something needs a link or a payment, say the team will text it to them.',
     'When they’re done (they say goodbye, or that’s all they needed), say a short goodbye with end_call.',
     'hand_off connects them to the team on this same call: they’ll hear you’re connecting them, so don’t say goodbye first.',

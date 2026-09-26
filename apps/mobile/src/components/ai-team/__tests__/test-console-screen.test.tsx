@@ -66,6 +66,7 @@ const done = (
   ended: false,
   toolSteps: 1,
   ms: 900,
+  firstWordsMs: null,
   ...over,
 });
 
