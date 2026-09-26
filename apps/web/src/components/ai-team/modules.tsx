@@ -31,11 +31,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Fragment, type MouseEvent } from 'react';
+import { Fragment, useState, useTransition, type MouseEvent } from 'react';
+import { toast } from 'sonner';
 import { WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
 import { SetRow } from '@/components/settings/set-row';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +49,8 @@ import { Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Stepper } from '@/components/ui/stepper';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { teammateActions } from '@/lib/ai-team/actions';
 import {
   afterHoursWords,
   BUILT_IN_TOPICS,
@@ -61,6 +65,7 @@ import {
 } from '@/lib/ai-team/describe';
 import type { TeammateProgress } from '@/lib/ai-team/types';
 import type { PatchFn } from '@/lib/ai-team/use-draft';
+import { errorMessage } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { AI_FILL } from './mark';
 import {
@@ -660,7 +665,117 @@ function AnswerModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
 
 // ---------- Book ----------
 
-function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
+/**
+ * What a Book row's calendar is for, changed right in the row. The teammate picks a calendar by it: without
+ * one it has only the name to go on. It saves to the calendar at once, apart from the teammate's settings.
+ */
+function CalendarPurpose({
+  workspaceId,
+  calendar,
+  checkboxId,
+  name,
+  canEdit,
+}: {
+  workspaceId: string;
+  calendar: TeammateCatalogs['calendars'][number];
+  /** The row's checkbox, which the description still ticks like the rest of the row. */
+  checkboxId: string;
+  /** The teammate's. */
+  name: string;
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  // What's being typed; null while it isn't open.
+  const [text, setText] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
+  const busy = saving || refreshing;
+  const { id, description } = calendar;
+
+  async function save() {
+    const next = text?.trim() || null;
+    if (next === description) return setText(null);
+    setSaving(true);
+    try {
+      await teammateActions(workspaceId).describeCalendar({ calendarId: id, description: next });
+      // Open, and saving, until the row reads the calendar again.
+      startRefresh(() => {
+        setText(null);
+        router.refresh();
+      });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (text !== null)
+    return (
+      <span className="mt-1.5 flex flex-col gap-2" data-testid={`book-calendar-purpose-${id}`}>
+        <Textarea
+          value={text}
+          rows={3}
+          maxLength={2000}
+          autoFocus
+          disabled={busy}
+          aria-label={`What ${calendar.name} is for`}
+          aria-describedby={`${checkboxId}-for-hint`}
+          placeholder="Repairs and tune-ups at the customer’s home."
+          className="min-h-0 text-[13px]"
+          data-testid={`book-calendar-purpose-text-${id}`}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              void save();
+            }
+          }}
+        />
+        <span id={`${checkboxId}-for-hint`} className="text-xs text-text-3">
+          Shown on the booking page, and {name} reads it to pick this calendar.
+        </span>
+        <span className="flex gap-2">
+          <Button
+            size="sm"
+            loading={busy}
+            onClick={() => void save()}
+            data-testid={`book-calendar-purpose-save-${id}`}
+          >
+            Save
+          </Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setText(null)}>
+            Cancel
+          </Button>
+        </span>
+      </span>
+    );
+  return (
+    <>
+      {description ? (
+        <label
+          htmlFor={checkboxId}
+          className="line-clamp-2 cursor-pointer text-xs text-text-2"
+          data-testid={`book-calendar-for-${id}`}
+        >
+          {description}
+        </label>
+      ) : null}
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={() => setText(description ?? '')}
+          className="self-start text-xs font-medium text-accent-text hover:underline"
+          data-testid={`book-calendar-say-for-${id}`}
+        >
+          {description ? 'Change what it’s for' : `Tell ${name} what it’s for`}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function BookModule({ draft, patch, catalogs, workspaceId, readOnly }: ModuleProps) {
   const b = draft.book;
   const name = draft.identity.name;
   const base = `/app/w/${workspaceId}`;
@@ -717,25 +832,14 @@ function BookModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
                       {lengthsWords(cal.lengths)}
                     </span>
                   ) : null}
-                  {cal.description ? (
-                    <span
-                      className="line-clamp-2 text-xs text-text-2"
-                      data-testid={`book-calendar-for-${cal.id}`}
-                    >
-                      {cal.description}
-                    </span>
-                  ) : null}
                 </label>
-                {/* It picks a calendar by what it's for: without a description it has only the name to go on. */}
-                {on && !cal.description && !cal.archived ? (
-                  <Link
-                    href={`${base}/${TEAMMATE_LINKS.calendarDetails(cal.id)}`}
-                    className="self-start text-xs font-medium text-accent-text hover:underline"
-                    data-testid={`book-calendar-say-for-${cal.id}`}
-                  >
-                    Tell {name} what it’s for
-                  </Link>
-                ) : null}
+                <CalendarPurpose
+                  workspaceId={workspaceId}
+                  calendar={cal}
+                  checkboxId={id}
+                  name={name}
+                  canEdit={on && !readOnly && !cal.archived}
+                />
               </span>
               {cal.archived ? (
                 <Badge variant="danger" className="h-5 text-[11.5px]">

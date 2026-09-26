@@ -78,3 +78,61 @@ test('AI teammate booking: the draft holds the booking, and approving books it',
   await page.goto(`/app/w/${owner.workspaceId}/customers/people/${personId}`);
   await expect(page.getByTestId('upcoming-appointments')).toContainText('AC tune-up');
 });
+
+/**
+ * Saying what a calendar is for, right in the Book module: the box opens in the row (empty the first time,
+ * with what was said after that), saves to the calendar, and the page never leaves the teammate.
+ */
+test('AI teammate booking: say what a calendar is for in its row', async ({ page }) => {
+  test.setTimeout(120_000);
+  const owner = await ownerWithSite(page, 'ai-calendar-for', BUSINESS);
+  const calendar = await makeCalendar(owner, 'AC tune-up');
+  await createTeammate(owner.token, owner.workspaceId, {
+    preset: 'appointment_coordinator',
+    patch: { book: { enabled: true, calendarIds: [calendar.id] } },
+  });
+  const description = async () =>
+    (
+      await api<{ calendar: { description: string | null } }>(
+        owner.token,
+        'queries',
+        'calendar.get',
+        { workspaceId: owner.workspaceId, calendarId: calendar.id },
+      )
+    ).calendar.description;
+  const aiTeam = `/app/w/${owner.workspaceId}/ai-team`;
+
+  await page.goto(aiTeam);
+  await page.getByTestId('module-book').click();
+  const row = page.getByTestId(`book-calendar-${calendar.id}`);
+  const say = row.getByTestId(`book-calendar-say-for-${calendar.id}`);
+  const text = row.getByTestId(`book-calendar-purpose-text-${calendar.id}`);
+  const shown = row.getByTestId(`book-calendar-for-${calendar.id}`);
+
+  await expect(say).toHaveText('Tell Ava what it’s for');
+  await say.click();
+  await expect(text).toHaveValue('');
+  await expect(text).toBeFocused();
+  await text.fill('Seasonal tune-ups at the customer’s home.');
+  await row.getByTestId(`book-calendar-purpose-save-${calendar.id}`).click();
+  await expect(shown).toHaveText('Seasonal tune-ups at the customer’s home.');
+  await expect(text).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`${aiTeam}$`));
+  expect(await description()).toBe('Seasonal tune-ups at the customer’s home.');
+
+  // Again: the box opens with what it says now, and Cancel leaves it as it was.
+  await expect(say).toHaveText('Change what it’s for');
+  await say.click();
+  await expect(text).toHaveValue('Seasonal tune-ups at the customer’s home.');
+  await text.fill('Something else');
+  await row.getByRole('button', { name: 'Cancel' }).click();
+  await expect(shown).toHaveText('Seasonal tune-ups at the customer’s home.');
+
+  // Emptied, it clears the description and asks again.
+  await say.click();
+  await text.fill('');
+  await text.press('ControlOrMeta+Enter');
+  await expect(shown).toHaveCount(0);
+  await expect(say).toHaveText('Tell Ava what it’s for');
+  expect(await description()).toBeNull();
+});
