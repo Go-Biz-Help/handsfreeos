@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+import { supabaseBrowser } from '@/lib/supabase/client';
 
 /**
  * Matomo analytics for the web app (site 5 in gobizhelp.matomo.cloud; handsfreeos.com is 3, the phone app 4): which
@@ -14,6 +15,9 @@ import { useEffect, useRef } from 'react';
  *   there.
  * - **The route, not the address.** Every id becomes `:id` and the query string is dropped, so a search box's
  *   `?q=Dale Ramsey` stays here and a report reads "customers/people/:id" rather than one line per customer.
+ * - **Who, by account id alone.** A signed-in person's screens carry their account id (Supabase Auth's `sub`) as
+ *   Matomo's User ID, never their name or email, so their visits from different computers join up; the phone app
+ *   sends the same id. Signing out starts a new visit, as Matomo asks, so whoever signs in next isn't counted as them.
  * - **No link tracking.** A download link can be a signed file address, and an outlink a payment page's session.
  * - **No heatmaps, session recordings, form or media tracking**, whatever the Matomo account has switched on: the
  *   first two copy what is on the screen, form tracking reports each field, and a voicemail's player carries its file's
@@ -75,23 +79,51 @@ function load(paq: unknown[][]) {
   document.head.appendChild(script);
 }
 
+/**
+ * The signed-in account's id, or null. Read from the sign-in saved in the browser, so it is right on the first screen
+ * after signing in or out.
+ */
+async function accountId(): Promise<string | null> {
+  const { data } = await supabaseBrowser().auth.getSession();
+  return data.session?.user.id ?? null;
+}
+
 /** Counts a page view each time the route changes; the App Router never reloads the page. */
 export function Matomo() {
   const path = usePathname();
   const last = useRef<string | null>(null);
+  const lastAccount = useRef<string | null>(null);
 
   useEffect(() => {
     if (window.location.host !== HOST || !path || !tracked(path)) return;
     const route = routeOf(path);
     const url = `https://${HOST}${route}`;
     if (url === last.current) return;
-    if (!window._paq) load((window._paq = []));
-    const paq = window._paq!;
-    paq.push(['setReferrerUrl', last.current ?? firstReferrer()]);
-    paq.push(['setCustomUrl', url]);
-    paq.push(['setDocumentTitle', route]);
-    paq.push(['trackPageView']);
-    last.current = url;
+    let open = true;
+    // Counting a screen is never worth an error: without the sign-in, it's counted without the id.
+    void accountId()
+      .catch(() => null)
+      .then((account) => {
+        // Moved on while the sign-in was read: the next screen is counted instead.
+        if (!open) return;
+        if (!window._paq) load((window._paq = []));
+        const paq = window._paq!;
+        // Signed out, or in as somebody else, since the last screen: this one starts a new visit.
+        const newVisit = lastAccount.current !== null && lastAccount.current !== account;
+        if (account) paq.push(['setUserId', account]);
+        else if (newVisit) paq.push(['resetUserId']);
+        if (newVisit) paq.push(['appendToTrackingUrl', 'new_visit=1']);
+        paq.push(['setReferrerUrl', last.current ?? firstReferrer()]);
+        paq.push(['setCustomUrl', url]);
+        paq.push(['setDocumentTitle', route]);
+        paq.push(['trackPageView']);
+        if (newVisit) paq.push(['appendToTrackingUrl', '']);
+        last.current = url;
+        lastAccount.current = account;
+      });
+    return () => {
+      open = false;
+    };
   }, [path]);
 
   return null;

@@ -12,9 +12,12 @@ import { deviceStore } from './device-store';
  * directly — one POST per screen, sent and forgotten; with no signal the view is simply not counted.
  *
  * Off in development and test builds, and in any build without a site id. What it sends is the screen's file route
- * (`/app/w/:id/customers/people/:id`), never an id, a name or anything typed; a random id for this install, kept in
- * the device store and gone with the app; and the phone's kind, system version, screen size and language. Nothing
- * says who is signed in. `store/privacy-app-store.md` and `store/privacy-play.md` declare exactly this.
+ * (`/app/w/:id/customers/people/:id`), never a record's id, a name or anything typed; a random id for this install,
+ * kept in the device store and gone with the app; the phone's kind, system version, screen size and language; and,
+ * while someone is signed in, their account id (Supabase Auth's `sub`) as Matomo's User ID, never their name or
+ * email, so their visits from different phones join up. The web app sends the same id. Signing out starts a new
+ * visit, so whoever signs in next isn't counted as them. `store/privacy-app-store.md` and `store/privacy-play.md`
+ * declare exactly this.
  */
 const MATOMO_URL = 'https://gobizhelp.matomo.cloud/matomo.php';
 /** Screens are addressed under the app's id, the way Matomo's own Android SDK does it. */
@@ -69,8 +72,8 @@ function post(body: string): Promise<unknown> {
 }
 
 export interface ScreenTracker {
-  /** The screen on show now; the same one twice in a row is one view. */
-  screen(screen: string): void;
+  /** The screen on show now, and the account signed in; the same screen twice in a row is one view. */
+  screen(screen: string, account: string | null): void;
   /** The app is back in front: counts the screen again if Matomo has closed the visit since. */
   resume(): void;
 }
@@ -85,6 +88,9 @@ export function createScreenTracker(deps: {
   let current = '';
   let previousUrl = '';
   let sentAt = 0;
+  let account: string | null = null;
+  /** The account the last view was counted for. */
+  let sentAccount: string | null = null;
 
   const send = () => {
     const url = `${APP_URL}${current}`;
@@ -100,8 +106,12 @@ export function createScreenTracker(deps: {
       ...deps.phone(),
     };
     if (previousUrl) fields.urlref = previousUrl;
+    if (account) fields.uid = account;
+    // Signed out, or in as somebody else, since the last view: this one starts a new visit.
+    if (sentAccount && sentAccount !== account) fields.new_visit = '1';
     previousUrl = url;
     sentAt = deps.now();
+    sentAccount = account;
     const body = Object.entries(fields)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
       .join('&');
@@ -110,7 +120,8 @@ export function createScreenTracker(deps: {
   };
 
   return {
-    screen(screen) {
+    screen(screen, signedIn) {
+      account = signedIn;
       if (!screen || screen === current) return;
       current = screen;
       send();
@@ -127,13 +138,16 @@ const tracker: ScreenTracker | null =
     ? createScreenTracker({ siteId, visitorId, phone, post, now: Date.now })
     : null;
 
-/** Counts each screen the person opens, and the one they come back to. Called once, by the root layout. */
-export function useScreenTracking(): void {
+/**
+ * Counts each screen the person opens, and the one they come back to. Called once, by the root layout, with the
+ * signed-in account's id.
+ */
+export function useScreenTracking(account: string | null): void {
   const screen = screenOf(useSegments());
 
   React.useEffect(() => {
-    tracker?.screen(screen);
-  }, [screen]);
+    tracker?.screen(screen, account);
+  }, [screen, account]);
 
   React.useEffect(() => {
     if (!tracker) return;

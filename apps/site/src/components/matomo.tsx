@@ -5,7 +5,8 @@ import { urls } from '@/content/site';
  * Matomo Tag Manager for handsfreeos.com. What it counts is set up in the container at gobizhelp.matomo.cloud, not
  * here: this only loads it, and only on the live site, so `next dev` and Vercel previews count nothing. The site
  * changes pages without reloading, so the container needs a History Change trigger on its page view tag as well as
- * the usual Pageview one. `/privacy` says what is counted; keep the two in step.
+ * the usual Pageview one. Nobody signs in here, so unlike the two apps it sends no User ID. `/privacy` says what is
+ * counted; keep the two in step.
  */
 const CONTAINER = 'https://cdn.matomo.cloud/gobizhelp.matomo.cloud/container_E8zmrEO3.js';
 const HOST = new URL(urls.site).host;
