@@ -226,6 +226,53 @@ export function useThread(
     }
   }, [workspaceId, conversationId, cursor, allLanes]);
 
+  /**
+   * Refreshes, then pages back until `id` is in the thread again. A held retry, cancelled, goes back to the time
+   * its failed attempt had, which may be older than the newest page; the pages in between come too, so "Show
+   * earlier" still carries on from the oldest one shown.
+   */
+  const bringBack = useCallback(
+    async (id: string) => {
+      const got: ThreadItem[] = [];
+      let next: string | null = null;
+      try {
+        for (let page = 0; page < 20; page++) {
+          const out: ConversationThread = unwrap(
+            await apiBrowser().POST('/v1/queries/conversation.thread', {
+              body: {
+                workspaceId,
+                conversationId,
+                limit: PAGE,
+                ...(next ? { cursor: next } : {}),
+                ...(allLanes ? { allLanes } : {}),
+              },
+            }),
+          );
+          got.push(...out.items);
+          next = out.nextCursor;
+          if (!next || out.items.some((i) => i.id === id)) break;
+        }
+      } catch {
+        // The next live change or a reload tries again.
+        setNonce((n) => n + 1);
+        return;
+      }
+      const oldest = got.reduce<string | null>(
+        (min, i) => (min === null || i.occurredAt < min ? i.occurredAt : min),
+        null,
+      );
+      setItems((old) => {
+        const map = new Map(old.map((i) => [i.id, i]));
+        for (const i of got) map.set(i.id, i);
+        return [...map.values()].sort(byTime);
+      });
+      // Reached further back than the thread had: "Show earlier" carries on from there.
+      const shownFrom = items[0]?.occurredAt ?? null;
+      if (oldest && (shownFrom === null || oldest < shownFrom)) setCursor(next);
+    },
+    [workspaceId, conversationId, allLanes, items],
+  );
+
   const ids = useMemo(() => new Set(items.map((i) => i.id)), [items]);
   // Pending texts drop out once the stored message is in the thread.
   const waiting = pending.filter((p) => !p.messageId || !ids.has(p.messageId));
@@ -237,6 +284,7 @@ export function useThread(
     loadingEarlier,
     loadEarlier,
     refresh: useCallback(() => setNonce((n) => n + 1), []),
+    bringBack,
     /** Takes an item out of the thread at once (a held text just cancelled). */
     forget: useCallback((id: string) => setItems((all) => all.filter((i) => i.id !== id)), []),
     addPending: useCallback(

@@ -326,7 +326,8 @@ export function ConversationView({
           body: { workspaceId, messageId },
         }),
       );
-      if (out.stays) t.refresh();
+      // A failed text tried again goes back to its old place, which may be further back than the newest page.
+      if (out.stays) void t.bringBack(messageId);
       else t.forget(messageId);
       toast.success(out.stays ? CONVERSATION_DONE.retryCancelled : CONVERSATION_DONE.heldCancelled);
     } catch (e) {
