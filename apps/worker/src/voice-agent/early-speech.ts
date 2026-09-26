@@ -66,7 +66,9 @@ export class EarlySpeech {
     const message = partialString(input.json, 'message');
     if (!message) return;
     this.message = message.text;
-    this.sayWhatsReady(input.name === 'end_call', input.done && message.whole);
+    // The last sentence goes as soon as the message's closing quote arrives: what follows it in the call (its
+    // language) is never said, so waiting for the whole call only kept a one-sentence answer quiet longer.
+    this.sayWhatsReady(input.name === 'end_call', message.whole);
   };
 
   /** Says every finished sentence not yet said (and, once the message is whole, the last one). */

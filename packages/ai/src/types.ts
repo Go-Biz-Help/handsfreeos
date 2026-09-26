@@ -86,6 +86,11 @@ export interface AiResponseFormat {
 export interface AiRequest {
   /** Instructions that stay the same between questions; providers cache them where they can. */
   readonly system: string;
+  /**
+   * Instructions that stay the same for a whole conversation, after `system`: a phone call's business, customer
+   * and FAQ, read once when it's picked up. Providers cache them too, so each turn reads only what's new.
+   */
+  readonly lasting?: string;
   /** Instructions that change with every question: the local time, the page the person is on. */
   readonly context?: string;
   readonly messages: readonly AiMessage[];
@@ -141,8 +146,13 @@ export interface AiStreamOptions {
    * when it's done. A tool without `streamInput` may arrive in one piece.
    */
   readonly onToolInput?: (input: AiToolInput) => void;
+  /** The answer started: its first block arrived (the model's reasoning, text or a tool call). Once per answer. */
+  readonly onStarted?: (first: AiFirstBlock) => void;
   readonly signal?: AbortSignal;
 }
+
+/** What an answer started with: `thinking` when the model reasoned before writing anything. */
+export type AiFirstBlock = 'thinking' | 'text' | 'tool_call' | 'other';
 
 export interface AiProvider {
   readonly id: string;
@@ -153,6 +163,12 @@ export interface AiProvider {
    */
   readonly toolSearch?: boolean;
   stream(request: AiRequest, options?: AiStreamOptions): Promise<AiTurn>;
+  /**
+   * Reads a request's instructions and tools ahead of time, answering nothing, so the next request that starts
+   * the same way finds them ready (a call does this while its greeting plays). Providers without a cache leave
+   * it out.
+   */
+  warm?(request: AiRequest): Promise<AiUsage>;
 }
 
 export type AiErrorCode =

@@ -73,7 +73,7 @@ export class ScriptedProvider implements AiProvider {
       !!last && Array.isArray(last.content) && last.content.some((c) => c.type === 'tool_result');
     const inputTokens = Math.ceil((request.system.length + messagesLength(request.messages)) / 4);
 
-    const context = request.context ?? '';
+    const context = [request.lasting, request.context].filter(Boolean).join('\n');
     const calls = rule?.calls && !answering && !structured ? rule.calls(question, context) : [];
     if (calls.length) {
       const toolCalls: AiToolCall[] = calls.map((c, i) => ({
@@ -81,6 +81,7 @@ export class ScriptedProvider implements AiProvider {
         name: c.name,
         arguments: c.arguments,
       }));
+      options.onStarted?.('tool_call');
       writeToolCalls(toolCalls, options.onToolInput);
       return { text: '', toolCalls, stopReason: 'tool_use', usage: usage(inputTokens, 20) };
     }
@@ -91,6 +92,7 @@ export class ScriptedProvider implements AiProvider {
         ? rule.reply(question, resultsByTool(request.messages), context)
         : this.fallback;
     const words = text.split(/(?<= )/);
+    options.onStarted?.('text');
     for (const w of words) {
       if (options.signal?.aborted) throw new AiProviderError('Stopped', 'aborted', false);
       options.onText?.(w);

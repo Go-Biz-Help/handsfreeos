@@ -1,7 +1,8 @@
 /**
  * The stand-in for hearing and speaking (development and tests). Audio here is words: a frame the caller sends
  * is taken as UTF-8 text they said, finished and done (so one frame is one turn), and what the teammate says
- * comes back as its own words in UTF-8. A test reads a call's outgoing audio as text.
+ * comes back as its own words in UTF-8. A test reads a call's outgoing audio as text. Its open voice (a call's
+ * VoiceLine) does the same, and notes what went down it.
  *
  * Words wrapped in `[es]…` are heard as Spanish; a frame of `[talking]` is them starting to talk over it.
  *
@@ -9,13 +10,15 @@
  * or a phone on a developer's computer) is heard as FAKE_HEARD, since there's nobody to listen. A clip it says is
  * a quiet WAV about as long as the words would take, so the app plays something and moves on.
  */
-import type {
-  HeardClip,
-  ListenHandlers,
-  Listening,
-  SpeakOptions,
-  SpeechServices,
-  VoiceClip,
+import {
+  voiceModel,
+  type HeardClip,
+  type ListenHandlers,
+  type Listening,
+  type SpeakOptions,
+  type SpeechServices,
+  type VoiceClip,
+  type VoiceLine,
 } from './speech';
 
 export const FAKE_TALKING = '[talking]';
@@ -47,13 +50,37 @@ export function silentWav(seconds: number): Buffer {
 export function createFakeSpeech(): SpeechServices & {
   readonly spoken: string[];
   readonly heard: string[];
+  /** What was said down a call's open voice (openVoice), rather than by request. */
+  readonly lined: string[];
 } {
   const spoken: string[] = [];
   const heard: string[] = [];
+  const lined: string[] = [];
   return {
     name: 'fake',
     spoken,
     heard,
+    lined,
+
+    async openVoice(options): Promise<VoiceLine> {
+      let open = true;
+      return {
+        model: voiceModel(options.voice, options.language),
+        get open() {
+          return open;
+        },
+        async *say(text: string, signal?: AbortSignal): AsyncIterable<Buffer> {
+          if (!open) throw new Error('closed');
+          if (signal?.aborted) return;
+          spoken.push(text);
+          lined.push(text);
+          yield Buffer.from(text, 'utf8');
+        },
+        close() {
+          open = false;
+        },
+      };
+    },
 
     async listen(handlers: ListenHandlers): Promise<Listening> {
       let closed = false;

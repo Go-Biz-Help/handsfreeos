@@ -19,6 +19,7 @@ import {
   AiProviderError,
   emptyUsage,
   type AiContent,
+  type AiFirstBlock,
   type AiMessage,
   type AiProvider,
   type AiStopReason,
@@ -55,6 +56,8 @@ export interface ToolLoopInput {
   readonly provider: AiProvider;
   /** Fixed instructions (cached by the provider). */
   readonly system: string;
+  /** What stays the same for the whole conversation (a call's business and FAQ): cached after `system`. */
+  readonly lasting?: string;
   /** What changes per question: the time, the page, the business brief. */
   readonly context?: string;
   /** The conversation so far, ending with the person's turn. It isn't changed; the result has the new turns. */
@@ -70,6 +73,9 @@ export interface ToolLoopInput {
   readonly onText?: (delta: string) => void;
   /** Each tool call as the model writes it, before it runs; `answer` counts the model's answers from 1. */
   readonly onToolInput?: (input: AiToolInput, answer: number) => void;
+  /** Each model call as it's sent (after the budget check), then as its answer starts: what a stopwatch reads. */
+  readonly onAsked?: (answer: number) => void;
+  readonly onStarted?: (answer: number, first: AiFirstBlock) => void;
   /** Each model turn's tokens, as soon as the turn ends and before its tools run (awaited). */
   readonly onTurnUsage?: (usage: AiUsage) => void | Promise<void>;
   /** Before every model call, given the tokens the loop has used so far: false ends it (`budget`). */
@@ -143,9 +149,12 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       if (input.checkBudget && !(await input.checkBudget(usage))) return end('budget');
       const answer = ++answers;
       const onToolInput = input.onToolInput;
+      const onStarted = input.onStarted;
+      input.onAsked?.(answer);
       const turn = await input.provider.stream(
         {
           system: input.system,
+          ...(input.lasting ? { lasting: input.lasting } : {}),
           ...(input.context ? { context: input.context } : {}),
           messages,
           tools: input.tools,
@@ -158,6 +167,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
             input.onText?.(delta);
           },
           ...(onToolInput ? { onToolInput: (call: AiToolInput) => onToolInput(call, answer) } : {}),
+          ...(onStarted ? { onStarted: (first: AiFirstBlock) => onStarted(answer, first) } : {}),
         },
       );
       usage = addUsage(usage, turn.usage);

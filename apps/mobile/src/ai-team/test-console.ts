@@ -1,9 +1,11 @@
 import {
+  stepsLine,
   testVerb,
   type TestConsoleChannel,
   type TestEvent,
   type TestMessage,
   type TestOutcome,
+  type TestSteps,
 } from '@hfos/core';
 
 /**
@@ -69,6 +71,8 @@ export interface Turn {
   readonly ms: number | null;
   /** A call's reply started being said this long in, while the rest was written. */
   readonly firstWordsMs: number | null;
+  /** A call's stopwatch: where the time went before it could start talking. */
+  readonly steps: TestSteps | null;
   /** On a call, the reply's sentences a real call says while the rest is written, as they come. */
   readonly early: readonly string[];
   readonly error: string | null;
@@ -126,6 +130,7 @@ export function newTurn(o: {
     toolSteps: 0,
     ms: null,
     firstWordsMs: null,
+    steps: null,
     early: [],
     error: null,
   };
@@ -242,6 +247,7 @@ export function stepTurn(t: Turn, e: TestEvent, now = new Date().toISOString()):
         toolSteps: e.toolSteps,
         ms: e.ms,
         firstWordsMs: e.firstWordsMs,
+        steps: e.steps,
         log: [...t.log, endLine(t, e, now)],
       };
     case 'error':
@@ -292,6 +298,11 @@ export function turnMeta(t: Turn): string {
   ]
     .filter(Boolean)
     .join(' · ');
+}
+
+/** A call's stopwatch in words ("Where the time went: loading 0.1 s · …"), or null when there's none. */
+export function turnSteps(t: Turn): string | null {
+  return t.steps ? `Where the time went: ${stepsLine(t.steps, seconds)}` : null;
 }
 
 /** The first word of a name. */

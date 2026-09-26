@@ -771,7 +771,8 @@ export function scriptedTeammateTurn(
   }
   const turn: TeammateTurn = {
     words,
-    context: request.context ?? '',
+    // A call's lasting part first, then the turn's own: read as one context, as the model reads them in order.
+    context: [request.lasting, request.context].filter(Boolean).join('\n'),
     results,
     feedback,
     tools: new Set((request.tools ?? []).map((t) => t.name)),
@@ -832,6 +833,7 @@ class WorkerScriptedProvider extends ScriptedProvider {
     if (request.system !== TEAMMATE_SYSTEM) return super.stream(request, options);
     if (options.signal?.aborted) throw new AiProviderError('Stopped', 'aborted', false);
     const turn = scriptedTeammateTurn(request, this.teammate);
+    options.onStarted?.(turn.text ? 'text' : turn.toolCalls.length ? 'tool_call' : 'other');
     if (turn.text) options.onText?.(turn.text);
     writeToolCalls(turn.toolCalls, options.onToolInput);
     return turn;

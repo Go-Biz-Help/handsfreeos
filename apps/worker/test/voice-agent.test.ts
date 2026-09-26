@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
-import type { AiContent, AiProvider } from '@hfos/ai';
+import { emptyUsage, type AiContent, type AiProvider, type AiRequest } from '@hfos/ai';
 import type { FastifyInstance } from 'fastify';
 import WebSocket from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -27,6 +27,8 @@ import { openTicket, sealTicket, TICKET_TTL_MS } from '../src/voice-agent/ticket
 import { TEST_PUBLIC_URL } from './helpers';
 import {
   admin,
+  appointmentsOf,
+  newCustomer,
   nextPhone,
   saveTeammate,
   setStatus,
@@ -43,7 +45,10 @@ let app: FastifyInstance;
 /** While set, the model's answer is held back once it's written: what's said meanwhile was said early. */
 let holdAnswer: Promise<void> | null = null;
 
-/** The model, holding its answers back while a test says so. */
+/** What the model was asked to read ahead of a call's first turn, while the greeting played. */
+const warms: AiRequest[] = [];
+
+/** The model, holding its answers back while a test says so; it reads ahead like Claude does. */
 const held = (inner: AiProvider): AiProvider => ({
   id: inner.id,
   model: inner.model,
@@ -51,6 +56,10 @@ const held = (inner: AiProvider): AiProvider => ({
     const turn = await inner.stream(request, options);
     if (holdAnswer) await holdAnswer;
     return turn;
+  },
+  async warm(request) {
+    warms.push(request);
+    return { ...emptyUsage, cacheWriteTokens: 4_000 };
   },
 });
 let port: number;
@@ -83,6 +92,29 @@ beforeAll(async () => {
                 },
               ],
             }),
+          },
+          {
+            // Books the first open time the call read at pickup, without looking times up.
+            when: /\bfirst open time\b/i,
+            step: (t) => {
+              if (t.results['book'])
+                return {
+                  calls: [
+                    { name: 'reply', arguments: { message: 'You’re booked. See you then!' } },
+                  ],
+                };
+              const first =
+                /\(calendar id ([0-9a-f-]{36})\):\n\s+[^:\n]+: [^(\n]+\(startsAt ([^)]+)\)/.exec(
+                  t.context,
+                );
+              return first
+                ? {
+                    calls: [
+                      { name: 'book', arguments: { calendarId: first[1], startsAt: first[2] } },
+                    ],
+                  }
+                : { calls: [{ name: 'reply', arguments: { message: 'Nothing is open.' } }] };
+            },
           },
           {
             // A link that isn't the business's, in its second sentence.
@@ -383,6 +415,11 @@ describe('a call', () => {
     }
     await waitFor('the reply to be heard', () => marks() > heard);
     expect(call.said.slice(before)).toEqual(['Yes, we are.', 'We open at nine on Saturdays.']);
+    // Both went down the call's open voice, opened while the greeting played, not a request each.
+    const speech = w.s.speech as ReturnType<typeof createFakeSpeech>;
+    expect(speech.lined).toEqual(
+      expect.arrayContaining(['Yes, we are.', 'We open at nine on Saturdays.']),
+    );
     call.hangUp();
     const done = await waitForRun(callSid, 'done');
     expect(done.transcript).toContain('Ava: Yes, we are. We open at nine on Saturdays.');
@@ -526,6 +563,85 @@ async function waitForRun(callSid: string, status: string) {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
+
+describe('what it reads when it picks up', () => {
+  const addKnowledge = (kind: 'faq' | 'article', title: string, body: string) =>
+    rows(
+      admin(),
+      sql`insert into app.knowledge_items (workspace_id, kind, title, body, status)
+          values (${w.workspaceId}, ${kind}::app.knowledge_item_kind, ${title}, ${body}, 'published')`,
+    );
+
+  it('reads the FAQ and some open times once, has the AI read them ahead, and each turn adds only what’s new', async () => {
+    await addKnowledge(
+      'faq',
+      'Do you come to my home?',
+      'Yes, our techs come to you, anywhere in town.',
+    );
+    // Too long to read up front: the search still finds it when they ask.
+    await addKnowledge(
+      'article',
+      'House calls in winter',
+      `House calls run all winter. ${'We bring everything the visit needs. '.repeat(60)}`,
+    );
+    // Open times are read up front only where it may offer them straight away: not where it checks their ZIP first.
+    await saveTeammate(w, { book: { serviceArea: false } });
+    const caller = await newCustomer(w, 'Rosa');
+    const { xml, callSid } = await callIn(caller.phone);
+    const asked = teammateRequests(w).length;
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    const before = call.said.length;
+    call.speak('Do you do house calls?');
+    await waitFor(
+      'an answer',
+      () => call.said.length > before && teammateRequests(w).length > asked,
+    );
+    const first = teammateRequests(w).at(-1)!;
+    // The part that stays the same all call: how it talks, its FAQ in full, and open times it may offer.
+    expect(first.lasting).toContain('Channel: a live phone call.');
+    expect(first.lasting).toContain('Do you come to my home?');
+    expect(first.lasting).toContain('Yes, our techs come to you, anywhere in town.');
+    expect(first.lasting).toContain('Some open times over the next few days');
+    expect(first.lasting).toMatch(/\(startsAt \d{4}-\d{2}-\d{2}T/);
+    expect(first.lasting).not.toContain('House calls in winter');
+    // Each turn's own context: the time, and knowledge past the FAQ that matches what they said.
+    expect(first.context).toMatch(/^Today is /);
+    expect(first.context).toContain('House calls in winter');
+    expect(first.context).not.toContain('Do you come to my home?');
+    // While the greeting played, the AI read exactly what the turn then sent before its own context.
+    const warm = await waitFor('the warm-up', () => warms.find((r) => r.lasting === first.lasting));
+    expect(warm.system).toBe(first.system);
+    expect(warm.tools).toEqual(first.tools);
+
+    // Booked straight from the times it read at pickup: no look-up first.
+    const heard = call.said.length;
+    call.speak('Book me the first open time please.');
+    await waitFor('the booking', () => call.said.slice(heard).join(' ').includes('You’re booked.'));
+    const second = teammateRequests(w).at(-1)!;
+    expect(second.lasting).toBe(first.lasting);
+    expect(await appointmentsOf(caller.id)).toHaveLength(1);
+    const lookedUp = teammateRequests(w)
+      .slice(asked)
+      .some((r) => r.messages.some((m) => JSON.stringify(m.content).includes('"find_times"')));
+    expect(lookedUp).toBe(false);
+    call.hangUp();
+    await waitForRun(callSid, 'done');
+  });
+
+  it('reads no open times where it checks their ZIP code before offering any', async () => {
+    await saveTeammate(w, { book: { serviceArea: true } });
+    const { xml, callSid } = await callIn();
+    const asked = teammateRequests(w).length;
+    const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+    await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+    call.speak('Are you open on Saturdays?');
+    await waitFor('an answer', () => teammateRequests(w).length > asked);
+    expect(teammateRequests(w).at(-1)!.lasting).not.toContain('Some open times');
+    call.hangUp();
+    await waitForRun(callSid, 'done');
+  });
+});
 
 describe('the pieces', () => {
   const sealer = createSealer(Buffer.alloc(32, 7).toString('base64'));

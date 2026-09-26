@@ -7417,7 +7417,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
 - **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
 - **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
-- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). You type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud needs the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
+- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). You type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud needs the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Under each call reply, **Where the time went** splits that wait into steps (see "How fast it answers on a call"). Like a real call, a test call reads the business once, when it's picked up: settings, knowledge or hours saved in the middle of a test call show from the next one. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
 
 ### What else it can do for a customer (M18)
 
@@ -7889,6 +7889,35 @@ Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`,
 | **Offer ending** | A card on Home from the start of the day three days before an offer's last day, urgent on the last day. **Open the offers** goes to Knowledge → Offers to extend it; it closes when the offer is extended past that window, archived or over | Yes              |
 
 Needs `20261006000200_offers_in_campaigns.sql` (the `offer_lapsing` card kind and `campaigns.offer_id`). See "Apply new migrations".
+
+### How fast it answers on a call
+
+Every turn of a call is timed, from the end of the caller's words to the first sound back. The worker logs one line
+a turn, `a call turn’s timings`: `loadMs` (the knowledge search and the budget check), `waitMs` (until the AI's
+answer starts), `sentenceMs` (its first sentence written and checked), `voiceMs` (that sentence turned into sound)
+and `firstSoundMs` (all of it), with `thought` (the model reasoned before answering) and `readyTokens` and
+`freshTokens` (how much of its instructions the AI found ready, and how much it read fresh). The test console shows
+the same steps under each call reply, as **Where the time went**.
+
+What keeps the wait short:
+
+- **It reads once, when the call is picked up**, while the greeting plays: the FAQ's short answers and facts in full
+  (up to 60 of them and 10,000 characters, the most used first; longer articles and documents are still searched
+  turn by turn), and a few open times each day over the next three days on the calendars it can book straight away
+  (not ones that need a ZIP code, an address or a deposit, and none when it checks the service area first). It
+  offers and books those without looking times up; booking still checks the time is free.
+- **Its instructions are ready.** Everything that stays the same all call is sent exactly the same way every turn,
+  so Anthropic keeps it ready, and the call has Anthropic read it while the greeting plays. A turn then reads only
+  the time and what the caller just said. `readyTokens` of 0 on every turn means this isn't working.
+- **It talks while it writes.** A reply starts being said as soon as its first sentence is written and checked; a
+  one-sentence answer, as soon as it ends.
+- **One voice connection a call.** Sentences go down one Deepgram connection opened at pickup. A sentence it can't
+  take goes by a request of its own, as the greeting does; after three failures on one call it stops trying for
+  that call.
+
+When calls feel slow, the log line says where: a large `waitMs` with `thought: true` is the model thinking before
+it answers (Claude Sonnet 5 does unless it's told not to; Claude Haiku 4.5 doesn't, which a support admin can pick
+per business in /admin), and a large `loadMs` is the database.
 
 ### AI calls
 

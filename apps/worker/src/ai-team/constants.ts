@@ -70,6 +70,16 @@ export const SEARCH_MATCHES = 5;
 /** Open times one find_times shows the model, and the longest stretch it searches. */
 export const TIMES_SHOWN = 12;
 export const TIMES_MAX_DAYS = 14;
+/**
+ * What a phone call reads when it's picked up, so a question takes one step instead of a look-up and then an
+ * answer: the FAQ's short answers and facts (up to this many, and this much text; longer articles and documents
+ * are still searched turn by turn), and some open times over the next few days, spread across each day.
+ */
+export const CALL_FAQ_MAX = 60;
+export const FAQ_PROMPT_MAX_CHARS = 10_000;
+export const CALL_TIMES_DAYS = 3;
+export const CALL_TIMES_PER_DAY = 6;
+export const CALL_TIMES_CALENDARS = 3;
 /** Customer-facing changes one reply may hold. */
 export const HELD_MAX = 3;
 /** Tokens per model call. */

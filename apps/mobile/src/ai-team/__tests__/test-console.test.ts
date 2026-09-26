@@ -1,6 +1,14 @@
 import { readTestEvents, type TestEvent } from '@hfos/core';
 
-import { historyOf, newTurn, stepTurn, turnHeading, turnMeta, type Turn } from '../test-console';
+import {
+  historyOf,
+  newTurn,
+  stepTurn,
+  turnHeading,
+  turnMeta,
+  turnSteps,
+  type Turn,
+} from '../test-console';
 
 /**
  * The phone's test console, worked out: each worker event grows the turn the way the web's console does, a call's
@@ -49,6 +57,7 @@ describe('a written turn', () => {
         toolSteps: 2,
         ms: 1400,
         firstWordsMs: null,
+        steps: null,
       },
     ]);
     expect(t.reply).toBe('You’re booked for Thu 10 AM.');
@@ -88,6 +97,7 @@ describe('a call', () => {
         toolSteps: 0,
         ms: 5,
         firstWordsMs: null,
+        steps: null,
       },
     ]);
     expect(t.customer).toBe('');
@@ -106,6 +116,7 @@ describe('a call', () => {
         toolSteps: 1,
         ms: 10,
         firstWordsMs: null,
+        steps: null,
       },
     ]);
     expect(bye).toMatchObject({ ended: true, reply: 'Thanks for calling. Bye now!' });
@@ -122,6 +133,7 @@ describe('a call', () => {
         toolSteps: 0,
         ms: 10,
         firstWordsMs: null,
+        steps: null,
       },
     ]);
     expect(handed.log.at(-1)!.title).toBe('Connected them to the team');
@@ -147,6 +159,7 @@ describe('a call', () => {
         toolSteps: 0,
         ms: 900,
         firstWordsMs: 300,
+        steps: null,
       },
     ]);
     expect(finished.reply).toBe('Yes, we are. We open at nine. Anything else?');
@@ -164,9 +177,30 @@ describe('a call', () => {
         toolSteps: 1,
         ms: 2400,
         firstWordsMs: 800,
+        steps: null,
       },
     ]);
     expect(turnMeta(t)).toBe('1 look-up · talks at 0.8 s · done at 2.4 s');
+    expect(turnSteps(t)).toBeNull();
+  });
+
+  it('says where a call’s time went, step by step', () => {
+    const t = play(turn('call', 'What time are you open?'), [
+      {
+        type: 'done',
+        outcome: 'replied',
+        reply: 'We’re open eight to five.',
+        draft: false,
+        ended: false,
+        toolSteps: 0,
+        ms: 1100,
+        firstWordsMs: 700,
+        steps: { loadMs: 50, waitMs: 450, sentenceMs: 200, thought: false, ready: true },
+      },
+    ]);
+    expect(turnSteps(t)).toBe(
+      'Where the time went: loading 0.1 s · the AI starts 0.5 s · first sentence 0.2 s · its instructions were ready',
+    );
   });
 
   it('numbers the replies after the greeting', () => {

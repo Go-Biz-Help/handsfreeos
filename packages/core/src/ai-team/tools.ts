@@ -195,7 +195,7 @@ export const TEAMMATE_TOOLS = [
   define({
     name: 'book',
     description:
-      'Book the customer at a time find_times offered in this conversation. They get the usual confirmation. Only say they’re booked after this succeeds.',
+      'Book the customer at a time find_times offered in this conversation, or one of a phone call’s open times in your context. They get the usual confirmation. Only say they’re booked after this succeeds.',
     input: z.strictObject({
       calendarId: uuid.describe('One of your calendars'),
       startsAt: when,

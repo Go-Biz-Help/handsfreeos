@@ -95,6 +95,18 @@ describe('saying it early', () => {
     expect(early.said).toBe(message);
   });
 
+  it('says a one-sentence answer as soon as its message ends, before the rest of the call is written', () => {
+    const { early, said } = speech();
+    const events = written('c1', 'reply', { message: 'We’re open eight to five.', language: 'en' });
+    const closed = events.findIndex((e) => partialString(e.json, 'message')?.whole);
+    for (const e of events.slice(0, closed + 1)) early.onToolInput(e, 1);
+    expect(events[closed]!.done).toBe(false);
+    expect(said).toEqual([{ sentence: 'We’re open eight to five.', ending: false }]);
+    // The rest of the call says nothing more.
+    for (const e of events.slice(closed + 1)) early.onToolInput(e, 1);
+    expect(said).toHaveLength(1);
+  });
+
   it('says a goodbye as the ending', () => {
     const { early, said } = speech();
     for (const e of written('c1', 'end_call', { message: 'Thanks for calling. Bye now!' }))

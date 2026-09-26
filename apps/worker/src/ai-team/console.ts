@@ -69,7 +69,14 @@ import { atLabel, isoWithOffset } from '../assistant/calendar-format';
 import { fallbackOpening } from '../automations/campaigns';
 import { anyOfWords, findKnowledge } from '../knowledge/find';
 import { systemActor, type TenantScope } from '../services';
+import {
+  offerOpenTimes,
+  readCallBrief,
+  turnMatches,
+  type CallBrief,
+} from '../voice-agent/call-knowledge';
 import { EarlySpeech, streamSpoken } from '../voice-agent/early-speech';
+import { TurnClock } from '../voice-agent/turn-clock';
 import { callModel } from '../voice-agent/index';
 import {
   alreadySaid,
@@ -103,7 +110,13 @@ import {
 } from './context';
 import { withinHours, workingNow } from './gates';
 import { handoffExpectation, handoffLine } from './hours';
-import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
+import {
+  callTurnContext,
+  contextText,
+  conversationTurn,
+  rewriteFeedback,
+  TEAMMATE_SYSTEM,
+} from './prompt';
 import { checkReply, closeRun, immediateHandOff } from './run';
 import { newRunState, timeKey, toolDefinition, type RunState } from './tools';
 
@@ -358,9 +371,8 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
   // The caller's words read like a text's, as the voice agent reads them.
   const channel = t.input.channel === 'phone' ? 'sms' : t.input.channel;
   if (t.phone) {
-    // A call: what the caller just said is the batch; the call so far is its own transcript (callLinesOf), and the
-    // greeting already said who it is.
-    const said = msgs[msgs.length - 1];
+    // A call, as it's picked up: each turn adds what the caller just said (turnContextFor); the call so far is its
+    // own transcript (callLinesOf), and the greeting already said who it is.
     const rc = await asWorker(deps.db, t.scope, (tx) =>
       loadRunContext(tx, {
         scope: t.scope,
@@ -368,9 +380,7 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
         config: t.config,
         conversationId: null,
         target: { personId: t.input.personId, channel },
-        batch: said
-          ? [{ id: 'call', channel, text: said.text, subject: null, at: t.now, photos: [] }]
-          : [],
+        batch: [],
         webUrl: deps.webUrl,
         now: t.now,
       }),
@@ -412,6 +422,142 @@ async function contextFor(deps: ConsoleDeps, t: PreparedTest): Promise<RunContex
     firstAiMessage,
     discloseNow: firstAiMessage && t.config.identity.disclosure === 'first_message',
   };
+}
+
+/**
+ * What a phone test reads once, as a real call does when it's picked up (the greeting's request): the business
+ * and the customer, and the call's brief (its FAQ, some open times, its lasting context). The call's later turns
+ * reuse it, so their timings are a real call's. Settings, knowledge or hours saved in the middle of a test call
+ * show from the next one, as they would on the phone. Kept in memory, for about as long as a call can last.
+ */
+interface TestCallReading {
+  readonly rc: RunContext;
+  readonly brief: Promise<CallBrief>;
+  readonly at: number;
+}
+
+const TEST_CALLS = new Map<string, TestCallReading>();
+/** A real call is handed to the team at twenty minutes. */
+const TEST_CALL_MS = 20 * 60_000;
+const TEST_CALLS_MAX = 100;
+
+/** The same test call: the same business, teammate, settings, model, customer, direction and pretend time. */
+const testCallKey = (t: PreparedTest): string =>
+  JSON.stringify([
+    t.scope.workspaceId,
+    t.teammate.id,
+    t.teammate.status,
+    t.provider.model,
+    t.input.personId,
+    t.input.call,
+    t.input.at,
+    t.config,
+  ]);
+
+/** A phone test's tools, exactly as each turn and the warm-up send them. */
+const phoneTools = (t: PreparedTest) =>
+  teammateTools(t.config, { phone: true, outbound: t.phone?.outbound?.purpose ?? null });
+
+async function readTestCall(deps: ConsoleDeps, t: PreparedTest): Promise<TestCallReading> {
+  const now = Date.now();
+  for (const [k, v] of TEST_CALLS) if (now - v.at > TEST_CALL_MS) TEST_CALLS.delete(k);
+  const key = testCallKey(t);
+  // The pickup always reads afresh; a turn reads again only when its call was never read (a restarted worker).
+  const kept = t.input.messages.length ? TEST_CALLS.get(key) : undefined;
+  if (kept) return kept;
+  const rc = await contextFor(deps, t);
+  const reading: TestCallReading = {
+    rc,
+    at: now,
+    brief: readCallBrief(deps, t.scope, {
+      rc,
+      channelLines: phoneChannelLines({
+        training: t.teammate.status === 'training',
+        personHasIt: false,
+        outbound: t.phone?.outbound ?? null,
+      }),
+      booking: phoneTools(t).some((x) => x.name === 'book'),
+      meta: { correlationId: t.runId, channel: 'ai_employee' },
+    }),
+  };
+  // Awaited by the turns that need it; this keeps a failure from going unheard in between.
+  reading.brief.catch(() => undefined);
+  TEST_CALLS.set(key, reading);
+  while (TEST_CALLS.size > TEST_CALLS_MAX) {
+    const oldest = TEST_CALLS.keys().next().value;
+    if (oldest === undefined) break;
+    TEST_CALLS.delete(oldest);
+  }
+  return reading;
+}
+
+/** One turn of a test call: the call as read at pickup, what the caller just said, and the knowledge it matches. */
+async function turnContextFor(
+  deps: ConsoleDeps,
+  t: PreparedTest,
+  reading: TestCallReading,
+): Promise<RunContext> {
+  const said = t.input.messages[t.input.messages.length - 1];
+  if (!said) return { ...reading.rc, now: t.now };
+  const brief = await reading.brief;
+  return {
+    ...reading.rc,
+    batch: [{ id: 'call', channel: 'sms', text: said.text, subject: null, at: t.now, photos: [] }],
+    matches: await turnMatches(deps, t.scope, said.text, {
+      faqIds: brief.faqIds,
+      otherwise: reading.rc.matches,
+    }),
+    now: t.now,
+  };
+}
+
+/** While the greeting shows: the AI reads the call's instructions ahead of the first turn, as a real call does. */
+async function warmTestCall(deps: ConsoleDeps, t: PreparedTest, brief: CallBrief): Promise<void> {
+  if (!t.provider.warm) return;
+  try {
+    const usage = await t.provider.warm({
+      system: TEAMMATE_SYSTEM,
+      lasting: brief.lasting,
+      tools: phoneTools(t).map((x) => streamSpoken(toolDefinition(x))),
+      messages: [],
+    });
+    await recordAndChargeAi(deps, t.scope, {
+      source: 'teammate',
+      teammateId: t.teammate.id,
+      teammateRunId: t.runId,
+      model: t.provider.model,
+      usage,
+    });
+  } catch (e) {
+    deps.log.warn({ err: e }, 'couldn’t get the AI ready for a test call');
+  }
+}
+
+/** What the call read at pickup, for the console's list of what it read. */
+function tellWhatTheCallKnows(t: PreparedTest, brief: CallBrief, send: Hands['send']) {
+  const at = nowIso();
+  if (brief.faqIds.size)
+    send({
+      type: 'context',
+      title: 'Read the FAQ',
+      detail: `${brief.faqIds.size} short ${brief.faqIds.size === 1 ? 'answer' : 'answers'}, kept at hand for the whole call`,
+      at,
+    });
+  if (brief.openTimes.length)
+    send({
+      type: 'context',
+      title: 'Read open times',
+      detail: `${brief.openTimes.length} over the next few days, to offer without looking them up`,
+      at,
+    });
+  if (t.provider.warm)
+    send({
+      type: 'note',
+      title: 'Getting ready',
+      detail:
+        'While the greeting plays, the AI reads its instructions, so the first answer starts sooner.',
+      at,
+    });
 }
 
 /** A phone test's call so far, before what the caller just said: the greeting, then each turn. */
@@ -1368,8 +1514,9 @@ export async function runTest(
   signal: AbortSignal,
 ): Promise<void> {
   const began = Date.now();
-  /** On a call: how long it took until the first words could be said. */
+  /** On a call: how long it took until the first words could be said, and where that time went. */
   let firstWordsMs: number | null = null;
+  const clock = t.phone && t.input.messages.length ? new TurnClock() : null;
   let steps = 0;
   const checks: unknown[] = [];
   const state = newRunState();
@@ -1414,6 +1561,7 @@ export async function runTest(
       toolSteps: steps,
       ms: Date.now() - began,
       firstWordsMs,
+      steps: clock?.steps() ?? null,
     });
   };
   // A hand-off on a call connects them to the team, and that's the end of the call.
@@ -1429,7 +1577,9 @@ export async function runTest(
         );
   try {
     send({ type: 'started', runId: t.runId, at: nowIso() });
-    rc = await contextFor(deps, t);
+    // A call reads the business once, at pickup; a written test reads it for every message, as a text does.
+    const reading = phone ? await readTestCall(deps, t) : null;
+    rc = reading ? await turnContextFor(deps, t, reading) : await contextFor(deps, t);
     await tellWhatItRead(deps, t, rc, send);
 
     // A phone test's first request: the call is picked up, or placed, and it says its greeting.
@@ -1440,8 +1590,14 @@ export async function runTest(
         ? outboundGreetingOf(t.config, business, out.firstName, out.goal, out.purpose)
         : greetingOf(t.config, business);
       send({ type: 'delta', text: greeting });
+      // While it's said: the FAQ and open times are read, and the AI reads its instructions.
+      const brief = await reading!.brief;
+      tellWhatTheCallKnows(t, brief, send);
+      void warmTestCall(deps, t, brief);
       return await finish('replied', greeting, out ? 'placed the call' : 'picked up the call');
     }
+    const brief = reading ? await reading.brief : null;
+    if (brief) offerOpenTimes(state, brief);
 
     // Straight to a person, before any model call: the customer hears the line (or the safety text).
     const immediate = immediateHandOff(rc);
@@ -1467,12 +1623,9 @@ export async function runTest(
     }
 
     const hands: Hands = { deps, t, rc, state, send };
-    const tools = teammateTools(
-      t.config,
-      phone
-        ? { phone: true, outbound: phone.outbound?.purpose ?? null }
-        : { unverifiedChat: rc.unverifiedChat },
-    );
+    const tools = phone
+      ? phoneTools(t)
+      : teammateTools(t.config, { unverifiedChat: rc.unverifiedChat });
     const enders = tools.filter((x) => TEAMMATE_TURN_ENDERS.has(x.name as TeammateToolName));
     const hasRoom = () =>
       aiBudget.teammateHasRoom(deps.db, t.scope, {
@@ -1484,26 +1637,22 @@ export async function runTest(
     const base = {
       provider: t.provider,
       system: TEAMMATE_SYSTEM,
-      context: phone
-        ? contextText(rc, {
-            channelLines: phoneChannelLines({
-              training,
-              personHasIt: false,
-              outbound: phone.outbound,
-            }),
-          })
-        : contextText(rc),
+      // A call's lasting part was read at pickup and is ready; each turn adds only the time and its knowledge.
+      ...(brief ? { lasting: brief.lasting } : {}),
+      context: brief ? callTurnContext(rc, brief.faqIds) : contextText(rc),
       maxTokens: phone ? PHONE_MAX_TOKENS : MAX_TOKENS,
       execute: simulator(hands, tools),
       onText: (text: string) => send({ type: 'delta', text }),
-      onTurnUsage: (usage: AiUsage) =>
-        recordAndChargeAi(deps, t.scope, {
+      onTurnUsage: (usage: AiUsage) => {
+        clock?.usage(usage);
+        return recordAndChargeAi(deps, t.scope, {
           source: 'teammate',
           teammateId: t.teammate.id,
           teammateRunId: t.runId,
           model: t.provider.model,
           usage,
-        }),
+        });
+      },
       checkBudget: hasRoom,
       signal,
     };
@@ -1522,6 +1671,7 @@ export async function runTest(
           mayStart: () => !state.held.length && !state.moneyAsk,
           say: (sentence) => {
             if (firstWordsMs === null) {
+              clock?.sentence();
               firstWordsMs = Date.now() - began;
               send({
                 type: 'note',
@@ -1550,6 +1700,7 @@ export async function runTest(
       tools: tools.map((x) => (phone ? streamSpoken(toolDefinition(x)) : toolDefinition(x))),
       maxRounds: t.config.limits.toolRounds,
       ...(early ? { onToolInput: early.onToolInput } : {}),
+      ...(clock ? { onAsked: clock.onAsked, onStarted: clock.onStarted } : {}),
     });
     steps += loop.rounds;
     if (loop.stoppedBy === 'aborted') return await close(null, 'stopped', null, true);

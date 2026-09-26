@@ -3,6 +3,7 @@ import {
   parseTestEvent,
   readTestEvents,
   restToSay,
+  stepsLine,
   TestConsoleInput,
   testSamples,
   testVerb,
@@ -84,6 +85,36 @@ describe('the stream', () => {
       reply: null,
     });
     expect(parseTestEvent({ type: 'done', outcome: 'maybe' })).toBeNull();
+  });
+
+  it('reads a phone test’s stopwatch, and none from an older worker', () => {
+    const done = parseTestEvent({
+      type: 'done',
+      outcome: 'replied',
+      firstWordsMs: 820,
+      steps: { loadMs: 40, waitMs: 560, sentenceMs: 220, thought: false, ready: true },
+    });
+    expect(done).toMatchObject({
+      firstWordsMs: 820,
+      steps: { loadMs: 40, waitMs: 560, sentenceMs: 220, thought: false, ready: true },
+    });
+    const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+    expect(
+      stepsLine({ loadMs: 40, waitMs: 560, sentenceMs: 220, thought: true, ready: false }, seconds),
+    ).toBe(
+      'loading 0.0 s · the AI starts 0.6 s · first sentence 0.2 s · it thought first · it read its instructions fresh',
+    );
+    // A look-up first: only the first two are known.
+    expect(
+      stepsLine(
+        { loadMs: 100, waitMs: 500, sentenceMs: null, thought: false, ready: true },
+        seconds,
+      ),
+    ).toBe('loading 0.1 s · the AI starts 0.5 s · its instructions were ready');
+    expect(parseTestEvent({ type: 'done', outcome: 'replied' })).toMatchObject({ steps: null });
+    expect(
+      parseTestEvent({ type: 'done', outcome: 'replied', steps: { loadMs: 'soon' } }),
+    ).toMatchObject({ steps: null });
   });
 
   it('knows the call-only changes, and reads an unknown kind as a note', () => {

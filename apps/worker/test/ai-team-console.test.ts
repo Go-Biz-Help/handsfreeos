@@ -238,9 +238,12 @@ describe('the test console', () => {
       expect(events.find((e) => e.type === 'tool')).toMatchObject({ name: 'find_times' });
       expect(events.find((e) => e.type === 'would')).toMatchObject({ kind: 'book' });
       expect(done(booked)).toMatchObject({ outcome: 'replied', ended: false });
-      // The call so far is its transcript, and it answers out loud.
+      // The call so far is its transcript, and it answers out loud. How it talks on a call is in the part read
+      // once, at pickup; each turn's own context is only the time and the knowledge that matches.
       const request = teammateRequests(w).at(-1)!;
-      expect(request.context).toContain('Channel: a live phone call.');
+      expect(request.lasting).toContain('Channel: a live phone call.');
+      expect(request.context).toMatch(/^Today is /);
+      expect(request.context).not.toContain('Channel:');
       expect(JSON.stringify(request.messages[0])).toContain('Thanks for calling');
       expect(request.tools?.map((t) => t.name)).toContain('end_call');
 
@@ -262,6 +265,21 @@ describe('the test console', () => {
         detail: expect.stringContaining('“Thanks for calling.”'),
       });
       expect(done(booked)['firstWordsMs']).toBeNull();
+      // The stopwatch: where the time went before it could start talking. The goodbye's steps add up to it; the
+      // booking's reply was said only once it was done, so it has no first-sentence step.
+      const byeSteps = bye['steps'] as Record<string, unknown>;
+      expect(byeSteps).toMatchObject({
+        loadMs: expect.any(Number),
+        waitMs: expect.any(Number),
+        sentenceMs: expect.any(Number),
+        thought: false,
+        ready: false,
+      });
+      expect(
+        Number(byeSteps['loadMs']) + Number(byeSteps['waitMs']) + Number(byeSteps['sentenceMs']),
+      ).toBeLessThanOrEqual(Number(bye['firstWordsMs']) + 5);
+      expect(done(booked)['steps']).toMatchObject({ sentenceMs: null });
+      expect(greeting['steps']).toBeNull();
       // Each of its sentences comes as it's ready, so the console can say them out loud early too; the booking's
       // reply comes only once it's done.
       expect(
@@ -270,6 +288,8 @@ describe('the test console', () => {
           .map((e) => e['text']),
       ).toEqual(['Thanks for calling.', 'Bye now!']);
       expect(eventsOf(booked).some((e) => e.type === 'say')).toBe(false);
+      // The call was read once, at pickup: every turn sends the same lasting part, so the AI finds it ready.
+      expect(teammateRequests(w).at(-1)!.lasting).toBe(request.lasting);
 
       // Nothing happened for real: no visit, no call, no conversation.
       expect(await appointmentsOf(c.id)).toHaveLength(0);
