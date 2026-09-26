@@ -13,8 +13,13 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   APP_PLACES,
+  CUSTOMER_PAGES,
+  EVERY_PAGE,
+  IDEAS_WORDS,
+  NOT_ANYWHERE,
   LOOK_ALIKES,
   MONEY_TAB_LABELS,
+  PHONE_APP,
   placesText,
   settingsAreas,
   settingsMapText,
@@ -24,11 +29,17 @@ import {
 const WEB = resolve(__dirname, '../../../apps/web/src');
 const PAGES = join(WEB, 'app/app/w/[workspaceId]');
 
-/** The places a menu file names: every `label: '…'` in it. */
-const labelsIn = (file: string): ReadonlySet<string> =>
-  new Set(
-    [...readFileSync(join(WEB, file), 'utf8').matchAll(/label: '([^']+)'/g)].map((m) => m[1]!),
-  );
+/**
+ * The places a menu file names: every `label: '…'` in it, and the words of a counted one (`label: \`People · ${n}\``
+ * is People).
+ */
+const labelsIn = (file: string): ReadonlySet<string> => {
+  const src = readFileSync(join(WEB, file), 'utf8');
+  return new Set([
+    ...[...src.matchAll(/label: '([^']+)'/g)].map((m) => m[1]!),
+    ...[...src.matchAll(/label: `([^`$]+?) · /g)].map((m) => m[1]!),
+  ]);
+};
 
 /** What may come next after each way so far: the side menu first, then each screen's own tabs. */
 const MENUS: Readonly<Record<string, ReadonlySet<string>>> = {
@@ -39,6 +50,8 @@ const MENUS: Readonly<Record<string, ReadonlySet<string>>> = {
   Workflows: labelsIn('components/workflows/subnav.tsx'),
   'AI teammate': labelsIn('components/ai-team/header.tsx'),
   Money: new Set(Object.values(MONEY_TAB_LABELS)),
+  Customers: labelsIn('components/crm/customers-list.tsx'),
+  Ideas: new Set(Object.values(IDEAS_WORDS.tabs)),
 };
 
 /** Every step of the way is in the menu it is reached from. */
@@ -52,7 +65,9 @@ function expectRealWay(way: readonly string[], name: string) {
   });
 }
 
-const pageExists = (path: string) => existsSync(join(PAGES, path, 'page.tsx'));
+/** A business's pages are under /app/w/<workspaceId>; the agency area's say their own /app/org/… in full. */
+const pageExists = (path: string) =>
+  existsSync(join(path.startsWith('/app/') ? join(WEB, 'app') : PAGES, path, 'page.tsx'));
 
 const EVERY_STEP = [...new Set(Object.values(MENUS).flatMap((m) => [...m]))];
 const endsWithStep = (text: string) =>
@@ -103,8 +118,14 @@ describe('the settings map', () => {
 
   it('gives every everyday place a way there that is really in the menus', () => {
     for (const p of APP_PLACES) {
-      expectRealWay(p.where, p.label);
+      // Only somewhere off the side menu (the agency area) goes without a way through it, and it says what to press.
+      if (p.where.length) expectRealWay(p.where, p.label);
+      else expect(p.then, p.label).toBeTruthy();
       expect(pageExists(p.path), `${p.label}: no page at ${p.path}`).toBe(true);
+      expect(p.onScreen.length, p.label).toBeGreaterThan(0);
+      expect(p.then ?? '', `${p.label}: a click after the menus is said in words`).not.toContain(
+        '→',
+      );
     }
   });
 
@@ -114,8 +135,14 @@ describe('the settings map', () => {
         a.what,
         ...a.onScreen,
         ...a.handovers.flatMap((h) => [h.why, ...h.steps]),
+        ...(a.howTo ?? []),
+        ...(a.notHere ?? []),
       ]),
-      ...APP_PLACES.flatMap((p) => [p.what, ...p.onScreen]),
+      ...APP_PLACES.flatMap((p) => [p.what, ...p.onScreen, ...p.howTo, ...(p.notHere ?? [])]),
+      ...EVERY_PAGE,
+      ...NOT_ANYWHERE,
+      ...PHONE_APP,
+      ...CUSTOMER_PAGES,
       ...LOOK_ALIKES,
     ];
     for (const text of words) for (const way of waysIn(text)) expectRealWay(way, text);
@@ -126,6 +153,14 @@ describe('the settings map', () => {
     expect(settingsMapText()).toContain('Settings → Calendars → Territories');
     expect(settingsMapText()).not.toMatch(/Settings → Territories/);
     expect(placesText()).toContain('Service area');
+  });
+
+  it('answers the everyday “how do I…” and says what isn’t there', () => {
+    const text = placesText();
+    expect(text).toContain('Record a payment');
+    expect(text).toContain('Money → Invoices, then press the invoice');
+    expect(text).toContain('Not in HandsFreeOS');
+    for (const p of APP_PLACES) expect(text, p.label).toContain(p.label);
   });
 
   it('reads the ways in a sentence the way a person would', () => {

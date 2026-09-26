@@ -39,6 +39,7 @@ export * from './assistant/tools';
 export * from './assistant/consent';
 // How the business is set up, and where each part of it lives (M12).
 export * from './assistant/settings-map';
+export * from './assistant/places-map';
 // The Assistant's words, and the settings people have of their own (M10 step 17).
 export * from './assistant/words';
 export * from './account/settings-words';

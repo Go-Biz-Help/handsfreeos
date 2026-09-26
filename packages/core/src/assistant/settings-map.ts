@@ -82,6 +82,10 @@ export interface SettingsAreaInfo {
   readonly canChange: readonly string[];
   /** What the person has to do themselves. */
   readonly handovers: readonly SettingsHandover[];
+  /** "How do I…" on this screen, each answered as the clicks, for doing it themselves. */
+  readonly howTo?: readonly string[];
+  /** What people look for here that HandsFreeOS doesn't do, so the Assistant says so rather than invent a button. */
+  readonly notHere?: readonly string[];
 }
 
 type AreaEntry = Omit<SettingsAreaInfo, 'area'>;
@@ -90,9 +94,12 @@ type AreaEntry = Omit<SettingsAreaInfo, 'area'>;
 const CALENDAR_SECTIONS =
   'Team & assignment, Services & lengths, Availability, Capacity, Locations, Resources, Buffers & travel, Territories, Booking window, Repeats, Waitlist, Intake questions, Cancel & reschedule rules, Notifications, Calendar connections, CRM, Payments, Automations';
 
-/** The AI teammate's own sections, in its order (apps/web/src/lib/ai-team/describe.ts). */
+/** The AI teammate's own sections, in its order (apps/web/src/lib/ai-team/describe.ts), and what each holds. */
 const TEAMMATE_SECTIONS =
-  'Identity, Channels, Respond, Answer, Qualify, Book, Follow up, Hours, Autonomy, Limits, Hand-off';
+  'Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, and what happens when a lead qualifies), Book (which calendars, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up, Hours (Always, After hours only, Custom), Autonomy (how many approvals before it works on its own), Limits (replies a day, discounts, bills, quotes, plans), Hand-off (when it hands over, who is told and how)';
+
+/** Each calendar's own sections are reached the same way. */
+const ON_A_CALENDAR = 'Settings → Calendars, press the calendar, then';
 
 /** Asked about under Calendars as often as under My calendar, so both carry it; it happens on My calendar. */
 const CONNECT_CALENDAR: SettingsHandover = {
@@ -264,6 +271,20 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'turn it on or off',
     ],
     handovers: [CONNECT_CALENDAR],
+    howTo: [
+      `Change who works a calendar, or how it picks: ${ON_A_CALENDAR} Team & assignment`,
+      `Set how much notice and how far ahead people can book: ${ON_A_CALENDAR} Booking window`,
+      `Turn on the waitlist: ${ON_A_CALENDAR} Waitlist`,
+      `Allow repeat visits: ${ON_A_CALENDAR} Repeats`,
+      `Take a deposit when they book: ${ON_A_CALENDAR} Payments`,
+      `Change the confirmation and reminders customers get: ${ON_A_CALENDAR} Notifications`,
+      `Ask questions when they book: ${ON_A_CALENDAR} Intake questions`,
+      `Let customers cancel or reschedule themselves: ${ON_A_CALENDAR} Cancel & reschedule rules`,
+      `Send bookings by ZIP code: ${ON_A_CALENDAR} Territories, and turn on Route by ZIP code`,
+      `Send a follow-up and review request after visits: ${ON_A_CALENDAR} Automations`,
+      'Turn a calendar on, pause or archive it: press the calendar, then Turn on, or More for Pause and Archive',
+      'Copy one calendar’s booking link: Settings → Calendars, the copy icon beside it',
+    ],
   },
   services: {
     label: 'Services',
@@ -323,9 +344,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'who works here and what each of them may do',
     where: ['Members'],
     onScreen: [
-      'Invite teammate, at the top',
-      'Everyone in the business; ⋯ beside a person has Edit hours, Permissions, and Remove from workspace',
-      'Also has access via the agency, and Pending invitations',
+      'Invite teammate, at the top (Email address, then Owner, Admin or Member, then Send invite)',
+      'Everyone in the business, with a Role picker; ⋯ beside a person has Edit hours, Permissions (owners only), and Remove from workspace (Leave workspace on your own row)',
+      'Also has access via the agency (Put me on this business), and Pending invitations with Resend and Revoke',
     ],
     path: '/members',
     permission: 'members.invite',
@@ -345,6 +366,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         ],
       },
     ],
+    howTo: [
+      'Invite someone: Members, press Invite teammate',
+      'Change someone’s role: Members, the Role picker on their row',
+      'Let one person do more or less than their role: Members, ⋯ beside them, then Permissions (owners only)',
+      'Resend or cancel an invitation: Members, Pending invitations, Resend or Revoke',
+      'Remove someone: Members, ⋯ beside them, then Remove from workspace',
+    ],
+    notHere: ['changing a teammate’s name or email for them', 'an invite link to share'],
   },
   texting: {
     label: 'Texting & calls',
@@ -457,9 +486,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   templates: {
     label: 'Templates',
-    what: 'saved texts and emails the team sends from the inbox, in folders',
+    what: 'saved wording for texts and emails, in folders',
     where: ['Settings', 'Templates'],
     onScreen: ['Templates: by folder, with New template (Name, Send as, Subject, Message, Folder)'],
+    notHere: [
+      'putting a template into a reply: the inbox’s reply box doesn’t offer them yet, so copy the words across',
+    ],
     path: '/settings/templates',
     permission: 'templates.manage',
     canChange: [],
@@ -598,6 +630,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'what HandsFreeOS does on its own, and how it words it',
     ],
     handovers: [],
+    howTo: [
+      'Change one automation: Settings → Automations, its switch, or Adjust beside it',
+      'Set what a typical job is worth: Settings → Automations, Adjust on Hot lead alert',
+    ],
   },
   ai_teammate: {
     label: 'AI teammate',
@@ -605,7 +641,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['AI teammate'],
     onScreen: [
       'Tabs: Teammate, Activity, Approvals',
-      `Teammate: its settings, in order: ${TEAMMATE_SECTIONS}`,
+      `Teammate: its settings, down the left, in order: ${TEAMMATE_SECTIONS}`,
       'Beside them: Status (Off, Training wheels, Automatic)',
       'At the top: Test console, History, and More (Website chat settings, Knowledge, turn it off or on)',
     ],
@@ -619,6 +655,22 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'its limits, and when it hands a customer to a person',
     ],
     handovers: [],
+    howTo: [
+      'Turn it off, or back on: AI teammate, Status, then Off (or More, then Turn off)',
+      'Let it send without approvals: AI teammate, Status, Switch to automatic now; Back to training puts approvals back',
+      'Stop it booking: AI teammate, the Book section, and turn its switch off',
+      'Stop it texting new leads first: the Respond section, Message new leads first',
+      'Have it answer only after hours: the Hours section, After hours only',
+      'Add a question it asks new leads: the Qualify section, Add a question',
+      'Have it check the service area: the Book section, the switch for checking your service area',
+      'Change who hears about a hand-off: the Hand-off section, Who gets told',
+      'Have it answer phone calls: the Channels section, Phone calls',
+      'Try it as a customer: AI teammate, Test console',
+      'Undo a change: Undo on the save card, or History, then Restore',
+      'See what it did: AI teammate → Activity',
+      'Approve what it wrote: AI teammate → Approvals, Review, then Approve and send',
+    ],
+    notHere: ['deleting it, or having more than one'],
   },
   knowledge: {
     label: 'Knowledge',
@@ -636,6 +688,19 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'how it should sound, and whether it may quote prices',
       'add a question and answer, a fact or an article',
     ],
+    howTo: [
+      'Add an FAQ: Knowledge, press Add an FAQ, then Publish; the same box switches to Article or Fact',
+      'Let the AI quote prices: Knowledge → Overview, the AI may quote prices switch',
+      'Change how the AI sounds: Knowledge → Overview, Edit on Tone of voice, then Save profile',
+      'Add a service and its price: Knowledge → Overview, Edit on Business profile, Add a service, then Save profile',
+      'Learn from the website: Knowledge, press Scan website, then Accept what it found',
+      'Import FAQs from a spreadsheet: Knowledge → Items, Import CSV',
+      'Answer a question the AI couldn’t: Knowledge → Suggestions, type the answer on it, then Save as an FAQ',
+      'Stop the AI using an item: open it, then Archive',
+      'Test what the AI would say: Knowledge → Overview, Try it, then Ask',
+      'Add a special offer: Knowledge → Offers, Add an offer',
+    ],
+    notHere: ['deleting an item or document (archive it instead)'],
     handovers: [
       {
         what: 'add a document to the knowledge base',
@@ -643,7 +708,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         on: { where: ['Knowledge', 'Documents'], path: '/knowledge/documents' },
         steps: [
           'Open Knowledge → Documents.',
-          'Press Choose a file and pick a PDF, text or CSV file.',
+          'Press Choose a file and pick a PDF or text file.',
+          'It arrives as a draft: open it, check the text, and press Publish.',
         ],
       },
     ],
@@ -695,6 +761,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: null,
     canChange: ['your working hours', 'time off, and extra hours you are available'],
     handovers: [CONNECT_CALENDAR],
+    howTo: [
+      'Block time off: Settings → My calendar, press Add time off',
+      'Set someone else’s hours (owners and admins): Members, ⋯ beside them, then Edit hours',
+    ],
   },
   imports: {
     label: 'Imports',
@@ -768,156 +838,6 @@ export const handoverScreen = (
   href: `/app/w/${workspaceId}${handover.on?.path ?? info.path}`,
 });
 
-/**
- * The places the everyday work happens, which are not settings: what each is for, the way there, and what is on
- * it. Knowledge, the AI teammate and Members are in the settings list above, because the Assistant sets them up.
- */
-export interface AppPlace {
-  /** What the side menu calls it. */
-  readonly label: string;
-  readonly what: string;
-  readonly where: readonly string[];
-  readonly onScreen: readonly string[];
-  /** The screen, under /app/w/<workspaceId>. */
-  readonly path: string;
-}
-
-export const APP_PLACES: readonly AppPlace[] = [
-  {
-    label: 'Home',
-    what: 'the Action Center: one list of what needs attention, most urgent first',
-    where: ['Home'],
-    onScreen: [
-      'Mine or Everyone',
-      'Urgent, Up next, and Handled by HandsFreeOS; each item has Let HandsFreeOS Handle, Snooze, Assign and Dismiss',
-      'Today, and what is coming up',
-      'A new business sees Finish setting up instead',
-    ],
-    path: '',
-  },
-  {
-    label: 'Inbox',
-    what: 'every conversation with customers: texts, calls, email and website chat',
-    where: ['Inbox'],
-    onScreen: [
-      'New message, at the top',
-      'Mine, Unassigned, All; and Open, Snoozed, Closed or Archived',
-      'A conversation has Assign, Snooze, Close, and More (Call, Open customer, Hand to the AI teammate, Mark as unread, Archive)',
-    ],
-    path: '/inbox',
-  },
-  {
-    label: 'Customers',
-    what: 'people, companies and the business’s own kinds of records',
-    where: ['Customers'],
-    onScreen: [
-      'Tabs: People, Companies, and any kinds of records of your own',
-      'Import and Add person, at the top',
-      'A customer’s page: Call, Text, Email, Book, Note, Log call, Task, Lead, File, Add to workflow; tabs Timeline, Appointments, Money, Leads, Tasks, Files, Details; ⋯ has Edit details and Archive',
-    ],
-    path: '/customers',
-  },
-  {
-    label: 'Pipeline',
-    what: 'the leads, as a board or a list, in their stages',
-    where: ['Pipeline'],
-    onScreen: [
-      'A pipeline picker when there is more than one, Board or List, and New lead',
-      'A lead’s page: Stage, Note, Log call, Book, File, Add to workflow, Won and Lost',
-    ],
-    path: '/pipeline',
-  },
-  {
-    label: 'Calendar',
-    what: 'the appointments',
-    where: ['Calendar'],
-    onScreen: [
-      'Day, Week, Month, Team and Resources',
-      'New appointment, and Manage calendars (which opens Settings → Calendars)',
-    ],
-    path: '/calendar',
-  },
-  {
-    label: 'Money',
-    what: 'invoices, estimates, payments and maintenance plans',
-    where: ['Money'],
-    onScreen: [
-      'Tabs: Invoices, Estimates, Payments, Plans',
-      'New estimate and New invoice, at the top; Plans has Put someone on a plan',
-      'A sent invoice has Record a payment, Copy link and Void; a sent estimate has Turn into an invoice and They said yes',
-    ],
-    path: '/money',
-  },
-  {
-    label: 'Workflows',
-    what: 'automatic follow-ups, built as steps, on a canvas, or described in a sentence',
-    where: ['Workflows'],
-    onScreen: [
-      'Tabs: Workflows, Runs, Approvals',
-      'New workflow, at the top: a recipe, Describe it, or Start blank',
-      'A workflow: Steps, Canvas or Describe; Test this draft, then Publish; Pause or Resume',
-    ],
-    path: '/workflows',
-  },
-  {
-    label: 'Campaigns',
-    what: 'one-off outreach by text, email or calls',
-    where: ['Campaigns'],
-    onScreen: ['New campaign: Texts, Email or Calls, who gets it, then Approve all and send'],
-    path: '/campaigns',
-  },
-  {
-    label: 'Forms',
-    what: 'forms, surveys and quizzes customers fill in',
-    where: ['Forms'],
-    onScreen: ['New form', 'A form: Questions, Preview, Results, Share; Publish'],
-    path: '/forms',
-  },
-  {
-    label: 'Reviews',
-    what: 'Google and Facebook reviews, and answering them',
-    where: ['Reviews'],
-    onScreen: ['Google and Facebook: Connect', 'Each review: Answer'],
-    path: '/reviews',
-  },
-  {
-    label: 'Tasks',
-    what: 'to-dos for the team',
-    where: ['Tasks'],
-    onScreen: ['Mine or Everyone, and New task', 'Overdue, Today, This week, Later, No due date'],
-    path: '/tasks',
-  },
-  {
-    label: 'Audit log',
-    what: 'who changed what, and when',
-    where: ['Audit log'],
-    onScreen: ['Today, 7 days or 30 days; a person; a kind of activity'],
-    path: '/audit',
-  },
-  {
-    label: 'Ideas',
-    what: 'ideas for HandsFreeOS itself, the roadmap and what’s new',
-    where: ['Ideas'],
-    onScreen: ['Tabs: Ideas, Roadmap, What’s new', 'Share an idea, at the top'],
-    path: '/ideas',
-  },
-];
-
-/**
- * The same word in more than one place. These are the ones people get sent to the wrong screen for, so the prompt
- * says each of them outright.
- */
-export const LOOK_ALIKES: readonly string[] = [
-  'Service area: the territories that route bookings and that the AI teammate checks are Settings → Calendars → Territories; each calendar only uses them once Route by ZIP code is on in its own Territories section; the words the AI says about the area are Knowledge → Overview, in Business profile under Where and when (Service area).',
-  'Hours: the business’s open hours are Settings → Workspace (Business hours); a person’s own are Settings → My calendar (Weekly hours); a calendar’s are its Availability section; the AI teammate’s are its Hours section.',
-  'Notifications: what a person is told about is Settings → Account (Notifications); what customers get about a booking is the calendar’s Notifications section; reminders and follow-ups HandsFreeOS sends by itself are Settings → Automations.',
-  'Quiet hours: only Settings → Texting & calls, in Texting rules.',
-  'Deposits: the default for estimates is Settings → Payments (Deposits); a deposit taken at booking is the calendar’s Payments section.',
-  'Payments: getting paid by customers is Settings → Payments; paying HandsFreeOS for texts and calls is Settings → Usage & balance; the money itself is Money.',
-  'Team, teammates, staff: the side menu calls it Members.',
-  'Connecting Google or Outlook: a calendar is Settings → My calendar; a mailbox is Settings → Email; signing in with Google is Settings → Account.',
-];
-
 const trail = (where: readonly string[]) => where.join(' → ');
 
 /**
@@ -929,18 +849,9 @@ export function settingsMapText(): string {
     .map((a) => {
       const handovers = a.handovers.map((h) => h.what);
       const theirs = handovers.length ? ` They do themselves: ${handovers.join('; ')}.` : '';
-      return `- ${a.label} (${a.area}) is at ${trail(a.where)}: ${a.what}. On it: ${a.onScreen.join('; ')}.${theirs}`;
+      const how = a.howTo?.length ? ` How to: ${a.howTo.join('; ')}.` : '';
+      const not = a.notHere?.length ? ` Not in HandsFreeOS: ${a.notHere.join('; ')}.` : '';
+      return `- ${a.label} (${a.area}) is at ${trail(a.where)}: ${a.what}. On it: ${a.onScreen.join('; ')}.${theirs}${how}${not}`;
     })
     .join('\n');
-}
-
-/** The everyday places and the look-alikes, for the same fixed part of the prompt. */
-export function placesText(): string {
-  return [
-    ...APP_PLACES.map(
-      (p) => `- ${p.label} is at ${trail(p.where)}: ${p.what}. On it: ${p.onScreen.join('; ')}.`,
-    ),
-    'The same word in more than one place:',
-    ...LOOK_ALIKES.map((l) => `- ${l}`),
-  ].join('\n');
 }
