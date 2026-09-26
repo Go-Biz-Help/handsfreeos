@@ -95,6 +95,8 @@ const SECRET_TABLES = [
   // M16: the sign-in to a Google Business Profile or a Facebook Page. No phone ever needs it.
   'review_connections',
   'telephony_accounts',
+  // A Twilio account a business connected to bring its numbers in: its auth token or API key secret, sealed.
+  'twilio_connections',
   'workflow_webhooks',
 ];
 

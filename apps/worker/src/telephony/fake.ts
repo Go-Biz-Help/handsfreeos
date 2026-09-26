@@ -4,6 +4,8 @@ import {
   ProviderError,
   type Capabilities,
   type ContentTemplate,
+  type ExternalNumber,
+  type ExternalTwilioCreds,
   type OutboundMessage,
   type PlaceCallRequest,
   type ProviderAccount,
@@ -115,6 +117,29 @@ export interface FakeTelephony extends TelephonyProvider {
   /** Content templates made for rich texts, by sid, and the ones deleted once their message was done (0103). */
   readonly contents: Map<string, ContentTemplate & { readonly accountSid: string }>;
   readonly deletedContents: string[];
+  /** Numbers the carrier lookup was asked about, in order (20261011000100). */
+  readonly lookups: string[];
+  /**
+   * A business's own Twilio account, as if it had one (20261011000100): signed in to with `secret`, whether as
+   * the account or as an API key. `parentSid` makes it a subaccount of another such account. Returns its sid.
+   */
+  addExternalAccount(input: {
+    readonly sid?: string;
+    readonly secret: string;
+    readonly friendlyName?: string;
+    readonly parentSid?: string;
+  }): string;
+  /** A number in one of those accounts, pointed wherever its owner points it today. Returns its sid (PN…). */
+  addExternalNumber(
+    accountSid: string,
+    e164: string,
+    urls?: { readonly smsUrl?: string | null; readonly voiceUrl?: string | null },
+  ): string;
+  /**
+   * The owner's transfer request went through: the number leaves wherever it was (an account of theirs, or
+   * HighLevel's) and lands in `toAccountSid`, still pointed at its old webhooks. Returns its sid there.
+   */
+  transferIn(e164: string, toAccountSid: string): string;
 }
 
 /** What the fake says a text and a call cost it, in micro-dollars: Twilio's own list prices. */
@@ -148,6 +173,13 @@ export interface FakeOptions {
    * we counted. That disagreement is the whole reason the reconciler exists, so a test needs a way to cause one.
    */
   readonly usageFudgeMicros?: number;
+  /**
+   * Local runs only: a number HandsFreeOS is watching for (one it looked up, or one sitting in a stand-in
+   * account) arrives in the account watching for it this long after the first look, as if its owner had sent
+   * the transfer request. Unset, a number only ever arrives through `transferIn`. A number ending 0002 never
+   * does — its owner never sent the request — so the waiting screen can be seen as it stays.
+   */
+  readonly autoTransferMs?: number | null;
 }
 
 /**
@@ -196,6 +228,87 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const rcsPools = new Map<string, string>();
   const contents = new Map<string, ContentTemplate & { accountSid: string }>();
   const deletedContents: string[] = [];
+  const lookups: string[] = [];
+  /** Businesses' own Twilio accounts (20261011000100), and the numbers in them. */
+  const externalAccounts = new Map<
+    string,
+    { sid: string; secret: string; friendlyName: string; parentSid: string | null }
+  >();
+  const externalNumbers = new Map<
+    string,
+    {
+      sid: string;
+      accountSid: string;
+      e164: string;
+      smsUrl: string | null;
+      voiceUrl: string | null;
+    }
+  >();
+  /** When each account first looked for a number that had not arrived, for `autoTransferMs`. */
+  const firstLooked = new Map<string, number>();
+  /** Our own subaccounts, so one given back to us as "somebody else's" can be recognised. */
+  const subaccounts = new Set<string>();
+
+  const unauthorised = () => new ProviderError('Authenticate', '20003', false, 401);
+
+  /** A stand-in account for a local run: three numbers, one of them in use by HighLevel. */
+  const demoAccount = (sid: string, secret: string) => {
+    externalAccounts.set(sid, { sid, secret, friendlyName: 'My Twilio', parentSid: null });
+    const middle = () => String(200 + Math.floor(Math.random() * 799));
+    addExternalNumber(sid, `+1256${middle()}${String(1000 + Math.floor(Math.random() * 8999))}`, {
+      smsUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/inbound-sms',
+      voiceUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/voice',
+    });
+    addExternalNumber(sid, `+1713${middle()}${String(1000 + Math.floor(Math.random() * 8999))}`);
+    addExternalNumber(sid, `+1833${middle()}${String(1000 + Math.floor(Math.random() * 8999))}`);
+  };
+
+  /** Signs in the way Twilio does: the account's secret, whichever name it is given under. */
+  const signIn = (creds: ExternalTwilioCreds) => {
+    if (creds.accountSid === FAKE_MASTER_SID || subaccounts.has(creds.accountSid)) {
+      if (creds.secret !== FAKE_AUTH_TOKEN) throw unauthorised();
+      return {
+        sid: creds.accountSid,
+        friendlyName: 'HandsFreeOS',
+        parentSid: creds.accountSid === FAKE_MASTER_SID ? null : FAKE_MASTER_SID,
+      };
+    }
+    let a = externalAccounts.get(creds.accountSid);
+    if (!a) {
+      if (/wrong/i.test(creds.secret)) throw unauthorised();
+      demoAccount(creds.accountSid, creds.secret);
+      a = externalAccounts.get(creds.accountSid)!;
+    }
+    if (a.secret !== creds.secret) throw unauthorised();
+    return a;
+  };
+
+  function addExternalNumber(
+    accountSid: string,
+    e164: string,
+    urls: { readonly smsUrl?: string | null; readonly voiceUrl?: string | null } = {},
+  ): string {
+    const sid = fakeSid('PN');
+    externalNumbers.set(sid, {
+      sid,
+      accountSid,
+      e164,
+      smsUrl: urls.smsUrl ?? null,
+      voiceUrl: urls.voiceUrl ?? null,
+    });
+    return sid;
+  }
+
+  function transferIn(e164: string, toAccountSid: string): string {
+    const already = [...owned.values()].find((x) => x.e164 === e164);
+    if (already?.accountSid === toAccountSid) return already.sid;
+    if (already) owned.delete(already.sid);
+    const from = [...externalNumbers.values()].find((x) => x.e164 === e164);
+    if (from) externalNumbers.delete(from.sid);
+    const sid = from?.sid ?? already?.sid ?? fakeSid('PN');
+    owned.set(sid, { sid, e164, accountSid: toAccountSid });
+    return sid;
+  }
 
   /** The stand-in senders of an account, as they stand now: the one in review comes online with time. */
   const standIns = (accountSid: string): FakeRcsSender[] =>
@@ -384,8 +497,23 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     rcsPools,
     contents,
     deletedContents,
+    lookups,
+    addExternalAccount({ sid, secret, friendlyName, parentSid }) {
+      const id = sid ?? fakeSid('AC');
+      externalAccounts.set(id, {
+        sid: id,
+        secret,
+        friendlyName: friendlyName ?? 'My Twilio',
+        parentSid: parentSid ?? null,
+      });
+      return id;
+    },
+    addExternalNumber,
+    transferIn,
     async createSubaccount() {
-      return { sid: fakeSid('AC'), authToken: FAKE_AUTH_TOKEN };
+      const sid = fakeSid('AC');
+      subaccounts.add(sid);
+      return { sid, authToken: FAKE_AUTH_TOKEN };
     },
     async closeSubaccount(accountSid) {
       if (!closedAccounts.includes(accountSid)) closedAccounts.push(accountSid);
@@ -429,7 +557,62 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     },
     async findOwnedNumber(account: ProviderAccount, e164: string) {
       const n = [...owned.values()].find((x) => x.e164 === e164 && x.accountSid === account.sid);
-      return n ? { sid: n.sid, capabilities: CAPS } : null;
+      if (n) return { sid: n.sid, capabilities: CAPS };
+      // Local runs: a number being watched for arrives a little later, as if its owner sent the request.
+      const watched =
+        lookups.includes(e164) || [...externalNumbers.values()].some((x) => x.e164 === e164);
+      if (opts.autoTransferMs == null || !watched || e164.endsWith('0002')) return null;
+      const key = `${account.sid}|${e164}`;
+      const since = firstLooked.get(key) ?? Date.now();
+      firstLooked.set(key, since);
+      if (Date.now() - since < opts.autoTransferMs) return null;
+      return { sid: transferIn(e164, account.sid), capabilities: CAPS };
+    },
+    /**
+     * Who hosts a number (20261011000100). Twilio, unless it ends 0009 (another carrier: it needs a port) or
+     * 0008 (the lookup is down, which must never stop an import from being watched for).
+     */
+    async lookupNumber(e164) {
+      lookups.push(e164);
+      if (e164.endsWith('0008'))
+        throw new ProviderError('Service Unavailable', '20503', false, 503);
+      if (e164.endsWith('0009')) return { carrierName: 'Verizon Wireless', lineType: 'mobile' };
+      return {
+        carrierName: e164.startsWith('+18')
+          ? 'Twilio - Toll-Free - SMS-Sybase365/MMS-SVR'
+          : 'Twilio - SMS/MMS-SVR',
+        lineType: e164.startsWith('+18') ? 'tollFree' : 'nonFixedVoip',
+      };
+    },
+    async inspectAccount(creds) {
+      const a = signIn(creds);
+      return {
+        sid: a.sid,
+        friendlyName: a.friendlyName,
+        status: 'active',
+        ownerAccountSid: a.parentSid,
+      };
+    },
+    async listAccountNumbers(creds, { limit }) {
+      const a = signIn(creds);
+      const names = new Map(
+        [...externalAccounts.values()]
+          .filter((x) => x.sid === a.sid || x.parentSid === a.sid)
+          .map((x) => [x.sid, x.friendlyName]),
+      );
+      const out: ExternalNumber[] = [...externalNumbers.values()]
+        .filter((n) => names.has(n.accountSid))
+        .map((n) => ({
+          sid: n.sid,
+          accountSid: n.accountSid,
+          accountName: names.get(n.accountSid) ?? null,
+          e164: n.e164,
+          friendlyName: n.e164,
+          capabilities: n.e164.startsWith('+18') ? { ...CAPS, mms: false } : CAPS,
+          smsUrl: n.smsUrl,
+          voiceUrl: n.voiceUrl,
+        }));
+      return out.slice(0, limit);
     },
     async buyNumber(account, { e164 }) {
       if (e164.endsWith('0000'))

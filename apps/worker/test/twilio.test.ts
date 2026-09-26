@@ -1243,3 +1243,171 @@ describe('RCS (0103)', () => {
     expect(seen.at(-1)).toMatchObject({ method: 'DELETE', path: '/v1/Content/HXnewtest' });
   });
 });
+
+describe('bringing a number that is already in Twilio (20261011000100)', () => {
+  it('asks the carrier lookup who hosts a number, with the master account', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET lookups\.twilio\.com\/v2\/PhoneNumbers\//,
+        () => ({
+          json: {
+            valid: true,
+            line_type_intelligence: { carrier_name: 'Twilio - SMS/MMS-SVR', type: 'nonFixedVoip' },
+          },
+        }),
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).lookupNumber('+12565550123');
+    expect(found).toEqual({ carrierName: 'Twilio - SMS/MMS-SVR', lineType: 'nonFixedVoip' });
+    expect(seen[0]!.auth).toBe('ACmastertest:master-token');
+    expect(new URL(seen[0]!.url).searchParams.get('Fields')).toBe('line_type_intelligence');
+    expect(seen[0]!.path).toBe('/v2/PhoneNumbers/%2B12565550123');
+  });
+
+  it('signs in to a business’s own account as the API key it gave, and says whose subaccount it is', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACtheirstest\.json$/,
+        () => ({
+          json: {
+            sid: 'ACtheirstest',
+            friendly_name: 'Plumbing',
+            status: 'active',
+            owner_account_sid: 'ACtheirstest',
+          },
+        }),
+      ],
+    ]);
+    const a = await createTwilioTelephony(MASTER).inspectAccount({
+      accountSid: 'ACtheirstest',
+      username: 'SKtheirkeytest',
+      secret: 'their-key-secret',
+    });
+    expect(seen[0]!.auth).toBe('SKtheirkeytest:their-key-secret');
+    // A top-level account names itself as its owner; that is not a parent.
+    expect(a).toEqual({
+      sid: 'ACtheirstest',
+      friendlyName: 'Plumbing',
+      status: 'active',
+      ownerAccountSid: null,
+    });
+  });
+
+  it('refuses wrong credentials as a retryable 401, never as a permanent answer about the number', async () => {
+    mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\//,
+        () => ({ status: 401, json: { code: 20003, message: 'Authenticate' } }),
+      ],
+    ]);
+    const err = await createTwilioTelephony(MASTER)
+      .inspectAccount({ accountSid: 'ACtheirstest', username: 'ACtheirstest', secret: 'nope' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect((err as ProviderError).httpStatus).toBe(401);
+  });
+
+  it('lists the numbers in the account and each subaccount, following Twilio’s pages', async () => {
+    const number = (sid: string, accountSid: string, e164: string, smsUrl: string | null) => ({
+      sid,
+      account_sid: accountSid,
+      phone_number: e164,
+      friendly_name: e164,
+      capabilities: { voice: true, sms: true, mms: true },
+      sms_url: smsUrl,
+      voice_url: null,
+    });
+    const seen = mockTwilio([
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\.json$/,
+        () => ({
+          json: {
+            accounts: [
+              { sid: 'ACtheirstest', friendly_name: 'Agency' },
+              { sid: 'ACclientonetest', friendly_name: 'Client one' },
+            ],
+            next_page_uri: null,
+          },
+        }),
+      ],
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACtheirstest\/IncomingPhoneNumbers\.json$/,
+        (s) =>
+          s.url.includes('Page=1')
+            ? {
+                json: {
+                  incoming_phone_numbers: [
+                    number('PNsecondpagetest', 'ACtheirstest', '+17135550102', null),
+                  ],
+                  next_page_uri: null,
+                },
+              }
+            : {
+                json: {
+                  incoming_phone_numbers: [
+                    number('PNfirstpagetest', 'ACtheirstest', '+17135550101', null),
+                  ],
+                  next_page_uri:
+                    '/2010-04-01/Accounts/ACtheirstest/IncomingPhoneNumbers.json?PageSize=1000&Page=1&PageToken=PAabc',
+                },
+              },
+      ],
+      [
+        /^GET api\.twilio\.com\/2010-04-01\/Accounts\/ACclientonetest\/IncomingPhoneNumbers\.json$/,
+        () => ({
+          json: {
+            incoming_phone_numbers: [
+              number(
+                'PNclientonetest',
+                'ACclientonetest',
+                '+12565550103',
+                'https://services.leadconnectorhq.com/phone-system/twilio/inbound-sms',
+              ),
+            ],
+            next_page_uri: null,
+          },
+        }),
+      ],
+    ]);
+    const found = await createTwilioTelephony(MASTER).listAccountNumbers(
+      { accountSid: 'ACtheirstest', username: 'ACtheirstest', secret: 'their-token' },
+      { limit: 50 },
+    );
+    expect(found.map((n) => [n.sid, n.accountSid, n.accountName])).toEqual([
+      ['PNfirstpagetest', 'ACtheirstest', 'Agency'],
+      ['PNsecondpagetest', 'ACtheirstest', 'Agency'],
+      ['PNclientonetest', 'ACclientonetest', 'Client one'],
+    ]);
+    expect(found[2]!.smsUrl).toMatch(/leadconnectorhq/);
+    // Read-only, every one of them.
+    expect(seen.every((x) => x.method === 'GET')).toBe(true);
+    expect(seen.every((x) => x.auth === 'ACtheirstest:their-token')).toBe(true);
+  });
+
+  it('points a number at our webhooks and clears the apps and fallbacks its old owner left on it', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST api\.twilio\.com\/2010-04-01\/Accounts\/ACsubtest\/IncomingPhoneNumbers\//,
+        () => ({ json: {} }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).configureNumber(account, 'PNlandedtest', {
+      smsUrl: 'https://hooks.test/sms',
+      smsStatusUrl: 'https://hooks.test/sms-status',
+      voiceUrl: 'https://hooks.test/voice',
+      voiceStatusUrl: 'https://hooks.test/voice-status',
+      voiceOutboundUrl: 'https://hooks.test/outbound',
+    });
+    const body = seen[0]!.body;
+    expect(body.get('SmsUrl')).toBe('https://hooks.test/sms');
+    expect(body.get('VoiceUrl')).toBe('https://hooks.test/voice');
+    expect(body.get('StatusCallback')).toBe('https://hooks.test/voice-status');
+    for (const cleared of [
+      'SmsApplicationSid',
+      'VoiceApplicationSid',
+      'SmsFallbackUrl',
+      'VoiceFallbackUrl',
+    ])
+      expect(body.get(cleared)).toBe('');
+  });
+});

@@ -3,6 +3,7 @@ import { useQuery } from '@powersync/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
 
+import Inbox from '@/app/app/w/[workspaceId]/(tabs)/inbox';
 import MyCell from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell';
 import { Composer } from '@/components/inbox/composer';
 import { ActionsSheet } from '@/components/inbox/conversation-parts';
@@ -11,6 +12,7 @@ import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
 import { change } from '@/changes';
+import { CONVERSATIONS_SQL } from '@/inbox/queries';
 import type { Me } from '@/lib/businesses';
 
 import HfosPhone from '../../../../modules/hfos-phone';
@@ -176,6 +178,77 @@ describe('a row in the list', () => {
     expect(screen.getByTestId('lane-c-text')).not.toBeSelected();
     await fireEvent.press(screen.getByTestId('lane-c-text'));
     expect(onPick).toHaveBeenLastCalledWith('c-text');
+  });
+});
+
+describe('the list', () => {
+  const base = {
+    channel: 'sms',
+    status: 'open',
+    assignee_user_id: null,
+    last_direction: 'inbound',
+    awaiting_reply_since: null,
+    snoozed_until: null,
+    created_at: '2026-01-01T12:00:00.000Z',
+    handled_by: 'none',
+    ai_teammate_id: null,
+    teammate_name: null,
+    needs_person_since: null,
+    handoff_reason: null,
+    handoff_note: null,
+    taken_over_by: null,
+    draft_waiting: 0,
+  };
+  beforeEach(() => {
+    jest.mocked(useQuery).mockImplementation(((sql: string) => ({
+      data:
+        sql === CONVERSATIONS_SQL
+          ? [
+              {
+                ...base,
+                id: 'c-new',
+                counterpart: '+17135550101',
+                person_id: 'p-new',
+                first_name: 'Kim',
+                last_name: 'Alvarez',
+                unread_count: 0,
+                last_message_at: '2026-09-25T12:00:00.000Z',
+                last_preview: 'Thanks, see you then.',
+              },
+              {
+                ...base,
+                id: 'c-old',
+                counterpart: '+17135550102',
+                person_id: 'p-old',
+                first_name: 'Ghayas',
+                last_name: 'Ahmed',
+                unread_count: 1,
+                last_message_at: '2026-01-08T22:43:00.000Z',
+                last_preview: 'Following up on the quote.',
+              },
+            ]
+          : [],
+      isLoading: false,
+      isFetching: false,
+    })) as never);
+  });
+
+  it('narrows to the customers with something unread, however far down they are', async () => {
+    await render(wrap(<Inbox />));
+    expect(screen.getByTestId('conversation-row-c-new')).toBeTruthy();
+    expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
+    await fireEvent.press(screen.getByTestId('filter-unread'));
+    expect(screen.queryByTestId('conversation-row-c-new')).toBeNull();
+    expect(screen.getByTestId('conversation-row-c-old')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('filter-unread'));
+    expect(screen.getByTestId('conversation-row-c-new')).toBeTruthy();
+  });
+
+  it('says so when nothing is unread', async () => {
+    await render(wrap(<Inbox />));
+    await fireEvent.press(screen.getByTestId('box-mine'));
+    await fireEvent.press(screen.getByTestId('filter-unread'));
+    expect(screen.getByTestId('inbox-empty')).toHaveTextContent(/Nothing unread/);
   });
 });
 

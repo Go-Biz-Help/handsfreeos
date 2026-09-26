@@ -4317,6 +4317,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/number_import.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop watching for a number to arrive. Nothing changes where the number is today; ask for the transfer to be called off too if it was requested.
+         * @description Risk level 2. Requires channels.manage. Emits number_import.cancelled, migration.task_changed.
+         */
+        post: operations["command_number_import_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_import.check_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look for a number that is on its way here right now, rather than at the next check.
+         * @description Risk level 1. Requires channels.manage. Emits number_import.check_requested.
+         */
+        post: operations["command_number_import_check_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/number_import.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start bringing a number that is already in Twilio — the business’s own Twilio account, or GoHighLevel / LeadConnector — into this business. The number keeps its public number; HandsFreeOS sets it up the moment it arrives.
+         * @description Risk level 2. Requires channels.manage. Emits number_import.started, migration.task_changed.
+         */
+        post: operations["command_number_import_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/number_port.attach_document": {
         parameters: {
             query?: never;
@@ -9617,6 +9677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/number_import.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Numbers this business is bringing over from a Twilio account or GoHighLevel, with where the number stands and, separately, where its texting registration stands.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_number_import_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/number_port.list": {
         parameters: {
             query?: never;
@@ -10371,6 +10451,26 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_timeline_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/twilio_connection.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Twilio accounts connected to this organization so their numbers can be brought in, and the businesses each number can go to.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_twilio_connection_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20441,6 +20541,113 @@ export interface operations {
                         };
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_number_import_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    importId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                        /** @enum {string} */
+                        status: "waiting" | "complete" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_number_import_check_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    importId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                        /** @enum {string} */
+                        status: "waiting" | "complete" | "failed" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_number_import_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    connectionId?: string;
+                    e164: string;
+                    /** @enum {string} */
+                    source: "twilio" | "highlevel";
+                    sourceAccountSid?: string;
+                    sourceNumberSid?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        importId: string;
+                        /** @enum {string} */
+                        status: "waiting" | "complete" | "failed" | "cancelled";
                     };
                 };
             };
@@ -33355,6 +33562,7 @@ export interface operations {
                      * @enum {string}
                      */
                     status?: "open" | "snoozed" | "closed";
+                    unread?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -35519,6 +35727,69 @@ export interface operations {
                         quotedCount: number;
                         refundedCents: number;
                         settlingCents: number;
+                    };
+                };
+            };
+        };
+    };
+    query_number_import_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeFinished?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fromMigration: {
+                            display: string;
+                            e164: string;
+                        }[];
+                        imports: {
+                            carrierName: string | null;
+                            completedAt: string | null;
+                            connectionId: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            destinationAccountSid: string | null;
+                            display: string;
+                            e164: string;
+                            hostedInTwilio: boolean | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastCheckedAt: string | null;
+                            lastError: string | null;
+                            /** @enum {string} */
+                            numberType: "local" | "toll_free";
+                            phoneNumberId: string | null;
+                            /** @enum {string} */
+                            setup: "waiting_for_transfer" | "live" | "failed" | "cancelled";
+                            /** @enum {string} */
+                            source: "twilio" | "highlevel";
+                            sourceAccountSid: string | null;
+                            sourceNumberSid: string | null;
+                            /** @enum {string} */
+                            status: "waiting" | "complete" | "failed" | "cancelled";
+                            /** @enum {string} */
+                            texting: "needs_registration" | "in_review" | "approved" | "rejected";
+                            transferRequest: string | null;
+                        }[];
                     };
                 };
             };
@@ -37978,6 +38249,53 @@ export interface operations {
                             subtype: string | null;
                         }[];
                         nextCursor: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_twilio_connection_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canConnect: boolean;
+                        connections: {
+                            accountSid: string;
+                            checkedAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            friendlyName: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            lastError: string | null;
+                            /** @enum {string} */
+                            status: "active" | "broken" | "disconnected";
+                            usesApiKey: boolean;
+                        }[];
+                        workspaces: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
                     };
                 };
             };

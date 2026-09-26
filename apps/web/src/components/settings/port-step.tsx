@@ -93,6 +93,7 @@ export function PortStep({
   fromMigration,
   profile,
   onBack,
+  backLabel = '← A new number instead',
 }: {
   workspaceId: string;
   /** Ports already under way, newest first, from `number_port.list`. */
@@ -102,6 +103,8 @@ export function PortStep({
   /** What we already know about the business, for the letter. */
   profile: LetterProfile;
   onBack: () => void;
+  /** Where the back link goes, in words: a new number, or the other ways to bring one (20261011000100). */
+  backLabel?: string;
 }) {
   const router = useRouter();
   const inFlight = ports.filter((p) => p.status !== 'cancelled' && p.status !== 'complete');
@@ -118,7 +121,7 @@ export function PortStep({
         className="text-[13px] text-text-3 hover:text-text"
         data-testid="port-back"
       >
-        ← A new number instead
+        {backLabel}
       </button>
       <h2 className="mt-3 text-lg font-semibold tracking-tight">Bring your numbers here</h2>
       <p className="mb-[18px] mt-1 text-[13px] text-text-2">

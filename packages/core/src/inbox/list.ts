@@ -189,17 +189,30 @@ export const assignedToLabel = (fullName: string): string => `Assigned to ${full
 /** The unread count on a row: "99+" past 99. */
 export const unreadLabel = (count: number): string => (count > 99 ? '99+' : String(count));
 
-/** What an empty list says, for its box, status and search. */
+/**
+ * The "Unread" filter's label: "Unread · 3" when the count is known, "Unread" when it isn't (the badges count open
+ * conversations in Mine, Unassigned and All, so a snoozed list or the teammate's boxes have no count to show).
+ */
+export const unreadFilterLabel = (count: number | null): string =>
+  count === null ? 'Unread' : `Unread · ${count}`;
+
+/** What an empty list says, for its box, status and search, and whether only unread ones were asked for. */
 export function inboxEmptyWords(
   box: InboxBoxKey,
   status: ConversationStatus,
   q: string,
   name: string,
+  unread = false,
 ): { title: string; body: string } {
   if (q)
     return {
       title: `Nothing matches “${q}”`,
       body: 'Try a name, a number or words from a message.',
+    };
+  if (unread)
+    return {
+      title: 'Nothing unread',
+      body: 'You’ve read everything here. Turn off Unread to see the rest.',
     };
   if (box === 'needs_person')
     return {

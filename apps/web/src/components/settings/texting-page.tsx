@@ -24,6 +24,12 @@ import { InboxVisibilityCard } from '@/components/settings/inbox-visibility-card
 import { NumbersCard, type Ringable } from '@/components/settings/numbers-card';
 import { A2pWizard, type HostedSurfaces } from '@/components/settings/a2p-wizard';
 import type { LetterProfile } from '@/components/settings/port-letter';
+import {
+  BringNumberStep,
+  ImportsCard,
+  type NumberImportInfo,
+  type TwilioConnections,
+} from '@/components/settings/number-import';
 import { PortStep, type MigratedNumber, type PortInfo } from '@/components/settings/port-step';
 import { ChannelIcon, Pill } from '@/components/inbox/bits';
 import { Badge } from '@/components/ui/badge';
@@ -92,6 +98,9 @@ export function TextingPage({
   people,
   ports,
   portsFromMigration,
+  imports,
+  importsFromMigration,
+  twilio,
   inboxPerPerson,
   surfaces,
 }: {
@@ -107,6 +116,15 @@ export function TextingPage({
   ports: readonly PortInfo[];
   /** Numbers a migration found the business using that are not on their way here yet (M11). */
   portsFromMigration: readonly MigratedNumber[];
+  /**
+   * Numbers already in Twilio on their way here, from the business's own Twilio account or GoHighLevel
+   * (20261011000100). Each carries its own setup status and, separately, its texting registration's.
+   */
+  imports: readonly NumberImportInfo[];
+  /** The migration's numbers that are neither on their way by a port nor by a transfer. */
+  importsFromMigration: readonly MigratedNumber[];
+  /** The Twilio accounts this organization connected, and where their numbers may go. */
+  twilio: TwilioConnections;
   /** Whether each person sees only their own threads (M17). Shown beside "who this number rings". */
   inboxPerPerson: boolean;
   /**
@@ -116,7 +134,15 @@ export function TextingPage({
    */
   surfaces: HostedSurfaces;
 }) {
-  useLiveRefresh(['phone_number', 'registration', 'number_port', 'workspace', 'rcs_sender']);
+  useLiveRefresh([
+    'phone_number',
+    'registration',
+    'number_port',
+    'number_import',
+    'twilio_connection',
+    'workspace',
+    'rcs_sender',
+  ]);
   const router = useRouter();
   // Buying and releasing take seconds: check again every few, in case the live channel is down.
   const busy = status.nextStep === 'provisioning' || status.nextStep === 'releasing';
@@ -134,7 +160,13 @@ export function TextingPage({
   const porting: Porting = {
     fromMigration: portsFromMigration,
     profile: letterProfileOf(businessName, submission, me),
+    imports,
+    importsFromMigration,
+    twilio,
   };
+  // Every number on its way here from Twilio or HighLevel, above whatever else the page shows: the request to
+  // copy lives on it, and a business checking back comes here for exactly that.
+  const importsCard = <ImportsCard workspaceId={workspaceId} imports={imports} />;
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
@@ -165,6 +197,7 @@ export function TextingPage({
   if (adding)
     return (
       <div className="flex flex-col gap-5">
+        {importsCard}
         {numbersCard}
         <Card
           className="max-w-[820px] p-5 md:p-7"
@@ -218,6 +251,7 @@ export function TextingPage({
   if (status.nextStep === 'ready' && status.number)
     return (
       <div className="flex flex-col gap-5">
+        {importsCard}
         {migratedCallout}
         {numbersCard}
         {visibilityCard}
@@ -244,77 +278,88 @@ export function TextingPage({
         ? 1
         : 2;
   return (
-    <Card className="max-w-[820px] p-5 md:p-7" data-testid="texting-setup" data-step={step}>
-      {status.number && releasable(status.number.status) ? (
-        <div
-          className="mb-1 flex items-center justify-between gap-3 border-b border-border pb-3"
-          data-testid="setup-number-bar"
-        >
-          <div className="min-w-0">
-            <div className="text-[13px] font-medium">{status.number.display}</div>
-            <div className="text-xs text-text-3">
-              Yours from now on, whatever happens with the registration.
+    <div className="flex flex-col gap-5">
+      {importsCard}
+      <Card className="max-w-[820px] p-5 md:p-7" data-testid="texting-setup" data-step={step}>
+        {status.number && releasable(status.number.status) ? (
+          <div
+            className="mb-1 flex items-center justify-between gap-3 border-b border-border pb-3"
+            data-testid="setup-number-bar"
+          >
+            <div className="min-w-0">
+              <div className="text-[13px] font-medium">{status.number.display}</div>
+              <div className="text-xs text-text-3">
+                Yours from now on, whatever happens with the registration.
+              </div>
             </div>
+            <NumberActions workspaceId={workspaceId} number={status.number} />
           </div>
-          <NumberActions workspaceId={workspaceId} number={status.number} />
-        </div>
-      ) : null}
-      <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
-      {step === 'buy_number' ? (
-        <NumberStep
-          workspaceId={workspaceId}
-          failed={status.number?.status === 'failed' ? status.number : null}
-          ports={ports}
-          porting={porting}
-        />
-      ) : step === 'porting' ? (
-        // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
-        // `provisioning` gets: there is a status, a moving day and a way out, and a business checking back
-        // every few days needs all three.
-        <PortStep
-          workspaceId={workspaceId}
-          ports={ports}
-          {...porting}
-          onBack={() => setAdding(true)}
-        />
-      ) : step === 'provisioning' || step === 'releasing' ? (
-        <div className="flex items-center gap-3 py-6 text-[13.5px] text-text-2" role="status">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          {step === 'provisioning'
-            ? `Setting up ${status.number?.display ?? 'your number'}. This takes a few seconds.`
-            : `Releasing ${status.number?.display ?? 'the number'}.`}
-        </div>
-      ) : step === 'submit_registration' || fixing ? (
-        <A2pWizard
-          workspaceId={workspaceId}
-          businessName={businessName}
-          number={status.number!}
-          me={me}
-          initial={fixing ? submission : null}
-          surfaces={surfaces}
-          onBack={fixing ? () => setFixing(false) : undefined}
-          onSubmitted={() => setFixing(false)}
-        />
-      ) : step === 'rejected' ? (
-        <Rejected
-          workspaceId={workspaceId}
-          status={status}
-          businessName={businessName}
-          onFix={() => setFixing(true)}
-          onViewSent={() => setShowSent(true)}
-        />
-      ) : (
-        <Review status={status} businessName={businessName} onViewSent={() => setShowSent(true)} />
-      )}
-      {sentSheet}
-    </Card>
+        ) : null}
+        <Steps current={current} turnedDown={step === 'rejected' && !fixing} />
+        {step === 'buy_number' ? (
+          <NumberStep
+            workspaceId={workspaceId}
+            failed={status.number?.status === 'failed' ? status.number : null}
+            ports={ports}
+            porting={porting}
+          />
+        ) : step === 'porting' ? (
+          // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
+          // `provisioning` gets: there is a status, a moving day and a way out, and a business checking back
+          // every few days needs all three.
+          <PortStep
+            workspaceId={workspaceId}
+            ports={ports}
+            fromMigration={porting.fromMigration}
+            profile={porting.profile}
+            onBack={() => setAdding(true)}
+          />
+        ) : step === 'provisioning' || step === 'releasing' ? (
+          <div className="flex items-center gap-3 py-6 text-[13.5px] text-text-2" role="status">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            {step === 'provisioning'
+              ? `Setting up ${status.number?.display ?? 'your number'}. This takes a few seconds.`
+              : `Releasing ${status.number?.display ?? 'the number'}.`}
+          </div>
+        ) : step === 'submit_registration' || fixing ? (
+          <A2pWizard
+            workspaceId={workspaceId}
+            businessName={businessName}
+            number={status.number!}
+            me={me}
+            initial={fixing ? submission : null}
+            surfaces={surfaces}
+            onBack={fixing ? () => setFixing(false) : undefined}
+            onSubmitted={() => setFixing(false)}
+          />
+        ) : step === 'rejected' ? (
+          <Rejected
+            workspaceId={workspaceId}
+            status={status}
+            businessName={businessName}
+            onFix={() => setFixing(true)}
+            onViewSent={() => setShowSent(true)}
+          />
+        ) : (
+          <Review
+            status={status}
+            businessName={businessName}
+            onViewSent={() => setShowSent(true)}
+          />
+        )}
+        {sentSheet}
+      </Card>
+    </div>
   );
 }
 
-/** What the port screen needs besides the ports themselves. */
+/** What the port screen needs besides the ports themselves, and the Twilio transfer screens beside it. */
 interface Porting {
   readonly fromMigration: readonly MigratedNumber[];
   readonly profile: LetterProfile;
+  readonly imports: readonly NumberImportInfo[];
+  readonly importsFromMigration: readonly MigratedNumber[];
+  readonly twilio: TwilioConnections;
 }
 
 const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
@@ -416,7 +461,8 @@ function NumberStep({
    */
   const [source, setSource] = useState<'new' | 'bring'>(
     ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ||
-      porting.fromMigration.length > 0
+      porting.fromMigration.length > 0 ||
+      porting.imports.some((i) => i.status === 'waiting')
       ? 'bring'
       : 'new',
   );
@@ -507,12 +553,32 @@ function NumberStep({
     }
   }
 
+  /*
+   * Where the number is today decides how it moves (20261011000100): already in Twilio — the business's own
+   * account, or GoHighLevel's LC Phone — it is transferred account to account in days; anywhere else it is a
+   * carrier port. A port already under way goes straight back to the port screen.
+   */
+  const carrierPort = (onBack: () => void) => (
+    <PortStep
+      workspaceId={workspaceId}
+      ports={ports}
+      fromMigration={porting.fromMigration}
+      profile={porting.profile}
+      onBack={onBack}
+      backLabel="← Somewhere else"
+    />
+  );
   if (source === 'bring')
     return (
-      <PortStep
+      <BringNumberStep
         workspaceId={workspaceId}
-        ports={ports}
-        {...porting}
+        imports={porting.imports}
+        fromMigration={porting.importsFromMigration}
+        twilio={porting.twilio}
+        carrierPort={carrierPort}
+        initial={
+          ports.some((p) => p.status !== 'cancelled' && p.status !== 'complete') ? 'carrier' : null
+        }
         onBack={() => setSource('new')}
       />
     );

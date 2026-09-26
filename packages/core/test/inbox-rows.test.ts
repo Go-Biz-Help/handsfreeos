@@ -128,6 +128,32 @@ describe('conversations from the copy', () => {
     expect(ids('all', 'open', '84 in the')).toEqual(['a', 'b', 'c', 'e']);
   });
 
+  it('narrows any box to the ones with something unread, as `inbox.list` does', () => {
+    const all = [
+      conv({ id: 'a', assignee_user_id: ME, unread_count: 2 }),
+      conv({ id: 'b', assignee_user_id: ME }),
+      conv({ id: 'c', person_id: 'p-c', unread_count: 1 }),
+      conv({ id: 'd', status: 'snoozed', snoozed_until: '2026-09-18T13:00:00Z', unread_count: 1 }),
+    ].map(conversationOf);
+    const ids = (box: 'mine' | 'all', status: 'open' | 'snoozed' = 'open') =>
+      all.filter((c) => inInbox(c, { box, status, unread: true }, ME)).map((c) => c.id);
+    expect(ids('all')).toEqual(['a', 'c']);
+    expect(ids('mine')).toEqual(['a']);
+    expect(ids('all', 'snoozed')).toEqual(['d']);
+    // Grouped, the row stands for the customer's unread lane rather than a newer one they have read.
+    const lanes = [
+      conv({
+        id: 'old',
+        person_id: 'p-x',
+        unread_count: 1,
+        last_message_at: '2026-01-08T22:43:00Z',
+      }),
+      conv({ id: 'new', person_id: 'p-x', channel: 'email', counterpart: 'x@example.com' }),
+    ].map((row) => ({ conversation: conversationOf(row) }));
+    const rows = groupByCustomer(lanes, { box: 'all', status: 'open', unread: true }, ME);
+    expect(rows.map((r) => [r.conversation.id, r.conversation.unreadTotal])).toEqual([['old', 1]]);
+  });
+
   it('orders newest first, and "Needs a person" by who waited longest', () => {
     const list = [
       conv({

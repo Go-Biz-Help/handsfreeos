@@ -18,7 +18,7 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null);
  *
  * The tasks are readable by whoever can change the workspace; somebody who cannot simply sees none.
  */
-async function numbersFromMigration(
+export async function numbersFromMigration(
   tx: Tx,
   workspaceId: string,
 ): Promise<{ e164: string; display: string }[]> {

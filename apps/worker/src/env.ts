@@ -90,6 +90,8 @@ export interface WorkerEnv {
   readonly reminderOverrideMs: number | null;
   readonly registrationPollMs: number;
   readonly portPollMs: number;
+  /** How often a number being brought over from Twilio or HighLevel is looked for (20261011000100). */
+  readonly numberImportPollMs: number;
   readonly fakeApprovalMs: number;
   /** Workspace email: Postmark in production; locally Mailpit over SMTP, with domains that verify themselves. */
   readonly emailTransport: 'postmark' | 'smtp';
@@ -555,6 +557,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     ),
     portPollMs: Number(
       env.PORT_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 6 * 60 * 60_000),
+    ),
+    // A transfer between Twilio accounts usually lands within a day or two of the request, and a business is
+    // watching for it: every five minutes, slowing down on its own as the days go by (nextImportCheckMs).
+    numberImportPollMs: Number(
+      env.NUMBER_IMPORT_POLL_MS ?? (telephonyProvider === 'fake' ? 2_000 : 5 * 60_000),
     ),
     fakeApprovalMs: Number(env.FAKE_APPROVAL_MS ?? 3_000),
     emailTransport,

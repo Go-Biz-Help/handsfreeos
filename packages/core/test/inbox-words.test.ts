@@ -31,6 +31,7 @@ import {
   heldLine,
   heldWhen,
   inboxEmptyWords,
+  unreadFilterLabel,
   keywordLine,
   listTime,
   notCustomerBanner,
@@ -237,6 +238,17 @@ describe('the list', () => {
       body: 'Conversations Ava answers show here, until someone takes one over.',
     });
     expect(inboxEmptyWords('all', 'snoozed', '', 'Ava').title).toBe('Nothing snoozed');
+    expect(inboxEmptyWords('mine', 'open', '', 'Ava', true).title).toBe('Nothing unread');
+    // A search still says what it searched for.
+    expect(inboxEmptyWords('all', 'open', 'duct', 'Ava', true).title).toBe(
+      'Nothing matches “duct”',
+    );
+  });
+
+  it('labels the Unread filter with its count when there is one', () => {
+    expect(unreadFilterLabel(1)).toBe('Unread · 1');
+    expect(unreadFilterLabel(0)).toBe('Unread · 0');
+    expect(unreadFilterLabel(null)).toBe('Unread');
   });
 });
 

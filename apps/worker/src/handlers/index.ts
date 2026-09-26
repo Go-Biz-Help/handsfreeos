@@ -66,6 +66,7 @@ import { onBusinessCreated } from '../opinly';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
 import { onPortCancelled, onPortSubmitted } from '../telephony/ports';
+import { onImportCheckRequested, onImportStarted } from '../telephony/imports';
 import {
   onRcsCheckWanted,
   onRcsConnectRequested,
@@ -116,6 +117,10 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // A number a business already owns, on its way to us: the carrier call is a job (telephony/ports.ts).
     'number_port.submitted': onPortSubmitted,
     'number_port.cancelled': onPortCancelled,
+    // A number already in Twilio, being sent to the workspace's subaccount: watching for it is a job
+    // (telephony/imports.ts), started at once and pulled forward when somebody says it should be there.
+    'number_import.started': onImportStarted,
+    'number_import.check_requested': onImportCheckRequested,
     // A business's RCS sender (0103): connecting it, looking again (or switching RCS on or off, which the look
     // puts right in the messaging service's pool) and letting it go are jobs (telephony/rcs.ts).
     'rcs_sender.connect_requested': onRcsConnectRequested,

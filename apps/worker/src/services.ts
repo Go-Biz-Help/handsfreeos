@@ -82,6 +82,8 @@ export interface WorkerServices {
   readonly registrationPollMs: number;
   /** How often to ask the carrier about a port. Slower than a registration: these take weeks, not hours. */
   readonly portPollMs: number;
+  /** How often to look for a number being brought over from Twilio or HighLevel (20261011000100). */
+  readonly numberImportPollMs: number;
   /** Workspace email: the transport, workspace domains, the shared subdomain and the webhook credentials. */
   readonly email: EmailServices;
   /** Connected Outlook and Gmail mailboxes (in-memory ones locally and in tests). */
