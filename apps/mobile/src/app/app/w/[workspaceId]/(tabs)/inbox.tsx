@@ -4,6 +4,7 @@ import {
   inboxEmptyWords,
   NEEDS_PERSON,
   STATUS_LABELS,
+  unreadFilterLabel,
   type ConversationStatus,
   type InboxBoxKey,
 } from '@hfos/core';
@@ -33,21 +34,22 @@ import {
 export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
 
 /**
- * Inbox (the canvas's "The list"): Mine, Unassigned and All with their counts; Open, Snoozed and Closed; the AI
- * teammate's boxes; and the conversations, newest first, read from the phone's copy with this phone's own changes over
+ * Inbox (the canvas's "The list"): Mine, Unassigned and All with their counts; Open, Snoozed and Closed; Unread; the
+ * AI teammate's boxes; and the conversations, newest first, read from the phone's copy with this phone's own changes over
  * them. The list is virtualized: only the rows on screen are drawn.
  */
 export default function Inbox() {
   const { business, me } = useBusiness();
   const [box, setBox] = React.useState<InboxBoxKey>('all');
   const [status, setStatus] = React.useState<ConversationStatus>('open');
+  const [unread, setUnread] = React.useState(false);
   const [typed, setTyped] = React.useState('');
   const [q, setQ] = React.useState('');
   React.useEffect(() => {
     const timer = setTimeout(() => setQ(typed.trim()), 300);
     return () => clearTimeout(timer);
   }, [typed]);
-  const filter = React.useMemo(() => ({ box, status, q }), [box, status, q]);
+  const filter = React.useMemo(() => ({ box, status, q, unread }), [box, status, q, unread]);
   const { items, counts, loading } = useInboxList(filter);
   const { timeZone } = useBusinessSettings();
   const teammate = useTeammate();
@@ -58,8 +60,10 @@ export default function Inbox() {
     [business.id],
   );
   const showTeammateBoxes = !!teammate || counts.needsPerson > 0 || counts.ai > 0;
-  const empty = inboxEmptyWords(box, status, q, teammate?.name ?? 'The AI teammate');
+  const empty = inboxEmptyWords(box, status, q, teammate?.name ?? 'The AI teammate', unread);
   const segmentBox = box === 'mine' || box === 'unassigned' ? box : 'all';
+  // The counts are open conversations in the three boxes; anywhere else the chip has no number to show.
+  const unreadCount = status === 'open' && box === segmentBox ? counts.unread[segmentBox] : null;
 
   const renderItem = React.useCallback(
     ({ item }: { item: InboxItem }) => (
@@ -131,6 +135,12 @@ export default function Inbox() {
             />
           ))}
           <View className="flex-1" />
+          <FilterChip
+            label={unreadFilterLabel(unreadCount)}
+            on={unread}
+            onPress={() => setUnread(!unread)}
+            testID="filter-unread"
+          />
           {showTeammateBoxes && counts.needsPerson > 0 ? (
             <FilterChip
               label={`${NEEDS_PERSON} · ${counts.needsPerson}`}

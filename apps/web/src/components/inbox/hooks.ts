@@ -18,6 +18,8 @@ export interface InboxFilters {
   readonly status: ConversationStatus;
   readonly channel?: 'sms' | 'email' | 'chat';
   readonly q?: string;
+  /** Only customers with something unread. */
+  readonly unread?: boolean;
 }
 
 const PAGE = 30;
@@ -32,7 +34,7 @@ export function useInboxList(workspaceId: string, filters: InboxFilters) {
     ['conversation', 'message', 'call', 'person', 'ai_teammate_draft'],
     300,
   );
-  const key = `${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}`;
+  const key = `${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}|${filters.unread ? 'unread' : ''}`;
   const [state, setState] = useState<{
     key: string;
     items: ConversationSummary[];
@@ -51,8 +53,9 @@ export function useInboxList(workspaceId: string, filters: InboxFilters) {
       status: filters.status,
       ...(filters.channel ? { channel: filters.channel } : {}),
       ...(filters.q ? { q: filters.q } : {}),
+      ...(filters.unread ? { unread: true } : {}),
     }),
-    [workspaceId, filters.box, filters.status, filters.channel, filters.q],
+    [workspaceId, filters.box, filters.status, filters.channel, filters.q, filters.unread],
   );
 
   useEffect(() => {

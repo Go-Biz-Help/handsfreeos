@@ -435,6 +435,7 @@ export const inboxList = defineQuery({
             ${box}
             ${archived}
             ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
+            ${input.unread ? sql`and c.unread_count > 0` : sql``}
             ${
               q
                 ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}

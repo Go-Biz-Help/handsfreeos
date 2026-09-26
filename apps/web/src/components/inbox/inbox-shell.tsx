@@ -6,6 +6,8 @@ import {
   INBOX_BOXES,
   inboxEmptyWords,
   STATUS_LABELS,
+  unreadFilterLabel,
+  unreadLabel,
   type InboxBoxKey,
 } from '@hfos/core';
 import { Search, SquarePen } from 'lucide-react';
@@ -105,6 +107,7 @@ export function InboxShell({
     ? (statusParam as ConversationStatus)
     : 'open';
   const q = params.get('q') ?? '';
+  const unread = params.get('unread') === '1';
   // Archived is chosen where the statuses are, because that is where somebody looks for a thread they put away —
   // but it is a box, not a status: an archived conversation keeps the status it had.
   const archivedView = statusParam === 'archived';
@@ -115,6 +118,7 @@ export function InboxShell({
     box: archivedView ? ('archived' as InboxBoxKey) : box,
     status,
     ...(q ? { q } : {}),
+    ...(unread ? { unread } : {}),
   });
   const { summary } = useUnread();
   const counts = summary?.open ?? { mine: 0, unassigned: 0, all: 0 };
@@ -125,6 +129,11 @@ export function InboxShell({
   const aiCount = summary?.ai ?? 0;
   // The teammate's boxes: once there's a teammate, or while anything is in them.
   const showBoxes = !!teammate || needsPerson > 0 || aiCount > 0;
+  // The badges count open conversations in the three boxes; anywhere else the chip has no number to show.
+  const unreadCount =
+    status === 'open' && !archivedView && (box === 'mine' || box === 'unassigned' || box === 'all')
+      ? (summary?.unread[box] ?? null)
+      : null;
 
   const listQuery = useMemo(() => {
     const p = new URLSearchParams();
@@ -132,9 +141,10 @@ export function InboxShell({
     if (archivedView) p.set('status', 'archived');
     else if (status !== 'open') p.set('status', status);
     if (q) p.set('q', q);
+    if (unread) p.set('unread', '1');
     const s = p.toString();
     return s ? `?${s}` : '';
-  }, [box, status, q, archivedView]);
+  }, [box, status, q, archivedView, unread]);
 
   const setFilter = useCallback(
     (change: Record<string, string | null>) => {
@@ -198,6 +208,7 @@ export function InboxShell({
     status,
     q,
     teammate?.name ?? 'The AI teammate',
+    unread,
   );
 
   return (
@@ -255,6 +266,11 @@ export function InboxShell({
                 onPick={(b) => setFilter({ box: b === home ? null : b })}
               />
             ) : null}
+            <UnreadToggle
+              on={unread}
+              count={unreadCount}
+              onToggle={() => setFilter({ unread: unread ? null : '1' })}
+            />
             <div className="hidden gap-2 md:flex">
               <div className="relative flex-1">
                 <Search
@@ -359,5 +375,56 @@ export function InboxShell({
         onOpened={(id) => router.push(`${base}/${id}${listQuery}`)}
       />
     </InboxContext.Provider>
+  );
+}
+
+/**
+ * "Unread": narrows whichever box and status is showing to the customers with something unread, so a thread marked
+ * unread months down the list is one click away rather than hundreds of rows.
+ */
+function UnreadToggle({
+  on,
+  count,
+  onToggle,
+}: {
+  on: boolean;
+  /** Null where the badges have no count for the list showing. */
+  count: number | null;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex">
+      <button
+        type="button"
+        aria-pressed={on}
+        onClick={onToggle}
+        data-testid="filter-unread"
+        aria-label={unreadFilterLabel(count)}
+        className={cn(
+          'flex h-8 items-center gap-[7px] whitespace-nowrap rounded-control border pl-2.5 pr-2 text-[13px] font-medium transition-colors max-md:h-9',
+          on
+            ? 'border-accent bg-accent-soft text-accent-text'
+            : 'border-border bg-card text-text-2 hover:text-text',
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            'h-2 w-2 flex-none rounded-full',
+            on || count ? 'bg-accent' : 'bg-border-strong',
+          )}
+        />
+        Unread
+        {count ? (
+          <span
+            aria-hidden
+            data-testid="filter-unread-count"
+            className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-[5px] text-[11px] font-semibold leading-none text-white"
+          >
+            {unreadLabel(count)}
+          </span>
+        ) : null}
+      </button>
+    </div>
   );
 }
