@@ -41,6 +41,7 @@ import { registerFoundingRoutes } from './founding';
 import { registerLegalRoutes } from './legal';
 import { SafeFetchError } from './safe-fetch';
 import { registerSiteRoutes } from './sites';
+import { registerSpeechRoutes } from './speech';
 import { registerEmailRoutes } from './email';
 import { registerMoneyRoutes } from './money';
 import { registerMigrationRoutes } from './migrations';
@@ -243,6 +244,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   registerFakePaymentRoutes(app, deps);
   registerAssistantRoutes(app, deps, deps.assistant ?? null);
   registerTeammateRoutes(app, deps);
+  // Talking out loud: the Assistant's voice mode and the test console's calls, on the web and the phone.
+  await registerSpeechRoutes(app, deps);
   await registerBookingRoutes(app, deps);
   // The customer's own estimate and invoice pages, and the two payment providers' webhooks.
   await registerMoneyRoutes(app, deps);

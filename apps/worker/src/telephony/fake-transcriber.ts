@@ -33,13 +33,16 @@ export function createFakeTranscriber(deps: { readonly log: Logger }): FakeTrans
       );
       if (/refused/i.test(request.recordingSid))
         throw new ProviderError('The transcriber refused this recording.', '403', false, 403);
-      if (/silent/i.test(request.recordingSid)) return { status: 'completed', sentences: [] };
+      // Billed like Deepgram, per channel: a stand-in half a minute a side.
+      const billedMinutes = request.channels * 0.5;
+      if (/silent/i.test(request.recordingSid))
+        return { status: 'completed', sentences: [], billedMinutes };
       // A voicemail is the caller alone, so all of it lands on the customer's channel.
       const sentences =
         request.channels === 1
           ? [{ channel: 2, text: 'Hi, it’s Mike. Give me a call back when you can.' }]
           : FAKE_TRANSCRIPT.map((s) => ({ channel: s.channel, text: s.text }));
-      return { status: 'completed', sentences };
+      return { status: 'completed', sentences, billedMinutes };
     },
 
     // Nothing is ever left working, so nothing is ever read back — the same as Deepgram.

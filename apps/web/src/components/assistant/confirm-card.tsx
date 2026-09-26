@@ -62,6 +62,49 @@ const FIELD_VALUE: Record<string, string> = {
 };
 
 /**
+ * Confirm or Cancel, pressed on the card or said out loud: runs it, and the card says how it went. Answers
+ * that in words, for voice mode to say. A card answered on another screen, or one that lapsed, says so; any
+ * other failure throws.
+ */
+export async function decideCard(
+  a: { readonly workspaceId: string; setCall(id: string, patch: Partial<CallState>): void },
+  card: ConfirmCardData,
+  kind: 'confirm' | 'cancel',
+  reason?: string,
+): Promise<string> {
+  try {
+    const out =
+      kind === 'confirm'
+        ? await confirmToolCall(card.toolCallId, a.workspaceId, reason)
+        : await cancelToolCall(card.toolCallId, a.workspaceId);
+    const status =
+      out.status === 'confirmed'
+        ? 'confirmed'
+        : out.status === 'cancelled'
+          ? 'cancelled'
+          : 'failed';
+    a.setCall(card.toolCallId, {
+      status,
+      outcome: out.outcome,
+      href: out.href,
+      error: out.error,
+    });
+    return status === 'confirmed'
+      ? (out.outcome ?? ASSISTANT_CONFIRM_WORDS.done)
+      : status === 'cancelled'
+        ? assistantCancelledText(card)
+        : (out.error ?? ASSISTANT_CONFIRM_WORDS.failed);
+  } catch (e) {
+    // Answered on another screen, or it lapsed: the card says so.
+    if (e instanceof ApiError && (e.status === 409 || e.status === 404)) {
+      a.setCall(card.toolCallId, { status: 'expired', note: e.message });
+      return e.message;
+    }
+    throw e;
+  }
+}
+
+/**
  * Anything that reaches a customer, or changes a lead, a customer or an appointment, waits here for the
  * person's OK (design/m4/Confirm.dc.html, design/m5/Assistant.dc.html). Confirm runs exactly what the card
  * shows; Cancel ("Keep it" on a cancellation) records a no.
@@ -98,26 +141,9 @@ export function ConfirmCard({
   async function decide(kind: 'confirm' | 'cancel') {
     setBusy(kind);
     try {
-      const out =
-        kind === 'confirm'
-          ? await confirmToolCall(card.toolCallId, a.workspaceId, needsReason ? reason : undefined)
-          : await cancelToolCall(card.toolCallId, a.workspaceId);
-      a.setCall(card.toolCallId, {
-        status:
-          out.status === 'confirmed'
-            ? 'confirmed'
-            : out.status === 'cancelled'
-              ? 'cancelled'
-              : 'failed',
-        outcome: out.outcome,
-        href: out.href,
-        error: out.error,
-      });
+      await decideCard(a, card, kind, needsReason ? reason : undefined);
     } catch (e) {
-      // Answered on another screen, or it lapsed: the card says so.
-      if (e instanceof ApiError && (e.status === 409 || e.status === 404))
-        a.setCall(card.toolCallId, { status: 'expired', note: e.message });
-      else toast.error(errorMessage(e));
+      toast.error(errorMessage(e));
     } finally {
       setBusy(null);
     }

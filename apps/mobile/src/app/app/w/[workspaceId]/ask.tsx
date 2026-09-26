@@ -16,6 +16,7 @@ import { Screen } from '@/components/shell/screen';
 import { Icon } from '@/components/ui/icon';
 import { setupIsOff, useAssistantChat, type ChatMessage } from '@/assistant/chat';
 import { pageRecordOf } from '@/assistant/page-record';
+import { useAssistantVoice } from '@/assistant/voice';
 import { useNetwork } from '@/lib/network';
 
 /**
@@ -32,6 +33,7 @@ export default function Ask() {
   const params = useLocalSearchParams<{ type?: string; id?: string }>();
   const page = React.useMemo(() => pageRecordOf(params), [params.type, params.id]);
   const chat = useAssistantChat(business.id, userId, page);
+  const voice = useAssistantVoice(chat, business.id);
   const [draft, setDraft] = React.useState('');
   const [view, setView] = React.useState<'chat' | 'history'>('chat');
   const listRef = React.useRef<FlatList<ChatMessage>>(null);
@@ -158,6 +160,7 @@ export default function Ask() {
               onStop={chat.stop}
               running={chat.running}
               off={off}
+              voice={voice}
             />
           </View>
         )}

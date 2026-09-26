@@ -172,8 +172,25 @@ describe('the seeded card', () => {
       'ai.output.mtok': 1500,
       'ai.cache_read.mtok': 30,
       'ai.cache_write.mtok': 375,
+      // Speech is billed in running totals; one unit on its own is lifted by the floor.
+      'speech.live.minute': 2,
+      'speech.recording.minute': 1,
+      'speech.voice.kchar': 5,
       'ai.unknown.mtok': 2250,
     });
+  });
+
+  it('charges speech one and a half times what Deepgram charges, over a running total', () => {
+    // An hour of the AI on calls, an hour of recordings turned into words, and 100,000 characters said.
+    expect(priceOf(SEED_CARD, 'speech.live.minute', 60).amountCents).toBe(83);
+    expect(priceOf(SEED_CARD, 'speech.recording.minute', 60).amountCents).toBe(47);
+    expect(priceOf(SEED_CARD, 'speech.voice.kchar', 100).amountCents).toBe(450);
+    for (const key of [
+      'speech.live.minute',
+      'speech.recording.minute',
+      'speech.voice.kchar',
+    ] as const)
+      expect(SEED_CARD.rates[key].markupBp, key).toBe(15_000);
   });
 
   it('charges the half-cent lines their half cent once there is more than one of them', () => {

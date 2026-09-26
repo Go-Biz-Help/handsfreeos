@@ -63,6 +63,12 @@ import {
   RECHARGE_PLAN_KEY,
 } from './money/recharge';
 import { moneyJobs } from './money/refunds';
+import {
+  nextSpeechChargeAt,
+  runSpeechCharge,
+  SPEECH_CHARGE_KEY,
+  SPEECH_JOBS,
+} from './money/speech-usage';
 import { FOUNDING_EXPIRE_KEY, FOUNDING_JOBS, foundingJobs } from './founding/checkout';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -332,6 +338,8 @@ export const jobs: JobMap = {
   ...moneyDocumentJobs,
   ...RECONCILE_JOB_HANDLERS,
   ...RECHARGE_JOB_HANDLERS,
+  // The AI's hearing and voice, billed from its running totals every quarter of an hour.
+  [SPEECH_JOBS.charge]: runSpeechCharge,
   // Money: a plan made to match at the provider — created, paused, resumed or cancelled there
   // (money/subscriptions.ts).
   ...planJobs,
@@ -431,6 +439,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: RECHARGE_JOBS.plan,
       dedupeKey: RECHARGE_PLAN_KEY,
       runAt: nextWalletPlanAt(Date.now()),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // The AI's hearing and voice (Deepgram), every quarter of an hour: each business's running totals that are
+    // due are charged at 1.5×. With the wallet off it does nothing, and the totals wait until it's on.
+    await scheduleJob(tx, {
+      kind: SPEECH_JOBS.charge,
+      dedupeKey: SPEECH_CHARGE_KEY,
+      runAt: nextSpeechChargeAt(Date.now()),
       payload: {},
       workspaceId: null,
       organizationId: null,

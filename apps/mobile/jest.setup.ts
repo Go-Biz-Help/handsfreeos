@@ -1,7 +1,7 @@
 /**
  * Stand-ins for the native parts the unit tests reach: Uniwind (styles come from Metro, which Jest doesn't run), secure
- * storage, the documents folder, signal, Face ID, safe areas, random bytes, taking and shrinking photos, the backups
- * and phone modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
+ * storage, the documents folder, the microphone and speaker, signal, Face ID, safe areas, random bytes, taking and
+ * shrinking photos, the backups and phone modules, notifications and the background task manager, and op-sqlite and PowerSync's React Native module (the copy's rules are tested through `PhoneCopy` with a
  * stand-in database, and the queue's on Node's own SQLite; PowerSync's own `@powersync/common` is real). Each keeps state
  * in memory so a test can read what the app wrote.
  */
@@ -74,6 +74,86 @@ jest.mock('expo-file-system', () => {
     UploadType: { BINARY_CONTENT: 0, MULTIPART: 1 },
     Paths: { document: { uri: 'file:///documents' }, cache: { uri: 'file:///cache' } },
     __files: files,
+  };
+});
+
+// The microphone and the speaker, for talking out loud. The recorder's meter reads whatever `__recorder.meter` says for
+// the moment since recording started (dBFS), and a clip that plays says it finished a moment later.
+jest.mock('expo-audio', () => {
+  let recordings = 0;
+  const recorder = {
+    uri: null as string | null,
+    recording: false,
+    startedAt: 0,
+    meter: (_ms: number): number => -160,
+    prepareToRecordAsync: jest.fn(async () => undefined),
+    record: jest.fn(() => {
+      recorder.recording = true;
+      recorder.startedAt = Date.now();
+      recorder.uri = `file:///cache/recording-${++recordings}.m4a`;
+    }),
+    stop: jest.fn(async () => {
+      recorder.recording = false;
+    }),
+    getStatus: () => ({
+      canRecord: true,
+      isRecording: recorder.recording,
+      durationMillis: Date.now() - recorder.startedAt,
+      mediaServicesDidReset: false,
+      metering: recorder.recording ? recorder.meter(Date.now() - recorder.startedAt) : undefined,
+      url: recorder.uri,
+    }),
+  };
+  const played: string[] = [];
+  type MockListener = (mockStatus: { didJustFinish: boolean }) => void;
+  class Player {
+    private readonly listeners = new Set<MockListener>();
+    readonly source: { uri?: string } | null;
+    constructor(mockSource: { uri?: string } | null) {
+      this.source = mockSource;
+    }
+    addListener(_event: string, fn: MockListener) {
+      this.listeners.add(fn);
+      return { remove: () => this.listeners.delete(fn) };
+    }
+    play() {
+      if (this.source?.uri) played.push(this.source.uri);
+      setTimeout(() => {
+        for (const fn of [...this.listeners]) fn({ didJustFinish: true });
+      }, 5);
+    }
+    pause() {}
+    remove() {}
+  }
+  const preset = {
+    extension: '.m4a',
+    sampleRate: 44100,
+    numberOfChannels: 2,
+    bitRate: 128000,
+    android: { outputFormat: 'mpeg4', audioEncoder: 'aac' },
+    ios: { outputFormat: 'aac ', audioQuality: 127 },
+    web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
+  };
+  return {
+    RecordingPresets: { HIGH_QUALITY: preset, LOW_QUALITY: preset },
+    useAudioRecorder: () => recorder,
+    createAudioPlayer: jest.fn((mockSource: { uri?: string } | null) => new Player(mockSource)),
+    useAudioPlayer: jest.fn(() => new Player(null)),
+    useAudioPlayerStatus: jest.fn(() => ({
+      playing: false,
+      isLoaded: false,
+      currentTime: 0,
+      duration: 0,
+    })),
+    requestRecordingPermissionsAsync: jest.fn(async () => ({
+      granted: true,
+      status: 'granted',
+      canAskAgain: true,
+      expires: 'never',
+    })),
+    setAudioModeAsync: jest.fn(async () => undefined),
+    __recorder: recorder,
+    __played: played,
   };
 });
 

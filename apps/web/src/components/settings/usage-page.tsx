@@ -1,5 +1,12 @@
 'use client';
-import { BALANCE_WORDS, balanceHeadline, cardLine, money, topUpCapLine } from '@hfos/core';
+import {
+  BALANCE_WORDS,
+  balanceHeadline,
+  cardLine,
+  money,
+  topUpCapLine,
+  usageQuantityWords,
+} from '@hfos/core';
 import { CreditCard, Download, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -80,7 +87,9 @@ function Row({ entry }: { entry: Entry }) {
             hour: 'numeric',
             minute: '2-digit',
           })}
-          {entry.quantity !== null && entry.unit ? ` · ${entry.quantity} ${entry.unit}` : ''}
+          {entry.quantity !== null && entry.unit
+            ? ` · ${usageQuantityWords(entry.quantity, entry.unit)}`
+            : ''}
         </span>
       </div>
       <span className={cn('text-right font-mono', inward ? 'text-success-text' : 'text-text-2')}>

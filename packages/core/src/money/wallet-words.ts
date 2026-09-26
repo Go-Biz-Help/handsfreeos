@@ -48,6 +48,32 @@ export function balanceHeadline(w: WalletShown): BalanceHeadline {
   return { headline: 'You’re fine', tone: 'ok' };
 }
 
+/**
+ * How much of something a statement line was for, in words: "3 minutes", "2 segments", "2,340 characters". The
+ * ledger keeps the card's own unit (thousands of characters, millions of tokens); a person reads the thing itself.
+ */
+export function usageQuantityWords(quantity: number, unit: string): string {
+  const q = Number.isFinite(quantity) ? quantity : 0;
+  const count = (n: number, one: string, many: string) =>
+    `${n.toLocaleString('en-US', { maximumFractionDigits: 1 })} ${n === 1 ? one : many}`;
+  switch (unit) {
+    case 'kchar':
+      return count(Math.round(q * 1000), 'character', 'characters');
+    case 'mtok':
+      return count(Math.round(q * 1_000_000), 'token', 'tokens');
+    case 'minute':
+      return count(Math.round(q * 10) / 10, 'minute', 'minutes');
+    case 'month':
+      return count(q, 'month', 'months');
+    case 'segment':
+      return count(q, 'segment', 'segments');
+    case 'message':
+      return count(q, 'message', 'messages');
+    default:
+      return `${q} ${unit}`;
+  }
+}
+
 /** "Visa ending 4242 · expires 04/28", or "Card ending ••••" where the provider told us less. */
 export function cardLine(card: {
   readonly brand: string | null;

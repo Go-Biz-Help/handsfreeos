@@ -30,6 +30,7 @@ interface DeepgramUtterance {
 }
 
 interface DeepgramReply {
+  readonly metadata?: { readonly duration?: number };
   readonly results?: {
     readonly utterances?: readonly DeepgramUtterance[];
     readonly channels?: readonly { readonly alternatives?: readonly { transcript?: string }[] }[];
@@ -118,7 +119,14 @@ export function createDeepgramTranscriber(deps: {
       }
       if (!res.ok) throw deepgramError(res.status, await res.text().catch(() => ''));
       const reply = (await res.json().catch(() => ({}))) as DeepgramReply;
-      return { status: 'completed', sentences: sentencesOf(reply, request.channels) };
+      // Deepgram bills each channel of a recording, so a two-sided call is twice its length.
+      const seconds = Number(reply.metadata?.duration);
+      return {
+        status: 'completed',
+        sentences: sentencesOf(reply, request.channels),
+        billedMinutes:
+          Number.isFinite(seconds) && seconds > 0 ? (seconds * request.channels) / 60 : 0,
+      };
     },
 
     // Nothing is ever left working, so nothing is ever read back. A job that asks anyway has lost its place

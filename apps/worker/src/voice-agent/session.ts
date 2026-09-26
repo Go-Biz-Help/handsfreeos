@@ -13,6 +13,9 @@
  *
  * When it can't start (the teammate turned off, no balance, a reply running on the conversation), `start` says
  * so and the route closes the stream: Twilio then goes on to the voicemail after the stream in the TwiML.
+ *
+ * What it listened to and said is the business's to pay for (money/speech-usage.ts): the minutes it listened and
+ * the characters it spoke are added to the running totals when the call ends.
  */
 import type { Logger } from 'pino';
 import type { ConversationHandoffReason } from '@hfos/core/server';
@@ -35,6 +38,7 @@ import {
   tongue,
   type CallLine,
 } from './prompt';
+import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
 import type { HeardWords, Listening, SpeechServices } from './speech';
 import type { StreamTicket } from './ticket';
 
@@ -114,6 +118,10 @@ export class CallSession {
   private maxTimer: NodeJS.Timeout | null = null;
   private readonly timings: SessionTimings;
   private readonly log: Logger;
+  /** When it started listening: the call's listening is billed from here to the end. */
+  private listenedFrom: number | null = null;
+  /** Every character it asked to have said, cut short or not: each one is billed. */
+  private saidText = '';
 
   constructor(
     private readonly deps: SessionDeps,
@@ -133,6 +141,7 @@ export class CallSession {
         onUtteranceEnd: () => this.maybeTurn(),
         onError: (e) => this.log.warn({ err: e }, 'the call’s listener failed'),
       });
+      this.listenedFrom = Date.now();
     } catch (e) {
       this.log.warn({ err: e }, 'couldn’t start listening to a call');
       return false;
@@ -302,6 +311,7 @@ export class CallSession {
     this.speaking = { abort, interruptible: opts.interruptible ?? true };
     try {
       for (const sentence of sentencesOf(text)) {
+        this.saidText += sentence;
         for await (const audio of this.deps.speech.speak(sentence, {
           voice: call.config.phone.voice,
           language: this.language,
@@ -426,5 +436,19 @@ export class CallSession {
     } catch (e) {
       this.log.error({ err: e }, 'couldn’t close a call’s run');
     }
+    await noteSpeech(this.deps, call.scope, [
+      {
+        key: 'speech.live.minute',
+        quantity: speechMinutes(this.listenedFrom ? (Date.now() - this.listenedFrom) / 1000 : 0),
+        source: 'call',
+        ref: this.ticket.callSid,
+      },
+      {
+        key: 'speech.voice.kchar',
+        quantity: speechKchars(this.saidText),
+        source: 'call',
+        ref: this.ticket.callSid,
+      },
+    ]);
   }
 }

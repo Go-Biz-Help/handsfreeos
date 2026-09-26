@@ -12,6 +12,7 @@ import type { ChatHttpOptions } from './chat';
 import type { FormsHttpOptions } from './forms';
 import type { IntakeHttpOptions } from './intake';
 import type { MoneyHttpOptions } from './money';
+import type { SpeechLimits } from './speech';
 import type { TestRoutes } from './test-routes';
 
 export interface HttpDeps extends WorkerServices {
@@ -36,6 +37,8 @@ export interface HttpDeps extends WorkerServices {
    * one setting scales every public page Playwright drives from one address.
    */
   readonly money?: MoneyHttpOptions;
+  /** Talking out loud's allowance per person (default: SPEECH_LIMITS; tests shrink it). */
+  readonly speechLimits?: Partial<SpeechLimits>;
   /** Playwright's routes (http/test-routes.ts): only with the fake providers, never in production. */
   readonly testRoutes?: TestRoutes | null;
   /** Reading the CRM a business is leaving (M11): the sign-in routes need the adapter to build its URL. */

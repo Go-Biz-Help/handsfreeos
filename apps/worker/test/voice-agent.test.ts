@@ -298,6 +298,24 @@ describe('a call', () => {
     const done = await waitForRun(callSid, 'done');
     expect(done.outcome).toBe('replied');
     expect(done.summary).toContain('said goodbye');
+    // What it listened to and said is the business's, billed from its running totals at 1.5×.
+    const deadline = Date.now() + 8_000;
+    let used: { rate_key: string; quantity: string; source: string }[] = [];
+    while (used.length < 2 && Date.now() < deadline) {
+      used = await rows(
+        admin(),
+        sql`select rate_key, quantity::text, source from app.speech_usage where ref = ${callSid}
+            order by rate_key`,
+      );
+      if (used.length < 2) await new Promise((r) => setTimeout(r, 25));
+    }
+    expect(used.map((u) => [u.rate_key, u.source])).toEqual([
+      ['speech.live.minute', 'call'],
+      ['speech.voice.kchar', 'call'],
+    ]);
+    // Every character it said, the greeting and the goodbye included.
+    expect(Math.round(Number(used[1]!.quantity) * 1000)).toBe(call.said.join('').length);
+    expect(Number(used[0]!.quantity)).toBeGreaterThan(0);
   });
 
   it('stops talking when the caller talks over it', async () => {

@@ -5895,6 +5895,8 @@ The Assistant is the **Ask HandsFreeOS** panel in every workspace. It answers qu
 
 Everything else in HandsFreeOS works without the key. The Assistant's database tables (migration `20260914000100_assistant.sql`) are already applied to the hosted project, so there is nothing to do in Supabase.
 
+**Talking out loud.** The mic beside the box, on the web and in the phone app, lets people ask out loud and hear the answer, hands-free: it listens, answers in its own voice, and listens again until they turn it off. When a card waits for their OK it asks "Should I go ahead?", and a plain yes or no confirms or cancels it, the same as the buttons. Deepgram hears and speaks, with the worker's `DEEPGRAM_API_KEY` (the key call transcripts already use); without it the mic says talking out loud isn't set up. Recordings aren't kept. What it hears and says comes out of the business's usage balance at 1.5× (see "Usage balances: what businesses pay us"). The phone app asks for the microphone the first time someone taps a mic, so it needs a new build from the stores, not an over-the-air update.
+
 ### Before you start
 
 You need:
@@ -7332,7 +7334,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
 - **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
 - **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
-- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). You type what the caller says and read what it would say out loud; a goodbye or a hand-off ends the call. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
+- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). You type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud needs the worker's `DEEPGRAM_API_KEY`. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
 
 ### What else it can do for a customer (M18)
 
@@ -8181,6 +8183,17 @@ business hears a word about it.
 is a one-line commit somebody reviewed.
 
 The wallet needs migrations `20260930000700_usage_rate_card.sql` through `20260930001200_support_can_credit_a_balance.sql`. See "Apply new migrations".
+
+**The AI's hearing and voice (Deepgram) is on the balance too, at 1.5×.** Three lines on the rate card: minutes
+the AI listens on a live call (`speech.live.minute`), minutes of audio turned into words — talking out loud to
+the Assistant or on a test call, and call and voicemail transcripts — (`speech.recording.minute`), and thousands
+of characters the AI says out loud (`speech.voice.kchar`). One sentence costs a small fraction of a cent, so each
+use is written to `app.speech_usage` and the worker's `speech.charge` job, every 15 minutes, bills each
+business's running total once it's worth 25¢ or a day old: one statement line per kind, priced by the card and
+rounded once. With `WALLET_MODE` off nothing is billed and the totals wait. A business whose balance has run out
+(stage `enforce`) can't talk out loud any more, the same as the rest of the AI. Needs
+`20261009000100_speech_is_counted_in_characters.sql` and `20261009000200_speech_on_the_wallet.sql`. Transcripts
+made by Twilio (the fallback without a Deepgram key) are not on the balance.
 
 ### Part 0: The Stripe account the money lands in
 

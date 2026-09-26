@@ -69,6 +69,7 @@ export function registerAssistantRoutes(
       input.page,
       randomUUID(),
     );
+    const prompt = input.spoken ? { ...context.prompt, spoken: true } : context.prompt;
     const stream = openStream<AssistantEvent>(reply);
     const stop = new AbortController();
     let runId: string | null = null;
@@ -90,7 +91,7 @@ export function registerAssistantRoutes(
           text: input.text,
           page: input.page,
           tools: context.tools,
-          prompt: context.prompt,
+          prompt,
         },
         (event) => {
           if (event.type === 'run') {
