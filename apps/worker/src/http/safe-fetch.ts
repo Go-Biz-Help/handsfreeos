@@ -195,6 +195,14 @@ function guardedLookup(resolve: Resolver): LookupFunction {
   };
 }
 
+const CREDENTIALS = new Set(['authorization', 'cookie', 'proxy-authorization']);
+
+function withoutCredentials(headers: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(([name]) => !CREDENTIALS.has(name.toLowerCase())),
+  );
+}
+
 function flatten(headers: IncomingHttpHeaders): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers))
@@ -307,10 +315,11 @@ export function createSafeFetch(policy: SafeFetchPolicy = {}): SafeFetch {
     const site = (host: string) => host.toLowerCase().replace(/^www\./, '');
     let url = checkUrl(raw, trusted);
     const home = site(url.hostname);
+    let sending = init;
     for (let redirects = 0; ; redirects++) {
       const res = await fetchOnce(
         url,
-        init,
+        sending,
         method,
         trusted.has(url.origin) ? undefined : lookup,
         deadline,
@@ -335,6 +344,9 @@ export function createSafeFetch(policy: SafeFetchPolicy = {}): SafeFetch {
           `The site sent us on to ${next.hostname}, which is a different site.`,
           'other_host',
         );
+      // A caller's credentials are for the site it named. Somewhere else it is sent on to never sees them.
+      if (next.origin !== url.origin && sending.headers)
+        sending = { ...sending, headers: withoutCredentials(sending.headers) };
       url = next;
     }
   };
