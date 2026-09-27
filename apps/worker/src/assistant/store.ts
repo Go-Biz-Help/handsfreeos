@@ -98,6 +98,25 @@ export async function finishRun(
   );
 }
 
+/**
+ * Adds one model call's tokens to a run still going, so the daily limit counts them before the run ends (the
+ * business's other questions, and this one's next call, see them). finishRun then writes the run's total.
+ */
+export async function addRunUsage(
+  db: Db,
+  scope: Scope,
+  runId: string,
+  usage: AiUsage,
+): Promise<void> {
+  await asWorker(db, scope, (tx) =>
+    tx.execute(sql`update app.assistant_runs set
+      input_tokens = input_tokens + ${usage.inputTokens}, output_tokens = output_tokens + ${usage.outputTokens},
+      cache_read_tokens = cache_read_tokens + ${usage.cacheReadTokens},
+      cache_write_tokens = cache_write_tokens + ${usage.cacheWriteTokens}
+      where id = ${runId}`),
+  );
+}
+
 export async function saveAnswer(
   db: Db,
   scope: Scope,
