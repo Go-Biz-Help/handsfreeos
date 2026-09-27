@@ -4,7 +4,8 @@
  * newest last. Everything the customer or the team wrote is quoted as data.
  *
  * It also works out the text a detail must be found in (`trustedText`): what the customer and the team wrote or
- * said, never a website chat whose visitor didn't prove who they are, and never what the AI teammate wrote.
+ * said, never a website chat whose visitor didn't prove who they are, never what the AI teammate wrote, and never
+ * a public form's answers (anybody can fill one in with a customer's email on it).
  */
 import {
   formatPhone,
@@ -274,9 +275,15 @@ export async function loadContactProfile(
         order by created_at desc limit 5`,
   );
   for (const s of plans) history.push(`Plan: ${clip(s.plan_name, 100)} (${s.status})`);
-  const forms = await rows<{ response_id: string; form: string; at: Date; answers: string | null }>(
+  const forms = await rows<{
+    response_id: string;
+    form: string;
+    at: Date;
+    answers: string | null;
+    by_team: boolean;
+  }>(
     tx,
-    sql`select r.id as response_id, f.name as form, r.completed_at as at,
+    sql`select r.id as response_id, f.name as form, r.completed_at as at, r.source = 'app' as by_team,
           (select string_agg(a.question_title || ': ' || coalesce(a.text_value, array_to_string(a.choice_labels, ', '),
              a.number_value::text, a.value::text), E'\n' order by a.answered_at)
            from app.form_answers a where a.response_id = r.id) as answers
@@ -287,21 +294,22 @@ export async function loadContactProfile(
   const trusted: string[] = [];
   for (const f of forms) {
     history.push(`Form “${clip(f.form, 100)}” filled in ${day(f.at)}:\n${clip(f.answers, 1500)}`);
-    if (f.answers) trusted.push(f.answers);
+    // Only a sheet the team filled in for them. A public link, an embed or a chat form proves nothing about
+    // who typed it: anybody can put a customer's email on one and a new number beside it.
+    if (f.answers && f.by_team) trusted.push(f.answers);
   }
 
-  const notes = await rows<{ body: string | null; at: Date }>(
+  const notes = await rows<{ body: string | null; at: Date; by_team: boolean }>(
     tx,
-    sql`select body, occurred_at as at from app.activities
+    sql`select body, occurred_at as at, actor_type = 'human' as by_team from app.activities
         where workspace_id = ${workspaceId} and person_id = ${personId} and kind = 'note' and body is not null
         order by occurred_at desc limit 10`,
   );
   const noteLines = notes.map((n) => `${day(n.at)}: ${clip(n.body, 400)}`);
-  for (const n of notes) if (n.body) trusted.push(n.body);
-  if (p.notes) {
-    noteLines.unshift(`On file: ${clip(p.notes, 800)}`);
-    trusted.push(p.notes);
-  }
+  // A note the AI teammate wrote may be a website visitor's words it passed on, so only the team's count.
+  for (const n of notes) if (n.body && n.by_team) trusted.push(n.body);
+  // The notes on file are shown but never trusted: a public form fills them in when they're empty.
+  if (p.notes) noteLines.unshift(`On file: ${clip(p.notes, 800)}`);
 
   const messages = await rows<{
     at: Date;
