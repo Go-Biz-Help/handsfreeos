@@ -287,6 +287,117 @@ describe('on', () => {
     await inStep();
   });
 
+  it('carries the AI teammate’s drafts and runs, and what was read off a thread, along with it', async () => {
+    const one = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) =>
+      (await rows<T>(admin$, q))[0]!;
+    const { id: teammate } = await one<{ id: string }>(
+      sql`insert into app.ai_teammates (workspace_id, name) values (${ws}, 'Ava') returning id`,
+    );
+    const { id: person } = await one<{ id: string }>(
+      sql`insert into app.people (workspace_id, first_name) values (${ws}, 'Pat') returning id`,
+    );
+    const { id: run } = await one<{ id: string }>(
+      sql`insert into app.ai_teammate_runs (workspace_id, teammate_id, conversation_id, triggered_by)
+          values (${ws}, ${teammate}, ${assignedDale}, 'message.received') returning id`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.ai_teammate_tool_calls (workspace_id, run_id, provider_call_id, tool, arguments)
+          values (${ws}, ${run}, 'toolu_01', 'find_times', '{}')`,
+    );
+    const { id: draft } = await one<{ id: string }>(
+      sql`insert into app.ai_teammate_drafts (workspace_id, teammate_id, run_id, conversation_id, kind, client_id)
+          values (${ws}, ${teammate}, ${run}, ${assignedDale}, 'reply', 'inbox-visibility') returning id`,
+    );
+    const { id: message } = await one<{ id: string }>(
+      sql`insert into app.messages (workspace_id, conversation_id, channel, direction, status, body_text, occurred_at, media)
+          values (${ws}, ${assignedDale}, 'sms', 'inbound', 'received', 'See attached', now(),
+            ${JSON.stringify([{ bucket: 'telephony', objectPath: `${ws}/email/abc/0-quote.pdf` }])}::jsonb)
+          returning id`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.promises (workspace_id, person_id, conversation_id, message_id, what, due_at)
+          values (${ws}, ${person}, ${assignedDale}, ${message}, 'send the quote', now())`,
+    );
+    await rows(
+      admin$,
+      sql`insert into app.referrals (workspace_id, referrer_person_id, conversation_id, message_id, quote)
+          values (${ws}, ${person}, ${assignedDale}, ${message}, 'My neighbour needs one too')`,
+    );
+    const reads = (u: TestUser) =>
+      as(u)(async (tx) => {
+        const n = async (table: string) =>
+          (
+            await rows<{ n: number }>(
+              tx,
+              sql`select count(*)::int as n from ${sql.raw(`app.${table}`)} where workspace_id = ${ws}`,
+            )
+          )[0]!.n;
+        const file = async (path: string) =>
+          (
+            await rows<{ ok: boolean }>(
+              tx,
+              sql`select private.storage_read_allowed('telephony', ${path}) as ok`,
+            )
+          )[0]!.ok;
+        return {
+          drafts: await n('ai_teammate_drafts'),
+          runs: await n('ai_teammate_runs'),
+          toolCalls: await n('ai_teammate_tool_calls'),
+          promises: await n('promises'),
+          referrals: await n('referrals'),
+          photo: await file(`${ws}/messages/${message}/0.jpg`),
+          attachment: await file(`${ws}/email/abc/0-quote.pdf`),
+        };
+      });
+    const all = {
+      drafts: 1,
+      runs: 1,
+      toolCalls: 1,
+      promises: 1,
+      referrals: 1,
+      photo: true,
+      attachment: true,
+    };
+    expect(await reads(dale)).toEqual(all);
+    expect(await reads(owner)).toEqual(all);
+    expect(await reads(marco)).toEqual({
+      drafts: 0,
+      runs: 0,
+      toolCalls: 0,
+      promises: 0,
+      referrals: 0,
+      photo: false,
+      attachment: false,
+    });
+    // Nor may he decide the draft he cannot see.
+    const decided = await as(marco)((tx) =>
+      rows(
+        tx,
+        sql`update app.ai_teammate_drafts set status = 'approved', decided_by = ${marco.id}, decided_at = now(), via = 'web'
+            where id = ${draft} returning id`,
+      ),
+    );
+    expect(decided).toHaveLength(0);
+    // The draft moves with its thread, like a message.
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.conversations set assignee_user_id = ${marco.id} where id = ${assignedDale}`,
+      ),
+    );
+    expect((await reads(marco)).drafts).toBe(1);
+    expect((await reads(dale)).drafts).toBe(0);
+    await worker()((tx) =>
+      rows(
+        tx,
+        sql`update app.conversations set assignee_user_id = ${dale.id} where id = ${assignedDale}`,
+      ),
+    );
+    await inStep();
+  });
+
   it('leaves the customer timeline alone, on purpose', async () => {
     // app.activities is deliberately not narrowed: a member who can open a customer still sees that
     // customer's history. 0083's header says so; this is the test that would notice it changing.

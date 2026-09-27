@@ -29,7 +29,8 @@ export default async function AiTeamActivityPage({
       workspaceId={workspaceId}
       data={data}
       period={period}
-      activity={data.teammate ? unwrapPage(activity) : null}
+      // What the teammate did is inbox business: someone the business keeps out of the inbox sees the tab empty.
+      activity={data.teammate && activity.response.status !== 403 ? unwrapPage(activity) : null}
     />
   );
 }

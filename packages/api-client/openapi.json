@@ -75736,7 +75736,7 @@
         "tags": [
           "queries"
         ],
-        "description": "Requires workspace.read.",
+        "description": "Requires inbox.use.",
         "requestBody": {
           "required": true,
           "content": {

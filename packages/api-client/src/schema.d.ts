@@ -7868,7 +7868,7 @@ export interface paths {
         put?: never;
         /**
          * What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first (optionally only today’s or the last 7 or 30 days’), each with its channel, the message that started it, and every tool call with a short summary.
-         * @description Requires workspace.read.
+         * @description Requires inbox.use.
          */
         post: operations["query_ai_teammate_activity"];
         delete?: never;

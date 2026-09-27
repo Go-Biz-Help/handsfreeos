@@ -13,12 +13,17 @@ import {
 import { isOwnRequest } from '@/lib/api/own-requests';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
-/** What the database broadcasts for every event in the workspace: ids only, never row data. */
+/**
+ * What the database broadcasts for every event in the workspace: ids only, never row data. For the inbox's and
+ * money's events not even the entity's or the person's id (20261012020500): everyone in the workspace hears them.
+ */
 export interface LiveChange {
   readonly id: string;
   readonly type: string;
   readonly entityType: string;
   readonly entityId: string | null;
+  /** Who acted, by kind ('human', 'system', ...); absent from broadcasts sent before it was added. */
+  readonly actorType?: string;
   readonly actorId: string | null;
   readonly correlationId: string | null;
   readonly at: string;
@@ -110,8 +115,13 @@ export function LiveProvider({
       channel.on('broadcast', { event: 'change' }, (msg) => {
         const payload = msg.payload as LiveChange;
         // Echoes of this tab's own edits are dropped. The worker's follow-ups (system events, no actor) share
-        // the request's correlation id but are news here, so they always come through.
-        if (payload.actorId && isOwnRequest(payload.correlationId)) return;
+        // the request's correlation id but are news here, so they always come through. A person's event on the
+        // inbox or money arrives without their id, so its kind says it was a person's (or their Assistant's).
+        if (
+          (payload.actorId || payload.actorType === 'human' || payload.actorType === 'assistant') &&
+          isOwnRequest(payload.correlationId)
+        )
+          return;
         notify(payload);
       });
       channel.subscribe((status) => {

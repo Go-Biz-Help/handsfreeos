@@ -28,7 +28,7 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
-  /** business_v1 */
+  /** business_v1, me_v1 */
   ai_teammate_drafts: new Table(
     {
       workspace_id: column.text,
@@ -1053,7 +1053,7 @@ export interface ActivitiesRow {
   readonly updated_at: string | null;
 }
 
-/** A row of `ai_teammate_drafts` (business_v1). */
+/** A row of `ai_teammate_drafts` (business_v1, me_v1). */
 export interface AiTeammateDraftsRow {
   readonly id: string;
   /** uuid */
