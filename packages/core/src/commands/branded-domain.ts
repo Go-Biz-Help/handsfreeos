@@ -209,7 +209,8 @@ export const brandedDomainRecord = defineCommand({
         lastCheckedAt: dsql`now()`,
         lastError,
         nextCheckAt: input.nextCheckAt ? new Date(input.nextCheckAt) : null,
-        ownershipProvedAt: proved ? (row.ownershipProvedAt ?? dsql`now()`) : null,
+        // Written once, when first proved; left alone after, so the stored time keeps its precision.
+        ...(row.ownershipProvedAt ? {} : { ownershipProvedAt: proved ? dsql`now()` : null }),
       })
       .where(eq(brandedDomains.id, row.id));
     const before = row.status === 'verified' && row.certificateReady;
