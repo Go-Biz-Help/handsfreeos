@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { chatWindowProxy } from './lib/chat/frame';
 import { brandedHostProxy } from './lib/hosting/branded-host';
 import { formFrameProxy } from './lib/forms/frame';
+import { sameOriginFrames } from './lib/frames';
 import { safeNext } from './lib/utils';
 
 const PROTECTED = ['/app', '/onboarding', '/invite', '/chat-preview', '/founding'];
@@ -58,7 +59,8 @@ export async function proxy(request: NextRequest) {
     url.search = '';
     return NextResponse.redirect(url);
   }
-  return response;
+  // Nothing else is meant to be embedded: no page of the app can be framed by another site (clickjacking).
+  return sameOriginFrames(response);
 }
 
 export const config = {
