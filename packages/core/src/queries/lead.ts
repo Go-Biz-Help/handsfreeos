@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, gte, isNull, or, sql as dsql, type SQL } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
 import { leadCards } from '../crm/lead-cards';
-import { boardStages } from '../crm/pipeline-words';
+import { BOARD_LEADS_PER_STAGE, boardStages } from '../crm/pipeline-words';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { decodeTimeCursor, page } from '../kernel/pagination';
@@ -36,11 +37,27 @@ export const leadBoard = defineQuery({
       .from(pipelineStages)
       .where(eq(pipelineStages.pipelineId, pipeline.id))
       .orderBy(asc(pipelineStages.position));
+    // The top of each column, not every lead the pipeline ever won or lost: a stage's count and total cover them all.
     const cards = await leadCards(
       ctx.tx,
       input.workspaceId,
-      and(eq(leads.pipelineId, pipeline.id), isNull(leads.archivedAt))!,
+      and(
+        eq(leads.pipelineId, pipeline.id),
+        isNull(leads.archivedAt),
+        dsql`${leads.id} in (select t.id from (
+          select l.id, row_number() over (partition by l.stage_id order by l.position, l.created_at) as n
+          from app.leads l
+          where l.workspace_id = ${input.workspaceId} and l.pipeline_id = ${pipeline.id} and l.archived_at is null
+        ) t where t.n <= ${BOARD_LEADS_PER_STAGE})`,
+      )!,
       [asc(leads.position), asc(leads.createdAt)],
+    );
+    const totals = await rows<{ stage_id: string; count: number; value_cents: number }>(
+      ctx.tx,
+      sql`select stage_id, count(*)::int as count, coalesce(sum(value_cents), 0)::float8 as value_cents
+          from app.leads
+          where workspace_id = ${input.workspaceId} and pipeline_id = ${pipeline.id} and archived_at is null
+          group by stage_id`,
     );
     return {
       pipeline,
@@ -49,6 +66,9 @@ export const leadBoard = defineQuery({
       stages: boardStages(
         stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, position: s.position })),
         cards,
+        new Map(
+          totals.map((t) => [t.stage_id, { count: t.count, valueCents: Number(t.value_cents) }]),
+        ),
       ),
     };
   },

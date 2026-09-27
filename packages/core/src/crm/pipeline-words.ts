@@ -30,20 +30,59 @@ export interface StageWithLeads<L extends LeadOnBoard> extends StageRef {
   readonly leads: L[];
 }
 
-/** Each stage with the leads in it, how many, and what they come to — the board's one piece of arithmetic. */
+/** How many leads a stage holds and what they come to, when the board carries only the first of them. */
+export interface StageTotals {
+  readonly count: number;
+  readonly valueCents: number;
+}
+
+/**
+ * Each stage with the leads in it, how many, and what they come to — the board's one piece of arithmetic. A stage
+ * in `totals` says its own (`lead.board` sends the first `BOARD_LEADS_PER_STAGE` cards of a stage, not all of them);
+ * any other is counted from the leads given.
+ */
 export function boardStages<L extends LeadOnBoard>(
   stages: readonly StageRef[],
   leads: readonly L[],
+  totals?: ReadonlyMap<string, StageTotals>,
 ): StageWithLeads<L>[] {
   return stages.map((s) => {
     const inStage = leads.filter((l) => l.stageId === s.id);
+    const given = totals?.get(s.id);
     return {
       ...s,
-      count: inStage.length,
-      valueCents: inStage.reduce((a, l) => a + l.valueCents, 0),
+      count: given ? given.count : inStage.length,
+      valueCents: given ? given.valueCents : inStage.reduce((a, l) => a + l.valueCents, 0),
       leads: inStage,
     };
   });
+}
+
+/** The cards `lead.board` sends per stage, top of the column first; the counts and totals cover them all. */
+export const BOARD_LEADS_PER_STAGE = 100;
+
+/**
+ * The totals after one lead moves between stages, from the board's own: a stage's cards may be only its first
+ * ones, so its count can't be recounted from them.
+ */
+export function totalsAfterMove(
+  stages: readonly (StageRef & StageTotals)[],
+  lead: LeadOnBoard,
+  toStageId: string,
+): Map<string, StageTotals> {
+  const out = new Map(
+    stages.map((s) => [s.id, { count: s.count, valueCents: s.valueCents }] as const),
+  );
+  if (lead.stageId === toStageId) return out;
+  const from = out.get(lead.stageId);
+  const to = out.get(toStageId);
+  if (from)
+    out.set(lead.stageId, {
+      count: from.count - 1,
+      valueCents: from.valueCents - lead.valueCents,
+    });
+  if (to) out.set(toStageId, { count: to.count + 1, valueCents: to.valueCents + lead.valueCents });
+  return out;
 }
 
 /** "4 open leads · $21,850" over the board, from the open stages only. */
@@ -144,6 +183,8 @@ export const PIPELINE_WORDS = {
   noLeadsBody:
     'A lead is a job you might win. Add one for a person or company and move it across the stages.',
   dropHere: 'Drop a lead here',
+  /** Under a column the board shows only the top of: the rest are in the list. */
+  moreInList: (hidden: number) => `${hidden} more in the list view`,
   moveTo: 'Move to…',
   /** Under the Move to… sheet, where a stage move made with no signal is explained. */
   moveOffline:

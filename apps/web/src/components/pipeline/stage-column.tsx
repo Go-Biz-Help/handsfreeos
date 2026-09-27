@@ -53,6 +53,11 @@ export function StageColumn({
           />
         ))}
       </SortableContext>
+      {stage.count > stage.leads.length ? (
+        <div className="px-1.5 py-1 text-center text-xs text-text-3">
+          {PIPELINE_WORDS.moreInList(stage.count - stage.leads.length)}
+        </div>
+      ) : null}
       {stage.leads.length === 0 ? (
         <div className="rounded-control border border-dashed border-border-strong px-2 py-3.5 text-center text-xs text-text-3">
           {PIPELINE_WORDS.dropHere}

@@ -25,7 +25,14 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { boardStages, moveToast, PIPELINE_WORDS, pipelineSummary, RECORD_WORDS } from '@hfos/core';
+import {
+  boardStages,
+  moveToast,
+  PIPELINE_WORDS,
+  pipelineSummary,
+  RECORD_WORDS,
+  totalsAfterMove,
+} from '@hfos/core';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { LeadBoard, LeadCard, Pipeline, Stage, Tag } from '@/lib/api/types';
 import { formatMoney } from '@/lib/format';
@@ -141,7 +148,9 @@ export function PipelineBoard({
       if (s.id !== stageId) return without;
       return [...without.slice(0, index), moved, ...without.slice(index)];
     });
-    const next: LeadBoard = { ...board, stages: boardStages(board.stages, dealt) };
+    // A column may show only its first cards, so the counts move with the lead rather than being recounted.
+    const totals = totalsAfterMove(board.stages, lead, stageId);
+    const next: LeadBoard = { ...board, stages: boardStages(board.stages, dealt, totals) };
     setBoard(next);
     return next;
   }
