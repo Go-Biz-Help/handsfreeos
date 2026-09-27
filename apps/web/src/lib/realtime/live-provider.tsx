@@ -116,9 +116,9 @@ export function LiveProvider({
         const payload = msg.payload as LiveChange;
         // Echoes of this tab's own edits are dropped. The worker's follow-ups (system events, no actor) share
         // the request's correlation id but are news here, so they always come through. A person's event on the
-        // inbox or money arrives without their id, so their kind says it was a person's.
+        // inbox or money arrives without their id, so its kind says it was a person's (or their Assistant's).
         if (
-          (payload.actorId || payload.actorType === 'human') &&
+          (payload.actorId || payload.actorType === 'human' || payload.actorType === 'assistant') &&
           isOwnRequest(payload.correlationId)
         )
           return;

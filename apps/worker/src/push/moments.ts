@@ -30,6 +30,7 @@ import {
   type AttentionKind,
   type PaymentMethod,
   type PushRefs,
+  uuidArray,
   walletSpeaks,
 } from '@hfos/core/server';
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -161,6 +162,27 @@ async function handOffList(tx: Tx, workspaceId: string, config: unknown): Promis
 }
 
 /**
+ * Of these people, the ones who may see a draft with this list: whoever sees the whole inbox, and anybody else only
+ * when the list names them — the draft's two SELECT arms, read off what 0083 stores for them.
+ */
+async function seesDraft(
+  tx: Tx,
+  workspaceId: string,
+  ids: readonly string[],
+  viewers: readonly string[],
+): Promise<string[]> {
+  if (!ids.length) return [];
+  const narrowed = await rows<{ user_id: string }>(
+    tx,
+    sql`select wa.user_id from app.workspace_access wa
+        where wa.workspace_id = ${workspaceId} and not wa.sees_whole_inbox
+          and wa.user_id = any(${uuidArray([...ids])})`,
+  );
+  const hidden = new Set(narrowed.map((r) => r.user_id).filter((id) => !viewers.includes(id)));
+  return ids.filter((id) => !hidden.has(id));
+}
+
+/**
  * The push for an AI teammate draft still waiting: an action to approve goes to the owners and admins, a reply to
  * the conversation's assignee (else the teammate's hand-off list); null once it's decided. Also what "Approvals
  * about to expire" sends (automations/expiring.ts).
@@ -177,12 +199,13 @@ export async function draftPushOf(
     preview: unknown;
     conversation_id: string | null;
     person_id: string | null;
+    member_viewer_ids: string[];
     name: string;
     config: unknown;
   }>(
     tx,
     sql`select d.kind::text as kind, d.status::text as status, d.preview, d.conversation_id, d.person_id,
-          t.name, t.config
+          d.member_viewer_ids, t.name, t.config
         from app.ai_teammate_drafts d join app.ai_teammates t on t.id = d.teammate_id
         where d.id = ${draftId} and d.workspace_id = ${ws}`,
   );
@@ -196,12 +219,16 @@ export async function draftPushOf(
     : [];
   // Only owners and admins decide what the teammate asks approval for; anyone in the inbox decides a reply.
   const assignee = conv?.assignee_user_id ? await stillHere(tx, ws, [conv.assignee_user_id]) : [];
-  const userIds =
+  const picked =
     d.kind === 'approval'
       ? await managerIds(tx, ws)
       : assignee.length
         ? assignee
         : await handOffList(tx, ws, d.config);
+  // The push quotes the draft, so it goes only to people who may open it (20261012020100): a member the business
+  // narrowed to their own threads hears about drafts on theirs and no others. Nobody left: the owners and admins.
+  const seeing = await seesDraft(tx, ws, picked, d.member_viewer_ids);
+  const userIds = seeing.length ? seeing : await managerIds(tx, ws);
   const preview = TeammateDraftPreview.safeParse(d.preview);
   const message = preview.success ? (preview.data.message?.body ?? null) : null;
   const discount = preview.success ? preview.data.discount : null;

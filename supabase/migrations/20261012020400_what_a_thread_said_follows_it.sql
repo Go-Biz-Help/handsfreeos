@@ -18,8 +18,9 @@
 --        member arm, disjoint on private.inbox_narrowed(), as 0083 does it. An AI
 --        call follows the call it placed (app.calls keeps a thread's list, and
 --        everybody's for a call with none); a promise and a referral follow
---        their conversation. One not placed yet, or with no conversation, is not
---        narrowed to anyone. The customer and their timeline stay as 0083 left
+--        their conversation, else the call they were heard on (a call with no
+--        thread, or one whose thread was deleted). One with neither, or an AI
+--        call not placed yet, is not narrowed to anyone. The customer and their timeline stay as 0083 left
 --        them: this is about what was said on a thread, not who the customer is.
 --
 --        Off by default, and off is today's behaviour: the wide arm is the
@@ -46,9 +47,15 @@ drop policy if exists promises_member_select on app.promises;
 create policy promises_member_select on app.promises for select to authenticated
   using (workspace_id in (select private.accessible_workspace_ids())
     and private.inbox_narrowed(workspace_id)
-    and (conversation_id is null or exists (
-      select 1 from app.conversations c
-      where c.id = promises.conversation_id and c.member_viewer_ids @> array[(select auth.uid())])));
+    and case
+      when conversation_id is not null then exists (
+        select 1 from app.conversations c
+        where c.id = promises.conversation_id and c.member_viewer_ids @> array[(select auth.uid())])
+      when call_id is not null then exists (
+        select 1 from app.calls k
+        where k.id = promises.call_id and k.member_viewer_ids @> array[(select auth.uid())])
+      else true
+    end);
 
 drop policy if exists referrals_select on app.referrals;
 create policy referrals_select on app.referrals for select to authenticated
@@ -58,6 +65,12 @@ drop policy if exists referrals_member_select on app.referrals;
 create policy referrals_member_select on app.referrals for select to authenticated
   using (workspace_id in (select private.accessible_workspace_ids())
     and private.inbox_narrowed(workspace_id)
-    and (conversation_id is null or exists (
-      select 1 from app.conversations c
-      where c.id = referrals.conversation_id and c.member_viewer_ids @> array[(select auth.uid())])));
+    and case
+      when conversation_id is not null then exists (
+        select 1 from app.conversations c
+        where c.id = referrals.conversation_id and c.member_viewer_ids @> array[(select auth.uid())])
+      when call_id is not null then exists (
+        select 1 from app.calls k
+        where k.id = referrals.call_id and k.member_viewer_ids @> array[(select auth.uid())])
+      else true
+    end);

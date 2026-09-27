@@ -16,8 +16,12 @@
 --        the API for it, as it always did.
 --
 --        `actorType` is added so the web can still drop the echo of its own
---        edits without being told who made them: a person's event with this
---        tab's correlation id is its own.
+--        edits without being told who made them: a person's (or their
+--        Assistant's) event with this tab's correlation id is its own.
+--
+--        What is still said: the type and timing of every event, and the ids
+--        on a task's or an activity's, which follow the customer rather than
+--        the thread (0083 leaves the customer's timeline wide on purpose).
 -- =============================================================================
 
 create or replace function private.broadcast_event()
@@ -26,8 +30,8 @@ declare
   v_quiet boolean;
 begin
   v_quiet := coalesce(
-    new.entity_type in ('conversation', 'message', 'call', 'ai_teammate_draft',
-                        'estimate', 'invoice', 'payment', 'refund', 'subscription')
+    new.entity_type in ('conversation', 'message', 'call', 'ai_teammate_draft', 'ai_teammate_run',
+                        'attention_item', 'estimate', 'invoice', 'payment', 'refund', 'subscription')
     or split_part(new.event_type, '.', 1) in ('conversation', 'message', 'call', 'assistant',
                                               'estimate', 'invoice', 'payment', 'refund', 'subscription'),
     false);

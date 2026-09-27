@@ -56,7 +56,8 @@ begin
   return null;
 end $$;
 
--- 0083's, with the drafts that have no thread of their own beside the calls and items that have none.
+-- 20261006000400's (a customer's owner and team see its threads), with the drafts that have no thread of their
+-- own beside the calls and items that have none.
 create or replace function private.inbox_repaint_workspace(p_ws uuid, p_max integer default null)
 returns integer language plpgsql security definer set search_path = '' as $$
 declare
@@ -71,21 +72,21 @@ begin
     end if;
   end if;
   update app.conversations c
-  set member_viewer_ids = private.inbox_member_viewers(c.workspace_id, c.assignee_user_id, c.phone_number_id)
+  set member_viewer_ids =
+    private.inbox_member_viewers(c.workspace_id, c.assignee_user_id, c.phone_number_id, c.person_id)
   where c.workspace_id = p_ws
     and c.member_viewer_ids is distinct from
-        private.inbox_member_viewers(c.workspace_id, c.assignee_user_id, c.phone_number_id);
+        private.inbox_member_viewers(c.workspace_id, c.assignee_user_id, c.phone_number_id, c.person_id);
   get diagnostics v_touched = row_count;
-  -- The ones with no thread of their own; the statement above carried the rest through the propagate trigger.
-  update app.calls k set member_viewer_ids = private.inbox_member_viewers(k.workspace_id, null, null)
+  update app.calls k set member_viewer_ids = private.inbox_member_viewers(k.workspace_id, null, null, null)
   where k.workspace_id = p_ws and k.conversation_id is null
-    and k.member_viewer_ids is distinct from private.inbox_member_viewers(k.workspace_id, null, null);
-  update app.attention_items a set member_viewer_ids = private.inbox_member_viewers(a.workspace_id, null, null)
+    and k.member_viewer_ids is distinct from private.inbox_member_viewers(k.workspace_id, null, null, null);
+  update app.attention_items a set member_viewer_ids = private.inbox_member_viewers(a.workspace_id, null, null, null)
   where a.workspace_id = p_ws and a.conversation_id is null
-    and a.member_viewer_ids is distinct from private.inbox_member_viewers(a.workspace_id, null, null);
-  update app.ai_teammate_drafts d set member_viewer_ids = private.inbox_member_viewers(d.workspace_id, null, null)
+    and a.member_viewer_ids is distinct from private.inbox_member_viewers(a.workspace_id, null, null, null);
+  update app.ai_teammate_drafts d set member_viewer_ids = private.inbox_member_viewers(d.workspace_id, null, null, null)
   where d.workspace_id = p_ws and d.conversation_id is null
-    and d.member_viewer_ids is distinct from private.inbox_member_viewers(d.workspace_id, null, null);
+    and d.member_viewer_ids is distinct from private.inbox_member_viewers(d.workspace_id, null, null, null);
   return v_touched;
 end $$;
 
