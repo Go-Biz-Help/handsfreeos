@@ -9,14 +9,14 @@
 --        themselves on any lead and read its bills.
 --
 --        A lead is still handed on by anybody who works it (the Action
---        Center's Assign, as the member): to nobody, or to somebody who
---        already sees every bill or sees none. Making somebody a lead's
---        assignee when that would show them bills they can't otherwise see —
---        yourself included — takes records.assign. The same exemptions as
+--        Center's Assign, as the member), to anybody. Making yourself a
+--        lead's assignee when that would show you bills you can't otherwise
+--        see takes records.assign: handing it to somebody else gains you
+--        nothing. The same exemptions as
 --        `guard_customer_team`: a new lead is anybody's to start (nothing on
 --        it to see yet), and the system is not asked.
 --
---        `appointment.reassign` asks the same two functions for a booking.
+--        `appointment.reassign` asks the same of adding yourself to a booking.
 -- =============================================================================
 
 -- Whether being on a record would show this person its bills: they read money and don't manage it. The same
@@ -34,11 +34,11 @@ returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if new.assignee_user_id is distinct from old.assignee_user_id
      and new.assignee_user_id is not null
-     and auth.uid() is not null
+     and new.assignee_user_id = auth.uid()
      and not coalesce(private.system_scope_workspace() = new.workspace_id, false)
      and not private.has_permission(new.workspace_id, 'records.assign')
      and private.sees_money_as_member(new.workspace_id, new.assignee_user_id) then
-    raise exception 'Only owners and admins choose who sees a lead''s bills'
+    raise exception 'Only owners and admins can put you on a lead'
       using errcode = '42501', detail = 'lead_assign_managers_only';
   end if;
   return new;

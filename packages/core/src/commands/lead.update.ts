@@ -97,13 +97,14 @@ export const leadUpdate = defineCommand({
       ctx.meta,
     );
     const { patch } = merged;
-    // Being a lead's assignee shows a member its bills. Anybody who works a lead may hand it on, but making
-    // somebody its assignee when that shows them bills they can't otherwise see — themselves included — is
-    // for owners and admins, as a customer's team is. The database refuses it too. People only.
+    // Being a lead's assignee shows a member its bills. Anybody who works a lead may hand it on to anybody, but
+    // putting yourself on it when that shows you bills you can't otherwise see is for owners and admins. The
+    // database refuses it too. People only.
     const to = 'assigneeUserId' in patch ? (patch.assigneeUserId as string | null) : null;
     if (
       ctx.actor.type === 'human' &&
       to &&
+      to === ctx.actor.userId &&
       to !== current.assigneeUserId &&
       !scopeCan(ctx.scope, 'records.assign')
     ) {
@@ -115,9 +116,7 @@ export const leadUpdate = defineCommand({
         throw HfosError.rule(
           'lead_assign_managers_only',
           403,
-          to === ctx.actor.userId
-            ? 'Only owners and admins can put you on a lead.'
-            : 'Only owners and admins can give this lead to them. Hand it to an owner or admin instead.',
+          'Only owners and admins can put you on a lead.',
         );
     }
     const nextPerson = 'personId' in patch ? (patch.personId as string | null) : current.personId;

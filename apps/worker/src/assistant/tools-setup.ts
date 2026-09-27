@@ -1662,7 +1662,7 @@ const manageWebAddress: SettingsConfirmTool = {
       const records = d ? recordLines(d) : [];
       return {
         outcome: records.length
-          ? `${domain} is added. Put these in where you bought the domain: ${records.join('; ')}`
+          ? `${domain} is added. ${DNS_IS_YOURS} The records: ${records.join('; ')}`
           : `${domain} is added. The DNS records to put in show on Settings → Workspace in a moment; putting them in where you bought the domain is yours to do. Ask me to check it and I’ll read them out.`,
         href: back,
         command: 'branded_domain.add',

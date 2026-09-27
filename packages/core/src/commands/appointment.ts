@@ -485,10 +485,12 @@ export const appointmentReassign = defineCommand({
     const was = await staffIdsOf(ctx.tx, appt.id);
     if (JSON.stringify(was) === JSON.stringify(userIds))
       return { appointmentId: appt.id, userIds, warnings: [] };
-    // Staff on a booking see the bills tied to it, so putting somebody on one that has any, when that shows
-    // them bills they can't otherwise see — yourself included — takes records.assign, as it does for a lead or
-    // a customer. Asked of the database, which sees the bills when the member can't.
-    const added = userIds.filter((u) => !was.includes(u));
+    // Staff on a booking see the bills tied to it, so adding yourself to one that has any, when that shows you
+    // bills you can't otherwise see, takes records.assign, as it does for a lead. Asked of the database, which
+    // sees the bills when the member can't.
+    const added = userIds.filter(
+      (u) => !was.includes(u) && ctx.actor.type === 'human' && u === ctx.actor.userId,
+    );
     if (ctx.actor.type === 'human' && added.length && !scopeCan(ctx.scope, 'records.assign')) {
       const [shown] = await rows<{ yes: boolean }>(
         ctx.tx,
@@ -502,7 +504,7 @@ export const appointmentReassign = defineCommand({
         throw HfosError.rule(
           'appointment_assign_managers_only',
           403,
-          'This booking has bills on it, so only owners and admins can add people who would see them.',
+          'This booking has bills on it, so only owners and admins can add you to it.',
         );
     }
     const minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN);

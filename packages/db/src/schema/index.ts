@@ -2848,6 +2848,8 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   clientId: text('client_id').notNull(),
   /** When its held actions and message went out (the worker's), so it goes out once. */
   sentAt: ts('sent_at'),
+  /** Its thread's member_viewer_ids (20261012020100), kept by trigger. */
+  memberViewerIds: memberViewerIds(),
   ...timestamps(),
 });
 

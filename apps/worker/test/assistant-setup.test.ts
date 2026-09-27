@@ -733,7 +733,9 @@ describe('numbers, and who sees which conversations', () => {
 });
 
 describe('manage_web_address', () => {
-  const domain = `go.setup-${suffix}.example.com`;
+  // The stand-in host never finds the claim's TXT on a name with "squat" in it. Other test files drain the shared
+  // outbox, so the check this block asks for can run at any moment; on this name it can't prove the domain for us.
+  const domain = `go.squat-setup-${suffix}.example.com`;
   const current = async () =>
     (
       await q<{ domain: { id: string; domain: string; records: unknown[] } | null }>(
