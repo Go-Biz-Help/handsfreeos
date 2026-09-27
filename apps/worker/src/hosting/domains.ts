@@ -9,7 +9,7 @@
  * **Every call to the host is a job**, the same rule every provider call in this repo follows. A handler
  * that called Vercel directly would replay every other handler on the event when Vercel had a bad minute.
  */
-import { brandedDomainRecord, executeCommand, scheduleJob } from '@hfos/core/server';
+import { brandedDomainRecord, executeCommand, ownershipHost, scheduleJob } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { brandedDomains } from '@hfos/db/schema';
@@ -23,7 +23,7 @@ import {
   type TenantScope,
   type WorkerServices,
 } from '../services';
-import { isPermanentHostError, type HostedDomain } from './host';
+import { isPermanentHostError, type HostedDomain, type SiteHost } from './host';
 import { forgetPublicOrigin } from './origin';
 
 export const DOMAIN_JOBS = {
@@ -48,14 +48,24 @@ const readDomain = (services: WorkerServices, scope: TenantScope, id: string) =>
     async (tx) => (await tx.select().from(brandedDomains).where(eq(brandedDomains.id, id)))[0],
   );
 
+/**
+ * Whether this business has proved the name is its own: its claim token published in DNS. Asked until it
+ * has, and never again after — the command keeps the answer.
+ */
+async function ownershipProved(host: SiteHost, row: DomainRow): Promise<boolean> {
+  if (row.ownershipProvedAt) return true;
+  return host.owns(ownershipHost(row.domain), row.ownershipToken);
+}
+
 /** Writes what the host said, through the command, so the guard and the audit trail both see it. */
 async function record(
   services: WorkerServices,
   scope: TenantScope,
   row: DomainRow,
   state: HostedDomain,
+  proved: boolean,
 ): Promise<void> {
-  const settled = state.status === 'verified' && state.certificateReady;
+  const settled = state.status === 'verified' && state.certificateReady && proved;
   await executeCommand(
     services.db,
     brandedDomainRecord,
@@ -72,6 +82,7 @@ async function record(
       // A settled domain still gets looked at daily by `branded_domains.sweep`; this is the close watch
       // while somebody is actually waiting for it.
       nextCheckAt: settled ? null : new Date(Date.now() + WAIT_MS).toISOString(),
+      ownershipProved: proved,
     },
     systemActor(scope),
     workerMeta(),
@@ -137,23 +148,39 @@ export const checkBrandedDomain: JobHandler = async (ctx) => {
     if (!isPermanentHostError(e)) throw e;
     // The name is taken, or is not one we can serve. That is an answer for the business, not a retry.
     ctx.log.warn({ domainId, err: e.message }, 'the host refused a branded domain');
-    await record(ctx, scope, row, {
-      status: 'failed',
-      verification: null,
-      cname: null,
-      certificateReady: false,
-      error: e.message,
-    });
+    await record(
+      ctx,
+      scope,
+      row,
+      {
+        status: 'failed',
+        verification: null,
+        cname: null,
+        certificateReady: false,
+        error: e.message,
+      },
+      Boolean(row.ownershipProvedAt),
+    );
     return;
   }
-  await record(ctx, scope, row, state);
-  if (state.status === 'verified' && state.certificateReady) return;
+  const proved = await ownershipProved(ctx.siteHost, row);
+  await record(ctx, scope, row, state, proved);
+  if (proved && state.status === 'verified' && state.certificateReady) return;
   return { rescheduleAt: new Date(Date.now() + WAIT_MS) };
 };
 
 export const removeBrandedDomain: JobHandler = async (ctx) => {
   const domain = String(ctx.job.payload['domain'] ?? '');
   if (!domain || !ctx.siteHost) return;
+  // Another business may still hold a claim on the same name — working, or waiting to be proved. Giving the
+  // name back now would take it off the host under them.
+  const [claimed] = await asWorker(ctx.db, tenantOf(ctx.scope), (tx) =>
+    rows<{ claimed: boolean }>(
+      tx,
+      sql`select private.branded_domain_claimed(${domain}) as claimed`,
+    ),
+  );
+  if (claimed?.claimed) return;
   try {
     await ctx.siteHost.remove(domain);
   } catch (e) {
@@ -185,7 +212,8 @@ export const sweepBrandedDomains: JobHandler = async (ctx) => {
       const scope = { workspaceId: d.workspace_id, organizationId: d.organization_id };
       const row = await readDomain(ctx, scope, d.id);
       if (!row) continue;
-      await record(ctx, scope, row, await ctx.siteHost.check(row.domain));
+      const state = await ctx.siteHost.check(row.domain);
+      await record(ctx, scope, row, state, await ownershipProved(ctx.siteHost, row));
     } catch (e) {
       // One domain the host will not answer about waits for tomorrow; the others go on.
       ctx.log.warn({ domainId: d.id, err: errorMessage(e) }, 'branded domain check failed');
