@@ -13,7 +13,14 @@
 import { describe, expect, it } from 'vitest';
 import { readSyncConfig } from './sync-config';
 
-const INBOX_TABLES = ['conversations', 'messages', 'calls', 'attention_items'] as const;
+// The AI teammate's pending drafts are a reply on a thread, and follow it the same way (20261012020100).
+const INBOX_TABLES = [
+  'conversations',
+  'messages',
+  'calls',
+  'attention_items',
+  'ai_teammate_drafts',
+] as const;
 
 const { queries } = readSyncConfig();
 const sending = queries.filter((q) => !q.cte);
