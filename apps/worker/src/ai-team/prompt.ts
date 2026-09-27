@@ -400,6 +400,24 @@ export function contextText(
   ].join('\n');
 }
 
+/**
+ * A written conversation's context, first part: who it is, the hours, what it does, the customer and the
+ * business profile. It's the same for every model call of a run (the rewrite included) and mostly for the
+ * conversation's next run, so the provider caches it; `textTurnContext` carries the rest.
+ */
+export function textLasting(rc: RunContext): string {
+  return [
+    ...aboutLines(rc, {}),
+    ...standingLines(rc),
+    groundingBrief({ profile: rc.grounding.profile, business: rc.grounding.business }),
+  ].join('\n');
+}
+
+/** A written run's own context: the time now, and the knowledge matching what the customer wrote. */
+export function textTurnContext(rc: RunContext): string {
+  return [nowLine(rc), formatKnowledgeForPrompt(rc.matches.map(promptItem))].join('\n');
+}
+
 /** What a call knows before anyone asks: its FAQ in full, and open times it may offer without looking. */
 export interface CallKnowledge {
   /** Short FAQ answers and facts, all of them (up to a limit); a turn's search leaves these out. */

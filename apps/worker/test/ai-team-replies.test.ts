@@ -34,6 +34,7 @@ import {
   openSlot,
   pendingReply,
   replyNow,
+  briefOf,
   requestAbout,
   runsOf,
   saveTeammate,
@@ -300,7 +301,7 @@ describe('website chat', () => {
     await drain(auto);
     const req = requestAbout(auto, 'When is my appointment?');
     expect(req).toBeDefined();
-    const seen = `${req!.context}\n${JSON.stringify(req!.messages)}`;
+    const seen = `${briefOf(req!)}\n${JSON.stringify(req!.messages)}`;
     expect(seen).toContain('website chat visitor');
     expect(seen).not.toContain('4321');
     expect(seen).not.toContain(p.phone);

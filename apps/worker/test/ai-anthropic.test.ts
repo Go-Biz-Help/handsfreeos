@@ -220,8 +220,58 @@ describe('AnthropicProvider', () => {
       },
       {
         role: 'user',
-        content: [{ type: 'tool_result', tool_use_id: 'toolu_0', content: '[]', is_error: true }],
+        // The conversation's end is cached, so the next round reads it all back.
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: 'toolu_0',
+            content: '[]',
+            is_error: true,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
+    ]);
+  });
+
+  it('caches the conversation’s end and its last photo, and nothing else (PERF-M30)', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const photo = (data: string) => ({
+      type: 'image' as const,
+      mediaType: 'image/png' as const,
+      data,
+    });
+    await provider.stream({
+      system: 'You look at photos.',
+      lasting: 'The business.',
+      messages: [
+        { role: 'user', content: [photo('AAAA'), { type: 'text', text: 'And this?' }] },
+        { role: 'assistant', content: 'A condenser.' },
+        { role: 'user', content: [photo('BBBB'), photo('CCCC'), { type: 'text', text: 'Now?' }] },
+        { role: 'assistant', content: 'A coil.' },
+        { role: 'user', content: 'Thanks' },
+      ],
+    });
+    const body = sent[0]!.body;
+    const marks = JSON.stringify(body).split('"cache_control"').length - 1;
+    expect(marks).toBe(4);
+    const messages = body['messages'] as { content: unknown }[];
+    expect(messages[0]!.content).toEqual([
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'AAAA' } },
+      { type: 'text', text: 'And this?' },
+    ]);
+    expect((messages[2]!.content as Record<string, unknown>[])[1]).toMatchObject({
+      type: 'image',
+      cache_control: { type: 'ephemeral' },
+    });
+    expect(messages[4]!.content).toEqual([
+      { type: 'text', text: 'Thanks', cache_control: { type: 'ephemeral' } },
     ]);
   });
 

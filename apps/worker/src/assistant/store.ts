@@ -1,4 +1,4 @@
-import { HfosError } from '@hfos/core/server';
+import { HfosError, uuidArray } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { AiUsage } from '@hfos/ai';
 import { aiBudget } from '../ai/budget';
@@ -94,6 +94,25 @@ export async function finishRun(
       input_tokens = ${end.usage.inputTokens}, output_tokens = ${end.usage.outputTokens},
       cache_read_tokens = ${end.usage.cacheReadTokens}, cache_write_tokens = ${end.usage.cacheWriteTokens},
       tool_rounds = ${end.toolRounds}, error = ${end.error ? end.error.slice(0, 2000) : null}
+      where id = ${runId}`),
+  );
+}
+
+/**
+ * Adds one model call's tokens to a run still going, so the daily limit counts them before the run ends (the
+ * business's other questions, and this one's next call, see them). finishRun then writes the run's total.
+ */
+export async function addRunUsage(
+  db: Db,
+  scope: Scope,
+  runId: string,
+  usage: AiUsage,
+): Promise<void> {
+  await asWorker(db, scope, (tx) =>
+    tx.execute(sql`update app.assistant_runs set
+      input_tokens = input_tokens + ${usage.inputTokens}, output_tokens = output_tokens + ${usage.outputTokens},
+      cache_read_tokens = cache_read_tokens + ${usage.cacheReadTokens},
+      cache_write_tokens = cache_write_tokens + ${usage.cacheWriteTokens}
       where id = ${runId}`),
   );
 }
@@ -260,11 +279,19 @@ export async function history(
             where thread_id = ${threadId} order by created_at desc, id desc limit ${limit}
           ) m order by created_at, id`,
     );
-    const calls = await rows<{ run_id: string; tool: string; status: string; result: unknown }>(
-      tx,
-      sql`select run_id, tool, status, result from app.assistant_tool_calls
-          where thread_id = ${threadId} order by created_at`,
-    );
+    // Only the runs of the messages read, found by the run index (thread_id has none): a long thread's older
+    // tool calls are never loaded.
+    const runIds = [
+      ...new Set(msgs.flatMap((m) => (m.role === 'assistant' && m.run_id ? [m.run_id] : []))),
+    ];
+    const calls = runIds.length
+      ? await rows<{ run_id: string; tool: string; status: string; result: unknown }>(
+          tx,
+          sql`select run_id, tool, status, result from app.assistant_tool_calls
+              where run_id = any(${uuidArray(runIds)}) and thread_id = ${threadId}
+              order by run_id, created_at`,
+        )
+      : [];
     return msgs.map((m) => ({
       role: m.role,
       text: m.text,
