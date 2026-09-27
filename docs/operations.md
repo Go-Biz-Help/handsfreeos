@@ -415,7 +415,7 @@ Never give an app the `postgres` user (`postgres.ybupfghakoszfcxhyrby`). The app
 
 #### How many connections the apps use
 
-Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 10 per machine: 4 for its loops and 6 for its web server. Both close a connection once it has sat unused for 20 seconds. Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
+Each open app connection is one pooler client. On the transaction pooler, a client borrows a database connection only while a transaction runs, and each role (`hfos_api` and `hfos_worker`) has a pool of up to **Pool Size** database connections to borrow from. The API opens up to 6 connections per machine. The worker opens up to 14 per machine: 8 for its four loops, which run side by side, and 6 for its web server. Both close a connection once it has sat unused for 20 seconds. Micro compute allows 60 database connections and 200 pooler clients. When every database connection in a pool is busy, the next transaction waits for one. When there are 200 clients, the next connection is refused with `Max client connections reached`.
 
 Fly usually starts two machines per app on the first deploy (the worker starts with one if you follow Fly Part 7). After that deploy, count them:
 
@@ -2299,7 +2299,7 @@ What a rollback does not undo:
 
 - **The worker never stops.** Its `fly.toml` sets `auto_stop_machines = "off"`, so Fly never stops its machines. The `min_machines_running = 1` line in that file does nothing, because the setting only applies when machines are allowed to stop.
 - **The API keeps one machine warm.** `auto_stop_machines = "stop"` with `min_machines_running = 1` keeps one machine running. Other machines stop when idle and start when traffic arrives.
-- **Stops are graceful.** On a deploy or restart, Fly gives the worker up to 30 seconds to stop. It stops listening, then finishes its current pass. The API gets 15 seconds.
+- **Stops are graceful.** On a deploy or restart, Fly gives the worker up to 30 seconds to stop. It stops listening, then finishes the pass each of its loops is in. The API gets 15 seconds.
 
 To see every machine:
 
@@ -2309,8 +2309,8 @@ fly machines list --app handsfreeos-worker
 
 #### One worker machine or two
 
-- **One** (what Fly Part 7 set up). Pro: about $4 a month cheaper, and 7 database connections. Con: if that machine fails, webhooks wait until it is back.
-- **Two.** Pro: webhooks keep being answered if one machine fails. Con: about $4 a month more, and 14 database connections.
+- **One** (what Fly Part 7 set up). Pro: about $4 a month cheaper, and up to 14 database connections. Con: if that machine fails, webhooks wait until it is back.
+- **Two.** Pro: webhooks keep being answered if one machine fails. Con: about $4 a month more, and up to 28 database connections.
 
 Running two is safe. Each loop locks the rows it claims, and the other machine skips locked rows. The recurring cleanup job is kept to one copy. Rows held by a machine that died are picked up again after 5 minutes. Before you add a machine to either app, check the database pool size (see "How many connections the apps use" in "The database: Supabase (hosted)").
 

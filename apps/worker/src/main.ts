@@ -51,7 +51,8 @@ const log = pino(
     : { level: env.logLevel, transport: { target: 'pino-pretty', options: { colorize: true } } },
 );
 
-const handle = createDb(env.databaseUrl, { max: 4, applicationName: 'hfos-worker' });
+// The four loops below run side by side, and a handler inside a transaction can take a second connection.
+const handle = createDb(env.databaseUrl, { max: 8, applicationName: 'hfos-worker' });
 // Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
 // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
@@ -252,38 +253,48 @@ if (env.pushProvider === 'none')
   log.warn('EXPO_ACCESS_TOKEN is not set: push notifications to phones are off until it is');
 
 let running = true;
-let inFlight: Promise<void> = Promise.resolve();
 
-const tick = async () => {
-  try {
-    const outbox = await processOnce({ ...loopDeps, handlers });
-    if (outbox.claimed > 0) log.info(outbox, 'outbox pass');
-    const deliveries = await processDeliveries({ ...loopDeps, processors });
-    if (deliveries.claimed > 0) log.info(deliveries, 'webhook pass');
-    const due = await processJobs({ ...loopDeps, jobs });
-    if (due.claimed > 0) log.info(due, 'jobs pass');
-    // Moving a business here from another CRM: its own leased batches, so a long import never holds up
-    // a text going out.
-    const moving = await processMigrationJobs({ ...loopDeps, adapters: migrationAdapters });
-    if (moving.claimed > 0) log.info(moving, 'migration pass');
-  } catch (e) {
-    log.error({ err: e }, 'worker pass crashed');
-  }
-};
-const loop = async () => {
-  while (running) {
-    inFlight = tick();
-    await inFlight;
-    if (running) await new Promise((r) => setTimeout(r, env.pollMs));
-  }
-};
-void loop();
+/**
+ * One loop per queue, each on its own: a workflow step waiting minutes on the AI, or a slow import, holds up
+ * its own queue and nothing else, so a text that came in still gets its reply. A loop that claimed a full batch
+ * goes again straight away; one that found less waits for the next poll.
+ */
+function runLoop(
+  name: string,
+  pass: () => Promise<{ claimed: number }>,
+  opts: { readonly drain: boolean },
+): Promise<void> {
+  return (async () => {
+    while (running) {
+      let claimed = 0;
+      try {
+        const stats = await pass();
+        claimed = stats.claimed;
+        if (claimed > 0) log.info(stats, `${name} pass`);
+      } catch (e) {
+        log.error({ err: e, loop: name }, 'worker pass crashed');
+      }
+      if (running && !(opts.drain && claimed >= env.batchSize))
+        await new Promise((r) => setTimeout(r, env.pollMs));
+    }
+  })();
+}
+const loops = [
+  runLoop('outbox', () => processOnce({ ...loopDeps, handlers }), { drain: true }),
+  runLoop('webhook', () => processDeliveries({ ...loopDeps, processors }), { drain: true }),
+  runLoop('jobs', () => processJobs({ ...loopDeps, jobs }), { drain: true }),
+  // Moving a business here from another CRM: its own leased batches, each pass bounded by its page budget, and
+  // a pause between passes like before.
+  runLoop('migration', () => processMigrationJobs({ ...loopDeps, adapters: migrationAdapters }), {
+    drain: false,
+  }),
+];
 
 const shutdown = async (signal: string) => {
   running = false;
-  log.info({ signal }, 'worker stopping: closing the listener, then finishing the current pass');
+  log.info({ signal }, 'worker stopping: closing the listener, then finishing the current passes');
   await app.close();
-  await inFlight;
+  await Promise.all(loops);
   await Promise.all([handle.close(), httpHandle.close()]);
   process.exit(0);
 };
