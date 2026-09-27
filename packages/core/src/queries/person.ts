@@ -100,7 +100,8 @@ const base = (workspaceId: string, sort: 'name' | 'recent') => sql`
     ${TEAM('p')} as team,
     p.company_id, c.name as company_name, c.archived_at as company_archived,
     (select count(*) from app.leads l where l.person_id = p.id and l.status = 'open' and l.archived_at is null)::int as open_leads,
-    (select max(a.occurred_at) from app.activities a where a.person_id = p.id) as last_activity_at,
+    -- workspace_id first so activities_person_idx serves it as one index probe, not a platform-wide scan
+    (select max(a.occurred_at) from app.activities a where a.workspace_id = p.workspace_id and a.person_id = p.id) as last_activity_at,
     p.archived_at, p.created_at, p.updated_at,
     ${sort === 'name' ? sql`lower(p.last_name || ' ' || p.first_name)` : sql`to_char(p.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`} as sort_key
   from app.people p
