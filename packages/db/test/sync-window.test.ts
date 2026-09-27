@@ -1,9 +1,9 @@
 /**
  * 0056: sync_window, the flag that keeps a phone's copy to recent history.
  *   - The worker's nightly sweep (private.sync_window_sweep) hides messages, calls and timeline entries older than
- *     12 months — never an open (or snoozed) conversation's — appointments that ended more than 90 days ago, and
- *     estimates and invoices 12 months after they closed, never an open one. It runs only for the business the
- *     worker is scoped to, a batch at a time.
+ *     12 months — never an open (or snoozed) conversation's — appointments that ended more than 90 days ago, tasks
+ *     done more than 90 days ago, and estimates and invoices 12 months after they closed, never an open one. It runs
+ *     only for the business the worker is scoped to, a batch at a time.
  *   - Lines, payments and refunds follow their document; attendees and staff follow their appointment.
  *   - Things come back at once: a conversation that opens again, a visit moved into the window, a document that
  *     opens again, a time edited back into the last 12 months.
@@ -372,6 +372,43 @@ describe('estimates and invoices', () => {
       ['refunds', old.refund],
     ] as const)
       expect(await windowOf(table, id), table).toBe(true);
+  });
+});
+
+describe('tasks', () => {
+  it('keeps open tasks and ones done in the last 90 days, brings a reopened one back, and moves no updated_at', async () => {
+    const [open, recent, old] = await worker()(async (tx) =>
+      rows<{ id: string; sync_window: boolean }>(
+        tx,
+        sql`insert into app.tasks (workspace_id, title, done_at) values
+              (${W.ws}, 'Call back', null),
+              (${W.ws}, 'Send photos', now() - interval '10 days'),
+              (${W.ws}, 'Order filter', now() - interval '120 days')
+            returning id, sync_window`,
+      ),
+    );
+    // Worked out as the task is written.
+    expect([open!.sync_window, recent!.sync_window, old!.sync_window]).toEqual([true, true, false]);
+
+    // Time passes (done 10 days ago, now 91): the sweep hides it, and that isn't an edit.
+    await admin$.transaction(async (tx) => {
+      await tx.execute(sql`alter table app.tasks disable trigger tasks_sync_window`);
+      await tx.execute(
+        sql`update app.tasks set done_at = now() - interval '91 days' where id = ${recent!.id}`,
+      );
+      await tx.execute(sql`alter table app.tasks enable trigger tasks_sync_window`);
+    });
+    const before = await updatedAtOf('tasks', recent!.id);
+    expect((await sweep()).tasks).toBeGreaterThanOrEqual(1);
+    expect(await windowOf('tasks', recent!.id)).toBe(false);
+    expect(await windowOf('tasks', open!.id)).toBe(true);
+    expect(await updatedAtOf('tasks', recent!.id)).toBe(before);
+
+    // Reopened: back at once.
+    await as(owner)((tx) =>
+      tx.execute(sql`update app.tasks set done_at = null, done_by = null where id = ${old!.id}`),
+    );
+    expect(await windowOf('tasks', old!.id)).toBe(true);
   });
 });
 

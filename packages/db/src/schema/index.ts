@@ -567,6 +567,8 @@ export const tasks = app.table('tasks', {
   ...timestamps(),
   // Milestone 10
   fieldTimes: fieldTimes(),
+  /** Open, or done within the last 90 days: what a phone keeps. */
+  syncWindow: syncWindow(),
   /** The pet, vehicle or property it is about (0101). */
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
@@ -3569,6 +3571,10 @@ export const workspaceAccess = app.table(
       .default(sql`'{}'`),
     /** Whether they manage money here (money.manage): what the `managed` sync parameter reads. */
     managesMoney: boolean('manages_money').notNull().default(false),
+    /** Whether they may see money here (money.read): what the `reads_money` sync parameter reads. */
+    readsMoney: boolean('reads_money').notNull().default(false),
+    /** Whether they may use the inbox here (inbox.use): what the `uses_inbox` sync parameter reads. */
+    usesInbox: boolean('uses_inbox').notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })],
 );
