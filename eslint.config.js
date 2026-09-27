@@ -31,4 +31,24 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },
+  {
+    // `Promise.all([unwrap(await a), unwrap(await b)])` waits for a before it even sends b. Pass the promises.
+    // (Matched from any cwd: packages lint with this config from their own directory.)
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...[
+          'ArrayExpression > AwaitExpression',
+          'ArrayExpression > CallExpression > AwaitExpression',
+          'ArrayExpression > ConditionalExpression > AwaitExpression',
+          'ArrayExpression > ConditionalExpression > CallExpression > AwaitExpression',
+        ].map((path) => ({
+          selector: `CallExpression[callee.object.name='Promise'][callee.property.name='all'] > ${path}`,
+          message:
+            'An await inside Promise.all([...]) runs the calls one after another. Pass the promise (e.g. `api.POST(...).then(unwrap)`).',
+        })),
+      ],
+    },
+  },
 );

@@ -135,24 +135,24 @@ export function LeadDetail({
   const fetchAll = useCallback(async () => {
     const api = apiBrowser();
     const [got, timeline, tasks, files] = await Promise.all([
-      unwrap(await api.POST('/v1/queries/lead.get', { body: { workspaceId, leadId } })),
-      unwrap(
-        await api.POST('/v1/queries/timeline.list', {
+      api.POST('/v1/queries/lead.get', { body: { workspaceId, leadId } }).then(unwrap),
+      api
+        .POST('/v1/queries/timeline.list', {
           body: { workspaceId, recordType: 'lead', recordId: leadId, limit: compact ? 10 : 30 },
-        }),
-      ),
-      unwrap(
-        await api.POST('/v1/queries/task.list', {
+        })
+        .then(unwrap),
+      api
+        .POST('/v1/queries/task.list', {
           body: { workspaceId, scope: 'all', status: compact ? 'open' : 'all', leadId, limit: 50 },
-        }),
-      ),
+        })
+        .then(unwrap),
       compact
         ? Promise.resolve({ files: [] as FileItem[] })
-        : unwrap(
-            await api.POST('/v1/queries/file.list', {
+        : api
+            .POST('/v1/queries/file.list', {
               body: { workspaceId, recordType: 'lead', recordId: leadId },
-            }),
-          ),
+            })
+            .then(unwrap),
     ]);
     setData({
       lead: got.lead,

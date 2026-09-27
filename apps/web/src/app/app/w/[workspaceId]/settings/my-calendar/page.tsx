@@ -36,21 +36,21 @@ export default async function MyCalendarPage({
   if (!known) notFound();
   const now = Date.now();
   const [team, connections] = await Promise.all([
-    unwrapPage(
-      await api.POST('/v1/queries/schedule.team', {
+    api
+      .POST('/v1/queries/schedule.team', {
         body: {
           workspaceId,
           from: new Date(now - DAY).toISOString(),
           to: new Date(now + 60 * DAY).toISOString(),
           userIds: [targetId],
         },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/calendar_connection.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/calendar_connection.list', {
         body: { workspaceId, userId: targetId },
-      }),
-    ),
+      })
+      .then(unwrapPage),
   ]);
   const person = team.people[0];
   if (!person) notFound();

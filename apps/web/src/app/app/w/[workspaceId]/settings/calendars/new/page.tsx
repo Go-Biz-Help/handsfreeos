@@ -21,9 +21,9 @@ export default async function NewCalendarPage({
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [me, members, services, resources] = await Promise.all([
     getMe(),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/service.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/service.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/resource.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   const base = `/app/w/${workspaceId}/settings`;
   return (

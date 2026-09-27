@@ -15,26 +15,26 @@ export default async function LeadPage({
 }) {
   const { workspaceId, leadId } = await params;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const [lead, timeline, tasks, files, tags, members] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/lead.get', { body: { workspaceId, leadId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/timeline.list', {
+  const [got, lead, timeline, tasks, files, tags, members] = await Promise.all([
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/lead.get', { body: { workspaceId, leadId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/timeline.list', {
         body: { workspaceId, recordType: 'lead', recordId: leadId, limit: 30 },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/task.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/task.list', {
         body: { workspaceId, scope: 'all', status: 'all', leadId, limit: 100 },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/file.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/file.list', {
         body: { workspaceId, recordType: 'lead', recordId: leadId },
-      }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
   ]);
   // Upcoming appointments for the lead's customer (the list reads 62 days at a time).
   const personId = lead.lead.person?.id;
