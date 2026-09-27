@@ -9,7 +9,7 @@ import {
   scheduleJob,
   workspaceMessaging,
 } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
 import { workspaceJobs } from './workspace/delete';
@@ -256,29 +256,41 @@ export async function checkEmailDomain(
   );
 }
 
-/** Daily: every workspace domain the mail service knows is looked at again (Settings → Email promises it). */
+/** One domain's own check (`checkEmailDomainJob`), one pending per domain. */
+export const EMAIL_DOMAIN_CHECK_JOB = 'email_domain.check';
+/** The day's domain checks spread over this long, by each domain's id. */
+const EMAIL_DOMAIN_CHECK_SPREAD_MS = 60 * 60_000;
+
+/**
+ * Daily: every workspace domain the mail service knows is looked at again (Settings → Email promises it). Each
+ * gets its own job, spread over the hour, so a thousand domains asked one at a time never hold one job (and the
+ * jobs loop) for minutes, or outlast its lease.
+ */
 export const checkEmailDomains: JobHandler = async (ctx) => {
-  const due = await asWorker(ctx.db, {}, (tx) =>
-    rows<{ email_domain_id: string; workspace_id: string; organization_id: string }>(
-      tx,
-      sql`select email_domain_id, workspace_id, organization_id from private.email_domains_to_check()`,
+  await asWorker(ctx.db, {}, (tx) =>
+    tx.execute(
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+          select d.organization_id, d.workspace_id, ${EMAIL_DOMAIN_CHECK_JOB},
+            'email-domain-check:' || d.email_domain_id::text,
+            now() + (abs(hashtext(d.email_domain_id::text)::bigint) % ${EMAIL_DOMAIN_CHECK_SPREAD_MS}::bigint)
+              * interval '1 millisecond',
+            jsonb_build_object('emailDomainId', d.email_domain_id)
+          from private.email_domains_to_check() d
+          on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
     ),
   );
-  for (const d of due)
-    try {
-      await checkEmailDomain(
-        ctx,
-        { workspaceId: d.workspace_id, organizationId: d.organization_id },
-        d.email_domain_id,
-      );
-    } catch (e) {
-      // The mail service or DNS not answering for one domain waits for tomorrow; the others go on.
-      ctx.log.warn(
-        { emailDomainId: d.email_domain_id, err: errorMessage(e) },
-        'email domain check failed',
-      );
-    }
   return { rescheduleAt: new Date(Date.now() + DAY) };
+};
+
+/** One domain, bound to its business. */
+export const checkEmailDomainJob: JobHandler = async (ctx) => {
+  const emailDomainId = String(ctx.job.payload['emailDomainId'] ?? '');
+  try {
+    await checkEmailDomain(ctx, tenantOf(ctx.scope), emailDomainId);
+  } catch (e) {
+    // The mail service or DNS not answering for one domain waits for tomorrow; the others go on.
+    ctx.log.warn({ emailDomainId, err: errorMessage(e) }, 'email domain check failed');
+  }
 };
 
 export const jobs: JobMap = {
@@ -297,6 +309,7 @@ export const jobs: JobMap = {
   'conversation.unsnooze': unsnooze,
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,
+  [EMAIL_DOMAIN_CHECK_JOB]: checkEmailDomainJob,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
   // What customers said in public: each connected place asked on a timer, and an answer posted back.
