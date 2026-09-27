@@ -17,6 +17,7 @@ import {
   calendarConnectionActivate,
   reviewConnectionActivate,
   executeCommand,
+  HfosError,
   mailboxActivate,
   paymentConnectionActivate,
 } from '@hfos/core/server';
@@ -691,6 +692,16 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
       if (e instanceof PaymentAuthError && e.code === ACCOUNT_HELD_ELSEWHERE)
         return heldElsewhere(row, reply);
+      // Another business here already has it, and its payments must keep reaching that business.
+      if (e instanceof HfosError && e.rule === 'payment_account_connected_elsewhere')
+        return deadEnd(
+          reply,
+          409,
+          'That account is connected to another business',
+          'This account is already connected to another business on HandsFreeOS. Disconnect it there first, ' +
+            'or connect a different account.',
+          { href: paymentsUrl(row.workspace_id), label: 'Back to Payments' },
+        );
       deps.log.warn(
         { connectionId: row.connection_id, provider, err: errorMessage(e) },
         'a payment account did not connect',
