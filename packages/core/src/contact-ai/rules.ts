@@ -166,8 +166,8 @@ export interface ContactAiPlanOptions {
   /** Whether it may change details at all ("Keep contact details up to date", or the pass's choice). */
   readonly details: boolean;
   /**
-   * Everything the customer and the team wrote or said, outside an unverified website chat. A detail it sets must
-   * be found here; with nothing here, it changes no details.
+   * Everything the customer and the team are known to have written or said: never an unverified website chat, a
+   * public form or the notes on file. A detail it sets must be found here; with nothing here, it changes no details.
    */
   readonly trustedText: string;
 }
@@ -317,7 +317,7 @@ export function planContactChanges(
   const noDetails = !options.details
     ? 'keeping contact details up to date is switched off'
     : !options.trustedText.trim()
-      ? 'there’s only an unverified website chat to go on'
+      ? 'there’s nothing the customer or the team is known to have written to go on'
       : null;
 
   for (const d of decision.details) {
