@@ -199,7 +199,8 @@ function matches(
   if (entityTypes && !entityTypes.includes(change.entityType)) return false;
   const ids = only?.[change.entityType];
   const id = 'entityId' in change ? change.entityId : null;
-  return !ids || (id !== null && ids.includes(id));
+  // The inbox's and money's broadcasts carry no entity id (20261012020500), so one without an id may be ours.
+  return !ids || id === null || ids.includes(id);
 }
 
 /**
