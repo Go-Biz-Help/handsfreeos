@@ -1,8 +1,8 @@
 /**
  * Keeping people's calendars in step. `calendar.refresh` runs per connection (every 10 minutes by default): it
  * keeps the sign-in fresh, reads the next 60 days of busy times (times only), takes HandsFreeOS's own events
- * back out, and replaces the stored blocks in one transaction; then it queues a fix for any appointment the
- * calendar shows wrongly. `appointment.calendar_sync` runs per appointment: it writes the appointment into each
+ * back out, and brings the stored blocks in line in one transaction (writing only what changed); then it
+ * queues a fix for any appointment the calendar shows wrongly. `appointment.calendar_sync` runs per appointment: it writes the appointment into each
  * assigned person's calendar, moves it, or takes it out. Both re-read everything when they run, so a retry, a
  * late run or a run twice is always safe.
  */
@@ -45,7 +45,8 @@ import {
 export type CalendarConnection = typeof calendarConnections.$inferSelect;
 type Appointment = typeof appointments.$inferSelect;
 
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 /** Busy times are read this far ahead (the booking window's default horizon). */
 export const HORIZON_MS = 60 * DAY;
 const REFRESH_AHEAD_MS = 5 * 60_000;
@@ -250,7 +251,8 @@ export const calendarRefresh: JobHandler = async (ctx) => {
         .from(workspaces)
         .where(eq(workspaces.id, scope.workspaceId)),
     );
-    const from = new Date();
+    // From the top of the hour, so an unchanged calendar reads back the same blocks all hour.
+    const from = new Date(Math.floor(Date.now() / HOUR) * HOUR);
     const to = new Date(from.getTime() + HORIZON_MS);
     const busy = await call((t) => provider.busy(t, from, to, w?.timezone ?? 'America/Chicago'));
     const theirs = intervals.clip(
@@ -271,10 +273,37 @@ export const calendarRefresh: JobHandler = async (ctx) => {
         sql`select status::text as status from app.calendar_connections where id = ${c.id}::uuid for update`,
       );
       if (!still || (still.status !== 'active' && still.status !== 'error')) return false;
-      await tx.delete(calendarBusyBlocks).where(eq(calendarBusyBlocks.connectionId, c.id));
-      for (let i = 0; i < blocks.length; i += INSERT_CHUNK)
+      // Only what changed is written: a kept block keeps its row (and every phone keeps its copy).
+      const existing = await tx
+        .select({
+          id: calendarBusyBlocks.id,
+          startsAt: calendarBusyBlocks.startsAt,
+          endsAt: calendarBusyBlocks.endsAt,
+        })
+        .from(calendarBusyBlocks)
+        .where(eq(calendarBusyBlocks.connectionId, c.id));
+      const key = (start: number, end: number) => `${start}:${end}`;
+      const want = new Set(blocks.map((b) => key(b.start, b.end)));
+      const kept = new Set<string>();
+      const gone: string[] = [];
+      for (const r of existing) {
+        const k = key(r.startsAt.getTime(), r.endsAt.getTime());
+        if (want.has(k) && !kept.has(k)) kept.add(k);
+        else gone.push(r.id);
+      }
+      const added = blocks.filter((b) => {
+        const k = key(b.start, b.end);
+        if (kept.has(k)) return false;
+        kept.add(k);
+        return true;
+      });
+      for (let i = 0; i < gone.length; i += INSERT_CHUNK)
+        await tx
+          .delete(calendarBusyBlocks)
+          .where(inArray(calendarBusyBlocks.id, gone.slice(i, i + INSERT_CHUNK)));
+      for (let i = 0; i < added.length; i += INSERT_CHUNK)
         await tx.insert(calendarBusyBlocks).values(
-          blocks.slice(i, i + INSERT_CHUNK).map((b) => ({
+          added.slice(i, i + INSERT_CHUNK).map((b) => ({
             workspaceId: scope.workspaceId,
             connectionId: c.id,
             userId: c.userId,
