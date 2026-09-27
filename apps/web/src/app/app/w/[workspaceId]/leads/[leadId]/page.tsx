@@ -15,8 +15,8 @@ export default async function LeadPage({
 }) {
   const { workspaceId, leadId } = await params;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
-  const [lead, timeline, tasks, files, tags, members] = await Promise.all([
+  const [got, lead, timeline, tasks, files, tags, members] = await Promise.all([
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/lead.get', { body: { workspaceId, leadId } }).then(unwrapPage),
     api
       .POST('/v1/queries/timeline.list', {

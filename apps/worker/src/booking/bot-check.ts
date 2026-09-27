@@ -1,6 +1,7 @@
 /**
  * Is a booking from a person? Cloudflare Turnstile when TURNSTILE_SECRET_KEY is set, a pass-through when it
- * isn't (local development), and a fake for tests. Cloudflare's always-pass test keys are site
+ * isn't (local development; production refuses to start without it unless ALLOW_NO_BOT_CHECK=1), and a fake
+ * for tests. Cloudflare's always-pass test keys are site
  * 1x00000000000000000000AA and secret 1x0000000000000000000000000000000AA.
  */
 

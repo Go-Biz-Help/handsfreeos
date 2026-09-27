@@ -567,6 +567,8 @@ export const tasks = app.table('tasks', {
   ...timestamps(),
   // Milestone 10
   fieldTimes: fieldTimes(),
+  /** Open, or done within the last 90 days: what a phone keeps. */
+  syncWindow: syncWindow(),
   /** The pet, vehicle or property it is about (0101). */
   customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
     onDelete: 'set null',
@@ -1767,7 +1769,8 @@ export const brandedDomains = app.table('branded_domains', {
     .notNull()
     .unique()
     .references(() => bookingSites.id, { onDelete: 'cascade' }),
-  domain: text('domain').notNull().unique(),
+  // Unique only among verified rows: a claim still waiting on DNS squats nothing.
+  domain: text('domain').notNull(),
   status: brandedDomainStatus('status').notNull().default('pending'),
   verificationHost: text('verification_host'),
   verificationValue: text('verification_value'),
@@ -1778,6 +1781,14 @@ export const brandedDomains = app.table('branded_domains', {
   lastCheckedAt: ts('last_checked_at'),
   lastError: text('last_error'),
   nextCheckAt: ts('next_check_at'),
+  /**
+   * What the business publishes at `_hfos-verify.<domain>` to prove the name is its own, not just pointed at
+   * us. Minted by the database on insert; a row may be verified only once the worker has found it.
+   */
+  ownershipToken: text('ownership_token')
+    .notNull()
+    .default(sql`encode(extensions.gen_random_bytes(16), 'hex')`),
+  ownershipProvedAt: ts('ownership_proved_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });
@@ -2837,6 +2848,8 @@ export const aiTeammateDrafts = app.table('ai_teammate_drafts', {
   clientId: text('client_id').notNull(),
   /** When its held actions and message went out (the worker's), so it goes out once. */
   sentAt: ts('sent_at'),
+  /** Its thread's member_viewer_ids (20261012020100), kept by trigger. */
+  memberViewerIds: memberViewerIds(),
   ...timestamps(),
 });
 
@@ -3569,6 +3582,10 @@ export const workspaceAccess = app.table(
       .default(sql`'{}'`),
     /** Whether they manage money here (money.manage): what the `managed` sync parameter reads. */
     managesMoney: boolean('manages_money').notNull().default(false),
+    /** Whether they may see money here (money.read): what the `reads_money` sync parameter reads. */
+    readsMoney: boolean('reads_money').notNull().default(false),
+    /** Whether they may use the inbox here (inbox.use): what the `uses_inbox` sync parameter reads. */
+    usesInbox: boolean('uses_inbox').notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.userId, t.workspaceId] })],
 );

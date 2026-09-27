@@ -21,7 +21,10 @@ export const WalletSettingsInput = z.strictObject({
   autoTopup: z.boolean().optional(),
   floorCents: cents(0, 100_000_000).optional(),
   topupCents: cents(500, 100_000_000).optional(),
-  /** How far under zero inbound usage may push the balance before outbound starts degrading. */
+  /**
+   * How far under zero inbound usage may push the balance before outbound starts degrading. None at `enforce`:
+   * the gate reads it as zero there, and `wallet.set_auto_topup` refuses a non-zero one.
+   */
   overdraftCents: cents(0, 10_000_000).optional(),
 });
 

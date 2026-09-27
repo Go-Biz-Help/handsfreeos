@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import {
   api,
+  finishSignIn,
   makeCalendar,
   ownerWithSite,
   randomPhone,
@@ -60,7 +61,7 @@ async function connectAccount(owner: Owner, accountId: string): Promise<string> 
   const approved = await fetch(approve, { redirect: 'manual' });
   const callback = approved.headers.get('location');
   if (!callback) throw new Error(`the stand-in refused the sign-in (${approved.status})`);
-  await fetch(callback, { redirect: 'manual' });
+  await finishSignIn(owner.token, callback);
   await expect
     .poll(
       async () =>

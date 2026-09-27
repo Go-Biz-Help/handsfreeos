@@ -45,6 +45,7 @@ export default async function PublicFormPage({
       definition={page.definition}
       closed={page.closed}
       closedMessage={page.closedMessage}
+      botCheck={page.botCheck}
       resumed={resumed}
     />
   );

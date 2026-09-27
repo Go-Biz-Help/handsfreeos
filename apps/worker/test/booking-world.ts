@@ -46,6 +46,7 @@ import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { FAKE_AUTH_TOKEN, fakeSid } from '../src/telephony/fake';
+import { testTokenVerifier } from './finish-sign-in';
 import { testServices, type TestServices } from './helpers';
 
 export const MIN = 60_000;
@@ -113,7 +114,8 @@ export async function makeWorld(label: string): Promise<World> {
   const app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    // Connecting a payment account ends with the app's signed-in finish (SEC-M1), which needs a verifier.
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
     booking: {
       botCheck: passThroughBotCheck,

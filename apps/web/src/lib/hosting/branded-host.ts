@@ -12,6 +12,8 @@
 import { brandedRoute } from '@hfos/core';
 import { NextResponse, type NextRequest } from 'next/server';
 import { publicEnv } from '../env';
+import { formFrameProxy } from '../forms/frame';
+import { sameOriginFrames } from '../frames';
 
 /** A minute, like the form's frame rule: long enough to matter, short enough that a new domain works soon. */
 const CACHE_MS = process.env.NODE_ENV === 'production' ? 60_000 : 0;
@@ -78,7 +80,10 @@ export async function brandedHostProxy(request: NextRequest): Promise<NextRespon
   if (route.kind === 'rewrite') {
     const url = request.nextUrl.clone();
     url.pathname = route.path;
-    return NextResponse.rewrite(url);
+    // The same frame rules as on our own address: a form may be framed by the sites its business listed,
+    // and the booking page by nobody else.
+    if (route.path.startsWith('/f/')) return await formFrameProxy(request, url);
+    return sameOriginFrames(NextResponse.rewrite(url));
   }
   // The links we send out keep their own shape, so a link in a text already sent still works on either
   // name. Handed back to the rest of proxy.ts rather than answered here, so a form on a branded domain

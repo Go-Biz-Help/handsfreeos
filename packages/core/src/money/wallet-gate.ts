@@ -36,7 +36,7 @@ export interface WalletRoom {
   /** False only when this business is at `enforce` and the balance has run out. */
   readonly allowed: boolean;
   readonly balanceCents: number;
-  /** How far under zero this business may go before outbound stops. */
+  /** How far under zero this business may go before outbound stops. Always 0 at `enforce`. */
   readonly overdraftCents: number;
   /** True when the wallet could not be read at all, and the action was allowed because of it. */
   readonly unknown: boolean;
@@ -96,9 +96,11 @@ export async function walletRoom(
       return { allowed: true, balanceCents: 0, overdraftCents: 0, unknown: false, stage: 'off' };
     const w = row as { balance_cents: unknown; overdraft_cents: unknown; stage: unknown };
     const balanceCents = Number(w.balance_cents ?? 0);
-    const overdraftCents = Number(w.overdraft_cents ?? 0);
     // An unreadable stage reads as `off`, which is the same way everything else here fails: open.
     const stage = isStage(w.stage) ? w.stage : 'off';
+    // At `enforce` there is no overdraft, whatever the row says: the business can write that column, and the
+    // stage is HandsFreeOS's. A business put on `enforce` stops at zero.
+    const overdraftCents = stage === 'enforce' ? 0 : Number(w.overdraft_cents ?? 0);
     return {
       allowed: stage !== 'enforce' || balanceCents - ROOM_NEEDED[kind] > -overdraftCents,
       balanceCents,

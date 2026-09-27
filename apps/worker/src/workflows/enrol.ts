@@ -10,7 +10,7 @@ import { rows, sql, type Tx } from '@hfos/db/client';
 import { workflowRuns } from '@hfos/db/schema';
 import type { Logger } from 'pino';
 import type { TenantScope } from '../services';
-import { JOB, LIVE_STATUSES, MAX_LIVE_RUNS, runJobKey } from './constants';
+import { JOB, MAX_LIVE_RUNS, runJobKey } from './constants';
 import { recordEngineEvent } from './events';
 
 export interface EnrolInput {
@@ -38,6 +38,16 @@ export interface EnrolInput {
     readonly definition: Record<string, unknown>;
   };
   readonly log?: Logger;
+  /**
+   * A caller enrolling many at once (a schedule's page, one event's customers) shares one of these: the live
+   * runs are counted on the first enrol only, and each run started takes one from what's left.
+   */
+  readonly liveRoom?: LiveRoom;
+}
+
+/** How many more runs a workflow may start; null until counted. */
+export interface LiveRoom {
+  left: number | null;
 }
 
 export type EnrolResult =
@@ -46,26 +56,25 @@ export type EnrolResult =
 export async function enrol(tx: Tx, input: EnrolInput): Promise<EnrolResult> {
   const { scope, def, workflow } = input;
   const test = input.test ?? null;
-  if (!test) {
+  const room = test ? null : (input.liveRoom ?? { left: null });
+  if (room && room.left === null) {
     const [live] = await rows<{ n: number }>(
       tx,
       sql`select count(*)::int as n from (
             select 1 from app.workflow_runs
             where workflow_id = ${workflow.id} and not is_test
-              and status in (${sql.join(
-                LIVE_STATUSES.map((s) => sql`${s}::app.workflow_run_status`),
-                sql`, `,
-              )})
+              -- LIVE_STATUSES, spelled out so workflow_runs_live_idx (an index-only count) applies.
+              and status in ('running', 'waiting', 'awaiting_approval', 'held')
             limit ${MAX_LIVE_RUNS}) x`,
     );
-    if ((live?.n ?? 0) >= MAX_LIVE_RUNS) {
+    room.left = MAX_LIVE_RUNS - (live?.n ?? 0);
+    if (room.left <= 0)
       input.log?.warn(
         { workflowId: workflow.id, limit: MAX_LIVE_RUNS },
         'workflow has too many runs going; not starting another',
       );
-      return { skipped: 'run_limit' };
-    }
   }
+  if (room && (room.left ?? 0) <= 0) return { skipped: 'run_limit' };
 
   const reentry = def.settings.reentry;
   const person = input.personId;
@@ -116,6 +125,7 @@ export async function enrol(tx: Tx, input: EnrolInput): Promise<EnrolResult> {
     .onConflictDoNothing()
     .returning({ id: workflowRuns.id });
   if (!row) return { skipped: 'already' };
+  if (room) room.left = (room.left ?? 0) - 1;
 
   await scheduleJob(
     tx,

@@ -3,7 +3,7 @@ import { workspaceTimezone } from '../crm/records';
 import { taskDueBucket } from '../crm/task-words';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeTimeCursor, page } from '../kernel/pagination';
 import { TaskListInput, TaskListOutput } from '../schemas/task';
 
 type Row = {
@@ -49,12 +49,12 @@ export const taskList = defineQuery({
   async handler(ctx, input) {
     const tz = await workspaceTimezone(ctx.tx, input.workspaceId);
     const me = requireHuman(ctx).userId;
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const now = new Date();
     const doneOrder = input.status === 'done';
     const list = await rows<Row>(
       ctx.tx,
-      sql`select * from (
+      sql`select x.*, to_char(x.sort_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as sort_key from (
           select t.id, t.title, t.notes, t.due_at, t.all_day,
             t.assignee_user_id as assignee_id, coalesce(nullif(a.full_name, ''), a.email::text) as assignee_name,
             t.person_id, btrim(p.first_name || ' ' || p.last_name) as person_name, p.archived_at as person_archived,
@@ -65,11 +65,9 @@ export const taskList = defineQuery({
             t.done_at, t.done_by, coalesce(nullif(d.full_name, ''), d.email::text) as done_by_name,
             t.created_by, coalesce(nullif(cb.full_name, ''), cb.email::text) as created_by_name,
             t.created_at, t.updated_at,
-            ${
-              doneOrder
-                ? sql`to_char(coalesce(t.done_at, t.created_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
-                : sql`to_char(coalesce(t.due_at, 'infinity'::timestamptz) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
-            } as sort_key
+            -- An undated task sorts last on a real date, not 'infinity': to_char() makes that null, and a null key
+            -- neither pages nor makes a cursor.
+            ${doneOrder ? sql`coalesce(t.done_at, t.created_at)` : sql`coalesce(t.due_at, timestamptz '9999-12-31 00:00:00+00')`} as sort_at
           from app.tasks t
           left join app.users a on a.id = t.assignee_user_id
           left join app.users d on d.id = t.done_by
@@ -88,8 +86,8 @@ export const taskList = defineQuery({
             ${input.leadId ? sql`and t.lead_id = ${input.leadId}` : sql``}
             ${input.customRecordId ? sql`and t.custom_record_id = ${input.customRecordId}` : sql``}
         ) x
-        ${cursor ? (doneOrder ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
-        order by ${doneOrder ? sql`x.sort_key desc, x.id desc` : sql`x.sort_key, x.id`}
+        ${cursor ? (doneOrder ? sql`where (x.sort_at, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql`where (x.sort_at, x.id) > (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`) : sql``}
+        order by ${doneOrder ? sql`x.sort_at desc, x.id desc` : sql`x.sort_at, x.id`}
         limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { events, outbox } from '@hfos/db/schema';
 import { handlersFor, type HandlerMap } from './handlers/types';
@@ -61,6 +61,10 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
     ),
   );
   stats.claimed = claimed.length;
+  // Ours only while the lease holds: an event still waiting its turn after the ones before it ran for five
+  // minutes can be claimed by another worker, and its handlers must then run there, not twice.
+  const ours = (eventId: string) =>
+    and(eq(outbox.eventId, eventId), eq(outbox.lockedBy, deps.workerId));
 
   for (const row of claimed) {
     // A person's own account events (no organization, no business: a profile saved, the Assistant's OK, deleting an
@@ -79,13 +83,20 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
           tx
             .update(outbox)
             .set({ status: 'done', lockedAt: null, lockedBy: null })
-            .where(eq(outbox.eventId, row.event_id)),
+            .where(ours(row.event_id)),
         );
         stats.done++;
         continue;
       }
       const scope = { organizationId: row.organization_id, workspaceId: row.workspace_id };
-      await asWorker(deps.db, scope, async (tx) => {
+      const ran = await asWorker(deps.db, scope, async (tx) => {
+        // Still ours, and locked by this transaction until it ends: no other worker claims it while it runs.
+        const [mine] = await tx
+          .update(outbox)
+          .set({ lockedAt: sql`now()` })
+          .where(and(ours(row.event_id), eq(outbox.status, 'pending')))
+          .returning({ eventId: outbox.eventId });
+        if (!mine) return false;
         const [event] = await tx.select().from(events).where(eq(events.id, row.event_id));
         if (!event) throw new Error(`event ${row.event_id} not visible in its own scope`);
         const ctx = {
@@ -103,8 +114,9 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
           .update(outbox)
           .set({ status: 'done', lockedAt: null, lockedBy: null, lastError: null })
           .where(eq(outbox.eventId, row.event_id));
+        return true;
       });
-      stats.done++;
+      if (ran) stats.done++;
     } catch (e) {
       const attempts = row.attempts + 1;
       const failed = attempts >= MAX_ATTEMPTS;
@@ -124,7 +136,7 @@ export async function processOnce(deps: OutboxDeps): Promise<OutboxStats> {
             lockedAt: null,
             lockedBy: null,
           })
-          .where(eq(outbox.eventId, row.event_id)),
+          .where(ours(row.event_id)),
       );
       if (failed) stats.failed++;
       else stats.retried++;

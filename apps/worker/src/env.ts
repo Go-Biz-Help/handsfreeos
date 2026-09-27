@@ -460,6 +460,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   // Cloudflare's always-pass test secret (booking/bot-check.ts) would let any bot book.
   if (production && turnstileSecretKey === '1x0000000000000000000000000000000AA')
     throw new Error('TURNSTILE_SECRET_KEY is Cloudflare’s test secret; use the real one');
+  // Without it every public page lets bots through, so production says so out loud instead of quietly passing.
+  if (production && !turnstileSecretKey && env.ALLOW_NO_BOT_CHECK !== '1')
+    throw new Error(
+      'TURNSTILE_SECRET_KEY is required in production (set ALLOW_NO_BOT_CHECK=1 to run without it on purpose)',
+    );
 
   // Outside production a fixed key does (scripts/supabase-env.mjs writes it); production needs its own.
   const chatIpKey = env.CHAT_IP_KEY || (production ? '' : LOCAL_CHAT_IP_KEY);

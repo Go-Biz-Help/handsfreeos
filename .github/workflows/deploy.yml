@@ -117,6 +117,8 @@ jobs:
     concurrency:
       group: ${{ needs.deploy.outputs.ready == 'true' && 'deploy-sync' || format('deploy-sync-skipped-{0}', github.run_id) }}
       cancel-in-progress: false
+    permissions:
+      contents: read
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:

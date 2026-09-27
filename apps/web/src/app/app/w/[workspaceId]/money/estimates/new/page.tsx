@@ -21,7 +21,7 @@ export default async function NewEstimatePage({
   if (!shell.canBill) notFound();
   const [{ products, connections }, seed] = await Promise.all([
     loadEditorCatalogs(shell.api, workspaceId),
-    seedFrom(shell.api, workspaceId, await searchParams),
+    searchParams.then((sp) => seedFrom(shell.api, workspaceId, sp)),
   ]);
 
   return (

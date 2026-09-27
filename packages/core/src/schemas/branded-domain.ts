@@ -35,6 +35,12 @@ export const hostname = z
     'Enter a domain like go.yourbusiness.com — no https:// and no slash.',
   );
 
+/**
+ * Where a business publishes its claim's token (a TXT record) to prove the name is its own. The shared CNAME
+ * only proves the name points at HandsFreeOS; this says at which business.
+ */
+export const ownershipHost = (domain: string): string => `_hfos-verify.${domain}`;
+
 export const BrandedDomainAddInput = z.object({ workspaceId: uuid, domain: hostname });
 export const BrandedDomainRefInput = z.object({ workspaceId: uuid, domainId: uuid });
 export const BrandedDomainRefOutput = z.object({ domainId: uuid, status: brandedDomainStatus });
@@ -52,6 +58,8 @@ export const BrandedDomainRecordInput = z.object({
   certificateReady: z.boolean(),
   lastError: z.string().trim().max(2000).nullable(),
   nextCheckAt: isoDateTime.nullable(),
+  /** The claim's token was found at `ownershipHost(domain)`. Until it has been, the domain is not verified. */
+  ownershipProved: z.boolean().default(false),
 });
 
 /** One DNS record, as a business has to type it into wherever its domain lives. */

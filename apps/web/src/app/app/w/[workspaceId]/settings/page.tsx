@@ -12,7 +12,7 @@ import { ProfileForm } from '@/components/settings/profile-form';
 import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { Card } from '@/components/ui/card';
-import { apiServer, fetchMe, unwrap } from '@/lib/api/server';
+import { apiServer, getMe, unwrap } from '@/lib/api/server';
 import { parseTheme } from '@/lib/theme';
 
 export const metadata: Metadata = { title: 'Account settings' };
@@ -25,7 +25,7 @@ export default async function SettingsPage({
   const { workspaceId } = await params;
   const { api } = await apiServer();
   const [me, devices, cell, deletion, phone] = await Promise.all([
-    fetchMe(api),
+    getMe(),
     api.POST('/v1/queries/push_device.list', { body: {} }).then(unwrap),
     api.POST('/v1/queries/user_phone.get', { body: {} }).then(unwrap),
     api.POST('/v1/queries/account.deletion_check', { body: {} }).then(unwrap),

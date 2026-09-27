@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { api, randomPhone, signInOwner, WORKER } from './booking-helpers';
+import { api, finishSignIn, randomPhone, signInOwner, WORKER } from './booking-helpers';
 import {
   confirmEmail,
   createBusiness,
@@ -96,7 +96,7 @@ async function connectAccount(owner: Business, accountId: string, label: string)
   const approved = await fetch(approve, { redirect: 'manual' });
   const callback = approved.headers.get('location');
   if (!callback) throw new Error(`the stand-in refused the sign-in (${approved.status})`);
-  await fetch(callback, { redirect: 'manual' });
+  await finishSignIn(owner.token, callback);
   await expect
     .poll(
       async () =>
@@ -264,8 +264,10 @@ test('an account kept to one person is the only one they bill into, and Money sp
 }) => {
   test.setTimeout(240_000);
   const owner = await business(page, 'accounts-owner', 'Two Accounts Agency');
-  const automations = await connectAccount(owner, 'acct_automations', 'Automations');
-  const seo = await connectAccount(owner, 'acct_seo', 'SEO');
+  // A live account belongs to one business at a time, so each run signs in with its own.
+  const run = randomUUID().slice(0, 8);
+  const automations = await connectAccount(owner, `acct_automations_${run}`, 'Automations');
+  const seo = await connectAccount(owner, `acct_seo_${run}`, 'SEO');
   const client = await customer(owner, 'Dana', 'Whitfield');
   await sentInvoice(owner, client, 'Automations setup', automations);
   await sentInvoice(owner, client, 'SEO retainer', seo);

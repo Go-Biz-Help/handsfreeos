@@ -71,7 +71,8 @@ const record = (
       sql`update app.branded_domains
           set status = ${patch.status}::app.branded_domain_status,
               certificate_ready = ${patch.certificateReady},
-              verified_at = case when ${patch.status} = 'verified' then now() else null end
+              verified_at = case when ${patch.status} = 'verified' then now() else null end,
+              ownership_proved_at = case when ${patch.status} = 'verified' then now() else null end
           where id = ${domainId}`,
     ),
   );
@@ -154,12 +155,51 @@ describe('who may put a business on its own domain', () => {
     expect(seen.map((r) => r.domain)).not.toContain(domain);
   });
 
-  it('nobody may claim a name another business already holds', async () => {
+  it('a claim still waiting on DNS squats nothing, but only one business’s claim may ever work', async () => {
+    // SEC-M11: a pending row used to hold the name for good, so another business could squat on it.
     const domain = uniqueDomain('contested');
-    await add(owner, ws, siteId, domain);
-    const e = await expectPgError(() => add(outsider, otherWs, otherSiteId, domain));
-    // The unique index, not a policy: "which business is this host?" must have one answer.
+    const [mine] = await add(owner, ws, siteId, domain);
+    const [theirs] = await add(outsider, otherWs, otherSiteId, domain);
+    await record(ws, mine!.id, { status: 'verified', certificateReady: true });
+    const e = await expectPgError(() =>
+      record(otherWs, theirs!.id, { status: 'verified', certificateReady: true }),
+    );
+    // The unique index over verified rows: "which business is this host?" must have one answer.
     expect(e.code).toBe('23505');
+  });
+
+  it('every claim gets a token of our making, whatever the business sent', async () => {
+    const domain = uniqueDomain('token');
+    const [made] = await as(owner)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.branded_domains
+              (workspace_id, site_id, domain, created_by, ownership_token, ownership_proved_at)
+            values (${ws}, ${siteId}, ${domain}, ${owner.id}, 'copied-from-their-dns', now())
+            returning id`,
+      ),
+    );
+    const [row] = await rows<{ ownership_token: string; ownership_proved_at: string | null }>(
+      admin$,
+      sql`select ownership_token, ownership_proved_at from app.branded_domains where id = ${made!.id}`,
+    );
+    expect(row!.ownership_token).not.toBe('copied-from-their-dns');
+    expect(row!.ownership_token).toMatch(/^[0-9a-f]{32}$/);
+    expect(row!.ownership_proved_at).toBeNull();
+  });
+
+  it('may not be verified until the business has proved it', async () => {
+    const [made] = await add(owner, ws, siteId, uniqueDomain('unproved'));
+    const e = await expectPgError(() =>
+      asService({ workspaceId: ws, organizationId: org })((tx) =>
+        rows(
+          tx,
+          sql`update app.branded_domains set status = 'verified', certificate_ready = true
+              where id = ${made!.id}`,
+        ),
+      ),
+    );
+    expect(e.code).toBe('23514');
   });
 
   it('refuses one of our own names, so nobody can point handsfreeos.com at themselves', async () => {
@@ -317,6 +357,17 @@ describe('what the host said is the worker’s to write', () => {
     );
     expect(e.code).toBe('42501');
     expect(e.detail).toBe('branded_domain_provider_fields');
+  });
+
+  it('nor mark its own claim proved, nor swap its token', async () => {
+    const [made] = await add(owner, ws, siteId, uniqueDomain('self-prove'));
+    for (const change of [
+      sql`update app.branded_domains set ownership_proved_at = now() where id = ${made!.id}`,
+      sql`update app.branded_domains set ownership_token = 'mine' where id = ${made!.id}`,
+    ]) {
+      const e = await expectPgError(() => as(owner)((tx) => rows(tx, change)));
+      expect(e.code).toBe('42501');
+    }
   });
 
   it('nor rewrite the records we are checking against', async () => {

@@ -17,6 +17,11 @@
  * Every token that arrives here is sealed before it touches the database and is never logged, never returned
  * and never shown. The state is random, hashed at rest, single use and good for ten minutes, whichever door
  * it belongs to — and a state made for one door is refused at the other.
+ *
+ * **The callback connects nothing** (SEC-M7). A state travels in a link, and an agency's sign-in approved from a
+ * forwarded one would be sealed into the sender's organization, every sub-account with it. So the callback hands
+ * what came back to the app (`handoff.ts`), and `/v1/migrations/finish` exchanges the code only when the app posts
+ * it back signed in as the person who pressed Connect.
  */
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -27,7 +32,15 @@ import { escapeHtml } from '../emails/templates';
 import { recordSystemEvent } from '../system-event';
 import type { MigrationAdapters } from '../migrations/adapters/registry';
 import { activateConnection, sealTokens } from '../migrations/engine/connection';
-import { parseBody, type HttpDeps } from './common';
+import { authenticate, parseBody, type HttpDeps } from './common';
+import {
+  finishUrl,
+  HandoffBody,
+  NOT_YOURS,
+  openHandoff,
+  sealHandoff,
+  type FinishOutcome,
+} from './handoff';
 
 type StateRow = {
   connection_id: string;
@@ -85,7 +98,10 @@ export function registerMigrationRoutes(
   /** The pending sign-in a state belongs to, checked in constant time. */
   const stateRow = async (state: string | undefined): Promise<StateRow | null> => {
     if (!state) return null;
-    const hash = sha256Hex(state);
+    return stateRowByHash(sha256Hex(state), state);
+  };
+  /** The same, by the state's hash: what a handoff carries back. */
+  const stateRowByHash = async (hash: string, state?: string): Promise<StateRow | null> => {
     const [row] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<StateRow>(
         tx,
@@ -96,9 +112,11 @@ export function registerMigrationRoutes(
     );
     if (!row) return null;
     // The lookup is by hash already; this guards against a timing difference on the way in.
-    const a = Buffer.from(hash);
-    const b = Buffer.from(sha256Hex(state));
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    if (state !== undefined) {
+      const a = Buffer.from(hash);
+      const b = Buffer.from(sha256Hex(state));
+      if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    }
     const expires = row.state_expires_at ? new Date(row.state_expires_at) : null;
     if (!expires || expires.getTime() < Date.now()) return null;
     return row;
@@ -174,6 +192,10 @@ export function registerMigrationRoutes(
     handleStart,
   );
 
+  /**
+   * The source's answer. Nothing is exchanged here: whoever this browser belongs to is not known, so what came
+   * back is sealed and handed to the app, which finishes it signed in (`/v1/migrations/finish`).
+   */
   const handleCallback = async (
     req: {
       query: { state?: string; code?: string; error?: string };
@@ -188,23 +210,79 @@ export function registerMigrationRoutes(
         'That sign-in has expired',
         'Start connecting the old system again from Migrations.',
       );
-    if (req.query.error || !req.query.code) {
+    const sealed = sealHandoff(deps.sealer, {
+      door: 'migration',
+      provider: '',
+      stateHash: sha256Hex(req.query.state!),
+      code: req.query.code?.slice(0, 4000) ?? null,
+      error: req.query.error?.slice(0, 200) ?? null,
+      errorDescription: null,
+    });
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .header('cache-control', 'no-store')
+      .redirect(finishUrl(deps.webUrl, 'migration', sealed), 302);
+  };
+
+  const expiredPage: FinishOutcome = {
+    page: {
+      title: 'That sign-in has expired',
+      body: 'Start connecting the old system again from Migrations.',
+    },
+  };
+
+  /**
+   * The app, signed in, finishing what the callback handed it. Only the person who pressed Connect gets any
+   * further; anybody else ends the sign-in, so a forwarded link can't be tried twice.
+   */
+  app.post('/v1/migrations/finish', async (req, reply): Promise<FinishOutcome> => {
+    const actor = await authenticate(deps, req);
+    const { handoff } = parseBody(HandoffBody, req.body);
+    reply.header('cache-control', 'no-store');
+    const h = openHandoff(deps.sealer, handoff, 'migration');
+    if (!h) return expiredPage;
+    const row = await stateRowByHash(h.stateHash);
+    if (!row || row.auth_kind !== 'oauth') return expiredPage;
+    const [started] = await asWorker(deps.httpDb, {}, (tx) =>
+      rows<{ by: string | null }>(
+        tx,
+        sql`select private.oauth_state_started_by(${h.stateHash}) as by`,
+      ),
+    );
+    if (!started?.by || started.by !== actor.userId) {
+      deps.log.warn(
+        { connectionId: row.connection_id },
+        'a source sign-in came back to somebody other than the person who started it',
+      );
       await asWorker(deps.httpDb, { organizationId: row.organization_id }, (tx) =>
         tx.execute(sql`
             update app.migration_connections
-               set status = 'error', last_error = ${String(req.query.error ?? 'no code').slice(0, 2000)},
+               set status = 'error',
+                   last_error = 'The sign-in was finished by somebody other than the person who started it.',
                    oauth_state_hash = null, oauth_state_expires_at = null
              where id = ${row.connection_id}`),
       );
-      return reply.redirect(backTo(row.organization_id, '?connect=cancelled'), 302);
+      return { page: NOT_YOURS };
+    }
+    if (h.error || !h.code) {
+      await asWorker(deps.httpDb, { organizationId: row.organization_id }, (tx) =>
+        tx.execute(sql`
+            update app.migration_connections
+               set status = 'error', last_error = ${String(h.error ?? 'no code').slice(0, 2000)},
+                   oauth_state_hash = null, oauth_state_expires_at = null
+             where id = ${row.connection_id}`),
+      );
+      return { next: backTo(row.organization_id, '?connect=cancelled') };
     }
     const adapter = adapters.get(row.source_system);
     if (!adapter)
-      return deadEnd(reply, 501, 'Not set up on this server', 'Nothing here can read that system.');
+      return {
+        page: { title: 'Not set up on this server', body: 'Nothing here can read that system.' },
+      };
 
     try {
       const connection = await adapter.exchangeCode({
-        code: req.query.code,
+        code: h.code,
         redirectUri: callbackUrl(),
       });
       // Sealed before it touches the database, exactly like a mailbox or a payment account.
@@ -255,7 +333,7 @@ export function registerMigrationRoutes(
           causationId: row.connection_id,
         });
       });
-      return reply.redirect(backTo(row.organization_id, '?connected=1'), 302);
+      return { next: backTo(row.organization_id, '?connected=1') };
     } catch (e) {
       // Never the body of the answer: a failed exchange can carry the code, and the code is a secret.
       deps.log.warn({ connectionId: row.connection_id }, 'source sign-in did not finish');
@@ -266,9 +344,9 @@ export function registerMigrationRoutes(
                    oauth_state_hash = null, oauth_state_expires_at = null
              where id = ${row.connection_id}`),
       );
-      return reply.redirect(backTo(row.organization_id, '?connect=failed'), 302);
+      return { next: backTo(row.organization_id, '?connect=failed') };
     }
-  };
+  });
 
   // The address registered with the source. `/migrations/:source/callback` stays so an app still registered
   // with the older address keeps working.

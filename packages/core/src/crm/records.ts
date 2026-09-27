@@ -1,4 +1,4 @@
-import { and, eq, notInArray } from 'drizzle-orm';
+import { and, eq, inArray, notInArray } from 'drizzle-orm';
 import { companies, people, tags, recordTags, users, workspaces } from '@hfos/db/schema';
 import type { Tx } from '@hfos/db/client';
 import { HfosError } from '../errors';
@@ -119,11 +119,15 @@ export async function tagsByRecord(
     .select({ recordId: recordTags.recordId, id: tags.id, name: tags.name, color: tags.color })
     .from(recordTags)
     .innerJoin(tags, eq(tags.id, recordTags.tagId))
-    .where(and(eq(recordTags.workspaceId, workspaceId), eq(recordTags.recordType, recordType)))
+    .where(
+      and(
+        eq(recordTags.workspaceId, workspaceId),
+        eq(recordTags.recordType, recordType),
+        inArray(recordTags.recordId, recordIds),
+      ),
+    )
     .orderBy(tags.name);
-  const wanted = new Set(recordIds);
   for (const row of list) {
-    if (!wanted.has(row.recordId)) continue;
     const arr = map.get(row.recordId) ?? [];
     arr.push({ id: row.id, name: row.name, color: row.color });
     map.set(row.recordId, arr);

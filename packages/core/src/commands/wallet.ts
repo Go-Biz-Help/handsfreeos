@@ -119,6 +119,14 @@ export const walletSetAutoTopup = defineCommand({
       ...(input.overdraftCents === undefined ? {} : { overdraftCents: input.overdraftCents }),
     };
     if (Object.keys(patch).length === 0) return refOf(before);
+    // Once HandsFreeOS has put a business on `enforce`, there is no overdraft to set: the gate reads it as zero
+    // there, and a business raising its own would be the way round the stage it was put on.
+    if (before.stage === 'enforce' && (patch.overdraftCents ?? 0) > 0)
+      throw HfosError.rule(
+        'wallet_overdraft_enforced',
+        409,
+        'Your balance can’t go below zero right now. Top up to keep texts and calls going.',
+      );
     // Turning it on without a card is the commonest way to think you are covered and not be.
     if (patch.autoTopup === true && !before.methodToken)
       throw HfosError.rule(

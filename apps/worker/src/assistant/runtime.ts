@@ -17,7 +17,14 @@ import {
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
-import { alwaysLoaded, contextText, SYSTEM, TOOL_SEARCH_NOTE, type PromptContext } from './prompt';
+import {
+  alwaysLoaded,
+  lastingText,
+  SYSTEM,
+  TOOL_SEARCH_NOTE,
+  turnText,
+  type PromptContext,
+} from './prompt';
 import * as store from './store';
 import { billingStepLabels } from './tools-billing';
 import { contentStepLabels } from './tools-content';
@@ -33,6 +40,8 @@ const MAX_ROUNDS = 8;
  * is sized for that as well as a short reply and a round of tool calls.
  */
 const MAX_TOKENS = 16_000;
+
+const BUDGET_REACHED = 'That’s today’s Assistant limit for this business. It resets at midnight.';
 
 export interface ToolContext {
   readonly actor: HumanActor;
@@ -201,12 +210,10 @@ export async function ask(
   signal: AbortSignal,
 ): Promise<void> {
   const scope = { workspaceId: input.workspaceId, organizationId: input.organizationId };
-  if ((await store.tokensToday(deps.db, scope, input.prompt.timezone)) >= deps.dailyTokens) {
-    emit({
-      type: 'error',
-      code: 'budget_reached',
-      message: 'That’s today’s Assistant limit for this business. It resets at midnight.',
-    });
+  const hasRoom = async () =>
+    (await store.tokensToday(deps.db, scope, input.prompt.timezone)) < deps.dailyTokens;
+  if (!(await hasRoom())) {
+    emit({ type: 'error', code: 'budget_reached', message: BUDGET_REACHED });
     return;
   }
   if (input.threadId) await store.expireWaiting(deps.db, scope, input.threadId);
@@ -318,18 +325,28 @@ export async function ask(
     const loop = await runToolLoop({
       provider: deps.provider,
       system: searching ? `${SYSTEM}\n\n${TOOL_SEARCH_NOTE}` : SYSTEM,
-      context: contextText(input.prompt),
+      lasting: lastingText(input.prompt),
+      context: turnText(input.prompt),
       messages,
       tools: toolDefs,
       maxRounds: MAX_ROUNDS,
       maxTokens: MAX_TOKENS,
       execute,
       onText: (delta) => emit({ type: 'text', delta }),
+      // Each call's tokens count toward the limit as soon as it ends, and every later call checks the limit
+      // again (the first was checked above): a long question, or several people asking at once, stop there.
+      onTurnUsage: (turn) => store.addRunUsage(deps.db, scope, run.runId, turn),
+      checkBudget: (used) => used.inputTokens + used.outputTokens === 0 || hasRoom(),
       signal,
     });
     ({ text, usage, rounds } = loop);
     // Stop and provider errors end the run the way any failure below does, keeping what already streamed.
     if (loop.stoppedBy === 'aborted' || loop.stoppedBy === 'error') throw loop.error;
+    if (loop.stoppedBy === 'budget') {
+      const note = `${text ? '\n\n' : ''}${BUDGET_REACHED}`;
+      text += note;
+      emit({ type: 'text', delta: note });
+    }
     if (loop.stoppedBy === 'max_rounds') {
       const note =
         '\n\nThat took more steps than I can take in one go. Ask again with a smaller piece of it.';

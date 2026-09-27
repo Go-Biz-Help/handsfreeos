@@ -6603,6 +6603,24 @@
         "updated_at": "timestamp with time zone"
       }
     },
+    "me_v1.ai_teammate_drafts": {
+      "columns": {
+        "id": "uuid",
+        "workspace_id": "uuid",
+        "teammate_id": "uuid",
+        "conversation_id": "uuid",
+        "person_id": "uuid",
+        "lead_id": "uuid",
+        "kind": "text",
+        "status": "app.workflow_approval_status",
+        "preview": "jsonb",
+        "edits": "jsonb",
+        "expires_at": "timestamp with time zone",
+        "client_id": "text",
+        "created_at": "timestamp with time zone",
+        "updated_at": "timestamp with time zone"
+      }
+    },
     "me_v1.attention_items": {
       "columns": {
         "id": "uuid",

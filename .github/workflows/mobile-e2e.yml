@@ -22,6 +22,11 @@ env:
   MAESTRO_CLI_NO_ANALYTICS: 1
   MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: true
 
+# Reading the repository, and the ghcr.io login below for the stack's images.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   maestro-android:
     name: Maestro flows on an Android emulator

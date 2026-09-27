@@ -11,7 +11,14 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { emailInboundUnmatched, mailboxConnections, messages } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  testEnv,
+  type TestUser,
+} from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
@@ -23,6 +30,7 @@ import type { TokenSet } from '../src/mailbox/provider';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
+import { finishSignIn, testTokenVerifier } from './finish-sign-in';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -112,7 +120,10 @@ const box = async (id: string) =>
 const viaMailbox = (connectionId: string) =>
   admin().select().from(messages).where(eq(messages.mailboxConnectionId, connectionId));
 
-/** Signs in through the real routes: connect, start, the fake provider's Allow, then the callback. */
+/**
+ * Signs in through the real routes: connect, start, the fake provider's Allow, the callback, then the app
+ * finishing it as the owner.
+ */
 async function signIn(
   provider: 'microsoft' | 'google',
   account: string,
@@ -145,13 +156,17 @@ async function signIn(
   );
   expect(approve.statusCode).toBe(302);
   const callback = new URL(String(approve.headers.location));
-  const back = await get(`${callback.pathname}${callback.search}`);
-  expect(back.statusCode).toBe(302);
+  const back = await finishSignIn(
+    app,
+    await get(`${callback.pathname}${callback.search}`),
+    await signInTestUser(owner),
+  );
+  expect(back.status).toBe(302);
   await drain();
   return {
     connectionId: output.connectionId,
     state: output.state,
-    location: String(back.headers.location),
+    location: String(back.location),
   };
 }
 
@@ -208,7 +223,7 @@ beforeAll(async () => {
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
   });
 });

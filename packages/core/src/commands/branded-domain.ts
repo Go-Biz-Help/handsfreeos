@@ -29,6 +29,7 @@ import {
   BrandedDomainRefInput,
   BrandedDomainRefOutput,
   isOurHost,
+  ownershipHost,
 } from '../schemas/branded-domain';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -184,11 +185,19 @@ export const brandedDomainRecord = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const row = await loadDomain(ctx, input.domainId);
-    const nowServing = input.status === 'verified' && input.certificateReady;
+    // The host saying the name points here is not the business proving it is theirs: another business's
+    // CNAME, left in place, points here too. Until the claim's own token is found, it is not verified.
+    const proved = row.ownershipProvedAt !== null || input.ownershipProved;
+    const status = input.status === 'verified' && !proved ? 'verifying' : input.status;
+    const lastError =
+      proved || input.lastError
+        ? input.lastError
+        : `Add the TXT record ${ownershipHost(row.domain)} to prove the domain is yours, then check again.`;
+    const nowServing = status === 'verified' && input.certificateReady;
     await ctx.tx
       .update(brandedDomains)
       .set({
-        status: input.status,
+        status,
         verificationHost: input.verificationHost,
         verificationValue: input.verificationValue,
         cnameHost: input.cnameHost,
@@ -198,21 +207,23 @@ export const brandedDomainRecord = defineCommand({
         // again this morning because a daily check looked at it.
         verifiedAt: nowServing ? (row.verifiedAt ?? dsql`now()`) : null,
         lastCheckedAt: dsql`now()`,
-        lastError: input.lastError,
+        lastError,
         nextCheckAt: input.nextCheckAt ? new Date(input.nextCheckAt) : null,
+        // Written once, when first proved; left alone after, so the stored time keeps its precision.
+        ...(row.ownershipProvedAt ? {} : { ownershipProvedAt: proved ? dsql`now()` : null }),
       })
       .where(eq(brandedDomains.id, row.id));
     const before = row.status === 'verified' && row.certificateReady;
-    if (before !== nowServing || row.status !== input.status)
+    if (before !== nowServing || row.status !== status)
       await ctx.emit({
         type: 'branded_domain.status_changed',
         entityType: 'branded_domain',
         entityId: row.id,
-        payload: { domain: row.domain, status: input.status, serving: nowServing },
+        payload: { domain: row.domain, status, serving: nowServing },
         before: { status: row.status },
-        after: { domain: row.domain, status: nowServing ? 'working' : input.status },
+        after: { domain: row.domain, status: nowServing ? 'working' : status },
       });
-    return { domainId: row.id, status: input.status };
+    return { domainId: row.id, status };
   },
 });
 

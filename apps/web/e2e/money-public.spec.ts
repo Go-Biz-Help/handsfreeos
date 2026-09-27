@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { api, ownerWithSite, WORKER, type Owner } from './booking-helpers';
+import { api, finishSignIn, ownerWithSite, WORKER, type Owner } from './booking-helpers';
 
 /**
  * The customer's own money pages, signed out: `/e/<token>` (design/m9 Estimate.dc.html) and `/i/<token>`
@@ -93,7 +94,7 @@ async function connectAccount(
   const approved = await fetch(approve, { redirect: 'manual' });
   const callback = approved.headers.get('location');
   if (!callback) throw new Error(`the stand-in refused the sign-in (${approved.status})`);
-  await fetch(callback, { redirect: 'manual' });
+  await finishSignIn(owner.token, callback);
   await expect
     .poll(
       async () =>
@@ -134,7 +135,12 @@ async function moneyOwner(
 ): Promise<Owner & { personId: string }> {
   const owner = await ownerWithSite(page, label, business);
   await moneySettings(owner);
-  await connectAccount(owner, provider, `${provider === 'stripe' ? 'acct' : 'merchant'}_${label}`);
+  // A live account belongs to one business at a time, so each run signs in with its own.
+  await connectAccount(
+    owner,
+    provider,
+    `${provider === 'stripe' ? 'acct' : 'merchant'}_${label}_${randomUUID().slice(0, 8)}`,
+  );
   const { personId } = await api<{ personId: string }>(owner.token, 'commands', 'person.create', {
     workspaceId: owner.workspaceId,
     firstName: 'Maria',

@@ -21,7 +21,14 @@ import {
   calendarConnections,
   mailboxConnections,
 } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, testEnv, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  testEnv,
+  type TestUser,
+} from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FakeCalendarEvent } from '../src/calendar/fake';
@@ -34,6 +41,7 @@ import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
+import { finishSignIn, testTokenVerifier } from './finish-sign-in';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -217,7 +225,10 @@ async function refreshNow(connectionId: string): Promise<void> {
   await drain();
 }
 
-/** Signs in through the real routes: connect, start, the stand-in page's Allow (or Cancel), then the callback. */
+/**
+ * Signs in through the real routes: connect, start, the stand-in page's Allow (or Cancel), the callback, then the
+ * app finishing it as the person who pressed Connect.
+ */
 async function connect(
   user: TestUser,
   provider: 'google' | 'microsoft',
@@ -251,13 +262,17 @@ async function connect(
   );
   expect(approve.statusCode).toBe(302);
   const callback = new URL(String(approve.headers.location));
-  const back = await get(`${callback.pathname}${callback.search}`);
-  expect(back.statusCode).toBe(302);
+  const back = await finishSignIn(
+    app,
+    await get(`${callback.pathname}${callback.search}`),
+    await signInTestUser(user),
+  );
+  expect(back.status).toBe(302);
   await drain();
   return {
     connectionId: output.connectionId,
     state: output.state,
-    location: String(back.headers.location),
+    location: String(back.location),
   };
 }
 
@@ -314,7 +329,7 @@ beforeAll(async () => {
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
   });
 });
@@ -398,8 +413,12 @@ describe('connecting a calendar', () => {
       })}`,
     );
     const callback = new URL(String(approve.headers.location));
-    const back = await get(`${callback.pathname}${callback.search}`);
-    expect(back.headers.location).toBe(
+    const back = await finishSignIn(
+      app,
+      await get(`${callback.pathname}${callback.search}`),
+      await signInTestUser(owner),
+    );
+    expect(back.location).toBe(
       `http://localhost:3000/app/w/${workspaceId}/settings/email?mailbox=connected`,
     );
     await drain();

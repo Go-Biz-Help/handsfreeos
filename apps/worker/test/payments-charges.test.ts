@@ -20,7 +20,13 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { paymentConnections } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  type TestUser,
+} from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { processDeliveries } from '../src/deliveries';
@@ -41,6 +47,7 @@ import { createSquarePayments } from '../src/payments/square';
 import { createStripePayments } from '../src/payments/stripe';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
+import { finishSignIn, testTokenVerifier } from './finish-sign-in';
 import { TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-payments-charges-${process.pid}`;
@@ -101,7 +108,7 @@ async function drain(timeoutMs = 15_000): Promise<void> {
   }
 }
 
-/** Signs in through the real routes and returns the connection row's id. */
+/** Signs in through the real routes, finishing as the owner the way the app does, and returns the row's id. */
 async function connect(provider: 'stripe' | 'square', account: string): Promise<string> {
   const { output } = await executeCommand(
     api(),
@@ -121,7 +128,11 @@ async function connect(provider: 'stripe' | 'square', account: string): Promise<
     })}`,
   );
   const callback = new URL(String(approve.headers.location));
-  await get(`${callback.pathname}${callback.search}`);
+  await finishSignIn(
+    app,
+    await get(`${callback.pathname}${callback.search}`),
+    await signInTestUser(owner),
+  );
   await drain();
   return output.connectionId;
 }
@@ -205,7 +216,7 @@ beforeAll(async () => {
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
   });
   realStripe = createStripePayments({

@@ -9,12 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import {
-  buildLetterPdf,
-  LETTER_FILE_NAME,
-  LETTER_TEMPLATE_PATH,
-  type LetterDetails,
-} from '@/lib/ports/loa';
+import type { LetterDetails } from '@/lib/ports/loa';
 import { uploadPortDocument } from '@/lib/ports/upload';
 import type { PortInfo } from './port-step';
 
@@ -62,8 +57,8 @@ const NEEDED: readonly [Answer, string][] = [
 let template: Promise<ArrayBuffer> | null = null;
 
 /** Twilio's form, fetched once per page and kept. A failed fetch is not kept, so the next press tries again. */
-function loadTemplate(): Promise<ArrayBuffer> {
-  template ??= fetch(LETTER_TEMPLATE_PATH)
+function loadTemplate(path: string): Promise<ArrayBuffer> {
+  template ??= fetch(path)
     .then((r) => {
       if (!r.ok) throw new Error('The letter form didn’t load. Reload the page and try again.');
       return r.arrayBuffer();
@@ -73,6 +68,15 @@ function loadTemplate(): Promise<ArrayBuffer> {
       throw e;
     });
   return template;
+}
+
+/** The filled-in letter. pdf-lib loads on the first press, not with the Texting page. */
+async function buildLetter(
+  details: LetterDetails,
+): Promise<{ bytes: Uint8Array; fileName: string }> {
+  const loa = await import('@/lib/ports/loa');
+  const bytes = await loa.buildLetterPdf(details, await loadTemplate(loa.LETTER_TEMPLATE_PATH));
+  return { bytes, fileName: loa.LETTER_FILE_NAME };
 }
 
 /**
@@ -219,8 +223,8 @@ export function PortPaperwork({
     setError(null);
     try {
       // The letter first: if Twilio's form will not load, nothing has been saved halfway.
-      const bytes = await buildLetterPdf(letter(true), await loadTemplate());
-      const file = new File([new Uint8Array(bytes)], LETTER_FILE_NAME, {
+      const { bytes, fileName } = await buildLetter(letter(true));
+      const file = new File([new Uint8Array(bytes)], fileName, {
         type: 'application/pdf',
       });
       if (!(await saveDetails())) return;
@@ -260,13 +264,13 @@ export function PortPaperwork({
     setBusy('download');
     setError(null);
     try {
-      const bytes = await buildLetterPdf(letter(true), await loadTemplate());
+      const { bytes, fileName } = await buildLetter(letter(true));
       const url = URL.createObjectURL(
         new Blob([new Uint8Array(bytes)], { type: 'application/pdf' }),
       );
       const a = document.createElement('a');
       a.href = url;
-      a.download = LETTER_FILE_NAME;
+      a.download = fileName;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch (e) {

@@ -164,7 +164,7 @@ export function AuditLog({
           body: {
             workspaceId,
             limit: 50,
-            before: data.nextCursor,
+            cursor: data.nextCursor,
             ...filters(range, actor, category),
           },
         }),

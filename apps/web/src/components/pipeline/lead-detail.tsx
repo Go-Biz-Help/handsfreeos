@@ -122,8 +122,10 @@ export function LeadDetail({
   const [inlineAt, setInlineAt] = useState('');
   const [booking, setBooking] = useState(false);
   const [openAppt, setOpenAppt] = useState<string | null>(null);
-  const version = useLiveVersion(['lead', 'activity', 'task']);
-  useLiveRefresh(initial ? ['lead', 'activity', 'task', 'appointment'] : []);
+  // Another lead's changes are not this one's; its activity and tasks carry their own ids, so those stay broad.
+  const live = { only: { lead: [leadId] } };
+  const version = useLiveVersion(['lead', 'activity', 'task'], 300, live);
+  useLiveRefresh(initial ? ['lead', 'activity', 'task', 'appointment'] : [], 300, live);
   // Archive and restore it, and take away anyone's tasks and notes on it (records.archive).
   const canModerate = can(permissions, 'records.archive');
   const canBill = can(permissions, 'money.bill');

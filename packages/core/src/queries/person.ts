@@ -3,7 +3,7 @@ import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contac
 import { addressOut, fullName, phoneOut, tagsByRecord } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import {
   PersonGetInput,
   PersonGetOutput,
@@ -100,7 +100,8 @@ const base = (workspaceId: string, sort: 'name' | 'recent') => sql`
     ${TEAM('p')} as team,
     p.company_id, c.name as company_name, c.archived_at as company_archived,
     (select count(*) from app.leads l where l.person_id = p.id and l.status = 'open' and l.archived_at is null)::int as open_leads,
-    (select max(a.occurred_at) from app.activities a where a.person_id = p.id) as last_activity_at,
+    -- workspace_id first so activities_person_idx serves it as one index probe, not a platform-wide scan
+    (select max(a.occurred_at) from app.activities a where a.workspace_id = p.workspace_id and a.person_id = p.id) as last_activity_at,
     p.archived_at, p.created_at, p.updated_at,
     ${sort === 'name' ? sql`lower(p.last_name || ' ' || p.first_name)` : sql`to_char(p.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`} as sort_key
   from app.people p
@@ -117,9 +118,9 @@ export const personList = defineQuery({
   permission: 'records.read',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
-    const q = input.q ? `%${input.q.toLowerCase()}%` : null;
     const recent = input.sort === 'recent';
+    const cursor = recent ? decodeTimeCursor(input.cursor) : decodeCursor(input.cursor);
+    const q = input.q ? `%${input.q.toLowerCase()}%` : null;
     const list = await rows<Row>(
       ctx.tx,
       sql`select * from (${base(input.workspaceId, input.sort)}
@@ -131,8 +132,8 @@ export const personList = defineQuery({
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.tagId})` : sql``}
           ${input.withoutTagId ? sql`and not exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.withoutTagId})` : sql``}
         ) x
-        ${cursor ? (recent ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
-        order by ${recent ? sql`x.sort_key desc, x.id desc` : sql`x.sort_key, x.id`}
+        ${cursor ? (recent ? sql`where (x.updated_at, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
+        order by ${recent ? sql`x.updated_at desc, x.id desc` : sql`x.sort_key, x.id`}
         limit ${input.limit + 1}`,
     );
     const tags = await tagsByRecord(

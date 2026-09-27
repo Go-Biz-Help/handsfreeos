@@ -546,6 +546,18 @@ export const paymentConnectionActivate = defineCommand({
         409,
         'This account isn’t waiting to connect.',
       );
+    // Webhooks find their business by the account alone, so an account lives in one business at a time.
+    const [elsewhere] = await rows<{ held: boolean }>(
+      ctx.tx,
+      sql`select private.payment_account_live_elsewhere(${c.provider}, ${input.externalAccountId},
+            ${ctx.scope.workspaceId!}::uuid) as held`,
+    );
+    if (elsewhere?.held)
+      throw HfosError.rule(
+        'payment_account_connected_elsewhere',
+        409,
+        'That account is already connected to another business on HandsFreeOS.',
+      );
     const now = new Date();
     // One live row per account: the earlier one steps down, keeping the unique index happy.
     const replaced = await ctx.tx

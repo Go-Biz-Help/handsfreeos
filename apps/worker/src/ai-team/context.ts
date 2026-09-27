@@ -12,6 +12,7 @@ import {
   calendarMostCharged,
   loadTerritories,
   needsAddress,
+  chatAddedCustomer,
   chatVerified,
   LeadQualification,
   parseStoredForm,
@@ -348,6 +349,11 @@ export interface RunContext {
   };
   /** A website chat whose visitor hasn't proved, with a code, that they're the customer it matched. */
   readonly unverifiedChat: boolean;
+  /**
+   * An unverified chat matched a customer already on file (not one the chat added): nothing of theirs is the
+   * visitor's to write to, so no lead is loaded and notes and tasks are refused.
+   */
+  readonly strangerInChat: boolean;
   /** The language the teammate last said the customer writes in (M18), or null. */
   readonly conversationLanguage: string | null;
   /** The name a chat visitor typed. */
@@ -424,7 +430,11 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const unverifiedChat = channel === 'chat' && !(conv && (await chatVerified(tx, conv)));
   const grounding = await loadGrounding(tx, ws);
   const customer = personId ? await customerOf(tx, personId) : null;
-  const lead = customer ? await openLeadOf(tx, ws, customer.id) : null;
+  // An unverified chat works only on a customer the chat itself added: someone already on file, and their lead
+  // (whenever it was opened), are theirs to read and change once the visitor proves who they are.
+  const strangerInChat =
+    unverifiedChat && !!customer && !(conv && (await chatAddedCustomer(tx, conv, customer.id)));
+  const lead = customer && !strangerInChat ? await openLeadOf(tx, ws, customer.id) : null;
   const stages = lead ? await stagesOf(tx, lead.pipelineId) : [];
   const calendars = input.config.book.enabled
     ? await calendarsOf(tx, ws, input.config.book.calendarIds)
@@ -492,6 +502,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
       personId,
     },
     unverifiedChat,
+    strangerInChat,
     conversationLanguage: conv?.language ?? null,
     visitorName: visitor?.name ?? null,
     firstAiMessage,

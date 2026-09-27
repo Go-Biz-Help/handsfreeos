@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { api, makeCalendar, ownerWithSite, type Owner } from './booking-helpers';
 
@@ -94,19 +95,21 @@ test('Settings → Payments: two accounts, the default, a disconnect, and every 
   await expect(page.getByTestId('pay-no-accounts')).toBeVisible();
 
   // ---- the accounts money is paid into ----
-  await connectAccount(page, 'stripe', 'acct_lonestar_1');
+  // A live account belongs to one business at a time, so each run signs in with its own (a retry is a new one).
+  const lonestar = `acct_lonestar_${randomUUID().slice(0, 8)}`;
+  await connectAccount(page, 'stripe', lonestar);
   const afterFirst = (await savedAccounts(owner)).filter((c) => c.status === 'active');
   expect(afterFirst).toHaveLength(1);
   expect(afterFirst[0]!.provider).toBe('stripe');
   // The first account a business connects is where everything is paid into.
   expect(afterFirst[0]!.isDefault).toBe(true);
   const stripeCard = page.getByTestId(`pay-account-${afterFirst[0]!.id}`);
-  await expect(stripeCard).toContainText('acct_lonestar_1');
+  await expect(stripeCard).toContainText(lonestar);
   await expect(stripeCard).toContainText('Connected');
   await expect(page.getByTestId(`pay-default-${afterFirst[0]!.id}`)).toBeVisible();
 
   // A second one, of the other kind, and it does not steal the default.
-  await connectAccount(page, 'square', 'merchant_heights');
+  await connectAccount(page, 'square', `merchant_heights_${randomUUID().slice(0, 8)}`);
   const both = (await savedAccounts(owner)).filter((c) => c.status === 'active');
   expect(both).toHaveLength(2);
   const square = both.find((c) => c.provider === 'square')!;
@@ -127,7 +130,9 @@ test('Settings → Payments: two accounts, the default, a disconnect, and every 
   await expect(page.getByTestId('pay-accounts')).toContainText(
     'Disconnecting asks about the plans billing through that account first',
   );
-  await page.getByRole('button', { name: /Stripe actions|acct_lonestar_1 actions/ }).click();
+  await page
+    .getByRole('button', { name: new RegExp(`Stripe actions|${lonestar} actions`) })
+    .click();
   await page.getByRole('menuitem', { name: 'Disconnect' }).click();
   await expect(page.getByTestId(`pay-account-${stripe.id}`)).toHaveCount(0);
   const gone = await savedAccounts(owner);
@@ -361,7 +366,8 @@ test('The calendar’s Payments module: off without an account, on with one', as
 
   // Connect one, and the same choice is fine: the module names the deposit and the account behind it.
   await page.goto(`/app/w/${owner.workspaceId}/settings/payments`);
-  await connectAccount(page, 'stripe', 'acct_deposits_1');
+  const deposits = `acct_deposits_${randomUUID().slice(0, 8)}`;
+  await connectAccount(page, 'stripe', deposits);
   await page.getByTestId('deposit-switch').click();
   await enter(page, 'deposit-percent-value', '25');
   await expect.poll(async () => (await savedSettings(owner)).deposit.kind).toBe('percent');
@@ -372,7 +378,7 @@ test('The calendar’s Payments module: off without an account, on with one', as
   await expect(page.getByTestId('issue-payment_unavailable')).toHaveCount(0);
   const detail = page.getByTestId('pay-module-detail');
   await expect(detail).toContainText('25% of the price');
-  await expect(detail).toContainText('acct_deposits_1');
+  await expect(detail).toContainText(deposits);
   await expect(page.getByTestId('module-payments')).toContainText('Takes a deposit to book');
 
   await page.getByTestId('builder-save').click();

@@ -88,7 +88,13 @@ import { scheduleExpirySweep } from './expiry';
 import { loopReason, widgetAnswers } from './gates';
 import { handOffAsAi, handOffAsSystem } from './handoff';
 import { scheduleFollowUp, spreadAfter, type OfferedSlot } from './nudges';
-import { contextText, conversationTurn, rewriteFeedback, TEAMMATE_SYSTEM } from './prompt';
+import {
+  conversationTurn,
+  rewriteFeedback,
+  TEAMMATE_SYSTEM,
+  textLasting,
+  textTurnContext,
+} from './prompt';
 import { chatCodeSender } from './chat-code';
 import { photoBlocks, photoLines, pickPhotos } from './photos';
 import { createExecutor, newRunState, toolDefinition, type RunEnd, type RunState } from './tools';
@@ -523,7 +529,10 @@ const NUDGE_TOOLS: ReadonlySet<TeammateToolName> = new Set<TeammateToolName>([
 ]);
 
 function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
-  const all = teammateTools(rc.config, { unverifiedChat: rc.unverifiedChat });
+  const all = teammateTools(rc.config, {
+    unverifiedChat: rc.unverifiedChat,
+    strangerInChat: rc.strangerInChat,
+  });
   const only = !run.conversationId ? FIRST_TOOLS : run.kind === 'nudge' ? NUDGE_TOOLS : null;
   return only ? all.filter((t) => only.has(t.name as TeammateToolName)) : all;
 }
@@ -629,8 +638,10 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
   const base = {
     provider,
     system: TEAMMATE_SYSTEM,
+    // What stays the same all run is cached after the fixed instructions; the time and knowledge come after.
+    lasting: textLasting(rc),
     context: [
-      contextText(rc),
+      textTurnContext(rc),
       ...(run.handover ? handoverLines(run.handover) : []),
       ...(run.retry ? retryLines(run.retry) : []),
       ...(verified ? VERIFIED_LINES : []),
@@ -723,13 +734,19 @@ async function answer(ctx: JobContext, run: StartedRun, verified = false): Promi
   if (!verdict.ok) {
     checks.push(...checkRows(1, verdict, false));
     if (!(await hasRoom())) return end(budget, { checks, toolSteps: steps, replyText: text });
-    // One rewrite, told what the check found. Only the turn-ending tools: nothing else changes now.
+    // One rewrite, told what the check found. Only the turn-ending tools run: nothing else changes now. The
+    // same tools are offered, so the cached instructions, tools and conversation are read again, not rewritten;
+    // the others are refused, with one more round to reply after that.
     state.end = null;
     const redo = await runToolLoop({
       ...base,
+      execute: (call) =>
+        enders.some((t) => t.name === call.name)
+          ? execute(call)
+          : Promise.resolve({ content: { error: REWRITE_ONLY }, isError: true }),
       messages: withFeedback(loop.messages, verdict),
-      tools: enders.map(toolDefinition),
-      maxRounds: 1,
+      tools: tools.map(toolDefinition),
+      maxRounds: 2,
     });
     steps += redo.rounds;
     const second = await settle(redo, checks, text);
@@ -841,6 +858,10 @@ export function withFeedback(
   else out.push({ role: 'user', content: [note] });
   return out;
 }
+
+/** What the rewrite answers a tool other than one that ends the turn. */
+const REWRITE_ONLY =
+  'Nothing else can be done now. Send the rewritten reply with reply, or hand off.';
 
 /** How the tools ended the turn so far (read through a call: the loop's tools change it). */
 const endOf = (state: RunState): RunEnd | null => state.end;

@@ -2,6 +2,8 @@
 import {
   answerProblem,
   formState,
+  isButtonAddress,
+  isWebAddress,
   money,
   consentPolicyPath,
   smsConsentWords,
@@ -14,7 +16,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Turnstile } from '@/components/booking/turnstile';
 import { ApiError } from '@/lib/api/errors';
+import { TURNSTILE_SITE_KEY } from '@/lib/api/public-booking';
 import { saveSheet, sendSheet, startSheet, type SentForm } from '@/lib/api/public-forms';
 import { QuestionField } from './question-field';
 
@@ -33,6 +37,7 @@ export function PublicForm({
   definition,
   closed,
   closedMessage,
+  botCheck,
   resumed,
 }: {
   site: string;
@@ -42,6 +47,8 @@ export function PublicForm({
   definition: FormDefinition;
   closed: boolean;
   closedMessage: string;
+  /** The "are you a person" check before sending, as on the booking page; null when it's off. */
+  botCheck: { siteKey: string | null } | null;
   resumed: { responseId: string; token: string; answers: AnswerSheet } | null;
 }) {
   const [answers, setAnswers] = useState<AnswerSheet>(resumed?.answers ?? {});
@@ -58,13 +65,17 @@ export function PublicForm({
   const consentWords = smsConsentWords(business, 'form', consentPolicyPath(site));
   /** The honeypot: hidden from people, irresistible to robots. */
   const [website, setWebsite] = useState('');
+  const botSiteKey = botCheck ? (botCheck.siteKey ?? TURNSTILE_SITE_KEY) : null;
+  const [botToken, setBotToken] = useState<string | null>(null);
+  const [botReset, setBotReset] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const starting = useRef<Promise<{ responseId: string; token: string }> | null>(null);
 
   const state = formState(definition, answers);
 
   useEffect(() => {
-    if (sent?.redirectUrl) window.location.assign(sent.redirectUrl);
+    // Only ever on to a web page: a `javascript:` address here would run on this origin.
+    if (isWebAddress(sent?.redirectUrl)) window.location.assign(sent.redirectUrl);
   }, [sent]);
 
   /** One sheet per person filling it in, however fast they type. */
@@ -117,9 +128,15 @@ export function PublicForm({
         answers: state.answers as Record<string, unknown>,
         smsConsent: consent,
         website,
+        turnstileToken: botToken ?? undefined,
       });
       setSent(out);
     } catch (e) {
+      // Each token works once.
+      if (botSiteKey) {
+        setBotToken(null);
+        setBotReset((n) => n + 1);
+      }
       setFailed(
         e instanceof ApiError ? e.message : 'Something went wrong. Please try again in a moment.',
       );
@@ -153,7 +170,7 @@ export function PublicForm({
             {money(sent.dueCents)} to pay. We’ll send that separately.
           </p>
         ) : null}
-        {sent.buttonUrl && sent.buttonLabel ? (
+        {isButtonAddress(sent.buttonUrl) && sent.buttonLabel ? (
           <a
             href={sent.buttonUrl}
             className="mt-5 inline-flex h-9 items-center rounded-control bg-accent px-3.5 text-sm font-medium text-white"
@@ -270,13 +287,28 @@ export function PublicForm({
             />
           </label>
 
+          {botSiteKey ? (
+            <div className="mt-4">
+              <Turnstile siteKey={botSiteKey} onToken={setBotToken} resetKey={botReset} />
+            </div>
+          ) : botCheck ? (
+            <p className="mt-4 text-[13px] text-danger-text">
+              This form isn’t fully set up, so it can’t be sent just now.
+            </p>
+          ) : null}
+
           {failed ? (
             <p role="alert" className="mt-4 text-[13px] text-danger-text">
               {failed}
             </p>
           ) : null}
 
-          <Button className="mt-6 w-full" onClick={send} disabled={sending} data-testid="form-send">
+          <Button
+            className="mt-6 w-full"
+            onClick={send}
+            disabled={sending || (botCheck !== null && !botToken)}
+            data-testid="form-send"
+          >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} /> : null}
             {definition.settings.submitLabel}
           </Button>

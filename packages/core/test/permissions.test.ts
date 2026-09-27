@@ -12,6 +12,8 @@ import {
   invoiceList,
   invoiceRecordCashPayment,
   invoiceSend,
+  membershipChangeRole,
+  membershipInvite,
   membershipRemove,
   paymentRefund,
   permissionReset,
@@ -317,6 +319,53 @@ async function expectPg(fn: () => Promise<unknown>): Promise<string> {
 }
 
 describe('the team', () => {
+  it('lets an admin hand out a role only as far as what they may do themselves', async () => {
+    // Marco is an admin the business keeps from managing money. A second address of his own as an admin, or
+    // Priya made one, would have the admin role's full set, money included.
+    await setPerson(t.marco, 'money.manage', false);
+    await expectHfos(
+      () =>
+        run(
+          membershipInvite,
+          {
+            workspaceId: t.wsId,
+            email: `marco-alt-${t.wsId.slice(0, 8)}@example.test`,
+            role: 'admin',
+          },
+          t.marco,
+        ),
+      'cannot_grant_role',
+    );
+    await expectHfos(
+      () =>
+        run(
+          membershipChangeRole,
+          { workspaceId: t.wsId, userId: t.priya.id, role: 'admin' },
+          t.marco,
+        ),
+      'cannot_grant_role',
+    );
+    // A member carries nothing he lacks; and once admins here don't manage money either, neither does an admin.
+    await run(
+      membershipInvite,
+      {
+        workspaceId: t.wsId,
+        email: `marco-crew-${t.wsId.slice(0, 8)}@example.test`,
+        role: 'member',
+      },
+      t.marco,
+    );
+    await setRole('admin', 'money.manage', false);
+    await run(
+      membershipInvite,
+      { workspaceId: t.wsId, email: `marco-alt-${t.wsId.slice(0, 8)}@example.test`, role: 'admin' },
+      t.marco,
+    );
+    await setRole('admin', 'money.manage', null);
+    await setPerson(t.marco, 'money.manage', null);
+    expect(await inSync()).toBe(0);
+  });
+
   it('lets whoever the business trusts remove a teammate at their own level, and nobody else', async () => {
     // An admin the business keeps from removing people can't, whatever the role says.
     await setRole('admin', 'members.remove', false);

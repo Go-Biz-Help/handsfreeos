@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { AgencyShell } from '@/components/agency/agency-shell';
 import { ThemeSync } from '@/components/shell/theme-sync';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { getMe } from '@/lib/api/server';
 import { parseTheme } from '@/lib/theme';
 
 /**
@@ -18,8 +18,7 @@ export default async function AgencyLayout({
   params: Promise<{ orgId: string }>;
 }) {
   const { orgId } = await params;
-  const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const orgs = agencyOrganizations(me);
   const org = orgs.find((o) => o.id === orgId);
   if (!org) notFound();

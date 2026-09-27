@@ -14,6 +14,7 @@ import {
   FormDefinition,
   formProblems,
   scoringProblems,
+  withSafeResultLinks,
   type Question,
 } from './definition';
 import { newPageId, newResultId } from './ids';
@@ -44,9 +45,12 @@ export interface LoadedForm {
   readonly definition: FormDefinition;
 }
 
-/** A stored definition (a draft or a version), parsed; a broken one is our fault, not the caller's. */
+/**
+ * A stored definition (a draft or a version), parsed; a broken one is our fault, not the caller's. A
+ * result link saved before links had to be web pages is dropped rather than making the form unreadable.
+ */
 export function parseStoredForm(raw: unknown): FormDefinition {
-  const parsed = FormDefinition.safeParse(raw);
+  const parsed = FormDefinition.safeParse(withSafeResultLinks(raw));
   if (!parsed.success) throw HfosError.internal('This form’s saved questions can’t be read.');
   return parsed.data;
 }

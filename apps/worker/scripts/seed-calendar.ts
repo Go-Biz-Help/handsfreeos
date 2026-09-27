@@ -581,7 +581,8 @@ async function connectGoogle(
   const app = await buildHttpServer({
     ...d.worker,
     httpDb: d.worker.db,
-    verifyToken: null,
+    // The app finishes a sign-in signed in as whoever started it (SEC-M1); in-process, that is Dale.
+    verifyToken: async () => d.actor(ws.dale),
     webOrigins: [d.worker.webUrl],
   });
   try {
@@ -593,7 +594,8 @@ async function connectGoogle(
         );
       return new URL(String(res.headers.location));
     };
-    // Start, then the stand-in page's Allow, then the callback that seals the sign-in and activates it.
+    // Start, then the stand-in page's Allow, then the callback, which hands the sign-in to the app sealed after
+    // the `#`; the app posts it back signed in (`/v1/oauth/finish`), and only that connects the calendar.
     const authorize = await hop(`/oauth/google/start?state=${encodeURIComponent(output.state)}`);
     const callback = await hop(
       `/oauth/fake/google/approve?${new URLSearchParams({
@@ -604,9 +606,16 @@ async function connectGoogle(
         decision: 'allow',
       })}`,
     );
-    const back = await hop(`${callback.pathname}${callback.search}`);
-    if (back.searchParams.get('calendar') !== 'connected')
-      throw new Error(`Dale’s calendar did not connect (${back.search}).`);
+    const handoff = await hop(`${callback.pathname}${callback.search}`);
+    const finished = await app.inject({
+      method: 'POST',
+      url: '/v1/oauth/finish',
+      headers: { authorization: 'Bearer seed' },
+      payload: { handoff: decodeURIComponent(handoff.hash.slice(1)) },
+    });
+    const next = finished.statusCode === 200 ? (finished.json() as { next?: string }).next : null;
+    if (!next || new URL(next, d.worker.webUrl).searchParams.get('calendar') !== 'connected')
+      throw new Error(`Dale’s calendar did not connect (${finished.statusCode} ${finished.body}).`);
   } finally {
     await app.close();
   }

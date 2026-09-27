@@ -154,12 +154,12 @@ describe('the AI’s contact details', () => {
     ]);
   });
 
-  it('changes no details with only an unverified website chat to go on, or with the switch off', () => {
+  it('changes no details with only a chat, public form or notes on file to go on, or with the switch off', () => {
     const change = decision({
       details: [{ field: 'email', action: 'set', value: 'mike.j@new.test', reason: 'x' }],
     });
     expect(planContactChanges(change, mike(), { ...opts, trustedText: '' }).skipped[0]!.why).toBe(
-      'there’s only an unverified website chat to go on',
+      'there’s nothing the customer or the team is known to have written to go on',
     );
     expect(planContactChanges(change, mike(), { ...opts, details: false }).skipped[0]!.why).toBe(
       'keeping contact details up to date is switched off',

@@ -210,9 +210,10 @@ describe('every stream query, for each kind of person', () => {
   };
 
   /**
-   * The four me_v1 arms that carry a member's own threads when a business turns per-person inbox visibility
-   * on (0081). With it off — which is the default, and what the seed has — `member_viewer_ids` is empty on
-   * every row and these correctly send nothing; business_v1 carries the whole inbox instead.
+   * The me_v1 arms that carry a member's own threads, and the AI's drafts on them, when a business turns
+   * per-person inbox visibility on (0081). With it off — which is the default, and what the seed has —
+   * `member_viewer_ids` is empty on every row and these correctly send nothing; business_v1 carries the whole
+   * inbox instead.
    *
    * So they are asserted **empty** rather than skipped. If one of them ever starts sending rows while no
    * business has opted in, that is a member's phone being handed threads on the strength of a list that
@@ -223,6 +224,7 @@ describe('every stream query, for each kind of person', () => {
     'me_v1.messages',
     'me_v1.calls',
     'me_v1.attention_items',
+    'me_v1.ai_teammate_drafts',
   ]);
 
   for (const q of queries.filter((x) => !x.cte))
@@ -314,6 +316,31 @@ describe('the gates', () => {
     // Back as they were: the member has only their own jobs again.
     expect(await count('business_v1', 'invoices', member)).toBe(0);
     expect(await count('business_v1', 'invoices', agencyAdmin)).toBe(2);
+  });
+
+  it('send the catalogue and the AI’s drafts only to whoever may see money and use the inbox', async () => {
+    expect(await count('business_v1', 'products', member)).toBeGreaterThan(0);
+    expect(await count('business_v1', 'ai_teammate_drafts', member)).toBeGreaterThan(0);
+    await rows(
+      admin$,
+      sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)
+          values (${business}, 'member', 'money.read', false), (${business}, 'member', 'inbox.use', false)`,
+    );
+    try {
+      for (const output of ['products', 'plans', 'ai_teammate_drafts'])
+        expect(await count('business_v1', output, member), output).toBe(0);
+      // And every query still sends a member the business took these from exactly what they may read.
+      for (const q of queries.filter((x) => !x.cte))
+        expect(await readableBy(q, member), `${q.stream} ${q.output}`).toEqual(
+          await sentTo(q, member),
+        );
+    } finally {
+      await rows(
+        admin$,
+        sql`delete from app.role_permission_overrides where workspace_id = ${business}`,
+      );
+    }
+    expect(await count('business_v1', 'products', member)).toBeGreaterThan(0);
   });
 
   it('send an agency to its own people, and each person only their own things', async () => {

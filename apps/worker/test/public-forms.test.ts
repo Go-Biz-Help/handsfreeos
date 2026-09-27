@@ -15,7 +15,9 @@ import { closeTestDbs, testDbs } from '@hfos/db/testing';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { admin, get, makeWorld, post, type World } from './booking-world';
+import { fakeBotCheck } from '../src/booking/bot-check';
+import { buildHttpServer } from '../src/http/server';
+import { admin, errorOf, get, makeWorld, post, type World } from './booking-world';
 
 let w: World;
 let slug: string;
@@ -242,6 +244,40 @@ describe('filling it in', () => {
           where workspace_id = ${w.workspaceId} and status = 'completed'`,
     );
     expect(Number(after[0]!.count)).toBe(Number(before[0]!.count));
+  });
+
+  it('asks for the bot check before sending, when it is on', async () => {
+    const guarded: World = {
+      ...w,
+      app: await buildHttpServer({
+        ...w.s,
+        httpDb: testDbs().worker.db,
+        verifyToken: null,
+        webOrigins: ['http://localhost:3000'],
+        forms: { botCheck: fakeBotCheck() },
+      }),
+    };
+    try {
+      const page = (await get(guarded, formUrl())).json() as { botCheck: unknown };
+      expect(page.botCheck).toEqual({ siteKey: 'fake-site-key' });
+      const started = (await post(guarded, formUrl('/start'), {}).then((r) => r.json())) as {
+        responseId: string;
+        token: string;
+      };
+      const send = (turnstileToken?: string) =>
+        post(guarded, formUrl(`/${started.responseId}/submit`), {
+          token: started.token,
+          answers: { [qid('name')]: 'Bot', [qid('phone')]: '(512) 555-0405' },
+          ...(turnstileToken ? { turnstileToken } : {}),
+        });
+      for (const refused of [await send(), await send('nope')]) {
+        expect(refused.statusCode).toBe(400);
+        expect(errorOf(refused).rule).toBe('bot_check_failed');
+      }
+      expect((await send('pass')).statusCode).toBe(200);
+    } finally {
+      await guarded.app.close();
+    }
   });
 });
 

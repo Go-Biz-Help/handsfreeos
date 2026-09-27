@@ -20,7 +20,7 @@ import { paymentConnections, subscriptions } from '@hfos/db/schema';
 import { workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, encodeCursor } from '../kernel/pagination';
+import { decodeTimeCursor, encodeCursor } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
 import { moneySettingsOf, numberPreview } from '../money/index';
 import {
@@ -140,7 +140,7 @@ const textArray = (values: readonly string[]) =>
 
 /** Lists are keyed on (created_at, id), newest first, as every other list here is. */
 function cursorClause(cursor: string | undefined, alias: 'e' | 'i' | 'p' | 's') {
-  const c = decodeCursor(cursor);
+  const c = decodeTimeCursor(cursor);
   if (!c) return sql``;
   const key =
     alias === 'e'
@@ -153,13 +153,25 @@ function cursorClause(cursor: string | undefined, alias: 'e' | 'i' | 'p' | 's') 
   return sql` and ${key} < (${c.sort}::timestamptz, ${c.id}::uuid)`;
 }
 
-function paged<T extends { id: string; created_at: Date | string }>(list: T[], limit: number) {
+/**
+ * The key a page's cursor carries, to the microsecond: a `Date` keeps milliseconds, and the rows between the
+ * truncated key and the real one would be skipped.
+ */
+const SORT_KEY = (column: ReturnType<typeof sql>) =>
+  sql`to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
+
+/** A list query of `select` (already ordered and limited), with each row's cursor key alongside. */
+const keyed = (select: ReturnType<typeof sql>) =>
+  sql`select l.*, ${SORT_KEY(sql`l.created_at`)} as sort_key from (${select}) l
+      order by l.created_at desc, l.id desc`;
+
+function paged<T extends { id: string; sort_key: string }>(list: T[], limit: number) {
   const more = list.length > limit;
   const items = more ? list.slice(0, limit) : list;
   const last = items[items.length - 1];
   return {
     items,
-    nextCursor: more && last ? encodeCursor({ sort: isoAt(last.created_at), id: last.id }) : null,
+    nextCursor: more && last ? encodeCursor({ sort: last.sort_key, id: last.id }) : null,
   };
 }
 
@@ -364,9 +376,9 @@ export const estimateList = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const search = like(input.search);
-    const list = await rows<EstimateRow>(
+    const list = await rows<EstimateRow & { sort_key: string }>(
       ctx.tx,
-      sql`${estimateSelect}
+      keyed(sql`${estimateSelect}
           where e.workspace_id = ${ctx.scope.workspaceId!}
             ${input.status?.length ? sql`and e.status::text = any(${textArray(input.status)})` : sql``}
             ${input.openOnly ? sql`and e.status = 'sent'` : sql``}
@@ -376,7 +388,7 @@ export const estimateList = defineQuery({
             ${estimateMemberClause(ctx)}
             ${cursorClause(input.cursor, 'e')}
           order by e.created_at desc, e.id desc
-          limit ${input.limit + 1}`,
+          limit ${input.limit + 1}`),
     );
     const { items, nextCursor } = paged(list, input.limit);
     const now = Date.now();
@@ -455,9 +467,9 @@ export const invoiceList = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const search = like(input.search);
-    const list = await rows<InvoiceRow>(
+    const list = await rows<InvoiceRow & { sort_key: string }>(
       ctx.tx,
-      sql`${invoiceSelect}
+      keyed(sql`${invoiceSelect}
           where i.workspace_id = ${ctx.scope.workspaceId!}
             ${input.status?.length ? sql`and i.status::text = any(${textArray(input.status)})` : sql``}
             ${input.purpose?.length ? sql`and i.purpose::text = any(${textArray(input.purpose)})` : sql``}
@@ -471,7 +483,7 @@ export const invoiceList = defineQuery({
             ${invoiceMemberClause(ctx)}
             ${cursorClause(input.cursor, 'i')}
           order by i.created_at desc, i.id desc
-          limit ${input.limit + 1}`,
+          limit ${input.limit + 1}`),
     );
     const { items, nextCursor } = paged(list, input.limit);
     const now = Date.now();
@@ -533,13 +545,14 @@ export const paymentList = defineQuery({
         person_email: string | null;
         person_phone: string | null;
         invoice_number: string | null;
+        sort_key: string;
       }
     >(
       ctx.tx,
       sql`select p.id, p.invoice_id, p.amount_cents::float8 as amount_cents, p.method::text as method,
             p.provider::text as provider, p.connection_id, p.status::text as status, p.provider_status,
             p.failure_code, p.fee_cents::float8 as fee_cents, p.net_cents::float8 as net_cents,
-            p.received_at, p.recorded_by, p.created_at,
+            p.received_at, p.recorded_by, p.created_at, ${SORT_KEY(sql`p.created_at`)} as sort_key,
             coalesce(nullif(u.full_name, ''), u.email::text) as recorded_by_name,
             coalesce((select sum(r.amount_cents) from app.refunds r
               where r.payment_id = p.id and r.status = 'succeeded'), 0)::float8 as refunded_cents,
@@ -593,9 +606,9 @@ export const subscriptionList = defineQuery({
   permission: 'money.bill',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const list = await rows<SubscriptionRow>(
+    const list = await rows<SubscriptionRow & { sort_key: string }>(
       ctx.tx,
-      sql`${subscriptionSelect}
+      keyed(sql`${subscriptionSelect}
           where s.workspace_id = ${ctx.scope.workspaceId!}
             ${subscriptionMemberClause(ctx)}
             ${input.status?.length ? sql`and s.status::text = any(${textArray(input.status)})` : sql``}
@@ -604,7 +617,7 @@ export const subscriptionList = defineQuery({
             ${accountClause(sql`s.connection_id`, input.connectionId)}
             ${cursorClause(input.cursor, 's')}
           order by s.created_at desc, s.id desc
-          limit ${input.limit + 1}`,
+          limit ${input.limit + 1}`),
     );
     const { items, nextCursor } = paged(list, input.limit);
     return { subscriptions: items.map(subscriptionOut), nextCursor };

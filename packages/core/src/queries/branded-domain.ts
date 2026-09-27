@@ -1,10 +1,15 @@
 import { eq } from 'drizzle-orm';
 import { brandedDomains } from '@hfos/db/schema';
 import { defineQuery } from '../kernel/define';
-import { BrandedDomainGetInput, BrandedDomainGetOutput } from '../schemas/branded-domain';
+import {
+  BrandedDomainGetInput,
+  BrandedDomainGetOutput,
+  ownershipHost,
+} from '../schemas/branded-domain';
 
 /** A record the business still has to put in its DNS, in the order it should do them. */
 const RECORDS = {
+  ownership: 'Proves the domain is your business’s, not just pointed at HandsFreeOS.',
   verification: 'Proves the domain is yours before a certificate is issued for it.',
   cname: 'Points the domain at HandsFreeOS. This is what makes it work.',
 } as const;
@@ -36,6 +41,16 @@ export const brandedDomainGet = defineQuery({
         records: serving
           ? []
           : [
+              ...(row.ownershipProvedAt
+                ? []
+                : [
+                    {
+                      kind: 'TXT' as const,
+                      host: ownershipHost(row.domain),
+                      value: row.ownershipToken,
+                      why: RECORDS.ownership,
+                    },
+                  ]),
               ...(row.verificationHost && row.verificationValue
                 ? [
                     {

@@ -26,6 +26,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { BotCheck } from '../booking/bot-check';
+import { KeyedLimiter, type Hit } from '../chat/limiter';
 import { systemActor } from '../services';
 import { header, type HttpDeps } from './common';
 
@@ -162,6 +163,32 @@ export async function registerIntakeRoutes(app: FastifyInstance, deps: HttpDeps)
     form: { max: Math.ceil(10 * factor), timeWindow: '1 minute' },
     api: { max: Math.ceil(60 * factor), timeWindow: '1 minute' },
   };
+  // A website form can't demand the human check, so a script spread over many addresses is bounded by these, in
+  // memory on each machine like the chat's, on top of the per-minute limit above and the source's daily cap:
+  // an address over an hour, one form in a burst, and the business across all its forms.
+  const formLimits = {
+    ipHour: { max: Math.ceil(30 * factor), timeWindow: 60 * 60_000 },
+    formMinute: { max: Math.ceil(20 * factor), timeWindow: 60_000 },
+    businessMinute: { max: Math.ceil(40 * factor), timeWindow: 60_000 },
+    businessHour: { max: Math.ceil(300 * factor), timeWindow: 60 * 60_000 },
+  };
+  const limiter = new KeyedLimiter();
+  const limitForm = (reply: FastifyReply, ip: string, route: FormRoute): void => {
+    const hits: Hit[] = [
+      { key: `ip:${ip}`, rule: formLimits.ipHour },
+      { key: `f:${route.source_id}`, rule: formLimits.formMinute },
+      { key: `b:${route.workspace_id}:m`, rule: formLimits.businessMinute },
+      { key: `b:${route.workspace_id}:h`, rule: formLimits.businessHour },
+    ];
+    const r = limiter.take(hits);
+    if (r.ok) return;
+    void reply.header('retry-after', String(Math.max(1, Math.ceil(r.retryAfterMs / 1000))));
+    throw HfosError.rule(
+      'rate_limited',
+      429,
+      'Too many forms sent from here. Wait a little and try again.',
+    );
+  };
   const botCheck = deps.intake?.botCheck ?? null;
   const meta = (): RequestMeta => ({ correlationId: randomUUID(), channel: 'booking_page' });
 
@@ -216,10 +243,15 @@ export async function registerIntakeRoutes(app: FastifyInstance, deps: HttpDeps)
         // The Origin header comes from the browser on every cross-site POST, and a page cannot change it.
         const origin = originOf(header(req, 'origin'));
         if (!origin || !route.allowed_origins.includes(origin)) throw originRefused();
+        limitForm(reply, req.ip, route);
 
         const done = (outcome: string) => answer(reply, req, route.redirect_url, outcome);
         // A robot filled in the field people can't see: it is told all is well, and nothing is written.
         if (honeypot) return done('opened');
+        // A script can send any Origin it likes, yet a token can't be demanded: the form is on their own site,
+        // which needn't carry our widget, and a cf-turnstile-response it does send is usually their own widget's,
+        // which fails against our secret. So main.ts leaves this check off, and the source's daily cap and the
+        // limits here are what bound a script.
         if (botCheck?.enabled && turnstile) {
           const verdict = await botCheck.verify(turnstile, req.ip);
           if (verdict === 'fail') return done('opened');

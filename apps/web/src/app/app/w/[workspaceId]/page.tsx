@@ -9,7 +9,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { RoleBadge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { apiServer, fetchMe, unwrap, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, unwrap, unwrapPage } from '@/lib/api/server';
 import type { Members, Task } from '@/lib/api/types';
 import { todayIn } from '@/lib/calendar/time';
 
@@ -38,7 +38,7 @@ export default async function WorkspaceHomePage({
   const linked = (await searchParams)['item'];
   const { api, userId } = await apiServer();
   const [me, got, summary, list] = await Promise.all([
-    fetchMe(api),
+    getMe(),
     api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then((r) => unwrapPage(r)),
     api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then((r) => unwrapPage(r)),
     api

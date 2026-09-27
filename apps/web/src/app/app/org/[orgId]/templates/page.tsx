@@ -5,7 +5,7 @@ import { SaveWorkflowAsTemplateButton, TemplateList } from '@/components/agency/
 import { PageHeader } from '@/components/shell/page-header';
 import { loadTemplates } from '@/lib/agency/load';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { apiServer, getMe } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Templates' };
 
@@ -17,7 +17,7 @@ export default async function AgencyTemplatesPage({
 }) {
   const { orgId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const org = agencyOrganizations(me).find((o) => o.id === orgId);
   if (!org) notFound();
   const businesses = orgBusinesses(me, orgId).map((b) => ({ id: b.id, name: b.name }));

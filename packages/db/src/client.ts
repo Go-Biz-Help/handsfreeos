@@ -49,6 +49,15 @@ export interface CreateDbOptions {
  */
 const IDLE_TIMEOUT_SECONDS = 20;
 
+/**
+ * Bounds on a person's transaction. The API has only a handful of pooled connections, and a request holds one for
+ * the whole of its transaction: one slow read, or a transaction left open while nothing runs, would otherwise keep
+ * its slot for as long as it liked, and every other business's requests on that machine would queue behind it.
+ * Generous for anything a screen asks for; the slow work (imports, sends, workflows) runs in the worker.
+ */
+const USER_STATEMENT_TIMEOUT = '15s';
+const USER_IDLE_IN_TRANSACTION_TIMEOUT = '30s';
+
 export function createDb(url: string, opts: CreateDbOptions = {}): DbHandle {
   const client = postgres(url, {
     max: opts.max ?? 10,
@@ -72,6 +81,10 @@ export async function asUser<T>(
   return db.transaction(async (tx) => {
     await tx.execute(sql`select set_config('request.jwt.claims', ${payload}, true)`);
     await tx.execute(sql`set local role authenticated`);
+    await tx.execute(
+      sql`select set_config('statement_timeout', ${USER_STATEMENT_TIMEOUT}, true),
+            set_config('idle_in_transaction_session_timeout', ${USER_IDLE_IN_TRANSACTION_TIMEOUT}, true)`,
+    );
     return fn(tx);
   });
 }
@@ -83,12 +96,11 @@ export async function asWorker<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`set local role service_actor`);
+    // One round trip: `set_config('role', …, true)` is `set local role`, with the same membership check.
     await tx.execute(
-      sql`select set_config('app.system_scope.workspace_id', ${scope.workspaceId ?? ''}, true)`,
-    );
-    await tx.execute(
-      sql`select set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true)`,
+      sql`select set_config('role', 'service_actor', true),
+            set_config('app.system_scope.workspace_id', ${scope.workspaceId ?? ''}, true),
+            set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true)`,
     );
     return fn(tx);
   });

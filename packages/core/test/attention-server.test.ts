@@ -529,6 +529,25 @@ describe('item commands', () => {
     );
   });
 
+  it('never lets a member put themselves on a lead, which would show them its bills', async () => {
+    // SEC-M5: handing a lead to an owner or admin is fine (above); making yourself its assignee is how a member
+    // without records.assign read bills they were never shown.
+    const kim = await customer(a, 'Kim');
+    const leadId = await staleLead(a, kim, 'Duct cleaning');
+    await expectHfos(
+      () => run(leadUpdate, { workspaceId: a.wsId, leadId, assigneeUserId: a.member.id }, a.member),
+      'rule_violation',
+      'lead_assign_managers_only',
+    );
+    const [lead] = await admin()
+      .select({ assignee: leads.assigneeUserId })
+      .from(leads)
+      .where(eq(leads.id, leadId));
+    expect(lead!.assignee).not.toBe(a.member.id);
+    // An owner still can.
+    await run(leadUpdate, { workspaceId: a.wsId, leadId, assigneeUserId: a.member.id }, a.owner);
+  });
+
   it('snoozes, dismisses and restores; cancels a waiting automatic action; records what HandsFreeOS sent', async () => {
     const jo = await customer(a, 'Jo');
     const leadId = await staleLead(a, jo, 'Water heater');

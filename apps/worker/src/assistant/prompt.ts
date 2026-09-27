@@ -195,23 +195,18 @@ function pageLines(page: NonNullable<PromptContext['page']>): string[] {
   return lines;
 }
 
-export function contextText(c: PromptContext): string {
-  const local = plainSpaces(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: c.timezone,
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    }).format(c.now),
-  );
+/** Everything the model is told about the business, the person and what's on screen. */
+export const contextText = (c: PromptContext): string => `${lastingText(c)}\n${turnText(c)}`;
+
+/**
+ * What stays the same from one question to the next (the business, the person, its pipelines, team,
+ * calendars, services, workflows and profile): the provider caches it after the fixed instructions, so a
+ * thread's questions don't pay for it again each time. Nothing here may change per question.
+ */
+export function lastingText(c: PromptContext): string {
   const lines = [
     `Business: ${c.businessName}.`,
     `You are helping ${c.personName} (${c.role}).`,
-    `It is ${local} (time zone ${c.timezone}).`,
     'Pipelines and their stages:',
     ...c.pipelines.map(
       (p) =>
@@ -258,6 +253,35 @@ export function contextText(c: PromptContext): string {
           ]
         : ['Workflows: none yet.']
       : []),
+    ...(c.knowledge
+      ? [
+          '<business_profile>',
+          c.knowledge.brief,
+          '</business_profile>',
+          'Rules for what you say about the business:',
+          c.knowledge.rules,
+        ]
+      : []),
+  ];
+  return lines.join('\n');
+}
+
+/** What changes from one question to the next: the time, the approvals, the Action Center and the page. */
+export function turnText(c: PromptContext): string {
+  const local = plainSpaces(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: c.timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(c.now),
+  );
+  const lines = [
+    `It is ${local} (time zone ${c.timezone}).`,
     ...(c.approvals?.length
       ? [
           'Workflow approvals waiting on this person:',
@@ -268,15 +292,6 @@ export function contextText(c: PromptContext): string {
         ]
       : []),
     ...(c.attention ? attentionLines(c.attention) : []),
-    ...(c.knowledge
-      ? [
-          '<business_profile>',
-          c.knowledge.brief,
-          '</business_profile>',
-          'Rules for what you say about the business:',
-          c.knowledge.rules,
-        ]
-      : []),
     ...(c.page ? pageLines(c.page) : ['No customer, lead or appointment is on screen.']),
     ...(c.spoken ? [SPOKEN] : []),
   ];

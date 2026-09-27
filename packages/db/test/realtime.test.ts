@@ -77,6 +77,31 @@ describe('live updates: broadcast from the database', () => {
     expect(none).toHaveLength(0);
   });
 
+  it('an inbox or money event says what happened, but not to which record or by whom', async () => {
+    // Everyone in the business hears the topic, including a member narrowed to their own threads.
+    const entityId = randomUUID();
+    const [event] = await as(member)((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.events (organization_id, workspace_id, event_type, actor_type, actor_id, entity_type, entity_id, payload, correlation_id)
+            values (${org}, ${ws}, 'message.sent', 'human', ${member.id}, 'message', ${entityId}, '{}'::jsonb, ${randomUUID()})
+            returning id`,
+      ),
+    );
+    const messages = await rows<{ payload: Record<string, unknown> }>(
+      dbs.admin.db,
+      sql`select payload from realtime.messages where topic = ${'workspace:' + ws} and payload ->> 'id' = ${event!.id}`,
+    );
+    expect(messages).toHaveLength(1);
+    expect(messages[0]!.payload).toMatchObject({
+      type: 'message.sent',
+      entityType: 'message',
+      entityId: null,
+      actorType: 'human',
+      actorId: null,
+    });
+  });
+
   it('only members of the workspace may read its topic', async () => {
     await insertEvent(member);
     const forMember = await as(member)(async (tx) => {

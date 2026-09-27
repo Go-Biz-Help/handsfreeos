@@ -6,6 +6,7 @@ import {
   events,
   invitations,
   organizationMemberships,
+  outbox,
   workspaceMemberships,
   workspaces,
 } from '../src/schema/index';
@@ -470,6 +471,38 @@ describe('events and audit are append-only and honest about their actor', () => 
       ),
     );
     expect(foreign.code).toBe('42501');
+  });
+
+  it('an outbox row must say what its own event says, so the worker never runs it in another tenant', async () => {
+    const recordAndQueue = (queued: { workspaceId: string; eventType: string }) =>
+      as(clientAOwner)(async (tx) => {
+        const [ev] = await tx
+          .insert(events)
+          .values({
+            organizationId: agency.orgId,
+            workspaceId: agency.wsId,
+            eventType: 'test.queued',
+            actorType: 'human',
+            actorId: clientAOwner.id,
+            entityType: 'workspace',
+            entityId: agency.wsId,
+            correlationId: randomUUID(),
+          })
+          .returning({ id: events.id });
+        await tx
+          .insert(outbox)
+          .values({ eventId: ev!.id, organizationId: agency.orgId, ...queued });
+        return ev!.id;
+      });
+    await recordAndQueue({ workspaceId: agency.wsId, eventType: 'test.queued' });
+    const elsewhere = await expectPgError(() =>
+      recordAndQueue({ workspaceId: wsB, eventType: 'test.queued' }),
+    );
+    expect(elsewhere.code).toBe('42501');
+    const retyped = await expectPgError(() =>
+      recordAndQueue({ workspaceId: agency.wsId, eventType: 'test.other' }),
+    );
+    expect(retyped.code).toBe('42501');
   });
 
   it('events and audit rows cannot be updated or deleted by anyone, including postgres', async () => {

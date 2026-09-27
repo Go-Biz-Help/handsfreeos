@@ -300,6 +300,44 @@ describe('who bills into which account', () => {
   });
 });
 
+describe('an account another business already has', () => {
+  // SEC-M6: webhooks find their business by the account alone, so a second business connecting the same
+  // account took over every event for it.
+  it('is refused, and the business that has it keeps it', async () => {
+    const other = await setupTeam('payment-access-other');
+    const [held] = await rows<{ external_account_id: string }>(
+      admin(),
+      sql`select external_account_id from app.payment_connections where id = ${main}`,
+    );
+    const [pending] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.payment_connections (workspace_id, provider, environment, status)
+          values (${other.wsId}, 'stripe', 'live', 'pending') returning id`,
+    );
+    await expectHfos(
+      () =>
+        runSystem(
+          paymentConnectionActivate,
+          {
+            workspaceId: other.wsId,
+            connectionId: pending!.id,
+            externalAccountId: held!.external_account_id,
+            tokenEnc: 'sealed-elsewhere',
+            tokenKeyId: 'key-1',
+          },
+          other.scope,
+        ),
+      'payment_account_connected_elsewhere',
+      409,
+    );
+    const [still] = await rows<{ status: string }>(
+      admin(),
+      sql`select status::text from app.payment_connections where id = ${main}`,
+    );
+    expect(still!.status).toBe('active');
+  });
+});
+
 /** The database's own refusal, as the message it raised. */
 async function expectPg(fn: () => Promise<unknown>): Promise<string> {
   try {

@@ -12,11 +12,12 @@
  *   contains `taken`    already claimed somewhere else — refused, and never retried
  *   contains `slow`     the records are right, the certificate never issues
  *   contains `missing`  the records are never found
+ *   contains `squat`    pointed here, but the business never publishes its claim token
  *   anything else       claimed, then working on the next look
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createFakeHost } from '../src/hosting/fake';
-import { HostError, isPermanentHostError } from '../src/hosting/host';
+import { HostError, isPermanentHostError, txtValues } from '../src/hosting/host';
 import { forgetPublicOrigin, linksOn, publicOrigin } from '../src/hosting/origin';
 import type { Tx } from '@hfos/db/client';
 
@@ -81,6 +82,34 @@ describe('the fake host', () => {
   it('does not mind being asked to remove a name it never had', async () => {
     const host = createFakeHost();
     await expect(host.remove('never.example.com')).resolves.toBeUndefined();
+  });
+});
+
+describe('proving a name is the business’s own', () => {
+  it('the fake finds the claim token, except on a name somebody is squatting', async () => {
+    const host = createFakeHost();
+    expect(await host.owns('_hfos-verify.booking.lonestarhvac.com', 'abc')).toBe(true);
+    expect(await host.owns('_hfos-verify.squat.lonestarhvac.com', 'abc')).toBe(false);
+  });
+
+  it('reads a TXT record split into pieces as one value, and a name with none as none', async () => {
+    const found = await txtValues('_hfos-verify.x.test', async () => [['ab', 'cd'], ['other']]);
+    expect(found).toEqual(['abcd', 'other']);
+    const none = Object.assign(new Error('no data'), { code: 'ENODATA' });
+    expect(
+      await txtValues('_hfos-verify.x.test', async () => {
+        throw none;
+      }),
+    ).toEqual([]);
+  });
+
+  it('lets DNS having a bad minute be retried rather than read as "not theirs"', async () => {
+    const timeout = Object.assign(new Error('timed out'), { code: 'ETIMEOUT' });
+    await expect(
+      txtValues('_hfos-verify.x.test', async () => {
+        throw timeout;
+      }),
+    ).rejects.toBe(timeout);
   });
 });
 

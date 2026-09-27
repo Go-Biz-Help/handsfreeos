@@ -10,7 +10,7 @@ import { HfosError } from '../errors';
 import { lineDisplayOf } from '../inbox/rows';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
 import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
 import {
@@ -177,20 +177,27 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
  * address matches a customer without being them, and a merge made on that guess is far harder to undo than
  * one that never happened.
  */
-const SAME_AS = (workspaceId: string) => sql`
-  (select json_build_object('id', sp.id,
-            'fullName', btrim(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')))
-     from app.people sp
-    where x.person_id is null
-      and sp.workspace_id = ${workspaceId}
-      and sp.archived_at is null
-      and ((x.channel = 'sms' and (sp.phone_e164 = x.counterpart
-             or sp.other_phones @> jsonb_build_array(jsonb_build_object('phone', x.counterpart))))
-        or (x.channel = 'email' and (lower(sp.email::text) = x.counterpart
-             or sp.other_emails @> jsonb_build_array(jsonb_build_object('email', x.counterpart)))))
-    order by (sp.phone_e164 = x.counterpart or lower(sp.email::text) = x.counterpart) desc nulls last,
-      sp.updated_at desc
-    limit 1)`;
+const SAME_AS = (workspaceId: string) => {
+  // One lookup per way of matching rather than one OR over them all, so each can use its own index (the phone and
+  // email ones, the GIN ones on the other numbers and addresses); the OR, and lower() on the email, read every
+  // customer in the business for every unlinked row on the page. Their order is the old ORDER BY: a customer whose
+  // main number or address it is first, the most recently touched among equals.
+  const match = (on: ReturnType<typeof sql>) => sql`
+    (select json_build_object('id', sp.id,
+              'fullName', btrim(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')))
+       from app.people sp
+      where x.person_id is null
+        and sp.workspace_id = ${workspaceId}
+        and sp.archived_at is null
+        and ${on}
+      order by sp.updated_at desc
+      limit 1)`;
+  return sql`coalesce(
+    ${match(sql`x.channel = 'sms' and sp.phone_e164 = x.counterpart`)},
+    ${match(sql`x.channel = 'email' and sp.email = x.counterpart::extensions.citext`)},
+    ${match(sql`x.channel = 'sms' and sp.other_phones @> jsonb_build_array(jsonb_build_object('phone', x.counterpart))`)},
+    ${match(sql`x.channel = 'email' and sp.other_emails @> jsonb_build_array(jsonb_build_object('email', x.counterpart))`)})`;
+};
 
 /**
  * The customer's open lead and who sent the last text, over a row `x` of `conversationSelect`.
@@ -395,62 +402,103 @@ export const inboxList = defineQuery({
     const digits = input.q?.replace(/[^0-9]/g, '') ?? '';
     // "Needs a person" lists whoever has waited longest first.
     const oldestFirst = input.box === 'needs_person';
-    const box =
-      input.box === 'mine'
-        ? sql`and c.assignee_user_id = ${me}`
-        : input.box === 'unassigned'
-          ? sql`and c.assignee_user_id is null`
-          : input.box === 'needs_person'
-            ? sql`and c.needs_person_since is not null`
-            : input.box === 'ai'
-              ? sql`and c.handled_by = 'ai'`
-              : sql``;
-    // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
-    const archived =
-      input.box === 'archived'
-        ? sql`and c.archived_at is not null`
-        : sql`and c.archived_at is null`;
+    // The filters over a thread `t`: the list's own (`c`), and, with the same meaning, the newer lane of the same
+    // customer the grouped list looks for (`c2`).
+    const filters = (t: 'c' | 'c2') => {
+      const c = sql.raw(t);
+      const box =
+        input.box === 'mine'
+          ? sql`and ${c}.assignee_user_id = ${me}`
+          : input.box === 'unassigned'
+            ? sql`and ${c}.assignee_user_id is null`
+            : input.box === 'needs_person'
+              ? sql`and ${c}.needs_person_since is not null`
+              : input.box === 'ai'
+                ? sql`and ${c}.handled_by = 'ai'`
+                : sql``;
+      // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
+      const archived =
+        input.box === 'archived'
+          ? sql`and ${c}.archived_at is not null`
+          : sql`and ${c}.archived_at is null`;
+      // A chat visitor's name is joined for `c`; for `c2` it is looked up. The customer's name needs neither:
+      // a lane of the same customer has the same person, so `p` is theirs too.
+      const visitorName =
+        t === 'c'
+          ? sql`cv.name`
+          : sql`(select cv2.name from app.chat_visitors cv2 where cv2.conversation_id = c2.id)`;
+      return sql`
+            ${
+              input.personId
+                ? sql`and ${c}.person_id = ${input.personId}`
+                : // Archived threads keep whatever status they had, so their own box lists them all rather than
+                  // hiding every closed one behind a status nobody chose.
+                  input.box === 'archived'
+                  ? sql`and ${c}.last_message_at is not null`
+                  : sql`and ${c}.status = ${input.status}::app.conversation_status and ${c}.last_message_at is not null`
+            }
+            ${box}
+            ${archived}
+            ${input.channel ? sql`and ${c}.channel = ${input.channel}::app.channel` : sql``}
+            ${input.unread ? sql`and ${c}.unread_count > 0` : sql``}
+            ${
+              q
+                ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
+                      or lower(${c}.counterpart) like ${q} or lower(coalesce(${c}.last_preview, '')) like ${q}
+                      or lower(coalesce(${visitorName}, '')) like ${q}
+                      ${digits.length >= 3 ? sql`or ${c}.counterpart like ${`%${digits}%`}` : sql``})`
+                : sql``
+            }`;
+    };
     /**
      * One row per customer, not per thread (0089).
      *
      * The filters run first, on threads, so a box still means what it says: "Mine" is the customer with a
      * thread assigned to me, and the row that comes back stands for that thread rather than for some other
-     * lane of theirs the filter never matched. Then `row_number` keeps the newest matching lane per customer
-     * and the rest fold into its `lanes`.
+     * lane of theirs the filter never matched. A thread is kept when no other lane of theirs that the filters
+     * keep is newer, and the rest fold into its `lanes`.
+     *
+     * That is a lookup per thread rather than a window over the box, so the page can be read off the inbox's
+     * (workspace, status, recency) index and stop once it is full: a window numbered every matching thread in
+     * the business, on every page and every live refresh, before the cursor and the limit cut it. Every grouped
+     * thread has a last message (and every one in "Needs a person" a moment it started waiting), so the raw
+     * column sorts as `sort_key` does.
      *
      * **The customer record page is the one screen that does not group.** It asks for one person's threads on
      * purpose — grouping them would answer with a single row, which is the opposite of what it is for.
      */
     const grouped = !input.personId;
-    const matching = sql`${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
+    const col = sql.raw(oldestFirst ? 'needs_person_since' : 'last_message_at');
+    const one = sql`${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
+            ${filters('c')}
             ${
-              input.personId
-                ? sql`and c.person_id = ${input.personId}`
-                : // Archived threads keep whatever status they had, so their own box lists them all rather than
-                  // hiding every closed one behind a status nobody chose.
-                  input.box === 'archived'
-                  ? sql`and c.last_message_at is not null`
-                  : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`
-            }
-            ${box}
-            ${archived}
-            ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
-            ${input.unread ? sql`and c.unread_count > 0` : sql``}
-            ${
-              q
-                ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
-                      or lower(c.counterpart) like ${q} or lower(coalesce(c.last_preview, '')) like ${q}
-                      or lower(coalesce(cv.name, '')) like ${q}
-                      ${digits.length >= 3 ? sql`or c.counterpart like ${`%${digits}%`}` : sql``})`
+              grouped
+                ? sql`and not exists (select 1 from app.conversations c2
+                    where c2.workspace_id = c.workspace_id
+                      -- An OR, as in the lanes, so each half can use its own index.
+                      and (c2.person_id = c.person_id
+                        or (c.person_id is null and c2.person_id is null and c2.channel = c.channel
+                          and c2.counterpart = c.counterpart))
+                      ${filters('c2')}
+                      and (c2.${col}, c2.id) > (c.${col}, c.id))`
                 : sql``
             }`;
-    // The newest matching lane per customer, or every matching thread when the record page asked for one
-    // customer's own list.
-    const one = grouped
-      ? sql`select * from (select m.*, row_number() over (
-              partition by m.group_key order by m.sort_key desc, m.id desc) as rn
-            from (${matching}) m) k where k.rn = 1`
-      : sql`select * from (${matching}) k`;
+    const after = !cursor
+      ? sql``
+      : grouped
+        ? oldestFirst
+          ? sql`and (x.${col}, x.id) > (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
+          : sql`and (x.${col}, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
+        : oldestFirst
+          ? sql`and (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`
+          : sql`and (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`;
+    const order = grouped
+      ? oldestFirst
+        ? sql`x.${col} asc, x.id asc`
+        : sql`x.${col} desc nulls last, x.id desc`
+      : oldestFirst
+        ? sql`x.sort_key asc, x.id asc`
+        : sql`x.sort_key desc, x.id desc`;
     const list = await rows<ConversationRow>(
       ctx.tx,
       sql`select x.*, ${ROW_EXTRAS},
@@ -458,8 +506,8 @@ export const inboxList = defineQuery({
             ${SAME_AS(input.workspaceId)} as same_as
           from (${one}) x
           where true
-          ${cursor ? (oldestFirst ? sql`and (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql`and (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
-          order by ${oldestFirst ? sql`x.sort_key asc, x.id asc` : sql`x.sort_key desc, x.id desc`}
+          ${after}
+          order by ${order}
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
@@ -795,7 +843,7 @@ export const conversationThread = defineQuery({
       sql`select id from app.conversations where id = ${input.conversationId} and workspace_id = ${input.workspaceId}`,
     );
     if (!exists) throw HfosError.notFound('Conversation not found.');
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     // "All": every lane of this customer woven together, each item saying which line it was on (0089).
     const lanes = input.allLanes
       ? await lanesOf(ctx, input.workspaceId, input.conversationId)
@@ -803,13 +851,20 @@ export const conversationThread = defineQuery({
     const lines = lanes ? new Map(lanes.map((l) => [l.id, l.lineDisplay])) : undefined;
     // `uuidArray`, not a bare array: Drizzle's sql tag spreads a JS array into a parameter list.
     const ids = uuidArray(lanes?.length ? lanes.map((l) => l.id) : [input.conversationId]);
+    // Each branch pages on its own column (the thread indexes serve it) and stops at a page, then the two merge.
+    const branchPage = (at: ReturnType<typeof sql>, id: ReturnType<typeof sql>) =>
+      sql`${input.since ? sql`and ${at} > ${input.since}::timestamptz` : sql``}
+        ${cursor ? sql`and (${at}, ${id}) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
+        order by ${at} desc, ${id} desc
+        limit ${input.limit + 1}`;
     const list = await rows<ThreadRow>(
       ctx.tx,
       sql`select * from (
-            ${messageBranch(input.workspaceId)} and m.conversation_id = any(${ids})
+            (${messageBranch(input.workspaceId)} and m.conversation_id = any(${ids})
               and m.error_code is distinct from ${CANCELLED_TEXT}
+              ${branchPage(sql`m.occurred_at`, sql`m.id`)})
             union all
-            select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
+            (select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
               c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript,
               c.transcript_status::text, c.answered_by_user_id,
@@ -824,11 +879,9 @@ export const conversationThread = defineQuery({
             where c.workspace_id = ${input.workspaceId} and c.conversation_id = any(${ids})
               -- A call through someone's own cell joins the conversation once the customer's phone was dialed.
               and (c.answered_via is distinct from 'bridge' or c.answered_by_user_id is not null)
+              ${branchPage(sql`c.started_at`, sql`c.id`)})
           ) t
-          where true
-          ${input.since ? sql`and t.occurred_at > ${input.since}::timestamptz` : sql``}
-          ${cursor ? sql`and (t.sort_key, t.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
-          order by t.sort_key desc, t.id desc
+          order by t.occurred_at desc, t.id desc
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
@@ -878,7 +931,7 @@ export const callLog = defineQuery({
   permission: 'inbox.use',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const filter =
       input.filter === 'missed'
         ? sql`and c.direction = 'inbound' and c.answered_at is null`
@@ -921,7 +974,7 @@ export const callLog = defineQuery({
           left join app.users au on au.id = c.answered_by_user_id
           where c.workspace_id = ${input.workspaceId}
           ${filter}
-          ${cursor ? sql`and (${SORT_KEY(sql`c.started_at`)}, c.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+          ${cursor ? sql`and (c.started_at, c.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by c.started_at desc, c.id desc
           limit ${input.limit + 1}`,
     );

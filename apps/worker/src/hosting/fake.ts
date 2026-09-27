@@ -10,6 +10,7 @@ import { HostError } from './host';
  *   contains `taken`    already claimed somewhere else — refused, and not retried
  *   contains `slow`     the records are right but the certificate never issues
  *   contains `missing`  the records are never found
+ *   contains `squat`    pointed here, but the business never publishes its claim token
  *   anything else       claimed, then working on the next check
  */
 export interface FakeHost extends SiteHost {
@@ -69,6 +70,9 @@ export function createFakeHost(): FakeHost {
     async remove(domain) {
       removed.push(domain);
       seen.delete(domain);
+    },
+    async owns(txtHost) {
+      return !txtHost.includes('squat');
     },
   };
 }

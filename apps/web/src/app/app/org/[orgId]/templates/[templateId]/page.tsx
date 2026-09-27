@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { TemplateEditor } from '@/components/agency/template-editor';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
-import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Template' };
 
@@ -17,7 +17,7 @@ export default async function AgencyTemplatePage({
   const { orgId, templateId } = await params;
   if (!ID.test(templateId)) notFound();
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const org = agencyOrganizations(me).find((o) => o.id === orgId);
   if (!org) notFound();
   const data = unwrapPage(

@@ -51,10 +51,13 @@ async function allowedOrigins(site: string, slug: string): Promise<readonly stri
   }
 }
 
-/** proxy.ts: the frame rule on a public form's response. */
-export async function formFrameProxy(request: NextRequest): Promise<NextResponse> {
-  const response = NextResponse.next();
-  const [, , site, slug] = request.nextUrl.pathname.split('/');
+/**
+ * proxy.ts: the frame rule on a public form's response. On a business's own domain the request is rewritten
+ * onto the form's own path first (`rewriteTo`), and the rule is the same.
+ */
+export async function formFrameProxy(request: NextRequest, rewriteTo?: URL): Promise<NextResponse> {
+  const response = rewriteTo ? NextResponse.rewrite(rewriteTo) : NextResponse.next();
+  const [, , site, slug] = (rewriteTo ?? request.nextUrl).pathname.split('/');
   const from = exactOrigin(request.headers.get('referer'));
   let rule = "frame-ancestors 'self'";
   if (

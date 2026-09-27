@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { webhookDeliveries } from '@hfos/db/schema';
 import { backoffMs, errorMessage, MAX_ATTEMPTS } from './outbox';
@@ -56,9 +56,18 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
     ),
   );
   stats.claimed = claimed.length;
+  // Ours only while the lease holds: a delivery still waiting its turn after the ones before it ran for five
+  // minutes can be claimed by another worker, and must then be processed there, not twice.
+  const ours = (id: string) =>
+    and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.lockedBy, deps.workerId));
   for (const { id } of claimed) {
+    // Read as its turn comes, and the lease renewed from now for the processor's own five minutes.
     const [delivery] = await asWorker(deps.db, {}, (tx) =>
-      tx.select().from(webhookDeliveries).where(eq(webhookDeliveries.id, id)),
+      tx
+        .update(webhookDeliveries)
+        .set({ lockedAt: sql`now()` })
+        .where(and(ours(id), eq(webhookDeliveries.status, 'pending')))
+        .returning(),
     );
     if (!delivery) continue;
     const processor = deps.processors[`${delivery.provider}:${delivery.kind}`];
@@ -81,7 +90,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
             lockedBy: null,
             lastError: null,
           })
-          .where(eq(webhookDeliveries.id, id)),
+          .where(ours(id)),
       );
       if (outcome === 'ignored') stats.ignored++;
       else stats.done++;
@@ -110,7 +119,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
             lockedAt: null,
             lockedBy: null,
           })
-          .where(eq(webhookDeliveries.id, id)),
+          .where(ours(id)),
       );
       if (failed) stats.failed++;
       else stats.retried++;

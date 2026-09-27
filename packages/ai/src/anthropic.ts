@@ -83,7 +83,7 @@ export class AnthropicProvider implements AiProvider {
           model: this.model,
           max_tokens: request.maxTokens ?? 2048,
           system: systemOf(request),
-          messages: request.messages.map(toAnthropic),
+          messages: messagesOf(request.messages),
           ...(tools.length ? { tools } : {}),
           ...(request.responseFormat
             ? {
@@ -207,19 +207,49 @@ function usageOf(u: Anthropic.Usage): AiUsage {
   };
 }
 
+/**
+ * The conversation is sent again every round of a tool loop, so its end is cached too: the next round reads
+ * everything up to it, history and tool results included, and pays full price only for what's new. A picture
+ * is the bulk of a turn, so the conversation's last one keeps its own mark unless the end mark already covers
+ * it. With the system and lasting marks that is four at most, the API's limit.
+ */
+function messagesOf(messages: readonly AiMessage[]): Anthropic.MessageParam[] {
+  const out = messages.map(toAnthropic);
+  const lastImage = out.findLastIndex(
+    (m) => typeof m.content !== 'string' && m.content.some((b) => b.type === 'image'),
+  );
+  if (lastImage >= 0 && lastImage < out.length - 1)
+    out[lastImage] = withCacheOn(out[lastImage]!, 'image');
+  if (out.length) out[out.length - 1] = withCacheOn(out[out.length - 1]!, 'last');
+  return out;
+}
+
 function toAnthropic(m: AiMessage): Anthropic.MessageParam {
   if (typeof m.content === 'string') return { role: m.role, content: m.content };
-  // A picture is the bulk of a turn, and the conversation is sent again every round: the last one is cached.
-  const lastImage = m.content.map((c) => c.type).lastIndexOf('image');
-  return {
-    role: m.role,
-    content: m.content.map((c, i) => {
-      const block = toBlock(c);
-      return i === lastImage && block.type === 'image'
-        ? { ...block, cache_control: { type: 'ephemeral' as const } }
-        : block;
-    }),
-  };
+  return { role: m.role, content: m.content.map(toBlock) };
+}
+
+const CACHEABLE = new Set(['text', 'image', 'tool_use', 'tool_result']);
+
+/**
+ * Marks the message's last image, or its last block. Only our own kinds of block take the mark: never
+ * thinking, a block passed back as the API sent it, or empty text.
+ */
+function withCacheOn(m: Anthropic.MessageParam, which: 'image' | 'last'): Anthropic.MessageParam {
+  if (typeof m.content === 'string')
+    return m.content && which === 'last'
+      ? {
+          role: m.role,
+          content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }],
+        }
+      : m;
+  const i =
+    which === 'image' ? m.content.findLastIndex((b) => b.type === 'image') : m.content.length - 1;
+  const block = m.content[i];
+  if (!block || !CACHEABLE.has(block.type) || (block.type === 'text' && !block.text)) return m;
+  const content = [...m.content];
+  content[i] = { ...block, cache_control: { type: 'ephemeral' } } as Anthropic.ContentBlockParam;
+  return { role: m.role, content };
 }
 
 function toBlock(c: AiContent): Anthropic.ContentBlockParam {
