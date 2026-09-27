@@ -83,12 +83,11 @@ export async function asWorker<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`set local role service_actor`);
+    // One round trip: `set_config('role', …, true)` is `set local role`, with the same membership check.
     await tx.execute(
-      sql`select set_config('app.system_scope.workspace_id', ${scope.workspaceId ?? ''}, true)`,
-    );
-    await tx.execute(
-      sql`select set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true)`,
+      sql`select set_config('role', 'service_actor', true),
+            set_config('app.system_scope.workspace_id', ${scope.workspaceId ?? ''}, true),
+            set_config('app.system_scope.organization_id', ${scope.organizationId ?? ''}, true)`,
     );
     return fn(tx);
   });
