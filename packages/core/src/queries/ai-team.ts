@@ -471,7 +471,9 @@ export const aiTeammateActivity = defineQuery({
     'What the AI teammate has been doing: today’s counters and what’s waiting, and its runs newest first (optionally only today’s or the last 7 or 30 days’), each with its channel, the message that started it, and every tool call with a short summary.',
   input: AiTeammateActivityInput,
   output: AiTeammateActivityOutput,
-  permission: 'workspace.read',
+  // Runs carry the replies the teammate wrote and the words its tools read: inbox business, and RLS narrows them
+  // to the threads this person may see.
+  permission: 'inbox.use',
   scope: inWorkspace,
   async handler(ctx, input) {
     const ws = input.workspaceId;
