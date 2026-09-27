@@ -402,62 +402,103 @@ export const inboxList = defineQuery({
     const digits = input.q?.replace(/[^0-9]/g, '') ?? '';
     // "Needs a person" lists whoever has waited longest first.
     const oldestFirst = input.box === 'needs_person';
-    const box =
-      input.box === 'mine'
-        ? sql`and c.assignee_user_id = ${me}`
-        : input.box === 'unassigned'
-          ? sql`and c.assignee_user_id is null`
-          : input.box === 'needs_person'
-            ? sql`and c.needs_person_since is not null`
-            : input.box === 'ai'
-              ? sql`and c.handled_by = 'ai'`
-              : sql``;
-    // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
-    const archived =
-      input.box === 'archived'
-        ? sql`and c.archived_at is not null`
-        : sql`and c.archived_at is null`;
+    // The filters over a thread `t`: the list's own (`c`), and, with the same meaning, the newer lane of the same
+    // customer the grouped list looks for (`c2`).
+    const filters = (t: 'c' | 'c2') => {
+      const c = sql.raw(t);
+      const box =
+        input.box === 'mine'
+          ? sql`and ${c}.assignee_user_id = ${me}`
+          : input.box === 'unassigned'
+            ? sql`and ${c}.assignee_user_id is null`
+            : input.box === 'needs_person'
+              ? sql`and ${c}.needs_person_since is not null`
+              : input.box === 'ai'
+                ? sql`and ${c}.handled_by = 'ai'`
+                : sql``;
+      // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
+      const archived =
+        input.box === 'archived'
+          ? sql`and ${c}.archived_at is not null`
+          : sql`and ${c}.archived_at is null`;
+      // A chat visitor's name is joined for `c`; for `c2` it is looked up. The customer's name needs neither:
+      // a lane of the same customer has the same person, so `p` is theirs too.
+      const visitorName =
+        t === 'c'
+          ? sql`cv.name`
+          : sql`(select cv2.name from app.chat_visitors cv2 where cv2.conversation_id = c2.id)`;
+      return sql`
+            ${
+              input.personId
+                ? sql`and ${c}.person_id = ${input.personId}`
+                : // Archived threads keep whatever status they had, so their own box lists them all rather than
+                  // hiding every closed one behind a status nobody chose.
+                  input.box === 'archived'
+                  ? sql`and ${c}.last_message_at is not null`
+                  : sql`and ${c}.status = ${input.status}::app.conversation_status and ${c}.last_message_at is not null`
+            }
+            ${box}
+            ${archived}
+            ${input.channel ? sql`and ${c}.channel = ${input.channel}::app.channel` : sql``}
+            ${input.unread ? sql`and ${c}.unread_count > 0` : sql``}
+            ${
+              q
+                ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
+                      or lower(${c}.counterpart) like ${q} or lower(coalesce(${c}.last_preview, '')) like ${q}
+                      or lower(coalesce(${visitorName}, '')) like ${q}
+                      ${digits.length >= 3 ? sql`or ${c}.counterpart like ${`%${digits}%`}` : sql``})`
+                : sql``
+            }`;
+    };
     /**
      * One row per customer, not per thread (0089).
      *
      * The filters run first, on threads, so a box still means what it says: "Mine" is the customer with a
      * thread assigned to me, and the row that comes back stands for that thread rather than for some other
-     * lane of theirs the filter never matched. Then `row_number` keeps the newest matching lane per customer
-     * and the rest fold into its `lanes`.
+     * lane of theirs the filter never matched. A thread is kept when no other lane of theirs that the filters
+     * keep is newer, and the rest fold into its `lanes`.
+     *
+     * That is a lookup per thread rather than a window over the box, so the page can be read off the inbox's
+     * (workspace, status, recency) index and stop once it is full: a window numbered every matching thread in
+     * the business, on every page and every live refresh, before the cursor and the limit cut it. Every grouped
+     * thread has a last message (and every one in "Needs a person" a moment it started waiting), so the raw
+     * column sorts as `sort_key` does.
      *
      * **The customer record page is the one screen that does not group.** It asks for one person's threads on
      * purpose — grouping them would answer with a single row, which is the opposite of what it is for.
      */
     const grouped = !input.personId;
-    const matching = sql`${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
+    const col = sql.raw(oldestFirst ? 'needs_person_since' : 'last_message_at');
+    const one = sql`${conversationSelect(input.workspaceId, oldestFirst ? 'needs_person' : 'recent')}
+            ${filters('c')}
             ${
-              input.personId
-                ? sql`and c.person_id = ${input.personId}`
-                : // Archived threads keep whatever status they had, so their own box lists them all rather than
-                  // hiding every closed one behind a status nobody chose.
-                  input.box === 'archived'
-                  ? sql`and c.last_message_at is not null`
-                  : sql`and c.status = ${input.status}::app.conversation_status and c.last_message_at is not null`
-            }
-            ${box}
-            ${archived}
-            ${input.channel ? sql`and c.channel = ${input.channel}::app.channel` : sql``}
-            ${input.unread ? sql`and c.unread_count > 0` : sql``}
-            ${
-              q
-                ? sql`and (lower(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) like ${q}
-                      or lower(c.counterpart) like ${q} or lower(coalesce(c.last_preview, '')) like ${q}
-                      or lower(coalesce(cv.name, '')) like ${q}
-                      ${digits.length >= 3 ? sql`or c.counterpart like ${`%${digits}%`}` : sql``})`
+              grouped
+                ? sql`and not exists (select 1 from app.conversations c2
+                    where c2.workspace_id = c.workspace_id
+                      -- An OR, as in the lanes, so each half can use its own index.
+                      and (c2.person_id = c.person_id
+                        or (c.person_id is null and c2.person_id is null and c2.channel = c.channel
+                          and c2.counterpart = c.counterpart))
+                      ${filters('c2')}
+                      and (c2.${col}, c2.id) > (c.${col}, c.id))`
                 : sql``
             }`;
-    // The newest matching lane per customer, or every matching thread when the record page asked for one
-    // customer's own list.
-    const one = grouped
-      ? sql`select * from (select m.*, row_number() over (
-              partition by m.group_key order by m.sort_key desc, m.id desc) as rn
-            from (${matching}) m) k where k.rn = 1`
-      : sql`select * from (${matching}) k`;
+    const after = !cursor
+      ? sql``
+      : grouped
+        ? oldestFirst
+          ? sql`and (x.${col}, x.id) > (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
+          : sql`and (x.${col}, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`
+        : oldestFirst
+          ? sql`and (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`
+          : sql`and (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`;
+    const order = grouped
+      ? oldestFirst
+        ? sql`x.${col} asc, x.id asc`
+        : sql`x.${col} desc nulls last, x.id desc`
+      : oldestFirst
+        ? sql`x.sort_key asc, x.id asc`
+        : sql`x.sort_key desc, x.id desc`;
     const list = await rows<ConversationRow>(
       ctx.tx,
       sql`select x.*, ${ROW_EXTRAS},
@@ -465,8 +506,8 @@ export const inboxList = defineQuery({
             ${SAME_AS(input.workspaceId)} as same_as
           from (${one}) x
           where true
-          ${cursor ? (oldestFirst ? sql`and (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql`and (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
-          order by ${oldestFirst ? sql`x.sort_key asc, x.id asc` : sql`x.sort_key desc, x.id desc`}
+          ${after}
+          order by ${order}
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
