@@ -9,7 +9,13 @@
  * **Every call to the host is a job**, the same rule every provider call in this repo follows. A handler
  * that called Vercel directly would replay every other handler on the event when Vercel had a bad minute.
  */
-import { brandedDomainRecord, executeCommand, ownershipHost, scheduleJob } from '@hfos/core/server';
+import {
+  brandedDomainRecord,
+  executeCommand,
+  HfosError,
+  ownershipHost,
+  scheduleJob,
+} from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { brandedDomains } from '@hfos/db/schema';
@@ -41,6 +47,13 @@ const WAIT_MS = 15 * 60_000;
 
 type DomainRow = typeof brandedDomains.$inferSelect;
 
+/** The index that lets only one business have a name working at a time (SEC-M11). */
+const LIVE_DOMAIN_INDEX = 'branded_domains_live_domain_idx';
+
+/** Said to a business that has proved the name while another business still has it working. */
+export const STILL_IN_USE =
+  'Another HandsFreeOS business still has this domain working. It stays waiting until they stop using it; we keep checking.';
+
 const readDomain = (services: WorkerServices, scope: TenantScope, id: string) =>
   asWorker(
     services.db,
@@ -66,7 +79,36 @@ async function record(
   proved: boolean,
 ): Promise<void> {
   const settled = state.status === 'verified' && state.certificateReady && proved;
-  await executeCommand(
+  try {
+    await write(services, scope, row, state, proved, settled);
+  } catch (e) {
+    // Proved, but an older working claim on the same name is still there — a domain moving between two of an
+    // agency's businesses, or one left on a business nobody uses. Retrying would hit the same index; saying
+    // so is an answer the business can act on.
+    if (!(e instanceof HfosError && e.rule === LIVE_DOMAIN_INDEX)) throw e;
+    await write(
+      services,
+      scope,
+      row,
+      { ...state, status: 'verifying', error: STILL_IN_USE },
+      proved,
+      false,
+    );
+  }
+  // This process builds links too, and it has just changed the answer. Cheap, and it is what stops a link
+  // being built on a name that stopped working a moment ago.
+  forgetPublicOrigin(scope.workspaceId);
+}
+
+const write = (
+  services: WorkerServices,
+  scope: TenantScope,
+  row: DomainRow,
+  state: HostedDomain,
+  proved: boolean,
+  settled: boolean,
+) =>
+  executeCommand(
     services.db,
     brandedDomainRecord,
     {
@@ -87,10 +129,6 @@ async function record(
     systemActor(scope),
     workerMeta(),
   );
-  // This process builds links too, and it has just changed the answer. Cheap, and it is what stops a link
-  // being built on a name that stopped working a moment ago.
-  forgetPublicOrigin(scope.workspaceId);
-}
 
 /** A business added a domain: claim it with the host and find out what its DNS needs. */
 export const onBrandedDomainAdded: EventHandler = async (ctx) => {
@@ -172,8 +210,9 @@ export const checkBrandedDomain: JobHandler = async (ctx) => {
 export const removeBrandedDomain: JobHandler = async (ctx) => {
   const domain = String(ctx.job.payload['domain'] ?? '');
   if (!domain || !ctx.siteHost) return;
-  // Another business may still hold a claim on the same name — working, or waiting to be proved. Giving the
-  // name back now would take it off the host under them.
+  // Another business may have proved the same name is theirs. Giving it back now would take it off the host
+  // under them. A claim nobody proved holds nothing: a squatter's pending row must not keep the real owner's
+  // name on our host, and a business still setting up claims it again with Check now.
   const [claimed] = await asWorker(ctx.db, tenantOf(ctx.scope), (tx) =>
     rows<{ claimed: boolean }>(
       tx,

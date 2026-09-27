@@ -275,6 +275,22 @@ describe('where a result sends them', () => {
         expect(tryDef({ results: [result('thanks', { [key]: url })] }).success).toBe(false);
   });
 
+  it('lets a button call or email the business, but never sends them on to either', () => {
+    for (const url of ['tel:+15125550100', 'mailto:dale@lonestarhvac.com']) {
+      expect(tryDef({ results: [result('thanks', { buttonUrl: url })] }).success).toBe(true);
+      expect(tryDef({ results: [result('thanks', { redirectUrl: url })] }).success).toBe(false);
+    }
+    const form = parseStoredForm({
+      title: 'Get a quote',
+      pages: [page('about', [shortText('name')])],
+      results: [
+        result('thanks', { buttonUrl: 'tel:+15125550100', redirectUrl: 'mailto:dale@x.test' }),
+      ],
+    });
+    expect(form.results[0]!.buttonUrl).toBe('tel:+15125550100');
+    expect(form.results[0]!.redirectUrl).toBeNull();
+  });
+
   it('drops a bad link saved before the rule, so the form still reads', () => {
     const stored = {
       title: 'Get a quote',

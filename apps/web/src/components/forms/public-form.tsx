@@ -2,6 +2,7 @@
 import {
   answerProblem,
   formState,
+  isButtonAddress,
   isWebAddress,
   money,
   consentPolicyPath,
@@ -155,7 +156,7 @@ export function PublicForm({
             {money(sent.dueCents)} to pay. We’ll send that separately.
           </p>
         ) : null}
-        {isWebAddress(sent.buttonUrl) && sent.buttonLabel ? (
+        {isButtonAddress(sent.buttonUrl) && sent.buttonLabel ? (
           <a
             href={sent.buttonUrl}
             className="mt-5 inline-flex h-9 items-center rounded-control bg-accent px-3.5 text-sm font-medium text-white"

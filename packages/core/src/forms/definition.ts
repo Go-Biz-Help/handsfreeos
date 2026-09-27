@@ -119,19 +119,40 @@ const WebAddress = z
   .url({ protocol: /^https?$/, error: 'Give a web address starting https://.' })
   .max(500);
 
-/** Whether a stored link is one a result may still use: http or https. */
-export function isWebAddress(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
+/**
+ * Where a result's button may go: a web page, or a call or an email to the business. Never a redirect — those
+ * stay web pages — but a "Call us" button on a thank-you screen is an ordinary thing to have.
+ */
+const ButtonAddress = z
+  .url({
+    protocol: /^(https?|tel|mailto)$/,
+    error: 'Give a web address starting https://, or a tel: or mailto: link.',
+  })
+  .max(500);
+
+const schemeOf = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
   try {
-    const { protocol } = new URL(value);
-    return protocol === 'https:' || protocol === 'http:';
+    return new URL(value).protocol;
   } catch {
-    return false;
+    return null;
   }
+};
+
+/** Whether a stored link is one a result may still send them on to: http or https. */
+export function isWebAddress(value: unknown): value is string {
+  const scheme = schemeOf(value);
+  return scheme === 'https:' || scheme === 'http:';
+}
+
+/** Whether a stored link is one a result's button may still use: a web page, a call or an email. */
+export function isButtonAddress(value: unknown): value is string {
+  const scheme = schemeOf(value);
+  return isWebAddress(value) || scheme === 'tel:' || scheme === 'mailto:';
 }
 
 /**
- * A stored definition with any result link that is not a web page dropped, so a form saved before
+ * A stored definition with any result link it may no longer use dropped, so a form saved before
  * `WebAddress` was strict still reads (and can no longer send anyone to a `javascript:` address).
  */
 export function withSafeResultLinks(raw: unknown): unknown {
@@ -140,8 +161,8 @@ export function withSafeResultLinks(raw: unknown): unknown {
   const results = (raw as { results: unknown[] }).results.map((r) => {
     if (!r || typeof r !== 'object') return r;
     const out = { ...(r as Record<string, unknown>) };
-    for (const key of ['buttonUrl', 'redirectUrl'])
-      if (out[key] != null && !isWebAddress(out[key])) out[key] = null;
+    if (out['buttonUrl'] != null && !isButtonAddress(out['buttonUrl'])) out['buttonUrl'] = null;
+    if (out['redirectUrl'] != null && !isWebAddress(out['redirectUrl'])) out['redirectUrl'] = null;
     return out;
   });
   return { ...(raw as object), results };
@@ -160,7 +181,7 @@ export const FormResult = z.object({
   body: z.string().trim().max(4000).default(''),
   showIf: AnswerConditionGroup.prefault({}),
   buttonLabel: z.string().trim().max(60).default(''),
-  buttonUrl: WebAddress.nullable().default(null),
+  buttonUrl: ButtonAddress.nullable().default(null),
   /** Send them straight on instead of showing the screen. */
   redirectUrl: WebAddress.nullable().default(null),
 });
