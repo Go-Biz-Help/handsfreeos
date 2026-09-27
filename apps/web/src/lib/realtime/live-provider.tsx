@@ -83,8 +83,10 @@ export function LiveProvider({
       poll = null;
     };
     const teardown = () => {
-      if (channel) void supabase.removeChannel(channel);
+      // Cleared first: removing the channel echoes CLOSED to its callback, which must see it is no longer current.
+      const old = channel;
       channel = null;
+      if (old) void supabase.removeChannel(old);
     };
     const scheduleReconnect = () => {
       if (stopped || backoff) return;
@@ -106,16 +108,18 @@ export function LiveProvider({
         return;
       }
       await supabase.realtime.setAuth(token);
-      channel = supabase.channel(`workspace:${workspaceId}`, { config: { private: true } });
-      channel.on('broadcast', { event: 'change' }, (msg) => {
+      const mine = supabase.channel(`workspace:${workspaceId}`, { config: { private: true } });
+      channel = mine;
+      mine.on('broadcast', { event: 'change' }, (msg) => {
         const payload = msg.payload as LiveChange;
         // Echoes of this tab's own edits are dropped. The worker's follow-ups (system events, no actor) share
         // the request's correlation id but are news here, so they always come through.
         if (payload.actorId && isOwnRequest(payload.correlationId)) return;
         notify(payload);
       });
-      channel.subscribe((status) => {
-        if (stopped) return;
+      mine.subscribe((status) => {
+        // A replaced channel's late CLOSED would otherwise tear down the healthy one, looping reconnects.
+        if (stopped || channel !== mine) return;
         if (status === 'SUBSCRIBED') {
           attempt = 0;
           stopPolling();
