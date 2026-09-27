@@ -177,20 +177,27 @@ const LANES = (workspaceId: string, archived: boolean) => sql`
  * address matches a customer without being them, and a merge made on that guess is far harder to undo than
  * one that never happened.
  */
-const SAME_AS = (workspaceId: string) => sql`
-  (select json_build_object('id', sp.id,
-            'fullName', btrim(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')))
-     from app.people sp
-    where x.person_id is null
-      and sp.workspace_id = ${workspaceId}
-      and sp.archived_at is null
-      and ((x.channel = 'sms' and (sp.phone_e164 = x.counterpart
-             or sp.other_phones @> jsonb_build_array(jsonb_build_object('phone', x.counterpart))))
-        or (x.channel = 'email' and (lower(sp.email::text) = x.counterpart
-             or sp.other_emails @> jsonb_build_array(jsonb_build_object('email', x.counterpart)))))
-    order by (sp.phone_e164 = x.counterpart or lower(sp.email::text) = x.counterpart) desc nulls last,
-      sp.updated_at desc
-    limit 1)`;
+const SAME_AS = (workspaceId: string) => {
+  // One lookup per way of matching rather than one OR over them all, so each can use its own index (the phone and
+  // email ones, the GIN ones on the other numbers and addresses); the OR, and lower() on the email, read every
+  // customer in the business for every unlinked row on the page. Their order is the old ORDER BY: a customer whose
+  // main number or address it is first, the most recently touched among equals.
+  const match = (on: ReturnType<typeof sql>) => sql`
+    (select json_build_object('id', sp.id,
+              'fullName', btrim(coalesce(sp.first_name, '') || ' ' || coalesce(sp.last_name, '')))
+       from app.people sp
+      where x.person_id is null
+        and sp.workspace_id = ${workspaceId}
+        and sp.archived_at is null
+        and ${on}
+      order by sp.updated_at desc
+      limit 1)`;
+  return sql`coalesce(
+    ${match(sql`x.channel = 'sms' and sp.phone_e164 = x.counterpart`)},
+    ${match(sql`x.channel = 'email' and sp.email = x.counterpart::extensions.citext`)},
+    ${match(sql`x.channel = 'sms' and sp.other_phones @> jsonb_build_array(jsonb_build_object('phone', x.counterpart))`)},
+    ${match(sql`x.channel = 'email' and sp.other_emails @> jsonb_build_array(jsonb_build_object('email', x.counterpart))`)})`;
+};
 
 /**
  * The customer's open lead and who sent the last text, over a row `x` of `conversationSelect`.
