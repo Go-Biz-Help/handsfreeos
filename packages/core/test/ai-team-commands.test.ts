@@ -1070,6 +1070,35 @@ describe('qualifying answers', () => {
     expect(again.output).toMatchObject({ notApplied: [] });
     expect(again.eventIds).toEqual([]);
   });
+
+  it('are never written to a customer’s older lead from a chat that hasn’t proved who it is', async () => {
+    const eve = await customer(a, 'Eve');
+    const { leadId: before } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'Attic insulation', personId: eve.personId },
+      a.owner,
+    );
+    // Someone types Eve's number into the website chat.
+    const inChat = { conversationId: await chatAs(a, eve.phone) };
+    const answers = [{ questionId: 'owner', answer: 'No, renting' }];
+    await expectHfos(
+      () => asAva(a, inChat, leadRecordAnswers, { workspaceId: a.wsId, leadId: before, answers }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
+    // A lead opened once the chat began is the chat's own.
+    const { leadId: since } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'From the chat', personId: eve.personId },
+      a.owner,
+    );
+    const ok = await asAva(a, inChat, leadRecordAnswers, {
+      workspaceId: a.wsId,
+      leadId: since,
+      answers,
+    });
+    expect(ok.output.missing).not.toContain('owner');
+  });
 });
 
 describe('booking for the customer in the conversation', () => {
