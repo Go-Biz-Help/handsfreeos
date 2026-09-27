@@ -3,7 +3,7 @@ import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contac
 import { addressOut, fullName, phoneOut, tagsByRecord } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import {
   PersonGetInput,
   PersonGetOutput,
@@ -117,9 +117,9 @@ export const personList = defineQuery({
   permission: 'records.read',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
-    const q = input.q ? `%${input.q.toLowerCase()}%` : null;
     const recent = input.sort === 'recent';
+    const cursor = recent ? decodeTimeCursor(input.cursor) : decodeCursor(input.cursor);
+    const q = input.q ? `%${input.q.toLowerCase()}%` : null;
     const list = await rows<Row>(
       ctx.tx,
       sql`select * from (${base(input.workspaceId, input.sort)}
@@ -131,8 +131,8 @@ export const personList = defineQuery({
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.tagId})` : sql``}
           ${input.withoutTagId ? sql`and not exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.withoutTagId})` : sql``}
         ) x
-        ${cursor ? (recent ? sql`where (x.sort_key, x.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
-        order by ${recent ? sql`x.sort_key desc, x.id desc` : sql`x.sort_key, x.id`}
+        ${cursor ? (recent ? sql`where (x.updated_at, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
+        order by ${recent ? sql`x.updated_at desc, x.id desc` : sql`x.sort_key, x.id`}
         limit ${input.limit + 1}`,
     );
     const tags = await tagsByRecord(

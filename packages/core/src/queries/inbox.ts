@@ -10,7 +10,7 @@ import { HfosError } from '../errors';
 import { lineDisplayOf } from '../inbox/rows';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
 import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
 import {
@@ -795,7 +795,7 @@ export const conversationThread = defineQuery({
       sql`select id from app.conversations where id = ${input.conversationId} and workspace_id = ${input.workspaceId}`,
     );
     if (!exists) throw HfosError.notFound('Conversation not found.');
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     // "All": every lane of this customer woven together, each item saying which line it was on (0089).
     const lanes = input.allLanes
       ? await lanesOf(ctx, input.workspaceId, input.conversationId)
@@ -803,13 +803,20 @@ export const conversationThread = defineQuery({
     const lines = lanes ? new Map(lanes.map((l) => [l.id, l.lineDisplay])) : undefined;
     // `uuidArray`, not a bare array: Drizzle's sql tag spreads a JS array into a parameter list.
     const ids = uuidArray(lanes?.length ? lanes.map((l) => l.id) : [input.conversationId]);
+    // Each branch pages on its own column (the thread indexes serve it) and stops at a page, then the two merge.
+    const branchPage = (at: ReturnType<typeof sql>, id: ReturnType<typeof sql>) =>
+      sql`${input.since ? sql`and ${at} > ${input.since}::timestamptz` : sql``}
+        ${cursor ? sql`and (${at}, ${id}) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
+        order by ${at} desc, ${id} desc
+        limit ${input.limit + 1}`;
     const list = await rows<ThreadRow>(
       ctx.tx,
       sql`select * from (
-            ${messageBranch(input.workspaceId)} and m.conversation_id = any(${ids})
+            (${messageBranch(input.workspaceId)} and m.conversation_id = any(${ids})
               and m.error_code is distinct from ${CANCELLED_TEXT}
+              ${branchPage(sql`m.occurred_at`, sql`m.id`)})
             union all
-            select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
+            (select 'call'::text, c.id, c.conversation_id, c.started_at, c.direction::text, c.status::text, null::text, null::text, null::text,
               c.from_e164, '[]'::jsonb, c.placed_by, coalesce(nullif(pu.full_name, ''), pu.email::text), null::text, null::text, null::timestamptz,
               c.duration_seconds, c.is_voicemail, c.recording_object_path is not null, c.transcript,
               c.transcript_status::text, c.answered_by_user_id,
@@ -824,11 +831,9 @@ export const conversationThread = defineQuery({
             where c.workspace_id = ${input.workspaceId} and c.conversation_id = any(${ids})
               -- A call through someone's own cell joins the conversation once the customer's phone was dialed.
               and (c.answered_via is distinct from 'bridge' or c.answered_by_user_id is not null)
+              ${branchPage(sql`c.started_at`, sql`c.id`)})
           ) t
-          where true
-          ${input.since ? sql`and t.occurred_at > ${input.since}::timestamptz` : sql``}
-          ${cursor ? sql`and (t.sort_key, t.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
-          order by t.sort_key desc, t.id desc
+          order by t.occurred_at desc, t.id desc
           limit ${input.limit + 1}`,
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
@@ -878,7 +883,7 @@ export const callLog = defineQuery({
   permission: 'inbox.use',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const filter =
       input.filter === 'missed'
         ? sql`and c.direction = 'inbound' and c.answered_at is null`
@@ -921,7 +926,7 @@ export const callLog = defineQuery({
           left join app.users au on au.id = c.answered_by_user_id
           where c.workspace_id = ${input.workspaceId}
           ${filter}
-          ${cursor ? sql`and (${SORT_KEY(sql`c.started_at`)}, c.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+          ${cursor ? sql`and (c.started_at, c.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by c.started_at desc, c.id desc
           limit ${input.limit + 1}`,
     );

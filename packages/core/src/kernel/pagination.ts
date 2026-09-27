@@ -33,6 +33,20 @@ export function decodeCursor(value: string | undefined): Cursor | null {
   throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
 }
 
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
+
+/**
+ * A cursor keyed on a timestamp column, for lists that compare `(column, id) < (${sort}::timestamptz, id)` so the
+ * column's index serves every page. The sort must read as a timestamp: a tampered one is a validation error, not a
+ * failed cast.
+ */
+export function decodeTimeCursor(value: string | undefined): Cursor | null {
+  const cursor = decodeCursor(value);
+  if (cursor && !ISO_TIMESTAMP.test(cursor.sort))
+    throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
+  return cursor;
+}
+
 export interface Page<T> {
   readonly items: T[];
   readonly nextCursor: string | null;

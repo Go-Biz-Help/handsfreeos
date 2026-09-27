@@ -8,7 +8,7 @@ import { knowledgePacks, knowledgeProfiles } from '@hfos/db/schema';
 import { userNames } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeTimeCursor, page } from '../kernel/pagination';
 import { KnowledgePackItem } from '../schemas/knowledge';
 import {
   KnowledgeItemGetInput,
@@ -138,7 +138,7 @@ export const knowledgeItemList = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const ws = input.workspaceId;
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const statuses = input.status?.length ? input.status : ['draft', 'published'];
     const list = await rows<ItemRow>(
       ctx.tx,
@@ -148,7 +148,7 @@ export const knowledgeItemList = defineQuery({
             ${input.kind?.length ? sql`and i.kind::text = any(${textArray(input.kind)})` : sql``}
             ${input.tags?.length ? sql`and i.tags @> ${textArray(input.tags)}` : sql``}
             ${input.search ? sql`and ${knowledgeMatches(input.search)}` : sql``}
-            ${cursor ? sql`and (${SORT_KEY(sql`i.updated_at`)}, i.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+            ${cursor ? sql`and (i.updated_at, i.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by i.updated_at desc, i.id desc
           limit ${input.limit + 1}`,
     );
@@ -279,7 +279,7 @@ export const knowledgeSuggestionList = defineQuery({
   permission: 'workspace.read',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const list = await rows<{
       id: string;
       kind: KnowledgeKind;
@@ -303,7 +303,7 @@ export const knowledgeSuggestionList = defineQuery({
           where s.workspace_id = ${input.workspaceId} and s.status::text = ${input.status}
             ${input.reason ? sql`and s.reason::text = ${input.reason}` : sql``}
             ${input.scanId ? sql`and s.scan_id = ${input.scanId}` : sql``}
-            ${cursor ? sql`and (${SORT_KEY(sql`s.created_at`)}, s.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+            ${cursor ? sql`and (s.created_at, s.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by s.created_at desc, s.id desc
           limit ${input.limit + 1}`,
     );

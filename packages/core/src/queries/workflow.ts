@@ -17,7 +17,7 @@ import { userNames, uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeTimeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
 import {
   WorkflowApprovalListInput,
@@ -466,7 +466,7 @@ export const workflowRunList = defineQuery({
   permission: 'workspace.read',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const list = await rows<RunRow>(
       ctx.tx,
       sql`select ${runColumns} ${runJoins}
@@ -478,7 +478,7 @@ export const workflowRunList = defineQuery({
             ${input.triggerEventId ? sql`and r.trigger_event_id = ${input.triggerEventId}` : sql``}
             ${input.startedAfter ? sql`and r.started_at >= ${input.startedAfter}::timestamptz` : sql``}
             ${input.startedBefore ? sql`and r.started_at < ${input.startedBefore}::timestamptz` : sql``}
-            ${cursor ? sql`and (${SORT_KEY(sql`r.started_at`)}, r.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+            ${cursor ? sql`and (r.started_at, r.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by r.started_at desc, r.id desc
           limit ${input.limit + 1}`,
     );
@@ -724,13 +724,13 @@ export const workflowApprovalList = defineQuery({
   permission: 'workspace.read',
   scope: inWorkspace,
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const list = await rows<ApprovalRow>(
       ctx.tx,
       sql`${approvalSelect}
           where a.workspace_id = ${input.workspaceId} and a.status::text = ${input.status}
             ${input.workflowId ? sql`and a.workflow_id = ${input.workflowId}` : sql``}
-            ${cursor ? sql`and (${SORT_KEY(sql`a.created_at`)}, a.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+            ${cursor ? sql`and (a.created_at, a.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by a.created_at desc, a.id desc
           limit ${input.limit + 1}`,
     );
