@@ -39,6 +39,7 @@ const LiveContext = createContext<LiveContextValue>({
 
 const POLL_MS = 60_000;
 const MAX_BACKOFF_MS = 30_000;
+const MAX_WAIT_MS = 5_000;
 
 /**
  * One private Realtime channel per workspace. Screens subscribe through useLiveRefresh (server-rendered
@@ -169,30 +170,75 @@ export function LiveProvider({
   return <LiveContext.Provider value={value.current}>{children}</LiveContext.Provider>;
 }
 
-function matches(change: Parameters<Listener>[0], entityTypes?: readonly string[]): boolean {
+/**
+ * Options for the live hooks. `only` narrows some entity types to the ids on screen (the open conversation, the
+ * lead in the drawer), so a change to another record of that type does not refetch this one.
+ */
+export interface LiveOptions {
+  readonly only?: Readonly<Record<string, readonly string[]>>;
+  /** Keep listening in a background tab (the unread count in the tab title). */
+  readonly whileHidden?: boolean;
+}
+
+function matches(
+  change: Parameters<Listener>[0],
+  entityTypes: readonly string[] | undefined,
+  only: LiveOptions['only'],
+): boolean {
   if (change.entityType === '*') return true;
-  return !entityTypes || entityTypes.includes(change.entityType);
+  if (entityTypes && !entityTypes.includes(change.entityType)) return false;
+  const ids = only?.[change.entityType];
+  const id = 'entityId' in change ? change.entityId : null;
+  return !ids || (id !== null && ids.includes(id));
+}
+
+/**
+ * Trailing debounce that still fires within MAX_WAIT_MS of the first change, so a steady stream of events
+ * (a campaign going out) cannot hold the screen stale indefinitely.
+ */
+function debounced(fire: () => void, ms: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let first = 0;
+  return () => {
+    const now = Date.now();
+    if (!timer) first = now;
+    else if (now - first >= MAX_WAIT_MS) return;
+    else clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fire();
+    }, ms);
+  };
+}
+
+/** The deps-stable form of an entity-type list: undefined is every change; [] is none (''). */
+function typesKey(entityTypes: readonly string[] | undefined): string | undefined {
+  return entityTypes === undefined ? undefined : entityTypes.join(',');
 }
 
 /**
  * Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. Paused while
  * the tab is hidden; it refreshes once when shown again.
  */
-export function useLiveRefresh(entityTypes?: readonly string[], debounceMs = 300): void {
+export function useLiveRefresh(
+  entityTypes?: readonly string[],
+  debounceMs = 300,
+  options?: LiveOptions,
+): void {
   const { subscribe } = useContext(LiveContext);
   const router = useRouter();
-  // undefined is every change; [] is none (''), which must not fall through to "every".
-  const key = entityTypes === undefined ? undefined : entityTypes.join(',');
+  const key = typesKey(entityTypes);
+  const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
+  const whileHidden = options?.whileHidden ?? false;
   useEffect(() => {
     if (key === '') return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     const types = key === undefined ? undefined : key.split(',');
+    const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
+    const trigger = debounced(() => startTransition(() => router.refresh()), debounceMs);
     return subscribe((change) => {
-      if (!matches(change, types)) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => startTransition(() => router.refresh()), debounceMs);
-    });
-  }, [subscribe, router, key, debounceMs]);
+      if (matches(change, types, only)) trigger();
+    }, whileHidden);
+  }, [subscribe, router, key, onlyKey, debounceMs, whileHidden]);
 }
 
 /**
@@ -202,22 +248,22 @@ export function useLiveRefresh(entityTypes?: readonly string[], debounceMs = 300
 export function useLiveVersion(
   entityTypes?: readonly string[],
   debounceMs = 300,
-  whileHidden = false,
+  options?: LiveOptions,
 ): number {
   const { subscribe } = useContext(LiveContext);
   const [version, setVersion] = useState(0);
-  // undefined is every change; [] is none (''), which must not fall through to "every".
-  const key = entityTypes === undefined ? undefined : entityTypes.join(',');
+  const key = typesKey(entityTypes);
+  const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
+  const whileHidden = options?.whileHidden ?? false;
   useEffect(() => {
     if (key === '') return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     const types = key === undefined ? undefined : key.split(',');
+    const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
+    const trigger = debounced(() => setVersion((v) => v + 1), debounceMs);
     return subscribe((change) => {
-      if (!matches(change, types)) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => setVersion((v) => v + 1), debounceMs);
+      if (matches(change, types, only)) trigger();
     }, whileHidden);
-  }, [subscribe, key, debounceMs, whileHidden]);
+  }, [subscribe, key, onlyKey, debounceMs, whileHidden]);
   return version;
 }
 
