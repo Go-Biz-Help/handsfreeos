@@ -333,3 +333,23 @@ export const PhoneSetupStatusOutput = z.object({
   /** The business's RCS sender (0103), or null when it has none connected. */
   rcsSender: RcsSenderOut.nullable(),
 });
+
+/**
+ * Phone & texting on or off for a business: its own Twilio subaccount. On makes it now, so the Account SID is
+ * there to give HighLevel or Twilio before any number is; off closes it for good, and only when nothing is in it.
+ */
+export const TelephonyEnableInput = z.object({ workspaceId: uuid });
+export const TelephonyDisableInput = z.object({ workspaceId: uuid });
+export const TelephonySwitchOutput = z.object({
+  /** What was asked for. The worker does it within seconds; `telephony.account_changed` says when. */
+  requested: z.enum(['on', 'off']),
+});
+
+/** Worker only: the subaccount was made, closed, or could not be closed. */
+export const TelephonyAccountChangedInput = z.object({
+  workspaceId: uuid,
+  status: z.enum(['active', 'closed']),
+  accountSid: z.string().trim().max(64).nullable(),
+  /** Why it was left on, in words for the business. Null when it did what was asked. */
+  problem: z.string().trim().max(2000).nullable(),
+});

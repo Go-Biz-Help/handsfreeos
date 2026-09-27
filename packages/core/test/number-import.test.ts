@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   carrierIsTwilio,
+  movesWithSidsAlone,
   isTollFreeNumber,
   nextImportCheckMs,
   numberTypeOf,
@@ -80,6 +81,39 @@ describe('the transfer request', () => {
         fromAccountSid: 'ACsourcetest',
       }),
     ).toContain('From Account SID: ACsourcetest');
+  });
+});
+
+describe('what HighLevel asks for', () => {
+  it('names the parent account, the destination sub-account, the number and the cutover window', () => {
+    const text = transferRequestText({
+      source: 'highlevel',
+      display: '(256) 555-0123',
+      toAccountSid: 'ACsubaccounttest',
+      parentAccountSid: 'ACparenttest',
+      cutoverWindow: '  a weekday after 6 PM Central  ',
+    });
+    expect(text).toContain('Phone number: (256) 555-0123');
+    expect(text).toContain('Twilio Account SID: ACparenttest');
+    expect(text).toContain('Destination sub-account SID: ACsubaccounttest');
+    expect(text).toContain('Preferred cutover window: a weekday after 6 PM Central');
+    expect(text).toMatch(/do not release/i);
+  });
+
+  it('leaves the cutover line out until there is one', () => {
+    const text = transferRequestText({
+      source: 'highlevel',
+      display: '(256) 555-0123',
+      toAccountSid: 'ACsubaccounttest',
+      parentAccountSid: 'ACparenttest',
+      cutoverWindow: ' ',
+    });
+    expect(text).not.toContain('cutover');
+  });
+
+  it('moves US and Canadian numbers on SIDs alone, and says so for no other', () => {
+    expect(movesWithSidsAlone('+12565550123')).toBe(true);
+    expect(movesWithSidsAlone('+442071838750')).toBe(false);
   });
 });
 

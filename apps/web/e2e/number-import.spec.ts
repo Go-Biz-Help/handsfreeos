@@ -34,7 +34,14 @@ test('a GoHighLevel number: checked, watched for, and live on arrival, with text
   const request = card.getByTestId('transfer-request');
   await expect(request).toBeVisible({ timeout: 30_000 });
   await expect(request.getByTestId('transfer-destination')).toHaveText(/^AC/);
-  await expect(request.getByRole('textbox')).toHaveValue(/do not release/i);
+  // What HighLevel's guide asks for: the parent account, the sub-account, the number, a cutover window.
+  await expect(request.getByTestId('transfer-parent')).toHaveText(/^AC/);
+  await request.getByTestId('transfer-cutover').fill('a weekday after 6 PM Central');
+  const text = request.getByRole('textbox', { name: 'The transfer request' });
+  await expect(text).toHaveValue(/do not release/i);
+  await expect(text).toHaveValue(/Twilio Account SID: AC/);
+  await expect(text).toHaveValue(/Destination sub-account SID: AC/);
+  await expect(text).toHaveValue(/Preferred cutover window: a weekday after 6 PM Central/);
   const row = card.locator('[data-testid^="import-row-"]');
   await expect(row).toHaveAttribute('data-setup', 'waiting_for_transfer');
   await expect(row).toHaveAttribute('data-texting', 'needs_registration');
@@ -81,8 +88,34 @@ test('a Twilio account: connected, listed with who uses each number, one brought
   await first.click();
   const card = page.getByTestId('imports-card');
   await expect(card.getByTestId('transfer-request')).toBeVisible({ timeout: 30_000 });
-  await expect(card.getByTestId('transfer-request').getByRole('textbox')).toHaveValue(
-    /From Account SID: AC/,
-  );
+  await expect(
+    card.getByTestId('transfer-request').getByRole('textbox', { name: 'The transfer request' }),
+  ).toHaveValue(/From Account SID: AC/);
   await page.screenshot({ path: 'test-results/number-import-twilio-waiting.png', fullPage: true });
+});
+
+test('phone & texting: turned on for its Account SID before any number, and off again', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await signUpAndConfirm(page, 'phone-switch');
+  const workspaceId = await createBusiness(page, { name: 'Palmetto Pools' });
+  await page.goto(`/app/w/${workspaceId}/settings/texting`);
+
+  const card = page.getByTestId('phone-account-card');
+  await expect(card.getByTestId('phone-account-status')).toHaveText('Off');
+  await card.getByTestId('phone-account-switch').click();
+  // Made now, so the SID is there to give HighLevel or Twilio before there is any number.
+  await expect(card.getByTestId('phone-account-sid')).toHaveText(/^AC/, { timeout: 30_000 });
+  // HighLevel asks for the parent account beside it.
+  await expect(card.getByTestId('phone-account-parent')).toHaveText(/^AC/);
+  await expect(card.getByTestId('phone-account-status')).toHaveText('On');
+  await page.screenshot({ path: 'test-results/phone-account-on.png', fullPage: true });
+
+  // Off asks first, then closes it for good.
+  await card.getByTestId('phone-account-switch').click();
+  await expect(card.getByTestId('phone-account-confirm')).toContainText('for good');
+  await card.getByTestId('phone-account-off').click();
+  await expect(card.getByTestId('phone-account-status')).toHaveText('Off', { timeout: 30_000 });
+  await expect(card.getByTestId('phone-account-sid')).toHaveCount(0);
 });

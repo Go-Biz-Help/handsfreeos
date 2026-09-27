@@ -44,6 +44,7 @@ import { advanceRegistrations } from './handlers/telephony';
 import { DOMAIN_SWEEP, domainJobs } from './hosting/domains';
 import { portJobs } from './telephony/ports';
 import { importJobs } from './telephony/imports';
+import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
 import type { JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
@@ -288,6 +289,7 @@ export const jobs: JobMap = {
   // Moving a number a business already owns to us: sending it, asking the carrier, calling it off (M17).
   ...portJobs,
   ...importJobs,
+  ...phoneAccountJobs,
   // A business's RCS sender: connecting it, asking Twilio after it, letting it go (0103).
   ...rcsJobs,
   // A business's own domain: claiming it, watching for its DNS, and giving it back (M17).

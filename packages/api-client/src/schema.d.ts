@@ -6757,6 +6757,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/telephony.disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn off phone & texting: closes this business’s Twilio account for good. Only when no number, transfer, port, RCS sender or texting registration is in it; turning it on again gives a new Account SID.
+         * @description Risk level 3. Requires channels.manage. Emits telephony.disable_requested.
+         */
+        post: operations["command_telephony_disable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/telephony.enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn on phone & texting: HandsFreeOS makes this business its own Twilio account now, and shows its Account SID — what HighLevel or Twilio asks for to move a number here.
+         * @description Risk level 1. Requires channels.manage. Emits telephony.enable_requested.
+         */
+        post: operations["command_telephony_enable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/template.archive": {
         parameters: {
             query?: never;
@@ -25304,6 +25344,66 @@ export interface operations {
             };
         };
     };
+    command_telephony_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        requested: "on" | "off";
+                    };
+                };
+            };
+        };
+    };
+    command_telephony_enable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        requested: "on" | "off";
+                    };
+                };
+            };
+        };
+    };
     command_template_archive: {
         parameters: {
             query?: never;
@@ -35788,7 +35888,6 @@ export interface operations {
                             status: "waiting" | "complete" | "failed" | "cancelled";
                             /** @enum {string} */
                             texting: "needs_registration" | "in_review" | "approved" | "rejected";
-                            transferRequest: string | null;
                         }[];
                     };
                 };

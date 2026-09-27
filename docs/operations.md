@@ -4450,6 +4450,16 @@ They also upload a **signed authorisation** (an LOA). HandsFreeOS will not send 
 
 **Locally and in tests**, the fake carrier decides from the last four digits: a number ending `0000` is turned down, one ending `0001` stays with the carrier forever, and anything else goes through. There is no way to test a real port without doing a real one.
 
+### Phone & texting on or off
+
+**Settings → Texting & calls → Phone & texting** is a switch at the top of the page.
+
+- **On** makes the business's own Twilio subaccount straight away: the same subaccount, messaging service, API key and TwiML app its first number would have made. Its **sub-account SID** is shown with a copy button, beside the **Twilio Account SID** of our parent account, because moving a number here from HighLevel or another Twilio account starts with giving them both. Buying, porting or transferring a number still turns it on by itself, as before.
+- **Off** closes the subaccount with the master account. **Closing is for good**: Twilio cannot reopen a closed account, and closing releases every number still in it. So off is refused while the account holds anything: a number (any status but released or failed), a number being transferred in, a port with a carrier, a connected RCS sender, or a texting registration past draft. The screen names what is in the way, and nothing is ever released on the business's behalf. The worker asks again the moment before closing, in case a number arrived in between. If one did, the account stays on and the screen says why.
+- **Turning it back on** after it was closed makes a fresh subaccount with a **new** Account SID. Anything already given to HighLevel or Twilio with the old SID needs the new one.
+
+A closed subaccount keeps its row in `app.telephony_accounts` with `status = 'closed'`, as the record of which account the business had, and everything that could open it (the sealed auth token and API key secret) is wiped. Deleting a business closes its subaccount as before, whether the switch is on or off.
+
 ### Bringing a number that is already in Twilio (their own Twilio, or GoHighLevel)
 
 Many businesses coming here already have their number **inside Twilio**, just in somebody else's account:
@@ -4463,10 +4473,10 @@ Neither needs a carrier port. The number moves **account to account inside Twili
 
 **Why we cannot just pull the number across.** Twilio's API only moves numbers between accounts under one parent. A number in somebody else's account has to be **sent** by its owner:
 
-- **GoHighLevel:** the business asks HighLevel's support (in HighLevel: Help → Contact support, or `support@gohighlevel.com`).
+- **GoHighLevel:** the business opens a HighLevel support ticket, following HighLevel's guide, [Moving phone numbers from LC Phone to Twilio](https://help.gohighlevel.com/support/solutions/articles/48001240107-moving-phone-numbers-from-lc-phone-to-twilio-us-international-). For a US number, HighLevel asks for the **Twilio Account SID** (our parent account), the **destination sub-account SID** (the business's), the number, and a **preferred cutover window**. HighLevel coordinates the move and says when the number is live in Twilio.
 - **Their own Twilio:** the business opens a support request with Twilio for a phone number transfer between accounts, from the account the number is in.
 
-The screen writes the request for them, with the destination **Account SID** filled in, ready to copy. Twilio may email the owner of each account to confirm the transfer. For the receiving side that is us, the owner of the parent account, so **watch the parent account's email** and approve transfers into a subaccount when Twilio asks.
+The screen writes the request for them with both SIDs filled in and a field for the cutover window, ready to copy. The parent SID comes from the worker (`TWILIO_ACCOUNT_SID`), because the API never holds a Twilio value. **International numbers** also need a Regulatory Bundle SID and an Address SID in the receiving account. HandsFreeOS doesn't create those yet, so the screen says to talk to us before moving a number outside the US and Canada. Twilio may email the owner of each account to confirm the transfer. For the receiving side that is us, the owner of the parent account, so **watch the parent account's email** and approve transfers into a subaccount when Twilio asks.
 
 **Never tell anybody to release or delete the number first.** Releasing a number hands it back to the carrier, and it can be gone for good. The screen says this more than once. If a business's own support desk suggests "releasing it so you can buy it again", stop them.
 

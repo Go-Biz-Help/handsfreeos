@@ -1,5 +1,10 @@
 'use client';
-import { normalizePhone } from '@hfos/core';
+import {
+  HIGHLEVEL_MOVE_GUIDE_URL,
+  movesWithSidsAlone,
+  normalizePhone,
+  transferRequestText,
+} from '@hfos/core';
 import {
   CircleAlert,
   CircleCheck,
@@ -30,6 +35,7 @@ import {
   disconnectTwilio,
   listTwilioNumbers,
   lookupNumberHost,
+  phoneAccountState,
   type NumberHost,
   type TwilioAccountListing,
   type TwilioAccountNumber,
@@ -248,28 +254,43 @@ function HighLevelImport({
         number stays exactly the same.
       </p>
       <NeverRelease from="HighLevel" />
-      <ol className="mb-5 flex list-decimal flex-col gap-2 pl-5 text-[13px] text-text-2">
+      <ol className="mb-3 flex list-decimal flex-col gap-2 pl-5 text-[13px] text-text-2">
         <li>
           Check the number below. We make sure it is really in Twilio — a number HighLevel got from
           another carrier needs a port instead.
         </li>
         <li>
-          Press <em>Start watching for it</em>. You get a message for HighLevel’s support, with the
-          Twilio Account SID to send it to, ready to copy.
+          Press <em>Start watching for it</em>. You get the request HighLevel asks for, ready to
+          copy: the number, the Twilio Account SID, the destination sub-account SID, and your
+          preferred cutover window.
         </li>
         <li>
-          Send it to HighLevel support. Leave everything running in HighLevel until the number
-          moves.
+          Open a HighLevel support ticket and paste it in. Their support coordinates the move and
+          tells you when the number is live in Twilio. Leave everything running in HighLevel until
+          then.
         </li>
         <li>
           We look for it every few minutes. The moment it lands, calls, texts and delivery updates
-          come to HandsFreeOS — nothing for you to press.
+          come to HandsFreeOS — nothing for you to press. Then test it: call it and text it from
+          your own phone.
         </li>
         <li>
           Texting needs its own registration here. HighLevel’s A2P 10DLC registration belongs to
           HighLevel’s brand and does not move with the number. Calls work without it.
         </li>
       </ol>
+      <p className="mb-5 text-xs text-text-3">
+        HighLevel’s own guide:{' '}
+        <a
+          href={HIGHLEVEL_MOVE_GUIDE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent-text hover:underline"
+        >
+          Moving phone numbers from LC Phone to Twilio
+        </a>
+        .
+      </p>
 
       <div className="flex flex-wrap items-end gap-2">
         <Field
@@ -355,6 +376,13 @@ function HighLevelImport({
                 : 'You can still start — we will watch for it all the same.'}
             </Callout>
           )}
+          {!host.alreadyHere && !movesWithSidsAlone(host.e164) ? (
+            <Callout tone="warning" icon={CircleAlert} className="mt-3" data-testid="international">
+              Numbers outside the US and Canada also need a Regulatory Bundle SID and an Address SID
+              in the account they move to. HandsFreeOS doesn’t set those up yet — talk to us before
+              asking HighLevel to move this one.
+            </Callout>
+          ) : null}
           {host.alreadyHere ? null : (
             <Button
               className="mt-3"
@@ -906,12 +934,24 @@ function textingSentence(i: NumberImportInfo): string {
  */
 export function ImportsCard({
   workspaceId,
+  businessName,
   imports,
 }: {
   workspaceId: string;
+  businessName: string;
   imports: readonly NumberImportInfo[];
 }) {
   const router = useRouter();
+  // HandsFreeOS's parent Twilio account, which HighLevel asks for beside the sub-account. Only the worker
+  // knows it.
+  const [parentSid, setParentSid] = useState<string | null>(null);
+  const waiting = imports.some((i) => i.status === 'waiting');
+  useEffect(() => {
+    if (!waiting) return;
+    void phoneAccountState(workspaceId)
+      .then((a) => setParentSid(a.parentAccountSid))
+      .catch(() => setParentSid(null));
+  }, [waiting, workspaceId]);
   // The destination account is made a moment after an import starts; look again until it is there.
   const preparing = imports.some((i) => i.status === 'waiting' && !i.destinationAccountSid);
   useEffect(() => {
@@ -945,14 +985,30 @@ export function ImportsCard({
       </p>
       <div className="flex flex-col gap-3">
         {shown.map((i) => (
-          <ImportRow key={i.id} workspaceId={workspaceId} item={i} />
+          <ImportRow
+            key={i.id}
+            workspaceId={workspaceId}
+            item={i}
+            businessName={businessName}
+            parentSid={parentSid}
+          />
         ))}
       </div>
     </Card>
   );
 }
 
-function ImportRow({ workspaceId, item: i }: { workspaceId: string; item: NumberImportInfo }) {
+function ImportRow({
+  workspaceId,
+  item: i,
+  businessName,
+  parentSid,
+}: {
+  workspaceId: string;
+  item: NumberImportInfo;
+  businessName: string;
+  parentSid: string | null;
+}) {
   const router = useRouter();
   const [checking, setChecking] = useState(false);
   const setup = SETUP[i.setup];
@@ -979,7 +1035,7 @@ function ImportRow({ workspaceId, item: i }: { workspaceId: string; item: Number
           </span>
           <span className="text-text-2">
             {i.setup === 'live'
-              ? 'Calls, texts and delivery updates come to HandsFreeOS.'
+              ? 'Calls, texts and delivery updates come to HandsFreeOS. Test it: call it and text it from your own phone, and send a text from the inbox.'
               : i.setup === 'waiting_for_transfer'
                 ? `Waiting for ${i.source === 'highlevel' ? 'HighLevel' : 'Twilio'} to send it to your HandsFreeOS Twilio account.${
                     i.lastCheckedAt ? ` Last looked ${formatDate(i.lastCheckedAt)}.` : ''
@@ -1012,8 +1068,8 @@ function ImportRow({ workspaceId, item: i }: { workspaceId: string; item: Number
       ) : null}
 
       {i.status === 'waiting' ? (
-        i.destinationAccountSid && i.transferRequest ? (
-          <TransferRequest item={i} />
+        i.destinationAccountSid ? (
+          <TransferRequest item={i} businessName={businessName} parentSid={parentSid} />
         ) : (
           <p className="mt-3 flex items-center gap-2 text-[13px] text-text-2" role="status">
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -1054,8 +1110,47 @@ function ImportRow({ workspaceId, item: i }: { workspaceId: string; item: Number
   );
 }
 
-/** What to send, and to whom: HighLevel's support for an LC Phone number, Twilio's for the business's own. */
-function TransferRequest({ item: i }: { item: NumberImportInfo }) {
+/**
+ * What to send, and to whom: HighLevel's support for an LC Phone number, Twilio's for the business's own.
+ * Written here rather than by the API, because HighLevel asks for HandsFreeOS's parent Account SID beside the
+ * sub-account's, and only the worker knows it.
+ */
+function TransferRequest({
+  item: i,
+  businessName,
+  parentSid,
+}: {
+  item: NumberImportInfo;
+  businessName: string;
+  parentSid: string | null;
+}) {
+  const id = useId();
+  const [cutover, setCutover] = useState('');
+  const text = transferRequestText({
+    source: i.source,
+    display: i.display,
+    toAccountSid: i.destinationAccountSid!,
+    parentAccountSid: parentSid,
+    fromAccountSid: i.sourceAccountSid,
+    businessName,
+    cutoverWindow: cutover,
+  });
+  const sid = (label: string, value: string, testId: string) => (
+    <div className="flex flex-wrap items-center gap-2 text-[13px]">
+      <span className="w-48 text-text-3">{label}</span>
+      <span className="font-mono" data-testid={testId}>
+        {value}
+      </span>
+      <Button
+        size="icon"
+        variant="ghost"
+        aria-label={`Copy the ${label}`}
+        onClick={() => void copy(value, label)}
+      >
+        <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
+      </Button>
+    </div>
+  );
   return (
     <div
       className="mt-3 rounded-card border border-border bg-card p-3"
@@ -1067,37 +1162,60 @@ function TransferRequest({ item: i }: { item: NumberImportInfo }) {
           : 'Ask Twilio to transfer it between your accounts'}
       </div>
       <p className="mt-1 text-xs text-text-2">
-        {i.source === 'highlevel'
-          ? 'In HighLevel, open Help → Contact support (or email support@gohighlevel.com) and paste this in. Ask for an account-to-account transfer of your LC Phone number.'
-          : 'From the Twilio console of the account the number is in, open a support request for a phone number transfer between accounts and paste this in. Twilio may ask the owner of each account to confirm.'}{' '}
+        {i.source === 'highlevel' ? (
+          <>
+            Open a HighLevel support ticket and paste this in. Their support coordinates the move
+            and tells you when it is live in Twilio (
+            <a
+              href={HIGHLEVEL_MOVE_GUIDE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent-text hover:underline"
+            >
+              HighLevel’s guide
+            </a>
+            ).
+          </>
+        ) : (
+          'From the Twilio console of the account the number is in, open a support request for a phone number transfer between accounts and paste this in. Twilio may ask the owner of each account to confirm.'
+        )}{' '}
         Keep the number active in the meantime — do not release it.
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
-        <span className="text-text-3">Send it to Account SID</span>
-        <span className="font-mono" data-testid="transfer-destination">
-          {i.destinationAccountSid}
-        </span>
-        <Button
-          size="icon"
-          variant="ghost"
-          aria-label="Copy the Account SID"
-          onClick={() => void copy(i.destinationAccountSid!, 'Account SID')}
+      <div className="mt-2 flex flex-col gap-1">
+        {parentSid ? sid('Twilio Account SID', parentSid, 'transfer-parent') : null}
+        {sid(
+          parentSid ? 'Destination sub-account SID' : 'Send it to Account SID',
+          i.destinationAccountSid!,
+          'transfer-destination',
+        )}
+      </div>
+      <div className="mt-2 max-w-sm">
+        <Field
+          label="Preferred cutover window"
+          htmlFor={`${id}-cutover`}
+          hint="When the move suits you, like “a weekday after 6 PM Central”."
         >
-          <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
-        </Button>
+          <Input
+            id={`${id}-cutover`}
+            value={cutover}
+            maxLength={120}
+            onChange={(e) => setCutover(e.target.value)}
+            data-testid="transfer-cutover"
+          />
+        </Field>
       </div>
       <Textarea
         className="mt-2 font-mono text-xs"
-        rows={9}
+        rows={11}
         readOnly
-        value={i.transferRequest!}
+        value={text}
         aria-label="The transfer request"
       />
       <Button
         size="sm"
         variant="secondary"
         className="mt-2"
-        onClick={() => void copy(i.transferRequest!, 'Request')}
+        onClick={() => void copy(text, 'Request')}
         data-testid={`transfer-copy-${i.id}`}
       >
         <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />

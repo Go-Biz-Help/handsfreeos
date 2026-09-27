@@ -41426,6 +41426,116 @@
         }
       }
     },
+    "/v1/commands/telephony.enable": {
+      "post": {
+        "operationId": "command_telephony_enable",
+        "summary": "Turn on phone & texting: HandsFreeOS makes this business its own Twilio account now, and shows its Account SID — what HighLevel or Twilio asks for to move a number here.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires channels.manage. Emits telephony.enable_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requested": {
+                      "type": "string",
+                      "enum": [
+                        "on",
+                        "off"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "requested"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/telephony.disable": {
+      "post": {
+        "operationId": "command_telephony_disable",
+        "summary": "Turn off phone & texting: closes this business’s Twilio account for good. Only when no number, transfer, port, RCS sender or texting registration is in it; turning it on again gives a new Account SID.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires channels.manage. Emits telephony.disable_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requested": {
+                      "type": "string",
+                      "enum": [
+                        "on",
+                        "off"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "requested"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/inbox.set_visibility": {
       "post": {
         "operationId": "command_inbox_set_visibility",
@@ -57360,12 +57470,6 @@
                               "null"
                             ]
                           },
-                          "transferRequest": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
                           "phoneNumberId": {
                             "anyOf": [
                               {
@@ -57445,7 +57549,6 @@
                           "carrierName",
                           "hostedInTwilio",
                           "destinationAccountSid",
-                          "transferRequest",
                           "phoneNumberId",
                           "setup",
                           "texting",
