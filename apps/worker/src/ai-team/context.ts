@@ -12,6 +12,7 @@ import {
   calendarMostCharged,
   loadTerritories,
   needsAddress,
+  chatOpenedAt,
   chatVerified,
   LeadQualification,
   parseStoredForm,
@@ -424,7 +425,16 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
   const unverifiedChat = channel === 'chat' && !(conv && (await chatVerified(tx, conv)));
   const grounding = await loadGrounding(tx, ws);
   const customer = personId ? await customerOf(tx, personId) : null;
-  const lead = customer ? await openLeadOf(tx, ws, customer.id) : null;
+  // An unverified chat works only on a lead the chat itself opened: the customer's own, from before, is theirs to
+  // read and change once the visitor proves who they are.
+  const lead = customer
+    ? await openLeadOf(
+        tx,
+        ws,
+        customer.id,
+        unverifiedChat && conv ? await chatOpenedAt(tx, conv) : null,
+      )
+    : null;
   const stages = lead ? await stagesOf(tx, lead.pipelineId) : [];
   const calendars = input.config.book.enabled
     ? await calendarsOf(tx, ws, input.config.book.calendarIds)
@@ -537,7 +547,13 @@ async function customerOf(tx: Tx, personId: string): Promise<RunCustomer | null>
     : null;
 }
 
-async function openLeadOf(tx: Tx, workspaceId: string, personId: string): Promise<RunLead | null> {
+async function openLeadOf(
+  tx: Tx,
+  workspaceId: string,
+  personId: string,
+  /** Only a lead opened at or after this. */
+  openedSince: Date | null,
+): Promise<RunLead | null> {
   const [l] = await rows<{
     id: string;
     title: string;
@@ -551,6 +567,7 @@ async function openLeadOf(tx: Tx, workspaceId: string, personId: string): Promis
         from app.leads l join app.pipeline_stages s on s.id = l.stage_id
         where l.workspace_id = ${workspaceId} and l.person_id = ${personId}
           and l.status = 'open' and l.archived_at is null
+          ${openedSince ? sql`and l.created_at >= ${openedSince.toISOString()}::timestamptz` : sql``}
         order by l.updated_at desc limit 1`,
   );
   if (!l) return null;

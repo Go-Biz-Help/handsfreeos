@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { leads, pipelineStages } from '@hfos/db/schema';
-import { assertAiReach, teammateDealsOn } from '../ai-team/reach';
+import { assertAiReach, refuseOlderLeadInChat, teammateDealsOn } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { placeInStage } from '../crm/positions';
 import { HfosError } from '../errors';
@@ -57,6 +57,7 @@ export const leadMoveStage = defineCommand({
           'The AI teammate only moves an open lead between open stages.',
         );
       await assertAiReach(ctx, { leadId: current.id });
+      await refuseOlderLeadInChat(ctx, current);
     }
     // A phone moves a lead between stages, never within one: already there (moved twice, or on two phones),
     // nothing changes. On the web, leaving out the place still means the bottom of the stage.

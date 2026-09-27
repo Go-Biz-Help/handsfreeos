@@ -89,6 +89,48 @@ export async function refuseInChat(ctx: CommandContext): Promise<void> {
   if (c && !(await chatVerified(ctx.tx, c))) throw chatIdentityUnverified();
 }
 
+/**
+ * For the AI teammate only (anyone else passes): in a chat whose visitor hasn't proved they're the customer, it
+ * may qualify and move a lead the chat itself opened, never one the customer already had. Anyone can type a
+ * customer's number, and rewriting that lead's answers or stage is changing the customer.
+ */
+export async function refuseOlderLeadInChat(
+  ctx: CommandContext,
+  lead: { readonly createdAt: Date },
+): Promise<void> {
+  const ai = aiEmployeeOf(ctx.actor);
+  if (!ai?.conversationId) return;
+  const [c] = await ctx.tx
+    .select({
+      id: conversations.id,
+      channel: conversations.channel,
+      personId: conversations.personId,
+      createdAt: conversations.createdAt,
+    })
+    .from(conversations)
+    .where(
+      and(eq(conversations.id, ai.conversationId), eq(conversations.workspaceId, ai.workspaceId)),
+    );
+  if (!c || (await chatVerified(ctx.tx, c))) return;
+  if (lead.createdAt < (await chatOpenedAt(ctx.tx, c))) throw chatIdentityUnverified();
+}
+
+/**
+ * When a website chat began: its visitor's first visit (they can say who they are before they write), else the
+ * conversation. A lead opened since then is the chat's own; one from before was the customer's already.
+ */
+export async function chatOpenedAt(
+  tx: Tx,
+  conv: { readonly id: string; readonly createdAt: Date },
+): Promise<Date> {
+  const [v] = await tx
+    .select({ createdAt: chatVisitors.createdAt })
+    .from(chatVisitors)
+    .where(eq(chatVisitors.conversationId, conv.id))
+    .limit(1);
+  return v && v.createdAt < conv.createdAt ? v.createdAt : conv.createdAt;
+}
+
 /** The customer the AI teammate is serving: its conversation's, or for a first message its run's new lead. */
 export async function aiCustomerId(ctx: QueryContext, ai: AiEmployeeActor): Promise<string | null> {
   if (ai.conversationId) {
