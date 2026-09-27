@@ -20,10 +20,16 @@ import { processDeliveries } from '../src/deliveries';
 import { LOCAL_WEBHOOK_PASSWORD } from '../src/email/local';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
-import { processJobs } from '../src/jobs';
+import { processJobs, type JobRow } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
-import { checkEmailDomain, ensureRecurringJobs, jobs } from '../src/scheduled';
+import {
+  checkEmailDomain,
+  checkEmailDomains,
+  EMAIL_DOMAIN_CHECK_JOB,
+  ensureRecurringJobs,
+  jobs,
+} from '../src/scheduled';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -503,6 +509,37 @@ describe('the daily domain check', () => {
     );
     expect(audit).toHaveLength(3);
     expect(audit.every((a) => a.actor_type === 'system')).toBe(true);
+  });
+
+  it('gives each domain a check of its own, bound to its business and spread over the hour', async () => {
+    const domain = `spread-${token()}.example.com`;
+    const added = await executeCommand(
+      api(),
+      emailDomainAdd,
+      { workspaceId, domain },
+      actor(owner),
+      meta(),
+    );
+    const id = added.output.emailDomainId;
+    await drain();
+    const daily = { ...s, job: {} as JobRow, scope: {}, attempt: 1, now: Date.now() };
+    await checkEmailDomains(daily);
+    await checkEmailDomains(daily);
+    const checks = await rows<{ workspace_id: string; payload: unknown; within_hour: boolean }>(
+      admin(),
+      sql`select workspace_id, payload, run_at <= now() + interval '1 hour' as within_hour
+          from app.scheduled_jobs
+          where kind = ${EMAIL_DOMAIN_CHECK_JOB} and status = 'pending' and payload ->> 'emailDomainId' = ${id}`,
+    );
+    expect(checks).toEqual([
+      { workspace_id: workspaceId, payload: { emailDomainId: id }, within_hour: true },
+    ]);
+    // Not left for another test's drain to run.
+    await rows(
+      admin(),
+      sql`update app.scheduled_jobs set status = 'cancelled'
+          where kind = ${EMAIL_DOMAIN_CHECK_JOB} and status = 'pending' and workspace_id = ${workspaceId}`,
+    );
   });
 
   it('is registered once, like the webhook sweep and the agency digest’s planning', async () => {

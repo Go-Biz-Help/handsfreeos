@@ -21,7 +21,7 @@
  * An organization's time zone is the one most of its businesses use, or America/Chicago (the SQL function).
  */
 import { randomUUID } from 'node:crypto';
-import { addDays, localDateOf, localInstant, scheduleJob } from '@hfos/core/server';
+import { addDays, localDateOf, localInstant, scheduleJob, uuidArray } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { agencyDigestEmail, type DigestBusiness } from './emails/templates';
 import type { JobContext, JobHandler, JobMap } from './jobs';
@@ -38,6 +38,8 @@ export const DIGEST_PLAN_KEY = 'plan:agency_digest';
 export const digestJobKey = (organizationId: string): string => `agency-digest:${organizationId}`;
 
 const SEND_AT = '08:00';
+/** Organizations per planning statement. */
+const PLAN_CHUNK = 2000;
 const DAY = 86_400_000;
 
 /** The next 8 AM in `timeZone` after `now`. */
@@ -71,7 +73,22 @@ export const planDigests: JobHandler = async (ctx) => {
       tx,
       sql`select organization_id, timezone from private.organization_timezones()`,
     );
-    for (const o of list) await scheduleDigest(tx, o.organization_id, o.timezone, ctx.now);
+    // A statement per PLAN_CHUNK organizations, not one each: the same insert as scheduleDigest.
+    for (let i = 0; i < list.length; i += PLAN_CHUNK) {
+      const chunk = list.slice(i, i + PLAN_CHUNK);
+      const keys = chunk.map((o) => sql`${digestJobKey(o.organization_id)}`);
+      const at = chunk.map(
+        (o) => sql`${new Date(nextDigestAt(ctx.now, o.timezone)).toISOString()}`,
+      );
+      await tx.execute(
+        sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+            select o.org, null, ${DIGEST_JOBS.send}, o.key, o.at, '{}'::jsonb
+            from unnest(${uuidArray(chunk.map((o) => o.organization_id))},
+              array[${sql.join(keys, sql`, `)}]::text[],
+              array[${sql.join(at, sql`, `)}]::timestamptz[]) as o(org, key, at)
+            on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
+      );
+    }
   });
   return { rescheduleAt: new Date(ctx.now + DAY) };
 };
