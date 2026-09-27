@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import { asWorker, rows, sql, type SystemScope, type Tx } from '@hfos/db/client';
 import { scheduledJobs } from '@hfos/db/schema';
@@ -112,9 +112,18 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
     ),
   );
   stats.claimed = claimed.length;
+  // Ours only while the lease holds: a row still waiting its turn after the rows before it ran for five minutes
+  // can be claimed by another worker, and must then run there, not twice.
+  const ours = (id: string) =>
+    and(eq(scheduledJobs.id, id), eq(scheduledJobs.lockedBy, deps.workerId));
   for (const { id } of claimed) {
+    // Read as its turn comes, and the lease renewed from now for the handler's own five minutes.
     const [job] = await asWorker(deps.db, {}, (tx) =>
-      tx.select().from(scheduledJobs).where(eq(scheduledJobs.id, id)),
+      tx
+        .update(scheduledJobs)
+        .set({ lockedAt: sql`now()` })
+        .where(and(ours(id), eq(scheduledJobs.status, 'pending')))
+        .returning(),
     );
     if (!job) continue;
     const handler = deps.jobs[job.kind];
@@ -123,7 +132,7 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
         tx
           .update(scheduledJobs)
           .set({ ...set, lockedAt: null, lockedBy: null })
-          .where(eq(scheduledJobs.id, id)),
+          .where(ours(id)),
       );
     if (!handler) {
       await finish({
