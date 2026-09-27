@@ -5,6 +5,7 @@ import { defineCommand } from '../kernel/define';
 import { canActOnRole } from '../permissions';
 import { MembershipChangeRoleInput, MembershipChangeRoleOutput } from '../schemas/membership';
 import { requireHuman } from '../kernel/actor';
+import { assertMayGrantRole } from './role-grant';
 
 export const membershipChangeRole = defineCommand({
   name: 'membership.change_role',
@@ -39,6 +40,7 @@ export const membershipChangeRole = defineCommand({
     }
     if (target.role === input.role)
       return { userId: input.userId, previousRole: target.role, role: target.role };
+    await assertMayGrantRole(ctx, input.role, input.userId);
     const [row] = await ctx.tx
       .update(workspaceMemberships)
       .set({ role: input.role })

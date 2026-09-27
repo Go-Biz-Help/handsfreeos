@@ -5,6 +5,7 @@ import { defineCommand } from '../kernel/define';
 import { canActOnRole } from '../permissions';
 import { MembershipInviteInput, MembershipInviteOutput } from '../schemas/membership';
 import { requireHuman } from '../kernel/actor';
+import { assertMayGrantRole } from './role-grant';
 
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -25,6 +26,7 @@ export const membershipInvite = defineCommand({
         'cannot_grant_role',
       );
     }
+    await assertMayGrantRole(ctx, input.role);
     const [member] = await ctx.tx
       .select({ id: workspaceMemberships.id })
       .from(workspaceMemberships)
