@@ -156,7 +156,15 @@ export const LeadCard = z.object({
 });
 export type LeadCard = z.infer<typeof LeadCard>;
 
-export const LeadBoardInput = z.object({ workspaceId: uuid, pipelineId: uuid.optional() });
+export const LeadBoardInput = z.object({
+  workspaceId: uuid,
+  pipelineId: uuid.optional(),
+  /** Stages the viewer asked to see more of, and how many of their cards to send (the rest get the first 100). */
+  shown: z
+    .array(z.object({ stageId: uuid, limit: z.number().int().min(1).max(5000) }))
+    .max(50)
+    .optional(),
+});
 export const LeadBoardOutput = z.object({
   pipeline: z.object({ id: uuid, name: z.string() }),
   pipelines: z.array(z.object({ id: uuid, name: z.string() })),

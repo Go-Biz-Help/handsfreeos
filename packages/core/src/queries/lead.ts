@@ -38,6 +38,8 @@ export const leadBoard = defineQuery({
       .where(eq(pipelineStages.pipelineId, pipeline.id))
       .orderBy(asc(pipelineStages.position));
     // The top of each column, not every lead the pipeline ever won or lost: a stage's count and total cover them all.
+    // A column the viewer asked to see more of sends as many as they asked for.
+    const shown = Object.fromEntries((input.shown ?? []).map((s) => [s.stageId, s.limit]));
     const cards = await leadCards(
       ctx.tx,
       input.workspaceId,
@@ -45,12 +47,12 @@ export const leadBoard = defineQuery({
         eq(leads.pipelineId, pipeline.id),
         isNull(leads.archivedAt),
         dsql`${leads.id} in (select t.id from (
-          select l.id, row_number() over (partition by l.stage_id order by l.position, l.created_at) as n
+          select l.id, l.stage_id, row_number() over (partition by l.stage_id order by l.position, l.created_at, l.id) as n
           from app.leads l
           where l.workspace_id = ${input.workspaceId} and l.pipeline_id = ${pipeline.id} and l.archived_at is null
-        ) t where t.n <= ${BOARD_LEADS_PER_STAGE})`,
+        ) t where t.n <= coalesce((${JSON.stringify(shown)}::jsonb ->> t.stage_id::text)::int, ${BOARD_LEADS_PER_STAGE}))`,
       )!,
-      [asc(leads.position), asc(leads.createdAt)],
+      [asc(leads.position), asc(leads.createdAt), asc(leads.id)],
     );
     const totals = await rows<{ stage_id: string; count: number; value_cents: number }>(
       ctx.tx,

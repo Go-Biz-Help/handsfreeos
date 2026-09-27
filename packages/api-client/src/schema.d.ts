@@ -34612,6 +34612,11 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     pipelineId?: string;
+                    shown?: {
+                        limit: number;
+                        /** Format: uuid */
+                        stageId: string;
+                    }[];
                     /** Format: uuid */
                     workspaceId: string;
                 };

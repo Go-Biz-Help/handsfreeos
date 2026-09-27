@@ -2,6 +2,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { PIPELINE_WORDS } from '@hfos/core';
 import type { LeadBoard } from '@/lib/api/types';
 import { formatMoney } from '@/lib/format';
@@ -14,11 +15,14 @@ export function StageColumn({
   stage,
   selectedId,
   onOpen,
+  onShowMore,
   disabled,
 }: {
   stage: StageOnBoard;
   selectedId: string | null;
   onOpen: (id: string) => void;
+  /** Sends the next cards of a column the board shows only the top of. */
+  onShowMore: () => void;
   disabled?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stageId: stage.id } });
@@ -54,9 +58,15 @@ export function StageColumn({
         ))}
       </SortableContext>
       {stage.count > stage.leads.length ? (
-        <div className="px-1.5 py-1 text-center text-xs text-text-3">
-          {PIPELINE_WORDS.moreInList(stage.count - stage.leads.length)}
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs"
+          onClick={onShowMore}
+          data-testid={`stage-show-more-${stage.id}`}
+        >
+          {PIPELINE_WORDS.showMore(stage.count - stage.leads.length)}
+        </Button>
       ) : null}
       {stage.leads.length === 0 ? (
         <div className="rounded-control border border-dashed border-border-strong px-2 py-3.5 text-center text-xs text-text-3">

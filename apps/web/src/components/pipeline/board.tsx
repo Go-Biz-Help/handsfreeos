@@ -14,7 +14,7 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { KanbanSquare, List, MoreHorizontal, Plus } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { NextActionChip, StageBadge } from '@/components/crm/chips';
 import { LeadDialog } from '@/components/crm/lead-dialog';
@@ -26,6 +26,7 @@ import { Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
+  BOARD_LEADS_PER_STAGE,
   boardStages,
   moveToast,
   PIPELINE_WORDS,
@@ -84,6 +85,8 @@ export function PipelineBoard({
   const [newLead, setNewLead] = useState(false);
   const [busy, setBusy] = useState(false);
   const version = useLiveVersion(['lead', 'pipeline', 'pipeline_stage', 'tag']);
+  // How many cards of a stage to ask for once someone has shown more of it, kept across live refreshes.
+  const shown = useRef<Record<string, number>>({});
 
   useEffect(() => setBoard(initial), [initial]);
   // Phones get the list by default: dragging fights with scrolling there.
@@ -93,9 +96,14 @@ export function PipelineBoard({
 
   const refetch = useCallback(async () => {
     try {
+      const more = Object.entries(shown.current).map(([stageId, limit]) => ({ stageId, limit }));
       const out = unwrap(
         await apiBrowser().POST('/v1/queries/lead.board', {
-          body: { workspaceId, pipelineId: board.pipeline.id },
+          body: {
+            workspaceId,
+            pipelineId: board.pipeline.id,
+            ...(more.length ? { shown: more } : {}),
+          },
         }),
       );
       setBoard(out);
@@ -106,6 +114,10 @@ export function PipelineBoard({
   useEffect(() => {
     if (version > 0) void refetch();
   }, [version, refetch]);
+  function showMore(stage: LeadBoard['stages'][number]) {
+    shown.current = { ...shown.current, [stage.id]: stage.leads.length + BOARD_LEADS_PER_STAGE };
+    void refetch();
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -185,9 +197,16 @@ export function PipelineBoard({
     const stage = board.stages.find((s) => s.id === stageId);
     if (!lead || !stage) return;
     const next = applyLocal(leadId, stageId, index);
-    const column = next.stages.find((s) => s.id === stageId)!.leads;
+    const target = next.stages.find((s) => s.id === stageId)!;
+    const column = target.leads;
     const at = column.findIndex((l) => l.id === leadId);
-    const afterLeadId = at <= 0 ? null : column[at - 1]!.id;
+    // The last card of a column showing only its top isn't the stage's last: the end of it is the bottom (undefined).
+    const afterLeadId =
+      at <= 0
+        ? null
+        : at === column.length - 1 && target.count > column.length
+          ? undefined
+          : column[at - 1]!.id;
     const move: PendingMove = { leadId, stageId, afterLeadId, stage, lead };
     if (stage.kind === 'lost' && lead.status !== 'lost') return setPendingLost(move);
     void commitMove(move);
@@ -315,6 +334,7 @@ export function PipelineBoard({
                 stage={s}
                 selectedId={selected}
                 onOpen={setSelected}
+                onShowMore={() => showMore(s)}
                 disabled={busy}
               />
             ))}
@@ -334,6 +354,7 @@ export function PipelineBoard({
             requestMove(leadId, stageId, board.stages.find((s) => s.id === stageId)!.leads.length)
           }
           onOpen={setSelected}
+          onShowMore={showMore}
           busy={busy}
         />
       )}
@@ -389,14 +410,28 @@ function BoardList({
   board,
   onMove,
   onOpen,
+  onShowMore,
   busy,
 }: {
   board: LeadBoard;
   onMove: (leadId: string, stageId: string) => void;
   onOpen: (id: string) => void;
+  onShowMore: (stage: LeadBoard['stages'][number]) => void;
   busy: boolean;
 }) {
-  const rows = board.stages.flatMap((s) => s.leads);
+  // A stage the board sends only the top of ends with a Show more row, as its column does.
+  const more = (s: LeadBoard['stages'][number]) =>
+    s.count > s.leads.length ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-xs"
+        onClick={() => onShowMore(s)}
+        data-testid={`list-show-more-${s.id}`}
+      >
+        {s.name} · {PIPELINE_WORDS.showMore(s.count - s.leads.length)}
+      </Button>
+    ) : null;
   return (
     <Card className="overflow-hidden" data-testid="board-list">
       <table className="hidden w-full text-sm md:table">
@@ -411,73 +446,99 @@ function BoardList({
           </tr>
         </thead>
         <tbody>
-          {rows.map((l) => (
-            <tr
-              key={l.id}
-              className="border-t border-border hover:bg-card-2/60"
-              data-testid={`lead-row-${l.id}`}
-            >
-              <td className="px-4 py-2.5">
-                <button type="button" onClick={() => onOpen(l.id)} className="text-left">
-                  <span className="block font-medium">{l.title}</span>
-                  <span className="block text-xs text-text-3">
-                    {l.person?.fullName ?? l.company?.name ?? ''}
-                  </span>
-                </button>
-              </td>
-              <td className="px-3 py-2.5">
-                <StagePicker board={board} lead={l} onMove={onMove} busy={busy} />
-              </td>
-              <td className="px-3 py-2.5 text-[13px] font-semibold">{formatMoney(l.valueCents)}</td>
-              <td className="px-3 py-2.5">
-                <span className="flex items-center gap-2 text-[13px]">
-                  {l.assignee ? (
-                    <Avatar name={l.assignee.fullName} seed={l.assignee.id} size="sm" />
-                  ) : null}
-                  {l.assignee?.fullName ?? RECORD_WORDS.unassigned}
-                </span>
-              </td>
-              <td className="px-3 py-2.5">
-                {l.status === 'open' ? (
-                  <NextActionChip text={l.nextAction} compact={!!l.nextAction} />
-                ) : (
-                  <StageBadge name={l.stageName} kind={l.stageKind} />
-                )}
-              </td>
-              <td className="px-3 py-2.5">
-                <button
-                  type="button"
-                  onClick={() => onOpen(l.id)}
-                  className="rounded-control p-1 text-text-3 hover:bg-card-2 hover:text-text"
-                  aria-label="Open lead"
+          {board.stages.map((s) => (
+            <Fragment key={s.id}>
+              {s.leads.map((l) => (
+                <tr
+                  key={l.id}
+                  className="border-t border-border hover:bg-card-2/60"
+                  data-testid={`lead-row-${l.id}`}
                 >
-                  <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-                </button>
-              </td>
-            </tr>
+                  <td className="px-4 py-2.5">
+                    <button type="button" onClick={() => onOpen(l.id)} className="text-left">
+                      <span className="block font-medium">{l.title}</span>
+                      <span className="block text-xs text-text-3">
+                        {l.person?.fullName ?? l.company?.name ?? ''}
+                      </span>
+                    </button>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StagePicker board={board} lead={l} onMove={onMove} busy={busy} />
+                  </td>
+                  <td className="px-3 py-2.5 text-[13px] font-semibold">
+                    {formatMoney(l.valueCents)}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="flex items-center gap-2 text-[13px]">
+                      {l.assignee ? (
+                        <Avatar name={l.assignee.fullName} seed={l.assignee.id} size="sm" />
+                      ) : null}
+                      {l.assignee?.fullName ?? RECORD_WORDS.unassigned}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {l.status === 'open' ? (
+                      <NextActionChip text={l.nextAction} compact={!!l.nextAction} />
+                    ) : (
+                      <StageBadge name={l.stageName} kind={l.stageKind} />
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => onOpen(l.id)}
+                      className="rounded-control p-1 text-text-3 hover:bg-card-2 hover:text-text"
+                      aria-label="Open lead"
+                    >
+                      <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {more(s) ? (
+                <tr className="border-t border-border">
+                  <td colSpan={6} className="px-4 py-1.5">
+                    {more(s)}
+                  </td>
+                </tr>
+              ) : null}
+            </Fragment>
           ))}
         </tbody>
       </table>
       <ul className="flex flex-col divide-y divide-border md:hidden">
-        {rows.map((l) => (
-          <li key={l.id} className="flex flex-col gap-2 px-4 py-3" data-testid={`lead-row-${l.id}`}>
-            <div className="flex items-start justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => onOpen(l.id)}
-                className="min-w-0 flex-1 text-left"
+        {board.stages.map((s) => (
+          <Fragment key={s.id}>
+            {s.leads.map((l) => (
+              <li
+                key={l.id}
+                className="flex flex-col gap-2 px-4 py-3"
+                data-testid={`lead-row-${l.id}`}
               >
-                <span className="block font-medium">{l.title}</span>
-                <span className="block text-xs text-text-3">
-                  {l.person?.fullName ?? l.company?.name ?? ''} · {formatMoney(l.valueCents)}
-                </span>
-              </button>
-              <StagePicker board={board} lead={l} onMove={onMove} busy={busy} tall />
-            </div>
-            {l.status === 'open' ? (
-              <NextActionChip text={l.nextAction} compact={!!l.nextAction} className="self-start" />
-            ) : null}
-          </li>
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onOpen(l.id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block font-medium">{l.title}</span>
+                    <span className="block text-xs text-text-3">
+                      {l.person?.fullName ?? l.company?.name ?? ''} · {formatMoney(l.valueCents)}
+                    </span>
+                  </button>
+                  <StagePicker board={board} lead={l} onMove={onMove} busy={busy} tall />
+                </div>
+                {l.status === 'open' ? (
+                  <NextActionChip
+                    text={l.nextAction}
+                    compact={!!l.nextAction}
+                    className="self-start"
+                  />
+                ) : null}
+              </li>
+            ))}
+            {more(s) ? <li className="px-4 py-1.5">{more(s)}</li> : null}
+          </Fragment>
         ))}
       </ul>
     </Card>

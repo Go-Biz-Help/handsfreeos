@@ -594,6 +594,16 @@ describe('leads and stages', () => {
     expect(await order()).toEqual(['C', 'B', 'A']);
     await run(leadMoveStage, { workspaceId: wsId, leadId: b, stageId: stage('New').id }, member);
     expect(await order()).toEqual(['C', 'A', 'B']);
+    // A column sends as many cards as the viewer asked for (Show more); its count still covers them all.
+    const shown = (
+      await ask(
+        leadBoard,
+        { workspaceId: wsId, shown: [{ stageId: stage('New').id, limit: 2 }] },
+        member,
+      )
+    ).stages.find((s) => s.name === 'New')!;
+    expect(shown.leads.map((l) => l.title)).toEqual(['C', 'A']);
+    expect(shown.count).toBeGreaterThanOrEqual(3);
   });
 
   it('assigning emits lead.assigned with the name and writes a timeline entry', async () => {

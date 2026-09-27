@@ -58,7 +58,7 @@ export function boardStages<L extends LeadOnBoard>(
   });
 }
 
-/** The cards `lead.board` sends per stage, top of the column first; the counts and totals cover them all. */
+/** The cards `lead.board` sends per stage (and adds per Show more), top of the column first; the totals cover them all. */
 export const BOARD_LEADS_PER_STAGE = 100;
 
 /**
@@ -183,8 +183,8 @@ export const PIPELINE_WORDS = {
   noLeadsBody:
     'A lead is a job you might win. Add one for a person or company and move it across the stages.',
   dropHere: 'Drop a lead here',
-  /** Under a column the board shows only the top of: the rest are in the list. */
-  moreInList: (hidden: number) => `${hidden} more in the list view`,
+  /** Under a column (or a stage's rows in the list) the board shows only the top of: sends the next ones. */
+  showMore: (hidden: number) => `Show more · ${hidden} not shown`,
   moveTo: 'Move to…',
   /** Under the Move to… sheet, where a stage move made with no signal is explained. */
   moveOffline:

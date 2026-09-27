@@ -330,7 +330,7 @@ describe('the pipeline', () => {
       count: 2,
       valueCents: 2_090_000,
     });
-    expect(PIPELINE_WORDS.moreInList(150)).toBe('150 more in the list view');
+    expect(PIPELINE_WORDS.showMore(150)).toBe('Show more · 150 not shown');
   });
 
   it('says how long a lead has sat in its stage, the way the card reads it', () => {
