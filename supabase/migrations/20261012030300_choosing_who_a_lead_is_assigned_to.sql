@@ -61,7 +61,7 @@ revoke all on function
   private.sees_money_as_member(uuid, uuid), private.guard_lead_assignee(),
   private.appointment_has_money(uuid, uuid)
   from public;
+-- The trigger function is only ever run by its trigger, so nobody is granted it.
 grant execute on function
-  private.sees_money_as_member(uuid, uuid), private.guard_lead_assignee(),
-  private.appointment_has_money(uuid, uuid)
+  private.sees_money_as_member(uuid, uuid), private.appointment_has_money(uuid, uuid)
   to authenticated, service_actor;
