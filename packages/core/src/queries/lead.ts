@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, gte, isNull, lt, or, sql as dsql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, or, sql as dsql, type SQL } from 'drizzle-orm';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
 import { leadCards } from '../crm/lead-cards';
 import { boardStages } from '../crm/pipeline-words';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeTimeCursor, page } from '../kernel/pagination';
 import { LeadQualification } from '../schemas/ai-team';
 import {
   LeadBoardInput,
@@ -62,7 +62,7 @@ export const leadList = defineQuery({
   permission: 'records.read',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const conditions: SQL[] = [];
     if (!input.includeArchived) conditions.push(isNull(leads.archivedAt));
     if (input.q)
@@ -78,12 +78,11 @@ export const leadList = defineQuery({
         eq(leads.status, 'open'),
         or(isNull(leads.nextAction), eq(leads.nextAction, ''))!,
       );
-    if (cursor) {
-      const at = new Date(cursor.sort);
+    // At full precision: a stage renumber gives hundreds of leads one updated_at, and a page can end among them.
+    if (cursor)
       conditions.push(
-        or(lt(leads.updatedAt, at), and(eq(leads.updatedAt, at), lt(leads.id, cursor.id)))!,
+        dsql`(${leads.updatedAt}, ${leads.id}) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`,
       );
-    }
     const cards = await leadCards(
       ctx.tx,
       input.workspaceId,
@@ -91,8 +90,11 @@ export const leadList = defineQuery({
       [desc(leads.updatedAt), desc(leads.id)],
       input.limit + 1,
     );
-    const result = page(cards, input.limit, (c) => ({ sort: c.updatedAt, id: c.id }));
-    return { items: result.items, nextCursor: result.nextCursor };
+    const result = page(cards, input.limit, (c) => ({ sort: c.updatedKey, id: c.id }));
+    return {
+      items: result.items.map(({ updatedKey: _, ...card }) => card),
+      nextCursor: result.nextCursor,
+    };
   },
 });
 

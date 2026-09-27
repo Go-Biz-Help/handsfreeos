@@ -26,8 +26,10 @@ export type RequestChannel = z.infer<typeof requestChannel>;
 export const AuditListInput = z.object({
   workspaceId: uuid,
   limit: z.number().int().min(1).max(200).default(50),
-  /** Return entries created before this timestamp (cursor). */
+  /** Return entries created before this timestamp. */
   before: isoDateTime.optional(),
+  /** The last page's `nextCursor`: the entries after it, one command's entries never split across pages. */
+  cursor: z.string().max(400).optional(),
   /** Return entries created at or after this timestamp. */
   since: isoDateTime.optional(),
   actorId: uuid.optional(),
@@ -65,5 +67,6 @@ export type AuditEntry = z.infer<typeof AuditEntry>;
 
 export const AuditListOutput = z.object({
   entries: z.array(AuditEntry),
-  nextCursor: isoDateTime.nullable(),
+  /** Pass back as `cursor` for the next page. */
+  nextCursor: z.string().nullable(),
 });

@@ -1157,10 +1157,13 @@ describe('account and reads', () => {
     expect(page1.nextCursor).not.toBeNull();
     const page2 = await ask(
       auditList,
-      { workspaceId: wsId, limit: 50, before: page1.nextCursor! },
+      { workspaceId: wsId, limit: 50, cursor: page1.nextCursor! },
       owner,
     );
-    expect(page2.entries.every((e) => e.createdAt < page1.entries[2]!.createdAt)).toBe(true);
+    // Entries sharing the last one's moment carry on to the next page rather than being skipped.
+    expect(page2.entries.every((e) => e.createdAt <= page1.entries[2]!.createdAt)).toBe(true);
+    const onPage1 = new Set(page1.entries.map((e) => e.id));
+    expect(page2.entries.some((e) => onPage1.has(e.id))).toBe(false);
     const onlyInvites = await ask(auditList, { workspaceId: wsId, action: 'invitation.' }, owner);
     expect(onlyInvites.entries.every((e) => e.action.startsWith('invitation.'))).toBe(true);
     await expectHfos(() => ask(auditList, { workspaceId: wsId }, outsider), 'not_found');

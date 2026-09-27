@@ -1,9 +1,12 @@
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Tx } from '@hfos/db/client';
 import { companies, leads, people, pipelineStages, users } from '@hfos/db/schema';
 import type { LeadCard } from '../schemas/lead';
 import { fullName, tagsByRecord } from './records';
+
+/** A card with its `updated_at` to the microsecond, the key `lead.list` pages on (a `Date` keeps milliseconds). */
+export type KeyedLeadCard = LeadCard & { updatedKey: string };
 
 /** Leads with everything a board card or list row shows, in the given order. */
 export async function leadCards(
@@ -12,7 +15,7 @@ export async function leadCards(
   where: SQL,
   orderBy: SQL[],
   limit?: number,
-): Promise<LeadCard[]> {
+): Promise<KeyedLeadCard[]> {
   const assignee = alias(users, 'assignee');
   let q = tx
     .select({
@@ -26,6 +29,7 @@ export async function leadCards(
       },
       company: { id: companies.id, name: companies.name, archivedAt: companies.archivedAt },
       assignee: { id: assignee.id, fullName: assignee.fullName, email: assignee.email },
+      updatedKey: sql<string>`to_char(${leads.updatedAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(leads)
     .innerJoin(pipelineStages, eq(pipelineStages.id, leads.stageId))
@@ -84,5 +88,6 @@ export async function leadCards(
     archivedAt: r.lead.archivedAt?.toISOString() ?? null,
     createdAt: r.lead.createdAt.toISOString(),
     updatedAt: r.lead.updatedAt.toISOString(),
+    updatedKey: r.updatedKey,
   }));
 }

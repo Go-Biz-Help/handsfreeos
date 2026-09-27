@@ -29799,6 +29799,7 @@ export interface operations {
                     before?: string;
                     /** @enum {string} */
                     channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "contact_ai" | "test";
+                    cursor?: string;
                     /** @default 50 */
                     limit?: number;
                     /** Format: date-time */
