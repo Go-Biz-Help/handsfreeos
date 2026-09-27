@@ -489,7 +489,9 @@ describe('events and audit are append-only and honest about their actor', () => 
             correlationId: randomUUID(),
           })
           .returning({ id: events.id });
-        await tx.insert(outbox).values({ eventId: ev!.id, organizationId: agency.orgId, ...queued });
+        await tx
+          .insert(outbox)
+          .values({ eventId: ev!.id, organizationId: agency.orgId, ...queued });
         return ev!.id;
       });
     await recordAndQueue({ workspaceId: agency.wsId, eventType: 'test.queued' });

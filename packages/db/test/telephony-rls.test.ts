@@ -1291,7 +1291,10 @@ describe('number ports', () => {
       wsA,
       orgA,
     )((tx) =>
-      rows<{ status: string }>(tx, sql`select status from app.phone_numbers where id = ${held!.id}`),
+      rows<{ status: string }>(
+        tx,
+        sql`select status from app.phone_numbers where id = ${held!.id}`,
+      ),
     );
     expect(after!.status).toBe('porting');
     // A bare draft is still how a port starts.
