@@ -67,11 +67,11 @@ export default async function CustomersPage({
           .then(unwrapPage)
       : Promise.resolve(null),
     kind
-      ? unwrapPage(
-          await api.POST('/v1/queries/custom_field.list', {
+      ? api
+          .POST('/v1/queries/custom_field.list', {
             body: { workspaceId, recordTypeId: kind.id },
-          }),
-        ).fields
+          })
+          .then((r) => unwrapPage(r).fields)
       : [],
   ]);
   return (

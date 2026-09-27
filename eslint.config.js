@@ -29,6 +29,17 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          // Each `await` finishes before the next element is even built, so the requests run one after
+          // another and the Promise.all does nothing: this put a customer's page at 14 round trips.
+          selector:
+            "CallExpression[callee.object.name='Promise'] > ArrayExpression CallExpression[callee.name=/^unwrap(Page)?$/] > AwaitExpression",
+          message:
+            'This await makes Promise.all run its requests one at a time. Write `api.POST(...).then(unwrap)` instead.',
+        },
+      ],
     },
   },
   {
