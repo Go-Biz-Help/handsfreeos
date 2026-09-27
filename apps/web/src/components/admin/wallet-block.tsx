@@ -36,7 +36,7 @@ const STAGE_WORDS: Readonly<Record<Stage, { label: string; what: string }>> = {
   },
   enforce: {
     label: 'Stopped at zero',
-    what: 'The same, and outgoing texts and calls stop once the balance is past its overdraft.',
+    what: 'The same, and outgoing texts and calls stop once the balance runs out. No overdraft applies.',
   },
   agency: {
     label: 'Paid by the agency',
