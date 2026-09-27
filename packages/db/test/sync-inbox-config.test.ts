@@ -22,6 +22,16 @@ const INBOX_TABLES = [
   'ai_teammate_drafts',
 ] as const;
 
+// The wide arm's lookup for each table: `inbox`, except the drafts, which RLS also reads only with inbox.use
+// (20261012060300), so their lookup is `inbox` asking that too.
+const WIDE_LOOKUP: Record<(typeof INBOX_TABLES)[number], string> = {
+  conversations: 'inbox',
+  messages: 'inbox',
+  calls: 'inbox',
+  attention_items: 'inbox',
+  ai_teammate_drafts: 'inbox_drafts',
+};
+
 const { queries } = readSyncConfig();
 const sending = queries.filter((q) => !q.cte);
 const lookups = queries.filter((q) => q.cte);
@@ -40,7 +50,7 @@ describe('the narrowed inbox reaches a phone exactly as RLS reads it', () => {
       // `access` is every business they can open; `inbox` is the ones where they see all of it. Reading the
       // first here is the bug this test exists for: it would leave a narrowed member's phone holding
       // everything, silently, while the web showed them their own.
-      expect(wide.where).toContain('workspace_id IN inbox');
+      expect(wide.where).toMatch(new RegExp(`workspace_id IN ${WIDE_LOOKUP[table]}\\b`));
       expect(wide.where).not.toContain('workspace_id IN access');
     }
   });
@@ -68,7 +78,7 @@ describe('the narrowed inbox reaches a phone exactly as RLS reads it', () => {
     for (const table of INBOX_TABLES) {
       const strip = (where: string) =>
         where
-          .replace('workspace_id IN inbox', '')
+          .replace(`workspace_id IN ${WIDE_LOOKUP[table]}`, '')
           .replace('auth.user_id() IN member_viewer_ids', '')
           .replace(/^\s*AND\s*/, '')
           .trim();
@@ -85,6 +95,12 @@ describe('the narrowed inbox reaches a phone exactly as RLS reads it', () => {
     // a second copy of the rule with nothing holding it to the first.
     expect(inbox!.table).toBe('workspace_access');
     expect(inbox!.where).toContain('sees_whole_inbox = true');
+    // The drafts' lookup is the same row and the same column, and inbox.use besides.
+    const drafts = lookups.find((q) => q.name === 'inbox_drafts');
+    expect(drafts).toBeDefined();
+    expect(drafts!.table).toBe('workspace_access');
+    expect(drafts!.where).toContain('sees_whole_inbox = true');
+    expect(drafts!.where).toContain('uses_inbox = true');
   });
 
   it('leaves the customer timeline alone, deliberately', () => {

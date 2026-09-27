@@ -318,6 +318,31 @@ describe('the gates', () => {
     expect(await count('business_v1', 'invoices', agencyAdmin)).toBe(2);
   });
 
+  it('send the catalogue and the AI’s drafts only to whoever may see money and use the inbox', async () => {
+    expect(await count('business_v1', 'products', member)).toBeGreaterThan(0);
+    expect(await count('business_v1', 'ai_teammate_drafts', member)).toBeGreaterThan(0);
+    await rows(
+      admin$,
+      sql`insert into app.role_permission_overrides (workspace_id, role, permission, allowed)
+          values (${business}, 'member', 'money.read', false), (${business}, 'member', 'inbox.use', false)`,
+    );
+    try {
+      for (const output of ['products', 'plans', 'ai_teammate_drafts'])
+        expect(await count('business_v1', output, member), output).toBe(0);
+      // And every query still sends a member the business took these from exactly what they may read.
+      for (const q of queries.filter((x) => !x.cte))
+        expect(await readableBy(q, member), `${q.stream} ${q.output}`).toEqual(
+          await sentTo(q, member),
+        );
+    } finally {
+      await rows(
+        admin$,
+        sql`delete from app.role_permission_overrides where workspace_id = ${business}`,
+      );
+    }
+    expect(await count('business_v1', 'products', member)).toBeGreaterThan(0);
+  });
+
   it('send an agency to its own people, and each person only their own things', async () => {
     expect(await count('agency_v1', 'organizations', agencyAdmin)).toBe(1);
     expect(await count('agency_v1', 'organizations', member)).toBe(0);

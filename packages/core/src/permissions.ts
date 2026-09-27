@@ -510,6 +510,20 @@ export function canActOnRole(actorRole: WorkspaceRole | null, targetRole: Worksp
   return roleRank(actorRole) > 0 && roleRank(targetRole) <= roleRank(actorRole);
 }
 
+/**
+ * What handing someone a role would give them that whoever hands it out may not do here: empty when they may. The
+ * rank alone isn't enough, or an admin a business kept from something could invite or promote somebody to the
+ * role's full set. `granted` is what the role would give them (effectivePermissions with the business's settings);
+ * `already` is what they hold now, so moving someone down never counts as handing anything out.
+ */
+export function permissionsBeyond(
+  actor: Grants,
+  granted: readonly string[],
+  already: readonly string[] = [],
+): string[] {
+  return granted.filter((p) => !already.includes(p) && !holds(actor, p as Permission));
+}
+
 export function isOrgPermission(permission: Permission): boolean {
   return permission.startsWith('org.') || permission === 'workspace.create';
 }

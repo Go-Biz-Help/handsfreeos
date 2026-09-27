@@ -24,6 +24,11 @@
 #     0106 is the same kind of narrowing: a business now says who manages its money, so `managed` reads the
 #     trigger-kept `manages_money` flag instead of the role, in place. An admin the business took money away from
 #     stops receiving it on every build; me_v1's access row gains `permissions`, which an old build ignores.
+#     The catalogue and the AI teammate's drafts are the same again: RLS reads them only with money.read and
+#     inbox.use, which a business can take away, so they moved to `reads_money` and `inbox_drafts` (the `inbox`
+#     arm, also asking the trigger-kept `uses_inbox` flag on the access row), in place. Batched into the same
+#     recopy, tasks keep only the open ones and the ones done in the last 90 days (`sync_window`, as appointments
+#     do): an old build sees fewer old finished tasks and reads the rest as it always did.
 #     **And one addition in place.** RCS (0103) adds `transport`, `read_at`, `rich` and `button_reply` to messages
 #     in both inbox arms. It only adds, so an old build reads what it always did and ignores the rest. A v2 would
 #     have had to replace both arms, and me_v1 is subscribed automatically: every old build would have synced a
@@ -32,10 +37,12 @@
 #     a phone that cancels it puts it back as not delivered, as the server does, instead of hiding it.
 #
 # Buckets (one person): me_v1 1 + one per business_v1 arm that matches them, per business kept offline, +
-# agency_v1 1 per agency they belong to. business_v1 has three arms: `access` matches everyone who can open
-# the business, `managed` everyone who manages its money (0106: owners and admins unless it says otherwise), and
-# `inbox` everyone who still sees the whole inbox (0083). So two arms for a member, three for an owner or admin. Parameter results are that count less the
-# me_v1 one, which needs no lookup. An agency owner keeping 12 businesses offline: 38 buckets, 37 results.
+# agency_v1 1 per agency they belong to. business_v1 has five arms: `access` matches everyone who can open
+# the business, `managed` everyone who manages its money (0106: owners and admins unless it says otherwise),
+# `inbox` everyone who still sees the whole inbox (0083), `reads_money` everyone who may see money and
+# `inbox_drafts` everyone in `inbox` who may also use it (by default everyone). So four arms for a member, five
+# for an owner or admin. Parameter results are that count less the me_v1 one, which needs no lookup. An agency
+# owner keeping 12 businesses offline: 62 buckets, 61 results.
 # `sees_whole_inbox` defaults true, so the `inbox` arm costs its bucket whether or not any business has
 # narrowed anything — the price of it being a separate arm rather than an OR, which is what keeps the
 # member lookup off every row an owner reads.
@@ -81,6 +88,12 @@ streams:
       # The inbox, when this person sees all of it here: everyone until a business narrows its inbox (0083),
       # and owners and admins always. The narrowed case is in me_v1, on each thread's member_viewer_ids.
       inbox: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND sees_whole_inbox = true
+      # What RLS reads with a permission a business can take away, off the same row: the catalogue needs money.read,
+      # the AI teammate's drafts inbox.use.
+      reads_money: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND reads_money = true
+      # The drafts are also inbox rows (20261012020100): the wide arm is `inbox` narrowed further by inbox.use, one
+      # lookup rather than two conditions, so a draft sits in exactly one bucket.
+      inbox_drafts: SELECT workspace_id FROM app.workspace_access WHERE user_id = auth.user_id() AND workspace_id = subscription.parameter('workspace_id') AND sees_whole_inbox = true AND uses_inbox = true
     queries:
       # The business, its team (direct members: whom everyone in the business may see) and their names.
       - SELECT id, organization_id, name, slug, timezone, industry, settings, created_at, updated_at FROM app.workspaces WHERE id IN access
@@ -91,11 +104,11 @@ streams:
       - SELECT id, workspace_id, pipeline_id, name, kind, position, created_at, updated_at FROM app.pipeline_stages WHERE workspace_id IN access
       - SELECT id, workspace_id, name, color, created_at, updated_at FROM app.tags WHERE workspace_id IN access
       - SELECT tag_id || ':' || record_type || ':' || record_id AS id, workspace_id, tag_id, record_type, record_id, created_by, created_at FROM app.record_tags WHERE workspace_id IN access
-      # Every customer, company, lead and task.
+      # Every customer, company and lead, and the tasks still to do or done in the last 90 days.
       - SELECT id, workspace_id, company_id, first_name, last_name, email, phone, phone_e164, phone_alt, address_line1, address_line2, city, state, postal_code, country, other_emails, other_phones, other_addresses, notes, source, owner_user_id, team_user_ids, archived_at, sms_consent, sms_consent_at, sms_consent_source, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.people WHERE workspace_id IN access
       - SELECT id, workspace_id, name, email, phone, phone_e164, website, address_line1, address_line2, city, state, postal_code, country, other_emails, other_phones, other_addresses, notes, source, owner_user_id, team_user_ids, archived_at, possible_duplicate_of, field_times, created_by, created_at, updated_at FROM app.companies WHERE workspace_id IN access
       - SELECT id, workspace_id, pipeline_id, stage_id, person_id, company_id, title, value_cents, source, assignee_user_id, expected_close_on, next_action, next_action_at, status, won_at, lost_at, lost_reason, position, stage_entered_at, archived_at, qualification, last_contact_at, first_response_at, field_times, created_by, created_at, updated_at FROM app.leads WHERE workspace_id IN access
-      - SELECT id, workspace_id, title, notes, due_at, all_day, assignee_user_id, person_id, company_id, lead_id, done_at, done_by, field_times, created_by, created_at, updated_at FROM app.tasks WHERE workspace_id IN access
+      - SELECT id, workspace_id, title, notes, due_at, all_day, assignee_user_id, person_id, company_id, lead_id, done_at, done_by, field_times, created_by, created_at, updated_at FROM app.tasks WHERE workspace_id IN access AND sync_window = true
       # The timeline from the last 12 months, and files (their details; the file itself is downloaded when opened).
       - SELECT id, workspace_id, kind, subtype, person_id, company_id, lead_id, body, occurred_at, author_user_id, actor_type, meta, created_at, updated_at FROM app.activities WHERE workspace_id IN access AND sync_window = true
       - SELECT id, workspace_id, record_type, record_id, bucket, object_path, name, mime_type, size_bytes, status, created_by, created_at, updated_at FROM app.files WHERE workspace_id IN access AND deleted_at IS NULL AND record_type != 'knowledge'
@@ -117,7 +130,7 @@ streams:
       # Home: what needs attention (the phone ranks it with core's scoring), the AI teammate, and what waits for an OK.
       - SELECT id, workspace_id, kind, subject_type, subject_id, person_id, lead_id, conversation_id, state, opened_at, since_at, urgent_from, due_at, value_cents, value_is_estimate, money_key, probability, confidence, reasons, title, detail, assignee_user_id, snoozed_until, snoozed_at, snoozed_by, dismissed_at, dismissed_by, dismiss_reason, handled_at, handled_by, handled_via, handled_until, auto_state, auto_scheduled_for, auto_done_at, auto_skip_reason, auto_cancelled_by, created_at, updated_at FROM app.attention_items WHERE workspace_id IN inbox AND state != 'resolved'
       - SELECT id, workspace_id, name, status, archived_at, created_at, updated_at FROM app.ai_teammates WHERE workspace_id IN access
-      - SELECT id, workspace_id, teammate_id, conversation_id, person_id, lead_id, kind, status, preview, edits, expires_at, client_id, created_at, updated_at FROM app.ai_teammate_drafts WHERE workspace_id IN inbox AND status = 'pending'
+      - SELECT id, workspace_id, teammate_id, conversation_id, person_id, lead_id, kind, status, preview, edits, expires_at, client_id, created_at, updated_at FROM app.ai_teammate_drafts WHERE workspace_id IN inbox_drafts AND status = 'pending'
       - SELECT id, workspace_id, workflow_id, run_id, step_key, status, approvers, preview, edits, expires_at, created_at, updated_at FROM app.workflow_approvals WHERE workspace_id IN access AND status = 'pending'
       # The calendar: calendars and who is on them, services and who does them, hours, time off and busy times.
       - SELECT id, workspace_id, name, description, color, slug, status, public, config, config_version, revision, labels, owner_user_id, timezone, created_at, updated_at FROM app.calendars WHERE workspace_id IN access
@@ -134,9 +147,9 @@ streams:
       - SELECT id, workspace_id, person_id, title, status, customer_note, status_changed_at, eta_at, created_at, updated_at FROM app.jobs WHERE workspace_id IN access AND open = true
       - SELECT id, workspace_id, appointment_id, person_id, status, seats, intake, contact_phone_e164, contact_email, sms_ok, source, reschedule_count, cancelled_at, confirmed_at, confirmed_via, confirmed_by, confirm_asked_at, created_by, created_at, updated_at FROM app.appointment_attendees WHERE workspace_id IN access AND sync_window = true
       - SELECT appointment_id || ':' || user_id AS id, workspace_id, appointment_id, user_id, role, active, created_at FROM app.appointment_staff WHERE workspace_id IN access AND sync_window = true
-      # The catalogue.
-      - SELECT id, workspace_id, name, description, sku, kind, unit_price_cents, unit_label, taxable, service_id, archived_at, created_at, updated_at FROM app.products WHERE workspace_id IN access
-      - SELECT id, workspace_id, name, description, price_cents, "interval", interval_count, taxable, includes, archived_at, created_at, updated_at FROM app.plans WHERE workspace_id IN access
+      # The catalogue, for whoever may see money.
+      - SELECT id, workspace_id, name, description, sku, kind, unit_price_cents, unit_label, taxable, service_id, archived_at, created_at, updated_at FROM app.products WHERE workspace_id IN reads_money
+      - SELECT id, workspace_id, name, description, price_cents, "interval", interval_count, taxable, includes, archived_at, created_at, updated_at FROM app.plans WHERE workspace_id IN reads_money
       # Money for whoever manages it: open documents, and closed ones from the last 12 months; plans that bill.
       - SELECT id, workspace_id, number, status, person_id, lead_id, assignee_user_id, title, notes, subtotal_cents, discount_cents, discount_percent_bp, taxable_base_cents, tax_cents, total_cents, tax_rate_bp, tax_label, currency, deposit_percent_bp, deposit_cents, expires_on, sent_at, first_viewed_at, last_viewed_at, accepted_at, accepted_via, accepted_by, accepted_name, declined_at, declined_reason, voided_at, voided_by, void_reason, created_by, created_at, updated_at FROM app.estimates WHERE workspace_id IN managed AND sync_window = true
       - SELECT id, workspace_id, estimate_id, position, product_id, name, description, quantity, unit_label, unit_price_cents, taxable, discount_cents, amount_cents, created_at, updated_at FROM app.estimate_lines WHERE workspace_id IN managed AND sync_window = true
