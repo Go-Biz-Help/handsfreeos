@@ -33,6 +33,49 @@ export function decodeCursor(value: string | undefined): Cursor | null {
   throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
 }
 
+const ISO_TIMESTAMP =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,6})?(Z|[+-](\d{2})(?::?(\d{2}))?)$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A timestamp Postgres will cast: the shape, and every field in range (no 13th month, no 30 February). */
+function isTimestamp(sort: string): boolean {
+  const m = ISO_TIMESTAMP.exec(sort);
+  if (!m) return false;
+  const [y, mo, d, h, mi, s] = m.slice(1, 7).map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const day = new Date(0);
+  day.setUTCFullYear(y, mo - 1, d);
+  return (
+    y >= 1 &&
+    day.getUTCFullYear() === y &&
+    day.getUTCMonth() === mo - 1 &&
+    day.getUTCDate() === d &&
+    h <= 23 &&
+    mi <= 59 &&
+    s <= 59 &&
+    Number(m[9] ?? 0) <= 15 &&
+    Number(m[10] ?? 0) <= 59
+  );
+}
+
+/**
+ * A cursor keyed on a timestamp column, for lists that compare `(column, id) < (${sort}::timestamptz, ${id}::uuid)`
+ * so the column's index serves every page. The sort must be a real timestamp and the id a uuid: a tampered one is a
+ * validation error, not a failed cast.
+ */
+export function decodeTimeCursor(value: string | undefined): Cursor | null {
+  const cursor = decodeCursor(value);
+  if (cursor && (!isTimestamp(cursor.sort) || !UUID.test(cursor.id)))
+    throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
+  return cursor;
+}
+
 export interface Page<T> {
   readonly items: T[];
   readonly nextCursor: string | null;

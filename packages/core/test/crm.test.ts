@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { HfosError } from '../src/errors';
 import { defineQuery } from '../src/kernel/define';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
-import { decodeCursor, encodeCursor, page } from '../src/kernel/pagination';
+import { decodeCursor, decodeTimeCursor, encodeCursor, page } from '../src/kernel/pagination';
 import type {
   CommandDef,
   HumanActor,
@@ -144,6 +144,22 @@ describe('kernel additions', () => {
     const c = encodeCursor({ sort: '2026-09-11T00:00:00.000Z', id: randomUUID() });
     expect(decodeCursor(c)).toEqual({ sort: '2026-09-11T00:00:00.000Z', id: expect.any(String) });
     expect(() => decodeCursor('not-a-cursor')).toThrow(HfosError);
+    // A list keyed on a timestamp casts the sort back to one, so only a timestamp gets that far.
+    expect(decodeTimeCursor(c)?.sort).toBe('2026-09-11T00:00:00.000Z');
+    const micro = encodeCursor({ sort: '2026-09-11T00:00:00.123456Z', id: randomUUID() });
+    expect(decodeTimeCursor(micro)?.sort).toBe('2026-09-11T00:00:00.123456Z');
+    expect(() => decodeTimeCursor(encodeCursor({ sort: 'Smith John', id: randomUUID() }))).toThrow(
+      HfosError,
+    );
+    // The right shape is not enough: out-of-range fields and a non-uuid id would fail the casts.
+    for (const sort of ['2026-13-45T99:00:00Z', '2026-02-30T00:00:00Z', '2026-09-11T00:00:60Z'])
+      expect(() => decodeTimeCursor(encodeCursor({ sort, id: randomUUID() }))).toThrow(HfosError);
+    expect(() =>
+      decodeTimeCursor(encodeCursor({ sort: '2026-09-11T00:00:00Z', id: 'not-a-uuid' })),
+    ).toThrow(HfosError);
+    expect(
+      decodeTimeCursor(encodeCursor({ sort: '2028-02-29T23:59:59+05:30', id: randomUUID() })),
+    ).not.toBeNull();
     const p = page([1, 2, 3], 2, (n) => ({ sort: String(n), id: 'x' }));
     expect(p.items).toEqual([1, 2]);
     expect(p.nextCursor).not.toBeNull();
@@ -587,6 +603,16 @@ describe('leads and stages', () => {
     expect(await order()).toEqual(['C', 'B', 'A']);
     await run(leadMoveStage, { workspaceId: wsId, leadId: b, stageId: stage('New').id }, member);
     expect(await order()).toEqual(['C', 'A', 'B']);
+    // A column sends as many cards as the viewer asked for (Show more); its count still covers them all.
+    const shown = (
+      await ask(
+        leadBoard,
+        { workspaceId: wsId, shown: [{ stageId: stage('New').id, limit: 2 }] },
+        member,
+      )
+    ).stages.find((s) => s.name === 'New')!;
+    expect(shown.leads.map((l) => l.title)).toEqual(['C', 'A']);
+    expect(shown.count).toBeGreaterThanOrEqual(3);
   });
 
   it('assigning emits lead.assigned with the name and writes a timeline entry', async () => {
@@ -824,6 +850,36 @@ describe('tasks, activities and the home summary', () => {
     expect(ids).toContain(theirs);
     expect(ids).not.toContain(mine);
     expect(listed.items.every((t) => t.assignee?.id === member2.id)).toBe(true);
+  });
+
+  it('task.list pages through undated tasks, a page ending on one included', async () => {
+    const personId = (
+      await run(personCreate, { workspaceId: wsId, firstName: 'Paged', lastName: 'Tasks' }, member)
+    ).output.personId;
+    const made: string[] = [];
+    for (const [i, dueAt] of [new Date().toISOString(), undefined, undefined].entries()) {
+      const input = {
+        workspaceId: wsId,
+        title: `Paged ${i}`,
+        personId,
+        ...(dueAt ? { dueAt } : {}),
+      };
+      made.push((await run(taskCreate, input, member)).output.taskId);
+    }
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const got = await ask(
+        taskList,
+        { workspaceId: wsId, scope: 'all', personId, limit: 1, ...(cursor ? { cursor } : {}) },
+        member,
+      );
+      seen.push(...got.items.map((t) => t.id));
+      cursor = got.nextCursor ?? undefined;
+    } while (cursor);
+    // The dated one first, then the undated ones: every one of them, none twice.
+    expect(seen[0]).toBe(made[0]);
+    expect([...seen].sort()).toEqual([...made].sort());
   });
 
   it('the summary counts open leads, missing next actions and tasks', async () => {

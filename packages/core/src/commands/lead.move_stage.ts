@@ -108,7 +108,11 @@ export const leadMoveStage = defineCommand({
         notApplied: ['stageId'],
       };
     }
-    const position = await placeInStage(ctx.tx, to.id, input.afterLeadId, current.id);
+    const position = await placeInStage(
+      ctx.tx,
+      { workspaceId, pipelineId: current.pipelineId, stageId: to.id, movingLeadId: current.id },
+      input.afterLeadId,
+    );
     const [row] = await ctx.tx
       .update(leads)
       .set({

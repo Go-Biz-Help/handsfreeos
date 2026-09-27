@@ -1,6 +1,6 @@
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeTimeCursor, page } from '../kernel/pagination';
 import { TimelineListInput, TimelineListOutput } from '../schemas/activity';
 
 type Row = {
@@ -29,7 +29,7 @@ export const timelineList = defineQuery({
   permission: 'records.read',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const column =
       input.recordType === 'person'
         ? sql`a.person_id`
@@ -47,7 +47,7 @@ export const timelineList = defineQuery({
           from app.activities a
           left join app.users u on u.id = a.author_user_id
           where a.workspace_id = ${input.workspaceId} and ${column} = ${input.recordId}
-          ${cursor ? sql`and (to_char(a.occurred_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'), a.id) < (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
+          ${cursor ? sql`and (a.occurred_at, a.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql``}
           order by a.occurred_at desc, a.id desc
           limit ${input.limit + 1}`,
     );

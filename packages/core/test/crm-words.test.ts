@@ -28,6 +28,7 @@ import {
   moveChoices,
   moveToast,
   owesWords,
+  PIPELINE_WORDS,
   pipelineSummary,
   possibleDuplicateWords,
   recordTabLabel,
@@ -43,6 +44,7 @@ import {
   timelineFormatAt,
   timelineRunId,
   timelineTone,
+  totalsAfterMove,
   type TimelineEntry,
 } from '../src/index';
 
@@ -310,6 +312,25 @@ describe('the pipeline', () => {
     expect(stageTotals(1, 0)).toBe('1 lead · $0');
     expect(pipelineSummary(4, 2_185_000)).toBe('4 open leads · $21,850');
     expect(pipelineSummary(1, 100)).toBe('1 open lead · $1');
+  });
+
+  it('takes a stage’s totals as given when the board carries only its first cards, and moves them with a lead', () => {
+    const totals = new Map([['s3', { count: 250, valueCents: 9_000_000 }]]);
+    const board = boardStages(stages, leads, totals);
+    expect(board.map((s) => [s.name, s.count, s.valueCents, s.leads.length])).toEqual([
+      ['New', 2, 2_090_000, 2],
+      ['Contacted', 0, 0, 0],
+      ['Won', 250, 9_000_000, 1],
+      ['Lost', 0, 0, 0],
+    ]);
+    const moved = totalsAfterMove(board, leads[0]!, 's3');
+    expect(moved.get('s1')).toEqual({ count: 1, valueCents: 240_000 });
+    expect(moved.get('s3')).toEqual({ count: 251, valueCents: 10_850_000 });
+    expect(totalsAfterMove(board, leads[0]!, 's1').get('s1')).toEqual({
+      count: 2,
+      valueCents: 2_090_000,
+    });
+    expect(PIPELINE_WORDS.showMore(150)).toBe('Show more · 150 not shown');
   });
 
   it('says how long a lead has sat in its stage, the way the card reads it', () => {

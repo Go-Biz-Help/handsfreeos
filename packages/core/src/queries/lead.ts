@@ -1,10 +1,11 @@
-import { and, asc, desc, eq, gte, isNull, lt, or, sql as dsql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, or, sql as dsql, type SQL } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { leads, pipelines, pipelineStages } from '@hfos/db/schema';
 import { leadCards } from '../crm/lead-cards';
-import { boardStages } from '../crm/pipeline-words';
+import { BOARD_LEADS_PER_STAGE, boardStages } from '../crm/pipeline-words';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
-import { decodeCursor, page } from '../kernel/pagination';
+import { decodeTimeCursor, page } from '../kernel/pagination';
 import { LeadQualification } from '../schemas/ai-team';
 import {
   LeadBoardInput,
@@ -36,11 +37,29 @@ export const leadBoard = defineQuery({
       .from(pipelineStages)
       .where(eq(pipelineStages.pipelineId, pipeline.id))
       .orderBy(asc(pipelineStages.position));
+    // The top of each column, not every lead the pipeline ever won or lost: a stage's count and total cover them all.
+    // A column the viewer asked to see more of sends as many as they asked for.
+    const shown = Object.fromEntries((input.shown ?? []).map((s) => [s.stageId, s.limit]));
     const cards = await leadCards(
       ctx.tx,
       input.workspaceId,
-      and(eq(leads.pipelineId, pipeline.id), isNull(leads.archivedAt))!,
-      [asc(leads.position), asc(leads.createdAt)],
+      and(
+        eq(leads.pipelineId, pipeline.id),
+        isNull(leads.archivedAt),
+        dsql`${leads.id} in (select t.id from (
+          select l.id, l.stage_id, row_number() over (partition by l.stage_id order by l.position, l.created_at, l.id) as n
+          from app.leads l
+          where l.workspace_id = ${input.workspaceId} and l.pipeline_id = ${pipeline.id} and l.archived_at is null
+        ) t where t.n <= coalesce((${JSON.stringify(shown)}::jsonb ->> t.stage_id::text)::int, ${BOARD_LEADS_PER_STAGE}))`,
+      )!,
+      [asc(leads.position), asc(leads.createdAt), asc(leads.id)],
+    );
+    const totals = await rows<{ stage_id: string; count: number; value_cents: number }>(
+      ctx.tx,
+      sql`select stage_id, count(*)::int as count, coalesce(sum(value_cents), 0)::float8 as value_cents
+          from app.leads
+          where workspace_id = ${input.workspaceId} and pipeline_id = ${pipeline.id} and archived_at is null
+          group by stage_id`,
     );
     return {
       pipeline,
@@ -49,6 +68,9 @@ export const leadBoard = defineQuery({
       stages: boardStages(
         stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind, position: s.position })),
         cards,
+        new Map(
+          totals.map((t) => [t.stage_id, { count: t.count, valueCents: Number(t.value_cents) }]),
+        ),
       ),
     };
   },
@@ -62,7 +84,7 @@ export const leadList = defineQuery({
   permission: 'records.read',
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx, input) {
-    const cursor = decodeCursor(input.cursor);
+    const cursor = decodeTimeCursor(input.cursor);
     const conditions: SQL[] = [];
     if (!input.includeArchived) conditions.push(isNull(leads.archivedAt));
     if (input.q)
@@ -78,12 +100,11 @@ export const leadList = defineQuery({
         eq(leads.status, 'open'),
         or(isNull(leads.nextAction), eq(leads.nextAction, ''))!,
       );
-    if (cursor) {
-      const at = new Date(cursor.sort);
+    // At full precision: a stage renumber gives hundreds of leads one updated_at, and a page can end among them.
+    if (cursor)
       conditions.push(
-        or(lt(leads.updatedAt, at), and(eq(leads.updatedAt, at), lt(leads.id, cursor.id)))!,
+        dsql`(${leads.updatedAt}, ${leads.id}) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)`,
       );
-    }
     const cards = await leadCards(
       ctx.tx,
       input.workspaceId,
@@ -91,8 +112,11 @@ export const leadList = defineQuery({
       [desc(leads.updatedAt), desc(leads.id)],
       input.limit + 1,
     );
-    const result = page(cards, input.limit, (c) => ({ sort: c.updatedAt, id: c.id }));
-    return { items: result.items, nextCursor: result.nextCursor };
+    const result = page(cards, input.limit, (c) => ({ sort: c.updatedKey, id: c.id }));
+    return {
+      items: result.items.map(({ updatedKey: _, ...card }) => card),
+      nextCursor: result.nextCursor,
+    };
   },
 });
 
