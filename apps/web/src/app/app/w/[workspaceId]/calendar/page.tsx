@@ -32,10 +32,10 @@ export default async function CalendarRoute({
   const from = new Date(localInstant(days[0]!, '00:00', timeZone)).toISOString();
   const to = new Date(localInstant(days.at(-1)!, '24:00', timeZone)).toISOString();
   const [calendars, resources, team, appointments] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/calendar.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/schedule.team', { body: { workspaceId, from, to } })),
-    unwrapPage(await api.POST('/v1/queries/appointment.list', { body: { workspaceId, from, to } })),
+    api.POST('/v1/queries/calendar.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/resource.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/schedule.team', { body: { workspaceId, from, to } }).then(unwrapPage),
+    api.POST('/v1/queries/appointment.list', { body: { workspaceId, from, to } }).then(unwrapPage),
   ]);
   return (
     <CalendarPage

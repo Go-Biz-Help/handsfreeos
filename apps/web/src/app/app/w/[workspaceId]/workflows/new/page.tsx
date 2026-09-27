@@ -23,8 +23,8 @@ export default async function NewWorkflowPage({
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'workflows.manage')) notFound();
   const [catalogs, list] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workflow.list', { body: { workspaceId } })),
+    api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workflow.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   const recipe = typeof query.recipe === 'string' ? query.recipe : null;
   const initialRecipe = (RECIPE_KEYS as readonly string[]).includes(recipe ?? '')

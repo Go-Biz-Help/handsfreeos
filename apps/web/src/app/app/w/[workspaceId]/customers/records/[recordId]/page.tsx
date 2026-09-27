@@ -19,49 +19,59 @@ export default async function RecordPage({
 }) {
   const { workspaceId, recordId } = await params;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const now = Date.now();
-  const [record, timeline, tasks, files, members, relationships, relationshipTypes, soon, before] =
-    await Promise.all([
-      unwrapPage(
-        await api.POST('/v1/queries/custom_record.get', {
-          body: { workspaceId, customRecordId: recordId },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/timeline.list', {
-          body: { workspaceId, recordType: 'custom_record', recordId, limit: 30 },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/task.list', {
-          body: { workspaceId, scope: 'all', status: 'all', customRecordId: recordId, limit: 100 },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/file.list', {
-          body: { workspaceId, recordType: 'custom_record', recordId },
-        }),
-      ),
-      unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-      unwrapPage(
-        await api.POST('/v1/queries/relationship.list', {
-          body: { workspaceId, recordType: 'custom_record', recordId },
-        }),
-      ),
-      unwrapPage(await api.POST('/v1/queries/relationship_type.list', { body: { workspaceId } })),
-      // The appointment list reads at most 62 days at a time: the next and the last 62.
-      unwrapPage(
-        await api.POST('/v1/queries/appointment.list', {
-          body: { workspaceId, customRecordId: recordId, ...range(now, now + 62 * DAY) },
-        }),
-      ),
-      unwrapPage(
-        await api.POST('/v1/queries/appointment.list', {
-          body: { workspaceId, customRecordId: recordId, ...range(now - 62 * DAY, now) },
-        }),
-      ),
-    ]);
+  const [
+    got,
+    record,
+    timeline,
+    tasks,
+    files,
+    members,
+    relationships,
+    relationshipTypes,
+    soon,
+    before,
+  ] = await Promise.all([
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/custom_record.get', {
+        body: { workspaceId, customRecordId: recordId },
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/timeline.list', {
+        body: { workspaceId, recordType: 'custom_record', recordId, limit: 30 },
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/task.list', {
+        body: { workspaceId, scope: 'all', status: 'all', customRecordId: recordId, limit: 100 },
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/file.list', {
+        body: { workspaceId, recordType: 'custom_record', recordId },
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/relationship.list', {
+        body: { workspaceId, recordType: 'custom_record', recordId },
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/relationship_type.list', { body: { workspaceId } }).then(unwrapPage),
+    // The appointment list reads at most 62 days at a time: the next and the last 62.
+    api
+      .POST('/v1/queries/appointment.list', {
+        body: { workspaceId, customRecordId: recordId, ...range(now, now + 62 * DAY) },
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/appointment.list', {
+        body: { workspaceId, customRecordId: recordId, ...range(now - 62 * DAY, now) },
+      })
+      .then(unwrapPage),
+  ]);
   const { fields } = unwrapPage(
     await api.POST('/v1/queries/custom_field.list', {
       body: { workspaceId, recordTypeId: record.record.type.id },

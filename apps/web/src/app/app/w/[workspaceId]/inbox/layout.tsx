@@ -14,8 +14,8 @@ export default async function InboxLayout({
   const { workspaceId } = await params;
   const { api, userId } = await apiServer();
   const [got, members] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <InboxShell
