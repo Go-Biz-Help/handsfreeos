@@ -91,6 +91,37 @@ export const slotOut = (s: Slot): SlotOut => ({
   sessionId: s.sessionId,
 });
 
+/**
+ * Open times for a request: the service (it must be on the calendar), the length (one of its lengths), then
+ * the engine. `calendar.availability` answers with this, and the public booking page calls it in the same
+ * transaction as the rest of what it reads.
+ */
+export async function openTimes(
+  tx: Tx,
+  calendar: LoadedCalendar,
+  req: SlotRequest,
+): Promise<{ service: CatalogService | null; durationMinutes: number; slots: SlotOut[] }> {
+  const service = await resolveService(tx, calendar, req.serviceId);
+  if (
+    req.durationMinutes !== undefined &&
+    !resolveTerms(calendar.config, service).durations.includes(req.durationMinutes)
+  )
+    throw HfosError.validation([
+      { path: 'durationMinutes', message: 'Pick one of the calendar’s lengths.' },
+    ]);
+  const loaded = await loadSlotInput(
+    tx,
+    calendar,
+    { ...req, serviceId: service?.id ?? null },
+    { service },
+  );
+  return {
+    service,
+    durationMinutes: loaded.durationMinutes,
+    slots: computeSlots(loaded.input).map(slotOut),
+  };
+}
+
 /** Up to six open times nearest the one asked for (that day and the next two). */
 async function nearbySlots(
   tx: Tx,

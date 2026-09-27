@@ -18,11 +18,9 @@ import {
   attendeeConfirmOnline,
   attendeeRescheduleOnline,
   bookableDurations,
-  calendarAvailability,
   computeSlots,
   DEPOSIT_HOLD_MINUTES,
   executeCommand,
-  executeQuery,
   findBookingByClientId,
   formatPhone,
   HfosError,
@@ -36,6 +34,7 @@ import {
   LocationKind,
   normalizePhone,
   offerStillOpen,
+  openTimes,
   parseConfig,
   parseWaitlistOffer,
   plainSpaces,
@@ -1171,14 +1170,11 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
         const { scope, calendar } = await openCalendar(req.params.site, req.params.calendar);
         const { config } = calendar;
         const place = await placeFor(scope, config, q.address);
-        const out = await executeQuery(
-          deps.httpDb,
-          calendarAvailability,
-          {
-            workspaceId: scope.workspaceId,
-            calendarId: calendar.id,
-            from: q.from,
-            to: q.to,
+        // One transaction, on the calendar openCalendar already read.
+        return worker(scope, async (tx) => {
+          const out = await openTimes(tx, calendar, {
+            from,
+            to,
             serviceId: q.serviceId ?? null,
             durationMinutes: q.durationMinutes,
             partySize: q.partySize,
@@ -1188,19 +1184,17 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             chosenUserId:
               config.team.assignment === 'customer_choice' ? (q.chosenUserId ?? null) : null,
             locationKind: q.locationKind,
-          },
-          systemActor(scope),
-          meta(),
-        );
-        return worker(scope, async (tx) => ({
-          timezone: out.timezone,
-          durationMinutes: out.durationMinutes,
-          slots: await publicSlots(tx, config, out.slots),
-          full:
-            config.schedule.mode === 'sessions' || config.capacity.seats > 1
-              ? await fullSessions(tx, calendar, from, to, q.partySize)
-              : [],
-        }));
+          });
+          return {
+            timezone: calendar.timeZone,
+            durationMinutes: out.durationMinutes,
+            slots: await publicSlots(tx, config, out.slots),
+            full:
+              config.schedule.mode === 'sessions' || config.capacity.seats > 1
+                ? await fullSessions(tx, calendar, from, to, q.partySize)
+                : [],
+          };
+        });
       },
     );
 

@@ -42,26 +42,22 @@ import {
 } from '@hfos/db/schema';
 import { assertTeammateCalendar } from '../ai-team/reach';
 import { aiEmployeeOf } from '../kernel/actor';
-import { slotOut } from '../calendar/booking';
+import { openTimes } from '../calendar/booking';
 import { parseConfig } from '../calendar/config';
 import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
-import { computeSlots } from '../calendar/engine/slots';
 import {
   dbNow,
   iso,
   loadCalendar,
   loadCatalogs,
-  loadSlotInput,
   loadStaffData,
   loadTerritories,
-  resolveService,
   userNames,
   uuidArray,
   workspaceZone,
 } from '../calendar/load';
 import { parseReminderState } from '../calendar/reminders';
 import { validateCalendar } from '../calendar/rules';
-import { resolveTerms } from '../calendar/terms';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import {
@@ -252,36 +248,23 @@ export const calendarAvailability = defineQuery({
     if (ai) await assertTeammateCalendar(ctx.tx, ai, input.calendarId);
     const calendar = await loadCalendar(ctx.tx, input.workspaceId, input.calendarId);
     const { from, to } = rangeOf(input);
-    const service = await resolveService(ctx.tx, calendar, input.serviceId);
-    if (
-      input.durationMinutes !== undefined &&
-      !resolveTerms(calendar.config, service).durations.includes(input.durationMinutes)
-    )
-      throw HfosError.validation([
-        { path: 'durationMinutes', message: 'Pick one of the calendar’s lengths.' },
-      ]);
-    const loaded = await loadSlotInput(
-      ctx.tx,
-      calendar,
-      {
-        from,
-        to,
-        serviceId: service?.id ?? null,
-        durationMinutes: input.durationMinutes,
-        partySize: input.partySize,
-        postalCode: input.postalCode ?? null,
-        point: input.point ?? null,
-        chosenUserId: input.chosenUserId ?? null,
-        locationKind: input.locationKind,
-      },
-      { service },
-    );
+    const open = await openTimes(ctx.tx, calendar, {
+      from,
+      to,
+      serviceId: input.serviceId,
+      durationMinutes: input.durationMinutes,
+      partySize: input.partySize,
+      postalCode: input.postalCode ?? null,
+      point: input.point ?? null,
+      chosenUserId: input.chosenUserId ?? null,
+      locationKind: input.locationKind,
+    });
     return {
       calendarId: calendar.id,
       timezone: calendar.timeZone,
-      serviceId: service?.id ?? null,
-      durationMinutes: loaded.durationMinutes,
-      slots: computeSlots(loaded.input).map(slotOut),
+      serviceId: open.service?.id ?? null,
+      durationMinutes: open.durationMinutes,
+      slots: open.slots,
     };
   },
 });
