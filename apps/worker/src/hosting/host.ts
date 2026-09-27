@@ -41,6 +41,26 @@ export interface SiteHost {
   check(domain: string): Promise<HostedDomain>;
   /** Give the name back. Removing one that was never added is not an error. */
   remove(domain: string): Promise<void>;
+  /**
+   * Whether the business's own claim token is published at `txtHost`. The host's checks only prove the name
+   * points at us, which another business's leftover CNAME does too; this proves whose it is.
+   */
+  owns(txtHost: string, token: string): Promise<boolean>;
+}
+
+/** The TXT values at a name, or none when the name has none. Anything else is DNS having a bad minute. */
+export async function txtValues(
+  name: string,
+  resolve: (name: string) => Promise<string[][]>,
+): Promise<string[]> {
+  try {
+    // A long TXT value arrives in 255-byte pieces; the record is the pieces joined.
+    return (await resolve(name)).map((pieces) => pieces.join(''));
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    if (code === 'ENOTFOUND' || code === 'ENODATA') return [];
+    throw e;
+  }
 }
 
 /**

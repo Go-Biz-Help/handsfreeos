@@ -8,7 +8,8 @@
  * **A business's own domain is on our project, not theirs.** They point a CNAME at us and we hold the
  * certificate — the alternative is asking a plumber to manage a Vercel account.
  */
-import { HostError, type HostedDomain, type SiteHost } from './host';
+import { resolveTxt } from 'node:dns/promises';
+import { HostError, txtValues, type HostedDomain, type SiteHost } from './host';
 
 const API = 'https://api.vercel.com';
 
@@ -109,6 +110,9 @@ export function createVercelHost(opts: {
       return describe(domain);
     },
     check: describe,
+    async owns(txtHost, token) {
+      return (await txtValues(txtHost, resolveTxt)).includes(token);
+    },
     async remove(domain) {
       try {
         await call<unknown>('DELETE', `/v9/projects/${opts.projectId}/domains/${domain}`);

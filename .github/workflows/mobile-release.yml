@@ -32,7 +32,14 @@ concurrency:
 jobs:
   release:
     name: Build or update the phone app
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # `branches: [main]` above matches the head branch's name only, and a pull request from a fork whose branch is
+    # called main passes CI too. Only a push to main in this repository may reach the stores.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     # A production build for both phones, plus both submissions, runs about forty minutes on a busy queue.
     timeout-minutes: 60

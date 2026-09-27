@@ -1767,7 +1767,8 @@ export const brandedDomains = app.table('branded_domains', {
     .notNull()
     .unique()
     .references(() => bookingSites.id, { onDelete: 'cascade' }),
-  domain: text('domain').notNull().unique(),
+  // Unique only among verified rows: a claim still waiting on DNS squats nothing.
+  domain: text('domain').notNull(),
   status: brandedDomainStatus('status').notNull().default('pending'),
   verificationHost: text('verification_host'),
   verificationValue: text('verification_value'),
@@ -1778,6 +1779,14 @@ export const brandedDomains = app.table('branded_domains', {
   lastCheckedAt: ts('last_checked_at'),
   lastError: text('last_error'),
   nextCheckAt: ts('next_check_at'),
+  /**
+   * What the business publishes at `_hfos-verify.<domain>` to prove the name is its own, not just pointed at
+   * us. Minted by the database on insert; a row may be verified only once the worker has found it.
+   */
+  ownershipToken: text('ownership_token')
+    .notNull()
+    .default(sql`encode(extensions.gen_random_bytes(16), 'hex')`),
+  ownershipProvedAt: ts('ownership_proved_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });

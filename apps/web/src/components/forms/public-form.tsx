@@ -2,6 +2,8 @@
 import {
   answerProblem,
   formState,
+  isButtonAddress,
+  isWebAddress,
   money,
   consentPolicyPath,
   smsConsentWords,
@@ -72,7 +74,8 @@ export function PublicForm({
   const state = formState(definition, answers);
 
   useEffect(() => {
-    if (sent?.redirectUrl) window.location.assign(sent.redirectUrl);
+    // Only ever on to a web page: a `javascript:` address here would run on this origin.
+    if (isWebAddress(sent?.redirectUrl)) window.location.assign(sent.redirectUrl);
   }, [sent]);
 
   /** One sheet per person filling it in, however fast they type. */
@@ -167,7 +170,7 @@ export function PublicForm({
             {money(sent.dueCents)} to pay. We’ll send that separately.
           </p>
         ) : null}
-        {sent.buttonUrl && sent.buttonLabel ? (
+        {isButtonAddress(sent.buttonUrl) && sent.buttonLabel ? (
           <a
             href={sent.buttonUrl}
             className="mt-5 inline-flex h-9 items-center rounded-control bg-accent px-3.5 text-sm font-medium text-white"

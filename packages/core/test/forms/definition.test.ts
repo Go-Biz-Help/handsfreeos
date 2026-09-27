@@ -7,8 +7,10 @@ import {
   formProblems,
   gradedQuestions,
   scoringProblems,
+  withSafeResultLinks,
 } from '../../src/forms/index';
 import type { QuestionInput } from '../../src/forms/index';
+import { parseStoredForm } from '../../src/forms/load';
 import {
   choice,
   cid,
@@ -247,5 +249,62 @@ describe('reading the tree', () => {
     expect(scoringProblems(form)).toEqual([
       'Nothing is marked as a right answer, so there is nothing to score.',
     ]);
+  });
+});
+
+describe('where a result sends them', () => {
+  it('takes a web page', () => {
+    const form = def({
+      results: [
+        result('thanks', {
+          buttonUrl: 'https://lonestarhvac.com/specials',
+          redirectUrl: 'http://lonestarhvac.com/thank-you',
+        }),
+      ],
+    });
+    expect(form.results[0]!.redirectUrl).toBe('http://lonestarhvac.com/thank-you');
+  });
+
+  it('refuses anything that is not http or https', () => {
+    for (const url of [
+      'javascript:alert(document.cookie)',
+      'data:text/html,hi',
+      'ftp://x.example/',
+    ])
+      for (const key of ['buttonUrl', 'redirectUrl'] as const)
+        expect(tryDef({ results: [result('thanks', { [key]: url })] }).success).toBe(false);
+  });
+
+  it('lets a button call or email the business, but never sends them on to either', () => {
+    for (const url of ['tel:+15125550100', 'mailto:dale@lonestarhvac.com']) {
+      expect(tryDef({ results: [result('thanks', { buttonUrl: url })] }).success).toBe(true);
+      expect(tryDef({ results: [result('thanks', { redirectUrl: url })] }).success).toBe(false);
+    }
+    const form = parseStoredForm({
+      title: 'Get a quote',
+      pages: [page('about', [shortText('name')])],
+      results: [
+        result('thanks', { buttonUrl: 'tel:+15125550100', redirectUrl: 'mailto:dale@x.test' }),
+      ],
+    });
+    expect(form.results[0]!.buttonUrl).toBe('tel:+15125550100');
+    expect(form.results[0]!.redirectUrl).toBeNull();
+  });
+
+  it('drops a bad link saved before the rule, so the form still reads', () => {
+    const stored = {
+      title: 'Get a quote',
+      pages: [page('about', [shortText('name')])],
+      results: [
+        result('thanks', {
+          buttonUrl: 'https://lonestarhvac.com/',
+          redirectUrl: 'javascript:fetch(1)',
+        }),
+      ],
+    };
+    const form = parseStoredForm(stored);
+    expect(form.results[0]!.redirectUrl).toBeNull();
+    expect(form.results[0]!.buttonUrl).toBe('https://lonestarhvac.com/');
+    expect(withSafeResultLinks(null)).toBeNull();
   });
 });

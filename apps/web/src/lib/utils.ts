@@ -14,10 +14,21 @@ export function initials(name: string, fallback = '?'): string {
   ).toUpperCase();
 }
 
-/** Only same-origin, path-only redirect targets are honoured (no open redirects). */
+/**
+ * Only same-origin, path-only redirect targets are honoured (no open redirects). URL parsing drops tabs and
+ * newlines and reads a backslash as `/`, so `/\t/evil.com` would be `//evil.com`: any control character or
+ * backslash is refused, and what's left must still resolve to this origin.
+ */
 export function safeNext(value: string | null | undefined, fallback = '/app'): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\'))
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001F\u007F\\]/.test(value)) return fallback;
+  const base = 'https://next.invalid';
+  try {
+    if (new URL(value, base).origin !== base) return fallback;
+  } catch {
     return fallback;
+  }
   return value;
 }
 

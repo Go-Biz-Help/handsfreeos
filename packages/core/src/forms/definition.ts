@@ -112,6 +112,63 @@ export type FormPageInput = z.input<typeof FormPage>;
 // ---- Where they land ----
 
 /**
+ * A web page a result links or sends them on to: http or https only. `z.url()` alone takes any scheme
+ * `new URL()` parses, `javascript:` included, and the public form navigates to this on the app's origin.
+ */
+const WebAddress = z
+  .url({ protocol: /^https?$/, error: 'Give a web address starting https://.' })
+  .max(500);
+
+/**
+ * Where a result's button may go: a web page, or a call or an email to the business. Never a redirect — those
+ * stay web pages — but a "Call us" button on a thank-you screen is an ordinary thing to have.
+ */
+const ButtonAddress = z
+  .url({
+    protocol: /^(https?|tel|mailto)$/,
+    error: 'Give a web address starting https://, or a tel: or mailto: link.',
+  })
+  .max(500);
+
+const schemeOf = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  try {
+    return new URL(value).protocol;
+  } catch {
+    return null;
+  }
+};
+
+/** Whether a stored link is one a result may still send them on to: http or https. */
+export function isWebAddress(value: unknown): value is string {
+  const scheme = schemeOf(value);
+  return scheme === 'https:' || scheme === 'http:';
+}
+
+/** Whether a stored link is one a result's button may still use: a web page, a call or an email. */
+export function isButtonAddress(value: unknown): value is string {
+  const scheme = schemeOf(value);
+  return isWebAddress(value) || scheme === 'tel:' || scheme === 'mailto:';
+}
+
+/**
+ * A stored definition with any result link it may no longer use dropped, so a form saved before
+ * `WebAddress` was strict still reads (and can no longer send anyone to a `javascript:` address).
+ */
+export function withSafeResultLinks(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || !Array.isArray((raw as { results?: unknown }).results))
+    return raw;
+  const results = (raw as { results: unknown[] }).results.map((r) => {
+    if (!r || typeof r !== 'object') return r;
+    const out = { ...(r as Record<string, unknown>) };
+    if (out['buttonUrl'] != null && !isButtonAddress(out['buttonUrl'])) out['buttonUrl'] = null;
+    if (out['redirectUrl'] != null && !isWebAddress(out['redirectUrl'])) out['redirectUrl'] = null;
+    return out;
+  });
+  return { ...(raw as object), results };
+}
+
+/**
  * What they see when they're done. Every form has at least one — the thank-you screen. A quiz or a
  * recommendation form has several, and the first one whose rule passes wins; otherwise the choices' votes
  * decide; otherwise the last result is the fallback.
@@ -124,9 +181,9 @@ export const FormResult = z.object({
   body: z.string().trim().max(4000).default(''),
   showIf: AnswerConditionGroup.prefault({}),
   buttonLabel: z.string().trim().max(60).default(''),
-  buttonUrl: z.url().max(500).nullable().default(null),
+  buttonUrl: ButtonAddress.nullable().default(null),
   /** Send them straight on instead of showing the screen. */
-  redirectUrl: z.url().max(500).nullable().default(null),
+  redirectUrl: WebAddress.nullable().default(null),
 });
 export type FormResult = z.infer<typeof FormResult>;
 export type FormResultInput = z.input<typeof FormResult>;

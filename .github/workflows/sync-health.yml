@@ -16,6 +16,10 @@ concurrency:
   group: sync-health
   cancel-in-progress: false
 
+# It only talks to Fly.io; the repository token needs nothing.
+permissions:
+  contents: read
+
 jobs:
   health:
     name: Sync service health

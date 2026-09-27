@@ -20,6 +20,11 @@ concurrency:
 env:
   CI: true
 
+# Reading the repository, and the ghcr.io login below for the stack's images.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   scenarios:
     name: Sync scenarios and limits against the real service

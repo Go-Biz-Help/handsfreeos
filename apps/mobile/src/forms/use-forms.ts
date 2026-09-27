@@ -1,4 +1,8 @@
-import { FormDefinition, type FormDefinition as FormDefinitionValue } from '@hfos/core';
+import {
+  FormDefinition,
+  withSafeResultLinks,
+  type FormDefinition as FormDefinitionValue,
+} from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
@@ -51,7 +55,9 @@ export function usePhoneForms(): {
         // the zod type directly). A definition this phone cannot read is one it should not pretend to render.
         let parsed;
         try {
-          parsed = FormDefinition.safeParse(JSON.parse(row.definition) as unknown);
+          parsed = FormDefinition.safeParse(
+            withSafeResultLinks(JSON.parse(row.definition) as unknown),
+          );
         } catch {
           return [];
         }

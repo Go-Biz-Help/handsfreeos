@@ -18,13 +18,7 @@
 import { eq } from 'drizzle-orm';
 import { scheduleJob } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import {
-  brandedDomains,
-  emailDomains,
-  paymentConnections,
-  telephonyAccounts,
-  workspaces,
-} from '@hfos/db/schema';
+import { emailDomains, paymentConnections, telephonyAccounts, workspaces } from '@hfos/db/schema';
 import type { EventHandler } from '../handlers/types';
 import { assertInWorkspace } from '../handlers/file-removed';
 import { forgetPublicOrigin } from '../hosting/origin';
@@ -100,10 +94,13 @@ export const deleteWorkspaceJob: JobHandler = async (ctx) => {
       .select({ providerDomainId: emailDomains.providerDomainId })
       .from(emailDomains)
       .where(eq(emailDomains.workspaceId, workspaceId));
-    const branded = await tx
-      .select({ domain: brandedDomains.domain })
-      .from(brandedDomains)
-      .where(eq(brandedDomains.workspaceId, workspaceId));
+    // Only the names nobody else has a claim on: another business may be working on the same one.
+    const branded = await rows<{ domain: string }>(
+      tx,
+      sql`select d.domain from app.branded_domains d
+          where d.workspace_id = ${workspaceId}
+            and not private.branded_domain_claimed(d.domain, ${workspaceId})`,
+    );
     const objects = await rows<{ bucket: string; name: string }>(
       tx,
       sql`select bucket, name from private.workspace_stored_objects(${workspaceId})`,

@@ -27,6 +27,10 @@ concurrency:
   group: server-images-${{ github.ref }}
   cancel-in-progress: true
 
+# It only reads the repository; the build cache is the Actions cache, which needs no token scope.
+permissions:
+  contents: read
+
 jobs:
   images:
     name: ${{ matrix.app }} image has no phone code

@@ -778,9 +778,63 @@ describe('manage_web_address', () => {
     const { card, result } = await prepare('manage_web_address', { action: 'check', domain });
     expect(field(card, 'Where it stands')).toBe('Waiting for your DNS');
     expect(field(card, `CNAME ${domain}`)).toBe('sites.hfos-edge.example.net');
-    expect(result['records']).toHaveLength(1);
+    // The claim's own TXT comes first until the business has proved the name is its own (SEC-M11).
+    const records = result['records'] as { kind: string; host: string }[];
+    expect(records).toHaveLength(2);
+    expect(records[0]).toMatchObject({ kind: 'TXT', host: `_hfos-verify.${domain}` });
+    expect(warned(card, 'caution')[0]).toContain(`_hfos-verify.${domain}`);
     const done = await commit('manage_web_address', { action: 'check', domain });
     expect(done.outcome).toContain('sites.hfos-edge.example.net');
+  });
+
+  it('never calls a domain working because it points here, until the business proves it is theirs', async () => {
+    const d = (await current())!;
+    const recordAs = async (ownershipProved: boolean) =>
+      (
+        await executeCommand(
+          testDbs().worker.db,
+          registry.command('branded_domain.record')!,
+          {
+            workspaceId,
+            domainId: d.id,
+            status: 'verified',
+            verificationHost: null,
+            verificationValue: null,
+            cnameHost: domain,
+            cnameValue: 'sites.hfos-edge.example.net',
+            certificateReady: true,
+            lastError: null,
+            nextCheckAt: null,
+            ownershipProved,
+          },
+          systemActor({ workspaceId, organizationId }),
+          workerMeta(),
+        )
+      ).output as { status: string };
+    const stored = async () =>
+      (
+        await rows<{ status: string; last_error: string | null; ownership_proved_at: Date | null }>(
+          admin(),
+          sql`select status, last_error, ownership_proved_at from app.branded_domains where id = ${d.id}`,
+        )
+      )[0]!;
+
+    // Another business's CNAME left in place points here too: not proof.
+    expect((await recordAs(false)).status).toBe('verifying');
+    const waiting = await stored();
+    expect(waiting.status).toBe('verifying');
+    expect(waiting.last_error).toContain(`_hfos-verify.${domain}`);
+    expect(waiting.ownership_proved_at).toBeNull();
+
+    expect((await recordAs(true)).status).toBe('verified');
+    const proved = await stored();
+    expect(proved.status).toBe('verified');
+    expect(proved.last_error).toBeNull();
+    expect(proved.ownership_proved_at).not.toBeNull();
+
+    // Once proved, it stays proved: the daily check does not have to find the TXT again.
+    expect((await recordAs(false)).status).toBe('verified');
+    expect((await stored()).ownership_proved_at).toEqual(proved.ownership_proved_at);
   });
 
   it('stops using it only on Confirm, with a caution about links already out', async () => {
