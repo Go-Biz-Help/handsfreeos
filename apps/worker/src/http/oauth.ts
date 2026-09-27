@@ -10,6 +10,11 @@
  * trades the 30-day refresh token for rotating short-lived ones, which is the wrong trade for a connection that
  * has to stay alive for years. The one-time state — random, hashed, ten minutes — is what ties a callback back
  * to the business that started it, exactly as it does for the other two.
+ *
+ * **The callback connects nothing.** A state travels in a link, and a link can be forwarded to somebody in another
+ * business, whose approval would then connect their account to the sender's. So the callback seals what came back
+ * and hands it to the app (`handoff.ts`), and `/v1/oauth/finish` exchanges the code only when the app posts it
+ * back signed in as the person who pressed Connect (SEC-M1).
  */
 import { timingSafeEqual } from 'node:crypto';
 import { eq } from 'drizzle-orm';
@@ -17,6 +22,7 @@ import {
   calendarConnectionActivate,
   reviewConnectionActivate,
   executeCommand,
+  HfosError,
   mailboxActivate,
   paymentConnectionActivate,
 } from '@hfos/core/server';
@@ -28,6 +34,7 @@ import {
   reviewConnections,
 } from '@hfos/db/schema';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { CALENDAR_NAME } from '../calendar/provider';
 import { REVIEW_NAME, type ReviewProviderName } from '../reviews/provider';
 import { escapeHtml } from '../emails/templates';
@@ -45,7 +52,16 @@ import {
 import { nextRefreshAt } from '../payments/refresh';
 import { errorMessage } from '../outbox';
 import { systemActor, workerMeta, type TenantScope } from '../services';
-import type { HttpDeps } from './common';
+import { authenticate, parseBody, type HttpDeps } from './common';
+import {
+  finishUrl,
+  HandoffBody,
+  NOT_YOURS,
+  openHandoff,
+  sealHandoff,
+  type FinishOutcome,
+  type FinishPage,
+} from './handoff';
 
 const isProvider = (p: string): p is MailboxProviderName => p === 'microsoft' || p === 'google';
 
@@ -66,7 +82,7 @@ type StateRow = {
   status: string;
   state_expires_at: Date | string | null;
 };
-type CallbackQuery = { state?: string; code?: string; error?: string };
+type CallbackQuery = { state?: string; code?: string; error?: string; error_description?: string };
 
 interface GraphItem {
   subscriptionId?: string;
@@ -103,6 +119,13 @@ function deadEnd(
     );
 }
 
+/** A page from the dead ends a sign-in can reach, shown by the worker itself (a dead link to /start). */
+const sendPage = (reply: FastifyReply, status: number, page: FinishPage) =>
+  deadEnd(reply, status, page.title, page.body, page.link);
+
+/** The chooser's answer, posted by the app. */
+const PlaceBody = HandoffBody.extend({ place: z.string().min(1).max(500) });
+
 export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void {
   const { providers, fake } = deps.mailboxes;
   const calendars = deps.calendars;
@@ -122,17 +145,18 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
 
   /** The mailbox, calendar or payment sign-in a state belongs to, still good or not. */
   async function lookup(provider: string, state: string | undefined): Promise<StateRow | null> {
-    if (
-      (!isProvider(provider) && !isPaymentProvider(provider) && !isReviewProvider(provider)) ||
-      !state ||
-      state.length > 200
-    )
+    if (!state || state.length > 200) return null;
+    return lookupHash(provider, sha256Hex(state));
+  }
+  /** The same, by the state's hash: what a handoff carries back. */
+  async function lookupHash(provider: string, stateHash: string): Promise<StateRow | null> {
+    if (!isProvider(provider) && !isPaymentProvider(provider) && !isReviewProvider(provider))
       return null;
     const [row] = await asWorker(deps.httpDb, {}, (tx) =>
       rows<StateRow>(
         tx,
         sql`select kind, connection_id, workspace_id, organization_id, provider, status, state_expires_at
-            from private.oauth_connection_by_state(${sha256Hex(state)})`,
+            from private.oauth_connection_by_state(${stateHash})`,
       ),
     );
     return row ?? null;
@@ -157,13 +181,18 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
   const kindOf = (provider: string, found: StateRow | null): StateRow['kind'] | undefined =>
     found?.kind ?? (isPaymentProvider(provider) ? 'payment' : undefined);
 
+  const expiredPage = (kind?: StateRow['kind']): FinishPage => ({
+    title: 'This sign-in link has expired',
+    body: `Sign-in links last ten minutes. Go back to Settings, open ${SETTINGS_PAGE[kind ?? 'mailbox']}, and choose Connect again.`,
+  });
   const expired = (reply: FastifyReply, kind?: StateRow['kind']) =>
-    deadEnd(
-      reply,
-      400,
-      'This sign-in link has expired',
-      `Sign-in links last ten minutes. Go back to Settings, open ${SETTINGS_PAGE[kind ?? 'mailbox']}, and choose Connect again.`,
-    );
+    sendPage(reply, 400, expiredPage(kind));
+  /** A dead end, for the app to show. */
+  const page = (title: string, body: string, link?: FinishPage['link']): FinishOutcome => ({
+    page: { title, body, ...(link ? { link } : {}) },
+  });
+  /** Where the app goes next, when a sign-in ends somewhere in Settings. */
+  const next = (url: string): FinishOutcome => ({ next: url });
 
   app.get('/oauth/:provider/start', async (req, reply) => {
     const { provider } = req.params as { provider: string };
@@ -204,21 +233,115 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
   });
 
+  /**
+   * The provider's answer. Nothing is exchanged here: whoever this browser belongs to is not known, so what came
+   * back is sealed and handed to the app, which finishes it signed in (`/v1/oauth/finish`).
+   */
   app.get('/oauth/:provider/callback', async (req, reply) => {
     const { provider } = req.params as { provider: string };
     const q = req.query as CallbackQuery;
     const found = await lookup(provider, q.state);
     const row = waiting(provider, found);
-    if (!row) return expired(reply, kindOf(provider, found));
-    if (row.kind === 'payment') return paymentCallback(row, q, reply);
-    if (row.kind === 'calendar') return calendarCallback(row, q, reply);
-    if (row.kind === 'reviews') return reviewsCallback(row, q, reply);
-    if (!isProvider(row.provider)) return expired(reply, row.kind);
+    if (!row || !q.state) return expired(reply, kindOf(provider, found));
+    const sealed = sealHandoff(deps.sealer, {
+      door: 'oauth',
+      provider,
+      stateHash: sha256Hex(q.state),
+      code: q.code?.slice(0, 4000) ?? null,
+      error: q.error?.slice(0, 200) ?? null,
+      errorDescription: q.error_description?.slice(0, 500) ?? null,
+    });
+    return reply
+      .header('referrer-policy', 'no-referrer')
+      .header('cache-control', 'no-store')
+      .redirect(finishUrl(deps.webUrl, 'oauth', sealed), 302);
+  });
+
+  /**
+   * The app, signed in, finishing what the callback handed it. Only the person who pressed Connect gets any
+   * further; anybody else ends the sign-in, so a forwarded link can't be tried twice.
+   */
+  async function finishing(
+    req: FastifyRequest,
+    sealed: string,
+  ): Promise<{ row: StateRow; q: CallbackQuery } | { outcome: FinishOutcome }> {
+    const actor = await authenticate(deps, req);
+    const h = openHandoff(deps.sealer, sealed, 'oauth');
+    if (!h) return { outcome: { page: expiredPage() } };
+    const found = await lookupHash(h.provider, h.stateHash);
+    const row = waiting(h.provider, found);
+    if (!row) return { outcome: { page: expiredPage(kindOf(h.provider, found)) } };
+    const [started] = await asWorker(deps.httpDb, {}, (tx) =>
+      rows<{ by: string | null }>(
+        tx,
+        sql`select private.oauth_state_started_by(${h.stateHash}) as by`,
+      ),
+    );
+    if (!started?.by || started.by !== actor.userId) {
+      deps.log.warn(
+        { connectionId: row.connection_id, kind: row.kind },
+        'a sign-in came back to somebody other than the person who started it',
+      );
+      await abandon(row);
+      return { outcome: { page: NOT_YOURS } };
+    }
+    return {
+      row,
+      q: {
+        ...(h.code ? { code: h.code } : {}),
+        ...(h.error ? { error: h.error } : {}),
+        ...(h.errorDescription ? { error_description: h.errorDescription } : {}),
+      },
+    };
+  }
+
+  /** Ends a sign-in somebody else tried to finish: its state stops working, and the reason is kept. */
+  async function abandon(row: StateRow): Promise<void> {
+    const ended = {
+      oauthStateHash: null,
+      oauthStateExpiresAt: null,
+      lastError: 'The sign-in was finished by somebody other than the person who started it.',
+    };
+    await asWorker(deps.httpDb, scopeOf(row), async (tx) => {
+      if (row.kind === 'mailbox')
+        await tx
+          .update(mailboxConnections)
+          .set(ended)
+          .where(eq(mailboxConnections.id, row.connection_id));
+      else if (row.kind === 'calendar')
+        await tx
+          .update(calendarConnections)
+          .set(ended)
+          .where(eq(calendarConnections.id, row.connection_id));
+      else if (row.kind === 'payment')
+        await tx
+          .update(paymentConnections)
+          .set(ended)
+          .where(eq(paymentConnections.id, row.connection_id));
+      else
+        await tx
+          .update(reviewConnections)
+          .set(ended)
+          .where(eq(reviewConnections.id, row.connection_id));
+    });
+  }
+
+  app.post('/v1/oauth/finish', async (req, reply) => {
+    const { handoff } = parseBody(HandoffBody, req.body);
+    const got = await finishing(req, handoff);
+    reply.header('cache-control', 'no-store');
+    if ('outcome' in got) return got.outcome;
+    const { row, q } = got;
+    if (row.kind === 'payment') return paymentCallback(row, q);
+    if (row.kind === 'calendar') return calendarCallback(row, q);
+    if (row.kind === 'reviews') return reviewsCallback(row, q);
+    return mailboxCallback(row, q);
+  });
+
+  async function mailboxCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
+    if (!isProvider(row.provider)) return { page: expiredPage(row.kind) };
     const scope = scopeOf(row);
-    const back = (result: string) =>
-      reply
-        .header('referrer-policy', 'no-referrer')
-        .redirect(`${settingsUrl(row.workspace_id)}?mailbox=${result}`, 302);
+    const back = (result: string) => next(`${settingsUrl(row.workspace_id)}?mailbox=${result}`);
     const note = (error: string) =>
       asWorker(deps.httpDb, scope, (tx) =>
         tx
@@ -274,7 +397,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       await note(errorMessage(e));
       return back('failed');
     }
-  });
+  }
 
   // ---------- a person's own calendar: the same sign-in, back to Settings → My calendar ----------
 
@@ -305,14 +428,12 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
   }
 
-  async function calendarCallback(row: StateRow, q: CallbackQuery, reply: FastifyReply) {
-    if (!isProvider(row.provider)) return expired(reply, row.kind);
+  async function calendarCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
+    if (!isProvider(row.provider)) return { page: expiredPage(row.kind) };
     const provider = row.provider;
     const scope = scopeOf(row);
     const back = (result: 'connected' | 'cancelled' | 'missing_permissions' | 'failed') =>
-      reply
-        .header('referrer-policy', 'no-referrer')
-        .redirect(`${myCalendarUrl(row.workspace_id)}?calendar=${result}`, 302);
+      next(`${myCalendarUrl(row.workspace_id)}?calendar=${result}`);
     const note = (error: string) =>
       asWorker(deps.httpDb, scope, (tx) =>
         tx
@@ -406,49 +527,23 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       );
   }
 
-  /** The chooser: one link per place, carrying the same state that is already waiting. */
-  function choosePlace(
-    row: StateRow,
-    state: string,
+  /** The chooser: the places that sign-in speaks for, for the app to ask which one (answered at /v1/oauth/place). */
+  const choosePlace = (
     places: readonly { externalId: string; displayName: string }[],
-    reply: FastifyReply,
-  ) {
-    const links = places
-      .slice(0, 50)
-      .map(
-        (place) =>
-          `<p style="margin: 0 0 10px;"><a href="${escapeHtml(
-            `${deps.publicUrl}/oauth/${row.provider}/place?state=${encodeURIComponent(state)}` +
-              `&place=${encodeURIComponent(place.externalId)}`,
-          )}" style="color: #2d69d8; font-weight: 600; text-decoration: none;">${escapeHtml(
-            place.displayName,
-          )}</a></p>`,
-      )
-      .join('');
-    return reply
-      .code(200)
-      .type('text/html; charset=utf-8')
-      .header('cache-control', 'no-store')
-      .header('referrer-policy', 'no-referrer')
-      .send(
-        shell(
-          'Which one?',
-          `<h1 style="font-size: 18px; margin: 0 0 8px;">Which one is this business?</h1>` +
-            `<p style="font-size: 14px; line-height: 1.5; color: #5b616a; margin: 0 0 20px;">` +
-            `That sign-in can speak for more than one. Choose the one whose reviews belong here.</p>` +
-            links,
-        ),
-      );
-  }
+  ): FinishOutcome => ({
+    choose: {
+      places: places
+        .slice(0, 50)
+        .map((place) => ({ id: place.externalId, name: place.displayName })),
+    },
+  });
 
-  async function reviewsCallback(row: StateRow, q: CallbackQuery, reply: FastifyReply) {
-    if (!isReviewProvider(row.provider)) return expired(reply, row.kind);
+  async function reviewsCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
+    if (!isReviewProvider(row.provider)) return { page: expiredPage(row.kind) };
     const provider = row.provider;
     const scope = scopeOf(row);
     const back = (result: 'connected' | 'cancelled' | 'failed') =>
-      reply
-        .header('referrer-policy', 'no-referrer')
-        .redirect(`${reviewsUrl(row.workspace_id)}?reviews=${result}`, 302);
+      next(`${reviewsUrl(row.workspace_id)}?reviews=${result}`);
     const note = (error: string) =>
       asWorker(deps.httpDb, scope, (tx) =>
         tx
@@ -477,17 +572,15 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       const places = await p.places(tokens.accessToken);
       if (places.length === 0) {
         await note('That sign-in does not manage any place with reviews.');
-        return deadEnd(
-          reply,
-          409,
+        return page(
           'Nothing to read reviews from',
           `That ${REVIEW_NAME[provider]} account does not manage a business page. Sign in with the account that does.`,
           { href: reviewsUrl(row.workspace_id), label: 'Back to Reviews' },
         );
       }
       /**
-       * The token is kept now, still pending, so the chooser's link does not have to carry it. The state is
-       * what the chooser proves, exactly as the callback did, and it expires on the same ten-minute clock.
+       * The token is kept now, still pending, so the chooser's answer does not have to carry it. The handoff is
+       * what the answer proves, signed in as the same person, and it expires on the same ten-minute clock.
        */
       await asWorker(deps.httpDb, scope, (tx) =>
         tx
@@ -500,7 +593,7 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
           })
           .where(eq(reviewConnections.id, row.connection_id)),
       );
-      if (places.length > 1 && q.state) return choosePlace(row, q.state, places, reply);
+      if (places.length > 1) return choosePlace(places);
       const only = places[0]!;
       await connectPlace(row, only.externalId, only.displayName, only.publicUrl, tokens.scopes);
       return back('connected');
@@ -536,30 +629,31 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       workerMeta(),
     );
 
-  /** The chooser's answer. The same state, still waiting, still within its ten minutes. */
-  app.get('/oauth/:provider/place', async (req, reply) => {
-    const { provider } = req.params as { provider: string };
-    const { state, place } = req.query as { state?: string; place?: string };
-    const found = await lookup(provider, state);
-    const row = waiting(provider, found);
-    if (!row || row.kind !== 'reviews' || !place) return expired(reply, found?.kind ?? 'reviews');
+  /** The chooser's answer, from the app: the same handoff, the same person, still within its ten minutes. */
+  app.post('/v1/oauth/place', async (req, reply) => {
+    const { handoff, place } = parseBody(PlaceBody, req.body);
+    const got = await finishing(req, handoff);
+    reply.header('cache-control', 'no-store');
+    if ('outcome' in got) return got.outcome;
+    const { row } = got;
+    if (row.kind !== 'reviews' || !isReviewProvider(row.provider))
+      return { page: expiredPage('reviews') };
     const [c] = await asWorker(deps.httpDb, scopeOf(row), (tx) =>
       tx
         .select({ tokenEnc: reviewConnections.tokenEnc })
         .from(reviewConnections)
         .where(eq(reviewConnections.id, row.connection_id)),
     );
-    if (!c?.tokenEnc) return expired(reply, 'reviews');
+    if (!c?.tokenEnc) return { page: expiredPage('reviews') };
     try {
       const tokens = JSON.parse(deps.sealer.open(c.tokenEnc)) as {
         accessToken: string;
         scopes?: string[];
       };
-      if (!isReviewProvider(row.provider)) return expired(reply, 'reviews');
       const places = await deps.reviews.providers[row.provider].places(tokens.accessToken);
-      // Only a place that sign-in really manages: the link is a parameter, and a parameter is a guess.
+      // Only a place that sign-in really manages: the answer is a parameter, and a parameter is a guess.
       const chosen = places.find((x) => x.externalId === place);
-      if (!chosen) return expired(reply, 'reviews');
+      if (!chosen) return { page: expiredPage('reviews') };
       await connectPlace(
         row,
         chosen.externalId,
@@ -567,17 +661,13 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         chosen.publicUrl,
         tokens.scopes ?? [],
       );
-      return reply
-        .header('referrer-policy', 'no-referrer')
-        .redirect(`${reviewsUrl(row.workspace_id)}?reviews=connected`, 302);
+      return next(`${reviewsUrl(row.workspace_id)}?reviews=connected`);
     } catch (e) {
       deps.log.warn(
         { connectionId: row.connection_id, err: errorMessage(e) },
         'a review place did not connect',
       );
-      return reply
-        .header('referrer-policy', 'no-referrer')
-        .redirect(`${reviewsUrl(row.workspace_id)}?reviews=failed`, 302);
+      return next(`${reviewsUrl(row.workspace_id)}?reviews=failed`);
     }
   });
 
@@ -588,10 +678,8 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
    * seller towards a second account. That is a real dead end rather than a failure to retry, so it gets a page
    * that says what happened and offers Square instead; the provider's own code stays in `last_error`.
    */
-  const heldElsewhere = (row: StateRow, reply: FastifyReply) =>
-    deadEnd(
-      reply,
-      409,
+  const heldElsewhere = (row: StateRow) =>
+    page(
       'That Stripe account is connected to another platform',
       'Stripe only lets one platform manage an account. Either disconnect the other one in your Stripe ' +
         'dashboard and try again, create a second Stripe account for HandsFreeOS, or connect Square instead.',
@@ -617,14 +705,12 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       .redirect(p.authorizeUrl({ state, redirectUri: callbackUrl(row.provider) }), 302);
   }
 
-  async function paymentCallback(row: StateRow, q: CallbackQuery, reply: FastifyReply) {
-    if (!isPaymentProvider(row.provider)) return expired(reply, row.kind);
+  async function paymentCallback(row: StateRow, q: CallbackQuery): Promise<FinishOutcome> {
+    if (!isPaymentProvider(row.provider)) return { page: expiredPage(row.kind) };
     const provider = row.provider;
     const scope = scopeOf(row);
     const back = (result: 'connected' | 'cancelled' | 'missing_permissions' | 'failed') =>
-      reply
-        .header('referrer-policy', 'no-referrer')
-        .redirect(`${paymentsUrl(row.workspace_id)}?payments=${result}`, 302);
+      next(`${paymentsUrl(row.workspace_id)}?payments=${result}`);
     const note = (error: string) =>
       asWorker(deps.httpDb, scope, (tx) =>
         tx
@@ -636,12 +722,8 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
       const raw = (q.error ?? 'no code').slice(0, 80);
       await note(`The sign-in ended without access (${raw}).`);
       // Stripe can refuse on the way back as well as in the exchange.
-      if (
-        /platform/i.test(
-          `${q.error ?? ''} ${(q as { error_description?: string }).error_description ?? ''}`,
-        )
-      )
-        return heldElsewhere(row, reply);
+      if (/platform/i.test(`${q.error ?? ''} ${q.error_description ?? ''}`))
+        return heldElsewhere(row);
       return back(q.error === 'access_denied' ? 'cancelled' : 'failed');
     }
     const p = payments.providers[provider];
@@ -690,7 +772,15 @@ export function registerOAuthRoutes(app: FastifyInstance, deps: HttpDeps): void 
         e instanceof PaymentAuthError ? `${errorMessage(e)} (${e.code})` : errorMessage(e),
       );
       if (e instanceof PaymentAuthError && e.code === ACCOUNT_HELD_ELSEWHERE)
-        return heldElsewhere(row, reply);
+        return heldElsewhere(row);
+      // Another business here already has it, and its payments must keep reaching that business.
+      if (e instanceof HfosError && e.rule === 'payment_account_connected_elsewhere')
+        return page(
+          'That account is connected to another business',
+          'This account is already connected to another business on HandsFreeOS. Disconnect it there first, ' +
+            'or connect a different account.',
+          { href: paymentsUrl(row.workspace_id), label: 'Back to Payments' },
+        );
       deps.log.warn(
         { connectionId: row.connection_id, provider, err: errorMessage(e) },
         'a payment account did not connect',

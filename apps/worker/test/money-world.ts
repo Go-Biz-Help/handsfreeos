@@ -24,12 +24,13 @@ import {
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { createTestUser, signInTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { expect } from 'vitest';
 import type { z } from 'zod';
 import { buildHttpServer } from '../src/http/server';
 import { documentToken, type MoneyDocumentKind } from '../src/money/links';
 import { jobs } from '../src/scheduled';
+import { finishSignIn, testTokenVerifier } from './finish-sign-in';
 import { testServices } from './helpers';
 import { admin, api, drain, MIN, nextPhone, type World } from './booking-world';
 
@@ -88,7 +89,8 @@ export async function moneyWorld(label: string): Promise<MoneyWorld> {
   const app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    // The app finishes a sign-in signed in as the owner who started it.
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
     // Room to spare: these tests hammer one address on purpose, and the limits have their own test.
     money: { limits: { read: ROOM, act: ROOM, pay: ROOM } },
@@ -154,7 +156,10 @@ export async function moneyWorld(label: string): Promise<MoneyWorld> {
   });
 }
 
-/** Signs in at the provider through the real routes (start → the stand-in's page → callback). */
+/**
+ * Signs in at the provider through the real routes (start → the stand-in's page → callback → the app finishing
+ * it as the owner).
+ */
 export async function connect(
   w: World,
   provider: 'stripe' | 'square',
@@ -180,8 +185,12 @@ export async function connect(
   );
   expect(approve.statusCode, approve.body).toBe(302);
   const callback = new URL(String(approve.headers.location));
-  const done = await go(`${callback.pathname}${callback.search}`);
-  expect(done.statusCode, done.body).toBe(302);
+  const done = await finishSignIn(
+    w.app,
+    await go(`${callback.pathname}${callback.search}`),
+    await signInTestUser(w.owner),
+  );
+  expect(done.status, done.body).toBe(302);
   await drain(w);
   return { connectionId: (started as { connectionId: string }).connectionId, accountId };
 }

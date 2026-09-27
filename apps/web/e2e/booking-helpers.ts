@@ -58,6 +58,27 @@ export async function api<T = Json>(
 }
 
 /**
+ * Finishes a provider sign-in the way `/app/oauth/finish` does (SEC-M1): the callback only sends the browser to
+ * the app with a sealed handoff after the `#`, and the app posts it back to the worker as the person who pressed
+ * Connect. `callback` is the provider's redirect back to the worker.
+ */
+export async function finishSignIn(token: string, callback: string): Promise<void> {
+  const answered = await fetch(callback, { redirect: 'manual' });
+  const to = answered.headers.get('location');
+  if (!to) throw new Error(`the callback sent nowhere (${answered.status})`);
+  const url = new URL(to);
+  if (url.pathname !== '/app/oauth/finish' || !url.hash)
+    throw new Error(`the callback did not hand the sign-in to the app (${to})`);
+  const door = url.searchParams.get('door') === 'migration' ? 'migrations' : 'oauth';
+  const res = await fetch(`${WORKER}/v1/${door}/finish`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ handoff: decodeURIComponent(url.hash.slice(1)) }),
+  });
+  if (!res.ok) throw new Error(`finishing the sign-in failed (${res.status}): ${await res.text()}`);
+}
+
+/**
  * The Assistant asks each person's OK once, before their first question (M10). Specs that use it give that OK
  * through the API as the person, so they start where someone who already said OK would.
  */

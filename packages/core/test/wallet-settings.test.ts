@@ -196,3 +196,31 @@ describe('a business on the balance', () => {
     expect(statement.items[0]!.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
+
+describe('a business HandsFreeOS has put on `enforce`', () => {
+  // SEC-M18: the overdraft is the business's and the stage is ours, so an overdraft raised at `enforce` was
+  // the way round the stage. The command refuses it, and the update guard refuses it without the command.
+  beforeAll(async () => {
+    await admin().transaction(async (tx) => {
+      await tx.execute(
+        sql`select set_config('app.system_scope.workspace_id', ${workspaceId}, true)`,
+      );
+      await tx.execute(
+        sql`update app.usage_wallets set stage = 'enforce' where workspace_id = ${workspaceId}`,
+      );
+    });
+  });
+
+  it('may not give itself an overdraft', async () => {
+    const e = await settings(owner, { autoTopup: false, overdraftCents: 10_000_000 }).catch(
+      (x: unknown) => x,
+    );
+    expect(e).toBeInstanceOf(HfosError);
+    expect((e as HfosError).rule).toBe('wallet_overdraft_enforced');
+  });
+
+  it('may still take its overdraft to zero, and change the other settings', async () => {
+    const { output } = await settings(owner, { overdraftCents: 0, floorCents: 1500 });
+    expect(output).toMatchObject({ overdraftCents: 0, floorCents: 1500 });
+  });
+});

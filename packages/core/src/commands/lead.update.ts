@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { leads } from '@hfos/db/schema';
 import { assertAiReach, teammateDealsOn } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
@@ -6,6 +7,7 @@ import { requireCompany, requirePerson, userRef } from '../crm/records';
 import { HfosError } from '../errors';
 import { aiEmployeeOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { scopeCan } from '../kernel/execute';
 import {
   logNotApplied,
   mergeColumns,
@@ -95,6 +97,29 @@ export const leadUpdate = defineCommand({
       ctx.meta,
     );
     const { patch } = merged;
+    // Being a lead's assignee shows a member its bills. Anybody who works a lead may hand it on, but making
+    // somebody its assignee when that shows them bills they can't otherwise see — themselves included — is
+    // for owners and admins, as a customer's team is. The database refuses it too. People only.
+    const to = 'assigneeUserId' in patch ? (patch.assigneeUserId as string | null) : null;
+    if (
+      ctx.actor.type === 'human' &&
+      to &&
+      to !== current.assigneeUserId &&
+      !scopeCan(ctx.scope, 'records.assign')
+    ) {
+      const [sees] = await rows<{ yes: boolean }>(
+        ctx.tx,
+        sql`select private.sees_money_as_member(${workspaceId}::uuid, ${to}::uuid) as yes`,
+      );
+      if (sees?.yes)
+        throw HfosError.rule(
+          'lead_assign_managers_only',
+          403,
+          to === ctx.actor.userId
+            ? 'Only owners and admins can put you on a lead.'
+            : 'Only owners and admins can give this lead to them. Hand it to an owner or admin instead.',
+        );
+    }
     const nextPerson = 'personId' in patch ? (patch.personId as string | null) : current.personId;
     const nextCompany =
       'companyId' in patch ? (patch.companyId as string | null) : current.companyId;

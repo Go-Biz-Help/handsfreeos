@@ -57,6 +57,7 @@ import { logNotApplied, mergeColumns, mergeFields } from '../kernel/field-merge'
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import { isOptedOut } from '../messaging/store';
 import {
@@ -484,6 +485,26 @@ export const appointmentReassign = defineCommand({
     const was = await staffIdsOf(ctx.tx, appt.id);
     if (JSON.stringify(was) === JSON.stringify(userIds))
       return { appointmentId: appt.id, userIds, warnings: [] };
+    // Staff on a booking see the bills tied to it, so putting somebody on one that has any, when that shows
+    // them bills they can't otherwise see — yourself included — takes records.assign, as it does for a lead or
+    // a customer. Asked of the database, which sees the bills when the member can't.
+    const added = userIds.filter((u) => !was.includes(u));
+    if (ctx.actor.type === 'human' && added.length && !scopeCan(ctx.scope, 'records.assign')) {
+      const [shown] = await rows<{ yes: boolean }>(
+        ctx.tx,
+        sql`select private.appointment_has_money(${ws}::uuid, ${appt.id}::uuid)
+              and exists (select 1 from unnest(array[${sql.join(
+                added.map((u) => sql`${u}::uuid`),
+                sql`, `,
+              )}]) as t(u) where private.sees_money_as_member(${ws}::uuid, t.u)) as yes`,
+      );
+      if (shown?.yes)
+        throw HfosError.rule(
+          'appointment_assign_managers_only',
+          403,
+          'This booking has bills on it, so only owners and admins can add people who would see them.',
+        );
+    }
     const minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN);
     const { warnings } = await checkExisting(
       ctx,

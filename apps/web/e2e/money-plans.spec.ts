@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { api, ownerWithSite, WORKER, type Owner } from './booking-helpers';
+import { api, finishSignIn, ownerWithSite, WORKER, type Owner } from './booking-helpers';
 
 /**
  * Maintenance plans, end to end (design/m9 Plans.dc.html): a customer put on a plan from the catalogue, the
@@ -69,7 +70,7 @@ async function connectAccount(owner: Owner, accountId: string): Promise<string> 
   const approved = await fetch(approve, { redirect: 'manual' });
   const callback = approved.headers.get('location');
   if (!callback) throw new Error(`the stand-in refused the sign-in (${approved.status})`);
-  await fetch(callback, { redirect: 'manual' });
+  await finishSignIn(owner.token, callback);
   await expect
     .poll(async () => (await accounts(owner)).find((c) => c.status === 'active')?.status)
     .toBe('active');
@@ -171,7 +172,8 @@ async function moneyOwner(page: Page, label: string): Promise<Owner & { accountI
     workspaceId: owner.workspaceId,
     quietHours: { enabled: false, start: '20:00', end: '08:00' },
   });
-  const accountId = await connectAccount(owner, `acct_${label}`);
+  // A live account belongs to one business at a time, so each run signs in with its own.
+  const accountId = await connectAccount(owner, `acct_${label}_${randomUUID().slice(0, 8)}`);
   return { ...owner, accountId };
 }
 

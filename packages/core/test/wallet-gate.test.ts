@@ -118,13 +118,24 @@ describe('walletRoom once a business is at `enforce`', () => {
     expect((await walletRoom(txWith(enforced(2500)), WORKSPACE, 'text')).allowed).toBe(true);
   });
 
-  it('allows a balance inside the overdraft: the bill for these is already ours', async () => {
-    expect((await walletRoom(txWith(enforced(-999)), WORKSPACE, 'text')).allowed).toBe(true);
+  it('has no overdraft at `enforce`, whatever the row says — the business writes that column, not the stage', async () => {
+    // A business on `enforce` raising its own overdraft to $100,000 was the way round the stage (SEC-M18).
+    const room = await walletRoom(txWith(enforced(-1, 10_000_000)), WORKSPACE, 'text');
+    expect(room).toMatchObject({ allowed: false, overdraftCents: 0, stage: 'enforce' });
+    expect((await walletRoom(txWith(enforced(-999)), WORKSPACE, 'text')).allowed).toBe(false);
   });
 
-  it('refuses at the overdraft floor, not a cent past it', async () => {
-    expect((await walletRoom(txWith(enforced(-1000)), WORKSPACE, 'text')).allowed).toBe(false);
+  it('refuses at zero, not a cent past it', async () => {
+    expect((await walletRoom(txWith(enforced(1)), WORKSPACE, 'text')).allowed).toBe(true);
+    expect((await walletRoom(txWith(enforced(0)), WORKSPACE, 'text')).allowed).toBe(false);
     expect((await walletRoom(txWith(enforced(-1001)), WORKSPACE, 'call')).allowed).toBe(false);
+  });
+
+  it('keeps the overdraft the business set everywhere but `enforce`', async () => {
+    expect(await walletRoom(txWith(warned(-999)), WORKSPACE, 'text')).toMatchObject({
+      allowed: true,
+      overdraftCents: 1000,
+    });
   });
 
   it('wants a whole first month before it lets a number be bought', async () => {
@@ -183,7 +194,7 @@ describe('mayRingOut', () => {
   const room = (over: Partial<WalletRoom>): WalletRoom => ({
     allowed: true,
     balanceCents: 0,
-    overdraftCents: 1000,
+    overdraftCents: 0,
     unknown: false,
     stage: 'enforce',
     ...over,
@@ -193,11 +204,8 @@ describe('mayRingOut', () => {
     expect(mayRingOut(room({ balanceCents: 2500 }))).toBe(true);
   });
 
-  it('rings out inside the overdraft', () => {
-    expect(mayRingOut(room({ balanceCents: -999 }))).toBe(true);
-  });
-
-  it('stops ringing out past the overdraft — voicemail still answers', () => {
+  it('stops ringing out once the balance runs out — voicemail still answers', () => {
+    expect(mayRingOut(room({ balanceCents: 0 }))).toBe(false);
     expect(mayRingOut(room({ balanceCents: -1000 }))).toBe(false);
   });
 
@@ -207,8 +215,8 @@ describe('mayRingOut', () => {
   });
 
   it('ignores `allowed`: an inbound call is never hard-blocked, only degraded', () => {
-    // A wallet the gate would refuse a text on still rings phones, as long as it is inside the overdraft.
-    expect(mayRingOut(room({ allowed: false, balanceCents: -500 }))).toBe(true);
+    // A wallet the gate would refuse a number on still rings phones, as long as there is money on it.
+    expect(mayRingOut(room({ allowed: false, balanceCents: 100 }))).toBe(true);
   });
 
   /*
@@ -236,6 +244,12 @@ describe('mayRingOut', () => {
     it('rings out at `warn`, because warning is not stopping', async () => {
       expect(mayRingOut(await walletRoom(txWith(warned(-50_000, 0)), WORKSPACE, 'call'))).toBe(
         true,
+      );
+    });
+
+    it('stops at `enforce` under zero even with an overdraft on the row', async () => {
+      expect(mayRingOut(await walletRoom(txWith(enforced(-999, 1000)), WORKSPACE, 'call'))).toBe(
+        false,
       );
     });
 
