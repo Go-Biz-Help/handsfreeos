@@ -158,6 +158,27 @@ async function loadMigrationFor(
   return m;
 }
 
+/**
+ * Whether a business at its own door is looking at a move that also carries other businesses. Pausing,
+ * resuming and rolling back act on the whole migration at once, so those stay the agency's when it does:
+ * one client must not stop, restart or undo the imports of the others sharing it. Always false for the
+ * agency's own door.
+ */
+async function carriesOtherBusinesses(
+  ctx: CommandContext,
+  migrationId: string,
+  access: MigrationAccess,
+): Promise<boolean> {
+  if (!access.onlyWorkspaceId) return false;
+  const [others] = await rows<{ count: number }>(
+    ctx.tx,
+    sql`select count(*)::int as count from app.migration_scopes
+        where migration_id = ${migrationId} and selected and workspace_id is not null
+          and workspace_id <> ${access.onlyWorkspaceId}`,
+  );
+  return (others?.count ?? 0) > 0;
+}
+
 /** How long a sign-in state stays good, as mailboxes, calendars and payment accounts use. */
 const STATE_TTL_MS = 10 * 60_000;
 /** Chris's answer: thirty days of catching up, extendable, with a reminder at seven left. */
@@ -1055,8 +1076,12 @@ export const migrationPause = defineCommand({
   scope: eitherDoor,
   emits: ['migration.paused'],
   async handler(ctx, input) {
-    requireHuman(ctx);
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
+    if (await carriesOtherBusinesses(ctx, m.id, access))
+      throw HfosError.forbidden(
+        'This move brings other businesses across as well, so only your agency can pause it.',
+      );
     // Checking and finishing are working states too, and until 0088 neither could be stopped: a move that
     // stalled in `verifying` had no pause, so no rollback (which wants it paused) and so no delete either.
     // Pausing one of those stops the same way — after the batch that is running.
@@ -1085,8 +1110,12 @@ export const migrationResume = defineCommand({
   scope: eitherDoor,
   emits: ['migration.resumed'],
   async handler(ctx, input) {
-    requireHuman(ctx);
-    const m = await loadMigration(ctx, input.migrationId);
+    const access = requireAccess(ctx);
+    const m = await loadMigrationFor(ctx, input.migrationId, access);
+    if (await carriesOtherBusinesses(ctx, m.id, access))
+      throw HfosError.forbidden(
+        'This move brings other businesses across as well, so only your agency can resume it.',
+      );
     if (m.status !== 'paused' && m.status !== 'needs_attention')
       return migrationState(m.id, m.status as MigrationLifecycle, false);
     const [pending] = await rows<{ count: number }>(
@@ -1280,21 +1309,13 @@ export const migrationRollback = defineCommand({
   async handler(ctx, input) {
     const access = requireAccess(ctx);
     const m = await loadMigrationFor(ctx, input.migrationId, access);
-    if (access.onlyWorkspaceId) {
-      // Rolling back is all or nothing across a migration: the journal is unwound in one pass. So a business
-      // may take back a move that is only its own, and a move carrying other businesses stays the agency's —
-      // otherwise one client's change of mind would undo nineteen others' imports.
-      const [others] = await rows<{ count: number }>(
-        ctx.tx,
-        sql`select count(*)::int as count from app.migration_scopes
-            where migration_id = ${m.id} and selected and workspace_id is not null
-              and workspace_id <> ${access.onlyWorkspaceId}`,
+    // Rolling back is all or nothing across a migration: the journal is unwound in one pass. So a business
+    // may take back a move that is only its own, and a move carrying other businesses stays the agency's —
+    // otherwise one client's change of mind would undo nineteen others' imports.
+    if (await carriesOtherBusinesses(ctx, m.id, access))
+      throw HfosError.forbidden(
+        'This move brought other businesses across as well, so only your agency can take it back.',
       );
-      if ((others?.count ?? 0) > 0)
-        throw HfosError.forbidden(
-          'This move brought other businesses across as well, so only your agency can take it back.',
-        );
-    }
     if (m.status === 'rolling_back' || m.status === 'rolled_back')
       return migrationState(m.id, m.status as MigrationLifecycle, false);
     requireStatus(
