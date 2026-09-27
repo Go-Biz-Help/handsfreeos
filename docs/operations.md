@@ -7417,7 +7417,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
 - **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
 - **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
-- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). You type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud needs the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Under each call reply, **Where the time went** splits that wait into steps (see "How fast it answers on a call"). Like a real call, a test call reads the business once, when it's picked up: settings, knowledge or hours saved in the middle of a test call show from the next one. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
+- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). **Call live** plays a call the way a caller has it: the teammate answers in real time on the same live call loop a real call runs, so the pauses, talking over it and the quiet timers are a real call's. When the business has a number and you may place calls, you pick how it goes: **Phone line** rings the business number from your browser (Twilio's browser calling), so you hear the phone line itself; **This browser** sends your microphone straight to the worker as phone-quality sound, without the phone line, and is the only way when there's no number yet (headphones keep it from hearing itself). Under each live reply, **Where the time went** starts from the moment you stopped talking and ends at the first sound of its answer. Or type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud and live calls need the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Under each call reply, **Where the time went** splits that wait into steps (see "How fast it answers on a call"). Like a real call, a test call reads the business once, when it's picked up: settings, knowledge or hours saved in the middle of a test call show from the next one. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
 
 ### What else it can do for a customer (M18)
 
@@ -7918,6 +7918,34 @@ What keeps the wait short:
 When calls feel slow, the log line says where: a large `waitMs` with `thought: true` is the model thinking before
 it answers (Claude Sonnet 5 does unless it's told not to; Claude Haiku 4.5 doesn't, which a support admin can pick
 per business in /admin), and a large `loadMs` is the database.
+
+To hear it for yourself, use **Call live** in the test console: it runs on the same loop as a real call and shows
+each turn's `firstSoundMs` as **Where the time went**, so the timing you hear is a caller's.
+
+#### Live test calls
+
+A live test call from the test console runs on the worker, in the teammate's live call loop, with what it thinks
+coming from the console (look-ups are real, changes are pretend, nothing is sent, nobody rings and nothing is
+saved but the test runs and their tokens). There is nothing to set up beyond what live calls already need
+(`DEEPGRAM_API_KEY`, and a Claude model). What each way uses:
+
+- **This browser**: the console's websocket, `wss://hooks.handsfreeos.com/v1/ai-team/test/call`, carries the
+  microphone and the teammate's voice as 8 kHz phone audio. Nothing touches Twilio.
+- **Phone line**: the same websocket carries only what happened; the browser places a call through the business's
+  own TwiML app to the made-up number `hfos:test-call`, with a sealed ticket good for a minute. The app's usual
+  voice URL (`/webhooks/twilio/voice/outbound`) answers it by streaming it to
+  `/webhooks/twilio/voice/agent/test/<machine>` and hanging up when the stream ends. Twilio's status reports about
+  these calls aren't stored, so they never show in the call log. They cost what a browser call does on the
+  business's subaccount (the nightly reconciliation picks that up).
+
+With **two worker machines**, the call has to run on the machine holding the console's websocket, which is the one
+named in the stream's address (`FLY_MACHINE_ID`). A stream Fly hands to the other machine is sent on with Fly's
+`fly-replay` header before it opens. If test calls over the phone line hang up as soon as they connect on a
+two-machine worker, check the log for `refused a call stream without a good ticket`: the replay didn't reach the
+right machine. **This browser** still works either way.
+
+Each person has one live test call at a time and a dozen every ten minutes. Their speech is billed like talking out
+loud (`source = 'talk'` in `app.speech_usage`), and their AI tokens like any other test.
 
 ### AI calls
 

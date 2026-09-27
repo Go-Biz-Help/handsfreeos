@@ -44,7 +44,9 @@ interface StreamMessage {
 const MACHINE = /^[a-z0-9]{1,40}$/i;
 
 export async function registerVoiceAgentRoute(app: FastifyInstance, deps: HttpDeps): Promise<void> {
-  await app.register(websocket);
+  // Every message on these sockets is small (20 ms of audio, a mark, a line of JSON): nothing needs `ws`'s
+  // default of 100 MiB, and the test console's socket is open to anyone signed in.
+  await app.register(websocket, { options: { maxPayload: 1_048_576 } });
   app.get('/webhooks/twilio/voice/agent', { websocket: true }, (socket) =>
     handleStream(socket, deps, (start, link) => {
       const ticket = openTicket(deps.sealer, start.params['t']);

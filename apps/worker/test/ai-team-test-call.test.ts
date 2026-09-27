@@ -5,7 +5,13 @@
  * the AI teammate. Either way the call runs on the live call loop a real call runs, the console hears every turn's
  * events and where its time went, and nothing happens for real: no visit, no call record, nobody rung.
  */
-import { createTokenVerifier, TEST_CALL_PARAM, TEST_CALL_TO } from '@hfos/core/server';
+import {
+  createTokenVerifier,
+  encodeMulaw,
+  PHONE_FRAME,
+  TEST_CALL_PARAM,
+  TEST_CALL_TO,
+} from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, signInTestUser, testDbs, testEnv } from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
@@ -17,6 +23,7 @@ import { FAKE_AUTH_TOKEN, fakeSid, type FakeTelephony } from '../src/telephony/f
 import { twilioSignature } from '../src/telephony/signature';
 import { identityOf } from '../src/telephony/voice';
 import { testMessagesOf } from '../src/ai-team/test-call';
+import { createFakeSpeech, FAKE_HEARD } from '../src/voice-agent/fake-speech';
 import { CONNECTING } from '../src/voice-agent/prompt';
 import { openTestTicket } from '../src/voice-agent/ticket';
 import { TEST_PUBLIC_URL } from './helpers';
@@ -424,5 +431,39 @@ describe('the call so far, as the console reads it', () => {
       { from: 'teammate', text: 'Sure. (interrupted)' },
       { from: 'customer', text: 'Are you open Saturday?' },
     ]);
+  });
+});
+
+describe('the stand-in speech, on a browser’s real audio', () => {
+  /** `seconds` of phone audio, 20 ms a frame: a tone while talking, silence otherwise. */
+  const frames = (seconds: number, talking: boolean): Buffer[] => {
+    const out: Buffer[] = [];
+    for (let f = 0; f < Math.round((seconds * 1000) / 20); f++) {
+      const samples = new Float32Array(PHONE_FRAME);
+      if (talking)
+        for (let i = 0; i < PHONE_FRAME; i++)
+          samples[i] = 0.3 * Math.sin((2 * Math.PI * 220 * (f * PHONE_FRAME + i)) / 8000);
+      out.push(Buffer.from(encodeMulaw(samples)));
+    }
+    return out;
+  };
+
+  it('hears talking and then a pause as one turn, and quiet as nothing', async () => {
+    const started: number[] = [];
+    const words: string[] = [];
+    const listening = await createFakeSpeech().listen({
+      onWords: (w) => words.push(w.text),
+      onSpeechStarted: () => started.push(Date.now()),
+      onUtteranceEnd: () => undefined,
+      onError: () => undefined,
+    });
+    for (const f of frames(2, false)) listening.send(f);
+    expect(started).toHaveLength(0);
+    for (const f of [...frames(1.2, true), ...frames(1, false)]) listening.send(f);
+    expect(started).toHaveLength(1);
+    expect(words).toEqual([FAKE_HEARD]);
+    // Words still read as words, as the worker's own tests send them.
+    listening.send(Buffer.from('Are you open Saturday?'));
+    expect(words).toEqual([FAKE_HEARD, 'Are you open Saturday?']);
   });
 });

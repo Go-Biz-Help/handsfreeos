@@ -74,7 +74,6 @@ export function openTicket(
  */
 export interface TestCallTicket {
   readonly workspaceId: string;
-  readonly organizationId: string;
   /** Who is testing. */
   readonly userId: string;
   readonly testCallId: string;
@@ -99,7 +98,6 @@ export function sealTestTicket(
     JSON.stringify({
       k: 'test',
       w: t.workspaceId,
-      o: t.organizationId,
       u: t.userId,
       i: t.testCallId,
       m: t.machine,
@@ -119,12 +117,11 @@ export function openTestTicket(
   try {
     const v = JSON.parse(sealer.open(sealed)) as Record<string, unknown>;
     const str = (k: string) => (typeof v[k] === 'string' && v[k] ? (v[k] as string) : null);
-    const [w, o, u, i, m] = [str('w'), str('o'), str('u'), str('i'), str('m')];
+    const [w, u, i, m] = [str('w'), str('u'), str('i'), str('m')];
     const e = typeof v['e'] === 'number' ? v['e'] : 0;
-    if (v['k'] !== 'test' || !w || !o || !u || !i || !m || e < now) return null;
+    if (v['k'] !== 'test' || !w || !u || !i || !m || e < now) return null;
     return {
       workspaceId: w,
-      organizationId: o,
       userId: u,
       testCallId: i,
       machine: m,

@@ -12,7 +12,8 @@
  *   holding the console's end, so the route sends it on there (Fly's replay) when another machine picks it up.
  *
  * Refusals come back as `error` before anything is heard: not signed in, no ai_team.manage, settings that can't
- * be read, no teammate, the AI limit or the balance, one test call at a time per person, and a few a minute.
+ * be read, no teammate, the AI limit or the balance, and more than one test call at a time per person or a dozen
+ * every ten minutes.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -463,7 +464,6 @@ export function handleTestCallSocket(socket: WebSocket, deps: HttpDeps): void {
       type: 'dial',
       ticket: sealTestTicket(deps.sealer, {
         workspaceId: input.workspaceId,
-        organizationId: test.scope.organizationId,
         userId: actor.userId,
         testCallId: id,
         machine: thisMachine(),

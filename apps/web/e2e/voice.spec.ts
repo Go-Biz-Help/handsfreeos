@@ -12,6 +12,10 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * speech hears any recording as "Hello, can you hear me?" and answers each clip with a quiet WAV. So the whole
  * loop runs for real — the microphone, noticing the end of a turn, the recording going to the worker, the answer
  * played through the page's audio — without anyone speaking.
+ *
+ * A live test call runs the same way, streamed: the microphone goes to the worker as phone audio while it talks,
+ * the stand-in hears talking and then a pause as "Hello, can you hear me?", and what the teammate says streams
+ * back and plays.
  */
 
 const HEARD = 'Hello, can you hear me?';
@@ -112,4 +116,47 @@ test('talking out loud: a test call in the teammate’s voice, and the Assistant
   await expect(panel.getByTestId('assistant-question')).toHaveCount(2, { timeout: 30_000 });
   await panel.getByTestId('assistant-talk').click();
   await expect(assistantBar).toBeHidden();
+});
+
+test('a live test call from this browser: it picks up, hears the caller, answers, and hangs up', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const { email } = await signUpAndConfirm(page, 'live-call-owner');
+  const workspaceId = await createBusiness(page, { name: 'Bluebonnet Plumbing' });
+  const { token } = await signInOwner(email);
+  await createTeammate(token, workspaceId);
+
+  await page.goto(`/app/w/${workspaceId}/ai-team`);
+  await page.getByTestId('open-test-console').click();
+  const testConsole = page.getByTestId('test-console');
+  await testConsole.getByTestId('test-channel-phone').click();
+  // No business number yet, so there's no phone line to pick: the call goes straight from this browser.
+  await expect(testConsole.getByTestId('test-call-options')).toBeVisible();
+  await expect(testConsole.getByTestId('test-call-way-phone')).toHaveCount(0);
+  await testConsole.getByTestId('test-console-live-call').click();
+
+  const bar = testConsole.getByTestId('live-call-bar');
+  await expect(bar).toHaveAttribute('data-phase', 'live');
+  await expect(testConsole.getByTestId('test-console-reply').first()).toContainText(
+    'Thanks for calling',
+  );
+  // The microphone talks, then pauses: that's their turn, heard, answered out loud, and timed.
+  await expect(
+    testConsole.getByTestId('test-console-chat').getByText(HEARD, { exact: true }).first(),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(testConsole.getByTestId('test-console-reply').nth(1)).not.toBeEmpty({
+    timeout: 30_000,
+  });
+  await expect(
+    testConsole
+      .getByTestId('test-console-timing')
+      .filter({ hasText: 'Where the time went' })
+      .first(),
+  ).toContainText('first sound', { timeout: 30_000 });
+  await expect(testConsole.getByTestId('test-console-timing').first()).toContainText('Said hello');
+
+  await bar.getByTestId('live-call-hang-up').click();
+  await expect(testConsole.getByTestId('test-console-live-ended')).toContainText('The call ended.');
+  await expect(bar).toBeHidden();
 });

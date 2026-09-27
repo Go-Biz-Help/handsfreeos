@@ -4,14 +4,20 @@ import {
   PHONE_VOICES,
   TEST_CALL_GOAL_MAX,
   TEST_CALL_REASONS,
+  TEST_CALL_WAY_HINTS,
+  TEST_CALL_WAY_NAMES,
   TEST_CHANNEL_NAMES,
   restToSay,
   stepsLine,
+  testCallTimingLine,
   testSamples,
   testVerb,
   type AiCallPurpose,
   type TestCall,
   type TestCallDirection,
+  type TestCallServerMessage,
+  type TestCallTiming,
+  type TestCallWay,
   type TestConsoleChannel,
   type TestSteps,
 } from '@hfos/core';
@@ -25,6 +31,7 @@ import {
   Info,
   MessageSquare,
   Mic,
+  Monitor,
   Phone,
   PhoneCall,
   PhoneIncoming,
@@ -39,7 +46,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { CustomerPicker, type PickedCustomer } from '@/components/calendar/customer-picker';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -47,6 +54,7 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { VoiceBar, VoiceError } from '@/components/voice/voice-bar';
 import { checkViews, firstName, plural, toolName } from '@/lib/ai-team/describe';
+import { LiveTestCall, type LiveCallSnapshot } from '@/lib/ai-team/test-call';
 import {
   streamTest,
   testConsoleMissing,
@@ -55,10 +63,12 @@ import {
 } from '@/lib/ai-team/test-stream';
 import type { RunOutcome } from '@/lib/ai-team/types';
 import { errorMessage } from '@/lib/api/client';
+import { useCalls } from '@/lib/calls/call-provider';
 import { toLocalInputValue } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useVoice } from '@/lib/voice/use-voice';
 import { clockSeconds } from '@/lib/workflows/run-words';
+import { LiveCallBar } from './live-call-bar';
 import { LogRow, type LogLine, type LogTone } from './log';
 import { AiTile, TeammateMark } from './mark';
 
@@ -91,6 +101,50 @@ interface Turn {
   /** On a call, the reply's sentences a real call says while the rest is written, as they come. */
   readonly early: readonly string[];
   readonly error: string | null;
+  /** A turn of a live test call: heard and said for real. */
+  readonly live: boolean;
+  /** On a live call they talked over this reply, so the rest of it wasn't said. */
+  readonly cut: boolean;
+  /** On a live call: where the time went, to the first sound of its answer. */
+  readonly timing: TestCallTiming | null;
+}
+
+/** A turn as it starts: what they said (none for a greeting), and its first log line. */
+function newTurn(id: string, kind: TurnKind, customer: string, opened: LogLine): Turn {
+  return {
+    id,
+    kind,
+    customer,
+    reply: '',
+    done: false,
+    outcome: null,
+    draft: false,
+    ended: false,
+    would: [],
+    log: [opened],
+    toolSteps: 0,
+    ms: null,
+    firstWordsMs: null,
+    steps: null,
+    early: [],
+    error: null,
+    live: false,
+    cut: false,
+    timing: null,
+  };
+}
+
+/** A live test call's latest snapshot, or null when there's none. */
+function useLiveCall(call: LiveTestCall | null): LiveCallSnapshot | null {
+  const subscribe = useCallback(
+    (fn: () => void) => call?.subscribe(fn) ?? (() => undefined),
+    [call],
+  );
+  return useSyncExternalStore(
+    subscribe,
+    () => call?.getSnapshot() ?? null,
+    () => null,
+  );
 }
 
 const TOOL_ICONS: Readonly<Record<string, LucideIcon>> = {
@@ -118,6 +172,17 @@ function lineAt(
 /** How a turn ended, as its last line. */
 function endLine(t: Turn, e: Extract<TestEvent, { type: 'done' }>, timeZone: string): LogLine {
   const now = new Date().toISOString();
+  if (t.live) {
+    if (t.kind === 'greeting') return lineAt(now, timeZone, 'ok', Phone, 'Said its greeting');
+    if (e.outcome === 'handed_off')
+      return lineAt(now, timeZone, 'held', Hand, 'Would connect them to the team', {
+        detail:
+          'On a real call your team’s phones ring on the same call. Here nobody rings, and the call ends.',
+      });
+    return e.ended
+      ? lineAt(now, timeZone, 'ok', PhoneOff, 'Said goodbye and hung up')
+      : lineAt(now, timeZone, 'ok', Phone, 'Said it, then listened');
+  }
   if (t.kind === 'greeting')
     return lineAt(now, timeZone, 'ok', Phone, 'Said its greeting', {
       detail: 'On a real call it says this out loud, then listens.',
@@ -304,6 +369,18 @@ export function TestConsole({
   const [missing, setMissing] = useState(false);
   const [pane, setPane] = useState<'chat' | 'log'>('chat');
   const abort = useRef<AbortController | null>(null);
+  /** The phone line can be tested on: the business has a number this person may call from. */
+  const phoneLine = useCalls().available;
+  const [wayPicked, setWayPicked] = useState<TestCallWay | null>(null);
+  /** How a live call goes: over the phone line when there is one (unless they picked this browser). */
+  const way: TestCallWay = phoneLine ? (wayPicked ?? 'phone') : 'browser';
+  const [live, setLive] = useState<LiveTestCall | null>(null);
+  const liveRef = useRef<LiveTestCall | null>(null);
+  const liveSnap = useLiveCall(live);
+  /** A live call is going: getting ready, ringing, or up. */
+  const onLive = !!liveSnap && liveSnap.phase !== 'ended';
+  /** What the live call's listener has heard of the caller so far, while they talk. */
+  const [hearing, setHearing] = useState('');
   const { session: voice, snap: voiceSnap } = useVoice(workspaceId, draftVoice(config));
   const talking = voiceSnap.phase !== 'off';
   /** The turns already read out (or not to be), so each reply is said once. */
@@ -329,9 +406,9 @@ export function TestConsole({
         ? 'a caller'
         : 'a customer';
   const last = turns[turns.length - 1];
-  /** The call has started: the greeting came back. */
-  const onCall = phone && turns.some((t) => t.kind === 'greeting' && t.done && !t.error);
-  const callOver = phone && !!last?.done && last.ended;
+  /** A typed call has started: the greeting came back. */
+  const onCall = phone && !live && turns.some((t) => t.kind === 'greeting' && t.done && !t.error);
+  const callOver = phone && !live && !!last?.done && last.ended;
   /** Why the call can't start yet. */
   const cantCall = !outbound
     ? null
@@ -341,7 +418,13 @@ export function TestConsole({
         ? 'Say what the campaign call is about.'
         : null;
 
-  useEffect(() => () => abort.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abort.current?.abort();
+      liveRef.current?.close();
+    },
+    [],
+  );
   useEffect(() => {
     for (const el of [chatRef.current, logRef.current]) if (el) el.scrollTop = el.scrollHeight;
   }, [turns]);
@@ -360,8 +443,17 @@ export function TestConsole({
     voice.quiet();
   }
 
+  /** Hangs up a live call and forgets it. */
+  function closeLive() {
+    liveRef.current?.close();
+    liveRef.current = null;
+    setLive(null);
+    setHearing('');
+  }
+
   function startOver() {
     stop();
+    closeLive();
     said.current.clear();
     setTurns([]);
   }
@@ -403,24 +495,7 @@ export function TestConsole({
             `${person ? firstName(person.fullName) : 'They'} ${testVerb(channel)}`,
             { quote: message },
           );
-    const turn: Turn = {
-      id,
-      kind,
-      customer: message,
-      reply: '',
-      done: false,
-      outcome: null,
-      draft: false,
-      ended: false,
-      would: [],
-      log: [opened],
-      toolSteps: 0,
-      ms: null,
-      firstWordsMs: null,
-      steps: null,
-      early: [],
-      error: null,
-    };
+    const turn = newTurn(id, kind, message, opened);
     setTurns([...before, turn]);
     setText('');
     setBusy(true);
@@ -460,6 +535,86 @@ export function TestConsole({
 
   const send = (raw: string) => void run(raw);
   const startCall = () => void run('', true);
+
+  const liveTurnId = (n: number) => `live-${n}`;
+
+  /** What the live call says happened: its turns, their events, what's heard, and where the time went. */
+  function onLiveMessage(c: LiveTestCall, m: TestCallServerMessage) {
+    if (liveRef.current !== c) return;
+    const nowIso = new Date().toISOString();
+    switch (m.type) {
+      case 'turn': {
+        setHearing('');
+        const pickup = m.turn === 0;
+        const opened = pickup
+          ? outbound
+            ? lineAt(nowIso, timeZone, 'ok', PhoneOutgoing, `${name} called ${who}`)
+            : lineAt(nowIso, timeZone, 'ok', PhoneIncoming, `${person ? who : 'Someone'} called`)
+          : lineAt(
+              nowIso,
+              timeZone,
+              'ok',
+              Phone,
+              `${person ? firstName(person.fullName) : 'They'} said`,
+              { quote: m.said },
+            );
+        const turn: Turn = {
+          ...newTurn(liveTurnId(m.turn), pickup ? 'greeting' : 'call', m.said, opened),
+          live: true,
+        };
+        setTurns((xs) => [...xs.filter((x) => x.id !== turn.id), turn]);
+        return;
+      }
+      case 'event':
+        update(liveTurnId(m.turn), (t) => step(t, m.event, timeZone));
+        return;
+      case 'hearing':
+        setHearing(m.text);
+        return;
+      case 'cut':
+        update(liveTurnId(m.turn), (t) => ({
+          ...t,
+          cut: true,
+          log: [
+            ...t.log,
+            lineAt(nowIso, timeZone, 'held', Mic, 'They talked over it', {
+              detail: 'It stopped talking and listened, as it does on a real call.',
+            }),
+          ],
+        }));
+        return;
+      case 'timing':
+        update(liveTurnId(m.turn), (t) => ({ ...t, timing: m.timing }));
+        return;
+      case 'ended':
+      case 'error':
+        setHearing('');
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** Calls it live: heard and spoken in real time, over the phone line or straight from this browser. */
+  function startLive() {
+    if (!call || cantCall) return;
+    startOver();
+    voice.stop();
+    const c = new LiveTestCall({
+      way,
+      settings: {
+        workspaceId,
+        personId: person?.id ?? null,
+        call,
+        at: at ? new Date(at).toISOString() : null,
+        config,
+      },
+      onMessage: (m) => onLiveMessage(c, m),
+    });
+    liveRef.current = c;
+    setLive(c);
+    void c.start();
+  }
   /** The latest `send`, for a turn heard after the screen has moved on. */
   const sendRef = useRef(send);
   sendRef.current = send;
@@ -562,6 +717,7 @@ export function TestConsole({
         if (!o) {
           stop();
           voice.stop();
+          closeLive();
         }
         onOpenChange(o);
       }}
@@ -714,10 +870,32 @@ export function TestConsole({
                     data-testid="test-call-goal"
                   />
                 ) : null}
+                {phoneLine ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-semibold">Live over</span>
+                    <Segmented
+                      value={way}
+                      ariaLabel="How a live call goes"
+                      onChange={change(setWayPicked)}
+                      options={(['phone', 'browser'] as const).map((w) => ({
+                        value: w,
+                        label: TEST_CALL_WAY_NAMES[w],
+                        icon:
+                          w === 'phone' ? (
+                            <Phone className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          ) : (
+                            <Monitor className="h-3.5 w-3.5" strokeWidth={1.75} />
+                          ),
+                        testId: `test-call-way-${w}`,
+                      }))}
+                    />
+                  </div>
+                ) : null}
                 <Button
                   size="sm"
                   variant={talking ? 'primary' : 'secondary'}
                   aria-pressed={talking}
+                  disabled={onLive}
                   title={`Say what the caller says, and hear ${name} answer in its phone voice`}
                   onClick={() => void toggleTalk()}
                   data-testid="test-console-talk"
@@ -834,6 +1012,11 @@ export function TestConsole({
                                     Hung up
                                   </Tag>
                                 ) : null}
+                                {t.cut ? (
+                                  <Tag className="bg-card text-text-2" icon={Mic}>
+                                    Talked over
+                                  </Tag>
+                                ) : null}
                                 {t.would.map((w, i) => (
                                   <Tag key={i} className="bg-card text-text-2" icon={CalendarCheck}>
                                     {w}
@@ -850,7 +1033,7 @@ export function TestConsole({
                         ) : null}
                       </Fragment>
                     ))}
-                    {phone && !onCall && !busy ? (
+                    {phone && !onCall && !busy && !live ? (
                       <div className="mt-4 flex flex-col items-center gap-3 text-center">
                         <p className="text-[13px] text-text-2">
                           {cantCall ??
@@ -858,14 +1041,60 @@ export function TestConsole({
                               ? `${name} calls ${who} to ${TEST_CALL_REASONS[purpose].toLowerCase()}. You answer as them.`
                               : `Call in as ${who} to hear how ${name} picks up.`)}
                         </p>
-                        <Button
-                          size="sm"
-                          disabled={!!cantCall}
-                          onClick={startCall}
-                          data-testid="test-console-start-call"
-                        >
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <Button
+                            size="sm"
+                            disabled={!!cantCall}
+                            onClick={startLive}
+                            data-testid="test-console-live-call"
+                          >
+                            <PhoneCall className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            Call live
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={!!cantCall}
+                            onClick={startCall}
+                            data-testid="test-console-start-call"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            Type the call
+                          </Button>
+                        </div>
+                        {cantCall ? null : (
+                          <p className="max-w-[340px] text-xs text-text-3">
+                            {TEST_CALL_WAY_HINTS[way]}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+                    {onLive && hearing ? (
+                      <div
+                        className="flex max-w-[86%] flex-col items-end gap-[3px] self-end"
+                        data-testid="test-console-hearing"
+                      >
+                        <div className="whitespace-pre-wrap rounded-2xl bg-accent/70 px-[13px] py-[9px] text-sm leading-[1.45] text-white [overflow-wrap:anywhere]">
+                          {hearing}
+                        </div>
+                        <span className="text-xs text-text-3">Hearing you…</span>
+                      </div>
+                    ) : null}
+                    {liveSnap?.phase === 'ended' ? (
+                      <div
+                        className="flex flex-col items-center gap-2 pt-1 text-center"
+                        data-testid="test-console-live-ended"
+                      >
+                        {liveSnap.error ? (
+                          <p role="alert" className="text-xs text-danger-text">
+                            {liveSnap.error}
+                          </p>
+                        ) : (
+                          <span className="text-xs font-medium text-text-3">The call ended.</span>
+                        )}
+                        <Button variant="secondary" size="sm" onClick={startLive}>
                           <PhoneCall className="h-3.5 w-3.5" strokeWidth={1.75} />
-                          Start the call
+                          Call again
                         </Button>
                       </div>
                     ) : null}
@@ -882,7 +1111,17 @@ export function TestConsole({
                       </div>
                     ) : null}
                   </div>
-                  {phone ? <VoiceBar session={voice} snap={voiceSnap} onTalk={talkNow} /> : null}
+                  {phone && liveSnap && onLive ? (
+                    <LiveCallBar
+                      snap={liveSnap}
+                      hearing={hearing}
+                      name={name}
+                      onMute={() => live?.toggleMute()}
+                      onHangUp={() => live?.hangUp()}
+                    />
+                  ) : phone ? (
+                    <VoiceBar session={voice} snap={voiceSnap} onTalk={talkNow} />
+                  ) : null}
                   {canWrite ? (
                     <div className="flex-none border-t border-border bg-card px-3.5 pb-3.5 pt-2.5">
                       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -961,7 +1200,16 @@ export function TestConsole({
                           <span className="text-[13px] font-semibold">{heading(t, i)}</span>
                           <span className="text-xs text-text-3">{meta(t)}</span>
                         </div>
-                        {t.steps ? (
+                        {t.timing && (t.kind !== 'greeting' || t.timing.firstSoundMs !== null) ? (
+                          <p
+                            className="mt-0.5 text-xs text-text-3"
+                            data-testid="test-console-timing"
+                          >
+                            {t.kind === 'greeting'
+                              ? `Said hello ${seconds(t.timing.firstSoundMs ?? 0)} after it picked up`
+                              : `Where the time went: ${testCallTimingLine(t.timing, seconds)}`}
+                          </p>
+                        ) : t.steps ? (
                           <p
                             className="mt-0.5 text-xs text-text-3"
                             data-testid="test-console-steps"
@@ -986,7 +1234,7 @@ export function TestConsole({
               Tests don’t count toward training wheels and never reach a customer.
               {unsaved ? ' It tests your unsaved changes too.' : ''}{' '}
               {phone
-                ? `On a test call nothing rings: type what they say, or turn on Talk out loud to say it and hear ${name} answer.`
+                ? `On a test call nothing rings for your team. Call live to talk to ${name} the way a caller does${phoneLine ? ', over your phone line or from this browser' : ''}, or type what they say.`
                 : 'Pick “Website chat” to test as an unknown visitor.'}
             </span>
           </p>
