@@ -4,6 +4,7 @@ import {
   callRecord,
   callUpdateStatus,
   executeCommand,
+  TEST_CALL_TO,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { calls } from '@hfos/db/schema';
@@ -45,7 +46,9 @@ const secondsOf = (v: string | undefined): number | undefined => {
   return Number.isFinite(n) && n >= 0 ? Math.min(Math.round(n), 86_400) : undefined;
 };
 /** A caller who withheld their number never gets a call record, so its later reports need no work. */
-const untracked = (p: Params) => !isPhone(p.From) && !(p.From ?? '').startsWith('client:');
+// A test call from the test console (placed to TEST_CALL_TO) has no call record, and never will.
+const untracked = (p: Params) =>
+  (!isPhone(p.From) && !(p.From ?? '').startsWith('client:')) || p.To === TEST_CALL_TO;
 
 /** The call, or a retry while the delivery that records it (the inbound call or the browser's call) is on its way. */
 async function callFor(

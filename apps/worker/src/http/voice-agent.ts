@@ -9,12 +9,19 @@
  *
  * Closing the stream without having given the call new instructions sends it on to the voicemail after the
  * stream in the TwiML, which is how every failure here still reaches a person.
+ *
+ * A live test call from the test console over the phone line (ai-team/test-call.ts) streams to
+ * `/webhooks/twilio/voice/agent/test/<machine>` instead: the machine that holds the console's end of the call,
+ * where the call has to run. When Fly hands the stream to another machine, it's sent on there (`fly-replay`)
+ * before it opens. Its TwiML hangs up after the stream, so closing it ends the test call.
  */
 import websocket from '@fastify/websocket';
 import type { FastifyInstance } from 'fastify';
 import type WebSocket from 'ws';
+import { answerTestCall, thisMachine } from '../ai-team/test-call';
+import { realCall } from '../voice-agent/brain';
 import { CallSession, type CallLink } from '../voice-agent/session';
-import { openTicket } from '../voice-agent/ticket';
+import { openTestTicket, openTicket } from '../voice-agent/ticket';
 import type { HttpDeps } from './common';
 import { transferTwimlFor } from './voice';
 
@@ -33,14 +40,63 @@ interface StreamMessage {
   readonly mark?: { readonly name?: string };
 }
 
+/** A Fly machine id (or `local` off Fly): what a test call's stream path names. */
+const MACHINE = /^[a-z0-9]{1,40}$/i;
+
 export async function registerVoiceAgentRoute(app: FastifyInstance, deps: HttpDeps): Promise<void> {
   await app.register(websocket);
   app.get('/webhooks/twilio/voice/agent', { websocket: true }, (socket) =>
-    handleStream(socket, deps),
+    handleStream(socket, deps, (start, link) => {
+      const ticket = openTicket(deps.sealer, start.params['t']);
+      if (!ticket || !deps.speech || ticket.callSid !== start.callSid) return null;
+      return new CallSession(
+        {
+          speech: deps.speech,
+          log: deps.log,
+          ...(deps.voiceTimings ? { timings: deps.voiceTimings } : {}),
+        },
+        link,
+        realCall({ ...deps, transferTwiml: (t) => transferTwimlFor(deps, t) }, ticket),
+        { callSid: ticket.callSid },
+      );
+    }),
+  );
+  app.get<{ Params: { machine: string } }>(
+    '/webhooks/twilio/voice/agent/test/:machine',
+    {
+      websocket: true,
+      // Not this machine: Fly's proxy replays the request on the one named, before the websocket opens.
+      preValidation: async (req, reply) => {
+        const machine = req.params.machine;
+        const here = thisMachine();
+        if (MACHINE.test(machine) && machine !== here && here !== 'local')
+          return reply.header('fly-replay', `instance=${machine}`).code(409).send();
+      },
+    },
+    (socket) =>
+      handleStream(socket, deps, (start, link) => {
+        const ticket = openTestTicket(deps.sealer, start.params['t']);
+        if (!ticket?.callSid || ticket.callSid !== start.callSid) return null;
+        return answerTestCall(ticket, link, ticket.callSid);
+      }),
   );
 }
 
-function handleStream(socket: WebSocket, deps: HttpDeps): void {
+/** A stream's `start`: which call it is, and the parameters our TwiML gave it. */
+interface StreamStart {
+  readonly callSid: string | undefined;
+  readonly params: Readonly<Record<string, string>>;
+}
+
+/**
+ * One call's stream: `open` turns its `start` into the session the call runs on (null refuses the stream, which
+ * is closed), and everything after goes to that session.
+ */
+function handleStream(
+  socket: WebSocket,
+  deps: HttpDeps,
+  open: (start: StreamStart, link: CallLink) => CallSession | null,
+): void {
   let session: CallSession | null = null;
   let streamSid: string | null = null;
   const send = (m: Record<string, unknown>) => {
@@ -68,8 +124,12 @@ function handleStream(socket: WebSocket, deps: HttpDeps): void {
       case 'start': {
         if (session) return;
         clearTimeout(unstarted);
-        const ticket = openTicket(deps.sealer, m.start?.customParameters?.['t']);
-        if (!ticket || !deps.speech || ticket.callSid !== m.start?.callSid) {
+        streamSid = m.start?.streamSid ?? m.streamSid ?? null;
+        const opened = open(
+          { callSid: m.start?.callSid, params: m.start?.customParameters ?? {} },
+          link,
+        );
+        if (!opened) {
           deps.log.warn(
             { callSid: m.start?.callSid },
             'refused a call stream without a good ticket',
@@ -77,17 +137,7 @@ function handleStream(socket: WebSocket, deps: HttpDeps): void {
           socket.close();
           return;
         }
-        streamSid = m.start?.streamSid ?? m.streamSid ?? null;
-        session = new CallSession(
-          {
-            ...deps,
-            speech: deps.speech,
-            transferTwiml: (t) => transferTwimlFor(deps, t),
-            ...(deps.voiceTimings ? { timings: deps.voiceTimings } : {}),
-          },
-          link,
-          ticket,
-        );
+        session = opened;
         const started = session;
         void started.start().then(
           (ok) => {

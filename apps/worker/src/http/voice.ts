@@ -15,7 +15,12 @@ import { z } from 'zod';
 import { runtimeConfigOf } from '../ai-team/config';
 import { withinHours } from '../ai-team/gates';
 import { systemActor, workerMeta, type TenantScope } from '../services';
-import { sealTicket, type StreamTicket } from '../voice-agent/ticket';
+import {
+  openTestTicket,
+  sealTestTicket,
+  sealTicket,
+  type StreamTicket,
+} from '../voice-agent/ticket';
 import {
   agentTwiml,
   BRIDGE_NOT_PLACED_TWIML,
@@ -35,6 +40,7 @@ import {
   say,
   screenTwiml,
   spokenPhone,
+  testCallTwiml,
   twiml,
   UNAVAILABLE_TWIML,
   UNAVAILABLE_VERBS,
@@ -48,7 +54,7 @@ import {
   type Routing,
   type VoiceUrls,
 } from '../telephony/voice';
-import { mayRingOut, walletRoom } from '@hfos/core/server';
+import { mayRingOut, TEST_CALL_PARAM, TEST_CALL_TO, walletRoom } from '@hfos/core/server';
 import {
   authenticate,
   hasPermission,
@@ -417,6 +423,28 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
     if (!v) return reply;
     const p = v.params;
     const userId = userIdOfIdentity(p['From']);
+    // A live test call from the test console (ai-team/test-call.ts): straight to the AI teammate, on the machine
+    // holding the console's end of it. Only the person the console gave the ticket to, in its business; nothing
+    // is recorded, and nobody rings.
+    const test = p[TEST_CALL_PARAM];
+    if (test !== undefined) {
+      const t = openTestTicket(deps.sealer, test);
+      const callSid = p['CallSid'];
+      if (
+        !t ||
+        t.callSid ||
+        !callSid ||
+        t.workspaceId !== v.account.workspaceId ||
+        t.userId !== userId
+      ) {
+        deps.log.warn({ userId }, 'refused a test call without a good ticket');
+        return xml(reply, CANNOT_PLACE_TWIML);
+      }
+      return xml(
+        reply,
+        testCallTwiml(sealTestTicket(deps.sealer, { ...t, callSid }), t.machine, urls),
+      );
+    }
     const callId = p['CallId'] ?? '';
     const { workspaceId, organizationId } = v.account;
     if (!workspaceId || !organizationId || !userId || !UUID.test(callId) || !p['CallSid'])
@@ -458,8 +486,11 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       if (dedupeKey) await store(v, kind, dedupeKey);
       return reply.code(204).send();
     });
+  // A test call from the test console isn't a call anybody made: Twilio's reports about it aren't kept.
   const byCall = (p: Record<string, string | undefined>) =>
-    p['CallSid'] && p['CallStatus'] ? `${p['CallSid']}:${p['CallStatus']}` : null;
+    p['To'] !== TEST_CALL_TO && p['CallSid'] && p['CallStatus']
+      ? `${p['CallSid']}:${p['CallStatus']}`
+      : null;
   report('/webhooks/twilio/voice/status', 'voice.status', byCall);
   report('/webhooks/twilio/voice/leg-status', 'voice.leg_status', byCall);
   report('/webhooks/twilio/voice/recording', 'voice.recording', (p) =>

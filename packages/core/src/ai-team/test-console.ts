@@ -159,8 +159,11 @@ export type TestOutcome = (typeof TEST_OUTCOMES)[number];
 export type TestEvent =
   | { readonly type: 'started'; readonly runId: string; readonly at: string }
   | { readonly type: 'delta'; readonly text: string }
-  /** A phone test: a checked sentence of the reply that a real call says now, while it writes the rest. */
-  | { readonly type: 'say'; readonly text: string }
+  /**
+   * A phone test: a checked sentence of the reply that a real call says now, while it writes the rest. `ending`
+   * when it's the goodbye (said to the end, even if they talk over it).
+   */
+  | { readonly type: 'say'; readonly text: string; readonly ending?: boolean }
   | {
       readonly type: 'context' | 'note';
       readonly title: string;
@@ -275,7 +278,8 @@ export function parseTestEvent(raw: unknown): TestEvent | null {
     }
     case 'say': {
       const text = words(raw.text);
-      return text ? { type: 'say', text } : null;
+      if (!text) return null;
+      return raw.ending === true ? { type: 'say', text, ending: true } : { type: 'say', text };
     }
     case 'delta': {
       const text = str(raw.text);
