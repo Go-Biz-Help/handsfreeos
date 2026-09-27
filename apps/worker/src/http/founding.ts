@@ -128,9 +128,10 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
           );
         /**
          * The same answer whether this was the first time or the fifth. Somebody who pressed the button twice
-         * has not done anything wrong and should not be told they have.
+         * has not done anything wrong and should not be told they have — and nobody typing someone else's
+         * email in is told that they applied, or how their application stands.
          */
-        return { applicationId: row.application_id, status: row.status, offerId: input.offerId };
+        return { received: true, offerId: input.offerId };
       },
     );
   });

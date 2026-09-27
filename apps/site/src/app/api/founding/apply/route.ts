@@ -11,8 +11,8 @@
  * that drifts is the one nobody is testing.
  *
  * The one thing added here is the lead, told to Opinly with the secret key once the worker has taken it — after
- * the answer has gone back, so nobody waits on it. `anonId` is ours, for that, and comes off before forwarding:
- * the worker's schema is strict and would refuse a field it does not know.
+ * the answer has gone back, so nobody waits on it. `anonId` and `eventId` are ours, for that, and come off before
+ * forwarding: the worker's schema is strict and would refuse a field it does not know.
  */
 import { after, NextResponse } from 'next/server';
 import { workerUrl } from '@/lib/founding';
@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 });
   }
 
-  const { anonId, ...application } = (body ?? {}) as Record<string, unknown>;
+  const { anonId, eventId, ...application } = (body ?? {}) as Record<string, unknown>;
 
   try {
     const res = await fetch(`${workerUrl()}/public/founding/apply`, {
@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       signal: AbortSignal.timeout(10_000),
     });
     const text = await res.text();
-    if (res.ok) trackLead(text, application, anonId);
+    if (res.ok) trackLead(text, application, anonId, eventId);
     return new NextResponse(text, {
       status: res.status,
       headers: { 'content-type': res.headers.get('content-type') ?? 'application/json' },
@@ -56,19 +56,25 @@ export async function POST(request: Request): Promise<NextResponse> {
 }
 
 /**
- * The server's copy of a founding application, as a `generate_lead`. Keyed on the application, which the worker
- * answers with the same id however often the form is sent, and which the browser uses too — so it is one lead.
- * A crawler caught by the honeypot gets no id back, and so is never counted.
+ * The server's copy of a founding application, as a `generate_lead`. Keyed on the id the browser made for this
+ * send and uses too, so it is one lead. The worker hands back no application id or status: that would tell
+ * anybody who typed in someone else’s email whether they had applied. A crawler caught by the honeypot
+ * gets no `received` back, and so is never counted.
  */
-function trackLead(answer: string, application: Record<string, unknown>, anonId: unknown): void {
-  let parsed: { applicationId?: unknown; status?: unknown; offerId?: unknown };
+function trackLead(
+  answer: string,
+  application: Record<string, unknown>,
+  anonId: unknown,
+  eventId: unknown,
+): void {
+  let parsed: { received?: unknown; offerId?: unknown };
   try {
     parsed = JSON.parse(answer) as typeof parsed;
   } catch {
     return;
   }
-  if (typeof parsed.applicationId !== 'string') return;
-  const applicationId = parsed.applicationId;
+  if (parsed.received !== true) return;
+  if (typeof eventId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(eventId)) return;
   const email = typeof application['email'] === 'string' ? application['email'].trim() : '';
   after(() =>
     trackServerEvent({
@@ -76,9 +82,8 @@ function trackLead(answer: string, application: Record<string, unknown>, anonId:
       // The same name, fields and id the browser sends (founding-form.tsx), so Opinly merges the two.
       properties: {
         offer: typeof parsed.offerId === 'string' ? parsed.offerId : undefined,
-        status: typeof parsed.status === 'string' ? parsed.status : undefined,
       },
-      externalEventId: applicationId,
+      externalEventId: eventId,
       email: email || undefined,
       anonId:
         typeof anonId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(anonId) ? anonId : undefined,

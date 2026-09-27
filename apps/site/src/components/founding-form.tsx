@@ -36,6 +36,8 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
     const form = event.currentTarget;
     const data = new FormData(form);
     const email = String(data.get('email') ?? '');
+    // One id for this send, shared by the browser's lead and the server's so Opinly merges them.
+    const eventId = crypto.randomUUID();
     setState({ kind: 'sending' });
     try {
       const res = await fetch('/api/founding/apply', {
@@ -54,6 +56,7 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
           source: typeof document === 'undefined' ? '' : document.referrer.slice(0, 300),
           // Opinly's visitor id, so the server's copy of this lead lands on this visit (api/founding/apply).
           anonId: anonId(),
+          eventId,
         }),
       });
       if (!res.ok) {
@@ -66,21 +69,19 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
         });
         return;
       }
-      const body = (await res.json()) as { applicationId?: string; status?: string };
+      const body = (await res.json()) as { received?: boolean };
       // The form is reset only once the answer is in, so a failure never costs somebody their words.
       form.reset();
-      setState({ kind: 'done', waitlisted: body.status === 'waitlisted' });
+      // The worker doesn't say how an application stands (it would say it to anybody with the email), so a full
+      // offer is what puts them on the waitlist here, as it does there.
+      setState({ kind: 'done', waitlisted: full });
       /**
-       * The site sells nothing, so an application is the conversion that matters. Only a real one has an id: the
-       * honeypot's answer does not. The worker gives a second press of the button the same id, so it counts once.
+       * The site sells nothing, so an application is the conversion that matters. Only a real one says it was
+       * received: the honeypot's answer does not.
        */
-      if (body.applicationId) {
+      if (body.received) {
         identify({ email });
-        track(
-          'generate_lead',
-          { offer: offerId, status: body.status },
-          { externalEventId: body.applicationId },
-        );
+        track('generate_lead', { offer: offerId }, { externalEventId: eventId });
       }
     } catch {
       setState({
