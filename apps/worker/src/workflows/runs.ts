@@ -189,9 +189,13 @@ export async function pruneStepLogs(tx: Tx, workspaceId: string): Promise<Date |
   );
   const [next] = await rows<{ at: string | null }>(
     tx,
-    sql`select min(r.ended_at) as at from app.workflow_runs r
-        where r.workspace_id = ${workspaceId} and r.ended_at is not null
-          and exists (select 1 from app.workflow_run_steps s where s.run_id = r.id)`,
+    // Everything older just went, so this walks workflow_runs_ended_idx from the cut-off and stops at the
+    // first run that still has a log.
+    sql`select r.ended_at as at from app.workflow_runs r
+        where r.workspace_id = ${workspaceId}
+          and r.ended_at >= now() - make_interval(days => ${RETENTION_DAYS})
+          and exists (select 1 from app.workflow_run_steps s where s.run_id = r.id)
+        order by r.ended_at limit 1`,
   );
   return next?.at ? new Date(new Date(next.at).getTime() + (RETENTION_DAYS + 1) * DAY) : null;
 }

@@ -35,7 +35,7 @@ import { ANCHOR_EVENTS } from './anchors';
 import { MAX_DEPTH } from './constants';
 import { RunData } from './data';
 import { runDefinition, versionDefinition } from './defs';
-import { enrol } from './enrol';
+import { enrol, type LiveRoom } from './enrol';
 import { lateOfEvent } from './late';
 import { LIFECYCLE_EVENTS, onLifecycleEvent } from './lifecycle';
 import { liveSql, stopRuns, wakeRun } from './runs';
@@ -215,6 +215,7 @@ async function startRuns(
     }
     const def = await versionDefinition(ctx.tx, f.version);
     if (def.trigger.kind !== 'event' || def.trigger.event !== e.eventType) continue;
+    const liveRoom: LiveRoom = { left: null };
     for (const sub of list) {
       const data = new RunData(
         ctx.tx,
@@ -234,6 +235,7 @@ async function startRuns(
         originRunId: guard ? (guard.originRunId ?? guard.runId) : null,
         context: { trigger, ...(late ? { _late: late } : {}) },
         log: ctx.log,
+        liveRoom,
       });
     }
   }

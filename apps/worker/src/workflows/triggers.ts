@@ -31,7 +31,7 @@ import { ANCHOR_EVENTS, anchorRecord, readAnchor, type AnchorRecord } from './an
 import { BATCH, dateJobKey, EARLY_MS, JOB, scheduleJobKey, SPREAD_MS } from './constants';
 import { RunData } from './data';
 import { versionDefinition } from './defs';
-import { enrol } from './enrol';
+import { enrol, type LiveRoom } from './enrol';
 import { lateDateStart, lateOf } from './late';
 import { dateOffsetInstant } from './waits';
 
@@ -188,6 +188,7 @@ export const workflowDateJob: JobHandler = async (ctx) => {
     const late = isRecord(lateFrom)
       ? lateOf({ _late: { ...lateFrom, ms: ctx.now - fire, happenedAt: iso(fire) } })
       : null;
+    const liveRoom: LiveRoom = { left: null };
     for (const sub of await subjectsForRecord(
       tx,
       scope.workspaceId,
@@ -212,6 +213,7 @@ export const workflowDateJob: JobHandler = async (ctx) => {
           ...(late ? { _late: late } : {}),
         },
         log: ctx.log,
+        liveRoom,
       });
     }
   });
@@ -300,6 +302,7 @@ export const workflowScheduleJob: JobHandler = async (ctx) => {
           order by id limit ${BATCH}`,
     );
     const stamp = iso(occurrence);
+    const liveRoom: LiveRoom = { left: null };
     for (const [i, p] of page.entries()) {
       const data = new RunData(
         tx,
@@ -323,6 +326,7 @@ export const workflowScheduleJob: JobHandler = async (ctx) => {
         startAt: new Date(Date.now() + Math.floor((i * SPREAD_MS) / BATCH)),
         context: { trigger: { event: 'schedule', occurrence: stamp } },
         log: ctx.log as Logger,
+        liveRoom,
       });
     }
     if (page.length === BATCH) {
