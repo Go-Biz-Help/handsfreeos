@@ -93,6 +93,12 @@ export function voiceUrls(publicUrl: string) {
     dialResultAfterAi: `${base}/dial-result?after=ai`,
     /** The live stream to the AI teammate (M18 step 5): the same host, over a websocket. */
     agent: `${base.replace(/^http/, 'ws')}/agent`,
+    /**
+     * A live test call's stream (the test console over the phone line), to the machine that holds the console's
+     * end of the call: the stream route sends it on there when another machine picks it up.
+     */
+    agentTest: (machine: string) =>
+      `${base.replace(/^http/, 'ws')}/agent/test/${encodeURIComponent(machine)}`,
     hangup: `${base}/hangup`,
     recording: `${base}/recording`,
     /**
@@ -256,6 +262,16 @@ export const UNAVAILABLE_TWIML = twiml(UNAVAILABLE_VERBS);
 export function agentTwiml(ticket: string, after: string, urls: VoiceUrls): string {
   return twiml(
     `<Connect><Stream${attrs({ url: urls.agent })}><Parameter${attrs({ name: 't', value: ticket })}/></Stream></Connect>${after}`,
+  );
+}
+/**
+ * A live test call from the test console, placed from a manager's browser over the business's phone line: the
+ * call streams straight to the AI teammate, and it's over when the stream ends. Nothing rings and nothing is
+ * recorded.
+ */
+export function testCallTwiml(ticket: string, machine: string, urls: VoiceUrls): string {
+  return twiml(
+    `<Connect><Stream${attrs({ url: urls.agentTest(machine) })}><Parameter${attrs({ name: 't', value: ticket })}/></Stream></Connect>${HANGUP}`,
   );
 }
 export const NOT_IN_SERVICE_TWIML = twiml(

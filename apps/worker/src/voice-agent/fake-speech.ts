@@ -6,10 +6,15 @@
  *
  * Words wrapped in `[es]…` are heard as Spanish; a frame of `[talking]` is them starting to talk over it.
  *
+ * A live test call from a browser (ai-team/test-call.ts) sends real audio instead, 8 kHz μ-law from the
+ * microphone: nobody is here to hear it, so a stretch of talking and then a pause is heard as FAKE_HEARD, the way
+ * a recording is (they start talking when it starts, and finish when the pause does).
+ *
  * Voice mode's clips: a recording sent as text/plain is those words (how tests talk); a real recording (a browser
  * or a phone on a developer's computer) is heard as FAKE_HEARD, since there's nobody to listen. A clip it says is
  * a quiet WAV about as long as the words would take, so the app plays something and moves on.
  */
+import { linearOf } from '@hfos/core/server';
 import {
   voiceModel,
   type HeardClip,
@@ -45,6 +50,57 @@ export function silentWav(seconds: number): Buffer {
   wav.write('data', 36, 'ascii');
   wav.writeUInt32LE(data, 40);
   return wav;
+}
+
+/**
+ * Audio rather than words: phone audio doesn't read as clean text. Its positive samples are bytes from 0x80 up,
+ * which aren't UTF-8 on their own (silence is 0xFF), and the quietest negative one (0x7F) and the loudest (below
+ * 0x20) are control characters.
+ */
+const isAudio = (frame: Buffer): boolean =>
+  frame.toString('utf8').includes('\uFFFD') ||
+  frame.some((b) => b === 0x7f || (b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0d));
+
+/** How loud a frame of μ-law audio is, as a 16-bit sample's root mean square. */
+function loudness(frame: Buffer): number {
+  let sum = 0;
+  for (const byte of frame) {
+    const s = linearOf(byte);
+    sum += s * s;
+  }
+  return Math.sqrt(sum / Math.max(1, frame.length));
+}
+
+/**
+ * Hears real audio the only way the stand-in can: talking (loud for a moment) is them starting to talk, and the
+ * pause after it is the end of their turn, heard as FAKE_HEARD. Time is the audio's own, 8,000 samples a second.
+ */
+function fakeEar(handlers: ListenHandlers) {
+  /** Louder than this is talking (about -36 dBFS). */
+  const LOUD = 500;
+  const TALKING_MS = 180;
+  const PAUSE_MS = 700;
+  let at = 0;
+  let loudSince: number | null = null;
+  let lastLoud = 0;
+  let talking = false;
+  return (frame: Buffer) => {
+    at += (frame.length / 8000) * 1000;
+    if (loudness(frame) >= LOUD) {
+      if (loudSince === null || at - lastLoud > 300) loudSince = at;
+      lastLoud = at;
+      if (!talking && at - loudSince >= TALKING_MS) {
+        talking = true;
+        handlers.onSpeechStarted();
+      }
+      return;
+    }
+    if (talking && at - lastLoud >= PAUSE_MS) {
+      talking = false;
+      loudSince = null;
+      handlers.onWords({ text: FAKE_HEARD, final: true, endOfTurn: true, language: 'en' });
+    }
+  };
 }
 
 export function createFakeSpeech(): SpeechServices & {
@@ -84,9 +140,14 @@ export function createFakeSpeech(): SpeechServices & {
 
     async listen(handlers: ListenHandlers): Promise<Listening> {
       let closed = false;
+      const ear = fakeEar(handlers);
       return {
         send(audio) {
           if (closed) return;
+          if (isAudio(audio)) {
+            ear(audio);
+            return;
+          }
           const said = audio.toString('utf8').trim();
           if (!said) return;
           if (said === FAKE_TALKING) return handlers.onSpeechStarted();

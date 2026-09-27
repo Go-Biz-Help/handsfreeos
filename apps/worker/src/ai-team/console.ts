@@ -203,10 +203,14 @@ function withThresholdInRange(raw: unknown): unknown {
   return { ...raw, autonomy: { ...raw['autonomy'], approvalsNeeded } };
 }
 
-/** Checks the request, the settings and the budget, and opens the test's run. */
+/**
+ * Checks the request, the settings and the budget, and opens the test's run. A live test call (test-call.ts)
+ * checks at the start (`run: false`) and opens a run a turn at a time (nextTestTurn), as the console's requests do.
+ */
 export async function prepareTest(
   deps: ConsoleDeps,
   input: TestConsoleInput,
+  opts: { readonly run?: boolean } = {},
 ): Promise<PreparedTest> {
   const last = input.messages[input.messages.length - 1];
   if (last && last.from !== 'customer')
@@ -275,17 +279,7 @@ export async function prepareTest(
       429,
       `${teammate.name} reached its share of today’s AI limit. It resets at midnight.`,
     );
-  const [made] = await asWorker(deps.db, scope, (tx) =>
-    rows<{ id: string }>(
-      tx,
-      sql`insert into app.ai_teammate_runs
-            (workspace_id, teammate_id, person_id, triggered_by, is_test, message_ids, model)
-          values (${scope.workspaceId}, ${teammate.id}, ${input.personId}, 'test', true, ${uuidArray([])},
-            ${provider.model.slice(0, 100)})
-          returning id`,
-    ),
-  );
-  return {
+  const prepared: PreparedTest = {
     scope,
     teammate,
     config,
@@ -293,9 +287,42 @@ export async function prepareTest(
     input,
     now,
     timeZone,
-    runId: made!.id,
+    runId: '',
     phone: input.channel === 'phone' ? { outbound } : null,
   };
+  return opts.run === false ? prepared : { ...prepared, runId: await openTestRun(deps, prepared) };
+}
+
+/** A test's run: marked a test, with the model it thinks with, so its tokens count and it never trains. */
+async function openTestRun(deps: ConsoleDeps, t: PreparedTest): Promise<string> {
+  const [made] = await asWorker(deps.db, t.scope, (tx) =>
+    rows<{ id: string }>(
+      tx,
+      sql`insert into app.ai_teammate_runs
+            (workspace_id, teammate_id, person_id, triggered_by, is_test, message_ids, model)
+          values (${t.scope.workspaceId}, ${t.teammate.id}, ${t.input.personId}, 'test', true, ${uuidArray([])},
+            ${t.provider.model.slice(0, 100)})
+          returning id`,
+    ),
+  );
+  return made!.id;
+}
+
+/**
+ * The next turn of a live test call: the call so far (ending with what the caller just said, or none for the
+ * pickup) and a run of its own, as each of the console's requests has. The rest was checked at the start.
+ */
+export async function nextTestTurn(
+  deps: ConsoleDeps,
+  t: PreparedTest,
+  messages: TestConsoleInput['messages'],
+): Promise<PreparedTest> {
+  const next: PreparedTest = {
+    ...t,
+    input: { ...t.input, messages },
+    now: t.input.at ? Date.parse(t.input.at) : Date.now(),
+  };
+  return { ...next, runId: await openTestRun(deps, next) };
 }
 
 const nothingToCallAbout = (message: string) =>
@@ -1506,17 +1533,21 @@ async function tellWhatItRead(
     });
 }
 
-/** Runs the test, sending each event as it happens; the run is closed whatever happens. */
+/**
+ * Runs the test, sending each event as it happens; the run is closed whatever happens. A live test call passes
+ * its turn's stopwatch (`clock`), started when the caller stopped talking, so the steps count from there.
+ */
 export async function runTest(
   deps: ConsoleDeps,
   t: PreparedTest,
   send: (e: ConsoleEvent) => void,
   signal: AbortSignal,
+  opts: { readonly clock?: TurnClock } = {},
 ): Promise<void> {
   const began = Date.now();
   /** On a call: how long it took until the first words could be said, and where that time went. */
   let firstWordsMs: number | null = null;
-  const clock = t.phone && t.input.messages.length ? new TurnClock() : null;
+  const clock = t.phone && t.input.messages.length ? (opts.clock ?? new TurnClock()) : null;
   let steps = 0;
   const checks: unknown[] = [];
   const state = newRunState();
@@ -1669,7 +1700,7 @@ export async function runTest(
       ? new EarlySpeech({
           passes: (words) => checked(words).ok,
           mayStart: () => !state.held.length && !state.moneyAsk,
-          say: (sentence) => {
+          say: (sentence, ending) => {
             if (firstWordsMs === null) {
               clock?.sentence();
               firstWordsMs = Date.now() - began;
@@ -1681,7 +1712,7 @@ export async function runTest(
               });
             }
             // Out loud, the console says it now too.
-            send({ type: 'say', text: sentence });
+            send({ type: 'say', text: sentence, ...(ending ? { ending: true } : {}) });
           },
         })
       : null;

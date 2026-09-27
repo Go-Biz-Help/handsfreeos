@@ -67,6 +67,7 @@ import type { WorkerServices } from '../services';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import type { ProviderAccount } from '../telephony/provider';
+import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
 import { offerOpenTimes, readCallBrief, turnMatches, type CallBrief } from './call-knowledge';
 import { EarlySpeech, streamSpoken } from './early-speech';
 import type { TurnClock } from './turn-clock';
@@ -75,12 +76,15 @@ import {
   alreadySaid,
   CANT_GO_ON,
   CONNECTING,
+  greetingOf,
+  outboundGreetingOf,
   phoneChannelLines,
   phoneTurn,
   PHONE_MAX_TOKENS,
   tongue,
   type CallLine,
 } from './prompt';
+import type { CallMind } from './session';
 import type { StreamTicket } from './ticket';
 
 /** How long a call waits for a text reply that's running on the same conversation to finish. */
@@ -730,6 +734,76 @@ export interface CallEnding {
   readonly error?: string | null;
   /** Hand the conversation to a person as the call is handed on (the transfer). */
   readonly handOff?: { readonly reason: ConversationHandoffReason; readonly note: string } | null;
+}
+
+/** What a real call's mind needs beyond the brain's own: the TwiML that rings the team for this call. */
+export interface RealCallDeps extends BrainDeps {
+  /** The TwiML that rings the team for this call (http/voice.ts), or voicemail when nobody can be rung. */
+  readonly transferTwiml: (ticket: StreamTicket) => Promise<string>;
+}
+
+/**
+ * A real call's mind (session.ts): the AI teammate answering, or placing, a call on the business's own number.
+ * Its changes are real, the call's words are saved to its record, a hand-off rings the team on the same call,
+ * and what it heard and said is billed to the business as a call's.
+ */
+export function realCall(deps: RealCallDeps, ticket: StreamTicket): CallMind {
+  const log = deps.log.child({ callSid: ticket.callSid });
+  let call: PreparedCall | null = null;
+  return {
+    async prepare() {
+      const prepared = await prepareCall(deps, ticket);
+      if (!prepared.ok) return prepared;
+      const c = prepared.call;
+      call = c;
+      const business = c.rc.grounding.business.name;
+      const out = c.outbound;
+      return {
+        ok: true,
+        greeting: out
+          ? outboundGreetingOf(c.config, business, out.firstName, out.goal, out.purpose)
+          : greetingOf(c.config, business),
+        voice: c.config.phone.voice,
+        placed: !!out,
+      };
+    },
+    warm: () => (call ? warmCall(deps, call) : Promise.resolve()),
+    think: (turn) => thinkTurn(deps, call!, turn),
+    async hangUp() {
+      if (call) await deps.telephony.endCall(call.account, ticket.callSid);
+    },
+    async transfer(reason, note) {
+      if (!call) return;
+      try {
+        await handOffForTransfer(deps, call, reason, note);
+      } catch (e) {
+        log.warn({ err: e }, 'couldn’t hand a call’s conversation to the team');
+      }
+      await deps.telephony.redirectCall(
+        call.account,
+        ticket.callSid,
+        await deps.transferTwiml(ticket),
+      );
+    },
+    finish: (lines, ending) => (call ? finishCall(deps, call, lines, ending) : Promise.resolve()),
+    noteSpeech: (seconds, said) =>
+      call
+        ? noteSpeech(deps, call.scope, [
+            {
+              key: 'speech.live.minute',
+              quantity: speechMinutes(seconds),
+              source: 'call',
+              ref: ticket.callSid,
+            },
+            {
+              key: 'speech.voice.kchar',
+              quantity: speechKchars(said),
+              source: 'call',
+              ref: ticket.callSid,
+            },
+          ])
+        : Promise.resolve(),
+  };
 }
 
 /** Hands the conversation to the team as the caller is connected (their phones ring; the note says why). */

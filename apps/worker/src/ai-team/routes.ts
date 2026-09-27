@@ -1,16 +1,24 @@
 /**
- * The AI teammate's worker route: the builder's test console, POST /v1/ai-team/test (console.ts). It needs
+ * The AI teammate's worker routes: the builder's test console, POST /v1/ai-team/test (console.ts). It needs
  * ai_team.manage. Refusals come back as the API's JSON errors before the stream opens (403 without the
  * permission, 429 at the AI limit, 400 for unreadable settings); then server-sent events, until `done` or
  * `error`. Closing the stream stops the test.
+ *
+ * A live test call is a websocket, GET /v1/ai-team/test/call (test-call.ts): its first message carries the
+ * session's token, since a browser can't set headers on one, and refusals come back as its `error` message.
  */
 import { HfosError } from '@hfos/core/server';
 import type { FastifyInstance } from 'fastify';
 import { authenticate, parseBody, requirePermission, type HttpDeps } from '../http/common';
 import { openStream } from '../http/sse';
 import { prepareTest, runTest, TestConsoleInput, type ConsoleEvent } from './console';
+import { handleTestCallSocket } from './test-call';
 
+/** Needs the websocket plugin, which http/voice-agent.ts registers first. */
 export function registerTeammateRoutes(app: FastifyInstance, deps: HttpDeps): void {
+  app.get('/v1/ai-team/test/call', { websocket: true }, (socket) =>
+    handleTestCallSocket(socket, deps),
+  );
   app.post('/v1/ai-team/test', async (req, reply) => {
     const actor = await authenticate(deps, req);
     const input = parseBody(TestConsoleInput, req.body);

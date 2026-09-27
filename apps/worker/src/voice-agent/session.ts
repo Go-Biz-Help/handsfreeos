@@ -20,30 +20,16 @@
  *
  * What it listened to and said is the business's to pay for (money/speech-usage.ts): the minutes it listened and
  * the characters it spoke are added to the running totals when the call ends.
+ *
+ * What thinks on the call, and what its endings do, is its CallMind: a real call's (brain.ts `realCall`), or a live
+ * test call's from the test console (ai-team/test-call.ts), which thinks the way the console does and only
+ * pretends to change anything. Everything about hearing, speaking and timing is this file's, so a test call's
+ * pauses are a real call's.
  */
 import type { Logger } from 'pino';
-import type { ConversationHandoffReason } from '@hfos/core/server';
-import {
-  finishCall,
-  handOffForTransfer,
-  prepareCall,
-  thinkTurn,
-  warmCall,
-  type BrainDeps,
-  type CallEnding,
-  type PreparedCall,
-  type TurnOutcome,
-} from './brain';
-import {
-  CANT_GO_ON,
-  GOODBYE,
-  greetingOf,
-  outboundGreetingOf,
-  STILL_THERE,
-  tongue,
-  type CallLine,
-} from './prompt';
-import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
+import type { ConversationHandoffReason, PhoneVoice } from '@hfos/core/server';
+import type { CallEnding, TurnOutcome } from './brain';
+import { CANT_GO_ON, GOODBYE, STILL_THERE, tongue, type CallLine } from './prompt';
 import {
   LineBusy,
   voiceModel,
@@ -52,7 +38,6 @@ import {
   type SpeechServices,
   type VoiceLine,
 } from './speech';
-import type { StreamTicket } from './ticket';
 import { TurnClock } from './turn-clock';
 
 /** What the session sends Twilio. */
@@ -83,11 +68,59 @@ export const SESSION_TIMINGS: SessionTimings = {
   maxCallMs: 20 * 60_000,
 };
 
-export interface SessionDeps extends BrainDeps {
+export interface SessionDeps {
   readonly speech: SpeechServices;
-  /** The TwiML that rings the team for this call (http/voice.ts), or voicemail when nobody can be rung. */
-  readonly transferTwiml: (ticket: StreamTicket) => Promise<string>;
+  readonly log: Logger;
   readonly timings?: Partial<SessionTimings>;
+}
+
+/** A call set up and ready to answer: what it says first, and the voice it says everything in. */
+export interface MindReady {
+  readonly ok: true;
+  readonly greeting: string;
+  readonly voice: PhoneVoice;
+  /** It placed this call (AI outbound calls) rather than answered it: how its ending is described. */
+  readonly placed: boolean;
+}
+
+/** One caller turn, as the session hands it to the mind. */
+export interface MindTurn {
+  readonly turn: number;
+  /** The call's words before this turn. */
+  readonly lines: readonly CallLine[];
+  readonly said: string;
+  readonly language: string | null;
+  /** Says a checked sentence of the reply while the rest is still being written; `ending` for a goodbye. */
+  readonly speak: (sentence: string, ending: boolean) => void;
+  /** The turn's stopwatch, started when they finished talking. */
+  readonly clock: TurnClock;
+}
+
+/**
+ * What thinks on a call and what its endings do. The session does the hearing, the speaking and the waiting; the
+ * mind sets the call up, answers each turn, and says what hanging up, handing on and finishing mean.
+ */
+export interface CallMind {
+  /** Sets the call up, or says why it can't answer (the caller then gets what comes after the stream). */
+  prepare(): Promise<MindReady | { readonly ok: false; readonly why: string }>;
+  /** While the greeting plays: whatever gets the first turn ready sooner. */
+  warm(): Promise<void>;
+  /** One turn: what the caller said, answered. */
+  think(turn: MindTurn): Promise<TurnOutcome>;
+  /** It said goodbye: end the call on the phone's side (the session closes the stream after). */
+  hangUp(): Promise<void>;
+  /** Hands the caller on after it said so (the session closes the stream after). */
+  transfer(reason: ConversationHandoffReason, note: string): Promise<void>;
+  /** However the call ended, once: its words saved, its run closed. */
+  finish(lines: readonly CallLine[], ending: CallEnding): Promise<void>;
+  /** What it listened to (seconds) and every character it asked to have said: the business's to pay for. */
+  noteSpeech(listenedSeconds: number, said: string): Promise<void>;
+  /** Words heard so far (interim or final), as the listener gives them. */
+  heard?(words: HeardWords): void;
+  /** The caller talked over the reply to `turn` (0 is the greeting), so the rest of it wasn't said. */
+  cut?(turn: number): void;
+  /** A turn's answer has been said: where its time went. */
+  timed?(turn: number, timing: ReturnType<TurnClock['log']>): void;
 }
 
 /**
@@ -147,6 +180,8 @@ interface Utterance {
   readonly interruptible: boolean;
   /** Its line in the call's words. */
   readonly line: number;
+  /** The turn it answers (0: the greeting, or anything said before the first turn). */
+  readonly turn: number;
   text: string;
   /** Every sentence added so far, said one after the other. */
   voiced: Promise<void>;
@@ -165,7 +200,7 @@ export function sentencesOf(text: string): string[] {
 }
 
 export class CallSession {
-  private call: PreparedCall | null = null;
+  private ready: MindReady | null = null;
   private listening: Listening | null = null;
   private readonly lines: CallLine[] = [];
   private heard: string[] = [];
@@ -175,8 +210,9 @@ export class CallSession {
   private voiceLine: VoiceLine | null = null;
   private opening: Promise<void> | null = null;
   private lineFailures = 0;
-  /** The latest turn's stopwatch. */
+  /** The latest turn's stopwatch (from the pickup, for the greeting), and which turn it times. */
   private clock: TurnClock | null = null;
+  private clockTurn = 0;
   private speaking: Utterance | null = null;
   private readonly marks = new Map<string, () => void>();
   private markSeq = 0;
@@ -192,18 +228,32 @@ export class CallSession {
   private listenedFrom: number | null = null;
   /** Every character it asked to have said, cut short or not: each one is billed. */
   private saidText = '';
+  private started: Promise<boolean> | null = null;
 
   constructor(
     private readonly deps: SessionDeps,
     private readonly link: CallLink,
-    private readonly ticket: StreamTicket,
+    private readonly mind: CallMind,
+    /** What its log lines carry (a real call's sid, a test call's id). */
+    logBindings: Readonly<Record<string, unknown>> = {},
   ) {
     this.timings = { ...SESSION_TIMINGS, ...deps.timings };
-    this.log = deps.log.child({ callSid: ticket.callSid });
+    this.log = deps.log.child(logBindings);
   }
 
-  /** Sets the call up and says hello; false when it can't answer (the caller then gets voicemail). */
-  async start(): Promise<boolean> {
+  /**
+   * Sets the call up and says hello; false when it can't answer (the caller then gets voicemail). Asking again
+   * gets the same answer: the stream's route and a test call's console may both start it.
+   */
+  start(): Promise<boolean> {
+    this.started ??= this.pickUp();
+    return this.started;
+  }
+
+  private async pickUp(): Promise<boolean> {
+    // The greeting's stopwatch: from the pickup to its first sound.
+    this.clock = new TurnClock();
+    this.clockTurn = 0;
     try {
       this.listening = await this.deps.speech.listen({
         onWords: (w) => this.onWords(w),
@@ -216,9 +266,9 @@ export class CallSession {
       this.log.warn({ err: e }, 'couldn’t start listening to a call');
       return false;
     }
-    let prepared;
+    let prepared: MindReady | { readonly ok: false; readonly why: string };
     try {
-      prepared = await prepareCall(this.deps, this.ticket);
+      prepared = await this.mind.prepare();
     } catch (e) {
       this.log.error({ err: e }, 'couldn’t set up a call for the AI teammate');
       prepared = { ok: false as const, why: 'error' };
@@ -229,15 +279,17 @@ export class CallSession {
       await this.listening.close().catch(() => undefined);
       return false;
     }
-    this.call = prepared.call;
+    this.ready = prepared;
     // They hung up while it was getting ready: the run it just started is closed like any other call's.
     if (this.closed) {
-      await finishCall(this.deps, prepared.call, this.lines, {
-        outcome: 'no_reply',
-        summary: 'A call it was about to answer; they hung up first.',
-        turns: 0,
-        lastSaid: null,
-      }).catch((e: unknown) => this.log.error({ err: e }, 'couldn’t close a call’s run'));
+      await this.mind
+        .finish(this.lines, {
+          outcome: 'no_reply',
+          summary: 'A call it was about to answer; they hung up first.',
+          turns: 0,
+          lastSaid: null,
+        })
+        .catch((e: unknown) => this.log.error({ err: e }, 'couldn’t close a call’s run'));
       return false;
     }
     this.maxTimer = setTimeout(
@@ -253,18 +305,12 @@ export class CallSession {
     );
     // While the greeting plays: the call's FAQ and open times are read, and the AI reads its instructions, so
     // the first thing the caller asks finds them ready. A turn that starts sooner waits for the reading.
-    void warmCall(this.deps, this.call).catch((e: unknown) =>
-      this.log.warn({ err: e }, 'couldn’t get a call ready'),
-    );
+    void this.mind
+      .warm()
+      .catch((e: unknown) => this.log.warn({ err: e }, 'couldn’t get a call ready'));
     // The call's voice opens meanwhile too: the greeting goes by request, and every sentence after down the line.
     this.openLine(this.language);
-    const business = this.call.rc.grounding.business.name;
-    const out = this.call.outbound;
-    const said = await this.say(
-      out
-        ? outboundGreetingOf(this.call.config, business, out.firstName, out.goal, out.purpose)
-        : greetingOf(this.call.config, business),
-    );
+    const said = await this.say(prepared.greeting);
     if (said === 'done') this.armQuiet();
     this.maybeTurn();
     return true;
@@ -295,31 +341,33 @@ export class CallSession {
   private onSpeechStarted(): void {
     this.clearQuiet();
     // They're talking over it: stop, and let them finish.
-    if (this.speaking?.interruptible) {
-      this.speaking.abort.abort();
+    const speaking = this.speaking;
+    if (speaking?.interruptible) {
+      speaking.abort.abort();
       this.link.clear();
       const last = this.lines[this.lines.length - 1];
       if (last?.who === 'teammate')
         this.lines[this.lines.length - 1] = { ...last, text: `${last.text} (interrupted)` };
+      this.mind.cut?.(speaking.turn);
     }
   }
 
   private onWords(w: HeardWords): void {
     if (this.closed) return;
     this.clearQuiet();
+    this.mind.heard?.(w);
     if (w.language) this.language = w.language;
     if (w.final && w.text) this.heard.push(w.text);
     if (w.endOfTurn) this.maybeTurn();
   }
 
   private maybeTurn(): void {
-    if (this.closed || !this.call || this.thinking || !this.heard.length) return;
+    if (this.closed || !this.ready || this.thinking || !this.heard.length) return;
     if (this.speaking && !this.speaking.interruptible) return;
     void this.runTurn();
   }
 
   private async runTurn(): Promise<void> {
-    const call = this.call!;
     this.thinking = true;
     const said = this.heard.join(' ').trim();
     this.heard = [];
@@ -328,6 +376,7 @@ export class CallSession {
     const turn = ++this.turn;
     const clock = new TurnClock();
     this.clock = clock;
+    this.clockTurn = turn;
     // The start of the reply, said while the model is still writing the rest.
     const early: { utterance: Utterance | null } = { utterance: null };
     const speak = (sentence: string, ending: boolean) => {
@@ -337,7 +386,7 @@ export class CallSession {
     };
     let outcome: TurnOutcome;
     try {
-      outcome = await thinkTurn(this.deps, call, {
+      outcome = await this.mind.think({
         turn,
         lines: before,
         said,
@@ -360,6 +409,8 @@ export class CallSession {
     await this.act(outcome, early.utterance);
     // Where the turn's time went, from the end of their words to the first sound (TurnClock).
     this.log.info({ turn, early: !!early.utterance, ...clock.log() }, 'a call turn’s timings');
+    // Nothing was said (a silent turn): the stopwatch is told once it's over instead.
+    if (clock.firstAudio === null) this.mind.timed?.(turn, clock.log());
   }
 
   // ---- doing ----
@@ -385,7 +436,7 @@ export class CallSession {
       else await this.say(o.text, { interruptible: false });
       this.ending = {
         outcome: 'replied',
-        summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}) and said goodbye.`,
+        summary: `${this.ready?.placed ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}) and said goodbye.`,
         turns: this.turn,
         lastSaid: o.text,
       };
@@ -401,7 +452,7 @@ export class CallSession {
     text: string,
     opts: { readonly interruptible?: boolean } = {},
   ): Promise<'done' | 'cut'> {
-    if (!this.call || this.closed) return 'cut';
+    if (!this.ready || this.closed) return 'cut';
     const u = this.begin(opts, text);
     for (const sentence of sentencesOf(text)) this.voice(u, sentence);
     return this.end(u);
@@ -413,6 +464,7 @@ export class CallSession {
       abort: new AbortController(),
       interruptible: opts.interruptible ?? true,
       line: this.lines.length,
+      turn: this.turn,
       text,
       voiced: Promise.resolve(),
       failed: false,
@@ -432,7 +484,7 @@ export class CallSession {
   }
 
   private voice(u: Utterance, sentence: string): void {
-    const call = this.call!;
+    const ready = this.ready!;
     u.voiced = u.voiced.then(async () => {
       if (u.abort.signal.aborted || u.failed) return;
       this.saidText += sentence;
@@ -441,14 +493,19 @@ export class CallSession {
           line: this.lineFor(this.language),
           byRequest: () =>
             this.deps.speech.speak(sentence, {
-              voice: call.config.phone.voice,
+              voice: ready.voice,
               language: this.language,
               signal: u.abort.signal,
             }),
           sentence,
           signal: u.abort.signal,
           send: (audio) => {
-            if (this.clock && u.began >= this.clock.started) this.clock.audio();
+            const clock = this.clock;
+            if (clock && u.began >= clock.started && clock.firstAudio === null) {
+              clock.audio();
+              // The first sound of the answer: where the wait went, as soon as it's over.
+              this.mind.timed?.(this.clockTurn, clock.log());
+            }
             this.link.sendAudio(audio);
           },
           lineFailed: (e) => {
@@ -469,9 +526,9 @@ export class CallSession {
    * sentences after this, and this one goes by request. After a few failures it stops trying for the call.
    */
   private lineFor(language: string | null): VoiceLine | null {
-    const call = this.call;
-    if (!call || !this.deps.speech.openVoice) return null;
-    const model = voiceModel(call.config.phone.voice, language);
+    const ready = this.ready;
+    if (!ready || !this.deps.speech.openVoice) return null;
+    const model = voiceModel(ready.voice, language);
     const line = this.voiceLine;
     if (line?.open && line.model === model) return line;
     if (line) {
@@ -483,11 +540,11 @@ export class CallSession {
   }
 
   private openLine(language: string | null): void {
-    const call = this.call;
+    const ready = this.ready;
     const open = this.deps.speech.openVoice;
-    if (!call || !open || this.opening || this.closed || this.lineFailures >= LINE_FAILURES_MAX)
+    if (!ready || !open || this.opening || this.closed || this.lineFailures >= LINE_FAILURES_MAX)
       return;
-    this.opening = open({ voice: call.config.phone.voice, language })
+    this.opening = open({ voice: ready.voice, language })
       .then((line) => {
         if (this.closed) line.close();
         else this.voiceLine = line;
@@ -553,7 +610,7 @@ export class CallSession {
     await this.say(text, { interruptible: false });
     this.ending = {
       outcome: this.turn ? 'replied' : 'no_reply',
-      summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'}; the line went quiet, so it said goodbye.`,
+      summary: `${this.ready?.placed ? 'Called them' : 'Answered a call'}; the line went quiet, so it said goodbye.`,
       turns: this.turn,
       lastSaid: text,
     };
@@ -561,9 +618,8 @@ export class CallSession {
   }
 
   private async hangUp(): Promise<void> {
-    const call = this.call!;
     try {
-      await this.deps.telephony.endCall(call.account, this.ticket.callSid);
+      await this.mind.hangUp();
     } catch (e) {
       this.log.warn({ err: e }, 'couldn’t hang up a call');
     }
@@ -571,26 +627,16 @@ export class CallSession {
     await this.stop();
   }
 
-  /** Rings the team on this call; nobody answering goes to voicemail (the TwiML's own dial result). */
+  /** Hands the caller on (a real call rings the team on this call; nobody answering goes to voicemail). */
   private async transfer(reason: ConversationHandoffReason, note: string): Promise<void> {
-    const call = this.call!;
     this.ending = {
       outcome: 'handed_off',
-      summary: `${this.call?.outbound ? 'Called them' : 'Answered a call'} and connected them to the team: ${REASON_WORDS[reason] ?? 'they needed a person'}.`,
+      summary: `${this.ready?.placed ? 'Called them' : 'Answered a call'} and connected them to the team: ${REASON_WORDS[reason] ?? 'they needed a person'}.`,
       turns: this.turn,
       lastSaid: this.lines.findLast((l) => l.who === 'teammate')?.text ?? null,
     };
     try {
-      await handOffForTransfer(this.deps, call, reason, note);
-    } catch (e) {
-      this.log.warn({ err: e }, 'couldn’t hand a call’s conversation to the team');
-    }
-    try {
-      await this.deps.telephony.redirectCall(
-        call.account,
-        this.ticket.callSid,
-        await this.deps.transferTwiml(this.ticket),
-      );
+      await this.mind.transfer(reason, note);
     } catch (e) {
       // The stream closing sends the call on to the voicemail after it in the TwiML.
       this.log.warn({ err: e }, 'couldn’t connect a caller to the team');
@@ -609,32 +655,23 @@ export class CallSession {
     await this.listening?.close().catch(() => undefined);
     this.voiceLine?.close();
     this.voiceLine = null;
-    const call = this.call;
-    if (!call) return;
+    const ready = this.ready;
+    if (!ready) return;
     const ending: CallEnding = this.ending ?? {
       outcome: this.lines.some((l) => l.who === 'caller') ? 'replied' : 'no_reply',
-      summary: `${call.outbound ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}); they hung up.`,
+      summary: `${ready.placed ? 'Called them' : 'Answered a call'} (${this.turn} ${this.turn === 1 ? 'turn' : 'turns'}); they hung up.`,
       turns: this.turn,
       lastSaid: this.lines.findLast((l) => l.who === 'teammate')?.text ?? null,
     };
     try {
-      await finishCall(this.deps, call, this.lines, ending);
+      await this.mind.finish(this.lines, ending);
     } catch (e) {
       this.log.error({ err: e }, 'couldn’t close a call’s run');
     }
-    await noteSpeech(this.deps, call.scope, [
-      {
-        key: 'speech.live.minute',
-        quantity: speechMinutes(this.listenedFrom ? (Date.now() - this.listenedFrom) / 1000 : 0),
-        source: 'call',
-        ref: this.ticket.callSid,
-      },
-      {
-        key: 'speech.voice.kchar',
-        quantity: speechKchars(this.saidText),
-        source: 'call',
-        ref: this.ticket.callSid,
-      },
-    ]);
+    await this.mind
+      .noteSpeech(this.listenedFrom ? (Date.now() - this.listenedFrom) / 1000 : 0, this.saidText)
+      .catch((e: unknown) =>
+        this.log.error({ err: e }, 'couldn’t note what a call heard and said'),
+      );
   }
 }

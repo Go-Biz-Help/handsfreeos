@@ -65,3 +65,70 @@ export function openTicket(
     return null;
   }
 }
+
+/**
+ * A live test call's ticket (the test console over the phone line, ai-team/test-call.ts). The console gets one to
+ * place its call with; the browser call carries it to the TwiML, which seals another for the stream, bound to the
+ * call's sid. Either names the test call, who is placing it and where, and the machine holding the console's end
+ * of it. A real call's ticket never opens as one of these, nor one of these as a real call's.
+ */
+export interface TestCallTicket {
+  readonly workspaceId: string;
+  /** Who is testing. */
+  readonly userId: string;
+  readonly testCallId: string;
+  /** The worker machine the console is connected to (FLY_MACHINE_ID, or `local`). */
+  readonly machine: string;
+  /** The stream's ticket: the call it's for. The dial ticket has none yet. */
+  readonly callSid: string | null;
+  /** Epoch milliseconds. */
+  readonly expiresAt: number;
+}
+
+/** How long the console has to place its call with a dial ticket. */
+export const TEST_DIAL_TTL_MS = 60_000;
+
+export function sealTestTicket(
+  sealer: Sealer,
+  t: Omit<TestCallTicket, 'expiresAt'>,
+  ttlMs = t.callSid ? TICKET_TTL_MS : TEST_DIAL_TTL_MS,
+  now = Date.now(),
+): string {
+  return sealer.seal(
+    JSON.stringify({
+      k: 'test',
+      w: t.workspaceId,
+      u: t.userId,
+      i: t.testCallId,
+      m: t.machine,
+      ...(t.callSid ? { c: t.callSid } : {}),
+      e: now + ttlMs,
+    }),
+  );
+}
+
+/** The test call's ticket, or null when it's forged, damaged, too old, or not a test call's. */
+export function openTestTicket(
+  sealer: Sealer,
+  sealed: string | undefined,
+  now = Date.now(),
+): TestCallTicket | null {
+  if (!sealed) return null;
+  try {
+    const v = JSON.parse(sealer.open(sealed)) as Record<string, unknown>;
+    const str = (k: string) => (typeof v[k] === 'string' && v[k] ? (v[k] as string) : null);
+    const [w, u, i, m] = [str('w'), str('u'), str('i'), str('m')];
+    const e = typeof v['e'] === 'number' ? v['e'] : 0;
+    if (v['k'] !== 'test' || !w || !u || !i || !m || e < now) return null;
+    return {
+      workspaceId: w,
+      userId: u,
+      testCallId: i,
+      machine: m,
+      callSid: str('c'),
+      expiresAt: e,
+    };
+  } catch {
+    return null;
+  }
+}
