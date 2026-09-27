@@ -28,7 +28,9 @@ export interface BuildOptions {
 export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: opts.logger ?? { level: opts.env.logLevel },
-    trustProxy: opts.env.trustProxy,
+    // Fly's proxy is the one hop in front: trust only the address it appends, not the X-Forwarded-For a caller
+    // sent, so req.ip (rate limits, the audit log) can't be forged. `true` would take the leftmost, caller-chosen one.
+    trustProxy: opts.env.trustProxy ? (_address: string, hop: number) => hop < 1 : false,
     genReqId: (req) => correlationIdFor(req.headers['x-correlation-id']),
     bodyLimit: 256 * 1024,
   });
@@ -69,7 +71,7 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     },
     transform: jsonSchemaTransform,
   });
-  await app.register(swaggerUi, { routePrefix: '/docs' });
+  if (opts.env.serveDocs) await app.register(swaggerUi, { routePrefix: '/docs' });
 
   app.decorateRequest('actor', null);
   app.decorateRequest('sentBody', null);
@@ -82,7 +84,8 @@ export async function buildApp(opts: BuildOptions): Promise<FastifyInstance> {
     service: 'api',
     time: new Date().toISOString(),
   }));
-  app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+  if (opts.env.serveDocs)
+    app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
 
   await app.register(async (v1) => {
     v1.addHook('onRequest', async (req) => {

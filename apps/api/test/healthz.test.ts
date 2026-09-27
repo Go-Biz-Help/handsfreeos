@@ -116,4 +116,8 @@ describe('readEnv', () => {
     ).toThrow(/postgres role/);
     expect(readEnv(base).jwksUrl).toBe('http://127.0.0.1:54421/auth/v1/.well-known/jwks.json');
   });
+  it('serves the API docs everywhere but production', () => {
+    expect(readEnv(base).serveDocs).toBe(true);
+    expect(readEnv({ ...base, NODE_ENV: 'production' }).serveDocs).toBe(false);
+  });
 });

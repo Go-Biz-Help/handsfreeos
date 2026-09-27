@@ -18,6 +18,11 @@ export interface ApiEnv {
   readonly databaseUrl: string;
   readonly trustProxy: boolean;
   /**
+   * Serve the OpenAPI document and its browsable docs (/openapi.json, /docs): everywhere but production, where
+   * they would list every operation, staff ones included, to anyone who asks.
+   */
+  readonly serveDocs: boolean;
+  /**
    * The oldest phone app build the API still takes (`MIN_APP_VERSION`, like "1.4.0"): an older one is told to update
    * (426) and keeps its unsent changes. Unset, every build is taken.
    */
@@ -75,6 +80,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
     jwksUrl: env.SUPABASE_JWKS_URL ?? `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
     databaseUrl,
     trustProxy: env.TRUST_PROXY === 'true',
+    serveDocs: env.NODE_ENV !== 'production',
     minAppVersion,
   };
 }

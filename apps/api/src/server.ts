@@ -21,4 +21,4 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
 await app.listen({ port: env.port, host: env.host });
-app.log.info(`OpenAPI at http://${env.host}:${env.port}/docs`);
+if (env.serveDocs) app.log.info(`OpenAPI at http://${env.host}:${env.port}/docs`);
