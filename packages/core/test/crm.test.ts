@@ -151,6 +151,15 @@ describe('kernel additions', () => {
     expect(() => decodeTimeCursor(encodeCursor({ sort: 'Smith John', id: randomUUID() }))).toThrow(
       HfosError,
     );
+    // The right shape is not enough: out-of-range fields and a non-uuid id would fail the casts.
+    for (const sort of ['2026-13-45T99:00:00Z', '2026-02-30T00:00:00Z', '2026-09-11T00:00:60Z'])
+      expect(() => decodeTimeCursor(encodeCursor({ sort, id: randomUUID() }))).toThrow(HfosError);
+    expect(() =>
+      decodeTimeCursor(encodeCursor({ sort: '2026-09-11T00:00:00Z', id: 'not-a-uuid' })),
+    ).toThrow(HfosError);
+    expect(
+      decodeTimeCursor(encodeCursor({ sort: '2028-02-29T23:59:59+05:30', id: randomUUID() })),
+    ).not.toBeNull();
     const p = page([1, 2, 3], 2, (n) => ({ sort: String(n), id: 'x' }));
     expect(p.items).toEqual([1, 2]);
     expect(p.nextCursor).not.toBeNull();
