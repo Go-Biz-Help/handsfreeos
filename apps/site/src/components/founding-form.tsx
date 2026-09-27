@@ -28,6 +28,17 @@ type State =
 const FIELD =
   'bg-card border-border focus:border-accent focus:ring-accent/25 w-full rounded-[var(--radius-control)] border px-3.5 py-2.5 text-base outline-none focus:ring-2';
 
+/**
+ * The lead's id: the offer and the address, hashed. The worker keeps one live application per address per offer,
+ * so a second press of the button is the same lead here too, and the id says nothing the worker's answer doesn't.
+ */
+async function leadEventId(offerId: string, email: string): Promise<string> {
+  if (!globalThis.crypto?.subtle) return crypto.randomUUID();
+  const bytes = new TextEncoder().encode(`${offerId}:${email.trim().toLowerCase()}`);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return `fa_${Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
 export function FoundingForm({ offerId, full }: { offerId: string; full: boolean }) {
   const [state, setState] = useState<State>({ kind: 'idle' });
 
@@ -36,8 +47,8 @@ export function FoundingForm({ offerId, full }: { offerId: string; full: boolean
     const form = event.currentTarget;
     const data = new FormData(form);
     const email = String(data.get('email') ?? '');
-    // One id for this send, shared by the browser's lead and the server's so Opinly merges them.
-    const eventId = crypto.randomUUID();
+    // One id for this application, shared by the browser's lead and the server's so Opinly merges them.
+    const eventId = await leadEventId(offerId, email);
     setState({ kind: 'sending' });
     try {
       const res = await fetch('/api/founding/apply', {
