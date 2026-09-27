@@ -87,7 +87,11 @@ export const leadCreate = defineCommand({
         409,
         'The AI teammate adds leads to open stages only. Someone on the team can win or lose a lead.',
       );
-    const position = await placeInStage(ctx.tx, stage.id, undefined, null);
+    const position = await placeInStage(
+      ctx.tx,
+      { workspaceId, pipelineId: pipeline.id, stageId: stage.id, movingLeadId: null },
+      undefined,
+    );
     const [row] = await insertWithId('leads', input.id, () =>
       ctx.tx
         .insert(leads)
