@@ -23,6 +23,8 @@ export interface PublicFormPage {
   readonly closedMessage: string;
   /** Set when they arrived on an old link: the form's name today. */
   readonly redirected: string | null;
+  /** Cloudflare Turnstile; a null site key means this app's own (NEXT_PUBLIC_TURNSTILE_SITE_KEY). */
+  readonly botCheck: { readonly siteKey: string | null } | null;
 }
 
 export interface StartedSheet {
@@ -118,7 +120,13 @@ export const sendSheet = (
   site: string,
   slug: string,
   responseId: string,
-  body: { token: string; answers: Record<string, unknown>; smsConsent: boolean; website?: string },
+  body: {
+    token: string;
+    answers: Record<string, unknown>;
+    smsConsent: boolean;
+    website?: string;
+    turnstileToken?: string;
+  },
 ) => post<SentForm>(`${formPath(site, slug)}/${seg(responseId)}/submit`, body);
 
 export const resumeSheet = (site: string, slug: string, token: string) =>

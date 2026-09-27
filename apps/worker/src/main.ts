@@ -162,7 +162,7 @@ const model =
       ? scriptedAssistant()
       : null;
 
-// Cloudflare Turnstile: one widget for app.handsfreeos.com serves the booking pages and the website chat.
+// Cloudflare Turnstile: one widget for app.handsfreeos.com serves booking pages, forms and the website chat.
 const botCheck = createBotCheck(env.turnstileSecretKey);
 const app = await buildHttpServer({
   ...services,
@@ -181,6 +181,8 @@ const app = await buildHttpServer({
     botCheck,
     limitFactor: env.bookingRateLimitFactor,
   },
+  forms: { botCheck },
+  intake: { botCheck },
   // Playwright runs due jobs (and scans its local test site) through test routes; only with the fake carrier,
   // never in production.
   testRoutes:

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { TURNSTILE_TEST_TOKEN } from './booking-helpers';
 import { createBusiness, signUpAndConfirm } from './helpers';
 import { apiAs, signInForApi } from './workflow-approval-api';
 
@@ -93,6 +94,7 @@ export async function formWithAnswers(
       token: sheet.token,
       answers: { q_name0000: name, q_phone000: phone, q_rating00: rating, q_notes000: notes },
       smsConsent: false,
+      turnstileToken: TURNSTILE_TEST_TOKEN,
     });
   };
   await answer('Rosa', '(512) 555-0301', 5, 'Late, but fixed it');

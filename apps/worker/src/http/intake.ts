@@ -220,6 +220,9 @@ export async function registerIntakeRoutes(app: FastifyInstance, deps: HttpDeps)
         const done = (outcome: string) => answer(reply, req, route.redirect_url, outcome);
         // A robot filled in the field people can't see: it is told all is well, and nothing is written.
         if (honeypot) return done('opened');
+        // A script can send any Origin it likes, so a token, when the business's page sends one, is checked. It
+        // can't be demanded: the form is on their own site, which needn't carry our widget. The source's daily
+        // cap and the limits here are what bound the rest.
         if (botCheck?.enabled && turnstile) {
           const verdict = await botCheck.verify(turnstile, req.ip);
           if (verdict === 'fail') return done('opened');
