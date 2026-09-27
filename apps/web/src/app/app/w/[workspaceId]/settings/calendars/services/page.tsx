@@ -20,9 +20,9 @@ export default async function ServicesSettingsPage({
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [services, resources, members] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/service.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    api.POST('/v1/queries/service.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/resource.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <>

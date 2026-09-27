@@ -45,16 +45,16 @@ export function RecordPicker({
     const timer = setTimeout(async () => {
       try {
         const [people, companies] = await Promise.all([
-          unwrap(
-            await apiBrowser().POST('/v1/queries/person.list', {
+          apiBrowser()
+            .POST('/v1/queries/person.list', {
               body: { workspaceId, q: query, limit: 6 },
-            }),
-          ),
-          unwrap(
-            await apiBrowser().POST('/v1/queries/company.list', {
+            })
+            .then(unwrap),
+          apiBrowser()
+            .POST('/v1/queries/company.list', {
               body: { workspaceId, q: query, limit: 4 },
-            }),
-          ),
+            })
+            .then(unwrap),
         ]);
         if (cancelled) return;
         setResults([

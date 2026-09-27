@@ -43,19 +43,19 @@ export default async function CustomersPage({
     limit: 50,
   };
   const [got, tags, members, summary, people, companies, records, kindFields] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/crm.summary', { body: { workspaceId } })),
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then(unwrapPage),
     tab === 'people'
-      ? unwrapPage(await api.POST('/v1/queries/person.list', { body: common }))
+      ? api.POST('/v1/queries/person.list', { body: common }).then(unwrapPage)
       : Promise.resolve(null),
     tab === 'companies'
-      ? unwrapPage(await api.POST('/v1/queries/company.list', { body: common }))
+      ? api.POST('/v1/queries/company.list', { body: common }).then(unwrapPage)
       : Promise.resolve(null),
     kind
-      ? unwrapPage(
-          await api.POST('/v1/queries/custom_record.list', {
+      ? api
+          .POST('/v1/queries/custom_record.list', {
             body: {
               workspaceId,
               typeId: kind.id,
@@ -63,15 +63,15 @@ export default async function CustomersPage({
               includeArchived: filters.archived,
               limit: 50,
             },
-          }),
-        )
+          })
+          .then(unwrapPage)
       : Promise.resolve(null),
     kind
-      ? unwrapPage(
-          await api.POST('/v1/queries/custom_field.list', {
+      ? api
+          .POST('/v1/queries/custom_field.list', {
             body: { workspaceId, recordTypeId: kind.id },
-          }),
-        ).fields
+          })
+          .then((r) => unwrapPage(r).fields)
       : [],
   ]);
   return (

@@ -20,8 +20,8 @@ export default async function TerritoriesSettingsPage({
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [territories, members] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/territory.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    api.POST('/v1/queries/territory.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <>

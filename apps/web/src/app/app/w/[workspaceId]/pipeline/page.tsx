@@ -21,15 +21,15 @@ export default async function PipelinePage({
   const view = one(sp.view) === 'list' ? 'list' : one(sp.view) === 'board' ? 'board' : null;
   const { api, userId } = await apiServer();
   const [got, board, pipelines, members, tags] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/lead.board', {
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/lead.board', {
         body: { workspaceId, ...(pipelineId ? { pipelineId } : {}) },
-      }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <PipelineBoard

@@ -17,17 +17,17 @@ export default async function ConversationPage({
   const allLanes = (await searchParams).lanes === 'all';
   const { api } = await apiServer();
   const [data, thread, workspace, tags, pipelines] = await Promise.all([
-    unwrapPage(
-      await api.POST('/v1/queries/conversation.get', { body: { workspaceId, conversationId } }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/conversation.thread', {
+    api
+      .POST('/v1/queries/conversation.get', { body: { workspaceId, conversationId } })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/conversation.thread', {
         body: { workspaceId, conversationId, limit: 30, ...(allLanes ? { allLanes } : {}) },
-      }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <ConversationView

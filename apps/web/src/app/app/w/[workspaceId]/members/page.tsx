@@ -26,12 +26,12 @@ export default async function MembersPage({
   // An owner sets what each person may do (0106) from here, so they get everyone's settings.
   const setsPermissions = can(mine, 'permissions.manage');
   const [members, invitations, permissionSettings] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
     seesInvitations
-      ? unwrapPage(await api.POST('/v1/queries/workspace.invitations', { body: { workspaceId } }))
+      ? api.POST('/v1/queries/workspace.invitations', { body: { workspaceId } }).then(unwrapPage)
       : Promise.resolve({ invitations: [] }),
     setsPermissions
-      ? unwrapPage(await api.POST('/v1/queries/permission.settings', { body: { workspaceId } }))
+      ? api.POST('/v1/queries/permission.settings', { body: { workspaceId } }).then(unwrapPage)
       : Promise.resolve(null),
   ]);
   return (
