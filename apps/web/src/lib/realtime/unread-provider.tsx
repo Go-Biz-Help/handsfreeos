@@ -35,7 +35,8 @@ export function UnreadProvider({
 }) {
   const [summary, setSummary] = useState<InboxSummary | null>(null);
   const [nonce, setNonce] = useState(0);
-  const live = useLiveVersion(['conversation', 'message'], 400);
+  // Kept live in a background tab: the count in its title is how a hidden tab says something came in.
+  const live = useLiveVersion(['conversation', 'message'], 400, true);
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {

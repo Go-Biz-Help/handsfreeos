@@ -27,7 +27,8 @@ export interface LiveChange {
 type Listener = (change: LiveChange | { entityType: '*'; type: 'resync' }) => void;
 
 interface LiveContextValue {
-  subscribe(listener: Listener): () => void;
+  /** `whileHidden` listeners still hear changes in a background tab (the unread count in the tab title). */
+  subscribe(listener: Listener, whileHidden?: boolean): () => void;
   connected: boolean;
 }
 
@@ -51,11 +52,11 @@ export function LiveProvider({
   workspaceId: string;
   children: ReactNode;
 }) {
-  const listeners = useRef(new Set<Listener>());
+  const listeners = useRef(new Map<Listener, boolean>());
   const [connected, setConnected] = useState(false);
   const value = useRef<LiveContextValue>({
-    subscribe(listener) {
-      listeners.current.add(listener);
+    subscribe(listener, whileHidden = false) {
+      listeners.current.set(listener, whileHidden);
       return () => listeners.current.delete(listener);
     },
     connected: false,
@@ -70,9 +71,13 @@ export function LiveProvider({
     let hadSession = false;
     let backoff: ReturnType<typeof setTimeout> | null = null;
     let poll: ReturnType<typeof setInterval> | null = null;
+    // A hidden tab refetches nothing; it catches up with one resync when it is shown again.
+    let missed = false;
 
     const notify: Listener = (change) => {
-      for (const l of listeners.current) l(change);
+      const hidden = document.visibilityState !== 'visible';
+      if (hidden) missed = true;
+      for (const [l, whileHidden] of listeners.current) if (!hidden || whileHidden) l(change);
     };
     const resync = () => notify({ entityType: '*', type: 'resync' });
     const startPolling = () => {
@@ -141,7 +146,12 @@ export function LiveProvider({
       if (event === 'SIGNED_OUT') teardown();
     });
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && !channel) scheduleReconnect();
+      if (document.visibilityState !== 'visible') return;
+      if (missed) {
+        missed = false;
+        resync();
+      }
+      if (!channel) scheduleReconnect();
     };
     document.addEventListener('visibilitychange', onVisible);
     void connect();
@@ -164,7 +174,10 @@ function matches(change: Parameters<Listener>[0], entityTypes?: readonly string[
   return !entityTypes || entityTypes.includes(change.entityType);
 }
 
-/** Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. */
+/**
+ * Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. Paused while
+ * the tab is hidden; it refreshes once when shown again.
+ */
 export function useLiveRefresh(entityTypes?: readonly string[], debounceMs = 300): void {
   const { subscribe } = useContext(LiveContext);
   const router = useRouter();
@@ -180,8 +193,15 @@ export function useLiveRefresh(entityTypes?: readonly string[], debounceMs = 300
   }, [subscribe, router, key, debounceMs]);
 }
 
-/** A counter that bumps (debounced) on matching changes, for components that fetch their own data. */
-export function useLiveVersion(entityTypes?: readonly string[], debounceMs = 300): number {
+/**
+ * A counter that bumps (debounced) on matching changes, for components that fetch their own data. Paused while
+ * the tab is hidden (one resync on return) unless `whileHidden`.
+ */
+export function useLiveVersion(
+  entityTypes?: readonly string[],
+  debounceMs = 300,
+  whileHidden = false,
+): number {
   const { subscribe } = useContext(LiveContext);
   const [version, setVersion] = useState(0);
   const key = entityTypes?.join(',');
@@ -192,8 +212,8 @@ export function useLiveVersion(entityTypes?: readonly string[], debounceMs = 300
       if (!matches(change, types)) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => setVersion((v) => v + 1), debounceMs);
-    });
-  }, [subscribe, key, debounceMs]);
+    }, whileHidden);
+  }, [subscribe, key, debounceMs, whileHidden]);
   return version;
 }
 
