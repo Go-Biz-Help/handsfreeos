@@ -120,6 +120,25 @@ describe('env', () => {
     expect(readEnv({ ...base, OPINLY_API_KEY: ' sk-abc ' }).opinlyApiKey).toBe('sk-abc');
     expect(() => readEnv({ ...base, OPINLY_API_KEY: 'pk-abc' })).toThrow(/sk- key/);
   });
+
+  it('refuses to run production without a bot check, unless told to on purpose', () => {
+    const production = {
+      DATABASE_URL_WORKER: 'postgresql://hfos_worker:x@h/db',
+      SMTP_URL: 'smtp://h',
+      WORKER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+      NODE_ENV: 'production',
+      TWILIO_ACCOUNT_SID: 'ACx',
+      TWILIO_AUTH_TOKEN: 'y',
+      WORKER_PUBLIC_URL: 'https://hooks.example.com',
+      POSTMARK_SERVER_TOKEN: 'p',
+      POSTMARK_ACCOUNT_TOKEN: 'a',
+      POSTMARK_WEBHOOK_PASSWORD: 'w'.repeat(32),
+      CHAT_IP_KEY: 'c'.repeat(40),
+    };
+    expect(() => readEnv(production)).toThrow(/TURNSTILE_SECRET_KEY is required/);
+    expect(readEnv({ ...production, ALLOW_NO_BOT_CHECK: '1' }).turnstileSecretKey).toBeNull();
+    expect(readEnv({ ...production, TURNSTILE_SECRET_KEY: 't' }).turnstileSecretKey).toBe('t');
+  });
 });
 
 describe('invitation emails', () => {

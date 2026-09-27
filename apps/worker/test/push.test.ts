@@ -346,6 +346,7 @@ describe('the worker’s push settings', () => {
     POSTMARK_ACCOUNT_TOKEN: 'a',
     POSTMARK_WEBHOOK_PASSWORD: 'w'.repeat(32),
     CHAT_IP_KEY: 'c'.repeat(40),
+    TURNSTILE_SECRET_KEY: 't',
   };
 
   it('uses the stand-in locally, Expo with its access token in production, and never the stand-in there', () => {
