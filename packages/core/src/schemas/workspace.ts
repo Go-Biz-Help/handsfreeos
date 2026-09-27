@@ -63,6 +63,20 @@ export const WorkspaceCreateOutput = z.object({ workspaceId: uuid, slug: z.strin
 export const WorkspaceJoinInput = z.object({ workspaceId: uuid });
 export const WorkspaceJoinOutput = z.object({ workspaceId: uuid, role: workspaceRole });
 
+/**
+ * The parts of `workspaces.settings` that have a command of their own, with its own permission and checks: who sees
+ * which conversations, the money settings (whose numbering only moves forward), quiet hours, the Action Center and
+ * Automations. `workspace.update` only needs workspace.update, so writing one of these through its `settings` would
+ * step round all of that; they are refused there, and the database refuses the ones behind another permission.
+ */
+export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
+  inbox: 'inbox.set_visibility',
+  money: 'money.save_settings',
+  telephony: 'phone.update_settings',
+  attention: 'attention.save_settings',
+  automations: 'automations.save_settings',
+} as const;
+
 export const WorkspaceUpdateInput = z
   .object({
     workspaceId: uuid,
@@ -85,6 +99,13 @@ export const WorkspaceUpdateInput = z
     // The two settings workflows put in customers' texts ({{business.website}}, {{links.review}}) must be links.
     const s = v.settings;
     if (!s) return;
+    for (const key of Object.keys(s))
+      if (Object.hasOwn(SETTINGS_WITH_THEIR_OWN_COMMAND, key))
+        ctx.addIssue({
+          code: 'custom',
+          message: 'This is changed on its own settings page.',
+          path: ['settings', key],
+        });
     if ('website' in s) {
       const problem = linkProblem(s['website']);
       if (problem)
