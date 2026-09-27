@@ -1,4 +1,4 @@
-import { HfosError } from '@hfos/core/server';
+import { HfosError, uuidArray } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { AiUsage } from '@hfos/ai';
 import { aiBudget } from '../ai/budget';
@@ -260,11 +260,19 @@ export async function history(
             where thread_id = ${threadId} order by created_at desc, id desc limit ${limit}
           ) m order by created_at, id`,
     );
-    const calls = await rows<{ run_id: string; tool: string; status: string; result: unknown }>(
-      tx,
-      sql`select run_id, tool, status, result from app.assistant_tool_calls
-          where thread_id = ${threadId} order by created_at`,
-    );
+    // Only the runs of the messages read, found by the run index (thread_id has none): a long thread's older
+    // tool calls are never loaded.
+    const runIds = [
+      ...new Set(msgs.flatMap((m) => (m.role === 'assistant' && m.run_id ? [m.run_id] : []))),
+    ];
+    const calls = runIds.length
+      ? await rows<{ run_id: string; tool: string; status: string; result: unknown }>(
+          tx,
+          sql`select run_id, tool, status, result from app.assistant_tool_calls
+              where run_id = any(${uuidArray(runIds)}) and thread_id = ${threadId}
+              order by run_id, created_at`,
+        )
+      : [];
     return msgs.map((m) => ({
       role: m.role,
       text: m.text,
