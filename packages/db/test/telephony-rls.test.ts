@@ -1225,3 +1225,58 @@ describe('RCS (0103)', () => {
     );
   });
 });
+
+describe('number ports', () => {
+  it('a person starts only a bare draft, and a port never reaches another business’s number', async () => {
+    // Business A's number, mid-port.
+    const [held] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status)
+            values (${wsA}, ${randomE164()}, 'local', 'porting') returning id`,
+      ),
+    );
+    // Business B points a port of its own at it: refused, because a person never fills in the number.
+    const pointed = await expectPgError(() =>
+      as(outsider)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.number_ports (workspace_id, e164, kind, phone_number_id, created_by)
+              values (${wsB}, ${randomE164()}, 'full', ${held!.id}, ${outsider.id})`,
+        ),
+      ),
+    );
+    expect(pointed.code).toBe('42501');
+    // And were such a row there, releasing it leaves A's number alone.
+    const [port] = await worker(
+      wsB,
+      orgB,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.number_ports (workspace_id, e164, kind, phone_number_id)
+            values (${wsB}, ${randomE164()}, 'full', ${held!.id}) returning id`,
+      ),
+    );
+    await as(outsider)((tx) => rows(tx, sql`select private.port_release_number(${port!.id})`));
+    const [after] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ status: string }>(tx, sql`select status from app.phone_numbers where id = ${held!.id}`),
+    );
+    expect(after!.status).toBe('porting');
+    // A bare draft is still how a port starts.
+    const draft = await as(owner)((tx) =>
+      rows(
+        tx,
+        sql`insert into app.number_ports (workspace_id, e164, kind, created_by)
+            values (${wsA}, ${randomE164()}, 'full', ${owner.id}) returning id`,
+      ),
+    );
+    expect(draft).toHaveLength(1);
+  });
+});
