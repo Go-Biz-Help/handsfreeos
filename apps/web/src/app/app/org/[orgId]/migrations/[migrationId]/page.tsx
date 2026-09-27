@@ -5,7 +5,7 @@ import { MigrationWizard } from '@/components/migrations/wizard';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadMigration } from '@/lib/agency/migrations';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { apiServer, getMe } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Migration' };
 
@@ -17,7 +17,7 @@ export default async function MigrationPage({
 }) {
   const { orgId, migrationId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const org = agencyOrganizations(me).find((o) => o.id === orgId);
   if (!org) notFound();
   const detail = await loadMigration(api, orgId, migrationId);

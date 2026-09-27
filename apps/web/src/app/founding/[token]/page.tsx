@@ -4,7 +4,7 @@ import { ClaimSeat, ClaimSwitchAccount } from '@/components/founding/claim-seat'
 import { Brand } from '@/components/ui/brand';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ApiError, apiServer, fetchMe, unwrap } from '@/lib/api/server';
+import { ApiError, apiServer, getMe, unwrap } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Your founding seat' };
 
@@ -37,7 +37,7 @@ export default async function FoundingClaimPage({
   } catch (e) {
     if (!(e instanceof ApiError && (e.status === 404 || e.status === 400))) throw e;
   }
-  const me = seat ? await fetchMe(api) : null;
+  const me = seat ? await getMe() : null;
   // Owners and admins run a workspace; a member cannot put a seat on one, so it is not offered.
   const workspaces = (me?.workspaces ?? [])
     .filter((w) => w.organizationId === seat?.organizationId)

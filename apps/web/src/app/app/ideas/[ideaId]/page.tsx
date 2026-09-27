@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { apiServer, fetchMe, unwrap } from '@/lib/api/server';
+import { apiServer, getMe, unwrap } from '@/lib/api/server';
 import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 
 /**
@@ -11,7 +11,7 @@ import { WORKSPACE_COOKIE } from '@/lib/workspace-cookie';
 export default async function IdeaLinkPage({ params }: { params: Promise<{ ideaId: string }> }) {
   const { ideaId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   if (me.workspaces.length === 0) {
     const { staff } = unwrap(await api.POST('/v1/queries/platform.me', { body: {} }));
     redirect(staff ? `/admin/ideas/${ideaId}` : '/onboarding');

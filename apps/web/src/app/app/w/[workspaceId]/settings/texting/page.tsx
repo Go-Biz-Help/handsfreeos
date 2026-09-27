@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { SettingsNav } from '@/components/settings/settings-nav';
 import { TextingPage } from '@/components/settings/texting-page';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Texting & calls' };
 
@@ -20,7 +20,7 @@ export default async function TextingSettingsPage({
     await Promise.all([
       unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
       unwrapPage(await api.POST('/v1/queries/phone.setup_status', { body: { workspaceId } })),
-      fetchMe(api),
+      getMe(),
       unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
       // Numbers being brought from another carrier (M17). Its own query rather than a field on setup_status,
       // because it is `channels.manage` only — the losing carrier's paperwork is not everyone's to see.

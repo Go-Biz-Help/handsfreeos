@@ -2,14 +2,14 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Brand } from '@/components/ui/brand';
 import { Card } from '@/components/ui/card';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { apiServer, getMe } from '@/lib/api/server';
 import { OnboardingForm } from './onboarding-form';
 
 export const metadata: Metadata = { title: 'Set up your business' };
 
 export default async function OnboardingPage() {
-  const { api, email } = await apiServer();
-  const me = await fetchMe(api);
+  const { email } = await apiServer();
+  const me = await getMe();
   if (me.workspaces.length > 0) redirect(`/app/w/${me.workspaces[0]!.id}`);
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 py-12 [background:radial-gradient(70%_45%_at_50%_0%,color-mix(in_oklab,var(--accent)_9%,transparent),transparent_75%)]">

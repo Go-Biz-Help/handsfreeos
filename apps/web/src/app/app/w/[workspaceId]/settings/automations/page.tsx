@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { AutomationsSettings } from '@/components/settings/automations/automations-page';
 import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
-import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Automations' };
 
@@ -35,7 +35,7 @@ export default async function AutomationsSettingsPage({
   const { api } = await apiServer();
   const [got, me] = await Promise.all([
     api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
-    fetchMe(api),
+    getMe(),
   ]);
   const role = got.workspace.role;
   if (!can(got.workspace.permissions, 'workspace.update')) notFound();

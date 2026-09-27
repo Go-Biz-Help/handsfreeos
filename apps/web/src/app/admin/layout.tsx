@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { ThemeSync } from '@/components/shell/theme-sync';
-import { apiServer, fetchMe, unwrap } from '@/lib/api/server';
+import { apiServer, getMe, unwrap } from '@/lib/api/server';
 import { parseTheme } from '@/lib/theme';
 
 /**
@@ -12,7 +12,7 @@ import { parseTheme } from '@/lib/theme';
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const { staff } = unwrap(await api.POST('/v1/queries/platform.me', { body: {} }));
   if (!staff) notFound();
   return (

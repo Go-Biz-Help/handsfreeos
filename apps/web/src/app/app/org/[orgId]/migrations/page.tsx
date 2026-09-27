@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { connectionWords, loadMigrations, STATUS_WORDS } from '@/lib/agency/migrations';
 import { agencyOrganizations } from '@/lib/agency/org';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { apiServer, getMe } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Migrations' };
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: 'Migrations' };
 export default async function MigrationsPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const org = agencyOrganizations(me).find((o) => o.id === orgId);
   if (!org) notFound();
   const { migrations, connections } = await loadMigrations(api, orgId);
