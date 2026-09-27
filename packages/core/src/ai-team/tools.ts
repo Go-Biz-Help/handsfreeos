@@ -645,6 +645,18 @@ export const UNVERIFIED_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
   'offer_plan',
 ]);
 
+/**
+ * Also hidden in an unverified chat that matched a customer already on file (not one the chat added): anyone can
+ * type their number, so nothing goes onto their lead, their timeline or the team's task list for them.
+ */
+export const STRANGER_IN_CHAT_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
+  'record_answers',
+  'move_stage',
+  'add_note',
+  'note_photos',
+  'create_task',
+]);
+
 /** Only for a website chat whose visitor hasn't proved who they are yet (M18). */
 export const UNVERIFIED_CHAT_ONLY: ReadonlySet<TeammateToolName> = new Set([
   'send_verification_code',
@@ -674,6 +686,8 @@ export const PHONE_HIDDEN: ReadonlySet<TeammateToolName> = new Set([
 export interface TeammateToolOptions {
   /** The conversation is a website chat whose visitor isn't verified as the matched customer. */
   readonly unverifiedChat?: boolean;
+  /** And its customer was on file already, not added by the chat. */
+  readonly strangerInChat?: boolean;
   /** It's answering a live phone call (M18 step 5). */
   readonly phone?: boolean;
   /** It placed this call itself, and why (AI outbound calls). */
@@ -717,6 +731,8 @@ export function teammateTools(
     if (PHONE_ONLY.has(t.name)) return !!opts.phone;
     if (opts.phone && PHONE_HIDDEN.has(t.name)) return false;
     if (UNVERIFIED_CHAT_ONLY.has(t.name)) return !!opts.unverifiedChat;
+    if (opts.unverifiedChat && opts.strangerInChat && STRANGER_IN_CHAT_HIDDEN.has(t.name))
+      return false;
     return !(opts.unverifiedChat && UNVERIFIED_CHAT_HIDDEN.has(t.name));
   }) as TeammateTool[];
 }

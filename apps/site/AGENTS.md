@@ -76,7 +76,7 @@ JSON, not HTML. Everything that talks to Opinly is in `src/lib/opinly/`:
   unsafe link schemes are removed.
 - **Analytics**: the pixel (`components/opinly.tsx`) loads on every page of the live site only, like Matomo;
   browser calls go through `lib/opinly/pixel.ts`. The founding form identifies the visitor and sends a
-  `generate_lead` from the browser and from `api/founding/apply` (same `externalEventId`, the application id, so
+  `generate_lead` from the browser and from `api/founding/apply` (same `externalEventId`, an id the form makes per send, so
   they merge). The worker sends `sign_up`, `begin_checkout` and `purchase` (`apps/worker/src/opinly.ts` and
   `founding/checkout.ts`).
   `components/signup-link-visitor.tsx` adds the pixel's visitor id to every link to the app's sign-up as

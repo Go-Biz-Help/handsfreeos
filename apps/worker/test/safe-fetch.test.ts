@@ -5,6 +5,9 @@ import { createSafeFetch, isBlockedAddress } from '../src/http/safe-fetch';
 
 let server: Server;
 let origin: string;
+/** A second site, which says what it was sent. */
+let other: Server;
+let otherOrigin: string;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -29,6 +32,12 @@ beforeAll(async () => {
         return redirect(302, 'https://example.org/');
       case '/loop':
         return redirect(302, '/loop');
+      case '/to-said':
+        return redirect(302, '/said');
+      case '/to-other-origin':
+        return redirect(302, `${otherOrigin}/said`);
+      case '/said':
+        return res.end(req.headers['authorization'] ?? 'none');
       case '/echo': {
         let body = '';
         req.on('data', (c: Buffer) => (body += c.toString()));
@@ -42,11 +51,18 @@ beforeAll(async () => {
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  other = createServer((req, res) =>
+    res.end(`${req.headers['authorization'] ?? 'none'} ${req.headers['cookie'] ?? 'none'}`),
+  );
+  await new Promise<void>((r) => other.listen(0, '127.0.0.1', r));
+  otherOrigin = `http://127.0.0.1:${(other.address() as AddressInfo).port}`;
 });
 
 afterAll(async () => {
-  server.closeAllConnections();
-  await new Promise<void>((r) => server.close(() => r()));
+  for (const s of [server, other]) {
+    s.closeAllConnections();
+    await new Promise<void>((r) => s.close(() => r()));
+  }
 });
 
 const refused = (code: string) => ({ name: 'SafeFetchError', code });
@@ -125,6 +141,15 @@ describe('safe fetch', () => {
       const res = await fixture()(`${origin}/to-hello`);
       expect(res).toMatchObject({ status: 200, body: 'hi', truncated: false });
       expect(res.finalUrl).toBe(`${origin}/hello`);
+    });
+
+    it('keeps a caller’s credentials on its own site, and drops them on the way to another', async () => {
+      const both = createSafeFetch({ testOrigins: [origin, otherOrigin] });
+      const headers = { Authorization: 'Bearer secret', cookie: 'a=1', version: '2021-07-28' };
+      expect((await both(`${origin}/to-said`, { headers })).body).toBe('Bearer secret');
+      const res = await both(`${origin}/to-other-origin`, { headers });
+      expect(res.finalUrl).toBe(`${otherOrigin}/said`);
+      expect(res.body).toBe('none none');
     });
 
     it('checks every redirect again', async () => {

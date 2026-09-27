@@ -523,7 +523,10 @@ const NUDGE_TOOLS: ReadonlySet<TeammateToolName> = new Set<TeammateToolName>([
 ]);
 
 function toolsFor(run: StartedRun, rc: RunContext): TeammateTool[] {
-  const all = teammateTools(rc.config, { unverifiedChat: rc.unverifiedChat });
+  const all = teammateTools(rc.config, {
+    unverifiedChat: rc.unverifiedChat,
+    strangerInChat: rc.strangerInChat,
+  });
   const only = !run.conversationId ? FIRST_TOOLS : run.kind === 'nudge' ? NUDGE_TOOLS : null;
   return only ? all.filter((t) => only.has(t.name as TeammateToolName)) : all;
 }

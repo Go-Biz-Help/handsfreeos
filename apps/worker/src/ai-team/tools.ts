@@ -1345,6 +1345,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
 
   async add_note(d, tx, args) {
     if (!d.rc.customer && !d.rc.lead) return refused({ error: NO_CUSTOMER });
+    // A visitor who typed an existing customer's number writes nothing onto that customer's record.
+    if (d.rc.strangerInChat) return refused({ error: CHAT_REFUSAL });
     await executeCommandIn(
       tx,
       activityLog,
@@ -1366,6 +1368,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     if (!d.state.photos)
       return refused({ error: 'There are no photos in this reply to note. Use add_note instead.' });
     if (!d.rc.customer && !d.rc.lead) return refused({ error: NO_CUSTOMER });
+    if (d.rc.strangerInChat) return refused({ error: CHAT_REFUSAL });
     const fit = {
       yes: 'Looks like work we do',
       no: 'Doesn’t look like work we do',
@@ -1394,6 +1397,7 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
 
   async create_task(d, tx, args) {
     if (!d.rc.customer) return refused({ error: NO_CUSTOMER });
+    if (d.rc.strangerInChat) return refused({ error: CHAT_REFUSAL });
     const dueAt = str(args['dueAt']);
     await executeCommandIn(
       tx,

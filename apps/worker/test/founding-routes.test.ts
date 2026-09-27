@@ -77,10 +77,11 @@ describe('POST /public/founding/apply', () => {
     const fields = form();
     const first = await apply(fields);
     expect(first.statusCode).toBe(200);
-    expect(first.json()).toMatchObject({ status: 'pending', offerId: OFFER });
+    expect(first.json()).toEqual({ received: true, offerId: OFFER });
     const again = await apply(fields);
     expect(again.statusCode).toBe(200);
-    expect(again.json()).toMatchObject({ applicationId: first.json().applicationId });
+    // Nothing in it says the email had applied already, or how that application stands.
+    expect(again.json()).toEqual(first.json());
 
     const stored = await rows<{ n: number | string }>(
       admin(),
@@ -96,7 +97,7 @@ describe('POST /public/founding/apply', () => {
       source: 'https://handsfreeos.com/',
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ status: 'pending', offerId: OFFER });
+    expect(res.json()).toEqual({ received: true, offerId: OFFER });
   });
 
   it('drops a crawler that fills in the hidden field', async () => {

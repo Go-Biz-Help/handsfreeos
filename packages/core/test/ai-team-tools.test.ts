@@ -9,6 +9,7 @@ import {
   teammateConfigFromPreset,
   teammateToolByName,
   teammateTools,
+  STRANGER_IN_CHAT_HIDDEN,
   UNVERIFIED_CHAT_HIDDEN,
   UNVERIFIED_CHAT_ONLY,
   type TeammateConfig,
@@ -305,6 +306,20 @@ describe('teammateTools', () => {
       expect(names(coordinator, true)).toContain(only);
       expect(names(coordinator)).not.toContain(only);
     }
+  });
+
+  it('writes nothing for a customer on file whose number an unverified chat visitor typed', () => {
+    const qualifier = teammateConfigFromPreset('lead_qualifier', presetContext);
+    const stranger = teammateTools(qualifier, { unverifiedChat: true, strangerInChat: true }).map(
+      (t) => t.name,
+    );
+    for (const hidden of STRANGER_IN_CHAT_HIDDEN) {
+      expect(stranger).not.toContain(hidden);
+      // A visitor the chat added itself is still qualified and noted.
+      expect(names(qualifier, true)).toContain(hidden);
+    }
+    // Proving who they are is how they get it back.
+    expect(stranger).toContain('send_verification_code');
   });
 
   it('always lets it end its turn: end_call on a phone call, no_reply everywhere else', () => {

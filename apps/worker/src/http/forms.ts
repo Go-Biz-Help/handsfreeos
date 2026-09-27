@@ -4,7 +4,7 @@
  * page is (http/booking.ts).
  *
  * What stops abuse: per-address rate limits, a honeypot field the page hides and a person never fills in,
- * the key handed back when the sheet was started (knowing a response's id is not enough to write to it),
+ * the bot check (Cloudflare Turnstile, as on the booking page) before anything is sent, the key handed back when the sheet was started (knowing a response's id is not enough to write to it),
  * and the form's own closing rules, which the commands check again inside the transaction.
  */
 import { createHash, randomUUID } from 'node:crypto';
@@ -21,6 +21,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
 import type { HttpDeps } from './common';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/i;
@@ -69,15 +70,19 @@ const SubmitBody = z.object({
   answers: Answers,
   smsConsent: z.boolean().default(false),
   website: z.string().max(200).optional(),
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 export interface FormsHttpOptions {
   /** Playwright turns the limits down; production leaves them alone. */
   readonly limitFactor?: number;
+  /** Cloudflare Turnstile, shared with the booking page: sending a form opens a lead, and a lead can be texted. */
+  readonly botCheck?: BotCheck;
 }
 
 export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): Promise<void> {
   const factor = deps.forms?.limitFactor ?? 1;
+  const botCheck = deps.forms?.botCheck ?? passThroughBotCheck;
   const limits = {
     read: { max: Math.ceil(120 * factor), timeWindow: '1 minute' },
     write: { max: Math.ceil(20 * factor), timeWindow: '1 minute' },
@@ -140,6 +145,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
           redirected: row.redirected ? row.form_slug : null,
           // The sites the business allowed to embed it, for the page's frame rule.
           embedOrigins: row.embed_origins ?? [],
+          botCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
         };
       },
     );
@@ -213,6 +219,19 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             body: '',
             dueCents: 0,
           };
+        const verdict = await botCheck.verify(body.turnstileToken, req.ip);
+        if (verdict === 'unavailable')
+          throw HfosError.rule(
+            'bot_check_unavailable',
+            503,
+            'We couldn’t check this just now. Try again in a minute.',
+          );
+        if (verdict !== 'pass')
+          throw HfosError.rule(
+            'bot_check_failed',
+            400,
+            'Please confirm you’re a person, then try again.',
+          );
         const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
         const { output } = await executeCommand(
           deps.httpDb,
