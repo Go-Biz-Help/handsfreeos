@@ -367,6 +367,31 @@ describe('phone numbers', () => {
     );
   });
 
+  it('never lets another business say who a number rings', async () => {
+    const live = randomE164();
+    const [n] = await worker(
+      wsA,
+      orgA,
+    )((tx) =>
+      rows<{ id: string }>(
+        tx,
+        sql`insert into app.phone_numbers (workspace_id, e164, number_type, status, provider_sid, purchased_at)
+            values (${wsA}, ${live}, 'local', 'active', ${`PNfake${uniq()}`}, now()) returning id`,
+      ),
+    );
+    // Business B's owner, writing under B, naming A's number and one of A's people.
+    const err = await expectPgError(() =>
+      as(outsider)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.phone_number_members (phone_number_id, user_id, workspace_id)
+              values (${n!.id}, ${member.id}, ${wsB})`,
+        ),
+      ),
+    );
+    expect(err.code).toBe('23514');
+  });
+
   it('tells someone who sets the numbers up whether a teammate works the inbox, and nobody else', async () => {
     // Settings → Texting & calls' "who does this ring" (0110): the screen asks as the person saving.
     const works = (asker: TestUser, who: TestUser, ws: string) =>
