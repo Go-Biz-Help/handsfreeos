@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, type SQL } from 'drizzle-orm';
 import {
   carrierHasDetails,
   conversationReopen,
@@ -9,7 +9,7 @@ import {
   scheduleJob,
   workspaceMessaging,
 } from '@hfos/core/server';
-import { asWorker, sql } from '@hfos/db/client';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
 import { workspaceJobs } from './workspace/delete';
@@ -46,7 +46,7 @@ import { portJobs } from './telephony/ports';
 import { importJobs } from './telephony/imports';
 import { phoneAccountJobs } from './telephony/account-switch';
 import { rcsJobs } from './telephony/rcs';
-import type { JobHandler, JobMap } from './jobs';
+import type { JobContext, JobHandler, JobMap } from './jobs';
 import { knowledgeDocumentJob } from './knowledge/document';
 import { knowledgeScanJob } from './knowledge/scan';
 import { mailboxSync } from './mailbox/sync';
@@ -204,19 +204,65 @@ export const unsnooze: JobHandler = async (ctx) => {
 
 const DAY = 86_400_000;
 
-/** Daily: provider webhooks are kept 30 days once handled (90 when they failed), finished jobs 30 days. */
+/** Rows removed per statement, the most statements one table gets per sweep, and the pause between them. */
+const PURGE_BATCH = 5000;
+const PURGE_ROUNDS = 40;
+const PURGE_PAUSE_MS = 200;
+/** A table with more to remove than one sweep takes carries on this much later. */
+const PURGE_AGAIN_MS = 10 * 60_000;
+
+/**
+ * Up to PURGE_ROUNDS batches of `deleteBatch` (a delete of at most PURGE_BATCH rows `returning 1`), each its own
+ * short transaction; true when rows are still left over.
+ */
+async function purgeInBatches(ctx: JobContext, deleteBatch: SQL): Promise<boolean> {
+  for (let round = 0; round < PURGE_ROUNDS; round++) {
+    if (round > 0) await new Promise((r) => setTimeout(r, PURGE_PAUSE_MS));
+    const [row] = await asWorker(ctx.db, {}, (tx) =>
+      rows<{ deleted: number }>(
+        tx,
+        sql`with gone as (${deleteBatch}) select count(*)::int as deleted from gone`,
+      ),
+    );
+    if ((row?.deleted ?? 0) < PURGE_BATCH) return false;
+  }
+  return true;
+}
+
+/**
+ * Daily: provider webhooks are kept 30 days once handled (90 when they failed), finished jobs 30 days, and
+ * handled outbox rows 7 days (their events stay; failed ones are kept for a person to look at). A batch at a
+ * time, so no one transaction removes millions of rows.
+ */
 export const sweepDeliveries: JobHandler = async (ctx) => {
-  await asWorker(ctx.db, {}, async (tx) => {
-    await tx.execute(
-      sql`delete from app.webhook_deliveries
-          where (status in ('done', 'ignored') and received_at < now() - interval '30 days')
-             or (status = 'failed' and received_at < now() - interval '90 days')`,
-    );
-    await tx.execute(
-      sql`delete from app.scheduled_jobs where status <> 'pending' and updated_at < now() - interval '30 days'`,
-    );
-  });
-  return { rescheduleAt: new Date(Date.now() + DAY) };
+  const left = [
+    await purgeInBatches(
+      ctx,
+      sql`delete from app.webhook_deliveries where id in (
+            select id from app.webhook_deliveries
+            where (status in ('done', 'ignored') and received_at < now() - interval '30 days')
+               or (status = 'failed' and received_at < now() - interval '90 days')
+            limit ${PURGE_BATCH})
+          returning 1`,
+    ),
+    await purgeInBatches(
+      ctx,
+      sql`delete from app.scheduled_jobs where id in (
+            select id from app.scheduled_jobs
+            where status <> 'pending' and updated_at < now() - interval '30 days'
+            limit ${PURGE_BATCH})
+          returning 1`,
+    ),
+    await purgeInBatches(
+      ctx,
+      sql`delete from app.outbox where event_id in (
+            select event_id from app.outbox
+            where status = 'done' and updated_at < now() - interval '7 days'
+            limit ${PURGE_BATCH})
+          returning 1`,
+    ),
+  ];
+  return { rescheduleAt: new Date(Date.now() + (left.some(Boolean) ? PURGE_AGAIN_MS : DAY)) };
 };
 
 /**
