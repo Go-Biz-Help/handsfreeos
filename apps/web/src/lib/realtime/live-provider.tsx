@@ -181,10 +181,12 @@ function matches(change: Parameters<Listener>[0], entityTypes?: readonly string[
 export function useLiveRefresh(entityTypes?: readonly string[], debounceMs = 300): void {
   const { subscribe } = useContext(LiveContext);
   const router = useRouter();
-  const key = entityTypes?.join(',');
+  // undefined is every change; [] is none (''), which must not fall through to "every".
+  const key = entityTypes === undefined ? undefined : entityTypes.join(',');
   useEffect(() => {
+    if (key === '') return;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const types = key ? key.split(',') : undefined;
+    const types = key === undefined ? undefined : key.split(',');
     return subscribe((change) => {
       if (!matches(change, types)) return;
       if (timer) clearTimeout(timer);
@@ -204,10 +206,12 @@ export function useLiveVersion(
 ): number {
   const { subscribe } = useContext(LiveContext);
   const [version, setVersion] = useState(0);
-  const key = entityTypes?.join(',');
+  // undefined is every change; [] is none (''), which must not fall through to "every".
+  const key = entityTypes === undefined ? undefined : entityTypes.join(',');
   useEffect(() => {
+    if (key === '') return;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const types = key ? key.split(',') : undefined;
+    const types = key === undefined ? undefined : key.split(',');
     return subscribe((change) => {
       if (!matches(change, types)) return;
       if (timer) clearTimeout(timer);
