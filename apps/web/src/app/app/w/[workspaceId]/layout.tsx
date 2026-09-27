@@ -11,7 +11,7 @@ import { MobileShell } from '@/components/shell/mobile-shell';
 import { Sidebar } from '@/components/shell/sidebar';
 import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
-import { ApiError, apiServer, fetchMe, unwrap } from '@/lib/api/server';
+import { ApiError, apiServer, getMe, unwrap } from '@/lib/api/server';
 import { CallProvider } from '@/lib/calls/call-provider';
 import { AttentionSummaryProvider } from '@/lib/realtime/attention-summary';
 import { LiveProvider } from '@/lib/realtime/live-provider';
@@ -28,7 +28,7 @@ export default async function WorkspaceLayout({
 }) {
   const { workspaceId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   let current = me.workspaces.find((w) => w.id === workspaceId);
   /**
    * A HandsFreeOS support person looking at this business (M13). They are not a member and never become

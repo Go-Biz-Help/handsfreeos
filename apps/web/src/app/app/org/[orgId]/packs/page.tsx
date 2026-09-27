@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PackBoard } from '@/components/agency/packs';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
-import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Knowledge packs' };
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Knowledge packs' };
 export default async function AgencyPacksPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const org = agencyOrganizations(me).find((o) => o.id === orgId);
   if (!org) notFound();
   const packs = unwrapPage(

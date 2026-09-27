@@ -18,18 +18,18 @@ export default async function WorkspaceTasksPage({
   const scope = sp.scope === 'all' ? 'all' : 'mine';
   const { api, userId } = await apiServer();
   const [got, open, done, members] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/task.list', {
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/task.list', {
         body: { workspaceId, scope, status: 'open', limit: 100 },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/task.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/task.list', {
         body: { workspaceId, scope, status: 'done', limit: 10 },
-      }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <TasksPage

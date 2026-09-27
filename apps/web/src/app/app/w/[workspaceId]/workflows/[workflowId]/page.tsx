@@ -26,9 +26,9 @@ export default async function WorkflowEditorPage({
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const canManage = can(got.workspace.permissions, 'workflows.manage');
   const [wf, catalogs, people, teammate] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/workflow.get', { body: { workspaceId, workflowId } })),
-    unwrapPage(await api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/person.list', { body: { workspaceId, limit: 1 } })),
+    api.POST('/v1/queries/workflow.get', { body: { workspaceId, workflowId } }).then(unwrapPage),
+    api.POST('/v1/queries/workflow.catalogs', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/person.list', { body: { workspaceId, limit: 1 } }).then(unwrapPage),
     // The AI teammate, for its step's panel and the double-texting warning (the editor works without it).
     api
       .POST('/v1/queries/ai_teammate.get', { body: { workspaceId } })

@@ -1,6 +1,7 @@
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
 import { NO_SUCH_ROUTE } from '@hfos/core';
 import { notFound, redirect } from 'next/navigation';
+import { cache } from 'react';
 import { publicEnv } from '../env';
 import { getServerSession } from '../supabase/server';
 import { ApiError, errorMessage, unwrap } from './errors';
@@ -45,9 +46,12 @@ export async function apiServer(): Promise<{ api: ApiClient; userId: string; ema
 /**
  * The signed-in user's profile, organizations and workspaces. A valid session whose account no longer
  * exists (deleted, or a reset local database) is signed out instead of erroring.
+ *
+ * Fetched once per request: the layout and the page both ask for it, and a live refresh renders both again.
  */
-export async function fetchMe(api: ApiClient): Promise<Me> {
+export const getMe = cache(async (): Promise<Me> => {
+  const { api } = await apiServer();
   const result = await api.POST('/v1/queries/account.me', { body: {} });
   if (result.response.status === 404) redirect('/auth/sign-out?reason=account');
   return unwrap(result);
-}
+});

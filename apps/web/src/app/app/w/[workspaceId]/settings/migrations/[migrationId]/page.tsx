@@ -6,7 +6,7 @@ import { MigrationWizard } from '@/components/migrations/wizard';
 import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadMigration } from '@/lib/agency/migrations';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { apiServer, getMe } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Migration' };
 
@@ -22,7 +22,7 @@ export default async function WorkspaceMigrationPage({
 }) {
   const { workspaceId, migrationId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   const current = me.workspaces.find((w) => w.id === workspaceId);
   if (!current) notFound();
   if (!can(current.permissions, 'migrations.manage')) notFound();

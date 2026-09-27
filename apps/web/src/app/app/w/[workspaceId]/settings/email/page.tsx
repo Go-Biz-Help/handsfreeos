@@ -23,14 +23,14 @@ export default async function EmailSettingsPage({
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();
   const [status, blocked, unmatched, tags] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/email.setup_status', { body: { workspaceId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/email_suppression.list', { body: { workspaceId, limit: 50 } }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/email.unmatched_list', { body: { workspaceId, limit: 50 } }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
+    api.POST('/v1/queries/email.setup_status', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/email_suppression.list', { body: { workspaceId, limit: 50 } })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/email.unmatched_list', { body: { workspaceId, limit: 50 } })
+      .then(unwrapPage),
+    api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   return (
     <>

@@ -25,27 +25,27 @@ export default async function CalendarBuilderPage({
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const now = Date.now();
   const [cal, members, team, services, resources, territories, pipelines] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/schedule.team', {
+    api.POST('/v1/queries/calendar.get', { body: { workspaceId, calendarId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/schedule.team', {
         body: {
           workspaceId,
           from: new Date(now).toISOString(),
           to: new Date(now + DAY).toISOString(),
         },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/service.list', { body: { workspaceId, includeArchived: true } }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/resource.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/service.list', { body: { workspaceId, includeArchived: true } })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/resource.list', {
         body: { workspaceId, includeArchived: true },
-      }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/territory.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/territory.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   let textingReady = false;
   try {

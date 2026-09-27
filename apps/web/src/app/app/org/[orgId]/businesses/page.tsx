@@ -4,7 +4,7 @@ import { BusinessList } from '@/components/agency/businesses';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadTemplates } from '@/lib/agency/load';
 import { agencyOrganizations, orgBusinesses } from '@/lib/agency/org';
-import { apiServer, fetchMe } from '@/lib/api/server';
+import { apiServer, getMe } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Client businesses' };
 
@@ -16,7 +16,7 @@ export default async function AgencyBusinessesPage({
 }) {
   const { orgId } = await params;
   const { api } = await apiServer();
-  const me = await fetchMe(api);
+  const me = await getMe();
   if (!agencyOrganizations(me).some((o) => o.id === orgId)) notFound();
   const businesses = orgBusinesses(me, orgId).map((b) => ({ id: b.id, name: b.name }));
   const templates = await loadTemplates(api, orgId);

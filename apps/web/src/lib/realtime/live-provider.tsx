@@ -32,7 +32,8 @@ export interface LiveChange {
 type Listener = (change: LiveChange | { entityType: '*'; type: 'resync' }) => void;
 
 interface LiveContextValue {
-  subscribe(listener: Listener): () => void;
+  /** `whileHidden` listeners still hear changes in a background tab (the unread count in the tab title). */
+  subscribe(listener: Listener, whileHidden?: boolean): () => void;
   connected: boolean;
 }
 
@@ -43,6 +44,7 @@ const LiveContext = createContext<LiveContextValue>({
 
 const POLL_MS = 60_000;
 const MAX_BACKOFF_MS = 30_000;
+const MAX_WAIT_MS = 5_000;
 
 /**
  * One private Realtime channel per workspace. Screens subscribe through useLiveRefresh (server-rendered
@@ -56,11 +58,11 @@ export function LiveProvider({
   workspaceId: string;
   children: ReactNode;
 }) {
-  const listeners = useRef(new Set<Listener>());
+  const listeners = useRef(new Map<Listener, boolean>());
   const [connected, setConnected] = useState(false);
   const value = useRef<LiveContextValue>({
-    subscribe(listener) {
-      listeners.current.add(listener);
+    subscribe(listener, whileHidden = false) {
+      listeners.current.set(listener, whileHidden);
       return () => listeners.current.delete(listener);
     },
     connected: false,
@@ -75,9 +77,13 @@ export function LiveProvider({
     let hadSession = false;
     let backoff: ReturnType<typeof setTimeout> | null = null;
     let poll: ReturnType<typeof setInterval> | null = null;
+    // A hidden tab refetches nothing; it catches up with one resync when it is shown again.
+    let missed = false;
 
     const notify: Listener = (change) => {
-      for (const l of listeners.current) l(change);
+      const hidden = document.visibilityState !== 'visible';
+      if (hidden) missed = true;
+      for (const [l, whileHidden] of listeners.current) if (!hidden || whileHidden) l(change);
     };
     const resync = () => notify({ entityType: '*', type: 'resync' });
     const startPolling = () => {
@@ -88,8 +94,10 @@ export function LiveProvider({
       poll = null;
     };
     const teardown = () => {
-      if (channel) void supabase.removeChannel(channel);
+      // Cleared first: removing the channel echoes CLOSED to its callback, which must see it is no longer current.
+      const old = channel;
       channel = null;
+      if (old) void supabase.removeChannel(old);
     };
     const scheduleReconnect = () => {
       if (stopped || backoff) return;
@@ -111,8 +119,9 @@ export function LiveProvider({
         return;
       }
       await supabase.realtime.setAuth(token);
-      channel = supabase.channel(`workspace:${workspaceId}`, { config: { private: true } });
-      channel.on('broadcast', { event: 'change' }, (msg) => {
+      const mine = supabase.channel(`workspace:${workspaceId}`, { config: { private: true } });
+      channel = mine;
+      mine.on('broadcast', { event: 'change' }, (msg) => {
         const payload = msg.payload as LiveChange;
         // Echoes of this tab's own edits are dropped. The worker's follow-ups (system events, no actor) share
         // the request's correlation id but are news here, so they always come through. A person's event on the
@@ -124,8 +133,9 @@ export function LiveProvider({
           return;
         notify(payload);
       });
-      channel.subscribe((status) => {
-        if (stopped) return;
+      mine.subscribe((status) => {
+        // A replaced channel's late CLOSED would otherwise tear down the healthy one, looping reconnects.
+        if (stopped || channel !== mine) return;
         if (status === 'SUBSCRIBED') {
           attempt = 0;
           stopPolling();
@@ -147,7 +157,12 @@ export function LiveProvider({
       if (event === 'SIGNED_OUT') teardown();
     });
     const onVisible = () => {
-      if (document.visibilityState === 'visible' && !channel) scheduleReconnect();
+      if (document.visibilityState !== 'visible') return;
+      if (missed) {
+        missed = false;
+        resync();
+      }
+      if (!channel) scheduleReconnect();
     };
     document.addEventListener('visibilitychange', onVisible);
     void connect();
@@ -165,41 +180,100 @@ export function LiveProvider({
   return <LiveContext.Provider value={value.current}>{children}</LiveContext.Provider>;
 }
 
-function matches(change: Parameters<Listener>[0], entityTypes?: readonly string[]): boolean {
-  if (change.entityType === '*') return true;
-  return !entityTypes || entityTypes.includes(change.entityType);
+/**
+ * Options for the live hooks. `only` narrows some entity types to the ids on screen (the open conversation, the
+ * lead in the drawer), so a change to another record of that type does not refetch this one.
+ */
+export interface LiveOptions {
+  readonly only?: Readonly<Record<string, readonly string[]>>;
+  /** Keep listening in a background tab (the unread count in the tab title). */
+  readonly whileHidden?: boolean;
 }
 
-/** Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. */
-export function useLiveRefresh(entityTypes?: readonly string[], debounceMs = 300): void {
+function matches(
+  change: Parameters<Listener>[0],
+  entityTypes: readonly string[] | undefined,
+  only: LiveOptions['only'],
+): boolean {
+  if (change.entityType === '*') return true;
+  if (entityTypes && !entityTypes.includes(change.entityType)) return false;
+  const ids = only?.[change.entityType];
+  const id = 'entityId' in change ? change.entityId : null;
+  return !ids || (id !== null && ids.includes(id));
+}
+
+/**
+ * Trailing debounce that still fires within MAX_WAIT_MS of the first change, so a steady stream of events
+ * (a campaign going out) cannot hold the screen stale indefinitely.
+ */
+function debounced(fire: () => void, ms: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let first = 0;
+  return () => {
+    const now = Date.now();
+    if (!timer) first = now;
+    else if (now - first >= MAX_WAIT_MS) return;
+    else clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      fire();
+    }, ms);
+  };
+}
+
+/** The deps-stable form of an entity-type list: undefined is every change; [] is none (''). */
+function typesKey(entityTypes: readonly string[] | undefined): string | undefined {
+  return entityTypes === undefined ? undefined : entityTypes.join(',');
+}
+
+/**
+ * Refreshes the server-rendered page (debounced) when a teammate changes one of these entity types. Paused while
+ * the tab is hidden; it refreshes once when shown again.
+ */
+export function useLiveRefresh(
+  entityTypes?: readonly string[],
+  debounceMs = 300,
+  options?: LiveOptions,
+): void {
   const { subscribe } = useContext(LiveContext);
   const router = useRouter();
-  const key = entityTypes?.join(',');
+  const key = typesKey(entityTypes);
+  const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
+  const whileHidden = options?.whileHidden ?? false;
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const types = key ? key.split(',') : undefined;
+    if (key === '') return;
+    const types = key === undefined ? undefined : key.split(',');
+    const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
+    const trigger = debounced(() => startTransition(() => router.refresh()), debounceMs);
     return subscribe((change) => {
-      if (!matches(change, types)) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => startTransition(() => router.refresh()), debounceMs);
-    });
-  }, [subscribe, router, key, debounceMs]);
+      if (matches(change, types, only)) trigger();
+    }, whileHidden);
+  }, [subscribe, router, key, onlyKey, debounceMs, whileHidden]);
 }
 
-/** A counter that bumps (debounced) on matching changes, for components that fetch their own data. */
-export function useLiveVersion(entityTypes?: readonly string[], debounceMs = 300): number {
+/**
+ * A counter that bumps (debounced) on matching changes, for components that fetch their own data. Paused while
+ * the tab is hidden (one resync on return) unless `whileHidden`.
+ */
+export function useLiveVersion(
+  entityTypes?: readonly string[],
+  debounceMs = 300,
+  options?: LiveOptions,
+): number {
   const { subscribe } = useContext(LiveContext);
   const [version, setVersion] = useState(0);
-  const key = entityTypes?.join(',');
+  const key = typesKey(entityTypes);
+  const onlyKey = options?.only ? JSON.stringify(options.only) : undefined;
+  const whileHidden = options?.whileHidden ?? false;
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const types = key ? key.split(',') : undefined;
+    if (key === '') return;
+    const types = key === undefined ? undefined : key.split(',');
+    const only = onlyKey === undefined ? undefined : (JSON.parse(onlyKey) as LiveOptions['only']);
+    const trigger = debounced(() => setVersion((v) => v + 1), debounceMs);
     return subscribe((change) => {
-      if (!matches(change, types)) return;
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => setVersion((v) => v + 1), debounceMs);
-    });
-  }, [subscribe, key, debounceMs]);
+      if (matches(change, types, only)) trigger();
+    }, whileHidden);
+  }, [subscribe, key, onlyKey, debounceMs, whileHidden]);
   return version;
 }
 

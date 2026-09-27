@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { PresetPicker } from '@/components/calendars/preset-picker';
 import { assigneeOptions } from '@/lib/api/people';
-import { apiServer, fetchMe, unwrapPage } from '@/lib/api/server';
+import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'New calendar' };
 
@@ -20,10 +20,10 @@ export default async function NewCalendarPage({
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'calendars.manage')) notFound();
   const [me, members, services, resources] = await Promise.all([
-    fetchMe(api),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/service.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/resource.list', { body: { workspaceId } })),
+    getMe(),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/service.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/resource.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
   const base = `/app/w/${workspaceId}/settings`;
   return (

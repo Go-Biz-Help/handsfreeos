@@ -194,7 +194,13 @@ export function ConversationView({
   const t = useThread(workspaceId, c.id, thread, allLanes);
   // The customer's own notes, shown in the thread as the phone shows them (M10 step 15).
   const notes = useCustomerNotes(workspaceId, person?.id ?? null);
-  useLiveRefresh(['conversation', 'person', 'lead', 'task']);
+  // Only this customer's lanes and this customer: another conversation's news is the list's, not this page's.
+  useLiveRefresh(['conversation', 'person', 'lead', 'task'], 300, {
+    only: {
+      conversation: [c.id, ...c.lanes.map((l) => l.id)],
+      ...(person ? { person: [person.id] } : {}),
+    },
+  });
   const after = () => {
     reloadList();
     router.refresh();

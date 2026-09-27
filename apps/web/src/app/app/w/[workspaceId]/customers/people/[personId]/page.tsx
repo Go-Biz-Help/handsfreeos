@@ -18,9 +18,9 @@ export default async function PersonPage({
 }) {
   const { workspaceId, personId } = await params;
   const { api, userId } = await apiServer();
-  const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   const now = Date.now();
   const [
+    got,
     person,
     timeline,
     tasks,
@@ -35,48 +35,49 @@ export default async function PersonPage({
     relationshipTypes,
     fields,
   ] = await Promise.all([
-    unwrapPage(await api.POST('/v1/queries/person.get', { body: { workspaceId, personId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/timeline.list', {
+    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/person.get', { body: { workspaceId, personId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/timeline.list', {
         body: { workspaceId, recordType: 'person', recordId: personId, limit: 30 },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/task.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/task.list', {
         body: { workspaceId, scope: 'all', status: 'all', personId, limit: 100 },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/file.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/file.list', {
         body: { workspaceId, recordType: 'person', recordId: personId },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/lead.list', { body: { workspaceId, personId, limit: 50 } }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/tag.list', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/workspace.members', { body: { workspaceId } })),
-    unwrapPage(await api.POST('/v1/queries/pipeline.list', { body: { workspaceId } })),
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/lead.list', { body: { workspaceId, personId, limit: 50 } })
+      .then(unwrapPage),
+    api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/pipeline.list', { body: { workspaceId } }).then(unwrapPage),
     // The appointment list reads at most 62 days at a time: the next and the last 62.
-    unwrapPage(
-      await api.POST('/v1/queries/appointment.list', {
+    api
+      .POST('/v1/queries/appointment.list', {
         body: { workspaceId, personId, ...range(now, now + 62 * DAY) },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/appointment.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/appointment.list', {
         body: { workspaceId, personId, ...range(now - 62 * DAY, now) },
-      }),
-    ),
-    unwrapPage(
-      await api.POST('/v1/queries/relationship.list', {
+      })
+      .then(unwrapPage),
+    api
+      .POST('/v1/queries/relationship.list', {
         body: { workspaceId, recordType: 'person', recordId: personId },
-      }),
-    ),
-    unwrapPage(await api.POST('/v1/queries/relationship_type.list', { body: { workspaceId } })),
-    unwrapPage(
-      await api.POST('/v1/queries/custom_field.list', { body: { workspaceId, entity: 'person' } }),
-    ),
+      })
+      .then(unwrapPage),
+    api.POST('/v1/queries/relationship_type.list', { body: { workspaceId } }).then(unwrapPage),
+    api
+      .POST('/v1/queries/custom_field.list', { body: { workspaceId, entity: 'person' } })
+      .then(unwrapPage),
   ]);
   return (
     <RecordPage
