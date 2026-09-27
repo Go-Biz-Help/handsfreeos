@@ -2,10 +2,18 @@
  * Server-side: keeps the AI teammate to the customer it's talking to. The worker fills in every person, lead
  * and conversation id from the run (no tool takes one), and these checks make sure nothing else gets through.
  */
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, ne, or } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';
-import { aiTeammateRuns, bookingSites, chatVisitors, conversations, leads } from '@hfos/db/schema';
+import {
+  aiTeammateRuns,
+  bookingSites,
+  chatVisitors,
+  conversations,
+  leads,
+  people,
+} from '@hfos/db/schema';
 import { calendarCharge } from '../calendar/deposit-load';
+import { CHAT_PERSON_SOURCE } from '../chat/limits';
 import { loadCalendar } from '../calendar/load';
 import { HfosError } from '../errors';
 import { aiEmployeeOf } from '../kernel/actor';
@@ -91,12 +99,12 @@ export async function refuseInChat(ctx: CommandContext): Promise<void> {
 
 /**
  * For the AI teammate only (anyone else passes): in a chat whose visitor hasn't proved they're the customer, it
- * may qualify and move a lead the chat itself opened, never one the customer already had. Anyone can type a
- * customer's number, and rewriting that lead's answers or stage is changing the customer.
+ * may qualify and move a lead only when the chat itself added that customer, never a lead of someone already on
+ * file. Anyone can type a customer's number, and rewriting that lead's answers or stage is changing the customer.
  */
-export async function refuseOlderLeadInChat(
+export async function refuseCustomersLeadInChat(
   ctx: CommandContext,
-  lead: { readonly createdAt: Date },
+  lead: { readonly personId: string | null },
 ): Promise<void> {
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai?.conversationId) return;
@@ -112,23 +120,50 @@ export async function refuseOlderLeadInChat(
       and(eq(conversations.id, ai.conversationId), eq(conversations.workspaceId, ai.workspaceId)),
     );
   if (!c || (await chatVerified(ctx.tx, c))) return;
-  if (lead.createdAt < (await chatOpenedAt(ctx.tx, c))) throw chatIdentityUnverified();
+  if (!lead.personId || !(await chatAddedCustomer(ctx.tx, c, lead.personId)))
+    throw chatIdentityUnverified();
 }
 
 /**
- * When a website chat began: its visitor's first visit (they can say who they are before they write), else the
- * conversation. A lead opened since then is the chat's own; one from before was the customer's already.
+ * Whether this website chat added the customer itself: a customer the website chat created once this chat began
+ * (its visitor's first visit, else the conversation), and whom no other chat visitor has claimed. Only then are
+ * their records the visitor's own; a customer who was here before, or whose number a second visitor typed, is
+ * someone else's until the visitor proves who they are. Waiting in an open chat doesn't change that: a lead
+ * opened later on a customer from before is still theirs.
  */
-export async function chatOpenedAt(
+export async function chatAddedCustomer(
   tx: Tx,
   conv: { readonly id: string; readonly createdAt: Date },
-): Promise<Date> {
+  personId: string,
+): Promise<boolean> {
   const [v] = await tx
     .select({ createdAt: chatVisitors.createdAt })
     .from(chatVisitors)
     .where(eq(chatVisitors.conversationId, conv.id))
     .limit(1);
-  return v && v.createdAt < conv.createdAt ? v.createdAt : conv.createdAt;
+  const openedAt = v && v.createdAt < conv.createdAt ? v.createdAt : conv.createdAt;
+  const [p] = await tx
+    .select({ id: people.id })
+    .from(people)
+    .where(
+      and(
+        eq(people.id, personId),
+        eq(people.source, CHAT_PERSON_SOURCE),
+        gte(people.createdAt, openedAt),
+      ),
+    );
+  if (!p) return false;
+  const [other] = await tx
+    .select({ id: chatVisitors.id })
+    .from(chatVisitors)
+    .where(
+      and(
+        eq(chatVisitors.personId, personId),
+        or(isNull(chatVisitors.conversationId), ne(chatVisitors.conversationId, conv.id)),
+      ),
+    )
+    .limit(1);
+  return !other;
 }
 
 /** The customer the AI teammate is serving: its conversation's, or for a first message its run's new lead. */

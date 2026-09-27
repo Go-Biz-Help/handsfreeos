@@ -1071,7 +1071,7 @@ describe('qualifying answers', () => {
     expect(again.eventIds).toEqual([]);
   });
 
-  it('are never written to a customer’s older lead from a chat that hasn’t proved who it is', async () => {
+  it('are never written to a customer’s lead from a chat that hasn’t proved who it is', async () => {
     const eve = await customer(a, 'Eve');
     const { leadId: before } = await run(
       leadCreate,
@@ -1086,15 +1086,31 @@ describe('qualifying answers', () => {
       'forbidden',
       'chat_identity_unverified',
     );
-    // A lead opened once the chat began is the chat's own.
+    // Waiting doesn't help: a lead the team opens for Eve while the chat stays open is still hers.
     const { leadId: since } = await run(
       leadCreate,
-      { workspaceId: a.wsId, title: 'From the chat', personId: eve.personId },
+      { workspaceId: a.wsId, title: 'Called in', personId: eve.personId },
       a.owner,
     );
-    const ok = await asAva(a, inChat, leadRecordAnswers, {
+    await expectHfos(
+      () => asAva(a, inChat, leadRecordAnswers, { workspaceId: a.wsId, leadId: since, answers }),
+      'forbidden',
+      'chat_identity_unverified',
+    );
+    // A visitor the chat added as a new customer is qualified as before.
+    const newChat = { conversationId: await chatAs(a, nextPhone()) };
+    const [newcomer] = await rows<{ person_id: string }>(
+      admin(),
+      sql`select person_id from app.conversations where id = ${newChat.conversationId}`,
+    );
+    const { leadId: theirs } = await run(
+      leadCreate,
+      { workspaceId: a.wsId, title: 'From the chat', personId: newcomer!.person_id },
+      a.owner,
+    );
+    const ok = await asAva(a, newChat, leadRecordAnswers, {
       workspaceId: a.wsId,
-      leadId: since,
+      leadId: theirs,
       answers,
     });
     expect(ok.output.missing).not.toContain('owner');

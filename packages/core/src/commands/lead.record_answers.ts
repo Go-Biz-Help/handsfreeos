@@ -7,7 +7,7 @@ import { and, eq } from 'drizzle-orm';
 import { leads } from '@hfos/db/schema';
 import { qualificationOf } from '../ai-team/config';
 import { loadTeammate, teammateConfigOf } from '../ai-team/load';
-import { assertAiReach, refuseOlderLeadInChat } from '../ai-team/reach';
+import { assertAiReach, refuseCustomersLeadInChat } from '../ai-team/reach';
 import { logSystemActivity } from '../crm/activities';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
@@ -41,7 +41,7 @@ export const leadRecordAnswers = defineCommand({
     if (!lead) throw HfosError.notFound('Lead not found.');
     if (lead.archivedAt)
       throw HfosError.rule('lead_archived', 409, 'Restore the lead before recording answers.');
-    await refuseOlderLeadInChat(ctx, lead);
+    await refuseCustomersLeadInChat(ctx, lead);
     const teammate = await loadTeammate(ctx.tx, ws);
     if (!teammate)
       throw HfosError.rule(
