@@ -134,8 +134,7 @@ export const requestAbout = (w: TeammateWorld, words: string): AiRequest | undef
   teammateRequests(w).find((r) => JSON.stringify(r.messages[0]).includes(words));
 
 /** Everything a request tells the model beyond its instructions: the cached lasting part, then the turn's. */
-export const briefOf = (r: AiRequest): string =>
-  [r.lasting, r.context].filter(Boolean).join('\n');
+export const briefOf = (r: AiRequest): string => [r.lasting, r.context].filter(Boolean).join('\n');
 
 /** Saves a patch over the teammate's settings, as the owner. */
 export async function saveTeammate(w: TeammateWorld, patch: TeammatePatch): Promise<void> {

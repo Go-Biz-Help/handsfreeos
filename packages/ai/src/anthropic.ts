@@ -244,9 +244,7 @@ function withCacheOn(m: Anthropic.MessageParam, which: 'image' | 'last'): Anthro
         }
       : m;
   const i =
-    which === 'image'
-      ? m.content.findLastIndex((b) => b.type === 'image')
-      : m.content.length - 1;
+    which === 'image' ? m.content.findLastIndex((b) => b.type === 'image') : m.content.length - 1;
   const block = m.content[i];
   if (!block || !CACHEABLE.has(block.type) || (block.type === 'text' && !block.text)) return m;
   const content = [...m.content];
