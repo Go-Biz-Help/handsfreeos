@@ -15,6 +15,7 @@ import {
   sendCodeMessage,
   verifyCodeMessage,
 } from '@/lib/auth/code-messages';
+import { keepHandoffFromSignIn } from '@/lib/auth/sign-in-handoff';
 import { supabaseBrowser } from '@/lib/supabase/client';
 
 /**
@@ -31,6 +32,9 @@ export function SignInForm({ next, intro }: { next: string; intro: ReactNode }) 
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
   const [step, setStep] = useState<'password' | 'code'>('password');
+
+  // Signed out when a provider sign-in came back: keep what it carried, so it finishes after this.
+  useEffect(() => keepHandoffFromSignIn(next), [next]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
