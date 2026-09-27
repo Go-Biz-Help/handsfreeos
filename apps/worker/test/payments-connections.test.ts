@@ -18,7 +18,13 @@ import {
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import { paymentConnections } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  type TestUser,
+} from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { handlers } from '../src/handlers/index';
@@ -32,6 +38,7 @@ import { processDeliveries } from '../src/deliveries';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { systemActor } from '../src/services';
+import { finishSignIn, testTokenVerifier } from './finish-sign-in';
 import { testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-payments-connections-${process.pid}`;
@@ -47,6 +54,7 @@ const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
 
 let owner: TestUser;
+let ownerToken: string;
 let workspaceId: string;
 let organizationId: string;
 let s: TestServices;
@@ -100,11 +108,20 @@ async function drain(timeoutMs = 15_000): Promise<void> {
   }
 }
 
-/** Signs in through the real routes: connect, start, the stand-in's Connect (or Cancel), then the callback. */
+/**
+ * Signs in through the real routes: connect, start, the stand-in's Connect (or Cancel), the callback, and the
+ * app finishing it as `finishedBy` (the owner who pressed Connect, unless a test says otherwise).
+ */
 async function connect(
   provider: 'stripe' | 'square',
   account: string,
-  opts: { decision?: 'allow' | 'deny'; partial?: boolean; held?: boolean; label?: string } = {},
+  opts: {
+    decision?: 'allow' | 'deny';
+    partial?: boolean;
+    held?: boolean;
+    label?: string;
+    finishedBy?: string;
+  } = {},
 ): Promise<{
   connectionId: string;
   state: string;
@@ -145,13 +162,17 @@ async function connect(
   );
   expect(approve.statusCode).toBe(302);
   const callback = new URL(String(approve.headers.location));
-  const backTo = await get(`${callback.pathname}${callback.search}`);
+  const backTo = await finishSignIn(
+    app,
+    await get(`${callback.pathname}${callback.search}`),
+    opts.finishedBy ?? ownerToken,
+  );
   await drain();
   return {
     connectionId: output.connectionId,
     state: output.state,
-    status: backTo.statusCode,
-    location: backTo.headers.location ? String(backTo.headers.location) : null,
+    status: backTo.status,
+    location: backTo.location,
     body: backTo.body,
   };
 }
@@ -212,11 +233,12 @@ beforeAll(async () => {
   organizationId = output.organizationId;
   stripeAccount = `acct_test_${token()}`;
   squareAccount = `merchant_test_${token()}`;
+  ownerToken = await signInTestUser(owner);
   s = testServices();
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
   });
 });
@@ -341,13 +363,39 @@ describe('connecting an account', () => {
 
   it('explains Stripe’s refusal to attach an account another platform controls, and offers Square', async () => {
     const signed = await connect('stripe', `acct_test_${token()}`, { held: true });
-    expect(signed.status).toBe(409);
+    expect(signed.status).toBe(200);
     expect(signed.body).toContain('connected to another platform');
     expect(signed.body).toContain('Square');
     const c = await connection(signed.connectionId);
     expect(c.status).toBe('pending');
     // The provider's own code is kept, in plain sight, for whoever has to work out why.
     expect(c.lastError).toContain('account_controlled_by_another_platform');
+  });
+
+  it('connects nothing when somebody else finishes a sign-in link they were sent (SEC-M1)', async () => {
+    // Riley, in another business, is sent the owner's sign-in link and approves his own account on it.
+    const riley = await createTestUser('payments-conn-riley');
+    await executeCommand(
+      api(),
+      organizationCreate,
+      { businessName: 'Somebody Else Electric' },
+      actor(riley),
+      meta(),
+    );
+    const theirs = `acct_test_${token()}`;
+    const signed = await connect('stripe', theirs, { finishedBy: await signInTestUser(riley) });
+    expect(signed.location).toBeNull();
+    expect(signed.body).toContain('started by someone else');
+    const c = await connection(signed.connectionId);
+    expect(c).toMatchObject({ status: 'pending', externalAccountId: null, tokenEnc: null });
+    // And the link is spent: the owner can't be tricked into finishing it afterwards either.
+    expect(c.oauthStateHash).toBeNull();
+  });
+
+  it('connects nothing when the sign-in comes back to somebody signed out', async () => {
+    const signed = await connect('square', `merchant_test_${token()}`, { finishedBy: '' });
+    expect(signed.status).toBe(401);
+    expect((await connection(signed.connectionId)).status).toBe('pending');
   });
 });
 

@@ -25,7 +25,13 @@ import {
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  type TestUser,
+} from '@hfos/db/testing';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildHttpServer } from '../src/http/server';
@@ -33,6 +39,7 @@ import { handlers } from '../src/handlers/index';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
+import { choosePlace, finishSignIn, testTokenVerifier, type Finished } from './finish-sign-in';
 import { testServices, type TestServices } from './helpers';
 
 const api = () => testDbs().api.db;
@@ -106,13 +113,13 @@ async function syncNow(): Promise<void> {
   await run(reviewConnectionSyncNow, { workspaceId, connectionId: c!.id });
 }
 
-/** The whole sign-in, through the stand-in pages, exactly as a browser walks it. */
-async function connect(provider: 'google' | 'facebook'): Promise<{
-  connectionId: string;
-  state: string;
-  body: string;
-  location: string | null;
-}> {
+/** The whole sign-in, through the stand-in pages and the app finishing it, exactly as a browser walks it. */
+async function connect(provider: 'google' | 'facebook'): Promise<
+  Finished & {
+    connectionId: string;
+    state: string;
+  }
+> {
   const output = await run<{ connectionId: string; state: string }>(reviewConnectionConnect, {
     workspaceId,
     provider,
@@ -134,13 +141,12 @@ async function connect(provider: 'google' | 'facebook'): Promise<{
     })}`,
   );
   const callback = new URL(String(approve.headers.location));
-  const back = await get(`${callback.pathname}${callback.search}`);
-  return {
-    connectionId: output.connectionId,
-    state: output.state,
-    body: back.body,
-    location: back.statusCode === 302 ? String(back.headers.location) : null,
-  };
+  const back = await finishSignIn(
+    app,
+    await get(`${callback.pathname}${callback.search}`),
+    await signInTestUser(owner),
+  );
+  return { ...back, connectionId: output.connectionId, state: output.state };
 }
 
 beforeAll(async () => {
@@ -154,7 +160,7 @@ beforeAll(async () => {
   app = await buildHttpServer({
     ...s,
     httpDb: testDbs().worker.db,
-    verifyToken: null,
+    verifyToken: testTokenVerifier(),
     webOrigins: ['http://localhost:3000'],
   });
 });
@@ -172,8 +178,7 @@ describe('connecting the place the reviews live', () => {
     const signed = await connect('google');
     // A chooser, not a redirect: nothing is connected on a guess.
     expect(signed.location).toBeNull();
-    expect(signed.body).toContain('Which one is this business?');
-    expect(signed.body).toContain('Lone Star HVAC — Dallas');
+    expect(signed.places?.map((p) => p.name)).toContain('Lone Star HVAC — Dallas');
     const [waiting] = await rows<{ status: string; external_account_id: string | null }>(
       admin(),
       sql`select status::text as status, external_account_id from app.review_connections
@@ -183,11 +188,14 @@ describe('connecting the place the reviews live', () => {
     expect(waiting!.external_account_id).toBeNull();
 
     // Answering it connects that one, and reads straight away.
-    const chose = await get(
-      `/oauth/google/place?state=${encodeURIComponent(signed.state)}&place=${encodeURIComponent('locations/dallas')}`,
+    const chose = await choosePlace(
+      app,
+      signed.handoff!,
+      'locations/dallas',
+      await signInTestUser(owner),
     );
-    expect(chose.statusCode).toBe(302);
-    expect(String(chose.headers.location)).toContain('reviews=connected');
+    expect(chose.status).toBe(302);
+    expect(String(chose.location)).toContain('reviews=connected');
     const [connected] = await rows<{ status: string; display_name: string }>(
       admin(),
       sql`select status::text as status, display_name from app.review_connections
@@ -208,11 +216,15 @@ describe('connecting the place the reviews live', () => {
       { externalId: 'locations/dallas', displayName: 'Lone Star HVAC — Dallas', publicUrl: null },
     ]);
     const signed = await connect('google');
-    const sneaky = await get(
-      `/oauth/google/place?state=${encodeURIComponent(signed.state)}&place=${encodeURIComponent('locations/somebody-else')}`,
+    const sneaky = await choosePlace(
+      app,
+      signed.handoff!,
+      'locations/somebody-else',
+      await signInTestUser(owner),
     );
-    // The link is a parameter, and a parameter is a guess: it is checked against what the sign-in really has.
-    expect(sneaky.statusCode).toBe(400);
+    // The answer is a parameter, and a parameter is a guess: it is checked against what the sign-in really has.
+    expect(sneaky.location).toBeNull();
+    expect(sneaky.body).toContain('expired');
     const [still] = await rows<{ status: string }>(
       admin(),
       sql`select status::text as status from app.review_connections where id = ${signed.connectionId}::uuid`,
