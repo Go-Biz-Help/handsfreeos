@@ -876,12 +876,19 @@ describe('uninstalling, deleting its data, and installing again', () => {
     await finish(wsD);
     expect((await stateOf(wsD, 'fxseo'))?.state).toBe('purged');
     // One this business never had is no add-on at all, whatever is typed.
-    for (const cmd of [gone.uninstall, gone.purge])
-      expect(
-        await refusal(
-          run(cmd, { workspaceId: wsD, addonId: 'fxgone', confirmName: 'fxgone' }, human(owner)),
+    const unknown = { status: 404, rule: 'addon_unknown' };
+    expect(
+      await refusal(run(gone.uninstall, { workspaceId: wsD, addonId: 'fxgone' }, human(owner))),
+    ).toMatchObject(unknown);
+    expect(
+      await refusal(
+        run(
+          gone.purge,
+          { workspaceId: wsD, addonId: 'fxgone', confirmName: 'fxgone' },
+          human(owner),
         ),
-      ).toMatchObject({ status: 404, rule: 'addon_unknown' });
+      ),
+    ).toMatchObject(unknown);
     expect(
       await refusal(
         ask(
