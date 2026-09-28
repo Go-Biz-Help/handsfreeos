@@ -12,7 +12,7 @@ import type { AddonSuggestion } from '@/lib/api/types';
 /**
  * The one add-on Home suggests, now and then, to owners and admins when it fits what the business does (the owner's
  * decision, 2026-09-28; `addon.suggestion` picks it, and Home asks only for people who manage add-ons). Small and
- * easy to set aside: See it opens it on Settings → Add-ons, Not now rests every suggestion a while, and Not
+ * easy to set aside: See it opens it on the Add-ons page, Not now rests every suggestion a while, and Not
  * interested never suggests this one again.
  */
 export function AddonSuggestionCard({
@@ -80,7 +80,7 @@ export function AddonSuggestionCard({
       {/* The card's whole width: in the side rail there's no room for three buttons beside the icon. */}
       <div className="mt-3 flex flex-wrap gap-1.5">
         <ButtonLink
-          href={`/app/w/${workspaceId}/settings/add-ons?addon=${suggestion.addonId}`}
+          href={`/app/w/${workspaceId}/add-ons?addon=${suggestion.addonId}`}
           variant="primary"
           size="sm"
           data-testid="addon-suggestion-see"

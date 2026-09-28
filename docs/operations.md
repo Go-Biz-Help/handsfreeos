@@ -8968,8 +8968,8 @@ migration `20261006000100_ideas_and_whats_new.sql`, in the `platform` schema bes
 
 ### What the businesses see
 
-- **Ideas** is a place in every business's side menu, for every role, just above Settings (and under **More**
-  in the suggested menu). It has three tabs: **Ideas** (the board), **Roadmap** (planned, being built, and
+- **Ideas** sits at the foot of every business's side menu, for every role, beside **Get help** (and **Add-ons**,
+  for owners and admins). It isn't part of the menu people arrange. It has three tabs: **Ideas** (the board), **Roadmap** (planned, being built, and
   shipped in the last ninety days) and **What's new**. A dot beside Ideas says What's new has something the
   person has not read yet.
 - **Sharing an idea** asks for a title, a few words more and which part of HandsFreeOS it is about. While they
@@ -9028,7 +9028,8 @@ draft. Sign in as `chris@gobizhelp.test` and open `/admin/ideas`; the emails lan
 
 ## Add-on votes
 
-Businesses vote on which planned add-on HandsFreeOS builds next, on **Settings** → **Add-ons**. It needs nothing set
+Businesses vote on which planned add-on HandsFreeOS builds next, on **Add-ons**, at the foot of the side menu (under
+**More** on the phone). It needs nothing set
 up: the tables are migration `20261013000800_voting_on_whats_next.sql`, in the `platform` schema, and the emails go
 out the way the team's other emails do (`SMTP_URL` and `MAIL_FROM` on the worker). `docs/addon-architecture.md`,
 "Voting on what's next", has the rules.

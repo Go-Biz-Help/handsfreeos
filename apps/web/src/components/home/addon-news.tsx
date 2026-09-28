@@ -10,7 +10,7 @@ import type { AddonNews } from '@/lib/api/types';
 
 /**
  * Home's note to the owners and admins of a business that voted for an add-on (0109): it's coming soon, or it's
- * ready to add (`addon.news` picks the one to show; the emails say the same). See it opens it on Settings → Add-ons,
+ * ready to add (`addon.news` picks the one to show; the emails say the same). See it opens it on the Add-ons page,
  * and Got it sets the note aside for this person.
  */
 export function AddonNewsCard({ workspaceId, news }: { workspaceId: string; news: AddonNews }) {
@@ -64,7 +64,7 @@ export function AddonNewsCard({ workspaceId, news }: { workspaceId: string; news
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         <ButtonLink
-          href={`/app/w/${workspaceId}/settings/add-ons?addon=${news.addonId}`}
+          href={`/app/w/${workspaceId}/add-ons?addon=${news.addonId}`}
           variant="primary"
           size="sm"
           data-testid="addon-news-see"

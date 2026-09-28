@@ -20,6 +20,8 @@ import {
   isActive,
   menuAddons,
   navItems,
+  FootLinks,
+  footItems,
   NavLinks,
   UnreadCount,
   UrgentCount,
@@ -42,7 +44,11 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
   const bar = items.filter((i) => i.primary && shown.has(i.key));
   // The page's title is the place it's in, a running add-on's included (0108): the deepest one that matches.
   const active = currentMenuPlace(
-    [...items, ...addonNavItems(current.id, current.permissions, addons)],
+    [
+      ...items,
+      ...addonNavItems(current.id, current.permissions, addons),
+      ...footItems(current.id, current.permissions),
+    ],
     pathname,
   );
   const nested = active && !active.exact && pathname !== active.href;
@@ -183,6 +189,11 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
           </div>
           <div className="flex-none pt-2">
             <CallsPill />
+            <FootLinks
+              workspaceId={current.id}
+              permissions={current.permissions}
+              onNavigate={() => setDrawer(false)}
+            />
             <GetHelp workspaceId={current.id} />
             <UserMenu user={me.user} />
           </div>

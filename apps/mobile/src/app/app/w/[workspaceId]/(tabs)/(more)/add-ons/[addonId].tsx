@@ -71,15 +71,14 @@ export default function AddonScreen() {
   const flow = useAddonMove({ workspaceId: business.id, nameOf, onMoved: list.reload });
 
   const title = view?.name ?? findAddon(ADDON_CATALOG, addonId)?.name ?? ADDON_PHONE_WORDS.title;
-  const openAddon = (id: string) =>
-    router.push(businessHref(business.id, `settings/add-ons/${id}`));
+  const openAddon = (id: string) => router.push(businessHref(business.id, `add-ons/${id}`));
 
   return (
     <Screen
       title={title}
       subtitle={view ? (addonCategoryLine(view.category) ?? undefined) : undefined}
       leading="back"
-      back={businessHref(business.id, 'settings/add-ons')}
+      back={businessHref(business.id, 'add-ons')}
       testID="add-on"
       contentClassName="gap-2"
     >

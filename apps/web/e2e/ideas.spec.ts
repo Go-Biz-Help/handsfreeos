@@ -17,9 +17,10 @@ test('shares an idea, is offered it again instead of a copy, votes, comments and
   const word = Array.from(randomBytes(8), (b) => String.fromCharCode(97 + (b % 26))).join('');
   const title = `Route the day by drive time ${word}`;
 
+  // Ideas sits at the foot of the menu, above Get help.
   await page
-    .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'Ideas' })
+    .getByRole('navigation', { name: 'HandsFreeOS' })
+    .getByRole('link', { name: /^Ideas/ })
     .click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/ideas$`));
   await expect(page.getByRole('heading', { name: 'Ideas' })).toBeVisible();

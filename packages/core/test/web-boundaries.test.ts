@@ -58,12 +58,19 @@ describe('add-on pages', () => {
  * rest whatever the screen shows; these keep the screen from offering what it shouldn't.
  */
 describe('the Add-ons page', () => {
-  const page = () => read(join(BUSINESS, 'settings/add-ons/page.tsx'));
+  const page = () => read(join(BUSINESS, 'add-ons/page.tsx'));
 
-  it('is for owners and admins, and its tab shows only to them', () => {
+  it('is for owners and admins, and its link at the foot of the menu shows only to them', () => {
     expect(page()).toMatch(/if \(!can\(permissions, 'addons\.manage'\)\) notFound\(\);/);
-    expect(read(join(WEB, 'components/settings/settings-nav.tsx'))).toMatch(
-      /label: 'Add-ons', needs: 'addons\.manage'/,
+    expect(read(join(WEB, 'components/shell/nav-links.tsx'))).toMatch(
+      /if \(can\(permissions \?\? \[\], 'addons\.manage'\)\)\s*items\.push\(\{\s*key: 'add-ons'/,
+    );
+    // No longer a Settings tab: the old address sends people to the page.
+    expect(read(join(WEB, 'components/settings/settings-nav.tsx'))).not.toContain(
+      "label: 'Add-ons'",
+    );
+    expect(read(join(BUSINESS, 'settings/add-ons/page.tsx'))).toMatch(
+      /redirect\(`\/app\/w\/\$\{workspaceId\}\/add-ons\$\{which\}`\)/,
     );
   });
 

@@ -14,7 +14,7 @@
  *
  *   pm: { icon: Building2, slots: { 'person.panels': () => import('./pm/person-panel') } },
  *
- * and, when it has settings of its own to fill in, the form Settings → Add-ons draws for it:
+ * and, when it has settings of its own to fill in, the form the Add-ons page draws for it:
  *
  *   pm: { icon: Building2, settings: () => import('./pm/settings') },
  */
@@ -52,7 +52,7 @@ export type SlotLoader<S extends AddonSlotName = AddonSlotName> = () => Promise<
 }>;
 
 /**
- * What an add-on's own settings form is drawn with, in its settings on Settings → Add-ons
+ * What an add-on's own settings form is drawn with, in its settings on the Add-ons page
  * (components/settings/add-ons/addon-settings-sheet.tsx). The sheet has already drawn the add-on's switches (its
  * manifest's `settings.flags`); the form is for everything else it lets a business or a person set. It is drawn only
  * while the add-on is on, inside its own error boundary, and its code is fetched the first time it's opened.
@@ -77,13 +77,13 @@ export type SettingsLoader = () => Promise<{ default: ComponentType<AddonSetting
 
 /** What the web knows about one add-on. */
 export interface AddonUi {
-  /** Its places in the side menu, and its card on Settings → Add-ons. */
+  /** Its places in the side menu, and its card on the Add-ons page. */
   readonly icon: AddonIcon;
   /** A different icon for one of its places, by that place's key in the manifest's `ui.nav`. */
   readonly navIcons?: Readonly<Record<string, AddonIcon>>;
   /** Its panels on core pages. One is drawn only where the manifest declares the slot too (`ui.slots`). */
   readonly slots?: { readonly [S in AddonSlotName]?: SlotLoader<S> };
-  /** Its own settings form on Settings → Add-ons, beside its switches. Absent: its switches are all there is. */
+  /** Its own settings form on the Add-ons page, beside its switches. Absent: its switches are all there is. */
   readonly settings?: SettingsLoader;
 }
 

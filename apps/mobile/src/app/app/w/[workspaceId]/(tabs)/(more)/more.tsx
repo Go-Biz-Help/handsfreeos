@@ -3,6 +3,8 @@ import { useQuery } from '@powersync/react-native';
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
+import { useAddonGrants } from '@/add-ons/use-add-ons';
+import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import {
   CircleDollarSign,
   ClipboardList,
@@ -12,6 +14,7 @@ import {
   Globe,
   LifeBuoy,
   Lightbulb,
+  Puzzle,
   Settings2,
   Sparkles,
   Users,
@@ -34,7 +37,8 @@ import { openWeb } from '@/lib/open-web';
 
 /**
  * More: Customers, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
- * then Ideas and Get help, which are about HandsFreeOS itself, and Open on the web for the desk work.
+ * then Add-ons (for owners and admins), Ideas and Get help, which are about HandsFreeOS itself, and Open on the web
+ * for the desk work.
  */
 export default function More() {
   const { me, business, userId, openSwitcher } = useBusiness();
@@ -43,6 +47,7 @@ export default function More() {
   const grants = useGrants();
   const { data: teammates } = useQuery<{ id: string }>(TEAMMATE_SQL, [business.id]);
   const canTest = holds(grants, 'ai_team.manage') && teammates.length > 0;
+  const { manage: managesAddons } = useAddonGrants();
   const go = (path: string) => router.push(businessHref(business.id, path));
   return (
     <Screen title={MORE_WORDS.title} testID="more">
@@ -118,6 +123,15 @@ export default function More() {
         />
       </List>
       <List>
+        {managesAddons ? (
+          <ListRow
+            icon={Puzzle}
+            label={ADDON_PHONE_WORDS.title}
+            detail={ADDON_PHONE_WORDS.settingsDetail}
+            onPress={() => go('add-ons')}
+            testID="more-add-ons"
+          />
+        ) : null}
         <ListRow
           icon={Lightbulb}
           label={IDEAS_WORDS.title}

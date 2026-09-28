@@ -1276,7 +1276,7 @@ export function ideaTeamAnswerEmail(input: {
 // ---- Voting on what's next (0109) ----
 
 const ADDON_VOTE_FOOT =
-  'You get this because your business voted for this add-on on Settings → Add-ons in HandsFreeOS.';
+  'You get this because your business voted for this add-on on the Add-ons page in HandsFreeOS.';
 
 /**
  * The owners and admins of a business that voted for an add-on hear when it is picked: it won the week's vote, or
@@ -1325,7 +1325,7 @@ export function addonShippedEmail(input: {
 }): EmailContent {
   const subject = `${input.name} is ready to add`;
   const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
-  const what = `${input.business} voted for ${input.name}, and it’s ready. You can add it now on Settings → Add-ons.`;
+  const what = `${input.business} voted for ${input.name}, and it’s ready. You can add it now on the Add-ons page.`;
   const text = [
     hello,
     '',

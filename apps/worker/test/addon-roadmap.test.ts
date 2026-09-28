@@ -156,7 +156,7 @@ describe('a week closing', () => {
     const mine = sent.find((m) => m.to === owner.email)!;
     expect(mine.subject).toBe('Alpha Worker is coming soon');
     expect(mine.text).toContain('Roadmap HVAC voted for Alpha Worker');
-    expect(mine.text).toContain(`/app/w/${wsA}/settings/add-ons`);
+    expect(mine.text).toContain(`/app/w/${wsA}/add-ons`);
 
     // The same week again: the same answer, and nobody told twice.
     sent.length = 0;
@@ -224,7 +224,7 @@ describe('shipping', () => {
     expect(out && 'rescheduleAt' in out).toBe(true);
     const shippedMail = sent.filter((m) => m.subject === 'Gamma Worker is ready to add');
     expect(shippedMail.map((m) => m.to)).toEqual([partner.email]);
-    expect(shippedMail[0]!.text).toContain(`/app/w/${wsB}/settings/add-ons?addon=${gamma}`);
+    expect(shippedMail[0]!.text).toContain(`/app/w/${wsB}/add-ons?addon=${gamma}`);
     const [pick] = await rows<{ shipped_at: Date | null; shipped_told_at: Date | null }>(
       admin(),
       sql`select shipped_at, shipped_told_at from platform.addon_picks where addon_id = ${gamma}`,

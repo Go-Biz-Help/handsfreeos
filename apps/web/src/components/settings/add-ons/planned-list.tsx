@@ -1,6 +1,6 @@
 'use client';
 /**
- * Settings → Add-ons, "Vote on what's next" (0109): every planned add-on still up for a vote, searchable, filtered by
+ * The Add-ons page, "Vote on what's next" (0109): every planned add-on still up for a vote, searchable, filtered by
  * category and group, sorted by votes or name, with an upvote on each. A business has one vote per add-on and
  * votes for as many as it likes (the owner's decisions, 2026-09-28); every Sunday at midnight Eastern the one with
  * the most votes becomes Coming soon.

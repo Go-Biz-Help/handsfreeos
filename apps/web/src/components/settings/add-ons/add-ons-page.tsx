@@ -1,6 +1,6 @@
 'use client';
 /**
- * Settings → Add-ons (0108): what this business has added to HandsFreeOS and where each one stands, what it could
+ * The Add-ons page (0108): what this business has added to HandsFreeOS and where each one stands, what it could
  * add, and what's coming. Owners and admins (`addons.manage`) install, turn on and off and uninstall; only owners
  * (`addons.purge`) delete an add-on's data, after typing its name (the owner's decisions, 2026-09-28).
  *

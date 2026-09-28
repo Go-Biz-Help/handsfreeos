@@ -18,6 +18,10 @@
  *   add-on is off, so turning it back on puts each one back where the person had it; but `menuFor` shows one only
  *   while its add-on runs in the business and the person may open it. One they have never arranged goes at the end.
  *
+ * - **Not in it:** the places about HandsFreeOS itself rather than the business, Add-ons and Ideas (the owner's
+ *   decision, 2026-09-28), sit at the foot of the sidebar with Get help and the account, where nobody arranges them.
+ *   A saved menu that still names Ideas simply loses it, like any place it no longer knows.
+ *
  * The words each place goes by, its icon and its address are the web's (components/shell/nav-links.tsx), and an
  * add-on's are its manifest's; this file knows only the keys, so the layout can be read and checked anywhere.
  */
@@ -42,8 +46,6 @@ export const MENU_KEYS = [
   'tasks',
   'members',
   'audit',
-  // Ideas, the roadmap and What's new (0102): the one place about HandsFreeOS itself rather than the business.
-  'ideas',
   'settings',
 ] as const;
 export type MenuKey = (typeof MENU_KEYS)[number];
@@ -137,8 +139,9 @@ export const DEFAULT_MENU: Menu<MenuKey> = {
 };
 
 /**
- * The tidy-up the editor offers in one press: the places a day is spent in stay out, and the rest fold into
- * **More**. Nine rows instead of seventeen, and nothing is lost.
+ * The tidy-up the editor offers in one press: the places a day is spent in stay out, Campaigns among them just
+ * above **More** (the owner's decision, 2026-09-28), and the rest fold into More. Ten rows instead of sixteen, and
+ * nothing is lost.
  */
 export const SUGGESTED_MENU: Menu<MenuKey> = {
   entries: [
@@ -149,21 +152,12 @@ export const SUGGESTED_MENU: Menu<MenuKey> = {
     { kind: 'link', key: 'calendar' },
     { kind: 'link', key: 'money' },
     { kind: 'link', key: 'tasks' },
+    { kind: 'link', key: 'campaigns' },
     {
       kind: 'group',
       id: 'more',
       label: MENU_GROUP_DEFAULT_LABEL,
-      keys: [
-        'workflows',
-        'campaigns',
-        'forms',
-        'reviews',
-        'knowledge',
-        'ai-team',
-        'members',
-        'audit',
-        'ideas',
-      ],
+      keys: ['workflows', 'forms', 'reviews', 'knowledge', 'ai-team', 'members', 'audit'],
     },
     { kind: 'link', key: 'settings' },
   ],

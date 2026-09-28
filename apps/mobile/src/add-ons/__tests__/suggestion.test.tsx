@@ -97,7 +97,7 @@ it('shows an owner the add-on that fits, and opens its own screen', async () => 
     body: { workspaceId: LONE_STAR },
   });
   await fireEvent.press(screen.getByTestId('addon-suggestion-see'));
-  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons/fxprop`);
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/add-ons/fxprop`);
 });
 
 it('sets it aside for now at once, and tells HandsFreeOS', async () => {

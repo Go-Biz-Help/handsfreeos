@@ -104,7 +104,7 @@ export function addonRoadmapWorker(catalog: Catalog) {
       ),
     );
     for (const person of people) {
-      const page = `${ctx.webUrl}/app/w/${person.workspace_id}/settings/add-ons`;
+      const page = `${ctx.webUrl}/app/w/${person.workspace_id}/add-ons`;
       const input = {
         firstName: person.first_name,
         name: m.name,

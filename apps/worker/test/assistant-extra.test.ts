@@ -458,7 +458,7 @@ describe('your own alerts and side menu', () => {
       places: ['audit', 'campaigns'],
     });
     expect(field(hide.card, 'Hide')!.value).toBe('Audit log and Campaigns');
-    expect(field(hide.card, 'Your menu')!.value).toBe('15 in the menu · 2 hidden');
+    expect(field(hide.card, 'Your menu')!.value).toBe('14 in the menu · 2 hidden');
     expect((await me()).user.settings['menu']).toBeUndefined();
     // The web's menu reads the saved menu again once this is confirmed, so there's no reload to ask for.
     expect((await confirm('arrange_my_menu', hide.parsed)).outcome).toBe('Menu saved');

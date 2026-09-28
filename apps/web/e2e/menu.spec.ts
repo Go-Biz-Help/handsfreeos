@@ -25,7 +25,7 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await expect(nav(page).getByRole('link', { name: 'Knowledge' })).toBeVisible();
   const menu = page.getByTestId('sidebar-menu');
   await expect(menu).toBeVisible();
-  // A window too short for seventeen places. The sidebar is kept to the window and pinned there, so it is the
+  // A window too short for sixteen places. The sidebar is kept to the window and pinned there, so it is the
   // menu that overflows rather than the page growing and taking the account with it.
   await page.setViewportSize({ width: 1280, height: 620 });
   await expect.poll(() => menu.evaluate((el) => el.scrollHeight > el.clientHeight + 1)).toBe(true);
@@ -44,8 +44,14 @@ test('a person arranges their own side menu: groups, hiding, and it survives a r
   await page.getByTestId('menu-save').click();
   await expect(page.getByText('Menu saved.')).toBeVisible();
 
-  // Knowledge is no longer a row of its own; it is one press inside More.
+  // Knowledge is no longer a row of its own; it is one press inside More. Campaigns stays a row, just above More.
   await expect(nav(page).getByRole('link', { name: 'Knowledge' })).toHaveCount(0);
+  await expect(nav(page).getByRole('link', { name: 'Campaigns' })).toBeVisible();
+  // Add-ons and Ideas are never in the menu a person arranges: they sit at the foot, above Get help.
+  await expect(nav(page).getByRole('link', { name: /^Ideas/ })).toHaveCount(0);
+  const foot = page.getByRole('navigation', { name: 'HandsFreeOS' });
+  await expect(foot.getByRole('link', { name: 'Add-ons' })).toBeVisible();
+  await expect(foot.getByRole('link', { name: /^Ideas/ })).toBeVisible();
   const group = nav(page).getByTestId('menu-group-more');
   await expect(group).toBeVisible();
   await group.click();

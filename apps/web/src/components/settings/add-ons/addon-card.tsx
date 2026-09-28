@@ -62,7 +62,7 @@ export function StateBadge({ state }: { state: InstallationState }) {
 }
 
 /**
- * One add-on on Settings → Add-ons: its name and what it's for, where it stands here, what it lets the business do
+ * One add-on on the Add-ons page: its name and what it's for, where it stands here, what it lets the business do
  * and what it needs, and the moves open to this person from where it stands. A state on its way somewhere shows
  * progress and offers no move (the worker finishes it within seconds and the page follows).
  */

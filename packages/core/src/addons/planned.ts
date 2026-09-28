@@ -1,7 +1,7 @@
 /**
  * The add-ons HandsFreeOS plans to build: the owner's catalogue (2026-09-28), cleaned of duplicates and of what core
  * already does. Every one is `planned`: a manifest with no code, never installable and never offered, only listed.
- * Businesses vote on them on Settings → Add-ons, and each week the one with the most votes becomes Coming soon
+ * Businesses vote on them on the Add-ons page, and each week the one with the most votes becomes Coming soon
  * (docs/addon-architecture.md, "Voting on what's next").
  *
  * Each is one line: its id (never reused, like any add-on's), its name and category, the groups the planned list

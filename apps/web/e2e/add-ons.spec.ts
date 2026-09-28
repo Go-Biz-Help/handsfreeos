@@ -5,10 +5,10 @@ import { addTeammate } from './calendar';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
- * Settings → Add-ons (0108) as it is today, with nothing built yet: an owner finds the tab and a page that says
- * there's nothing added and nothing to add yet, with Real Estate Agent coming soon and every planned add-on up for a
- * vote (0109); a member never sees the tab, and the page isn't there for them; and Home suggests no add-on to anyone,
- * whether it's a brand-new business or its Action Center.
+ * The Add-ons page (0108) as it is today, with nothing built yet: an owner finds it at the foot of the menu, and a
+ * page that says there's nothing added and nothing to add yet, with Real Estate Agent coming soon and every planned
+ * add-on up for a vote (0109); a member never sees the link, and the page isn't there for them; and Home suggests
+ * no add-on to anyone, whether it's a brand-new business or its Action Center.
  */
 
 const settingsNav = (page: Page) => page.getByRole('navigation', { name: 'Settings' });
@@ -26,19 +26,27 @@ test('an owner finds Add-ons in Settings with nothing added yet; a member never 
   await expect(page.getByTestId('setup-checklist')).toBeVisible();
   await expect(page.getByTestId('addon-suggestion')).toHaveCount(0);
 
-  // Owners manage add-ons: the tab is there beside Workspace, and opens a page that reads well with nothing in it.
+  // Owners manage add-ons: the link is at the foot of the menu, above Get help, and opens a page that reads well
+  // with nothing in it. It's no longer a Settings tab.
   await page.goto(`/app/w/${workspaceId}/settings`);
-  const tab = settingsNav(page).getByRole('link', { name: 'Add-ons' });
-  await expect(tab).toBeInViewport();
-  await tab.click();
-  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/settings/add-ons$`));
-  await expect(tab).toHaveAttribute('aria-current', 'page');
+  await expect(settingsNav(page).getByRole('link', { name: 'Add-ons' })).toHaveCount(0);
+  const link = page
+    .getByRole('navigation', { name: 'HandsFreeOS' })
+    .getByRole('link', { name: 'Add-ons' });
+  await expect(link).toBeInViewport();
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/add-ons$`));
+  await expect(link).toHaveAttribute('aria-current', 'page');
   await expect(page).toHaveTitle(/Add-ons/);
   const settings = page.getByTestId('addons-settings');
   await expect(settings.getByRole('heading', { name: 'In this business' })).toBeVisible();
   await expect(page.getByTestId('addons-installed-empty')).toContainText('Nothing added yet');
   await expect(settings.getByRole('heading', { name: 'Available to add' })).toBeVisible();
   await expect(page.getByTestId('addons-available-empty')).toContainText('None to add yet');
+  // The old Settings address still lands here, with the add-on it names.
+  await page.goto(`/app/w/${workspaceId}/settings/add-ons?addon=hvac`);
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/add-ons\\?addon=hvac$`));
+
   // Nothing built, so no add-on card of any kind; Real Estate Agent is coming soon.
   await expect(settings.locator('[data-place]')).toHaveCount(0);
   await expect(page.getByTestId('coming-soon-realestate')).toContainText('Real Estate Agent');
@@ -94,8 +102,10 @@ test('an owner finds Add-ons in Settings with nothing added yet; a member never 
   const mem = member.page;
   await mem.goto(`/app/w/${workspaceId}/settings`);
   await expect(settingsNav(mem).getByRole('link', { name: 'Account' })).toBeVisible();
-  await expect(settingsNav(mem).getByRole('link', { name: 'Add-ons' })).toHaveCount(0);
-  await mem.goto(`/app/w/${workspaceId}/settings/add-ons`);
+  await expect(
+    mem.getByRole('navigation', { name: 'HandsFreeOS' }).getByRole('link', { name: 'Add-ons' }),
+  ).toHaveCount(0);
+  await mem.goto(`/app/w/${workspaceId}/add-ons`);
   await expect(mem.getByTestId('missing-page')).toBeVisible();
   await expect(mem.getByTestId('addons-settings')).toHaveCount(0);
   await mem.goto(`/app/w/${workspaceId}`);

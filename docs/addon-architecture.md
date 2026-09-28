@@ -106,8 +106,9 @@ or off again, and it goes by its id, which is also the name an owner types to de
 
 ## The Add-ons page
 
-**Settings** → **Add-ons**, on the web and in the phone app, is for owners and admins (`addons.manage`); nobody else
-sees it. It has four parts: what the business has (every installation, whatever its state), what it could add
+**Add-ons**, a place of its own at the foot of the web's side menu (beside Ideas and Get help) and under **More** in
+the phone app, is for owners and admins (`addons.manage`); nobody else sees it. It was a Settings tab until the owner
+moved it (2026-09-28); the old address, `/settings/add-ons`, still leads to it. It has four parts: what the business has (every installation, whatever its state), what it could add
 (what HandsFreeOS says is installable here, and paid add-ons, which say HandsFreeOS support can turn them on),
 Coming soon (what the vote picked, until it can be added), and Vote on what's next (every planned add-on still up
 for a vote; see below). A beta add-on is never offered: only support turns one on.

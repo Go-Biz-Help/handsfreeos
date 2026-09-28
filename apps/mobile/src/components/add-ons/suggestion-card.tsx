@@ -68,9 +68,7 @@ export function AddonSuggestionCard({ className }: { className?: string }) {
         <Button
           variant="secondary"
           size="sm"
-          onPress={() =>
-            router.push(businessHref(business.id, `settings/add-ons/${suggestion.addonId}`))
-          }
+          onPress={() => router.push(businessHref(business.id, `add-ons/${suggestion.addonId}`))}
           testID="addon-suggestion-see"
         >
           {ADDON_PHONE_WORDS.seeIt}

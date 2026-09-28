@@ -3,8 +3,8 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { router } from 'expo-router';
 import * as React from 'react';
 
-import AddonScreen from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/add-ons/[addonId]';
-import Addons from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/add-ons';
+import AddonScreen from '@/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/[addonId]';
+import Addons from '@/app/app/w/[workspaceId]/(tabs)/(more)/add-ons';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { toast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
@@ -15,7 +15,7 @@ import { ADDON_PHONE_WORDS } from '../words';
 import { impactOf, listFor, MEMBER } from './fixtures';
 
 /**
- * Settings → Add-ons and one add-on's own screen, with React Native Testing Library over a made-up catalogue: the
+ * Add-ons (in More) and one add-on's own screen, with React Native Testing Library over a made-up catalogue: the
  * sections (and the card when there's nothing at all, as today), progress while the worker moves one, a move that
  * takes something away asked first with what goes with it, the question HandsFreeOS asks about the add-ons one needs
  * and the yes that sends it again, deleting data with the name typed (owners only), switches, and what a paid or a
@@ -124,7 +124,7 @@ beforeEach(() => {
   jest.spyOn(toast, 'error').mockImplementation(() => 1);
 });
 
-describe('Settings → Add-ons', () => {
+describe('Add-ons', () => {
   it('says there are none yet when there is nothing anywhere, as until the first add-on ships', async () => {
     answers['/v1/queries/addon.list'] = listFor({}, { catalog: [] });
     await show(<Addons />);
@@ -174,7 +174,7 @@ describe('Settings → Add-ons', () => {
     expect(screen.queryByTestId('add-on-row-fxbeta')).toBeNull();
 
     await fireEvent.press(screen.getByTestId('add-on-row-fxrent'));
-    expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons/fxrent`);
+    expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/add-ons/fxrent`);
   });
 
   it('shows what is coming soon and lets an owner vote on what comes next', async () => {
@@ -247,7 +247,7 @@ describe('Settings → Add-ons', () => {
     answers['/v1/queries/addon.list'] = listFor({ fxprop: 'enabled' });
     await show(<Addons />);
     await waitFor(() =>
-      expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons/fxprop`),
+      expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/add-ons/fxprop`),
     );
     expect(router.push).toHaveBeenCalledTimes(1);
   });

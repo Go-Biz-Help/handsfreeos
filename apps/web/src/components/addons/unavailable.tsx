@@ -20,13 +20,13 @@ export function AddonUnavailable({
   workspaceId: string;
   /** The add-on's name, when it's known; the words make do without it. */
   name?: string;
-  /** Its id, when it's known: Settings → Add-ons opens at it. */
+  /** Its id, when it's known: the Add-ons page opens at it. */
   addonId?: string;
   canManage: boolean;
 }) {
   const home = `/app/w/${workspaceId}`;
   const what = name ?? 'This add-on';
-  const addOns = `${home}/settings/add-ons${addonId ? `?addon=${addonId}` : ''}`;
+  const addOns = `${home}/add-ons${addonId ? `?addon=${addonId}` : ''}`;
   return (
     <div className="mx-auto max-w-[520px] py-8 md:py-14" data-testid="addon-unavailable">
       <Card className="rounded-dialog p-7 text-center md:p-9">
@@ -40,7 +40,7 @@ export function AddonUnavailable({
             </h1>
             <p className="mt-2 text-text-2">
               Its screens and records are hidden while it’s off, and nothing is lost. Turn it on
-              again in Settings → Add-ons and everything is back where it was.
+              again in Add-ons and everything is back where it was.
             </p>
           </>
         ) : (

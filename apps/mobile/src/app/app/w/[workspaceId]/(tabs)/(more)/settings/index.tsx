@@ -17,7 +17,6 @@ import {
   Layers,
   LogOut,
   Moon,
-  Puzzle,
   ScanFace,
   Smartphone,
   User,
@@ -35,8 +34,6 @@ import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
-import { useAddonGrants } from '@/add-ons/use-add-ons';
-import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import { APPEARANCE_LABELS, setAppearance, useAppearance, type Appearance } from '@/lib/appearance';
 import { biometrics, unlockLabel, type BiometricInfo } from '@/lib/biometrics';
 import { useMyCell } from '@/inbox/cell';
@@ -64,7 +61,6 @@ export default function Settings() {
   // The business's balance is for whoever manages its money here (0106).
   const { whole } = useMoneyRole();
   // Add-ons are for whoever may install them (0108); nobody else sees the row.
-  const { manage: managesAddons } = useAddonGrants();
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
   const [appearanceOpen, setAppearanceOpen] = React.useState(false);
@@ -149,7 +145,7 @@ export default function Settings() {
         />
       </List>
 
-      {whole || managesAddons ? (
+      {whole ? (
         <>
           <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
           <List>
@@ -160,15 +156,6 @@ export default function Settings() {
                 detail={BALANCE_WORDS.phoneSettingsDetail}
                 onPress={() => router.push(businessHref(business.id, 'settings/usage'))}
                 testID="setting-usage"
-              />
-            ) : null}
-            {managesAddons ? (
-              <ListRow
-                icon={Puzzle}
-                label={ADDON_PHONE_WORDS.title}
-                detail={ADDON_PHONE_WORDS.settingsDetail}
-                onPress={() => router.push(businessHref(business.id, 'settings/add-ons'))}
-                testID="setting-add-ons"
               />
             ) : null}
           </List>

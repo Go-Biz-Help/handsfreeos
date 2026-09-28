@@ -48,12 +48,7 @@ export function AddonNewsCard({ className }: { className?: string }) {
           variant="secondary"
           size="sm"
           onPress={() =>
-            router.push(
-              businessHref(
-                business.id,
-                shipped ? `settings/add-ons/${news.addonId}` : 'settings/add-ons',
-              ),
-            )
+            router.push(businessHref(business.id, shipped ? `add-ons/${news.addonId}` : 'add-ons'))
           }
           testID="addon-news-see"
         >

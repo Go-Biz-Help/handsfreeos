@@ -18,7 +18,8 @@ import { useAddonGrants, useAddonList, useAddonRoadmap } from '@/add-ons/use-add
 import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 
 /**
- * Settings → Add-ons, for owners and admins (the owner's decision, 2026-09-28: they manage add-ons on the phone too).
+ * Add-ons, in More beside Ideas and Get help, for owners and admins (the owner's decisions, 2026-09-28: they manage
+ * add-ons on the phone too, and it's a place of its own rather than a setting).
  * What this business has and where each stands, what could be added, what's coming soon, and the vote on what comes
  * next (0109); each add-on's own screen has what it does and its moves. Live, as the balance is: nothing here is in
  * the phone's copy, so with no signal it says so. While an add-on is still on its way somewhere the list asks again
@@ -56,7 +57,7 @@ export default function Addons() {
   );
 
   const open = (view: AddonView) =>
-    router.push(businessHref(business.id, `settings/add-ons/${view.addonId}`));
+    router.push(businessHref(business.id, `add-ons/${view.addonId}`));
 
   // A link to one add-on (`?addon=`, the web's "See it"): its own screen, once, over this list.
   const { addon } = useLocalSearchParams<{ addon?: string }>();
@@ -64,7 +65,7 @@ export default function Addons() {
   React.useEffect(() => {
     if (!addon || !grants.manage || openedLink.current) return;
     openedLink.current = true;
-    router.push(businessHref(business.id, `settings/add-ons/${addon}`));
+    router.push(businessHref(business.id, `add-ons/${addon}`));
   }, [addon, business.id, grants.manage]);
   const rows = (views: readonly AddonView[]) =>
     views.map((view) => (
@@ -80,7 +81,7 @@ export default function Addons() {
     <Screen
       title={ADDON_PHONE_WORDS.title}
       leading="back"
-      back={businessHref(business.id, 'settings')}
+      back={businessHref(business.id, 'more')}
       testID="add-ons"
       contentClassName="gap-2"
     >

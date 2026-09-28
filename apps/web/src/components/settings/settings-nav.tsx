@@ -22,9 +22,6 @@ export function SettingsNav({
     { href: base, label: 'Account', exact: true },
     { href: `${base}/my-calendar`, label: 'My calendar' },
     { href: `${base}/workspace`, label: 'Workspace', needs: 'workspace.update' },
-    // What the business adds to HandsFreeOS (0108): owners and admins, as the business has set that up. Beside
-    // Workspace, because it changes what the whole business can do, and in view without scrolling the tabs.
-    { href: `${base}/add-ons`, label: 'Add-ons', needs: 'addons.manage' },
     // Who may do what: only an owner sets it.
     { href: `${base}/permissions`, label: 'Permissions', needs: 'permissions.manage' },
     { href: `${base}/pipelines`, label: 'Pipelines', needs: 'pipelines.manage' },
