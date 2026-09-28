@@ -295,6 +295,9 @@ export const mailboxSync: JobHandler = async (ctx) => {
   const provider = ctx.mailboxes.providers[m.provider];
   const every = ctx.mailboxes.syncEveryMs[m.provider];
   const state = (m.syncCursor ?? {}) as SyncState;
+  // Where this run has got to, and the failures in a row before it: a page filed starts the count over.
+  let cursor: Record<string, unknown> = state.provider ?? {};
+  let failuresBefore = state.failures ?? 0;
   try {
     let tokens = await freshTokens(ctx, scope, m, provider);
     const call = async <T>(fn: (accessToken: string) => Promise<T>): Promise<T> => {
@@ -311,7 +314,6 @@ export const mailboxSync: JobHandler = async (ctx) => {
     const since = new Date(
       (m.connectedAt ?? new Date()).getTime() - ctx.mailboxes.backfillDays * 86_400_000,
     );
-    let cursor: Record<string, unknown> = state.provider ?? {};
     let more = false;
     for (let pages = 0; pages < MAX_PAGES; pages++) {
       const page = await call((t) => provider.sync(t, cursor, since));
@@ -330,6 +332,7 @@ export const mailboxSync: JobHandler = async (ctx) => {
           })
           .where(eq(mailboxConnections.id, m.id)),
       );
+      failuresBefore = 0;
       if (!more) break;
     }
     return { rescheduleAt: new Date(Date.now() + (more ? 1_000 : every)) };
@@ -344,13 +347,14 @@ export const mailboxSync: JobHandler = async (ctx) => {
       );
       return;
     }
-    const failures = (state.failures ?? 0) + 1;
+    const failures = failuresBefore + 1;
     const message = errorMessage(e);
     ctx.log.warn({ connectionId: m.id, failures, err: message }, 'mailbox sync failed');
+    // Keep the pages already filed: the next try carries on from there instead of starting over.
     await asWorker(ctx.db, scope, (tx) =>
       tx
         .update(mailboxConnections)
-        .set({ syncCursor: { ...state, failures }, lastError: message.slice(0, 2000) })
+        .set({ syncCursor: { provider: cursor, failures }, lastError: message.slice(0, 2000) })
         .where(eq(mailboxConnections.id, m.id)),
     );
     if (failures >= FAILURES_BEFORE_ERROR) await failMailbox(ctx.db, scope, m, 'error', message);

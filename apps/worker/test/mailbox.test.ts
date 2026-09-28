@@ -26,7 +26,7 @@ import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs } from '../src/jobs';
 import { sha256Hex } from '../src/mailbox/sync';
-import type { TokenSet } from '../src/mailbox/provider';
+import { MailboxError, type TokenSet } from '../src/mailbox/provider';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
@@ -314,6 +314,46 @@ describe('syncing', () => {
     await setBox(outlookId, { syncCursor: {} });
     await syncNow(outlookId);
     expect(await viaMailbox(outlookId)).toHaveLength(1);
+  });
+
+  it('a sync that fails partway keeps what it filed, and filing something starts the count over', async () => {
+    const gmail = `pat-${token()}@gmail.fake`;
+    const { connectionId } = await signIn('google', gmail);
+    const cursorOf = async () =>
+      (await box(connectionId)).syncCursor as { provider: { seq: number }; failures: number };
+    // Four failures in a row already: one more with nothing filed would mark the mailbox as not syncing.
+    await setBox(connectionId, { syncCursor: { ...(await cursorOf()), failures: 4 } });
+    for (const subject of ['Filter', 'Thermostat', 'Invoice'])
+      s.mailboxes.fake.deliver(gmail, {
+        from: { address: mike, name: 'Mike Customer' },
+        subject,
+        text: `About the ${subject.toLowerCase()}.`,
+      });
+    const slowDown = () =>
+      new MailboxError('Gmail answered 403 (userRateLimitExceeded).', 403, false);
+    // The first page (two emails) goes through; Gmail says slow down on the second.
+    s.mailboxes.fake.failSync(gmail, slowDown(), 1);
+    await syncNow(connectionId);
+    expect((await viaMailbox(connectionId)).map((r) => r.subject).sort()).toEqual([
+      'Filter',
+      'Thermostat',
+    ]);
+    const kept = await cursorOf();
+    expect(kept.failures).toBe(1);
+    expect(kept.provider.seq).toBeGreaterThan(0);
+    expect(await box(connectionId)).toMatchObject({
+      status: 'active',
+      lastError: expect.stringContaining('userRateLimitExceeded'),
+    });
+    // A try that files nothing still counts, and doesn't lose the place either.
+    s.mailboxes.fake.failSync(gmail, slowDown());
+    await syncNow(connectionId);
+    expect(await cursorOf()).toEqual({ provider: kept.provider, failures: 2 });
+    // The next one carries on from where the first stopped.
+    await syncNow(connectionId);
+    expect(await viaMailbox(connectionId)).toHaveLength(3);
+    expect(await box(connectionId)).toMatchObject({ status: 'active', lastError: null });
+    expect((await cursorOf()).failures).toBe(0);
   });
 });
 
