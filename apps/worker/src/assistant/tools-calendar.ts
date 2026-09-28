@@ -58,11 +58,12 @@ export function calendarPath(
   return `/app/w/${workspaceId}/calendar${qs ? `?${qs}` : ''}`;
 }
 
+// The business id goes on last: an input can never point these at another business (audit AI-3).
 const q = <T>(db: Db, ctx: ToolContext, name: string, input: Args = {}) =>
   personQuery<T>(
     db,
     name,
-    { workspaceId: ctx.workspaceId, ...input },
+    { ...input, workspaceId: ctx.workspaceId },
     ctx.actor,
     ctx.correlationId,
   );
@@ -73,7 +74,7 @@ async function cmd<T>(db: Db, ctx: ToolContext, name: string, input: Args): Prom
   const done = await executeCommand(
     db,
     def,
-    { workspaceId: ctx.workspaceId, ...input },
+    { ...input, workspaceId: ctx.workspaceId },
     ctx.actor,
     { correlationId: ctx.correlationId, channel: 'assistant' },
   );

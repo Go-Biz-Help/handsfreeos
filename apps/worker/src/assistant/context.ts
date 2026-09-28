@@ -282,8 +282,9 @@ export async function questionContext(
   correlationId: string,
   now: Date = new Date(),
 ): Promise<QuestionContext> {
+  // The business id goes on last, so no input can point a look-up at another business (audit AI-3).
   const ask: Ask = (name, input = {}) =>
-    personQuery(db, name, { workspaceId, ...input }, actor, correlationId);
+    personQuery(db, name, { ...input, workspaceId }, actor, correlationId);
   const [{ workspace }, { pipelines }, team, services] = await Promise.all([
     ask<WorkspaceGet>('workspace.get'),
     ask<PipelineList>('pipeline.list'),

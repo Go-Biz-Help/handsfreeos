@@ -51,7 +51,7 @@ const recordHref = (ws: string, id: string) => `/app/w/${ws}/customers/records/$
 function checkInput(ctx: ToolContext, name: string, input: Args): void {
   const parsed = registry
     .command(name)
-    ?.input.safeParse({ workspaceId: ctx.workspaceId, ...input });
+    ?.input.safeParse({ ...input, workspaceId: ctx.workspaceId });
   if (!parsed || parsed.success) return;
   const issues = parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
   throw HfosError.validation(issues, issues[0]?.message ?? 'Some fields need attention.');
