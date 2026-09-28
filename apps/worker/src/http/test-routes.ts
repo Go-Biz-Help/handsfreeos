@@ -110,7 +110,14 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
                 and (locked_at is null or locked_at < now() - interval '5 minutes')`,
         ),
       );
-    const total: JobStats = { claimed: 0, done: 0, rescheduled: 0, retried: 0, failed: 0 };
+    const total: JobStats = {
+      claimed: 0,
+      done: 0,
+      rescheduled: 0,
+      retried: 0,
+      failed: 0,
+      cancelled: 0,
+    };
     // A job that asks to run again right away (it changed while it ran) gets another pass.
     for (let pass = 0; pass < 5; pass++) {
       await lockDue();

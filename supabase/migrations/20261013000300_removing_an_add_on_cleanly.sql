@@ -97,6 +97,7 @@ declare
   v_state text;
   v_n bigint;
 begin
+  perform private.assert_worker_scope(p_ws);
   select i.state into v_state from app.addon_installations i where i.workspace_id = p_ws and i.addon_id = p_addon;
   if v_state is null then
     return;
@@ -171,9 +172,7 @@ declare
   v_types uuid[];
   v_permissions text[];
 begin
-  if p_ws is distinct from private.system_scope_workspace() then
-    raise exception 'The purge runs in the worker, scoped to the business' using errcode = '42501';
-  end if;
+  perform private.assert_worker_scope(p_ws);
   perform 1 from app.addon_installations i
   where i.workspace_id = p_ws and i.addon_id = p_addon and i.state = 'purging'
   for update;
@@ -257,7 +256,25 @@ begin
   return false;
 end $$;
 
+-- ---------- the safety net ----------
+-- Every add-on, in every business, whose last move the worker hasn't finished and proved: arriving, leaving or
+-- being deleted, or changed since it was last checked. The worker's hourly sweep queues each one's reconcile, so
+-- an event lost or a job that ran out of retries never leaves an add-on half on or half gone. Businesses with no
+-- add-ons have no rows here, and settled ones are not in the index.
+create index addon_installations_unsettled_idx on app.addon_installations (workspace_id, addon_id)
+  where state in ('installing', 'uninstalling', 'purging') or verified_at is null or verified_at < changed_at;
+
+create or replace function private.addon_installations_to_reconcile()
+returns table (workspace_id uuid, organization_id uuid, addon_id text)
+language sql stable security definer set search_path = '' as $$
+  select i.workspace_id, w.organization_id, i.addon_id
+  from app.addon_installations i join app.workspaces w on w.id = i.workspace_id
+  where (i.state in ('installing', 'uninstalling', 'purging') or i.verified_at is null or i.verified_at < i.changed_at)
+    and w.deletion_requested_at is null
+$$;
+
 revoke all on function private.addon_permissions(text), private.addon_owned_rows(uuid, text),
-  private.addon_verify(uuid, text), private.purge_addon_batch(uuid, text, integer) from public;
-grant execute on function private.addon_verify(uuid, text), private.purge_addon_batch(uuid, text, integer)
-  to service_actor;
+  private.addon_verify(uuid, text), private.purge_addon_batch(uuid, text, integer),
+  private.addon_installations_to_reconcile() from public;
+grant execute on function private.addon_verify(uuid, text), private.purge_addon_batch(uuid, text, integer),
+  private.addon_installations_to_reconcile() to service_actor;

@@ -84,7 +84,10 @@ export function planTransition(
       };
     }
     // Everything it needs that isn't running here yet: installed (and off) ones are turned on, the rest installed.
-    const missing = requirementClosure(catalog, addonId).filter((r) => !addonRuns(ctx, r));
+    // One already arriving is on its way, so nobody is asked about it; the worker brings this one on after it.
+    const missing = requirementClosure(catalog, addonId).filter(
+      (r) => !addonRuns(ctx, r) && stateOf(r) !== 'installing',
+    );
     const unagreed = missing.filter((r) => !agreed.has(r));
     if (unagreed.length > 0)
       return {

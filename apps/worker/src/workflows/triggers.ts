@@ -30,7 +30,7 @@ import { tenantOf, type TenantScope } from '../services';
 import { ANCHOR_EVENTS, anchorRecord, readAnchor, type AnchorRecord } from './anchors';
 import { BATCH, dateJobKey, EARLY_MS, JOB, scheduleJobKey, SPREAD_MS } from './constants';
 import { RunData } from './data';
-import { versionDefinition } from './defs';
+import { readableVersionDefinition, versionDefinition } from './defs';
 import { enrol, type LiveRoom } from './enrol';
 import { lateDateStart, lateOf } from './late';
 import { dateOffsetInstant } from './waits';
@@ -113,7 +113,9 @@ export async function armDateTriggers(
   if (!flows.length) return;
   const tz = await workspaceZone(tx, scope.workspaceId);
   for (const f of flows) {
-    const def = await versionDefinition(tx, f.version);
+    // One workflow that can't be read never stops the event it rides on, nor the others (WF-3).
+    const def = await readableVersionDefinition(tx, f.version);
+    if (!def) continue;
     const t = def.trigger;
     if (t.kind !== 'date' || !anchors.includes(t.anchor)) continue;
     const recordId = recordOf(e, anchorRecord(t.anchor));

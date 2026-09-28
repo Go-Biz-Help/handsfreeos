@@ -103,7 +103,14 @@ async function runDue(
     ),
   );
   const workerId = `test-money:${randomUUID()}`;
-  const ran: JobStats = { claimed: 0, done: 0, rescheduled: 0, retried: 0, failed: 0 };
+  const ran: JobStats = {
+    claimed: 0,
+    done: 0,
+    rescheduled: 0,
+    retried: 0,
+    failed: 0,
+    cancelled: 0,
+  };
   // A job that asks to run again right away (it changed while it ran) gets another pass.
   for (let pass = 0; pass < 5; pass++) {
     await asWorker(deps.db, {}, (tx) =>

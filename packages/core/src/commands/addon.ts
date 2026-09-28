@@ -109,6 +109,15 @@ const known = (catalog: Catalog, addonId: string): AddonManifest => {
   return m;
 };
 
+/** Settings belong to an add-on that is on: while it's off they're kept, and out of reach (hidden until it's back). */
+async function assertOn(ctx: CommandContext, m: AddonManifest): Promise<void> {
+  const [row] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.addon_in_use(${ctx.scope.workspaceId!}::uuid, ${m.id}, false) as ok`,
+  );
+  if (!row?.ok) throw HfosError.addonInactive(m.name);
+}
+
 /** Checks settings against an add-on's schema, as a validation error the screen can show field by field. */
 function checked(
   schema: z.ZodType | undefined,
@@ -216,6 +225,7 @@ export function addonLifecycleCommands(catalog: Catalog) {
     emits: ['addon.settings_saved'],
     async handler(ctx, input) {
       const m = known(catalog, input.addonId);
+      await assertOn(ctx, m);
       const permission = m.settings?.permission ?? 'addons.manage';
       if (!(ctx.scope.workspacePermissions ?? []).includes(permission)) throw HfosError.forbidden();
       const settings =
@@ -257,6 +267,7 @@ export function addonLifecycleCommands(catalog: Catalog) {
     emits: [],
     async handler(ctx, input) {
       const m = known(catalog, input.addonId);
+      await assertOn(ctx, m);
       const settings = checked(m.settings?.user, input.settings, 'personal settings') as Record<
         string,
         unknown

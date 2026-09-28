@@ -37,12 +37,15 @@
 alter table app.scheduled_jobs
   add column addon_id text check (addon_id is null or addon_id ~ '^[a-z]{2,16}$'),
   add column addon_generation integer check (addon_generation is null or addon_generation >= 1),
-  add constraint scheduled_jobs_addon_owner_check check ((addon_id is null) = (addon_generation is null));
+  -- An add-on's work is always one business's: it is cancelled, and checked, per business.
+  add constraint scheduled_jobs_addon_owner_check check (
+    (addon_id is null) = (addon_generation is null) and (addon_id is null or workspace_id is not null));
 create index scheduled_jobs_addon_pending_idx on app.scheduled_jobs (workspace_id, addon_id)
   where status = 'pending' and addon_id is not null;
 
 alter table app.webhook_deliveries
-  add column addon_id text check (addon_id is null or addon_id ~ '^[a-z]{2,16}$');
+  add column addon_id text check (addon_id is null or addon_id ~ '^[a-z]{2,16}$'),
+  add constraint webhook_deliveries_addon_owner_check check (addon_id is null or workspace_id is not null);
 create index webhook_deliveries_addon_pending_idx on app.webhook_deliveries (workspace_id, addon_id)
   where status = 'pending' and addon_id is not null;
 
@@ -50,6 +53,28 @@ alter table app.events add column addon_id text check (addon_id is null or addon
 create index events_addon_idx on app.events (workspace_id, addon_id) where addon_id is not null;
 alter table app.audit_logs add column addon_id text check (addon_id is null or addon_id ~ '^[a-z]{2,16}$');
 create index audit_logs_addon_idx on app.audit_logs (workspace_id, addon_id) where addon_id is not null;
+
+-- The worker's add-on functions act for the one business its transaction is scoped to, like its row policies.
+create or replace function private.assert_worker_scope(p_ws uuid)
+returns void language plpgsql stable set search_path = '' as $$
+begin
+  if p_ws is null or p_ws is distinct from private.system_scope_workspace() then
+    raise exception 'The worker changes an add-on only in the business it is scoped to' using errcode = '42501';
+  end if;
+end $$;
+
+-- Whether a piece of an add-on's queued work may run now: the add-on is on in its business, HandsFreeOS hasn't
+-- switched it off, and (for a job) the job was queued for the generation installed now, not before a reinstall.
+-- The job and webhook runners ask this before every add-on item they claim, from their unscoped claiming
+-- transaction; it answers only yes or no.
+create or replace function private.addon_runs_now(p_ws uuid, p_addon text, p_generation integer)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+      select 1 from app.addon_installations i
+      where i.workspace_id = p_ws and i.addon_id = p_addon and i.state = 'enabled'
+        and (p_generation is null or i.generation = p_generation))
+    and not exists (select 1 from platform.addon_overrides o where o.addon_id = p_addon and o.status = 'unavailable')
+$$;
 
 -- Everything an add-on has queued in one business, stopped: its jobs cancelled, its provider messages set aside.
 -- A job that is running now keeps running to its end but can't put itself back (its lease is gone), and the job
@@ -61,6 +86,7 @@ declare
   v_jobs integer;
   v_deliveries integer;
 begin
+  perform private.assert_worker_scope(p_ws);
   update app.scheduled_jobs j set status = 'cancelled', finished_at = now(), locked_at = null, locked_by = null,
     last_error = 'addon_inactive'
   where j.workspace_id = p_ws and j.addon_id = p_addon and j.status = 'pending';
@@ -80,8 +106,14 @@ alter table app.custom_record_types
   add constraint custom_record_types_addon_check check ((addon_id is null) = (write_permission is null));
 create index custom_record_types_addon_idx on app.custom_record_types (workspace_id, addon_id)
   where addon_id is not null;
--- A business's own "Property" and an add-on's may both exist: names are unique among a business's own kinds, and
--- among each add-on's.
+-- A business's own "Property" and an add-on's may both exist: names and keys are unique among a business's own
+-- kinds, and among each add-on's. (A kind's key is only ever looked up alongside its add-on, so a groomer's own
+-- `pet_profile` never stops a `pet` add-on from installing its own.)
+alter table app.custom_record_types drop constraint custom_record_types_workspace_id_key_key;
+create unique index custom_record_types_key_unique on app.custom_record_types (workspace_id, key)
+  where addon_id is null;
+create unique index custom_record_types_addon_key_unique on app.custom_record_types (workspace_id, addon_id, key)
+  where addon_id is not null;
 drop index app.custom_record_types_name_unique;
 create unique index custom_record_types_name_unique on app.custom_record_types (workspace_id, lower(btrim(singular)))
   where archived_at is null and addon_id is null;
@@ -236,6 +268,7 @@ declare
   v_kinds uuid[];
   v_n integer;
 begin
+  perform private.assert_worker_scope(p_ws);
   select coalesce(array_agg(t.id), '{}') into v_kinds from app.custom_record_types t
   where t.workspace_id = p_ws and t.addon_id = p_addon and t.archived_at is null;
   update app.custom_record_types t set archived_at = v_at where t.id = any (v_kinds);
@@ -252,6 +285,7 @@ declare
   v_kind record;
   v_n integer := 0;
 begin
+  perform private.assert_worker_scope(p_ws);
   for v_kind in select t.id, t.archived_at from app.custom_record_types t
       where t.workspace_id = p_ws and t.addon_id = p_addon and t.archived_at is not null loop
     update app.relationship_types r set archived_at = null
@@ -432,14 +466,16 @@ begin
   execute format('revoke all on %s from anon', p_table);
 end $$;
 
-revoke all on function private.addon_cancel_work(uuid, text), private.record_kind_owner(uuid),
+revoke all on function private.assert_worker_scope(uuid), private.addon_runs_now(uuid, text, integer),
+  private.addon_cancel_work(uuid, text), private.record_kind_owner(uuid),
   private.hidden_record_kinds(), private.addon_hide_records(uuid, text), private.addon_show_records(uuid, text),
   private.record_addon_usage(uuid, text, text, numeric, text, timestamptz), private.create_addon_schema(text),
   private.addon_writable(uuid, text), private.addon_table_policies(regclass, text, text, text)
   from public;
 grant execute on function private.record_kind_owner(uuid), private.hidden_record_kinds(),
   private.addon_writable(uuid, text) to authenticated, service_actor;
-grant execute on function private.addon_cancel_work(uuid, text), private.addon_hide_records(uuid, text),
+grant execute on function private.assert_worker_scope(uuid), private.addon_runs_now(uuid, text, integer),
+  private.addon_cancel_work(uuid, text), private.addon_hide_records(uuid, text),
   private.addon_show_records(uuid, text) to service_actor;
 grant execute on function private.record_addon_usage(uuid, text, text, numeric, text, timestamptz)
   to authenticated, service_actor;

@@ -14,9 +14,10 @@ import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
+import { ADDON_CATALOG } from '../addons/catalog';
 import {
   CUSTOMIZABLE_PERMISSIONS,
-  effectivePermissions,
+  isCustomizablePermission,
   ROLE_LABELS,
   type CustomizableRole,
 } from '../permissions';
@@ -34,7 +35,40 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 
 /** "Send estimates and invoices, start plans", for the audit log. */
 const labelOf = (permission: string): string =>
-  CUSTOMIZABLE_PERMISSIONS.find((p) => p.permission === permission)?.label ?? permission;
+  CUSTOMIZABLE_PERMISSIONS.find((p) => p.permission === permission)?.label ??
+  ADDON_CATALOG.flatMap((m) => m.permissions).find((p) => p.key === permission)?.label ??
+  permission;
+
+/**
+ * Core's customizable permissions, and those an add-on installed here lets a business set (0108): its manifest's,
+ * registered in app.customizable_permissions. A setting for an add-on that is off is kept, and counts again when
+ * it's back on.
+ */
+async function assertSettable(ctx: CommandContext, permission: string): Promise<void> {
+  if (isCustomizablePermission(permission)) return;
+  const [row] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select exists (
+          select 1 from app.customizable_permissions c
+          join app.addon_installations i on i.addon_id = c.addon_id
+          where c.permission = ${permission} and i.workspace_id = ${ctx.scope.workspaceId!}::uuid
+            and i.state in ('installing', 'enabled', 'disabled', 'uninstalling')) as ok`,
+  );
+  if (!row?.ok)
+    throw HfosError.validation(
+      [{ path: 'permission', message: 'That isn’t something you can set here.' }],
+      'That isn’t something you can set here.',
+    );
+}
+
+/** What someone with this role may do here now, as the database works it out (add-ons' permissions and all). */
+async function roleEffective(ctx: CommandContext, role: CustomizableRole): Promise<string[]> {
+  const [row] = await rows<{ permissions: string[] }>(
+    ctx.tx,
+    sql`select private.role_would_grant(${ctx.scope.workspaceId!}::uuid, ${role}::app.member_role) as permissions`,
+  );
+  return row?.permissions ?? [];
+}
 
 const said = (allowed: boolean | null | undefined): string =>
   allowed === true ? 'on' : allowed === false ? 'off' : 'as the default';
@@ -98,10 +132,11 @@ export const permissionSetRole = defineCommand({
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const role = input.role as CustomizableRole;
+    await assertSettable(ctx, input.permission);
     const before = await roleSettings(ctx, role);
     const was = before[input.permission];
     if ((was ?? null) === input.allowed)
-      return { changed: false, effective: effectivePermissions(role, before) };
+      return { changed: false, effective: await roleEffective(ctx, role) };
     if (input.allowed === null)
       await ctx.tx
         .delete(rolePermissionOverrides)
@@ -130,9 +165,6 @@ export const permissionSetRole = defineCommand({
           ],
           set: { allowed: input.allowed, updatedBy: me, updatedAt: new Date() },
         });
-    const after = { ...before };
-    if (input.allowed === null) delete after[input.permission];
-    else after[input.permission] = input.allowed;
     await ctx.emit({
       type: 'permission.role_set',
       entityType: 'workspace',
@@ -141,7 +173,7 @@ export const permissionSetRole = defineCommand({
       before: { role: ROLE_LABELS[role], [labelOf(input.permission)]: said(was) },
       after: { role: ROLE_LABELS[role], [labelOf(input.permission)]: said(input.allowed) },
     });
-    return { changed: true, effective: effectivePermissions(role, after) };
+    return { changed: true, effective: await roleEffective(ctx, role) };
   },
 });
 
@@ -158,6 +190,7 @@ export const permissionSetMember = defineCommand({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
+    await assertSettable(ctx, input.permission);
     const person = await requireSettablePerson(ctx, input.userId);
     const [now] = await ctx.tx
       .select({ allowed: memberPermissionOverrides.allowed })
@@ -244,7 +277,7 @@ export const permissionReset = defineCommand({
           payload: { role, permissions: gone.map((g) => g.permission) },
           after: { role: ROLE_LABELS[role], permissions: 'back to the default' },
         });
-      return { changed: gone.length > 0, effective: effectivePermissions(role) };
+      return { changed: gone.length > 0, effective: await roleEffective(ctx, role) };
     }
     const person = await requireSettablePerson(ctx, input.userId!);
     const gone = await ctx.tx

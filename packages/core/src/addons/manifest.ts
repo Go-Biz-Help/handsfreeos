@@ -10,6 +10,7 @@
  * find, check and remove.
  */
 import type { z } from 'zod';
+import { RECORD_ICONS } from '../relationships/words';
 
 /**
  * An add-on's id: 2 to 16 lowercase letters. Never reused and never renamed. Letters only, because it starts every
@@ -121,13 +122,12 @@ export interface AddonRecordKind {
   readonly nameLabel?: string;
   /** One of core's RECORD_ICONS. */
   readonly icon?: string;
-  /** Who may add or change one (the add-on's own permission); reading follows records.read like every record. */
-  readonly writePermission: string;
   /**
-   * What permanently deleting the add-on's data does with its records: `tombstone` keeps the name, so tasks, files
-   * and the timeline still say what they were about; `delete` removes them.
+   * Who may add or change one (the add-on's own permission); reading follows records.read like every record.
+   * Permanently deleting the add-on's data keeps each record's name and nothing else (the owner's decision,
+   * 2026-09-28), so the tasks, files and timeline lines about one still say what it was.
    */
-  readonly onPurge?: 'tombstone' | 'delete';
+  readonly writePermission: string;
 }
 
 /** One end of a relationship type an add-on manages: a customer, a company, or one of its record kinds. */
@@ -181,8 +181,6 @@ export interface AddonSettingsDeclaration {
   readonly permission?: string;
   /** On/off switches with a default, kept per business in `app.addon_installations.flags`. */
   readonly flags?: Readonly<Record<string, { readonly label: string; readonly default: boolean }>>;
-  /** Credentials the business gives it (an API key), sealed by the worker and never readable by a person. */
-  readonly secrets?: readonly { readonly key: string; readonly label: string }[];
 }
 
 /** What an add-on costs is never here: only what it counts, so any pricing can be built on top later. */
@@ -322,11 +320,23 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     (m.requires ?? []).map((d) => d.addon),
   );
 
+  // The database's own limits on a kind of record and a relationship type (0100, 0101), checked here so a manifest
+  // that breaks one fails in the catalogue's tests, never halfway through a business installing it.
+  const label = (what: string, text: string | undefined) => {
+    if (text !== undefined && (!text.trim() || text.trim().length > 40))
+      say(`${what} must be 1–40 characters`);
+  };
   const kinds = new Set((m.recordKinds ?? []).map((k) => k.key));
   for (const k of m.recordKinds ?? []) {
-    if (!under.test(k.key)) say(`record kind "${k.key}" must start with "${m.id}_"`);
+    if (!under.test(k.key) || k.key.length > 40)
+      say(`record kind "${k.key}" must start with "${m.id}_" and be at most 40 characters`);
     if (!permissionKeys.has(k.writePermission))
       say(`record kind "${k.key}" is written with "${k.writePermission}", which isn't declared`);
+    label(`record kind "${k.key}"'s singular`, k.singular);
+    label(`record kind "${k.key}"'s plural`, k.plural);
+    label(`record kind "${k.key}"'s name label`, k.nameLabel);
+    if (k.icon !== undefined && !(RECORD_ICONS as readonly string[]).includes(k.icon))
+      say(`record kind "${k.key}"'s icon "${k.icon}" isn't one of the record icons`);
   }
   unique(
     'record kind',
@@ -334,6 +344,8 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
   );
   for (const t of m.relationshipTypes ?? []) {
     if (!under.test(t.key)) say(`relationship type "${t.key}" must start with "${m.id}_"`);
+    label(`relationship type "${t.key}"'s a label`, t.aLabel);
+    label(`relationship type "${t.key}"'s b label`, t.bLabel);
     for (const end of [t.a, t.b])
       if (end.kind === 'record' && !kinds.has(end.recordKind))
         say(
@@ -359,8 +371,8 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
       say('settings.version must be 1 or more');
     if (m.settings.permission && !m.settings.permission.includes('.'))
       say(`settings.permission "${m.settings.permission}" isn't a permission`);
-    for (const s of m.settings.secrets ?? [])
-      if (!/^[a-z][a-z0-9_]{0,39}$/.test(s.key)) say(`secret "${s.key}" isn't a valid key`);
+    for (const key of Object.keys(m.settings.flags ?? {}))
+      if (!/^[a-z][a-z0-9_]{0,39}$/.test(key)) say(`switch "${key}" isn't a valid key`);
   }
   for (const n of m.ui?.nav ?? []) {
     if (!/^[a-z][a-z0-9_-]{0,39}$/.test(n.key)) say(`menu place "${n.key}" isn't a valid key`);

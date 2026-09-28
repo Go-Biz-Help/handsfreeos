@@ -36,6 +36,8 @@ export interface JobStats {
   rescheduled: number;
   retried: number;
   failed: number;
+  /** An add-on's jobs that came up while it was off, or queued before it was reinstalled: never run. */
+  cancelled: number;
 }
 
 /**
@@ -94,7 +96,14 @@ export async function scheduleDebouncedJob(
  * pgmq (or another queue) can replace the storage later behind the same two functions.
  */
 export async function processJobs(deps: JobDeps): Promise<JobStats> {
-  const stats: JobStats = { claimed: 0, done: 0, rescheduled: 0, retried: 0, failed: 0 };
+  const stats: JobStats = {
+    claimed: 0,
+    done: 0,
+    rescheduled: 0,
+    retried: 0,
+    failed: 0,
+    cancelled: 0,
+  };
   const claimed = await asWorker(deps.db, {}, (tx) =>
     rows<{ id: string }>(
       tx,
@@ -117,14 +126,22 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
   const ours = (id: string) =>
     and(eq(scheduledJobs.id, id), eq(scheduledJobs.lockedBy, deps.workerId));
   for (const { id } of claimed) {
-    // Read as its turn comes, and the lease renewed from now for the handler's own five minutes.
-    const [job] = await asWorker(deps.db, {}, (tx) =>
-      tx
+    // Read as its turn comes, and the lease renewed from now for the handler's own five minutes. An add-on's job
+    // also asks, in the same transaction, whether its add-on still runs here at the generation it was queued for;
+    // core's jobs ask nothing, so add-ons cost them nothing.
+    const { job, addonRuns } = await asWorker(deps.db, {}, async (tx) => {
+      const [row] = await tx
         .update(scheduledJobs)
         .set({ lockedAt: sql`now()` })
         .where(and(ours(id), eq(scheduledJobs.status, 'pending')))
-        .returning(),
-    );
+        .returning();
+      if (!row?.addonId) return { job: row, addonRuns: true };
+      const [check] = await rows<{ ok: boolean }>(
+        tx,
+        sql`select private.addon_runs_now(${row.workspaceId}::uuid, ${row.addonId}, ${row.addonGeneration}::integer) as ok`,
+      );
+      return { job: row, addonRuns: check?.ok === true };
+    });
     if (!job) continue;
     const handler = deps.jobs[job.kind];
     const finish = (set: PgUpdateSetSource<typeof scheduledJobs>) =>
@@ -134,6 +151,17 @@ export async function processJobs(deps: JobDeps): Promise<JobStats> {
           .set({ ...set, lockedAt: null, lockedBy: null })
           .where(ours(id)),
       );
+    // Turned off, uninstalled or reinstalled since: it never runs, and nothing it would have sent goes out late
+    // (the owner's decision, 2026-09-28). Nor does an add-on job this build has no code for.
+    if (job.addonId && (!addonRuns || !handler)) {
+      await finish({
+        status: 'cancelled',
+        lastError: addonRuns ? `no handler for ${job.kind}` : 'addon_inactive',
+        finishedAt: new Date(),
+      });
+      stats.cancelled++;
+      continue;
+    }
     if (!handler) {
       await finish({
         status: 'failed',

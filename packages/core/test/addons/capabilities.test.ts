@@ -196,6 +196,14 @@ describe('planTransition', () => {
     ]);
   });
 
+  it('doesn’t ask about a dependency already on its way', () => {
+    const ctx: CapabilityContext = { ...A, installations: { fxprop: 'installing' } };
+    const plan = planTransition(ctx, 'fxrent', 'install');
+    expect(plan.kind === 'plan' && plan.moves.map((m) => `${m.action} ${m.addonId}`)).toEqual([
+      'install fxrent',
+    ]);
+  });
+
   it('turns an installed-but-off dependency back on instead of installing it again', () => {
     const ctx: CapabilityContext = { ...A, installations: { fxprop: 'disabled' } };
     const plan = planTransition(ctx, 'fxrent', 'install', ['fxprop']);

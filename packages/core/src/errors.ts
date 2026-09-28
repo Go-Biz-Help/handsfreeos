@@ -32,6 +32,10 @@ const ASK_RULES: ReadonlySet<string> = new Set([
   'has_open_work',
   // Disconnecting a payment account that plans still bill through (acknowledgeSubscriptions).
   'payment_connection_has_plans',
+  // An add-on move that needs others moved with it: "Rent Collection needs Property Management. Turn it off too?"
+  // (`include`, the add-ons named in the refusal's details).
+  'addon_needs',
+  'addon_required_by',
   // The Assistant before the person's OK to send what they ask about to an AI service (assistant.consent).
   'assistant_consent_required',
 ]);

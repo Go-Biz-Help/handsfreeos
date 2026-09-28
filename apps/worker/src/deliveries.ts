@@ -61,25 +61,38 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
   const ours = (id: string) =>
     and(eq(webhookDeliveries.id, id), eq(webhookDeliveries.lockedBy, deps.workerId));
   for (const { id } of claimed) {
-    // Read as its turn comes, and the lease renewed from now for the processor's own five minutes.
-    const [delivery] = await asWorker(deps.db, {}, (tx) =>
-      tx
+    // Read as its turn comes, and the lease renewed from now for the processor's own five minutes. One that came
+    // for an add-on asks, in the same transaction, whether the add-on still runs in its business.
+    const { delivery, addonRuns } = await asWorker(deps.db, {}, async (tx) => {
+      const [row] = await tx
         .update(webhookDeliveries)
         .set({ lockedAt: sql`now()` })
         .where(and(ours(id), eq(webhookDeliveries.status, 'pending')))
-        .returning(),
-    );
+        .returning();
+      if (!row?.addonId) return { delivery: row, addonRuns: true };
+      const [check] = await rows<{ ok: boolean }>(
+        tx,
+        sql`select private.addon_runs_now(${row.workspaceId}::uuid, ${row.addonId}, null) as ok`,
+      );
+      return { delivery: row, addonRuns: check?.ok === true };
+    });
     if (!delivery) continue;
     const processor = deps.processors[`${delivery.provider}:${delivery.kind}`];
     try {
-      const outcome = processor
-        ? await processor({
-            ...deps,
-            delivery,
-            attempt: delivery.attempts + 1,
-            log: deps.log.child({ deliveryId: id, kind: `${delivery.provider}:${delivery.kind}` }),
-          })
-        : 'ignored';
+      // An add-on that is off takes nothing in: what its provider sent is set aside, not processed later.
+      const outcome = !addonRuns
+        ? 'ignored'
+        : processor
+          ? await processor({
+              ...deps,
+              delivery,
+              attempt: delivery.attempts + 1,
+              log: deps.log.child({
+                deliveryId: id,
+                kind: `${delivery.provider}:${delivery.kind}`,
+              }),
+            })
+          : 'ignored';
       await asWorker(deps.db, {}, (tx) =>
         tx
           .update(webhookDeliveries)
@@ -88,7 +101,7 @@ export async function processDeliveries(deps: DeliveryDeps): Promise<DeliverySta
             processedAt: new Date(),
             lockedAt: null,
             lockedBy: null,
-            lastError: null,
+            lastError: addonRuns ? null : 'addon_inactive',
           })
           .where(ours(id)),
       );

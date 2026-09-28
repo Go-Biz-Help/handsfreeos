@@ -78,7 +78,7 @@ describe('manifestIssues', () => {
       expect.arrayContaining([
         'capability "other.thing" must start with "fxprop."',
         'permission "records.write" must start with "fxprop."',
-        'record kind "property" must start with "fxprop_"',
+        'record kind "property" must start with "fxprop_" and be at most 40 characters',
         'event "lease.signed" must start with "fxprop."',
         'job kind "rent_check" must start with "fxprop."',
         'resource kind "bank" must start with "fxprop."',

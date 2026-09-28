@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { memberPermissionOverrides, rolePermissionOverrides } from '@hfos/db/schema';
 import { defineQuery } from '../kernel/define';
-import { CUSTOMIZABLE_ROLES, effectivePermissions, type WorkspaceRole } from '../permissions';
+import { CUSTOMIZABLE_ROLES, type WorkspaceRole } from '../permissions';
 import { PermissionSettingsInput, PermissionSettingsOutput } from '../schemas/permission';
 
 export const permissionSettings = defineQuery({
@@ -19,7 +19,7 @@ export const permissionSettings = defineQuery({
   scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
   async handler(ctx) {
     const ws = ctx.scope.workspaceId!;
-    const [roleRows, memberRows, people] = await Promise.all([
+    const [roleRows, memberRows, people, roleLists] = await Promise.all([
       ctx.tx
         .select()
         .from(rolePermissionOverrides)
@@ -42,13 +42,23 @@ export const permissionSettings = defineQuery({
             join app.users u on u.id = m.user_id
             order by private.role_rank(m.role) desc, lower(coalesce(nullif(u.full_name, ''), u.email::text))`,
       ),
+      // What each role carries here, from the database's one copy of the rules: add-ons' permissions and all.
+      rows<{ role: string; permissions: string[] }>(
+        ctx.tx,
+        sql`select r.role, private.role_would_grant(${ws}::uuid, r.role::app.member_role) as permissions
+            from unnest(${`{${CUSTOMIZABLE_ROLES.join(',')}}`}::text[]) as r(role)`,
+      ),
     ]);
     const settingsOf = (list: readonly { permission: string; allowed: boolean }[]) =>
       Object.fromEntries(list.map((r) => [r.permission, r.allowed]));
     return {
       roles: CUSTOMIZABLE_ROLES.map((role) => {
         const settings = settingsOf(roleRows.filter((r) => r.role === role));
-        return { role, settings, effective: effectivePermissions(role, settings) };
+        return {
+          role,
+          settings,
+          effective: roleLists.find((r) => r.role === role)?.permissions ?? [],
+        };
       }),
       people: people.map((p) => ({
         userId: p.user_id,

@@ -64,7 +64,14 @@ export function registerTeammateTestRoutes(
       ),
     );
     const workerId = `test-ai-team:${randomUUID()}`;
-    const total: JobStats = { claimed: 0, done: 0, rescheduled: 0, retried: 0, failed: 0 };
+    const total: JobStats = {
+      claimed: 0,
+      done: 0,
+      rescheduled: 0,
+      retried: 0,
+      failed: 0,
+      cancelled: 0,
+    };
     for (let pass = 0; pass < 5; pass++) {
       await asWorker(deps.db, {}, (tx) =>
         tx.execute(

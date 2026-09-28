@@ -7,6 +7,7 @@
  * tests register these ids' permissions in a shared local database, and the parity tests ignore ids that aren't in
  * the real catalogue. Nothing here is imported by anything but tests.
  */
+import { z } from 'zod';
 import { defineAddon, type AddonManifest, type Catalog } from '../../src/index';
 
 const base = {
@@ -70,7 +71,7 @@ export const fxprop = defineAddon({
       key: 'fxprop_lease',
       singular: 'Lease',
       plural: 'Leases',
-      icon: 'file-text',
+      icon: 'file',
       writePermission: 'fxprop.write',
     },
   ],
@@ -156,7 +157,19 @@ const simple = (
     ...extra,
   });
 
-export const fxacct = simple('fxacct', 'Accounting', ['books', 'ledger', 'expenses', 'profit']);
+/** With settings: the business's (changed by whoever may use it), each person's own, and a switch. */
+export const fxacct = simple('fxacct', 'Accounting', ['books', 'ledger', 'expenses', 'profit'], {
+  settings: {
+    version: 1,
+    permission: 'fxacct.use',
+    workspace: z.object({
+      currency: z.enum(['usd', 'eur']).default('usd'),
+      closeDay: z.number().int().min(1).max(28).default(1),
+    }),
+    user: z.object({ digest: z.boolean().default(false) }),
+    flags: { beta_reports: { label: 'Try the new reports', default: false } },
+  },
+});
 export const fxsocial = simple('fxsocial', 'Social Media Scheduler', [
   'social',
   'posts',

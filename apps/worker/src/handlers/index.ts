@@ -1,4 +1,5 @@
 import { onAccountDeletionRequested } from '../account/delete';
+import { withAddons } from '../addons/index';
 import { onWorkspaceDeletionRequested } from '../workspace/delete';
 import { withTeammate } from '../ai-team/index';
 import { withAttention } from '../attention/index';
@@ -302,13 +303,15 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
 );
 
 // withPush appends last: a booking, an assignment, an approval waiting or a payment queues its push once the event's
-// other work is done (push/moments.ts).
+// other work is done (push/moments.ts). withAddons adds the add-on lifecycle's handlers, and after everything else
+// an event's delivery to each add-on that subscribes to it and runs in the business, as a job of its own
+// (addons/index.ts).
 //
 // The support desk's own events (M13) are added afterwards, outside all of that: they belong to no business,
 // so there is no teammate to wake, no workflow to start and nothing to put on anyone's Home.
 export const handlers: HandlerMap = {
   // withContactAi appends the AI's look at a customer's tags and details to what happened with them (contact-ai/).
-  ...withPush(withAttention(withContactAi(ownTeammateAndWorkflows))),
+  ...withAddons(withPush(withAttention(withContactAi(ownTeammateAndWorkflows)))),
   ...supportHandlers,
   // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
   ...ideaHandlers,
