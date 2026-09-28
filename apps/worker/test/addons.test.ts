@@ -699,6 +699,12 @@ describe('installing a newer version (B)', () => {
     const kindBefore = await one<{ id: string }>(
       sql`select id from app.custom_record_types where workspace_id = ${wsB} and key = 'fxprop_property'`,
     );
+    // The business had called its properties rentals; reinstalling keeps its name (the owner's decision).
+    await rows(
+      admin(),
+      sql`update app.custom_record_types set singular = 'Rental', plural = 'Rentals', name_label = 'Street',
+            icon = 'key' where id = ${kindBefore!.id}`,
+    );
     calls.length = 0;
     await run(cmdsV2.install, { workspaceId: wsB, addonId: 'fxprop' }, owner);
     // Queued under the old generation, as if in a race with the reinstall.
@@ -719,12 +725,19 @@ describe('installing a newer version (B)', () => {
       'fxprop installed at generation 2',
       'fxprop on',
     ]);
-    // The same kind as before, and the record back, relationship and all.
+    // The same kind as before, under the business's name, and the record back, relationship and all.
     expect(
       await one(
-        sql`select id from app.custom_record_types where workspace_id = ${wsB} and key = 'fxprop_property'`,
+        sql`select id, singular, plural, name_label, icon from app.custom_record_types
+            where workspace_id = ${wsB} and key = 'fxprop_property'`,
       ),
-    ).toEqual(kindBefore);
+    ).toEqual({
+      ...kindBefore,
+      singular: 'Rental',
+      plural: 'Rentals',
+      name_label: 'Street',
+      icon: 'key',
+    });
     expect(await memberSees(propertyId)).toEqual(['12 Main St']);
     expect(await one(sql`select notes from app.custom_records where id = ${propertyId}`)).toEqual({
       notes: 'Blue door (checked)',
