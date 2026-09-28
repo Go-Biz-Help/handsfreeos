@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
 import { toLocalInputValue } from '@/lib/format';
+import { useOpenedWith } from '@/lib/use-opened-with';
 
 export type LoggableKind = 'note' | 'call' | 'visit';
 
@@ -61,17 +62,23 @@ export function LogActivitySheet({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
+  // Where it starts, kept while it's open: the page refreshing underneath (a teammate's change, or the worker's)
+  // hands it a new list of leads, and that mustn't clear what someone is writing. See useOpenedWith.
+  const start = useOpenedWith(open, {
+    kind: initialKind,
+    leadId: record.leadId ?? leads?.[0]?.id ?? '',
+  });
   useEffect(() => {
     if (!open) return;
-    setKind(initialKind);
+    setKind(start.kind);
     setBody('');
     setWhen(toLocalInputValue(new Date()));
-    setLeadId(record.leadId ?? leads?.[0]?.id ?? '');
+    setLeadId(start.leadId);
     setWithNext(false);
     setNextText('');
     setNextAt('');
     setErrors({});
-  }, [open, initialKind, record.leadId, leads]);
+  }, [open, start]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();

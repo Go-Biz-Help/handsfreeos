@@ -13,6 +13,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { editedOnly, orNull } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { CustomField, CustomRecordDetail } from '@/lib/api/types';
+import { useOpenedWith } from '@/lib/use-opened-with';
 
 interface Kind {
   readonly id: string;
@@ -28,7 +29,7 @@ export function CustomRecordDialog({
   workspaceId,
   kind,
   fields = [],
-  initial,
+  initial: latest,
   open,
   onOpenChange,
 }: {
@@ -40,6 +41,8 @@ export function CustomRecordDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  // The record as the dialog opened on it, not as the page shows it now: see useOpenedWith.
+  const initial = useOpenedWith(open, latest);
   const router = useRouter();
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
