@@ -20,17 +20,66 @@ concurrency:
 env:
   CI: true
 
+# Three parts side by side, each on its own machine, and `verify` answering for all of them. They share nothing but
+# the checkout, so the wait is the longest part rather than the sum. Measured on 2026-09-28 with everything in one
+# job: setup, lint, typecheck and formatting about 9 minutes; the unit, database, API and worker tests about 22;
+# the seed and the two builds about 3; the browser tests 28 clean and up to 37 with retries — 58 minutes, and 69 to
+# 73 on slow runners against that job's 75-minute limit. Every check still runs on every pull request and every
+# push to main; nothing is skipped.
+#
+# Each limit is there to stop a hung job burning an hour, not to hold a part to a stopwatch, so each gets room: on
+# 2026-09-19 a 45-minute limit killed a green commit mid-browser-test and skipped the deploy behind it.
 jobs:
-  verify:
-    name: Lint, typecheck, tests, browser tests
+  checks:
+    name: Lint, typecheck, formatting and the website
     runs-on: ubuntu-latest
-    # Measured on 2026-09-19: setup, lint, typecheck and format about 7 minutes; the unit, database, API and
-    # worker tests 9 to 12; the seed and the two builds about 3; the browser tests 20 to 23. That is 40 to 45
-    # against a 45 minute limit, so a slow runner failed a green commit — the job was killed mid-browser-test
-    # and the deploy behind it skipped. The limit is here to stop a hung job burning an hour, not to hold the
-    # suite to a stopwatch, so it gets room. Better would be to run the browser tests as their own job beside
-    # this one; they share nothing but the checkout.
-    timeout-minutes: 75
+    # About 9 minutes. None of it needs the database.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # A migration that shares a version with another is silently skipped rather than refused — on the stacks the
+      # other two parts start, and on every environment after. This part fails, and `verify` with it.
+      - name: Every migration has its own version
+        run: node scripts/migrations-check.mjs
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm format:check
+
+      # The export builds the API in memory: no server and no database (apps/api/scripts/export-openapi.ts).
+      - name: Generated API client is fresh
+        run: pnpm --filter @hfos/api openapi:export && pnpm --filter @hfos/api-client check
+
+      - name: Build the public website
+        run: pnpm --filter @hfos/site build
+
+      - name: The website build ships no Opinly secret
+        # The blog reads Opinly with a secret key that can also record purchases; it must stay on the server.
+        # The pixel's publishable pk- key is meant to be public and is not matched.
+        run: |
+          if grep -rqE "OPINLY_API_KEY|OPINLY_WEBHOOK_SIGNING_SECRET|whsec_[A-Za-z0-9+/=]{20,}|sk-[A-Za-z0-9_-]{24,}" apps/site/.next/static; then
+            echo "An Opinly secret or its name is in the website's assets"; exit 1
+          fi
+
+  tests:
+    name: Unit, database, API and worker tests
+    runs-on: ubuntu-latest
+    # About 26 minutes, and up to 9 more when a registry holds the stack's images back (below).
+    timeout-minutes: 45
     # The token checks out the code and signs Docker in to ghcr.io, nothing else. Naming any permission here sets
     # every one not named to none.
     permissions:
@@ -48,11 +97,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Before the stack starts, because a migration that shares a version with another is silently skipped
-      # rather than refused — here and on every environment after.
-      - name: Every migration has its own version
-        run: node scripts/migrations-check.mjs
-
       - uses: supabase/setup-cli@v1
         with:
           version: 2.117.0
@@ -67,7 +111,7 @@ jobs:
 
       # When a registry won't hand over an image, scripts/supabase.mjs stops and tries again a minute later, up to
       # ten times, instead of failing the job before a single test has run. On a bad day that is 9 minutes of
-      # waiting, which the 75-minute limit above has room for.
+      # waiting, which the limit above has room for.
       - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
         # supabase/setup-cli points the CLI at ghcr.io alone. Without it, the CLI tries each image at
         # public.ecr.aws, then ghcr.io, then Docker Hub, so one registry refusing downloads doesn't stop the stack.
@@ -76,21 +120,54 @@ jobs:
       - name: Write local env files
         run: pnpm env:local
 
-      - run: pnpm lint
-
-      - run: pnpm typecheck
-
-      - run: pnpm format:check
-
-      - name: Generated API client is fresh
-        run: pnpm --filter @hfos/api openapi:export && pnpm --filter @hfos/api-client check
-
       - name: Unit, database, API and worker tests
         run: pnpm test
 
       - name: The seed builds through the command pipeline
         run: pnpm db:seed
 
+      - name: Stop the local stack
+        if: always()
+        run: node scripts/supabase.mjs stop --no-backup
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    # About 35 minutes, 42 with retries, and up to 9 more when a registry holds the stack's images back. The
+    # browser tests make their own people and businesses, so they need no seed.
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+
+      # As in `tests`.
+      - name: Sign Docker in to ghcr.io
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the local Supabase stack (auth, database, realtime, storage, mailpit)
+        run: env -u SUPABASE_INTERNAL_IMAGE_REGISTRY node scripts/supabase.mjs start -x imgproxy,studio,edge-runtime,logflare,vector
+
+      - name: Write local env files
+        run: pnpm env:local
+
+      # The browser tests serve this production build.
       - name: Build the web app
         run: pnpm --filter @hfos/web build
 
@@ -103,17 +180,6 @@ jobs:
           # Provider secrets live in the worker only; their names or values must never reach the browser.
           if grep -rqE "GOCSPX-[A-Za-z0-9_-]{20,}|TWILIO_AUTH_TOKEN|POSTMARK_[A-Z_]*TOKEN|WORKER_ENCRYPTION_KEY|OAUTH_CLIENT_SECRET" apps/web/.next/static; then
             echo "A provider secret or its name is in the web assets"; exit 1
-          fi
-
-      - name: Build the public website
-        run: pnpm --filter @hfos/site build
-
-      - name: The website build ships no Opinly secret
-        # The blog reads Opinly with a secret key that can also record purchases; it must stay on the server.
-        # The pixel's publishable pk- key is meant to be public and is not matched.
-        run: |
-          if grep -rqE "OPINLY_API_KEY|OPINLY_WEBHOOK_SIGNING_SECRET|whsec_[A-Za-z0-9+/=]{20,}|sk-[A-Za-z0-9_-]{24,}" apps/site/.next/static; then
-            echo "An Opinly secret or its name is in the website's assets"; exit 1
           fi
 
       - name: Install the Playwright browser
@@ -134,6 +200,26 @@ jobs:
       - name: Stop the local stack
         if: always()
         run: node scripts/supabase.mjs stop --no-backup
+
+  # The name the one job before this carried, so anything waiting on that check (the rules for merging) keeps
+  # working: it passes only when all three parts did. `always()`, because a job whose `needs` failed would otherwise
+  # be skipped, and a skipped check counts as passed.
+  verify:
+    name: Lint, typecheck, tests, browser tests
+    needs: [checks, tests, browser]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Every part passed
+        run: |
+          for result in ${{ needs.checks.result }} ${{ needs.tests.result }} ${{ needs.browser.result }}; do
+            if [ "$result" != success ]; then
+              echo "Checks: ${{ needs.checks.result }}. Tests: ${{ needs.tests.result }}. Browser tests: ${{ needs.browser.result }}."
+              exit 1
+            fi
+          done
 
   secrets:
     name: Secret scan
