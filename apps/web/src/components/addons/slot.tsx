@@ -1,28 +1,10 @@
 'use client';
 import { ADDON_CATALOG, type AddonSlotName } from '@hfos/core';
-import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
+import { Suspense, type ComponentType } from 'react';
 import { ADDON_UI, type SlotLoader, type SlotProps } from '@/addons/registry';
 import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { AddonBoundary } from './boundary';
-
-type Panel<S extends AddonSlotName> = LazyExoticComponent<ComponentType<SlotProps<S>>>;
-
-/** Each panel's lazy component, by its loader: made once, so drawing the page again doesn't load it again. */
-const panels = new Map<object, unknown>();
-
-function panelOf<S extends AddonSlotName>(load: SlotLoader<S>): Panel<S> {
-  const made = panels.get(load) as Panel<S> | undefined;
-  if (made) return made;
-  const panel = lazy(() =>
-    load().catch((e: unknown) => {
-      // A failed load isn't kept: the next time the page is drawn (Try again), it is fetched again.
-      panels.delete(load);
-      throw e;
-    }),
-  );
-  panels.set(load, panel);
-  return panel;
-}
+import { lazyOnce } from './lazy';
 
 /**
  * A place on a core page where add-ons put their panels (FE-5): `<AddonSlot name="person.panels" workspaceId=…
@@ -51,7 +33,7 @@ export function AddonSlot<S extends AddonSlotName>({
   return (
     <>
       {here.map(({ addon, load }) => {
-        const Panel = panelOf(load) as unknown as ComponentType<SlotProps>;
+        const Panel = lazyOnce(load) as unknown as ComponentType<SlotProps>;
         return (
           <AddonBoundary key={addon.id} addonName={addon.name}>
             <Suspense fallback={null}>

@@ -1,0 +1,74 @@
+import { randomUUID } from 'node:crypto';
+import { expect, test, type Page } from '@playwright/test';
+import { api, randomPhone, signInOwner } from './booking-helpers';
+import { addTeammate } from './calendar';
+import { createBusiness, signUpAndConfirm } from './helpers';
+
+/**
+ * Settings → Add-ons (0108) as it is today, with nothing in the catalogue: an owner finds the tab and a page that
+ * says there's nothing added and nothing to add yet; a member never sees the tab, and the page isn't there for
+ * them; and Home suggests no add-on to anyone, whether it's a brand-new business or its Action Center.
+ */
+
+const settingsNav = (page: Page) => page.getByRole('navigation', { name: 'Settings' });
+
+test('an owner finds Add-ons in Settings with nothing added yet; a member never sees it; Home suggests nothing', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const business = 'Harbor View Rentals';
+  const { email } = await signUpAndConfirm(page, 'addons-owner');
+  const workspaceId = await createBusiness(page, { name: business });
+
+  // A brand-new business's Home: the setup checklist, and no add-on suggested.
+  await expect(page.getByTestId('setup-checklist')).toBeVisible();
+  await expect(page.getByTestId('addon-suggestion')).toHaveCount(0);
+
+  // Owners manage add-ons: the tab is there beside Workspace, and opens a page that reads well with nothing in it.
+  await page.goto(`/app/w/${workspaceId}/settings`);
+  const tab = settingsNav(page).getByRole('link', { name: 'Add-ons' });
+  await expect(tab).toBeInViewport();
+  await tab.click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/settings/add-ons$`));
+  await expect(tab).toHaveAttribute('aria-current', 'page');
+  await expect(page).toHaveTitle(/Add-ons/);
+  const settings = page.getByTestId('addons-settings');
+  await expect(settings.getByRole('heading', { name: 'In this business' })).toBeVisible();
+  await expect(page.getByTestId('addons-installed-empty')).toContainText('Nothing added yet');
+  await expect(settings.getByRole('heading', { name: 'Available to add' })).toBeVisible();
+  await expect(page.getByTestId('addons-available-empty')).toContainText('None to add yet');
+  // Nothing is planned yet, so there's no Coming soon, and no add-on card of any kind.
+  await expect(page.getByTestId('addons-planned')).toHaveCount(0);
+  await expect(settings.locator('[data-place]')).toHaveCount(0);
+
+  // With customers, Home is the Action Center: still no suggestion.
+  const owner = await signInOwner(email);
+  await api(owner.token, 'commands', 'person.create', {
+    workspaceId,
+    firstName: 'Dana',
+    lastName: 'Whitfield',
+    email: `dana-${randomUUID().slice(0, 6)}@hfos.test`,
+    phone: randomPhone(),
+    ownerUserId: owner.userId,
+  });
+  await page.goto(`/app/w/${workspaceId}`);
+  await expect(page.getByTestId('action-center')).toBeVisible();
+  await expect(page.getByTestId('addon-suggestion')).toHaveCount(0);
+
+  // A member doesn't manage add-ons: no tab, the page isn't there for them, and Home suggests nothing.
+  const member = await addTeammate(page, browser, workspaceId, business);
+  const mem = member.page;
+  await mem.goto(`/app/w/${workspaceId}/settings`);
+  await expect(settingsNav(mem).getByRole('link', { name: 'Account' })).toBeVisible();
+  await expect(settingsNav(mem).getByRole('link', { name: 'Add-ons' })).toHaveCount(0);
+  await mem.goto(`/app/w/${workspaceId}/settings/add-ons`);
+  await expect(mem.getByTestId('missing-page')).toBeVisible();
+  await expect(mem.getByTestId('addons-settings')).toHaveCount(0);
+  await mem.goto(`/app/w/${workspaceId}`);
+  await expect(
+    mem.getByTestId('action-center').or(mem.getByTestId('setup-checklist')),
+  ).toBeVisible();
+  await expect(mem.getByTestId('addon-suggestion')).toHaveCount(0);
+  await member.context.close();
+});
