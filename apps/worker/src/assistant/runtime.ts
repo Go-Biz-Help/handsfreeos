@@ -8,7 +8,11 @@ import {
   type AiUsage,
 } from '@hfos/ai';
 import {
+  addonToolArguments,
+  addonToolDescription,
+  isAddonAiTool,
   toolInputSchema,
+  type AddonAiTool,
   type AssistantCard,
   type AssistantEvent,
   type AssistantTool,
@@ -26,6 +30,7 @@ import {
   type PromptContext,
 } from './prompt';
 import * as store from './store';
+import { addonStepLabels, addonToolStep } from './tools-addons';
 import { billingStepLabels } from './tools-billing';
 import { contentStepLabels } from './tools-content';
 import { extraStepLabels } from './tools-extra';
@@ -71,6 +76,12 @@ export interface PreparedAction {
   readonly result: unknown;
 }
 
+/**
+ * A tool the Assistant may be offered: one of core's, or one an add-on's operation declares (derived in
+ * packages/core/src/addons/ai.ts and run through the one executor in tools-addons.ts).
+ */
+export type OfferedTool = AssistantTool | AddonAiTool;
+
 export interface CommittedAction {
   readonly outcome: string;
   readonly href: string | null;
@@ -79,20 +90,20 @@ export interface CommittedAction {
 
 /** The Assistant's hands: runs "auto" tools, drafts "confirm" tools as cards, and does them once confirmed. */
 export interface ToolExecutor {
-  run(tool: AssistantTool, args: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutcome>;
+  run(tool: OfferedTool, args: Record<string, unknown>, ctx: ToolContext): Promise<ToolOutcome>;
   prepare(
-    tool: AssistantTool,
+    tool: OfferedTool,
     args: Record<string, unknown>,
     ctx: ToolContext,
     toolCallId: string,
   ): Promise<PreparedAction>;
   commit(
-    tool: AssistantTool,
+    tool: OfferedTool,
     args: Record<string, unknown>,
     ctx: ToolContext,
     extra: { readonly lostReason?: string; readonly toolCallId: string },
   ): Promise<CommittedAction>;
-  undo(tool: AssistantTool, record: Record<string, unknown>, ctx: ToolContext): Promise<string>;
+  undo(tool: OfferedTool, record: Record<string, unknown>, ctx: ToolContext): Promise<string>;
 }
 
 export interface RuntimeDeps {
@@ -110,8 +121,11 @@ export interface AskInput {
   readonly threadId?: string;
   readonly text: string;
   readonly page: { readonly type: string; readonly id: string } | null;
-  /** The tools this person may use (their role's permissions). */
-  readonly tools: readonly AssistantTool[];
+  /**
+   * The tools this person may use: core's their permissions allow, and those of the add-ons running here whose
+   * permission they hold. Nothing else can be called.
+   */
+  readonly tools: readonly OfferedTool[];
   readonly prompt: PromptContext;
 }
 
@@ -174,9 +188,12 @@ const MORE_STEP_LABELS: Record<string, string> = {
   ...contentStepLabels,
   ...setupStepLabels,
   ...extraStepLabels,
+  ...addonStepLabels,
 };
-const stepLabel = (tool: string) =>
-  STEP_LABEL[tool] ?? MORE_STEP_LABELS[tool] ?? 'Preparing it for your OK';
+const stepLabel = (tool: OfferedTool) =>
+  isAddonAiTool(tool)
+    ? addonToolStep(tool)
+    : (STEP_LABEL[tool.name] ?? MORE_STEP_LABELS[tool.name] ?? 'Preparing it for your OK');
 
 /** The thread so far as model messages: what was said, and what each answer did, as short notes. */
 function modelMessages(history: readonly store.HistoryItem[]): AiMessage[] {
@@ -235,16 +252,22 @@ export async function ask(
     correlationId,
     timezone: input.prompt.timezone,
   };
-  const offered = new Map(input.tools.map((t) => [t.name, t]));
+  // What was offered is all that can be called: anything else the model asks for is refused below.
+  const offered = new Map<string, OfferedTool>(input.tools.map((t) => [t.name, t]));
   // With tool search, only the tools the instructions name stay loaded; the model finds the rest when needed.
   const searching = deps.provider.toolSearch === true;
-  const loaded = alwaysLoaded(input.tools.map((t) => t.name));
-  const toolDefs = input.tools.map((t) => ({
-    name: t.name,
-    description: t.description,
-    inputSchema: toolInputSchema(t),
-    ...(searching && !loaded.has(t.name) ? { deferred: true } : {}),
-  }));
+  const loaded = alwaysLoaded(input.tools.filter((t) => !isAddonAiTool(t)).map((t) => t.name));
+  const toolDefs = input.tools.map((t) => {
+    const addon = isAddonAiTool(t);
+    return {
+      name: t.name,
+      description: addon ? addonToolDescription(t) : t.description,
+      inputSchema: toolInputSchema(t),
+      // An add-on's tools are always found through search, never loaded up front, so neither the tools in view nor
+      // the prompt the provider caches grow with the add-ons a business turns on.
+      ...(addon || (searching && !loaded.has(t.name)) ? { deferred: true } : {}),
+    };
+  });
   const messages = modelMessages(await store.history(deps.db, scope, run.threadId));
   const cards: AssistantCard[] = [];
 
@@ -261,8 +284,12 @@ export async function ask(
       );
       return { content: { error: 'Invalid input', issues }, isError: true };
     }
-    const args = parsed.data as Record<string, unknown>;
-    emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'running' });
+    // An add-on's tool hands the operation the model's own arguments (only what the tool declares, never the
+    // business's ids): the kernel parses them once, with the operation's schema, when it runs.
+    const args = (
+      isAddonAiTool(tool) ? addonToolArguments(tool, call.arguments) : parsed.data
+    ) as Record<string, unknown>;
+    emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'running' });
     const base = {
       userId: input.actor.userId,
       threadId: run.threadId,
@@ -302,7 +329,7 @@ export async function ask(
         }
         answer = { content: out.result, isError: !!out.isError };
       }
-      emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'done' });
+      emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'done' });
       return answer;
     } catch (e) {
       // A provider error ends the whole run (the loop stops on it).
@@ -313,7 +340,7 @@ export async function ask(
         status: 'failed',
         error: toolErrorContent(e).error,
       });
-      emit({ type: 'step', id: call.id, label: stepLabel(tool.name), status: 'failed' });
+      emit({ type: 'step', id: call.id, label: stepLabel(tool), status: 'failed' });
       return { content: toolErrorContent(e), isError: true };
     }
   };

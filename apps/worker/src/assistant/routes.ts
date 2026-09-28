@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
+  ADDON_SERVER_MODULES,
+  addonAiToolByName,
   AssistantAskInput,
   AssistantDecisionInput,
   assistantConsentOf,
   assistantToolByName,
   HfosError,
+  type AddonServerModule,
   type AssistantEvent,
+  type Catalog,
   type HumanActor,
 } from '@hfos/core/server';
 import { asUser } from '@hfos/db/client';
@@ -24,6 +28,10 @@ export interface AssistantServices {
   readonly provider: AiProvider;
   readonly tools: ToolExecutor;
   readonly dailyTokens: number;
+  /** The add-ons whose operations can be tools (default: every one HandsFreeOS ships; tests bring their own). */
+  readonly addons?: readonly AddonServerModule[];
+  /** The add-on catalogue the model's directory is written from (default: HandsFreeOS's). */
+  readonly addonCatalog?: Catalog;
 }
 
 /**
@@ -68,6 +76,8 @@ export function registerAssistantRoutes(
       input.workspaceId,
       input.page,
       randomUUID(),
+      new Date(),
+      { modules: assistant.addons, catalog: assistant.addonCatalog },
     );
     const prompt = input.spoken ? { ...context.prompt, spoken: true } : context.prompt;
     const stream = openStream<AssistantEvent>(reply);
@@ -132,7 +142,12 @@ export function registerAssistantRoutes(
     if (!assistant) throw notConfigured();
     const scope = { workspaceId: input.workspaceId, organizationId: '' };
     const call = await store.getToolCall(deps.httpDb, scope, req.params.id);
-    const tool = call ? assistantToolByName.get(call.tool) : undefined;
+    // An add-on's card is confirmed with its tool whether or not the add-on still runs: the kernel checks that, and
+    // the permission, when it runs, and a card for an add-on turned off since says so.
+    const tool = call
+      ? (assistantToolByName.get(call.tool) ??
+        addonAiToolByName(assistant.addons ?? ADDON_SERVER_MODULES, call.tool))
+      : undefined;
     if (!call || call.user_id !== actor.userId || !tool)
       throw HfosError.notFound('That card is gone.');
     const ctx = await toolContext(actor, input.workspaceId);

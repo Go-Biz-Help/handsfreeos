@@ -1,12 +1,20 @@
-import { HfosError, type AssistantCard, type AssistantTool } from '@hfos/core/server';
+import {
+  ADDON_CATALOG,
+  HfosError,
+  isAddonAiTool,
+  type AssistantCard,
+  type Catalog,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type {
   CommittedAction,
+  OfferedTool,
   PreparedAction,
   ToolContext,
   ToolExecutor,
   ToolOutcome,
 } from './runtime';
+import { capabilityTools, commitAddonTool, prepareAddonTool, runAddonTool } from './tools-addons';
 import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
 import { contactConfirmTools, contactReadTools } from './tools-contacts';
@@ -766,7 +774,10 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...extraConfirmTools,
 };
 
-/** Every tool the Assistant can call has one of these; worker tests check none is missing. */
+/**
+ * Every tool of core's the Assistant can call has one of these; worker tests check none is missing. An add-on's tools
+ * need none: they all run through the one executor in tools-addons.ts.
+ */
 export const executorFor = (name: string) =>
   readTools[name] ??
   contactReadTools[name] ??
@@ -777,6 +788,7 @@ export const executorFor = (name: string) =>
   workflowAutoTools[name] ??
   formAutoTools[name] ??
   moreAutoTools[name] ??
+  capabilityTools[name] ??
   confirmTools[name];
 
 /** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
@@ -786,9 +798,15 @@ export function createToolExecutor(
   forms: FormToolDeps | null = null,
   /** The web app's address, for the links a tool sends to a customer. */
   webUrl = '',
+  /** The add-ons find_capabilities knows of: every one HandsFreeOS ships, unless a test says otherwise. */
+  addonCatalog: Catalog = ADDON_CATALOG,
 ): ToolExecutor {
   return {
-    async run(tool: AssistantTool, args: Args, ctx: ToolContext) {
+    async run(tool: OfferedTool, args: Args, ctx: ToolContext) {
+      // An add-on's tool is its own operation, run through the kernel as the person.
+      if (isAddonAiTool(tool)) return runAddonTool(db, tool, args, ctx);
+      const capabilities = capabilityTools[tool.name];
+      if (capabilities) return capabilities(db, ctx, args, addonCatalog);
       const run =
         readTools[tool.name] ??
         contactReadTools[tool.name] ??
@@ -805,11 +823,13 @@ export function createToolExecutor(
       return flow(db, ctx, args, workflows);
     },
     async prepare(tool, args, ctx, toolCallId) {
+      if (isAddonAiTool(tool)) return prepareAddonTool(tool, args, ctx, toolCallId);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
       return t.prepare(db, ctx, args, toolCallId);
     },
     async commit(tool, args, ctx, extra) {
+      if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
       return t.commit(db, ctx, args, { ...extra, webUrl });

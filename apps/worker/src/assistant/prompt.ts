@@ -66,6 +66,13 @@ export function alwaysLoaded(offered: readonly string[]): ReadonlySet<string> {
 }
 const EVERYDAY_TOOLS = ['search_customers', 'get_customer', 'get_settings', 'settings_help'];
 
+/**
+ * What HandsFreeOS can do, and when to say so. In the per-thread part, not SYSTEM: the fixed instructions stay the
+ * same whatever a business has, and find_capabilities, not these words, decides what may be suggested.
+ */
+export const CAPABILITIES_NOTE =
+  'What HandsFreeOS can do: when they ask what it can do, whether it can do something, or for something none of your tools does, call find_capabilities with their need in their words before saying it can’t be done, and answer from what it finds: what they can do now, what an owner or admin can give them or turn back on, and never something planned as if it were ready. Mention an add-on it suggests only when it answers what they asked, once, in a sentence, and never push it.';
+
 /** Voice mode: the answer is read out, and a card waiting for their OK is answered by saying yes or no. */
 export const SPOKEN =
   'They are talking to you out loud, and your answer is read to them. Write it to be heard: short spoken sentences, no lists, tables, links or symbols, and times and amounts as people say them. When a card waits for their OK, say in one sentence what it will do; they will be asked to say yes or no.';
@@ -129,6 +136,8 @@ export interface PromptContext {
   readonly knowledge?: { readonly brief: string; readonly rules: string } | null;
   /** They're talking out loud and hear the answer read to them (voice mode). */
   readonly spoken?: boolean;
+  /** One line per add-on running here: what its tools cover (packages/core/src/addons/ai.ts, addonDirectory). */
+  readonly addons?: readonly string[];
   /** The Action Center's top items in Home's order, with their ids (the attention tools act on them). */
   readonly attention?: {
     readonly scope: 'mine' | 'everyone';
@@ -200,7 +209,7 @@ export const contextText = (c: PromptContext): string => `${lastingText(c)}\n${t
 
 /**
  * What stays the same from one question to the next (the business, the person, its pipelines, team,
- * calendars, services, workflows and profile): the provider caches it after the fixed instructions, so a
+ * calendars, services, workflows, add-ons and profile): the provider caches it after the fixed instructions, so a
  * thread's questions don't pay for it again each time. Nothing here may change per question.
  */
 export function lastingText(c: PromptContext): string {
@@ -253,6 +262,10 @@ export function lastingText(c: PromptContext): string {
           ]
         : ['Workflows: none yet.']
       : []),
+    ...(c.addons?.length
+      ? ['Add-ons on here, and what their tools cover:', ...c.addons.map((a) => `- ${a}`)]
+      : []),
+    CAPABILITIES_NOTE,
     ...(c.knowledge
       ? [
           '<business_profile>',
