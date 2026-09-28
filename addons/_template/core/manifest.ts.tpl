@@ -40,5 +40,7 @@ export const __CONST__ = defineAddon({
     },
   ],
   billing: { model: 'free' },
+  // Its place in the side menu, shown only while it runs and to people who may open it.
+  ui: { nav: [{ key: '__ID__', label: '__NAME__', icon: 'box', path: '' }] },
   ai: { directory: '__DIRECTORY__' },
 });

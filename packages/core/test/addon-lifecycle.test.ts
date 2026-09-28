@@ -509,6 +509,7 @@ describe('the add-on check, for every kind of actor', () => {
         status: 403,
         rule: 'addon_inactive',
         disposition: 'final',
+        details: { addonId: 'fxprop' },
       });
     expect(await refusal(ask(addonCount, { workspaceId: wsA }, human(member)))).toMatchObject({
       rule: 'addon_inactive',

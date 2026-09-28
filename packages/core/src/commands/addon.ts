@@ -115,7 +115,7 @@ async function assertOn(ctx: CommandContext, m: AddonManifest): Promise<void> {
     ctx.tx,
     sql`select private.addon_in_use(${ctx.scope.workspaceId!}::uuid, ${m.id}, false) as ok`,
   );
-  if (!row?.ok) throw HfosError.addonInactive(m.name);
+  if (!row?.ok) throw HfosError.addonInactive(m);
 }
 
 /** Checks settings against an add-on's schema, as a validation error the screen can show field by field. */

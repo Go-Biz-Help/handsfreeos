@@ -202,6 +202,16 @@ A business can keep its own kinds of records — pets, vehicles, properties, uni
 
 `docs/relationships.md` covers the tables, the rules and what isn't done yet.
 
+## Add-ons
+
+Optional features a business turns on for itself — property management, rent collection, a social scheduler — are add-ons: first-party code in every build, switched on per business (`app.addon_installations`). None is built yet; the foundation they stand on is.
+
+- **Off means off, everywhere.** The kernel refuses an add-on's work for people, the system, workflows and the AI teammate while it isn't on; its permissions, menu places, pages, panels and AI tools exist only while it runs; its queued jobs are cancelled and its records hidden.
+- **On core's records.** An add-on keeps its things as records of kinds it manages and ties them to customers with relationships, so timelines, tasks and files work on them unchanged. It hears about the business through events, never through another add-on.
+- **Removed cleanly, and provably.** Uninstalling keeps its data hidden until an owner deletes it; deleting keeps each record's name and every history line. Every move ends with a check that nothing is left behind.
+
+`pnpm addon:new <id>` starts one. `docs/addon-architecture.md` covers the pieces, the owner's decisions and what isn't done yet; `docs/addon-readiness-audit.md` is the audit behind it.
+
 ## How the pieces fit
 
 - **Security lives in the database.** App tables sit in schema `app`, which Supabase's REST API never exposes. The API connects as `hfos_api` and switches to the `authenticated` role with the verified JWT claims for every transaction, so row-level security decides what each request can see. The worker connects as `hfos_worker` and is scoped to one tenant per job. Nothing in the apps can bypass RLS; the database suite in `packages/db/test` proves it.

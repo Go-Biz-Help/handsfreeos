@@ -119,14 +119,15 @@ export class HfosError extends Error {
   }
   /**
    * An add-on's operation, or work for one, while that add-on isn't on in the business (0108). Final: turning it
-   * back on is a person's decision, not something a retry or an answer fixes.
+   * back on is a person's decision, not something a retry or an answer fixes. The details name the add-on, so a
+   * screen or the phone can say which and where to turn it back on.
    */
-  static addonInactive(name: string): HfosError {
+  static addonInactive(addon: { readonly id: string; readonly name: string }): HfosError {
     return new HfosError(
       'rule_violation',
       403,
-      `${name} is turned off for this business.`,
-      undefined,
+      `${addon.name} is turned off for this business.`,
+      { addonId: addon.id },
       'addon_inactive',
     );
   }

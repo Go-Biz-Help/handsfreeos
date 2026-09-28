@@ -220,7 +220,7 @@ async function assertAddonRuns(
     );
     if (row?.ok) return;
   }
-  throw HfosError.addonInactive(addon.name);
+  throw HfosError.addonInactive(addon);
 }
 
 function actorRoleLabel(scope: ResolvedScope): string | null {

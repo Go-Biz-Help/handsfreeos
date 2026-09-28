@@ -64,6 +64,7 @@ const letters = (n: number) =>
 const LIVE = `fx${letters(8)}`;
 const BOATS = `fx${letters(8)}`;
 const MARKET = `fx${letters(8)}`;
+const SPA = `fx${letters(8)}`;
 
 const actor = (u: TestUser): HumanActor => ({
   type: 'human',
@@ -173,7 +174,37 @@ const market = defineAddon({
   billing: { model: 'free' },
 });
 
-const CATALOG: Catalog = [pool, boats, market];
+/** A second add-on running beside Pool Service: one question can need both. */
+const spa = defineAddon({
+  id: SPA,
+  name: 'Spa Care',
+  summary: 'Hot tub and spa visits.',
+  description: 'A test fixture.',
+  category: 'industry',
+  version: '1.0.0',
+  dataVersion: 1,
+  catalog: { status: 'available', keywords: ['spa', 'hot tub'] },
+  capabilities: [
+    {
+      id: `${SPA}.visits`,
+      label: 'Spa visits',
+      description: 'Hot tub and spa visits.',
+      permission: `${SPA}.read`,
+    },
+  ],
+  permissions: [
+    {
+      key: `${SPA}.read`,
+      label: 'See spa visits',
+      description: 'Spa visits.',
+      defaultRoles: ['admin', 'member'],
+    },
+  ],
+  ai: { directory: 'hot tub and spa visits' },
+  billing: { model: 'free' },
+});
+
+const CATALOG: Catalog = [pool, boats, market, spa];
 
 const listVisits = defineAddonQuery(pool, {
   name: `${LIVE}.visit.list`,
@@ -267,8 +298,20 @@ const wipeVisits = defineAddonCommand(pool, {
   handler: async () => ({}),
 });
 
+const spaVisits = defineAddonQuery(spa, {
+  name: `${SPA}.visit.list`,
+  description: 'Spa visits coming up.',
+  input: z.object({ workspaceId: z.uuid() }),
+  output: z.object({ visits: z.array(z.string()) }),
+  permission: `${SPA}.read`,
+  scope,
+  ai: { tool: `${SPA}_spa_visits`, description: 'The next spa visits' },
+  handler: async () => ({ visits: ['Friday 14:00'] }),
+});
+
 const MODULES: readonly AddonServerModule[] = [
   { manifest: pool, queries: [listVisits], commands: [noteVisit, cancelVisit, wipeVisits] },
+  { manifest: spa, queries: [spaVisits] },
 ];
 
 // ---------- the stand-in model ----------
@@ -326,6 +369,19 @@ const rules: ScriptRule[] = [
     ],
     reply: said('find_capabilities'),
   },
+  {
+    // One question, two add-ons: the model calls a tool of each in the same turn.
+    when: /^what is on for pools and spas/i,
+    calls: () => [
+      { name: `${LIVE}_top10_visits`, arguments: { limit: 2 } },
+      { name: `${SPA}_spa_visits`, arguments: {} },
+    ],
+    reply: (_q, r) =>
+      JSON.stringify({
+        pool: JSON.parse(r[`${LIVE}_top10_visits`] ?? 'null'),
+        spa: JSON.parse(r[`${SPA}_spa_visits`] ?? 'null'),
+      }),
+  },
   { when: /^how many new leads/i, reply: () => 'Three new leads came in this week.' },
 ];
 
@@ -344,15 +400,22 @@ const register = (addon: string, permissions: unknown[]) =>
     admin(),
     sql`select private.register_addon_permissions(${addon}, ${JSON.stringify(permissions)}::jsonb)`,
   );
-/** Where the add-on stands in a business, set the way the lifecycle commands and the worker leave it. */
-async function setState(ws: string, state: 'enabled' | 'disabled' | 'uninstalled') {
+/** Where an add-on stands in a business, set the way the lifecycle commands and the worker leave it. */
+async function setAddonState(
+  ws: string,
+  addonId: string,
+  state: 'enabled' | 'disabled' | 'uninstalled',
+) {
   await rows(
     admin(),
     sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
-        values (${ws}, ${LIVE}, ${state}, '1.0.0')
+        values (${ws}, ${addonId}, ${state}, '1.0.0')
         on conflict (workspace_id, addon_id) do update set state = excluded.state`,
   );
 }
+/** Where Pool Service stands. */
+const setState = (ws: string, state: 'enabled' | 'disabled' | 'uninstalled') =>
+  setAddonState(ws, LIVE, state);
 
 function build(provider: AiProvider = new ScriptedProvider(rules)): Promise<FastifyInstance> {
   const httpDb = testDbs().worker.db;
@@ -475,6 +538,7 @@ beforeAll(async () => {
     { key: `${LIVE}.read`, defaultRoles: ['admin', 'member'], requires: [] },
     { key: `${LIVE}.write`, defaultRoles: ['admin'], requires: [`${LIVE}.read`] },
   ]);
+  await register(SPA, [{ key: `${SPA}.read`, defaultRoles: ['admin', 'member'], requires: [] }]);
   [ownerToken, memberToken] = await Promise.all([signInTestUser(owner), signInTestUser(member)]);
   app = await build();
 }, 60_000);
@@ -869,5 +933,36 @@ describe('the business a call is for (audit AI-3)', () => {
     // What was recorded is what the tool declares: the business's id was never the model's.
     expect((await callsIn(runOf(asked)))[0]?.arguments).toEqual({ limit: 2 });
     await setState(wsB, 'disabled');
+  });
+});
+
+describe('a task across two add-ons', () => {
+  it('uses each one’s tools in one answer, and loses only the one turned off', async () => {
+    await setState(wsA, 'enabled');
+    await setAddonState(wsA, SPA, 'enabled');
+    const both = await ask(memberToken, 'What is on for pools and spas this week?');
+    expect(resultOf(both)).toEqual({
+      pool: {
+        from: 'Pool Service',
+        data: { workspaceId: wsA, askedBy: member.id, visits: ['Monday 9:00', 'Tuesday 9:00'] },
+      },
+      spa: { from: 'Spa Care', data: { visits: ['Friday 14:00'] } },
+    });
+    expect((await callsIn(runOf(both))).map((c) => [c.tool, c.status])).toEqual([
+      [`${LIVE}_top10_visits`, 'done'],
+      [`${SPA}_spa_visits`, 'done'],
+    ]);
+
+    // Spa Care turned off: the same question still gets its pool visits, and nothing of the spa's runs.
+    await setAddonState(wsA, SPA, 'disabled');
+    const one = await ask(memberToken, 'What is on for pools and spas this week?');
+    expect(resultOf(one)).toEqual({
+      pool: {
+        from: 'Pool Service',
+        data: { workspaceId: wsA, askedBy: member.id, visits: ['Monday 9:00', 'Tuesday 9:00'] },
+      },
+      spa: { error: 'That is not something you can do here.' },
+    });
+    expect((await callsIn(runOf(one))).map((c) => c.tool)).toEqual([`${LIVE}_top10_visits`]);
   });
 });

@@ -193,7 +193,7 @@ export function addonQueries(catalog: Catalog) {
       const installations = await loadInstallations(ctx.tx, input.workspaceId);
       const mine = installations.find((i) => i.addonId === m.id);
       // Hidden until it's back on (the owner's decision, 2026-09-28).
-      if (mine?.state !== 'enabled') throw HfosError.addonInactive(m.name);
+      if (mine?.state !== 'enabled') throw HfosError.addonInactive(m);
       const permission = m.settings?.permission ?? 'addons.manage';
       const sees = (ctx.scope.workspacePermissions ?? []).includes(permission);
       const [own] = await ctx.tx

@@ -94,6 +94,23 @@ function nextMigrationVersion() {
   return String(now > top ? now : top + 100n);
 }
 
+/** Adds `key: value` to the object `exportName` in `file` (the web's registry), and `importLine` after its imports. */
+function registerKey(file, exportName, key, value, importLine) {
+  let s = readFileSync(file, 'utf8');
+  const start = s.indexOf(`export const ${exportName}`);
+  if (start < 0) fail(`${relative(ROOT, file)} has no ${exportName}.`);
+  const open = s.indexOf('{', s.indexOf('=', start));
+  const close = s.lastIndexOf('};');
+  if (close < open) fail(`${relative(ROOT, file)}: ${exportName} isn't the last thing in it.`);
+  if (new RegExp(`\\b${key}:`).test(s.slice(open, close)))
+    fail(`${relative(ROOT, file)} already has ${key}.`);
+  const body = s.slice(open + 1, close).trim();
+  s = `${s.slice(0, open)}{\n${body ? `  ${body.replace(/,?$/, ',')}\n` : ''}  ${key}: ${value},\n}${s.slice(close + 1)}`;
+  const lastImport = s.lastIndexOf('\nimport ');
+  const at = lastImport < 0 ? 0 : s.indexOf(';\n', lastImport) + 2;
+  return `${s.slice(0, at)}${importLine}\n${s.slice(at)}`;
+}
+
 /** Adds `entry` to the array `exportName` in `file`, and `importLine` after its last import. */
 function register(file, exportName, entry, importLine) {
   let s = readFileSync(file, 'utf8');
@@ -136,6 +153,7 @@ for (const [what, text, max] of [
     );
 
 const constName = `${id}Addon`;
+const pascal = `${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 const permissions = [
   {
     key: `${id}.use`,
@@ -150,6 +168,7 @@ const values = {
   __SUMMARY__: summary,
   __CATEGORY__: input.category,
   __CONST__: constName,
+  __PASCAL__: pascal,
   __DIRECTORY__: summary.replace(/\.$/, '').toLowerCase(),
   __PERMISSIONS_JSON__: JSON.stringify(permissions).replaceAll("'", "''"),
 };
@@ -164,6 +183,7 @@ const files = [
   ['core/server.ts.tpl', `packages/core/src/addons/${id}/server.ts`],
   ['core/test.ts.tpl', `packages/core/test/addons/${id}.test.ts`],
   ['worker/index.ts.tpl', `apps/worker/src/addons/${id}/index.ts`],
+  ['web/page.tsx.tpl', `apps/web/src/app/app/w/[workspaceId]/a/${id}/page.tsx`],
   ['migration.sql.tpl', `supabase/migrations/${nextMigrationVersion()}_addon_${id}.sql`],
 ];
 for (const [, to] of files) if (existsSync(join(ROOT, to))) fail(`${to} is already there.`);
@@ -190,10 +210,22 @@ const registrations = [
     `import { ${constName}Worker } from './${id}/index';`,
   ],
 ];
-const edits = registrations.map(([file, list, entry, importLine]) => [
-  file,
-  register(join(ROOT, file), list, entry, importLine),
-]);
+const edits = [
+  ...registrations.map(([file, list, entry, importLine]) => [
+    file,
+    register(join(ROOT, file), list, entry, importLine),
+  ]),
+  [
+    'apps/web/src/addons/registry.ts',
+    registerKey(
+      join(ROOT, 'apps/web/src/addons/registry.ts'),
+      'ADDON_UI',
+      id,
+      `{ icon: ${constName}Icon }`,
+      `import { Box as ${constName}Icon } from 'lucide-react';`,
+    ),
+  ],
+];
 
 if (input.dryRun) {
   console.log(`Would start ${name} (${id}):`);
