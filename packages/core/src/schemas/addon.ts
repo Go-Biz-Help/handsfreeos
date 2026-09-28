@@ -103,6 +103,7 @@ export const AddonListOutput = z.object({
     /** Only for people who may install add-ons: what is planned. Never installable. */
     planned: z.array(CapabilityRow),
   }),
+  /** Only for people who may install add-ons: the available ones. What is planned is `addon.roadmap`'s. */
   catalog: z.array(
     z.object({
       addonId,
@@ -179,3 +180,112 @@ export const AddonSuggestionDismissOutput = z.object({
   addonId,
   choice: z.enum(SUGGESTION_CHOICES),
 });
+
+// ---------- voting on what's next (0109) ----------
+
+export const addonPickHow = z.enum(['votes', 'team', 'plan']);
+export const addonNewsKind = z.enum(['picked', 'shipped']);
+
+/** A business's vote for a planned add-on, cast or taken back by an owner or admin. */
+export const AddonVoteInput = z.object({ workspaceId: uuid, addonId });
+export const AddonVoteOutput = z.object({
+  addonId,
+  /** Whether the business's vote is on it now. */
+  voted: z.boolean(),
+  votes: z.number().int(),
+});
+
+export const AddonRoadmapInput = z.object({ workspaceId: uuid });
+export const AddonRoadmapOutput = z.object({
+  /** Picked and not ready to add yet, newest first. */
+  comingSoon: z.array(
+    z.object({
+      addonId,
+      name: z.string(),
+      summary: z.string(),
+      how: addonPickHow,
+      pickedAt: isoDateTime,
+      votes: z.number().int(),
+      /** This business voted for it. */
+      voted: z.boolean(),
+    }),
+  ),
+  /** Every planned add-on still in the race, in the catalogue's order. */
+  planned: z.array(
+    z.object({
+      addonId,
+      name: z.string(),
+      summary: z.string(),
+      category: z.string(),
+      groups: z.array(z.string()),
+      /** What HandsFreeOS already does of it, and what it would add. */
+      overlap: z.string().nullable(),
+      votes: z.number().int(),
+      voted: z.boolean(),
+    }),
+  ),
+  /** When this week's vote closes: Sunday at midnight, US Eastern. */
+  nextPickAt: isoDateTime,
+});
+
+/** Home's note: an add-on this business voted for is coming soon, or ready to add. */
+export const AddonNewsInput = z.object({ workspaceId: uuid });
+export const AddonNewsOutput = z.object({
+  news: z
+    .object({ addonId, name: z.string(), summary: z.string(), kind: addonNewsKind })
+    .nullable(),
+});
+export const AddonNewsSeenInput = z.object({ workspaceId: uuid, addonId, kind: addonNewsKind });
+export const AddonNewsSeenOutput = z.object({
+  addonId,
+  kind: addonNewsKind,
+  seen: z.literal(true),
+});
+
+/** The team's view of the vote: weeks waiting for a pick, the race, and Coming soon. */
+export const AddonPickOverviewInput = z.object({});
+export const AddonPickOverviewOutput = z.object({
+  /** Weeks that closed with nothing voted for or a tie: the team chooses each one's pick. */
+  waiting: z.array(
+    z.object({
+      weekId: uuid,
+      endsAt: isoDateTime,
+      outcome: z.enum(['no_votes', 'tie']),
+      /** For a tie, the add-ons to choose among. */
+      tied: z.array(addonId),
+      topVotes: z.number().int(),
+    }),
+  ),
+  /** The last weeks that closed, newest first. */
+  weeks: z.array(
+    z.object({
+      weekId: uuid,
+      endsAt: isoDateTime,
+      outcome: z.enum(['votes', 'no_votes', 'tie']),
+      addonId: addonId.nullable(),
+      name: z.string().nullable(),
+      topVotes: z.number().int(),
+      decidedAt: isoDateTime.nullable(),
+      decidedBy: z.string().nullable(),
+    }),
+  ),
+  /** Every planned add-on still in the race, most votes first. */
+  race: z.array(
+    z.object({ addonId, name: z.string(), category: z.string(), votes: z.number().int() }),
+  ),
+  comingSoon: z.array(
+    z.object({
+      addonId,
+      name: z.string(),
+      how: addonPickHow,
+      pickedAt: isoDateTime,
+      votes: z.number().int(),
+      shippedAt: isoDateTime.nullable(),
+    }),
+  ),
+  nextPickAt: isoDateTime,
+});
+
+/** The team choosing the pick for a week that closed with nothing voted for or a tie. */
+export const AddonPickChooseInput = z.object({ weekId: uuid, addonId });
+export const AddonPickChooseOutput = z.object({ weekId: uuid, addonId });

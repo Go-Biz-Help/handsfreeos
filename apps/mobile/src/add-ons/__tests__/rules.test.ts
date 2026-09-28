@@ -31,19 +31,18 @@ const ids = (views: readonly { addonId: string }[]) => views.map((v) => v.addonI
 describe('the sections', () => {
   it('has nothing to show with nothing in the catalogue, as until the first add-on ships', () => {
     const groups = groupAddons(listFor({}, { catalog: [] }), [], OWNER_GRANTS);
-    expect(groups).toEqual({ installed: [], addable: [], comingSoon: [] });
+    expect(groups).toEqual({ installed: [], addable: [] });
     expect(isEmptyGroups(groups)).toBe(true);
   });
 
-  it('puts what the business has first, what could be added next, and what is planned last', () => {
+  it('puts what the business has first and what could be added next; nothing planned is offered', () => {
     const list = listFor({ fxprop: 'enabled', fxacct: 'disabled' });
     const groups = groupAddons(list, FIXTURE_CATALOG, OWNER_GRANTS);
     expect(ids(groups.installed)).toEqual(['fxprop', 'fxacct']);
     // Rent Collection can come now its property management is on; Premium Payroll is paid, so support turns it on.
     expect(ids(groups.addable)).toEqual(['fxrent', 'fxsocial', 'fxcontent', 'fxpaid']);
     expect(groups.addable.map((v) => v.offer)).toEqual(['install', 'install', 'install', 'paid']);
-    expect(ids(groups.comingSoon)).toEqual(['fxinflu']);
-    expect(groups.comingSoon[0]).toMatchObject({ offer: 'coming_soon', moves: [], state: null });
+    expect(ids(groups.addable)).not.toContain('fxinflu');
     expect(isEmptyGroups(groups)).toBe(false);
   });
 
@@ -59,9 +58,7 @@ describe('the sections', () => {
 
   it('never offers a beta or a deprecated add-on, and offers nothing already here', () => {
     const groups = groupAddons(listFor({ fxprop: 'enabled' }), FIXTURE_CATALOG, OWNER_GRANTS);
-    const all = [...groups.installed, ...groups.addable, ...groups.comingSoon].map(
-      (v) => v.addonId,
-    );
+    const all = [...groups.installed, ...groups.addable].map((v) => v.addonId);
     expect(all).not.toContain('fxbeta');
     expect(all).not.toContain('fxold');
     expect(all.filter((id) => id === 'fxprop')).toHaveLength(1);
@@ -85,7 +82,6 @@ describe('the sections', () => {
       MEMBER_GRANTS,
     );
     expect(groups.addable).toEqual([]);
-    expect(groups.comingSoon).toEqual([]);
     expect(groups.installed[0]!.moves).toEqual([]);
   });
 

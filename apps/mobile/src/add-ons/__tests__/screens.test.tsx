@@ -170,20 +170,76 @@ describe('Settings → Add-ons', () => {
     expect(screen.getByTestId('add-on-row-fxpaid')).toHaveTextContent(ADDON_PHONE_WORDS.paid, {
       exact: false,
     });
-    expect(screen.getByTestId('add-ons-coming-soon')).toHaveTextContent('Influencer Marketplace', {
-      exact: false,
-    });
-    expect(screen.getByTestId('add-on-row-fxinflu')).toHaveTextContent(
-      ADDON_PHONE_WORDS.comingSoon,
-      {
-        exact: false,
-      },
-    );
     // A beta add-on is only ever handed out by HandsFreeOS support.
     expect(screen.queryByTestId('add-on-row-fxbeta')).toBeNull();
 
     await fireEvent.press(screen.getByTestId('add-on-row-fxrent'));
     expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons/fxrent`);
+  });
+
+  it('shows what is coming soon and lets an owner vote on what comes next', async () => {
+    answers['/v1/queries/addon.list'] = listFor({});
+    answers['/v1/queries/addon.roadmap'] = {
+      comingSoon: [
+        {
+          addonId: 'fxinflu',
+          name: 'Influencer Marketplace',
+          summary: 'Find creators to work with.',
+          how: 'votes',
+          pickedAt: '2026-10-05T04:00:00.000Z',
+          votes: 4,
+          voted: true,
+        },
+      ],
+      planned: [
+        {
+          addonId: 'hvac',
+          name: 'HVAC',
+          summary: 'Equipment records tied to properties.',
+          category: 'industry',
+          groups: ['Home services & trades'],
+          overlap: null,
+          votes: 2,
+          voted: false,
+        },
+        {
+          addonId: 'socialinbox',
+          name: 'Social Media Inbox',
+          summary: 'Comments, mentions and DMs in one place.',
+          category: 'marketing',
+          groups: ['Social Media'],
+          overlap: null,
+          votes: 5,
+          voted: false,
+        },
+      ],
+      nextPickAt: '2026-10-12T04:00:00.000Z',
+    };
+    answers['/v1/commands/addon.vote'] = { addonId: 'hvac', voted: true, votes: 3 };
+    await show(<Addons />);
+    const coming = await screen.findByTestId('coming-soon-fxinflu');
+    expect(coming).toHaveTextContent('Influencer Marketplace', { exact: false });
+    expect(coming).toHaveTextContent(ADDON_PHONE_WORDS.comingSoonVoted, { exact: false });
+    expect(sent('/v1/queries/addon.roadmap')[0]![1]).toEqual({ body: { workspaceId: LONE_STAR } });
+
+    // Most votes first; a search narrows it; a category too.
+    expect(screen.getByTestId('planned-count')).toHaveTextContent('2 add-ons');
+    await fireEvent.changeText(screen.getByTestId('planned-search'), 'equipment');
+    expect(screen.getByTestId('planned-count')).toHaveTextContent('1 add-on');
+    expect(screen.queryByTestId('planned-socialinbox')).toBeNull();
+    await fireEvent.changeText(screen.getByTestId('planned-search'), '');
+    await fireEvent.press(screen.getByTestId('planned-category-marketing'));
+    expect(screen.queryByTestId('planned-hvac')).toBeNull();
+    await fireEvent.press(screen.getByTestId('planned-category-all'));
+
+    await fireEvent.press(screen.getByTestId('planned-vote-hvac'));
+    await waitFor(() =>
+      expect(sent('/v1/commands/addon.vote')[0]![1]).toEqual({
+        body: { workspaceId: LONE_STAR, addonId: 'hvac' },
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId('planned-votes-hvac')).toHaveTextContent('3'));
+    expect(toast.show).toHaveBeenCalledWith(ADDON_PHONE_WORDS.votedDone('HVAC'));
   });
 
   it('opens one add-on’s own screen when a link names it', async () => {

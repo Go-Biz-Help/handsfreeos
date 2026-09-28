@@ -33,7 +33,8 @@ import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
-import type { AddonList, InstalledAddon } from '@/lib/api/types';
+import { Badge } from '@/components/ui/badge';
+import type { AddonList, AddonRoadmap, InstalledAddon } from '@/lib/api/types';
 import { AddonCard, type CardCapability } from './addon-card';
 import { AddonSettingsSheet, hasSettings } from './addon-settings-sheet';
 import {
@@ -43,6 +44,7 @@ import {
   type MoveTarget,
   type TakingAction,
 } from './move-dialogs';
+import { PlannedList } from './planned-list';
 import { addonName } from './words';
 
 /** The rules a move comes back with when other add-ons have to move with it: asked about, then sent again. */
@@ -104,11 +106,14 @@ function Section({
 export function AddonsSettings({
   workspaceId,
   list,
+  roadmap,
   canPurge,
   focus,
 }: {
   workspaceId: string;
   list: AddonList;
+  /** What's coming soon, and the planned add-ons up for a vote (0109). */
+  roadmap: AddonRoadmap;
   /** Only owners delete an add-on's data (`addons.purge`). */
   canPurge: boolean;
   /** An add-on to bring into view (`?addon=`, from Home's suggestion). */
@@ -137,7 +142,8 @@ export function AddonsSettings({
   const toAdd = list.catalog.filter(
     (c) => c.status === 'available' && !installedIds.has(c.addonId),
   );
-  const coming = list.catalog.filter((c) => c.status === 'planned' && !installedIds.has(c.addonId));
+  // Picked and being built (0109): what won a week's vote, or what HandsFreeOS chose.
+  const coming = roadmap.comingSoon.filter((c) => !installedIds.has(c.addonId));
   const moving = list.installed.some((i) => isBusyState(i.state));
   const places = addonNavItems(workspaceId, permissions, menuAddons(running));
 
@@ -338,28 +344,33 @@ export function AddonsSettings({
       </Section>
 
       {coming.length ? (
-        <Section title={W.comingSoon} description={W.comingSoonDetail} testId="addons-planned">
+        <Section title={W.comingSoon} description={W.comingSoonDetail} testId="addons-coming-soon">
           <ul className="flex flex-col gap-3">
             {coming.map((c) => (
-              <li key={c.addonId}>
-                <AddonCard
-                  addonId={c.addonId}
-                  name={c.name}
-                  summary={c.summary}
-                  manifest={findAddon(ADDON_CATALOG, c.addonId)}
-                  capabilities={capabilitiesOf(c.addonId)}
-                  place="planned"
-                  installed={null}
-                  moves={[]}
-                  pending={null}
-                  running={false}
-                  highlight={highlight === c.addonId}
-                  open={null}
-                  onMove={() => {}}
-                />
+              <li
+                key={c.addonId}
+                id={`addon-${c.addonId}`}
+                className={
+                  'flex flex-col gap-1.5 rounded-card border bg-card p-4 transition-colors ' +
+                  (highlight === c.addonId ? 'border-accent' : 'border-border')
+                }
+                data-testid={`coming-soon-${c.addonId}`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-[15px] font-semibold">{c.name}</h3>
+                  <Badge variant="accent">{W.comingSoon}</Badge>
+                  {c.voted ? <Badge variant="ok">{W.comingSoonVoted}</Badge> : null}
+                </div>
+                <p className="text-[13.5px] leading-relaxed text-text-2">{c.summary}</p>
               </li>
             ))}
           </ul>
+        </Section>
+      ) : null}
+
+      {roadmap.planned.length ? (
+        <Section title={W.vote} description={W.voteDetail} testId="addons-vote">
+          <PlannedList workspaceId={workspaceId} planned={roadmap.planned} />
         </Section>
       ) : null}
 

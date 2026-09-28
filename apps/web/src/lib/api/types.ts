@@ -323,4 +323,9 @@ export type CatalogAddon = AddonList['catalog'][number];
 export type AddonImpact = Ok<'/v1/queries/addon.impact'>;
 export type AddonSettingsOut = Ok<'/v1/queries/addon.settings'>;
 export type AddonSuggestion = NonNullable<Ok<'/v1/queries/addon.suggestion'>['suggestion']>;
+/** Voting on what's next (0109): Coming soon and the planned list, Home's note, and the team's view. */
+export type AddonRoadmap = Ok<'/v1/queries/addon.roadmap'>;
+export type ComingSoonAddon = AddonRoadmap['comingSoon'][number];
+export type AddonNews = NonNullable<Ok<'/v1/queries/addon.news'>['news']>;
+export type AddonPickOverview = Ok<'/v1/queries/addon_pick.overview'>;
 export type AddonMoved = Ok<'/v1/commands/addon.install'>['moved'][number];

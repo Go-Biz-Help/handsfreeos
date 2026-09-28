@@ -278,6 +278,15 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 409,
     message: 'This record’s add-on data was deleted, so it can’t be changed.',
   },
+  // 0109: voting on what's next.
+  addon_pick_is_ours: {
+    status: 403,
+    message: 'Only the HandsFreeOS team chooses what comes next.',
+  },
+  addon_week_unknown: { status: 404, message: 'There is no such week.' },
+  addon_week_decided: { status: 409, message: 'That week already has its pick.' },
+  addon_not_tied: { status: 409, message: 'Choose one of the add-ons that tied.' },
+  addon_already_picked: { status: 409, message: 'That add-on is already coming soon.' },
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */

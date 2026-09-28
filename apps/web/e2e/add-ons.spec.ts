@@ -5,9 +5,10 @@ import { addTeammate } from './calendar';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
- * Settings → Add-ons (0108) as it is today, with nothing in the catalogue: an owner finds the tab and a page that
- * says there's nothing added and nothing to add yet; a member never sees the tab, and the page isn't there for
- * them; and Home suggests no add-on to anyone, whether it's a brand-new business or its Action Center.
+ * Settings → Add-ons (0108) as it is today, with nothing built yet: an owner finds the tab and a page that says
+ * there's nothing added and nothing to add yet, with Real Estate Agent coming soon and every planned add-on up for a
+ * vote (0109); a member never sees the tab, and the page isn't there for them; and Home suggests no add-on to anyone,
+ * whether it's a brand-new business or its Action Center.
  */
 
 const settingsNav = (page: Page) => page.getByRole('navigation', { name: 'Settings' });
@@ -38,9 +39,41 @@ test('an owner finds Add-ons in Settings with nothing added yet; a member never 
   await expect(page.getByTestId('addons-installed-empty')).toContainText('Nothing added yet');
   await expect(settings.getByRole('heading', { name: 'Available to add' })).toBeVisible();
   await expect(page.getByTestId('addons-available-empty')).toContainText('None to add yet');
-  // Nothing is planned yet, so there's no Coming soon, and no add-on card of any kind.
-  await expect(page.getByTestId('addons-planned')).toHaveCount(0);
+  // Nothing built, so no add-on card of any kind; Real Estate Agent is coming soon.
   await expect(settings.locator('[data-place]')).toHaveCount(0);
+  await expect(page.getByTestId('coming-soon-realestate')).toContainText('Real Estate Agent');
+
+  // Voting on what's next: search, a category, and a vote that counts once for the business and is taken back.
+  const vote = page.getByTestId('addons-vote');
+  await expect(vote.getByRole('heading', { name: 'Vote on what’s next' })).toBeVisible();
+  await expect(page.getByTestId('planned-realestate')).toHaveCount(0);
+  await page.getByTestId('planned-search').fill('pet');
+  await expect(page.getByTestId('planned-petgrooming')).toBeVisible();
+  await expect(page.getByTestId('planned-hvac')).toHaveCount(0);
+  await page.getByTestId('planned-search').fill('');
+  await page.getByTestId('planned-category-ai').click();
+  await expect(page.getByTestId('planned-agentbuilder')).toBeVisible();
+  await expect(page.getByTestId('planned-petgrooming')).toHaveCount(0);
+  await page.getByTestId('planned-category-all').click();
+  const votes = page.getByTestId('planned-votes-petgrooming');
+  const before = Number(await votes.textContent());
+  await page.getByTestId('planned-vote-petgrooming').click();
+  await expect(page.getByTestId('planned-vote-petgrooming')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(votes).toHaveText(String(before + 1));
+  await page.reload();
+  await expect(page.getByTestId('planned-vote-petgrooming')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.getByTestId('planned-vote-petgrooming').click();
+  await expect(page.getByTestId('planned-vote-petgrooming')).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await expect(votes).toHaveText(String(before));
 
   // With customers, Home is the Action Center: still no suggestion.
   const owner = await signInOwner(email);

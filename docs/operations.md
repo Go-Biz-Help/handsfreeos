@@ -36,6 +36,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
 - [Ideas, the roadmap and What's new](#ideas-the-roadmap-and-whats-new)
+- [Add-on votes](#add-on-votes)
 - [Push notifications: Expo](#push-notifications-expo)
 - [The phone app: builds and the stores](#the-phone-app-builds-and-the-stores)
 - [Local development](#local-development)
@@ -9024,6 +9025,44 @@ It is **Ideas** in `/admin` (see the role table above: every support role answer
 
 Locally, `pnpm db:seed` puts seven ideas from four businesses on the board, three What's new entries and a
 draft. Sign in as `chris@gobizhelp.test` and open `/admin/ideas`; the emails land in Mailpit.
+
+## Add-on votes
+
+Businesses vote on which planned add-on HandsFreeOS builds next, on **Settings** → **Add-ons**. It needs nothing set
+up: the tables are migration `20261013000800_voting_on_whats_next.sql`, in the `platform` schema, and the emails go
+out the way the team's other emails do (`SMTP_URL` and `MAIL_FROM` on the worker). `docs/addon-architecture.md`,
+"Voting on what's next", has the rules.
+
+### What the businesses see
+
+- **Coming soon** lists what the vote picked, and Real Estate Agent, until each one can be added.
+- **Vote on what's next** lists every planned add-on still up for a vote: a search, a category, a group, most votes
+  or A to Z, and an upvote on each. A business has one vote per add-on and can vote for as many as it likes. Only
+  owners and admins see the page and vote.
+- When an add-on a business voted for is picked, its owners and admins get an email and a note on Home. They get
+  another when it's ready to add.
+
+### What the team does
+
+1. Every Sunday at midnight, US Eastern, the worker closes the week. The add-on with the most votes becomes Coming
+   soon on its own, and its voters are emailed.
+2. If nobody voted, or two or more tie, nothing is picked. Everyone on the team with `platform.addons.manage`
+   (staff admins) gets an email: "Nobody voted for an add-on this week", or "This week's add-on vote is a tie".
+3. Open **/admin/add-ons** (**Add-on votes** in the admin menu). Under **Waiting on you**, pick the add-on and press
+   **Make it Coming soon**. For a tie, you choose among the tied ones. Its voters are emailed within a minute.
+4. The same page shows what's Coming soon, every planned add-on by votes, and how the last weeks closed.
+
+An add-on ships when a deploy makes it `available` in the catalogue. Within the hour (and a few minutes after the
+worker starts), the worker writes it down and emails its voters that they can add it.
+
+### When something goes wrong
+
+- **No email on Monday morning, and nothing new in Coming soon.** Look for the week in **Recent weeks**. If it isn't
+  there, the worker hasn't run the week's job: check the worker's logs for `add-on week closed`. The job is armed
+  every time the worker starts, so restarting the worker arms it again.
+- **A pick went out, but a business says it heard nothing.** Only owners and admins of businesses that voted before
+  the pick are told, once each. Check its vote in `platform.addon_votes` and its deliveries in
+  `platform.addon_pick_deliveries`.
 
 ## Push notifications: Expo
 

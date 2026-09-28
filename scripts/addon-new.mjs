@@ -35,12 +35,14 @@ const RESERVED = new Set([
   'workspace',
 ]);
 const CATEGORIES = [
+  'industry',
   'sales',
   'marketing',
+  'customers',
   'operations',
+  'team',
   'finance',
-  'industry',
-  'productivity',
+  'insights',
   'ai',
 ];
 
@@ -193,7 +195,7 @@ if (readdirSync(MIGRATIONS).some((f) => f.endsWith(`_addon_${id}.sql`)))
 const registrations = [
   [
     'packages/core/src/addons/catalog.ts',
-    'ADDON_CATALOG',
+    'BUILT_ADDONS',
     constName,
     `import { ${constName} } from './${id}/manifest';`,
   ],

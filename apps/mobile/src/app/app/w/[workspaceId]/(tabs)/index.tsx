@@ -9,6 +9,7 @@ import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { FlatList, View } from 'react-native';
 
+import { AddonNewsCard } from '@/components/add-ons/news-card';
 import { AddonSuggestionCard } from '@/components/add-ons/suggestion-card';
 import { useWaitingDrafts } from '@/components/drafts';
 import { AttentionCard } from '@/components/home/attention-card';
@@ -69,7 +70,8 @@ export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
  * Home: the Action Center, as the canvas draws it on the phone and the web draws it at 390 px. The greeting and the quiet
  * "Up to date" line, "$ affected" with the counts, Mine / Everyone, then Urgent, Up next (three or more lower items of
  * one kind folded into a group) and "Handled by HandsFreeOS", and under it, now and then and only for an owner or
- * an admin, an add-on that fits the business (`AddonSuggestionCard`, asked of HandsFreeOS rather than the copy).
+ * an admin, an add-on that fits the business (`AddonSuggestionCard`, asked of HandsFreeOS rather than the copy),
+ * and news of an add-on the business voted for (`AddonNewsCard`).
  * Everything else is read from the phone's copy and ranked by core's scoring, so it's the web's list at the same
  * moment; every button's command waits for signal on the phone. The list is virtualized. A link with `?item=` brings
  * that card into view and marks it for a moment.
@@ -203,6 +205,7 @@ export default function Home() {
         return (
           <>
             <CaughtUp items={data.handled} count={data.handledToday} />
+            <AddonNewsCard className="mt-2.5" />
             <AddonSuggestionCard className="mt-2.5" />
             <HomeTestTools workspaceId={business.id} list={data} timeZone={timeZone} />
           </>
@@ -226,6 +229,7 @@ export default function Home() {
         return (
           <>
             <HandledByHandsFree items={data.handled} />
+            <AddonNewsCard className="mt-2.5" />
             <AddonSuggestionCard className="mt-2.5" />
             <HomeTestTools workspaceId={business.id} list={data} timeZone={timeZone} />
           </>

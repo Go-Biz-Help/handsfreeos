@@ -172,6 +172,43 @@ export const ADDON_PAGE_WORDS = {
   whatItHolds: 'What it holds here',
   typeName: (name: string) => `Type ${name} to confirm`,
 
+  // Voting on what's next (0109).
+  comingSoonVoted: 'Your business voted for this.',
+  vote: 'Vote on what’s next',
+  voteDetail:
+    'Your business gets one vote on each add-on it wants. Every Sunday at midnight Eastern, the one with the most votes becomes Coming soon.',
+  searchPlanned: 'Search add-ons, like “vehicles” or “reviews”',
+  searchPlannedLabel: 'Search planned add-ons',
+  allCategories: 'All',
+  allGroups: 'All groups',
+  groupLabel: 'Group',
+  sortLabel: 'Sort',
+  sortVotes: 'Most votes',
+  sortAz: 'A to Z',
+  upvote: 'Upvote',
+  voted: 'Voted',
+  votes: (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'vote' : 'votes'}`,
+  upvoteLabel: (name: string, n: number) =>
+    `Upvote ${name}. ${n.toLocaleString('en-US')} ${n === 1 ? 'vote' : 'votes'} so far.`,
+  takeBackLabel: (name: string, n: number) =>
+    `Take back your vote for ${name}. ${n.toLocaleString('en-US')} ${n === 1 ? 'vote' : 'votes'} so far.`,
+  votedDone: (name: string) => `Your business voted for ${name}.`,
+  unvotedDone: (name: string) => `Your vote for ${name} is taken back.`,
+  plannedCount: (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'add-on' : 'add-ons'}`,
+  tapTag: 'Tap a tag to filter by it.',
+  noneMatchTitle: 'No add-ons match',
+  noneMatch: 'Try other words, or clear the search and filters.',
+  clearFilters: 'Clear search and filters',
+  alreadyIn: 'Already in HandsFreeOS',
+
+  // Home's note about an add-on the business voted for.
+  newsPicked: (name: string) => `${name} is coming soon`,
+  newsPickedDetail:
+    'Your business voted for it, and it’s next to be built. We’ll tell you when you can add it.',
+  newsShipped: (name: string) => `${name} is ready to add`,
+  newsShippedDetail: 'Your business voted for it. You can add it now.',
+  gotIt: 'Got it',
+
   // Home's card.
   suggested: 'An add-on that could help',
   seeIt: 'See it',
@@ -183,12 +220,14 @@ export const ADDON_PAGE_WORDS = {
 
 /** The catalogue's categories, as a page names them under an add-on's name. */
 export const ADDON_CATEGORY_WORDS: Readonly<Record<AddonCategory, string>> = {
+  industry: 'Industry',
   sales: 'Sales',
   marketing: 'Marketing',
+  customers: 'Customers',
   operations: 'Operations',
+  team: 'Team',
   finance: 'Finance',
-  industry: 'Industry',
-  productivity: 'Productivity',
+  insights: 'Insights',
   ai: 'AI',
 };
 

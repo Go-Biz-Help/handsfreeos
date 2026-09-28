@@ -6,7 +6,16 @@ import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 
 import { anyBusy, type AddonGrants } from './rules';
-import type { AddonImpact, AddonList, AddonMoved, AddonSettings, AddonSuggestion } from './types';
+import type {
+  AddonImpact,
+  AddonList,
+  AddonMoved,
+  AddonNews,
+  AddonRoadmap,
+  AddonSettings,
+  AddonSuggestion,
+  AddonVoted,
+} from './types';
 import { ADDON_PHONE_WORDS } from './words';
 
 /**
@@ -130,6 +139,16 @@ export function useAddonList(workspaceId: string, manages: boolean): Live<AddonL
   return { ...live, reload };
 }
 
+/** What's coming soon and every planned add-on up for a vote (`addon.roadmap`), for someone who manages add-ons. */
+export function useAddonRoadmap(workspaceId: string, manages: boolean): Live<AddonRoadmap> {
+  return useLive(
+    manages
+      ? () => api.POST('/v1/queries/addon.roadmap', { body: { workspaceId } }).then(unwrap)
+      : null,
+    `roadmap:${workspaceId}`,
+  );
+}
+
 /** An add-on's switches and settings here (`addon.settings`): only asked while it's on, when it has switches. */
 export function useAddonSettings(
   workspaceId: string,
@@ -207,6 +226,20 @@ export const addonCommands = {
       await api.POST('/v1/commands/addon.save_settings', {
         body: { workspaceId, addonId, flags: { ...flags } },
       }),
+    );
+  },
+  /** The business's vote for a planned add-on, cast or taken back: straight out, like a move. */
+  async vote(workspaceId: string, addonId: string, voted: boolean): Promise<AddonVoted> {
+    const body = { workspaceId, addonId };
+    return unwrap(
+      voted
+        ? await api.POST('/v1/commands/addon.vote', { body })
+        : await api.POST('/v1/commands/addon.unvote', { body }),
+    );
+  },
+  async markNewsSeen(workspaceId: string, addonId: string, kind: AddonNews['kind']): Promise<void> {
+    unwrap(
+      await api.POST('/v1/commands/addon.mark_news_seen', { body: { workspaceId, addonId, kind } }),
     );
   },
   async dismissSuggestion(
@@ -297,4 +330,68 @@ export function useAddonSuggestion(
     [key, workspaceId],
   );
   return { suggestion, dismiss };
+}
+
+/** Each person's note in each business: set aside by them alone. Kept as long as a suggestion is. */
+const newsKept = new Map<string, { at: number; news: AddonNews | null }>();
+
+/** Forget what Home was told (for tests). */
+export function forgetAddonNews(): void {
+  newsKept.clear();
+}
+
+export interface NewsView {
+  readonly news: AddonNews | null;
+  /** Sets the note aside at once, and tells HandsFreeOS; it comes back if HandsFreeOS can't be told. */
+  gotIt(): Promise<void>;
+}
+
+/**
+ * Home's note about an add-on the business voted for (`addon.news`, 0109): coming soon, or ready to add. Asked only
+ * for someone who manages add-ons, and only with signal; the answer is kept a while, as a suggestion is.
+ */
+export function useAddonNews(workspaceId: string, userId: string, manages: boolean): NewsView {
+  const { online } = useNetwork();
+  const key = `${userId}:${workspaceId}`;
+  const [kept, setKept] = React.useState(() => newsKept.get(key) ?? null);
+  const fresh = kept !== null && Date.now() - kept.at < SUGGESTION_EVERY_MS;
+
+  React.useEffect(() => {
+    setKept(newsKept.get(key) ?? null);
+  }, [key]);
+
+  React.useEffect(() => {
+    if (!manages || !online || fresh) return;
+    let cancelled = false;
+    api
+      .POST('/v1/queries/addon.news', { body: { workspaceId } })
+      .then(unwrap)
+      .then((answer) => {
+        const next = { at: Date.now(), news: answer.news ?? null };
+        newsKept.set(key, next);
+        if (!cancelled) setKept(next);
+      })
+      // No note is the right answer to anything going wrong here.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [fresh, key, manages, online, workspaceId]);
+
+  const news = manages ? (kept?.news ?? null) : null;
+  const gotIt = React.useCallback(async () => {
+    const was = newsKept.get(key) ?? null;
+    if (!was?.news) return;
+    const cleared = { at: Date.now(), news: null };
+    newsKept.set(key, cleared);
+    setKept(cleared);
+    try {
+      await addonCommands.markNewsSeen(workspaceId, was.news.addonId, was.news.kind);
+    } catch (e) {
+      newsKept.set(key, was);
+      setKept(was);
+      throw e;
+    }
+  }, [key, workspaceId]);
+  return { news, gotIt };
 }

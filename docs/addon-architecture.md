@@ -18,19 +18,20 @@ Three rules shape the design:
 
 ## Where things are
 
-| What                                    | Where                                                                                                                                                         |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifests, catalogue, rules (pure)      | `packages/core/src/addons/` (`manifest.ts`, `catalog.ts`, `graph.ts`, `lifecycle.ts`, `capabilities.ts`, `plan.ts`, `recommend.ts`)                           |
-| Server half: operations, registry       | `packages/core/src/addons/server.ts`, `modules.ts`, `load.ts`; the kernel's check in `kernel/execute.ts`                                                      |
-| Lifecycle commands and queries          | `packages/core/src/commands/addon.ts`, `queries/addon.ts`, `schemas/addon.ts`                                                                                 |
-| What the pages say, and Home's pick     | `packages/core/src/addons/words.ts` (words and move rules both apps use), `suggest.ts`                                                                        |
-| The Add-ons page and Home's card        | web: `apps/web/src/components/settings/add-ons/`, `components/home/addon-suggestion.tsx`; phone: `apps/mobile/src/add-ons/`, `components/add-ons/`            |
-| AI tools and `find_capabilities`        | `packages/core/src/addons/ai.ts`, `assistant/tools-addons.ts`; `apps/worker/src/assistant/tools-addons.ts`                                                    |
-| Worker: reconcile, delivery, guards     | `apps/worker/src/addons/`; the guards in `jobs.ts` and `deliveries.ts`                                                                                        |
-| Web: registry, gate, slots, menu places | `apps/web/src/addons/`, `components/addons/`, `app/app/w/[workspaceId]/a/`; `packages/core/src/account/menu.ts`                                               |
-| Database                                | migrations `20261013000100` to `20261013000700`                                                                                                               |
-| Starting one                            | `pnpm addon:new <id>` (`scripts/addon-new.mjs`, templates in `addons/_template/`)                                                                             |
-| Tests                                   | `packages/core/test/addons/`, `addon-lifecycle.test.ts`; `packages/db/test/addons-rls.test.ts`; `apps/worker/test/addons.test.ts`, `assistant-addons.test.ts` |
+| What                                    | Where                                                                                                                                                                                                                                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifests, catalogue, rules (pure)      | `packages/core/src/addons/` (`manifest.ts`, `catalog.ts`, `graph.ts`, `lifecycle.ts`, `capabilities.ts`, `plan.ts`, `recommend.ts`)                                                                                                      |
+| The planned add-ons and the vote        | `packages/core/src/addons/planned.ts`, `roadmap.ts`, `roadmap-load.ts`; `commands/addon-roadmap.ts`, `queries/addon-roadmap.ts`; the worker's `addons/roadmap.ts`                                                                        |
+| Server half: operations, registry       | `packages/core/src/addons/server.ts`, `modules.ts`, `load.ts`; the kernel's check in `kernel/execute.ts`                                                                                                                                 |
+| Lifecycle commands and queries          | `packages/core/src/commands/addon.ts`, `queries/addon.ts`, `schemas/addon.ts`                                                                                                                                                            |
+| What the pages say, and Home's pick     | `packages/core/src/addons/words.ts` (words and move rules both apps use), `suggest.ts`                                                                                                                                                   |
+| The Add-ons page and Home's card        | web: `apps/web/src/components/settings/add-ons/`, `components/home/addon-suggestion.tsx`; phone: `apps/mobile/src/add-ons/`, `components/add-ons/`                                                                                       |
+| AI tools and `find_capabilities`        | `packages/core/src/addons/ai.ts`, `assistant/tools-addons.ts`; `apps/worker/src/assistant/tools-addons.ts`                                                                                                                               |
+| Worker: reconcile, delivery, guards     | `apps/worker/src/addons/`; the guards in `jobs.ts` and `deliveries.ts`                                                                                                                                                                   |
+| Web: registry, gate, slots, menu places | `apps/web/src/addons/`, `components/addons/`, `app/app/w/[workspaceId]/a/`; `packages/core/src/account/menu.ts`                                                                                                                          |
+| Database                                | migrations `20261013000100` to `20261013000800` (the vote is `20261013000800`)                                                                                                                                                           |
+| Starting one                            | `pnpm addon:new <id>` (`scripts/addon-new.mjs`, templates in `addons/_template/`)                                                                                                                                                        |
+| Tests                                   | `packages/core/test/addons/`, `addon-lifecycle.test.ts`, `addon-votes.test.ts`; `packages/db/test/addons-rls.test.ts`, `addon-votes-rls.test.ts`; `apps/worker/test/addons.test.ts`, `addon-roadmap.test.ts`, `assistant-addons.test.ts` |
 
 An add-on's own code sits in the layer it belongs to, under its id:
 
@@ -53,7 +54,7 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   settings and switches, its menu places and panels, and one line for the AI. `manifestIssues` and
   `catalogIssues` hold it to the rules (names under its id, the database's own limits, no dependency cycles, a
   planned add-on declares no code); the catalogue tests run them on every build.
-- **Catalogue status**: `planned` (a promise: never installable, never offered), `development` (offered nowhere),
+- **Catalogue status**: `planned` (a promise: never installable, never offered, voted on), `development` (offered nowhere),
   `beta` and `built` (staff hand it out), `available` (anyone who manages add-ons installs it), `deprecated` (runs
   where installed, offered to nobody), `unavailable` (runs nowhere). HandsFreeOS staff can push an add-on down to
   `deprecated` or `unavailable` everywhere at once (`platform.addon_overrides`), never up.
@@ -106,10 +107,10 @@ or off again, and it goes by its id, which is also the name an owner types to de
 ## The Add-ons page
 
 **Settings** → **Add-ons**, on the web and in the phone app, is for owners and admins (`addons.manage`); nobody else
-sees it. It has three parts: what the business has (every installation, whatever its state), what it could add
-(what HandsFreeOS says is installable here, and paid add-ons, which say HandsFreeOS support can turn them on), and
-Coming soon (planned add-ons, with no Install, shown only when something is planned). A beta add-on is never
-offered: only support turns one on.
+sees it. It has four parts: what the business has (every installation, whatever its state), what it could add
+(what HandsFreeOS says is installable here, and paid add-ons, which say HandsFreeOS support can turn them on),
+Coming soon (what the vote picked, until it can be added), and Vote on what's next (every planned add-on still up
+for a vote; see below). A beta add-on is never offered: only support turns one on.
 
 - **Both apps say the same thing.** Every word on the page, and the moves each state offers (`addonMovesFor`), come
   from `packages/core/src/addons/words.ts`.
@@ -129,6 +130,28 @@ and the kinds of records it made for itself, and one card at most. "Not now" qui
 for 30 days; "Not interested" never shows them that add-on again (`app.addon_suggestion_dismissals`, each person's
 own).
 
+## Voting on what's next
+
+The catalogue lists every add-on HandsFreeOS plans to build (`planned.ts`: the owner's list of 2026-09-28, without
+duplicates or what core already does), each with a category and the groups the list filters by. Businesses vote on
+them, and each week's winner becomes Coming soon. Real Estate Agent was already next, so it started as Coming soon.
+
+- **The list** (`addon.roadmap`) is searchable and filters by category and group, sorted by votes or A to Z. The
+  search, filters and order are core's (`filterPlanned` and the rest of `roadmap.ts`), so both apps agree.
+- **A vote** (`addon.vote`, `addon.unvote`) is the business's, cast by its owners and admins. Votes live in
+  `platform.addon_votes` beside the ideas board, with the counts kept by a trigger (`platform.addon_vote_counts`).
+- **The week** closes every Sunday at midnight, US Eastern (`nextAddonPickAt`). The worker's `addon_roadmap.week`
+  job hands the database the add-ons still in the race (planned, not picked), and `private.close_addon_vote_week`
+  picks the one with the most votes into `platform.addon_picks`. With nothing voted for, or a tie, nothing is
+  picked: the staff who hold `platform.addons.manage` are emailed and choose on **/admin/add-ons**
+  (`addon_pick.choose`; for a tie, among the tied ones).
+- **Telling people.** The owners and admins of every business that voted hear by email and on Home (`addon.news`)
+  when their add-on is picked, and again when it ships. Shipping is a deploy that makes it `available`: the
+  hourly `addon_roadmap.ship_check` (and one soon after the worker starts) writes it down and sends the second
+  email. Each email is recorded (`platform.addon_pick_deliveries`), so a retry tells nobody twice.
+- **Building one** starts it under its planned id (`pnpm addon:new realestate …`): its manifest replaces the planned
+  one in `ADDON_CATALOG`, and its pick and votes carry over.
+
 ## Rules worth knowing before changing anything
 
 **The owner's decisions (2026-09-28)** are in the code, not in configuration:
@@ -144,6 +167,11 @@ own).
   data (`addons.purge`, typing the add-on's name).
 - The AI **asks only for sensitive steps**: look-ups and risk 0–1 changes run on their own, risk 2–3 wait for the
   person's OK, risk 4 is never offered.
+- **Voting on what's next**: one vote per business, on as many planned add-ons as it likes, cast by owners and
+  admins; votes never expire and show their counts; every Sunday at midnight, US Eastern, the one with the most
+  votes becomes Coming soon, and with no votes or a tie the team chooses; Coming soon stays until it ships; voters
+  hear by email and on Home when it's picked and when it ships. Only planned add-ons that nothing in core already
+  does are on the list.
 - A turned-off add-on's **records are hidden until it's back on**.
 
 **One check, every actor.** The kernel refuses an add-on's operation, and core's operations run by the system for
@@ -216,4 +244,5 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
 - **The first real add-on, next:** a Real Estate Agent add-on (MLS and property data, showings, lockbox details,
-  comparative reports, listing activity, buyer and seller workflows).
+  comparative reports, listing activity, buyer and seller workflows). It's Coming soon, and is built under its
+  planned id, `realestate`.

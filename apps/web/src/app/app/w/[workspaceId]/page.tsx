@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { ActionCenter } from '@/components/home/action-center';
 import { ActionCenterIntro } from '@/components/home/action-center-intro';
+import { AddonNewsCard } from '@/components/home/addon-news';
 import { AddonSuggestionCard } from '@/components/home/addon-suggestion';
 import type { MemberOption } from '@/components/home/attention-context';
 import { SetupChecklist } from '@/components/home/setup-checklist';
@@ -41,7 +42,8 @@ export default async function WorkspaceHomePage({
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
     .then((r) => unwrapPage(r));
-  const [me, got, summary, list, suggested] = await Promise.all([
+  const manages = workspace.then((w) => can(w.workspace.permissions, 'addons.manage'));
+  const [me, got, summary, list, suggested, news] = await Promise.all([
     getMe(),
     workspace,
     api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then((r) => unwrapPage(r)),
@@ -51,19 +53,32 @@ export default async function WorkspaceHomePage({
       .catch(() => null),
     // Now and then an add-on that fits the business, for owners and admins only: nobody else is ever asked about
     // one (the owner's decision, 2026-09-28). A nicety: if it fails, Home carries on without it.
-    workspace.then((w) =>
-      can(w.workspace.permissions, 'addons.manage')
+    manages.then((yes) =>
+      yes
         ? api
             .POST('/v1/queries/addon.suggestion', { body: { workspaceId } })
             .then((r) => r.data?.suggestion ?? null)
             .catch(() => null)
         : null,
     ),
+    // An add-on the business voted for is coming soon, or ready to add (0109): the same people, the same nicety.
+    manages.then((yes) =>
+      yes
+        ? api
+            .POST('/v1/queries/addon.news', { body: { workspaceId } })
+            .then((r) => r.data?.news ?? null)
+            .catch(() => null)
+        : null,
+    ),
   ]);
   const ws = got.workspace;
-  const suggestion = suggested ? (
-    <AddonSuggestionCard workspaceId={ws.id} suggestion={suggested} />
-  ) : null;
+  const suggestion =
+    suggested || news ? (
+      <div className="flex flex-col gap-3">
+        {news ? <AddonNewsCard workspaceId={ws.id} news={news} /> : null}
+        {suggested ? <AddonSuggestionCard workspaceId={ws.id} suggestion={suggested} /> : null}
+      </div>
+    ) : null;
   const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
   // The setup checklist is for a brand-new business only: no customers, and nothing needing attention. Someone

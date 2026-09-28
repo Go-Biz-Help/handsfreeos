@@ -10,8 +10,8 @@ export const metadata: Metadata = { title: 'Add-ons' };
 
 /**
  * Settings → Add-ons (0108), for owners and admins (`addons.manage`): what this business has added and where each
- * add-on stands, what it could add, and what's coming soon. Everyone else gets the not-found page, and never sees
- * the tab. `?addon=<id>` brings one add-on into view (Home's suggestion card links here).
+ * add-on stands, what it could add, what's coming soon, and a vote on what comes next. Everyone else gets the
+ * not-found page, and never sees the tab. `?addon=<id>` brings one add-on into view (Home's suggestion card links here).
  */
 export default async function AddonsSettingsPage({
   params,
@@ -30,6 +30,8 @@ export default async function AddonsSettingsPage({
   ]);
   const permissions = got.workspace.permissions;
   if (!can(permissions, 'addons.manage')) notFound();
+  // Coming soon and the vote are for those who manage add-ons, like the page.
+  const roadmap = await api.POST('/v1/queries/addon.roadmap', body).then(unwrapPage);
   return (
     <>
       <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
@@ -37,6 +39,7 @@ export default async function AddonsSettingsPage({
       <AddonsSettings
         workspaceId={workspaceId}
         list={list}
+        roadmap={roadmap}
         canPurge={can(permissions, 'addons.purge')}
         focus={typeof addon === 'string' ? addon : null}
       />

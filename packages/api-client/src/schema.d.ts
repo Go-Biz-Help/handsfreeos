@@ -117,6 +117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon_pick.choose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Choose what comes next for a week that closed with nothing voted for or a tie: it becomes Coming soon, and the businesses that voted for it are told.
+         * @description Risk level 2. Requires platform.addons.manage. Emits platform.addon_picked.
+         */
+        post: operations["command_addon_pick_choose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon.disable": {
         parameters: {
             query?: never;
@@ -197,6 +217,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon.mark_news_seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside Home’s note that an add-on this business voted for is coming soon, or ready to add.
+         * @description Risk level 0. Requires workspace.read. Emits .
+         */
+        post: operations["command_addon_mark_news_seen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon.purge": {
         parameters: {
             query?: never;
@@ -271,6 +311,46 @@ export interface paths {
          * @description Risk level 3. Requires addons.manage. Emits addon.disabled, addon.uninstall_started.
          */
         post: operations["command_addon_uninstall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.unvote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take back this business’s vote for a planned add-on.
+         * @description Risk level 1. Requires addons.manage. Emits addon.unvoted.
+         */
+        post: operations["command_addon_unvote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vote for a planned add-on for this business: one vote per business on each add-on it wants. Every Sunday at midnight Eastern, the one with the most votes becomes Coming soon.
+         * @description Risk level 1. Requires addons.manage. Emits addon.voted.
+         */
+        post: operations["command_addon_vote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8037,6 +8117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/addon_pick.overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The team’s view of the vote: weeks waiting for a pick, the last weeks, every planned add-on by votes, and what’s coming soon.
+         * @description Requires platform.addons.manage.
+         */
+        post: operations["query_addon_pick_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/addon.impact": {
         parameters: {
             query?: never;
@@ -8067,10 +8167,50 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added and what is planned.
+         * The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added. What is planned and coming soon is addon.roadmap.
          * @description Requires workspace.read.
          */
         post: operations["query_addon_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/addon.news": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Home’s note, if any: an add-on this business voted for is coming soon, or ready to add. Only for people who manage add-ons.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_addon_news"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/addon.roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What is coming soon, and every planned add-on still up for a vote, with its votes and whether this business voted for it.
+         * @description Requires addons.manage.
+         */
+        post: operations["query_addon_roadmap"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11349,6 +11489,38 @@ export interface operations {
             };
         };
     };
+    command_addon_pick_choose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    weekId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        /** Format: uuid */
+                        weekId: string;
+                    };
+                };
+            };
+        };
+    };
     command_addon_disable: {
         parameters: {
             query?: never;
@@ -11503,6 +11675,42 @@ export interface operations {
             };
         };
     };
+    command_addon_mark_news_seen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** @enum {string} */
+                    kind: "picked" | "shipped";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        /** @enum {string} */
+                        kind: "picked" | "shipped";
+                        /** @enum {boolean} */
+                        seen: true;
+                    };
+                };
+            };
+        };
+    };
     command_addon_purge: {
         parameters: {
             query?: never;
@@ -11650,6 +11858,70 @@ export interface operations {
                             /** @enum {string} */
                             to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_unvote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        voted: boolean;
+                        votes: number;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_vote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        voted: boolean;
+                        votes: number;
                     };
                 };
             };
@@ -28611,6 +28883,72 @@ export interface operations {
             };
         };
     };
+    query_addon_pick_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comingSoon: {
+                            addonId: string;
+                            /** @enum {string} */
+                            how: "votes" | "team" | "plan";
+                            name: string;
+                            /** Format: date-time */
+                            pickedAt: string;
+                            shippedAt: string | null;
+                            votes: number;
+                        }[];
+                        /** Format: date-time */
+                        nextPickAt: string;
+                        race: {
+                            addonId: string;
+                            category: string;
+                            name: string;
+                            votes: number;
+                        }[];
+                        waiting: {
+                            /** Format: date-time */
+                            endsAt: string;
+                            /** @enum {string} */
+                            outcome: "no_votes" | "tie";
+                            tied: string[];
+                            topVotes: number;
+                            /** Format: uuid */
+                            weekId: string;
+                        }[];
+                        weeks: {
+                            addonId: string | null;
+                            decidedAt: string | null;
+                            decidedBy: string | null;
+                            /** Format: date-time */
+                            endsAt: string;
+                            name: string | null;
+                            /** @enum {string} */
+                            outcome: "votes" | "no_votes" | "tie";
+                            topVotes: number;
+                            /** Format: uuid */
+                            weekId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_addon_impact: {
         parameters: {
             query?: never;
@@ -28759,6 +29097,92 @@ export interface operations {
                             state: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
                             status: ("planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable") | null;
                             summary: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_addon_news: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        news: {
+                            addonId: string;
+                            /** @enum {string} */
+                            kind: "picked" | "shipped";
+                            name: string;
+                            summary: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_addon_roadmap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        comingSoon: {
+                            addonId: string;
+                            /** @enum {string} */
+                            how: "votes" | "team" | "plan";
+                            name: string;
+                            /** Format: date-time */
+                            pickedAt: string;
+                            summary: string;
+                            voted: boolean;
+                            votes: number;
+                        }[];
+                        /** Format: date-time */
+                        nextPickAt: string;
+                        planned: {
+                            addonId: string;
+                            category: string;
+                            groups: string[];
+                            name: string;
+                            overlap: string | null;
+                            summary: string;
+                            voted: boolean;
+                            votes: number;
                         }[];
                     };
                 };

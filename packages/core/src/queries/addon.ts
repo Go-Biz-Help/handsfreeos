@@ -49,7 +49,7 @@ export function addonQueries(catalog: Catalog) {
   const list = defineQuery({
     name: 'addon.list',
     description:
-      'The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added and what is planned.',
+      'The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added. What is planned and coming soon is addon.roadmap.',
     input: AddonListInput,
     output: AddonListOutput,
     permission: 'workspace.read',
@@ -94,7 +94,7 @@ export function addonQueries(catalog: Catalog) {
         },
         catalog: manages
           ? catalog
-              .filter((m) => ['available', 'planned'].includes(overrides[m.id] ?? m.catalog.status))
+              .filter((m) => (overrides[m.id] ?? m.catalog.status) === 'available')
               .map((m) => ({
                 addonId: m.id,
                 name: m.name,
