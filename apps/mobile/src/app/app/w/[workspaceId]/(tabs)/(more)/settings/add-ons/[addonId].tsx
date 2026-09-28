@@ -301,8 +301,7 @@ function Moves({
   else if (view.offer === 'coming_soon') notes.push(ADDON_PHONE_WORDS.notYet);
   // No longer offered, or something it needs can't come with it: no Install, and a sentence that says so.
   else if (away && view.offer === null) notes.push(ADDON_PHONE_WORDS.cantInstall);
-  if (view.state === 'uninstalled' && !canPurge && !view.retired)
-    notes.push(ADDON_PHONE_WORDS.ownersDelete);
+  if (view.state === 'uninstalled' && !canPurge) notes.push(ADDON_PHONE_WORDS.ownersDelete);
   return (
     <View className="gap-2 pt-2">
       {view.offer === 'support' ? (

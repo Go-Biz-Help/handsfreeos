@@ -131,15 +131,19 @@ describe('what each state offers', () => {
     expect(movesFor('uninstalled', null, ADMIN_GRANTS)).toEqual([]);
   });
 
-  it('offers nothing on a retired add-on, whose code is gone', () => {
-    expect(movesFor('uninstalled', null, OWNER_GRANTS, true)).toEqual([]);
+  it('lets a retired add-on, whose code is gone, only leave: uninstalled, then its data deleted', () => {
+    expect(movesFor('enabled', null, ADMIN_GRANTS, true)).toEqual(['uninstall']);
+    expect(movesFor('disabled', null, ADMIN_GRANTS, true)).toEqual(['uninstall']);
+    expect(movesFor('uninstalled', null, OWNER_GRANTS, true)).toEqual(['purge']);
+    expect(movesFor('uninstalled', null, ADMIN_GRANTS, true)).toEqual([]);
+    expect(movesFor('purged', null, OWNER_GRANTS, true)).toEqual([]);
     const view = findAddonView(
       listFor({ fxgone: 'uninstalled' }),
       FIXTURE_CATALOG,
       OWNER_GRANTS,
       'fxgone',
     );
-    expect(view).toMatchObject({ retired: true, name: 'fxgone', moves: [], offer: null });
+    expect(view).toMatchObject({ retired: true, name: 'fxgone', moves: ['purge'], offer: null });
   });
 
   it('asks first before every move that takes something away', () => {

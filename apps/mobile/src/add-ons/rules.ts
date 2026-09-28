@@ -129,6 +129,9 @@ export function offerFor(
   return null;
 }
 
+/** All a retired add-on (its code gone from HandsFreeOS) can do: leave, and then have its data deleted. */
+const RETIRED_MOVES: ReadonlySet<LifecycleAction> = new Set(['uninstall', 'purge']);
+
 /**
  * The moves this person can make on an add-on now: the lifecycle's own table (core's `moveFor`), less what a busy
  * state, a retired add-on, the offer and their permissions rule out.
@@ -139,9 +142,10 @@ export function movesFor(
   grants: AddonGrants,
   retired = false,
 ): LifecycleAction[] {
-  if (!grants.manage || retired || isBusyState(state)) return [];
+  if (!grants.manage || isBusyState(state)) return [];
   return MOVE_ORDER.filter((action) => {
     if (moveFor(state, action).kind !== 'move') return false;
+    if (retired && !RETIRED_MOVES.has(action)) return false;
     if (action === 'install') return offer === 'install';
     if (action === 'purge') return grants.purge;
     return true;
