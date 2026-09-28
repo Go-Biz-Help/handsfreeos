@@ -21848,8 +21848,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    /** @enum {string} */
-                    permission: "records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove";
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -21883,8 +21882,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    /** @enum {string} */
-                    permission: "records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove";
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
