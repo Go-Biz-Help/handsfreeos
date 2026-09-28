@@ -2,13 +2,19 @@
  * What a business has and could have, what changing an add-on would touch, and an add-on's settings (0108,
  * docs/addon-architecture.md). Made by a factory over a catalogue, like the lifecycle commands.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { addonUserSettings } from '@hfos/db/schema';
+import {
+  addonSuggestionDismissals,
+  addonUserSettings,
+  customRecordTypes,
+  workspaces,
+} from '@hfos/db/schema';
 import { capabilitySets } from '../addons/capabilities';
 import { findAddon, type Catalog } from '../addons/graph';
 import { capabilityContextOf, loadInstallations, loadOverrides } from '../addons/load';
 import { planTransition } from '../addons/plan';
+import { suggestAddon, type SuggestionChoice } from '../addons/suggest';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -19,6 +25,8 @@ import {
   AddonListOutput,
   AddonSettingsInput,
   AddonSettingsOutput,
+  AddonSuggestionInput,
+  AddonSuggestionOutput,
 } from '../schemas/addon';
 
 /** The checks that failed when the worker last looked, from what it stored on the installation. */
@@ -222,5 +230,65 @@ export function addonQueries(catalog: Catalog) {
     },
   });
 
-  return { list, impact, settings };
+  const suggestion = defineQuery({
+    name: 'addon.suggestion',
+    description:
+      'The one add-on Home may suggest to you now, if any: only to people who may add add-ons, only one that fits what the business does, and never soon after one was set aside.',
+    input: AddonSuggestionInput,
+    output: AddonSuggestionOutput,
+    permission: 'workspace.read',
+    scope,
+    async handler(ctx, input) {
+      const permissions = ctx.scope.workspacePermissions ?? [];
+      // Nobody else ever hears of one, and it costs them nothing to ask.
+      if (!permissions.includes('addons.manage')) return { suggestion: null };
+      const me = requireHuman(ctx).userId;
+      const [installations, overrides, [business], kinds, dismissed] = await Promise.all([
+        loadInstallations(ctx.tx, input.workspaceId),
+        loadOverrides(ctx.tx),
+        ctx.tx
+          .select({ name: workspaces.name, industry: workspaces.industry })
+          .from(workspaces)
+          .where(eq(workspaces.id, input.workspaceId)),
+        // The kinds of records it made for itself, not an add-on's.
+        ctx.tx
+          .select({ singular: customRecordTypes.singular, plural: customRecordTypes.plural })
+          .from(customRecordTypes)
+          .where(
+            and(
+              eq(customRecordTypes.workspaceId, input.workspaceId),
+              isNull(customRecordTypes.addonId),
+              isNull(customRecordTypes.archivedAt),
+            ),
+          ),
+        ctx.tx
+          .select({
+            addonId: addonSuggestionDismissals.addonId,
+            choice: addonSuggestionDismissals.choice,
+            decidedAt: addonSuggestionDismissals.decidedAt,
+          })
+          .from(addonSuggestionDismissals)
+          .where(
+            and(
+              eq(addonSuggestionDismissals.workspaceId, input.workspaceId),
+              eq(addonSuggestionDismissals.userId, me),
+            ),
+          ),
+      ]);
+      if (!business) throw HfosError.notFound();
+      const found = suggestAddon(
+        capabilityContextOf(catalog, installations, overrides, permissions),
+        {
+          name: business.name,
+          industry: business.industry,
+          recordKinds: kinds.flatMap((k) => [k.singular, k.plural]),
+        },
+        dismissed.map((d) => ({ ...d, choice: d.choice as SuggestionChoice })),
+        Date.now(),
+      );
+      return { suggestion: found ? { ...found, does: [...found.does] } : null };
+    },
+  });
+
+  return { list, impact, settings, suggestion };
 }

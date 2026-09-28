@@ -847,3 +847,48 @@ describe('uninstalling, deleting its data, and installing again', () => {
     ).toBe(true);
   });
 });
+
+describe('the one add-on Home may suggest', () => {
+  it('shows owners and admins one that fits, each their own, and rests once it is set aside', async () => {
+    const { workspaceId: harbor } = await run(
+      workspaceCreate,
+      { organizationId: orgId, name: 'Harbor Property Rentals', joinAsOwner: true },
+      human(owner),
+    );
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${harbor}, ${adminUser.id}, 'admin'), (${harbor}, ${member.id}, 'member')`,
+    );
+    const seen = (u: TestUser) =>
+      ask(queries.suggestion, { workspaceId: harbor }, human(u)).then(
+        (r) => r.suggestion?.addonId ?? null,
+      );
+    expect(await seen(owner)).toBe('fxprop');
+    expect(await seen(adminUser)).toBe('fxprop');
+    // Never to someone who can't add it.
+    expect(await seen(member)).toBeNull();
+    const setAside = (choice: 'not_now' | 'not_interested', addonId = 'fxprop') =>
+      run(cmds.dismissSuggestion, { workspaceId: harbor, addonId, choice }, human(owner));
+    expect(await setAside('not_now')).toEqual({ addonId: 'fxprop', choice: 'not_now' });
+    expect(await seen(owner)).toBeNull();
+    // Each person's own: the admin still sees it.
+    expect(await seen(adminUser)).toBe('fxprop');
+    const monthsAgo = (days: number) =>
+      rows(
+        admin(),
+        sql`update app.addon_suggestion_dismissals set decided_at = now() - make_interval(days => ${days})
+            where workspace_id = ${harbor} and user_id = ${owner.id}`,
+      );
+    await monthsAgo(31);
+    expect(await seen(owner)).toBe('fxprop');
+    await setAside('not_interested');
+    await monthsAgo(120);
+    expect(await seen(owner)).toBeNull();
+    // Installed, it's suggested to nobody.
+    await run(cmds.install, { workspaceId: harbor, addonId: 'fxprop' }, human(adminUser));
+    await finish(harbor);
+    expect(await seen(adminUser)).toBeNull();
+    expect(await refusal(setAside('not_now', 'fxnothing'))).toMatchObject({ status: 404 });
+  });
+});

@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { CATALOG_STATUSES } from '../addons/manifest';
 import { INSTALLATION_STATES, LIFECYCLE_ACTIONS } from '../addons/lifecycle';
+import { SUGGESTION_CHOICES } from '../addons/suggest';
 import { isoDateTime, uuid } from './common';
 
 export const addonId = z.string().regex(/^[a-z]{2,16}$/, 'Not an add-on.');
@@ -145,4 +146,29 @@ export const AddonSettingsOutput = z.object({
   settings: z.record(z.string(), z.unknown()).nullable(),
   flags: z.record(z.string(), z.boolean()).nullable(),
   mySettings: z.record(z.string(), z.unknown()),
+});
+
+/** The one add-on Home may suggest to this person now (packages/core/src/addons/suggest.ts), or none. */
+export const AddonSuggestionInput = z.object({ workspaceId: uuid });
+export const AddonSuggestionOutput = z.object({
+  suggestion: z
+    .object({
+      addonId,
+      name: z.string(),
+      summary: z.string(),
+      /** What it would let the business do. */
+      does: z.array(z.string()),
+    })
+    .nullable(),
+});
+
+/** Setting a suggestion aside: not now (every suggestion rests a while), or not interested in this one. */
+export const AddonSuggestionDismissInput = z.object({
+  workspaceId: uuid,
+  addonId,
+  choice: z.enum(SUGGESTION_CHOICES),
+});
+export const AddonSuggestionDismissOutput = z.object({
+  addonId,
+  choice: z.enum(SUGGESTION_CHOICES),
 });

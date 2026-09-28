@@ -92,6 +92,7 @@ export function recommendAddons(ctx: CapabilityContext, need: string, limit = 2)
       m.summary,
       ...m.catalog.keywords,
       ...(m.catalog.exampleNeeds ?? []),
+      ...(m.catalog.industries ?? []),
       ...caps.map((c) => `${c.label} ${c.description}`),
     ].join(' ');
     const score = overlap(wanted, text);

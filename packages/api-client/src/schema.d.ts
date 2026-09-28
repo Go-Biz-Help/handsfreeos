@@ -137,6 +137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon.dismiss_suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set aside an add-on Home suggested: not now (no suggestions for a while), or not interested in this one again.
+         * @description Risk level 0. Requires workspace.read. Emits .
+         */
+        post: operations["command_addon_dismiss_suggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/addon.enable": {
         parameters: {
             query?: never;
@@ -8057,6 +8077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/addon.suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The one add-on Home may suggest to you now, if any: only to people who may add add-ons, only one that fits what the business does, and never soon after one was set aside.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_addon_suggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_teammate.activity": {
         parameters: {
             query?: never;
@@ -11324,6 +11364,40 @@ export interface operations {
                             /** @enum {string} */
                             to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_dismiss_suggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** @enum {string} */
+                    choice: "not_now" | "not_interested";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        /** @enum {string} */
+                        choice: "not_now" | "not_interested";
                     };
                 };
             };
@@ -28662,6 +28736,40 @@ export interface operations {
                         };
                         settings: {
                             [key: string]: unknown;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_addon_suggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        suggestion: {
+                            addonId: string;
+                            does: string[];
+                            name: string;
+                            summary: string;
                         } | null;
                     };
                 };

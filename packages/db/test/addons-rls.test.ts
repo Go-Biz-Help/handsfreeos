@@ -176,6 +176,30 @@ describe('what a business has, and who may change it', () => {
     expect(fromWorker!.live).toContain(addon);
   });
 
+  it('keeps what each person set aside of Home’s suggestions to themselves', async () => {
+    const add = (u: TestUser, ws: string, userId: string, addon: string) =>
+      as(u)((tx) =>
+        rows(
+          tx,
+          sql`insert into app.addon_suggestion_dismissals (workspace_id, user_id, addon_id, choice)
+              values (${ws}, ${userId}, ${addon}, 'not_now')
+              on conflict (workspace_id, user_id, addon_id) do update set decided_at = now()`,
+        ),
+      );
+    await add(owner, wsA, owner.id, 'fxprop');
+    const theirs = (u: TestUser) =>
+      as(u)((tx) =>
+        rows(
+          tx,
+          sql`select addon_id from app.addon_suggestion_dismissals where workspace_id = ${wsA}`,
+        ),
+      );
+    expect(await theirs(owner)).toEqual([{ addon_id: 'fxprop' }]);
+    expect(await theirs(member)).toEqual([]);
+    expect((await failure(() => add(member, wsA, owner.id, 'fxseo'))).code).toBe('42501');
+    expect((await failure(() => add(outsider, wsA, outsider.id, 'fxseo'))).code).toBe('42501');
+  });
+
   it('a member can’t install, an admin can, and only an owner starts deleting an add-on’s data', async () => {
     const addon = freshId();
     expect((await failure(() => move(member, wsA, addon, 'installing'))).detail).toBe(

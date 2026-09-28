@@ -177,7 +177,12 @@ import { ADDON_CATALOG } from '../addons/catalog';
 
 /** What a business has and could have, what a change would touch, and settings, over the real catalogue (0108). */
 const addonQueryDefs = addonQueries(ADDON_CATALOG);
-export const { list: addonList, impact: addonImpact, settings: addonSettings } = addonQueryDefs;
+export const {
+  list: addonList,
+  impact: addonImpact,
+  settings: addonSettings,
+  suggestion: addonSuggestion,
+} = addonQueryDefs;
 export { addonQueries } from './addon';
 
 export const queries: readonly QueryDef[] = [
@@ -298,6 +303,7 @@ export const queries: readonly QueryDef[] = [
   addonList,
   addonImpact,
   addonSettings,
+  addonSuggestion,
 ] as unknown as readonly QueryDef[];
 
 export {

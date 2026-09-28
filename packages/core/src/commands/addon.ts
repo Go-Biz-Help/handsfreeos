@@ -13,13 +13,14 @@
  * are made over the real one (`ADDON_CATALOG`).
  */
 import { rows, sql } from '@hfos/db/client';
-import { addonUserSettings } from '@hfos/db/schema';
+import { addonSuggestionDismissals, addonUserSettings } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { findAddon, type Catalog } from '../addons/graph';
 import type { LifecycleAction } from '../addons/lifecycle';
 import { capabilityContextOf, loadInstallations, loadOverrides } from '../addons/load';
 import type { AddonManifest } from '../addons/manifest';
 import { planTransition } from '../addons/plan';
+import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
@@ -29,6 +30,8 @@ import {
   AddonSaveMySettingsInput,
   AddonSaveSettingsInput,
   AddonSettingsSaved,
+  AddonSuggestionDismissInput,
+  AddonSuggestionDismissOutput,
 } from '../schemas/addon';
 import type { z } from 'zod';
 
@@ -295,5 +298,49 @@ export function addonLifecycleCommands(catalog: Catalog) {
     },
   });
 
-  return { install, enable, disable, uninstall, purge, saveSettings, saveMySettings };
+  const dismissSuggestion = defineCommand({
+    name: 'addon.dismiss_suggestion',
+    description:
+      'Set aside an add-on Home suggested: not now (no suggestions for a while), or not interested in this one again.',
+    risk: 0,
+    input: AddonSuggestionDismissInput,
+    output: AddonSuggestionDismissOutput,
+    permission: 'workspace.read',
+    scope,
+    emits: [],
+    async handler(ctx, input) {
+      known(catalog, input.addonId);
+      const decidedAt = new Date();
+      // Row security keeps it to the person's own, in a business they work in.
+      await ctx.tx
+        .insert(addonSuggestionDismissals)
+        .values({
+          workspaceId: ctx.scope.workspaceId!,
+          userId: requireHuman(ctx).userId,
+          addonId: input.addonId,
+          choice: input.choice,
+          decidedAt,
+        })
+        .onConflictDoUpdate({
+          target: [
+            addonSuggestionDismissals.workspaceId,
+            addonSuggestionDismissals.userId,
+            addonSuggestionDismissals.addonId,
+          ],
+          set: { choice: input.choice, decidedAt },
+        });
+      return { addonId: input.addonId, choice: input.choice };
+    },
+  });
+
+  return {
+    install,
+    enable,
+    disable,
+    uninstall,
+    purge,
+    saveSettings,
+    saveMySettings,
+    dismissSuggestion,
+  };
 }
