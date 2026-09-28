@@ -17,6 +17,7 @@ import {
   Layers,
   LogOut,
   Moon,
+  Puzzle,
   ScanFace,
   Smartphone,
   User,
@@ -34,6 +35,8 @@ import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
+import { useAddonGrants } from '@/add-ons/use-add-ons';
+import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import { APPEARANCE_LABELS, setAppearance, useAppearance, type Appearance } from '@/lib/appearance';
 import { biometrics, unlockLabel, type BiometricInfo } from '@/lib/biometrics';
 import { useMyCell } from '@/inbox/cell';
@@ -49,7 +52,8 @@ import { useWorksOffline } from '@/sync/hooks';
 /**
  * Settings on the phone are about you and this phone: Face ID, the businesses kept here, the changes waiting, how it
  * looks, signing out and deleting the account. Setting the business up — texting, payments, members, calendars —
- * stays on the web; its balance does not, because running out of it stops the texts and calls this app is for.
+ * stays on the web; its balance does not, because running out of it stops the texts and calls this app is for, and
+ * nor do its add-ons, which owners and admins manage on the phone too (the owner's decision, 2026-09-28).
  */
 export default function Settings() {
   const { me, business, userId } = useBusiness();
@@ -59,6 +63,8 @@ export default function Settings() {
   const { cell } = useMyCell();
   // The business's balance is for whoever manages its money here (0106).
   const { whole } = useMoneyRole();
+  // Add-ons are for whoever may install them (0108); nobody else sees the row.
+  const { manage: managesAddons } = useAddonGrants();
   const [info, setInfo] = React.useState<BiometricInfo | null>(null);
   const [lockOn, setLockOn] = React.useState(() => lockEnabledFor(userId));
   const [appearanceOpen, setAppearanceOpen] = React.useState(false);
@@ -143,17 +149,28 @@ export default function Settings() {
         />
       </List>
 
-      {whole ? (
+      {whole || managesAddons ? (
         <>
           <ListLabel>{PHONE_SETTINGS_WORDS.thisBusiness}</ListLabel>
           <List>
-            <ListRow
-              icon={Wallet}
-              label={BALANCE_WORDS.title}
-              detail={BALANCE_WORDS.phoneSettingsDetail}
-              onPress={() => router.push(businessHref(business.id, 'settings/usage'))}
-              testID="setting-usage"
-            />
+            {whole ? (
+              <ListRow
+                icon={Wallet}
+                label={BALANCE_WORDS.title}
+                detail={BALANCE_WORDS.phoneSettingsDetail}
+                onPress={() => router.push(businessHref(business.id, 'settings/usage'))}
+                testID="setting-usage"
+              />
+            ) : null}
+            {managesAddons ? (
+              <ListRow
+                icon={Puzzle}
+                label={ADDON_PHONE_WORDS.title}
+                detail={ADDON_PHONE_WORDS.settingsDetail}
+                onPress={() => router.push(businessHref(business.id, 'settings/add-ons'))}
+                testID="setting-add-ons"
+              />
+            ) : null}
           </List>
         </>
       ) : null}
