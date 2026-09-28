@@ -262,17 +262,26 @@ async function arrive(run: Run): Promise<JobResult> {
   const required = (m.requires ?? []).filter((d) => d.kind === 'required').map((d) => d.addon);
   if (required.length > 0) {
     const states = await asWorker(run.ctx.db, run.scope, (tx) =>
-      rows<{ addon_id: string; state: State }>(
+      rows<{ addon_id: string; state: State; last_error: string | null }>(
         tx,
-        sql`select addon_id, state from app.addon_installations
+        sql`select addon_id, state, last_error from app.addon_installations
             where workspace_id = ${run.scope.workspaceId}
               and addon_id = any (${`{${required.join(',')}}`}::text[])`,
       ),
     );
-    const stateOf = (id: string) => states.find((r) => r.addon_id === id)?.state ?? null;
-    const off = required.filter((id) => !['installing', 'enabled'].includes(stateOf(id) ?? ''));
+    const stateOf = (id: string) => states.find((r) => r.addon_id === id);
+    const off = required.filter(
+      (id) => !['installing', 'enabled'].includes(stateOf(id)?.state ?? ''),
+    );
     if (off.length > 0) throw new Error(`It needs ${off.join(', ')}, which isn’t on here.`);
-    if (required.some((id) => stateOf(id) !== 'enabled'))
+    // One whose own setting up is failing won't come on by waiting: this one fails too, and says why, until the
+    // retries and the sweep bring both in.
+    const stuck = required.filter(
+      (id) => stateOf(id)?.state === 'installing' && stateOf(id)?.last_error,
+    );
+    if (stuck.length > 0)
+      throw new Error(`It needs ${stuck.join(', ')}, which couldn’t be set up yet.`);
+    if (required.some((id) => stateOf(id)?.state !== 'enabled'))
       return { rescheduleAt: new Date(Date.now() + DEPENDENCY_WAIT_MS) };
   }
   const hooks = hookContext(run)!;

@@ -77,6 +77,7 @@ const said = (what: string) => calls.push(what);
 let releaseFailures = 0;
 const released: string[] = [];
 let rentBreaks = false;
+let propInstallFailures = 0;
 
 /** Property Management doing something through the kernel, as itself. */
 const touch = defineAddonCommand(fxprop, {
@@ -135,6 +136,10 @@ function propModule(manifest: AddonManifest): AddonWorkerModule {
       },
     },
     onInstall: async (ctx) => {
+      if (propInstallFailures > 0) {
+        propInstallFailures--;
+        throw new Error('the property service was down');
+      }
       said(`fxprop installed at generation ${ctx.generation}`);
     },
     onEnable: async (ctx) => {
@@ -789,12 +794,15 @@ describe('deleting its data (B)', () => {
 
 describe('thirteen add-ons (C)', () => {
   it('sets them all up in one go, and an event reaches only the one that subscribes', async () => {
+    // Property Management's setting up fails once: it, and Rent Collection that needs it, still end up on.
+    propInstallFailures = 1;
     const started = performance.now();
     for (const addonId of [...TWELVE, 'fxrent'])
       await run(cmds.install, { workspaceId: wsC, addonId }, owner);
     await drain(wsC);
     const took = performance.now() - started;
     for (const addonId of [...TWELVE, 'fxrent']) await expectSettled(wsC, addonId, 'enabled');
+    expect(propInstallFailures).toBe(0);
     expect(took).toBeLessThan(60_000);
     const tessInC = (
       await run<{ personId: string }>(
