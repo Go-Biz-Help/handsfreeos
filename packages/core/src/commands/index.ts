@@ -159,6 +159,7 @@ import { organizationAddOwner } from './organization.add_owner';
 import { organizationCreate } from './organization.create';
 import { personArchive } from './person.archive';
 import { personCreate } from './person.create';
+import { personMerge } from './person.merge';
 import { personRestore } from './person.restore';
 import { personUpdate } from './person.update';
 import { pipelineArchive } from './pipeline.archive';
@@ -442,6 +443,7 @@ export {
   permissionSetRole,
   personArchive,
   personCreate,
+  personMerge,
   personRestore,
   personUpdate,
   pipelineArchive,
@@ -552,6 +554,7 @@ export const commands: readonly CommandDef[] = [
   personUpdate,
   personArchive,
   personRestore,
+  personMerge,
   tagCreate,
   tagUpdate,
   tagDelete,

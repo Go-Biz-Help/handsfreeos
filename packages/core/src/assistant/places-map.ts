@@ -128,7 +128,6 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Search from anywhere: Search customers at the top of the side menu',
     ],
     notHere: [
-      'merging two customers (adding one warns about a likely duplicate, with Open or Save anyway)',
       'deleting a customer for good (archive them)',
       'choosing many customers at once to tag, assign or archive (the Assistant can tag many at once)',
       'exporting customers to a spreadsheet',
@@ -136,6 +135,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     canChange: [
       'add a company and change its details',
       'archive and bring back a customer or company (owners and admins)',
+      'merge two records for the same customer into one (owners and admins)',
       'find archived customers, companies, leads and records',
     ],
     path: '/customers',
@@ -146,7 +146,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     where: ['Customers'],
     then: 'press the person',
     onScreen: [
-      'At the top: their tags (Add tag, or + to change them), and ⋯ with Edit details and Archive',
+      'At the top: their tags (Add tag, or + to change them), and ⋯ with Edit details, Merge… and Archive',
       'Along the top: Call, Text, Email, Book, Note, Log call, Task, Lead, File, and Add to workflow…',
       'Tabs: Timeline, Appointments, Money, Leads, Tasks, Files, Details (Details has Edit, Calls from us, and their Fields)',
       'Beside them: Assigned to, Upcoming appointments, Regular services, Conversations, Workflows, Open lead, Relationships',
@@ -168,6 +168,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Link a pet, vehicle or property: their page, the Relationships card, Add',
       'Record whether they agreed to calls: their page, Details tab, Change beside Calls from us',
       'Archive them: their page, ⋯, then Archive',
+      'Merge a duplicate: their page, ⋯, Merge…, pick the other record, choose which one to keep, then Merge (owners and admins)',
     ],
     canChange: [
       'choose who looks after them: add, take off, make main (owners and admins)',
@@ -598,7 +599,6 @@ export const EVERY_PAGE: readonly string[] = [
 
 /** What people ask for that HandsFreeOS doesn’t do anywhere, so the Assistant says so plainly. */
 export const NOT_ANYWHERE: readonly string[] = [
-  'merging duplicate customers',
   'deleting a customer, company or lead for good (they are archived)',
   'choosing many rows of a list at once to change them together (the Assistant can tag many customers at once)',
   'exporting customers, leads or the audit log to a spreadsheet (form answers do have Export to CSV)',

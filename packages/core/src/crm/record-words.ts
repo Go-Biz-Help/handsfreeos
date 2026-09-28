@@ -154,6 +154,11 @@ export const RECORD_WORDS = {
 } as const;
 
 /** "This person is archived: hidden from lists and searches, history kept." */
+/** On a duplicate that was merged into another record: where everything of theirs went. */
+export function mergedWords(intoName: string): string {
+  return `Merged into ${intoName}: everything of theirs is on that record now, and this one stays archived.`;
+}
+
 export function archivedNotice(kind: 'person' | 'company', canRestore: boolean): string {
   return `This ${kind} is archived: hidden from lists and searches, history kept.${
     canRestore ? ' Restore from the menu to use it again.' : ''

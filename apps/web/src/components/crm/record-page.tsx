@@ -9,6 +9,7 @@ import {
   KanbanSquare,
   Mail,
   MapPin,
+  Merge,
   MessageCircle,
   MoreHorizontal,
   Pencil,
@@ -68,6 +69,7 @@ import {
   contactLabelWords,
   customerSince,
   formatPhone,
+  mergedWords,
   recordTabLabel,
   RECORD_WORDS,
 } from '@hfos/core';
@@ -82,6 +84,7 @@ import {
 } from '@/components/workflows/contact-workflows';
 import { RelationshipsCard } from '@/components/relationships/relationships-card';
 import { ArchiveDialog } from './archive-dialog';
+import { MergeDialog } from './merge-dialog';
 import { AssignedCard } from './assigned-card';
 import { CustomFieldsSection } from './custom-fields';
 import { MaintenanceCard } from './maintenance-card';
@@ -181,6 +184,9 @@ export function RecordPage(props: RecordPageProps) {
   const [log, setLog] = useState<LoggableKind | null>(null);
   const [editing, setEditing] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [merging, setMerging] = useState(false);
+  // A duplicate merged into another record stays archived; that record has everything of theirs now.
+  const mergedInto = person?.mergedInto ?? null;
   const [newLead, setNewLead] = useState(false);
   const [nextAction, setNextAction] = useState<LeadCard | null>(null);
   const [addPerson, setAddPerson] = useState(false);
@@ -361,7 +367,13 @@ export function RecordPage(props: RecordPageProps) {
                   <Pencil className="h-4 w-4" strokeWidth={1.5} />
                   {RECORD_WORDS.editDetails}
                 </DropdownMenuItem>
-                {canModerate ? (
+                {canModerate && person && !archived ? (
+                  <DropdownMenuItem onSelect={() => setMerging(true)} data-testid="record-merge">
+                    <Merge className="h-4 w-4" strokeWidth={1.5} />
+                    Merge…
+                  </DropdownMenuItem>
+                ) : null}
+                {canModerate && !mergedInto ? (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -387,7 +399,20 @@ export function RecordPage(props: RecordPageProps) {
             className="mt-4 rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
             data-testid="archived-notice"
           >
-            {archivedNotice(kind, canModerate)}
+            {mergedInto ? (
+              <>
+                {mergedWords(mergedInto.fullName)}{' '}
+                <Link
+                  href={`/app/w/${workspaceId}/customers/people/${mergedInto.id}`}
+                  className="text-accent-text hover:underline"
+                  data-testid="merged-into-link"
+                >
+                  Open {mergedInto.fullName}
+                </Link>
+              </>
+            ) : (
+              archivedNotice(kind, canModerate)
+            )}
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
@@ -537,8 +562,8 @@ export function RecordPage(props: RecordPageProps) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[3fr_2fr]">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="min-w-0">
           <TabsList className="mb-4">
             <TabsTrigger value="timeline" data-testid="tab-timeline">
               Timeline
@@ -823,7 +848,7 @@ export function RecordPage(props: RecordPageProps) {
           </TabsContent>
         </Tabs>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <AssignedCard
             workspaceId={workspaceId}
             recordType={kind}
@@ -1055,6 +1080,14 @@ export function RecordPage(props: RecordPageProps) {
           onOpenChange={setAddPerson}
           defaultCompanyId={company.id}
           onSaved={() => router.refresh()}
+        />
+      ) : null}
+      {canModerate && person ? (
+        <MergeDialog
+          workspaceId={workspaceId}
+          person={person}
+          open={merging}
+          onOpenChange={setMerging}
         />
       ) : null}
       {canModerate ? (

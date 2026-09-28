@@ -22,6 +22,7 @@ export * from './crm/task-words';
 export * from './crm/file-words';
 export * from './crm/synced';
 export * from './crm/contact-points';
+export * from './crm/person-merge';
 // Fields a business invents, and the kinds of records and relationships it makes up (0101).
 export * from './crm/custom-fields';
 export * from './relationships/index';

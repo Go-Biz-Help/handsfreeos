@@ -4977,6 +4977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/person.merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge a duplicate customer into the one kept: their leads, tasks, timeline, conversations, calls, bookings, bills, quotes, plans, files, tags and relationships move to the one kept, the details it is missing are filled in, and the duplicate is archived.
+         * @description Risk level 3. Requires records.archive. Emits person.merged.
+         */
+        post: operations["command_person_merge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/person.restore": {
         parameters: {
             query?: never;
@@ -22088,6 +22108,46 @@ export interface operations {
             };
         };
     };
+    command_person_merge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    intoPersonId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        filled: string[];
+                        /** Format: uuid */
+                        mergedPersonId: string;
+                        moved: {
+                            [key: string]: number;
+                        };
+                        /** Format: uuid */
+                        personId: string;
+                    };
+                };
+            };
+        };
+    };
     command_person_restore: {
         parameters: {
             query?: never;
@@ -37013,6 +37073,11 @@ export interface operations {
                             id: string;
                             lastActivityAt: string | null;
                             lastName: string;
+                            mergedInto: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
                             notes: string | null;
                             openLeads: number;
                             otherAddresses: {
