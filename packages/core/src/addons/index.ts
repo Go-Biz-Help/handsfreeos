@@ -10,4 +10,5 @@ export * from './capabilities';
 export * from './plan';
 export * from './recommend';
 export * from './suggest';
+export * from './words';
 export * from './catalog';
