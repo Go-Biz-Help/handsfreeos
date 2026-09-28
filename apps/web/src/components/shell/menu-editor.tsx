@@ -1,20 +1,23 @@
 'use client';
 import {
   DEFAULT_MENU,
-  MENU_ALWAYS_SHOWN,
   MENU_GROUPS_MAX,
   MENU_GROUP_LABEL_MAX,
   MENU_WORDS,
   SUGGESTED_MENU,
   addGroup,
+  entryShown,
+  isAlwaysShown,
+  menuPlaceOpen,
   moveEntry,
   moveInGroup,
   moveKey,
   renameGroup,
   sameMenu,
   ungroup,
+  withAddonPlaces,
   type Menu,
-  type MenuKey,
+  type MenuPlaceKey,
   type MenuTarget,
 } from '@hfos/core';
 import { ChevronDown, ChevronUp, FolderPlus, Ungroup } from 'lucide-react';
@@ -25,9 +28,7 @@ import { Input, Select } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useMenu } from './menu-provider';
-import { navItemOf } from './nav-links';
-
-const pinned = (key: MenuKey) => MENU_ALWAYS_SHOWN.includes(key);
+import { menuAddons, placeItemOf } from './nav-links';
 
 /** A row of controls, the same for a place and for a group. */
 function RowButtons({
@@ -74,6 +75,7 @@ function PlaceRow({
   itemKey,
   where,
   groups,
+  full,
   onMove,
   onUp,
   onDown,
@@ -82,9 +84,11 @@ function PlaceRow({
   indented,
 }: {
   workspaceId: string;
-  itemKey: MenuKey;
+  itemKey: MenuPlaceKey;
   where: 'menu' | 'hidden' | string;
   groups: readonly { readonly id: string; readonly label: string }[];
+  /** The menu holds all the groups it may. */
+  full: boolean;
   onMove: (target: MenuTarget) => void;
   onUp?: () => void;
   onDown?: () => void;
@@ -92,9 +96,9 @@ function PlaceRow({
   canDown?: boolean;
   indented?: boolean;
 }) {
-  const item = navItemOf(workspaceId, itemKey);
+  const item = placeItemOf(workspaceId, itemKey);
+  if (!item) return null;
   const Icon = item.icon;
-  const full = groups.length >= MENU_GROUPS_MAX;
   return (
     <li
       data-testid={`menu-row-${itemKey}`}
@@ -119,7 +123,7 @@ function PlaceRow({
           </option>
         ))}
         {full ? null : <option value="new">{MENU_WORDS.addGroup}</option>}
-        {pinned(itemKey) ? null : <option value="hidden">{MENU_WORDS.hidden}</option>}
+        {isAlwaysShown(itemKey) ? null : <option value="hidden">{MENU_WORDS.hidden}</option>}
       </Select>
       {onUp && onDown ? (
         <RowButtons onUp={onUp} onDown={onDown} canUp={!!canUp} canDown={!!canDown} />
@@ -132,28 +136,54 @@ function PlaceRow({
  * Arranging the side menu: move a place, fold the ones rarely opened into a group that opens on hover, or take
  * one out of the menu altogether. Nothing is sent until Save, so a half-finished arrangement never reaches the
  * sidebar; Cancel puts the editor back to what is saved.
+ *
+ * It lists the places open in this business, as the sidebar does (0106, 0108). The rest of the saved menu — a
+ * place the business keeps them from, an add-on that is off here — stays saved where it is, unseen, and a
+ * running add-on's place they have never arranged is listed at the end, where the sidebar shows it.
  */
-export function MenuEditor({ workspaceId }: { workspaceId: string }) {
+export function MenuEditor({
+  workspaceId,
+  permissions,
+  addons,
+}: {
+  workspaceId: string;
+  /** What the business lets them do (0106). */
+  permissions: readonly string[];
+  /** The add-ons running in the business (0108). */
+  addons: readonly string[];
+}) {
   const { menu, save, editorOpen, closeEditor } = useMenu();
-  const [draft, setDraft] = useState<Menu>(menu);
+  const running = menuAddons(addons);
+  const open = (key: MenuPlaceKey) => menuPlaceOpen(key, permissions, running);
+  /** A menu as the editor starts from it: the running add-ons' places it never held at the end. */
+  const start = (from: Menu) => withAddonPlaces(from, permissions, running);
+  const [draft, setDraft] = useState<Menu>(() => start(menu));
   const [busy, setBusy] = useState(false);
 
   // Each opening starts from what is saved now (another tab, or Cancel, may have changed it), and so does the
-  // editor when a save finds a newer menu than the one it was arranged on.
+  // editor when a save finds a newer menu than the one it was arranged on. Not when the business's permissions or
+  // add-ons are read again: they arrive afresh with every live refresh, and would wipe an arrangement half made.
   useEffect(() => {
-    if (editorOpen) setDraft(menu);
+    if (editorOpen) setDraft(start(menu));
   }, [editorOpen, menu]);
 
-  const groups = draft.entries
-    .filter((e) => e.kind === 'group')
-    .map((g) => ({ id: g.id, label: g.label }));
-  const dirty = !sameMenu(menu, draft);
+  const dirty = !sameMenu(start(menu), draft);
+  // The rows it lists, each with where it sits in the whole menu, which the moves work on.
+  const rows = draft.entries.flatMap((entry, at) =>
+    entryShown(entry, open) ? [{ entry, at }] : [],
+  );
+  const groups = rows.flatMap(({ entry }) =>
+    entry.kind === 'group' ? [{ id: entry.id, label: entry.label }] : [],
+  );
+  const full = draft.entries.filter((e) => e.kind === 'group').length >= MENU_GROUPS_MAX;
+  const hidden = draft.hidden.filter(open);
 
-  // Every change is one of core's menu edits, so the arrangement can only ever be one a menu could hold.
-  const nudge = (at: number, by: -1 | 1) => setDraft((d) => moveEntry(d, at, by));
+  // Every change is one of core's menu edits, so the arrangement can only ever be one a menu could hold. A step
+  // up or down goes past the next row listed; the rows not listed stay where they are.
+  const nudge = (at: number, by: -1 | 1) => setDraft((d) => moveEntry(d, at, by, open));
   const nudgeIn = (groupId: string, at: number, by: -1 | 1) =>
-    setDraft((d) => moveInGroup(d, groupId, at, by));
-  const move = (key: MenuKey, target: MenuTarget) => setDraft((d) => moveKey(d, key, target));
+    setDraft((d) => moveInGroup(d, groupId, at, by, open));
+  const move = (key: MenuPlaceKey, target: MenuTarget) => setDraft((d) => moveKey(d, key, target));
   const rename = (groupId: string, label: string) =>
     setDraft((d) => renameGroup(d, groupId, label));
 
@@ -179,8 +209,8 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
             size="sm"
             variant="secondary"
             onClick={() => setDraft(addGroup)}
-            disabled={groups.length >= MENU_GROUPS_MAX}
-            title={groups.length >= MENU_GROUPS_MAX ? MENU_WORDS.groupsFull : undefined}
+            disabled={full}
+            title={full ? MENU_WORDS.groupsFull : undefined}
           >
             <FolderPlus className="h-4 w-4" strokeWidth={1.75} />
             {MENU_WORDS.addGroup}
@@ -189,7 +219,7 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
             size="sm"
             variant="secondary"
             data-testid="menu-suggest"
-            onClick={() => setDraft(SUGGESTED_MENU)}
+            onClick={() => setDraft(start(SUGGESTED_MENU))}
             title={MENU_WORDS.suggestHint}
           >
             {MENU_WORDS.suggest}
@@ -198,7 +228,7 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
             size="sm"
             variant="ghost"
             data-testid="menu-reset"
-            onClick={() => setDraft(DEFAULT_MENU)}
+            onClick={() => setDraft(start(DEFAULT_MENU))}
             title={MENU_WORDS.resetHint}
           >
             {MENU_WORDS.reset}
@@ -209,21 +239,26 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
           {MENU_WORDS.inMenu}
         </h3>
         <ul className="flex flex-col" data-testid="menu-editor-list">
-          {draft.entries.map((entry, at) =>
-            entry.kind === 'link' ? (
-              <PlaceRow
-                key={entry.key}
-                workspaceId={workspaceId}
-                itemKey={entry.key}
-                where="menu"
-                groups={groups}
-                onMove={(t) => move(entry.key, t)}
-                onUp={() => nudge(at, -1)}
-                onDown={() => nudge(at, 1)}
-                canUp={at > 0}
-                canDown={at < draft.entries.length - 1}
-              />
-            ) : (
+          {rows.map(({ entry, at }, row) => {
+            if (entry.kind === 'link')
+              return (
+                <PlaceRow
+                  key={entry.key}
+                  workspaceId={workspaceId}
+                  itemKey={entry.key}
+                  where="menu"
+                  groups={groups}
+                  full={full}
+                  onMove={(t) => move(entry.key, t)}
+                  onUp={() => nudge(at, -1)}
+                  onDown={() => nudge(at, 1)}
+                  canUp={row > 0}
+                  canDown={row < rows.length - 1}
+                />
+              );
+            // The places in it that are open here, each with where it sits in the group.
+            const places = entry.keys.flatMap((key, i) => (open(key) ? [{ key, i }] : []));
+            return (
               <li key={entry.id} data-testid={`menu-group-row-${entry.id}`} className="mt-1.5">
                 <div className="flex items-center gap-2 rounded-control bg-card-2 px-2 py-1.5">
                   <Input
@@ -235,13 +270,13 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
                     className="w-[150px] flex-none bg-card"
                   />
                   <span className="truncate text-xs text-text-3">
-                    {entry.keys.length === 1 ? '1 place' : `${entry.keys.length} places`}
+                    {places.length === 1 ? '1 place' : `${places.length} places`}
                   </span>
                   <RowButtons
                     onUp={() => nudge(at, -1)}
                     onDown={() => nudge(at, 1)}
-                    canUp={at > 0}
-                    canDown={at < draft.entries.length - 1}
+                    canUp={row > 0}
+                    canDown={row < rows.length - 1}
                   >
                     <button
                       type="button"
@@ -253,46 +288,48 @@ export function MenuEditor({ workspaceId }: { workspaceId: string }) {
                     </button>
                   </RowButtons>
                 </div>
-                {entry.keys.length === 0 ? (
+                {places.length === 0 ? (
                   <p className="ml-5 px-2 py-2 text-[13px] text-text-3">{MENU_WORDS.groupEmpty}</p>
                 ) : (
                   <ul className="flex flex-col">
-                    {entry.keys.map((key, i) => (
+                    {places.map(({ key, i }, n) => (
                       <PlaceRow
                         key={key}
                         workspaceId={workspaceId}
                         itemKey={key}
                         where={entry.id}
                         groups={groups}
+                        full={full}
                         indented
                         onMove={(t) => move(key, t)}
                         onUp={() => nudgeIn(entry.id, i, -1)}
                         onDown={() => nudgeIn(entry.id, i, 1)}
-                        canUp={i > 0}
-                        canDown={i < entry.keys.length - 1}
+                        canUp={n > 0}
+                        canDown={n < places.length - 1}
                       />
                     ))}
                   </ul>
                 )}
               </li>
-            ),
-          )}
+            );
+          })}
         </ul>
 
         <h3 className="mb-1 mt-5 text-xs font-medium uppercase tracking-wide text-text-3">
           {MENU_WORDS.hidden}
         </h3>
-        {draft.hidden.length === 0 ? (
+        {hidden.length === 0 ? (
           <p className="px-2 text-[13px] text-text-3">{MENU_WORDS.hiddenEmpty}</p>
         ) : (
           <ul className="flex flex-col" data-testid="menu-hidden-list">
-            {draft.hidden.map((key) => (
+            {hidden.map((key) => (
               <PlaceRow
                 key={key}
                 workspaceId={workspaceId}
                 itemKey={key}
                 where="hidden"
                 groups={groups}
+                full={full}
                 onMove={(t) => move(key, t)}
               />
             ))}

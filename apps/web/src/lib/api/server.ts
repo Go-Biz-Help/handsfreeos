@@ -1,11 +1,12 @@
 import { createApiClient, isApiErrorBody, type ApiClient } from '@hfos/api-client';
-import { NO_SUCH_ROUTE } from '@hfos/core';
+import { ADDON_CATALOG, NO_SUCH_ROUTE, effectivePermissions, findAddon } from '@hfos/core';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { publicEnv } from '../env';
 import { getServerSession } from '../supabase/server';
 import { ApiError, errorMessage, unwrap } from './errors';
-import type { Me } from './types';
+import { refusalDigest } from './page-refusals';
+import type { Me, WorkspaceGet, WorkspaceSummary } from './types';
 
 export { ApiError, errorMessage, unwrap };
 
@@ -20,10 +21,22 @@ export { ApiError, errorMessage, unwrap };
  * fine — the worst thing this screen can say, because it blames the person's account for a deploy that is
  * simply still in flight. A route the API does not know is server trouble, so it throws and is reported as
  * one: wrong for a minute and then right, rather than wrong about whose fault it is.
+ *
+ * A 403 still throws the ApiError it always did, so a page that leaves out what a person may not see (Money's
+ * `allowed`) carries on as before. What changes is where one that nobody catches ends up: it is marked
+ * (./page-refusals.ts), and the business's error screen draws it in the shell — "turned off" for an add-on that
+ * is off (0108), the not-found page for anything else — instead of Next's bare error page (FE-4).
  */
 export function unwrapPage<T>(result: { data?: T; error?: unknown; response: Response }): T {
   if (result.response.status === 404 && !isNoSuchRoute(result.error)) notFound();
-  return unwrap(result);
+  try {
+    return unwrap(result);
+  } catch (e) {
+    // Next hands a server error's digest to the error screen, and keeps one that is already set.
+    if (e instanceof ApiError && e.status === 403)
+      throw Object.assign(e, { digest: refusalDigest(e.rule) });
+    throw e;
+  }
 }
 
 /** True when a 404 came from the API's router rather than from anything the request asked for. */
@@ -54,4 +67,58 @@ export const getMe = cache(async (): Promise<Me> => {
   const result = await api.POST('/v1/queries/account.me', { body: {} });
   if (result.response.status === 404) redirect('/auth/sign-out?reason=account');
   return unwrap(result);
+});
+
+/** The business a page is in, as its shell draws it: the sidebar, the menu, and the gate on add-ons' pages. */
+export interface WorkspaceShell {
+  /** Its name, the person's role and permissions there, and the add-ons running there (0108). */
+  readonly current: WorkspaceSummary;
+  /** Set when a HandsFreeOS support person is looking at it (M13); null for its own people. */
+  readonly viewingAs: { readonly businessName: string; readonly expiresAt: string } | null;
+}
+
+/**
+ * The business `workspaceId` for the signed-in person, or the 404 page when it isn't theirs to see. Fetched once
+ * per request, like `getMe`: the layout draws the shell from it and an add-on's page (addons/gate.tsx) decides
+ * from the very same answer whether to open.
+ */
+export const getWorkspaceShell = cache(async (workspaceId: string): Promise<WorkspaceShell> => {
+  const me = await getMe();
+  const mine = me.workspaces.find((w) => w.id === workspaceId);
+  if (mine) return { current: mine, viewingAs: null };
+  /**
+   * A HandsFreeOS support person looking at this business (M13). They are not a member and never become
+   * one: the API serves their look-ups read-only under an open session, and refuses every command. The
+   * banner says so, and the business has the same fact in its own audit log.
+   */
+  const { api } = await apiServer();
+  // Not one of ours (including users with no workspaces at all, e.g. after being removed):
+  // behave like the API (404), never confirm it exists. /app sends workspace-less users to onboarding.
+  let workspace: WorkspaceGet | null = null;
+  try {
+    workspace = unwrap(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) notFound();
+    throw e;
+  }
+  const looking = unwrap(
+    await api.POST('/v1/queries/platform.view_as.current', { body: {} }),
+  ).session;
+  if (!looking || looking.workspaceId !== workspaceId) notFound();
+  const w = workspace!.workspace;
+  return {
+    // They see every place the business has, as before (0106), its add-ons' included (0108): the API decides
+    // what each look-up may read, and refuses every change, so nothing here widens what they can do.
+    current: {
+      ...w,
+      role: 'member',
+      permissions: [
+        ...effectivePermissions('owner'),
+        ...w.addons.flatMap(
+          (id) => findAddon(ADDON_CATALOG, id)?.permissions.map((p) => p.key) ?? [],
+        ),
+      ],
+    },
+    viewingAs: { businessName: looking.businessName || w.name, expiresAt: looking.expiresAt },
+  };
 });

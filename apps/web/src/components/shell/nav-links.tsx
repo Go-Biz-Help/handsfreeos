@@ -1,7 +1,23 @@
 'use client';
 import * as Popover from '@radix-ui/react-popover';
-import { MENU_KEYS, menuFor, type MenuGroup, type MenuKey } from '@hfos/core';
 import {
+  ADDON_CATALOG,
+  MENU_KEYS,
+  addonMenuPlace,
+  addonMenuPlaces,
+  currentMenuPlace,
+  inMenuPlace,
+  isMenuKey,
+  menuFor,
+  menuKeys,
+  type AddonMenuKey,
+  type MenuAddons,
+  type MenuGroup,
+  type MenuKey,
+  type MenuPlaceKey,
+} from '@hfos/core';
+import {
+  Blocks,
   BookOpen,
   CalendarDays,
   ChevronDown,
@@ -32,6 +48,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { ADDON_UI } from '@/addons/registry';
 import { NewDot, useWhatsNewUnseen } from '@/components/ideas/whats-new-signal';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
@@ -40,7 +57,7 @@ import { cn } from '@/lib/utils';
 import { useMenu } from './menu-provider';
 
 export interface NavItem {
-  readonly key: MenuKey;
+  readonly key: MenuPlaceKey;
   readonly href: string;
   readonly label: string;
   readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -104,13 +121,61 @@ export function navItems(workspaceId: string): NavItem[] {
   return MENU_KEYS.map((key) => navItemOf(workspaceId, key));
 }
 
-export function isActive(item: NavItem, pathname: string): boolean {
-  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
+/** Where an add-on's page lives (0108): `/app/w/<business>/a/<add-on>/<path>`, '' being its first page. */
+export function addonHref(workspaceId: string, addonId: string, path = ''): string {
+  const rest = path.replace(/^\/+|\/+$/g, '');
+  return `/app/w/${workspaceId}/a/${addonId}${rest ? `/${rest}` : ''}`;
 }
 
-/** Whether the page open now is one of these places (a group is lit by what is inside it). */
-function anyActive(workspaceId: string, keys: readonly MenuKey[], pathname: string): boolean {
-  return keys.some((k) => isActive(navItemOf(workspaceId, k), pathname));
+/** The add-ons running in a business, as the menu reads them: their manifests come from the catalogue. */
+export const menuAddons = (running: readonly string[] | undefined): MenuAddons => ({
+  running: running ?? [],
+  catalog: ADDON_CATALOG,
+});
+
+/**
+ * One of an add-on's places (0108): its words from the add-on's manifest, its icon from the web's registry of
+ * add-ons (addons/registry.ts) or a generic one, its address under the add-on's pages. Null for a place no add-on
+ * in the catalogue has any more.
+ */
+function addonNavItem(workspaceId: string, key: AddonMenuKey): NavItem | null {
+  const place = addonMenuPlace(ADDON_CATALOG, key);
+  if (!place) return null;
+  const ui = ADDON_UI[place.addon.id];
+  return {
+    key,
+    href: addonHref(workspaceId, place.addon.id, place.nav.path),
+    label: place.nav.label,
+    icon: ui?.navIcons?.[place.nav.key] ?? ui?.icon ?? Blocks,
+  };
+}
+
+/** Any place, by key: one of core's, or an add-on's (null for an add-on the catalogue no longer has). */
+export function placeItemOf(workspaceId: string, key: MenuPlaceKey): NavItem | null {
+  return isMenuKey(key) ? navItemOf(workspaceId, key) : addonNavItem(workspaceId, key);
+}
+
+/**
+ * The places of the add-ons running here that this person may open, whether their menu shows them or not: like
+ * core's, a place taken out of the menu still titles its own pages on the phone.
+ */
+export function addonNavItems(
+  workspaceId: string,
+  permissions: readonly string[] | null | undefined,
+  addons: MenuAddons,
+): NavItem[] {
+  return addonMenuPlaces(permissions, addons).flatMap((key) => {
+    const item = addonNavItem(workspaceId, key);
+    return item ? [item] : [];
+  });
+}
+
+/**
+ * Whether the page open now is in this place: its own address or a page under it, by whole segments, so
+ * `/forms-pro` never lights up Forms (FE-2). Home is lit on its own address only.
+ */
+export function isActive(item: NavItem, pathname: string): boolean {
+  return inMenuPlace(pathname, item.href, item.exact);
 }
 
 /**
@@ -216,30 +281,28 @@ function NavLink({
   );
 }
 
+/** What a group draws its places from: each place's item, and the one the open page is in. */
+interface GroupProps {
+  group: MenuGroup;
+  items: ReadonlyMap<MenuPlaceKey, NavItem>;
+  activeKey: MenuPlaceKey | null;
+  badges: (key: MenuPlaceKey, onNavigate?: () => void) => ReactNode;
+  onNavigate?: () => void;
+}
+
 /**
  * A group in the sidebar: the places inside it come up beside the menu on hover or a press, so a menu people
  * rarely go into takes one row instead of seven. Hovering never steals the keyboard's place; a press, and the
  * arrow keys after it, move into the flyout as usual.
  */
-function GroupFlyout({
-  group,
-  workspaceId,
-  pathname,
-  badges,
-  onNavigate,
-}: {
-  group: MenuGroup;
-  workspaceId: string;
-  pathname: string;
-  badges: (key: MenuKey, onNavigate?: () => void) => ReactNode;
-  onNavigate?: () => void;
-}) {
+function GroupFlyout({ group, items, activeKey, badges, onNavigate }: GroupProps) {
   const hoverable = useMatches('(hover: hover) and (pointer: fine)');
   const [open, setOpen] = useState(false);
   /** Open because the pointer is resting on it, rather than because someone asked for it. */
   const byHover = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const active = anyActive(workspaceId, group.keys, pathname);
+  // A group is lit by what is inside it.
+  const active = activeKey !== null && group.keys.includes(activeKey);
 
   const stop = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -312,16 +375,16 @@ function GroupFlyout({
         >
           <p className="px-2.5 pb-1 pt-1 text-xs font-medium text-text-3">{group.label}</p>
           {group.keys.map((key) => {
-            const item = navItemOf(workspaceId, key);
-            return (
+            const item = items.get(key);
+            return item ? (
               <NavLink
                 key={key}
                 item={item}
-                active={isActive(item, pathname)}
+                active={key === activeKey}
                 badge={<span className="ml-auto">{badges(key, close)}</span>}
                 onNavigate={close}
               />
-            );
+            ) : null;
           })}
         </Popover.Content>
       </Popover.Portal>
@@ -330,20 +393,8 @@ function GroupFlyout({
 }
 
 /** The same group in the phone's drawer, where a flyout has nowhere to go: it opens in place. */
-function GroupAccordion({
-  group,
-  workspaceId,
-  pathname,
-  badges,
-  onNavigate,
-}: {
-  group: MenuGroup;
-  workspaceId: string;
-  pathname: string;
-  badges: (key: MenuKey, onNavigate?: () => void) => ReactNode;
-  onNavigate?: () => void;
-}) {
-  const active = anyActive(workspaceId, group.keys, pathname);
+function GroupAccordion({ group, items, activeKey, badges, onNavigate }: GroupProps) {
+  const active = activeKey !== null && group.keys.includes(activeKey);
   const [open, setOpen] = useState(active);
   useEffect(() => {
     if (active) setOpen(true);
@@ -374,16 +425,16 @@ function GroupAccordion({
           data-testid={`menu-group-panel-${group.id}`}
         >
           {group.keys.map((key) => {
-            const item = navItemOf(workspaceId, key);
-            return (
+            const item = items.get(key);
+            return item ? (
               <NavLink
                 key={key}
                 item={item}
-                active={isActive(item, pathname)}
+                active={key === activeKey}
                 onNavigate={onNavigate}
                 badge={<span className="ml-auto">{badges(key)}</span>}
               />
-            );
+            ) : null;
           })}
         </div>
       ) : null}
@@ -398,25 +449,38 @@ function GroupAccordion({
  *
  * Arranging it is Settings → Side menu (components/settings/menu-section.tsx). The menu is places to go, and
  * nothing else: a row for editing it would be one more thing to read past, every day, for something done once.
+ *
+ * The add-ons running in the business add their places (0108), and only while they run: one that is turned off
+ * leaves no link behind, and comes back where the person had it when it's turned on again.
  */
 export function NavLinks({
   workspaceId,
   permissions,
+  addons,
   variant = 'sidebar',
   onNavigate,
 }: {
   workspaceId: string;
   /** What the business lets them do (0106): a place they may not open isn't offered. */
   permissions?: readonly string[] | null;
+  /** The add-ons running in the business (0108). */
+  addons?: readonly string[];
   variant?: 'sidebar' | 'drawer';
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const menu = menuFor(useMenu().menu, permissions);
+  const menu = menuFor(useMenu().menu, permissions, menuAddons(addons));
+  const items = new Map<MenuPlaceKey, NavItem>();
+  for (const key of menuKeys(menu)) {
+    const item = placeItemOf(workspaceId, key);
+    if (item) items.set(key, item);
+  }
+  // One place is lit: the one the open page is in, the deepest when an add-on's places nest.
+  const activeKey = currentMenuPlace([...items.values()], pathname)?.key ?? null;
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
   const whatsNew = useWhatsNewUnseen();
-  const badges = (key: MenuKey, after = onNavigate): ReactNode => {
+  const badges = (key: MenuPlaceKey, after = onNavigate): ReactNode => {
     if (key === 'home') return <UrgentCount key="u" count={urgent} />;
     if (key === 'inbox')
       return (
@@ -441,23 +505,23 @@ export function NavLinks({
             <Group
               key={entry.id}
               group={entry}
-              workspaceId={workspaceId}
-              pathname={pathname}
+              items={items}
+              activeKey={activeKey}
               badges={badges}
               onNavigate={onNavigate}
             />
           );
         }
-        const item = navItemOf(workspaceId, entry.key);
-        return (
+        const item = items.get(entry.key);
+        return item ? (
           <NavLink
             key={entry.key}
             item={item}
-            active={isActive(item, pathname)}
+            active={entry.key === activeKey}
             onNavigate={onNavigate}
             badge={<span className="ml-auto">{badges(entry.key)}</span>}
           />
-        );
+        ) : null;
       })}
     </nav>
   );

@@ -1,6 +1,26 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
+// `Promise.all([unwrap(await a), unwrap(await b)])` waits for a before it even sends b. Pass the promises.
+const promiseAllAwaits = [
+  'ArrayExpression > AwaitExpression',
+  'ArrayExpression > CallExpression > AwaitExpression',
+  'ArrayExpression > ConditionalExpression > AwaitExpression',
+  'ArrayExpression > ConditionalExpression > CallExpression > AwaitExpression',
+].map((path) => ({
+  selector: `CallExpression[callee.object.name='Promise'][callee.property.name='all'] > ${path}`,
+  message:
+    'An await inside Promise.all([...]) runs the calls one after another. Pass the promise (e.g. `api.POST(...).then(unwrap)`).',
+}));
+
+// An add-on's screens and panels live in apps/web/src/addons/<id>/, and the rest of the web reaches them only
+// through the web's registry of add-ons (apps/web/src/addons/registry.ts), which loads each one lazily and only
+// while it runs: imported anywhere else, an add-on would ship to every business and leave something behind when
+// it is turned off or taken out. The registry and the gate (addons/gate.tsx) sit beside the add-ons' folders.
+const addonFolderImport = '^(?:@/|\\./|(?:\\.\\./)+)addons/(?!(?:registry|gate)$)[^/]+';
+const addonFolderMessage =
+  'Only apps/web/src/addons/registry.ts imports from an add-on’s folder: put the panel in the registry and draw it with <AddonSlot>. Inside an add-on’s own folder, import its files relatively.';
+
 export default tseslint.config(
   {
     ignores: [
@@ -43,22 +63,37 @@ export default tseslint.config(
     },
   },
   {
-    // `Promise.all([unwrap(await a), unwrap(await b)])` waits for a before it even sends b. Pass the promises.
     // (Matched from any cwd: packages lint with this config from their own directory.)
     files: ['**/*.{ts,tsx}'],
     rules: {
+      'no-restricted-syntax': ['error', ...promiseAllAwaits],
+    },
+  },
+  {
+    // Add-ons' UI (0108): the web's screens, shell and helpers, and add-ons' folders themselves, never import an
+    // add-on's folder, statically or with import(). An add-on's own pages (app/app/w/[workspaceId]/a/<id>/) are
+    // its code and may. Matched from any cwd too: only the web has these folders beside an `addons/` one.
+    files: [
+      '**/src/app/**/*.{ts,tsx}',
+      '**/src/components/**/*.{ts,tsx}',
+      '**/src/lib/**/*.{ts,tsx}',
+      '**/src/addons/*/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/src/app/app/w/*/a/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ regex: addonFolderImport, message: addonFolderMessage }] },
+      ],
       'no-restricted-syntax': [
         'error',
-        ...[
-          'ArrayExpression > AwaitExpression',
-          'ArrayExpression > CallExpression > AwaitExpression',
-          'ArrayExpression > ConditionalExpression > AwaitExpression',
-          'ArrayExpression > ConditionalExpression > CallExpression > AwaitExpression',
-        ].map((path) => ({
-          selector: `CallExpression[callee.object.name='Promise'][callee.property.name='all'] > ${path}`,
-          message:
-            'An await inside Promise.all([...]) runs the calls one after another. Pass the promise (e.g. `api.POST(...).then(unwrap)`).',
-        })),
+        ...promiseAllAwaits,
+        {
+          // The same, for `import('…')`: esquery can't hold a slash in a pattern, so `.` stands for one.
+          selector:
+            'ImportExpression[source.value=/^(@.|\\..|(\\.\\..)+)addons.(?!(registry|gate)$)[a-z]/]',
+          message: addonFolderMessage,
+        },
       ],
     },
   },
