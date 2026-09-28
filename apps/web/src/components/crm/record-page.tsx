@@ -22,6 +22,7 @@ import { Fragment, useState, type ComponentType } from 'react';
 import { toast } from 'sonner';
 import { CallConsentRow } from '@/components/crm/call-consent';
 import { can } from '@hfos/core';
+import { AddonSlot } from '@/components/addons/slot';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { firstName } from '@/components/calendar/appt';
@@ -962,6 +963,12 @@ export function RecordPage(props: RecordPageProps) {
             companyPeople={company ? (props.companyPeople ?? []) : undefined}
             onAddPerson={company ? () => setAddPerson(true) : undefined}
           />
+          {/* Panels the add-ons running here put on a customer or a company (0108); none until one does. */}
+          {person ? (
+            <AddonSlot name="person.panels" workspaceId={workspaceId} personId={person.id} />
+          ) : (
+            <AddonSlot name="company.panels" workspaceId={workspaceId} companyId={recordId} />
+          )}
         </div>
       </div>
 

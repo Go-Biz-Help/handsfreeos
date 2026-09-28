@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AddonSlot } from '@/components/addons/slot';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
 import { AppointmentSheet } from '@/components/calendar/appointment-sheet';
 import { AppointmentRow, UpcomingAppointments } from '@/components/calendar/upcoming-card';
@@ -432,6 +433,14 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
               />
             </div>
           ))}
+          {/* Panels the add-ons running here put on a record (0108): an add-on's own kinds say who they are by key. */}
+          <AddonSlot
+            name="record.panels"
+            workspaceId={workspaceId}
+            recordId={record.id}
+            recordTypeId={kind.id}
+            recordTypeKey={kind.key}
+          />
         </div>
       </div>
 
