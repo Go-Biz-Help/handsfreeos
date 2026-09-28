@@ -636,9 +636,40 @@ describe('the add-on check, for every kind of actor', () => {
     expect(await refusal(ask(ping, { workspaceId: wsA }, human(member)))).toMatchObject({
       rule: 'addon_inactive',
     });
+    // The page says so: still on here, but not running; and turning it off would stop nothing more.
+    const soloQueries = addonQueries(catalog);
+    const listed = await ask(soloQueries.list, { workspaceId: wsA }, human(owner));
+    expect(listed.installed.find((i) => i.addonId === id)).toMatchObject({
+      state: 'enabled',
+      status: 'unavailable',
+      running: false,
+    });
+    expect(
+      (
+        await ask(
+          soloQueries.impact,
+          { workspaceId: wsA, addonId: id, action: 'disable' },
+          human(owner),
+        )
+      ).capabilitiesLost,
+    ).toEqual([]);
     // And back.
     await rows(admin(), sql`delete from platform.addon_overrides where addon_id = ${id}`);
     expect(await ask(ping, { workspaceId: wsA }, human(member))).toEqual({ ok: true });
+    expect(
+      (await ask(soloQueries.list, { workspaceId: wsA }, human(owner))).installed.find(
+        (i) => i.addonId === id,
+      ),
+    ).toMatchObject({ status: 'available', running: true });
+    expect(
+      (
+        await ask(
+          soloQueries.impact,
+          { workspaceId: wsA, addonId: id, action: 'disable' },
+          human(owner),
+        )
+      ).capabilitiesLost,
+    ).toEqual([{ id: `${id}.use`, label: 'Switch' }]);
     await run(soloCmds.uninstall, { workspaceId: wsA, addonId: id }, human(owner));
     await finish(wsA);
   });
@@ -675,6 +706,8 @@ describe('settings', () => {
       { workspaceId: wsB, addonId: 'fxacct', flags: { beta_reports: true } },
       human(owner),
     );
+    // Saving some switches leaves the rest as they were: a screen may send only the one flipped.
+    await run(cmds.saveSettings, { workspaceId: wsB, addonId: 'fxacct', flags: {} }, human(owner));
     // An add-on with no settings has none to save.
     expect(
       await refusal(

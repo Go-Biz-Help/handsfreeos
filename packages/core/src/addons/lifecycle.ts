@@ -102,3 +102,47 @@ export function moveFor(from: InstallationState | null, action: LifecycleAction)
       );
   }
 }
+
+/** On its way somewhere: the worker finishes the move by itself within seconds, and nobody makes another meanwhile. */
+export const isBusyState = (state: InstallationState | null | undefined): boolean =>
+  state === 'installing' || state === 'uninstalling' || state === 'purging';
+
+/** The order a page offers moves in: the one that brings it on first, the one that takes most away last. */
+export const ADDON_MOVE_ORDER: readonly LifecycleAction[] = [
+  'enable',
+  'install',
+  'disable',
+  'uninstall',
+  'purge',
+];
+
+/** What a person may do with add-ons here, and what this one allows. */
+export interface AddonMoveGrants {
+  /** `addons.manage`: install, turn on and off, uninstall. Owners and admins. */
+  readonly manage: boolean;
+  /** `addons.purge`: delete an add-on's data, after typing its name. Owners only. */
+  readonly purge: boolean;
+  /** Whether it can be installed here now (HandsFreeOS's own answer: the `installable` capabilities). */
+  readonly installable: boolean;
+  /** Its code is gone from HandsFreeOS (a retired add-on): it can only leave. */
+  readonly retired?: boolean;
+}
+
+/**
+ * The moves a person can make on an add-on from where it stands here, in the order their buttons go: the lifecycle's
+ * own table (`moveFor`), less what a busy state, a retired add-on and their permissions rule out. The web's page and
+ * the phone's offer exactly these; the server checks every move again.
+ */
+export function addonMovesFor(
+  state: InstallationState | null,
+  grants: AddonMoveGrants,
+): LifecycleAction[] {
+  if (!grants.manage || isBusyState(state)) return [];
+  return ADDON_MOVE_ORDER.filter((action) => {
+    if (moveFor(state, action).kind !== 'move') return false;
+    if (grants.retired && action !== 'uninstall' && action !== 'purge') return false;
+    if (action === 'install') return grants.installable;
+    if (action === 'purge') return grants.purge;
+    return true;
+  });
+}

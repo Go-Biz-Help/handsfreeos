@@ -10,7 +10,7 @@ import {
   customRecordTypes,
   workspaces,
 } from '@hfos/db/schema';
-import { capabilitySets } from '../addons/capabilities';
+import { addonRuns, capabilitySets } from '../addons/capabilities';
 import { findAddon, type Catalog } from '../addons/graph';
 import { capabilityContextOf, loadInstallations, loadOverrides } from '../addons/load';
 import { planTransition } from '../addons/plan';
@@ -60,9 +60,8 @@ export function addonQueries(catalog: Catalog) {
         loadOverrides(ctx.tx),
       ]);
       const permissions = ctx.scope.workspacePermissions ?? [];
-      const sets = capabilitySets(
-        capabilityContextOf(catalog, installations, overrides, permissions),
-      );
+      const cctx = capabilityContextOf(catalog, installations, overrides, permissions);
+      const sets = capabilitySets(cctx);
       // Suggestions only ever reach people who could act on them (the owner's decision, 2026-09-28).
       const manages = permissions.includes('addons.manage');
       return {
@@ -82,6 +81,8 @@ export function addonQueries(catalog: Catalog) {
             // before stay until the worker looks again.
             failedChecks: i.lastError ? failedChecks(i.verification) : [],
             retired: !m,
+            status: m ? (overrides[m.id] ?? m.catalog.status) : null,
+            running: addonRuns(cctx, i.addonId),
           };
         }),
         capabilities: {
@@ -181,8 +182,9 @@ export function addonQueries(catalog: Catalog) {
           addonId: id,
           name: name(id),
         })),
+        // Only what works now: one already off, or switched off by HandsFreeOS, stops nothing more.
         capabilitiesLost: catalog
-          .filter((a) => stopping.has(a.id))
+          .filter((a) => stopping.has(a.id) && addonRuns(cctx, a.id))
           .flatMap((a) => a.capabilities.map((cap) => ({ id: cap.id, label: cap.label }))),
         holds: {
           records: Number(c?.records ?? 0),

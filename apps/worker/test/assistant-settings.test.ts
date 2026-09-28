@@ -171,6 +171,14 @@ describe('get_settings', () => {
     expect(territories.result['territories']).toBeTruthy();
   });
 
+  it('reads the add-ons as the page shows them, and leaves every move to a person', async () => {
+    const { result } = await readTool('get_settings', 'add_ons', owner);
+    expect(result['where']).toBe('Settings → Add-ons');
+    // Nothing in the catalogue yet, as until the first add-on ships.
+    expect(result['addOns']).toEqual({ inThisBusiness: [], availableToAdd: [], comingSoon: [] });
+    expect(JSON.stringify(result['theyDoThemselves'])).toContain('delete an add-on’s data');
+  });
+
   it('reads every part without failing, whatever is set up', async () => {
     for (const area of SETTINGS_AREAS) {
       const { result } = await readTool('get_settings', area, owner);

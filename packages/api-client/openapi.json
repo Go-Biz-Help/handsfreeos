@@ -93164,6 +93164,28 @@
                           },
                           "retired": {
                             "type": "boolean"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "planned",
+                                  "development",
+                                  "beta",
+                                  "built",
+                                  "available",
+                                  "deprecated",
+                                  "unavailable"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "running": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -93177,7 +93199,9 @@
                           "changedAt",
                           "lastError",
                           "failedChecks",
-                          "retired"
+                          "retired",
+                          "status",
+                          "running"
                         ],
                         "additionalProperties": false
                       }

@@ -37,6 +37,33 @@ interface AreaQuery {
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   business: [{ name: 'workspace.get', as: 'business' }],
   branded_domain: [{ name: 'branded_domain.get', as: 'brandedDomain' }],
+  add_ons: [
+    {
+      name: 'addon.list',
+      as: 'addOns',
+      // What the page shows: each add-on here and whether it runs, and (for whoever manages add-ons) what could be
+      // added and what's coming. What each one lets the business do is find_capabilities' to answer.
+      shape: (v) => {
+        const list = v as {
+          installed?: { addonId: string; name: string; state: string; running: boolean }[];
+          catalog?: { addonId: string; name: string; summary: string; status: string }[];
+        } | null;
+        const here = new Set((list?.installed ?? []).map((i) => i.addonId));
+        const catalog = (list?.catalog ?? []).filter((c) => !here.has(c.addonId));
+        return {
+          inThisBusiness: (list?.installed ?? []).map((i) => ({
+            name: i.name,
+            state: i.state,
+            running: i.running,
+          })),
+          availableToAdd: catalog
+            .filter((c) => c.status === 'available')
+            .map((c) => ({ name: c.name, summary: c.summary })),
+          comingSoon: catalog.filter((c) => c.status === 'planned').map((c) => c.name),
+        };
+      },
+    },
+  ],
   permissions: [{ name: 'permission.settings', as: 'permissions' }],
   pipelines: [{ name: 'pipeline.list', as: 'pipelines' }],
   fields: [{ name: 'custom_field.list', as: 'fields' }],

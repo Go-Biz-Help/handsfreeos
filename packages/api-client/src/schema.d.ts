@@ -28694,8 +28694,10 @@ export interface operations {
                             latestVersion: string | null;
                             name: string;
                             retired: boolean;
+                            running: boolean;
                             /** @enum {string} */
                             state: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                            status: ("planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable") | null;
                             summary: string;
                         }[];
                     };

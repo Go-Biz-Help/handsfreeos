@@ -87,6 +87,10 @@ export const AddonListOutput = z.object({
        * again, and it can still be uninstalled and its data deleted.
        */
       retired: z.boolean(),
+      /** Its catalogue status now, with HandsFreeOS's override applied (`deprecated`, `unavailable`); null if retired. */
+      status: z.enum(CATALOG_STATUSES).nullable(),
+      /** Whether it runs here now: on, and not switched off everywhere by HandsFreeOS (`unavailable`). */
+      running: z.boolean(),
     }),
   ),
   /** What this person can do here now, and what's installed but not theirs, or turned off. */
@@ -129,7 +133,7 @@ export const AddonImpactOutput = z.object({
   refusal: z.object({ rule: z.string(), message: z.string() }).nullable(),
   /** Add-ons that use it when it's there and would lose those features. */
   optionalFor: z.array(z.object({ addonId, name: z.string() })),
-  /** Capabilities that would stop. */
+  /** Capabilities working now that would stop: none from an add-on that is already off. */
   capabilitiesLost: z.array(z.object({ id: z.string(), label: z.string() })),
   /** What it holds here now. */
   holds: z.object({
