@@ -32,6 +32,10 @@ const ASK_RULES: ReadonlySet<string> = new Set([
   'has_open_work',
   // Disconnecting a payment account that plans still bill through (acknowledgeSubscriptions).
   'payment_connection_has_plans',
+  // An add-on move that needs others moved with it: "Rent Collection needs Property Management. Turn it off too?"
+  // (`include`, the add-ons named in the refusal's details).
+  'addon_needs',
+  'addon_required_by',
   // The Assistant before the person's OK to send what they ask about to an AI service (assistant.consent).
   'assistant_consent_required',
 ]);
@@ -112,6 +116,20 @@ export class HfosError extends Error {
   }
   static rule(rule: string, status: number, message: string): HfosError {
     return new HfosError('rule_violation', status, message, undefined, rule);
+  }
+  /**
+   * An add-on's operation, or work for one, while that add-on isn't on in the business (0108). Final: turning it
+   * back on is a person's decision, not something a retry or an answer fixes. The details name the add-on, so a
+   * screen or the phone can say which and where to turn it back on.
+   */
+  static addonInactive(addon: { readonly id: string; readonly name: string }): HfosError {
+    return new HfosError(
+      'rule_violation',
+      403,
+      `${addon.name} is turned off for this business.`,
+      { addonId: addon.id },
+      'addon_inactive',
+    );
   }
   /** An app build older than the API accepts: it pauses, keeps its unsent changes and asks to be updated. */
   static upgradeRequired(minVersion: string): HfosError {

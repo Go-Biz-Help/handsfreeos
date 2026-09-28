@@ -1,12 +1,13 @@
 /**
  * Handing someone a role hands them only what whoever hands it out may do here. membership.invite and
- * membership.change_role check the rank (canActOnRole) and then this: the role's permissions in this business, with
- * the business's settings for the role and the person's own (private.role_grant_settings), against the caller's.
+ * membership.change_role check the rank (canActOnRole) and then this: what the role would carry in this business —
+ * the business's settings for the role and the person's own, and the permissions of the add-ons that run here — as
+ * the database works it out (private.role_would_grant, the same rules as everyone's own list), against the caller's.
  */
 import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
-import { effectivePermissions, permissionsBeyond, type WorkspaceRole } from '../permissions';
+import { permissionsBeyond, type WorkspaceRole } from '../permissions';
 
 export async function assertMayGrantRole(
   ctx: CommandContext,
@@ -17,11 +18,11 @@ export async function assertMayGrantRole(
   // Owners hold everything, so there is nothing a role could carry past them.
   if (ctx.scope.workspaceRole === 'owner') return;
   const ws = ctx.scope.workspaceId!;
-  const [settings, current] = await Promise.all([
-    rows<{ level: 'role' | 'person'; permission: string; allowed: boolean }>(
+  const [grants, current] = await Promise.all([
+    rows<{ permissions: string[] }>(
       ctx.tx,
-      sql`select level, permission, allowed
-          from private.role_grant_settings(${ws}::uuid, ${role}::app.member_role, ${userId ?? null}::uuid)`,
+      sql`select private.role_would_grant(${ws}::uuid, ${role}::app.member_role, ${userId ?? null}::uuid)
+            as permissions`,
     ),
     userId
       ? rows<{ permissions: string[] }>(
@@ -31,11 +32,7 @@ export async function assertMayGrantRole(
         )
       : Promise.resolve([]),
   ]);
-  const settingsAt = (level: 'role' | 'person') =>
-    Object.fromEntries(
-      settings.filter((s) => s.level === level).map((s) => [s.permission, s.allowed]),
-    );
-  const granted = effectivePermissions(role, settingsAt('role'), settingsAt('person'));
+  const granted = grants[0]?.permissions ?? [];
   const beyond = permissionsBeyond(
     { role: ctx.scope.workspaceRole, permissions: ctx.scope.workspacePermissions },
     granted,

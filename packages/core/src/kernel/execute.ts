@@ -23,6 +23,7 @@ import { redact } from './redact';
 import type {
   Actor,
   ActorKind,
+  AddonRef,
   CommandContext,
   CommandDef,
   EmitInput,
@@ -187,6 +188,41 @@ function assertNotTestRun(actor: Actor): void {
     );
 }
 
+/**
+ * The add-on an operation's work is for (0108): its own, else that of the add-on command it runs inside, else that of
+ * the job or event delivery the system is running for an add-on. Core's operations run by core are for none.
+ */
+function addonOf(
+  op: { readonly addon?: AddonRef },
+  actor: Actor,
+  within: AddonRef | null = null,
+): AddonRef | null {
+  return op.addon ?? within ?? (actor.type === 'system' ? (actor.addon ?? null) : null);
+}
+
+/**
+ * The add-on check (0108), for every kind of actor: work for an add-on runs only while that add-on is on in the
+ * business (enabled, and not switched off by HandsFreeOS). A command also holds the add-on's installation row with a
+ * key-share lock until its transaction ends, so a disable (which takes the row for update) waits for the commands
+ * already running and nothing starts after it. Core's own operations never pay for it: no add-on, no query.
+ */
+async function assertAddonRuns(
+  tx: Tx,
+  addon: AddonRef | null,
+  workspaceId: string | null,
+  lock: boolean,
+): Promise<void> {
+  if (!addon) return;
+  if (workspaceId) {
+    const [row] = await rows<{ ok: boolean }>(
+      tx,
+      sql`select private.addon_in_use(${workspaceId}::uuid, ${addon.id}, ${lock}) as ok`,
+    );
+    if (row?.ok) return;
+  }
+  throw HfosError.addonInactive(addon);
+}
+
 function actorRoleLabel(scope: ResolvedScope): string | null {
   if (scope.staffRole) return `staff_${scope.staffRole}`;
   return scope.workspaceRole ?? (scope.orgRole ? `org_${scope.orgRole}` : null);
@@ -281,6 +317,7 @@ async function recordEvent(
   scope: ResolvedScope,
   meta: RequestMeta,
   e: EmitInput,
+  addon: AddonRef | null,
 ): Promise<string> {
   const eventId = randomUUID();
   const organizationId = e.organizationId !== undefined ? e.organizationId : scope.organizationId;
@@ -290,6 +327,8 @@ async function recordEvent(
   const payload = redact({
     ...(e.payload ?? {}),
     ...who.payload,
+    // Which add-on did it, with its name and version then, so the line still reads once the add-on is gone (0108).
+    ...(addon ? { _addon: { id: addon.id, name: addon.name, version: addon.version } } : {}),
     ...(e.broadcast === false ? { _broadcast: false } : {}),
   });
   await tx.insert(events).values({
@@ -304,6 +343,7 @@ async function recordEvent(
     payload,
     correlationId: meta.correlationId,
     causationId: meta.causationId ?? null,
+    addonId: addon?.id ?? null,
     // When the person really did it (a change from the phone, corrected for its clock); otherwise now.
     ...(meta.occurredAt ? { occurredAt: meta.occurredAt } : {}),
   });
@@ -326,6 +366,7 @@ async function recordEvent(
     userAgent: meta.userAgent ?? null,
     correlationId: meta.correlationId,
     causationId: meta.causationId ?? null,
+    addonId: addon?.id ?? null,
   });
   return eventId;
 }
@@ -343,16 +384,20 @@ async function runCommand<I extends z.ZodType, O extends z.ZodType>(
   actor: Actor,
   scope: ResolvedScope,
   meta: RequestMeta,
+  addon: AddonRef | null = null,
 ): Promise<ExecuteResult<z.output<O>>> {
   const eventIds: string[] = [];
   const emit = async (e: EmitInput): Promise<string> => {
     if (!cmd.emits.includes(e.type))
       throw new Error(`${cmd.name} emitted undeclared event ${e.type}`);
-    const id = await recordEvent(tx, cmd.name, actor, scope, meta, e);
+    const id = await recordEvent(tx, cmd.name, actor, scope, meta, e, addon);
     eventIds.push(id);
     return id;
   };
-  const result = await cmd.handler({ tx, actor, scope, meta, commandName: cmd.name, emit }, input);
+  const result = await cmd.handler(
+    { tx, actor, scope, meta, commandName: cmd.name, emit, addon },
+    input,
+  );
   return { output: cmd.output.parse(result) as z.output<O>, eventIds };
 }
 
@@ -385,13 +430,16 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
     try {
       // Root within its tenant (no permission check), bound by the service_actor policies.
       const scope = resolveMachineScope(actor, scopeRef);
+      const addon = addonOf(cmd, actor);
       return await asWorker(
         db,
         { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
         async (tx) => {
           assertOnTime(cmd, meta, new Date());
+          // No permission check for the system, a workflow or the AI teammate, but never an add-on that is off.
+          await assertAddonRuns(tx, addon, scope.workspaceId, true);
           await shareChangeMoment(tx, meta);
-          return runCommand(tx, cmd, input, actor, scope, meta);
+          return runCommand(tx, cmd, input, actor, scope, meta, addon);
         },
       );
     } catch (e) {
@@ -421,9 +469,12 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
         receiptId = claimed.receiptId;
       }
       assertOnTime(cmd, meta, new Date());
+      // Before the permission: an add-on that is off has no permissions for anyone, and saying it's off is the
+      // honest answer. After the receipt claim, so a phone's repeat of a refused command gets the same refusal.
+      await assertAddonRuns(tx, cmd.addon ?? null, scope.workspaceId, true);
       if (cmd.permission) assertPermission(scope, cmd.permission);
       await shareChangeMoment(tx, meta);
-      const result = await runCommand(tx, cmd, input, actor, scope, meta);
+      const result = await runCommand(tx, cmd, input, actor, scope, meta, cmd.addon ?? null);
       if (receiptId) await storeAnswer(tx, cmd, receiptId, result);
       return result;
     });
@@ -474,6 +525,18 @@ export async function executeCommandIn<I extends z.ZodType, O extends z.ZodType>
   actor: MachineActor,
   meta: RequestMeta,
 ): Promise<ExecuteResult<z.output<O>>> {
+  return runMachineCommandIn(tx, cmd, rawInput, actor, meta, null);
+}
+
+/** executeCommandIn, for a command run inside another: `within` is the add-on the outer work was for. */
+async function runMachineCommandIn<I extends z.ZodType, O extends z.ZodType>(
+  tx: Tx,
+  cmd: CommandDef<I, O>,
+  rawInput: unknown,
+  actor: MachineActor,
+  meta: RequestMeta,
+  within: AddonRef | null,
+): Promise<ExecuteResult<z.output<O>>> {
   if ((actor as Actor).type === 'human')
     throw HfosError.forbidden(
       'Only the system, workflows and the AI teammate run commands in their own transaction.',
@@ -483,10 +546,18 @@ export async function executeCommandIn<I extends z.ZodType, O extends z.ZodType>
   const input = parseInput(cmd.input, rawInput);
   const scope = resolveMachineScope(actor, cmd.scope(input));
   await assertWorkerTx(tx, actor);
+  const addon = addonOf(cmd, actor, within);
   try {
-    return await tx.transaction((savepoint) =>
-      runCommand(savepoint, cmd, input, actor, scope, meta),
-    );
+    return await tx.transaction(async (savepoint) => {
+      // The outer work's add-on was checked when it started; this command's own, and a job's, are checked here.
+      await assertAddonRuns(
+        savepoint,
+        cmd.addon ?? (within ? null : addon),
+        scope.workspaceId,
+        true,
+      );
+      return runCommand(savepoint, cmd, input, actor, scope, meta, addon);
+    });
   } catch (e) {
     throw translateDbError(e);
   }
@@ -506,18 +577,21 @@ export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodT
   cmd: CommandDef<I, O>,
   rawInput: unknown,
 ): Promise<ExecuteResult<z.output<O>>> {
-  if (isMachine(ctx.actor)) return executeCommandIn(ctx.tx, cmd, rawInput, ctx.actor, ctx.meta);
+  if (isMachine(ctx.actor))
+    return runMachineCommandIn(ctx.tx, cmd, rawInput, ctx.actor, ctx.meta, ctx.addon ?? null);
   assertActorAllowed(cmd, ctx.actor);
   const input = parseInput(cmd.input, rawInput);
   const ref = cmd.scope(input);
   if (ref.kind !== 'workspace' || ref.workspaceId !== ctx.scope.workspaceId)
     throw HfosError.notFound('Workspace not found.');
-  if (cmd.permission) assertPermission(ctx.scope, cmd.permission);
   const actor = ctx.actor;
+  const addon = addonOf(cmd, actor, ctx.addon ?? null);
   try {
-    return await ctx.tx.transaction((savepoint) =>
-      runCommand(savepoint, cmd, input, actor, ctx.scope, ctx.meta),
-    );
+    return await ctx.tx.transaction(async (savepoint) => {
+      await assertAddonRuns(savepoint, cmd.addon ?? null, ctx.scope.workspaceId, true);
+      if (cmd.permission) assertPermission(ctx.scope, cmd.permission);
+      return runCommand(savepoint, cmd, input, actor, ctx.scope, ctx.meta, addon);
+    });
   } catch (e) {
     throw translateDbError(e);
   }
@@ -550,11 +624,17 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
       return await asWorker(
         db,
         { workspaceId: actor.workspaceId, organizationId: actor.organizationId },
-        (tx) => run(tx, scope),
+        async (tx) => {
+          await assertAddonRuns(tx, addonOf(query, actor), scope.workspaceId, false);
+          return run(tx, scope);
+        },
       );
     }
     return await asUser(db, actor.claims, async (tx) => {
       const scope = await resolveScope(tx, scopeRef);
+      // A turned-off add-on's data is hidden until it's back on (the owner's decision, 2026-09-28), from people
+      // working in the business and from anyone looking at it.
+      await assertAddonRuns(tx, query.addon ?? null, scope.workspaceId, false);
       if (scope.viewAs) {
         // Looking at a business, not working in it: no role to check a permission against, so the read
         // rules are the whole answer — except the Assistant, which is never part of looking.

@@ -34,7 +34,7 @@ import type { TenantScope } from '../services';
 import { ANCHOR_EVENTS } from './anchors';
 import { MAX_DEPTH } from './constants';
 import { RunData } from './data';
-import { runDefinition, versionDefinition } from './defs';
+import { readableVersionDefinition, runDefinition } from './defs';
 import { enrol, type LiveRoom } from './enrol';
 import { lateOfEvent } from './late';
 import { LIFECYCLE_EVENTS, onLifecycleEvent } from './lifecycle';
@@ -213,7 +213,14 @@ async function startRuns(
       );
       continue;
     }
-    const def = await versionDefinition(ctx.tx, f.version);
+    const def = await readableVersionDefinition(ctx.tx, f.version);
+    if (!def) {
+      ctx.log.warn(
+        { workflowId: f.id, versionId: f.version },
+        'a workflow’s saved steps can’t be read; the event goes on without it',
+      );
+      continue;
+    }
     if (def.trigger.kind !== 'event' || def.trigger.event !== e.eventType) continue;
     const liveRoom: LiveRoom = { left: null };
     for (const sub of list) {

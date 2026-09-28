@@ -33,7 +33,11 @@ export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) 
         data-testid="sidebar-menu"
         className="-mx-1 mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-0.5 [scrollbar-width:thin]"
       >
-        <NavLinks workspaceId={current.id} permissions={current.permissions} />
+        <NavLinks
+          workspaceId={current.id}
+          permissions={current.permissions}
+          addons={current.addons}
+        />
       </div>
       <div className="flex-none pt-2">
         <CallsPill />

@@ -251,6 +251,33 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 500,
     message: 'Your account profile is missing. Please sign out and back in.',
   },
+  // Add-ons (0108): the rules the database holds whoever writes.
+  addon_inactive: { status: 403, message: 'That add-on is turned off for this business.' },
+  addon_needs_person: { status: 401, message: 'Sign in to change add-ons.' },
+  addon_needs_manage: { status: 403, message: 'You can’t install or turn off add-ons here.' },
+  addon_purge_owner_only: {
+    status: 403,
+    message: 'Only an owner can permanently delete an add-on’s data.',
+  },
+  addon_not_installed: { status: 409, message: 'That add-on isn’t installed here.' },
+  addon_bad_move: { status: 409, message: 'That add-on can’t do that from where it is now.' },
+  addon_installation_is_ours: {
+    status: 403,
+    message: 'Add-ons are installed and removed through their own commands.',
+  },
+  addon_settings_forbidden: { status: 403, message: 'You can’t change this add-on’s settings.' },
+  addon_bad_permission: { status: 403, message: 'That isn’t a permission of this add-on.' },
+  addon_override_forbidden: {
+    status: 403,
+    message: 'Only HandsFreeOS staff who manage add-ons can do that.',
+  },
+  addon_meter_not_its_own: { status: 400, message: 'A meter belongs to its own add-on.' },
+  managed_by_addon: { status: 403, message: 'Its add-on decides this.' },
+  managed_record_forbidden: { status: 403, message: 'You can’t change these records.' },
+  record_purged: {
+    status: 409,
+    message: 'This record’s add-on data was deleted, so it can’t be changed.',
+  },
 };
 
 /** True when a statement hit a unique index (the named one, if given), so a handler can raise its own rule. */

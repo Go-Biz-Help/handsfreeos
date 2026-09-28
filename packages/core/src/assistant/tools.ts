@@ -15,6 +15,7 @@ import {
   when,
   type AssistantTool,
 } from './tool-kit';
+import { addonTools } from './tools-addons';
 import { billingTools } from './tools-billing';
 import { contentTools } from './tools-content';
 import { extraTools } from './tools-extra';
@@ -1338,6 +1339,8 @@ export const assistantTools = [
   ...contentTools,
   ...setupTools,
   ...extraTools,
+  // What HandsFreeOS can do here, core and add-ons alike (the add-ons' own tools are derived from their operations).
+  ...addonTools,
 ] as const;
 
 export type AssistantToolName = (typeof assistantTools)[number]['name'];

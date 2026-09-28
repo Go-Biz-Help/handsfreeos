@@ -67,3 +67,5 @@ export * from './ideas/index';
 // Talking out loud: the Assistant's voice mode and the test console's calls.
 export * from './voice/index';
 export * from './voice/phone-audio';
+// Add-ons: what one declares, the catalogue, the lifecycle, and what a business can do (docs/addon-architecture.md).
+export * from './addons/index';

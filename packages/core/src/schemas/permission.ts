@@ -12,20 +12,29 @@ export const customizablePermission = z.enum(
   CUSTOMIZABLE_PERMISSIONS.map((p) => p.permission) as [string, ...string[]],
 );
 
+/**
+ * A permission on core's list, or one of an installed add-on's (`pm.leases.write`). Which of an add-on's a business
+ * may set is its manifest's to say; the commands check it against the database (0108).
+ */
+const settablePermission = z.union([
+  customizablePermission,
+  z.string().regex(/^[a-z]{2,16}(\.[a-z][a-z_]*)+$/, 'Pick a permission.'),
+]);
+
 /** On, off, or null to go back to what the level above says (the role's setting, or the default). */
 const allowed = z.boolean().nullable();
 
 export const PermissionSetRoleInput = z.object({
   workspaceId: uuid,
   role: customizableRole,
-  permission: customizablePermission,
+  permission: settablePermission,
   allowed,
 });
 
 export const PermissionSetMemberInput = z.object({
   workspaceId: uuid,
   userId: uuid,
-  permission: customizablePermission,
+  permission: settablePermission,
   allowed,
 });
 

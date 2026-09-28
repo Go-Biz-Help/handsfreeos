@@ -52,6 +52,10 @@ export const ROLE_PERMISSIONS = {
     'reviews.manage',
     'fields.manage',
     'permissions.manage',
+    // Add-ons (0108): installing, turning off and uninstalling them, and permanently deleting an add-on's data,
+    // which only owners do and a business can never hand out.
+    'addons.manage',
+    'addons.purge',
   ],
   admin: [
     'workspace.read',
@@ -87,6 +91,7 @@ export const ROLE_PERMISSIONS = {
     'templates.manage',
     'reviews.manage',
     'fields.manage',
+    'addons.manage',
   ],
   member: [
     'workspace.read',
@@ -151,6 +156,8 @@ export const ROLE_PERMISSIONS = {
     'platform.founding.manage',
     'platform.ideas.moderate',
     'platform.ideas.manage',
+    // Switching an add-on off for every business, or marking it deprecated (platform.addon_overrides).
+    'platform.addons.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -361,6 +368,13 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         permission: 'migrations.manage',
         label: 'Move data in from another CRM',
         description: 'GoHighLevel and the other systems a business moves from.',
+        requires: [],
+      },
+      {
+        permission: 'addons.manage',
+        label: 'Install and turn off add-ons',
+        description:
+          'Adding add-ons, turning them on and off, and uninstalling them. Only owners delete their data.',
         requires: [],
       },
       {

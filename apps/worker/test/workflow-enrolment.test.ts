@@ -1,12 +1,14 @@
 /**
  * Starting workflow runs, on the real database: an outbox retry makes one run; two events at once make one run
  * under "once" and under "again after they finish"; an A→B→A chain stops at depth 3 and a workflow never
- * triggers itself; a run on version 1 finishes on version 1 after version 2 is published.
+ * triggers itself; a run on version 1 finishes on version 1 after version 2 is published; and a workflow whose
+ * saved steps can't be read is passed over without stopping the event or the others.
  */
 import {
   leadCreate,
   personUpdate,
   workflowEnrol,
+  workflowPublish,
   type WorkflowDefinitionInput,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -257,5 +259,57 @@ describe('enrolment', () => {
     const [r] = await runsOf(wf.id);
     expect(r).toMatchObject({ status: 'completed', end_reason: 'finished' });
     expect(await notesOf(p.id)).toEqual(['Hello Quin']);
+  });
+});
+
+describe('a workflow whose saved steps can’t be read', () => {
+  it('is passed over, and the event and the other workflows go on (WF-3)', async () => {
+    const readable = await addWorkflow(w, 'Still reads', {
+      version: 1,
+      trigger: { kind: 'event', event: 'lead.created' },
+      steps: [note(sid('rnote'), 'Readable: {{lead.title}}')],
+    });
+    const broken = await addWorkflow(
+      w,
+      'Step of a removed add-on',
+      {
+        version: 1,
+        trigger: { kind: 'event', event: 'lead.created' },
+        steps: [note(sid('bnote'), 'Never')],
+      },
+      { publish: false },
+    );
+    // Published, and then its saved version holds a step no code in this build knows: an add-on's, since removed.
+    const [gate] = await rows<{ revision: number }>(
+      admin(),
+      sql`update app.workflows set tested_revision = revision where id = ${broken.id} returning revision`,
+    );
+    const { versionId } = await run(w, workflowPublish, {
+      workspaceId: w.workspaceId,
+      workflowId: broken.id,
+      baseRevision: gate!.revision,
+    });
+    await admin().transaction(async (tx) => {
+      await tx.execute(sql`set local session_replication_role = replica`);
+      await tx.execute(
+        sql`update app.workflow_versions set definition = jsonb_set(definition, '{steps,0,action}', '"pm_send_lease"')
+            where id = ${versionId}`,
+      );
+    });
+    await rows(
+      admin(),
+      sql`update app.outbox set status = 'done'
+          where event_id in (select id from app.events where event_type = 'workflow.published' and entity_id = ${broken.id})`,
+    );
+    const p = await customerNamed(w, 'Wanda');
+    const leadId = await newLead(p.id, 'Roof');
+    await drain(w);
+    expect(await runsOf(broken.id)).toEqual([]);
+    expect((await runsOf(readable.id)).map((r) => r.status)).toEqual(['completed']);
+    expect(await notesOf(p.id)).toContain('Readable: Roof');
+    const [eventId] = await eventIdsOf('lead.created', [leadId]);
+    expect(
+      await rows(admin(), sql`select status from app.outbox where event_id = ${eventId!}`),
+    ).toEqual([{ status: 'done' }]);
   });
 });

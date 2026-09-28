@@ -27,7 +27,8 @@
     "db:reset": "node scripts/supabase.mjs db reset && pnpm db:seed",
     "sync:start": "bash apps/sync/scripts/start.sh",
     "sync:stop": "bash apps/sync/scripts/stop.sh",
-    "openapi": "pnpm --filter @hfos/api openapi:export && pnpm --filter @hfos/api-client generate"
+    "openapi": "pnpm --filter @hfos/api openapi:export && pnpm --filter @hfos/api-client generate",
+    "addon:new": "node scripts/addon-new.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

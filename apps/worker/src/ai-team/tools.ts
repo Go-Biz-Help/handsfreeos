@@ -1327,7 +1327,8 @@ const RUNNERS: Readonly<Record<TeammateToolName, Runner>> = {
     const r = await executeCommandIn(
       tx,
       personUpdate,
-      { workspaceId: d.scope.workspaceId, personId: d.rc.customer.id, ...args },
+      // The business and the customer go on last: the model's arguments never choose either (audit AI-3).
+      { ...args, workspaceId: d.scope.workspaceId, personId: d.rc.customer.id },
       d.ai,
       d.meta,
     );

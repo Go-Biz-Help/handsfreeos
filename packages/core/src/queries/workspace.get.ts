@@ -1,5 +1,8 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
 import { invitations, organizations, workspaceMemberships, workspaces } from '@hfos/db/schema';
+import { ADDON_CATALOG } from '../addons/catalog';
+import { currentCapabilityIds } from '../addons/capabilities';
+import { loadActiveAddons } from '../addons/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import { WorkspaceGetInput, WorkspaceGetOutput } from '../schemas/workspace';
@@ -32,6 +35,8 @@ export const workspaceGet = defineQuery({
           isNull(invitations.revokedAt),
         ),
       );
+    const addons = await loadActiveAddons(ctx.tx, input.workspaceId);
+    const permissions = [...(ctx.scope.workspacePermissions ?? [])];
     return {
       workspace: {
         id: row.ws.id,
@@ -42,7 +47,8 @@ export const workspaceGet = defineQuery({
         timezone: row.ws.timezone,
         industry: row.ws.industry,
         role: ctx.scope.workspaceRole ?? 'member',
-        permissions: [...(ctx.scope.workspacePermissions ?? [])],
+        permissions,
+        addons,
         settings: row.ws.settings,
         inboxPerPerson:
           (
@@ -50,6 +56,12 @@ export const workspaceGet = defineQuery({
               { perPerson?: unknown } | undefined
           )?.perPerson === true,
         createdAt: row.ws.createdAt.toISOString(),
+        capabilities: currentCapabilityIds({
+          catalog: ADDON_CATALOG,
+          // Running is all "current" asks, and active_addons has already applied HandsFreeOS's switches.
+          installations: Object.fromEntries(addons.map((id) => [id, 'enabled' as const])),
+          permissions,
+        }),
       },
       counts: { members: Number(members?.n ?? 0), pendingInvitations: Number(pending?.n ?? 0) },
     };

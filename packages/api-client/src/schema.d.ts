@@ -117,6 +117,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/addon.disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn an add-on off: it stops, its screens and records are hidden, and its data and settings are kept.
+         * @description Risk level 2. Requires addons.manage. Emits addon.disabled.
+         */
+        post: operations["command_addon_disable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn an installed add-on back on, with its data and settings as they were.
+         * @description Risk level 2. Requires addons.manage. Emits addon.enabled, addon.install_started.
+         */
+        post: operations["command_addon_enable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up.
+         * @description Risk level 3. Requires addons.manage. Emits addon.install_started, addon.enabled.
+         */
+        post: operations["command_addon_install"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Permanently delete an uninstalled add-on’s data. Core records it touched stay; history keeps its lines without the details.
+         * @description Risk level 4. Requires addons.purge. Emits addon.purge_started.
+         */
+        post: operations["command_addon_purge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.save_my_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save your own settings for an add-on.
+         * @description Risk level 1. Requires workspace.read. Emits .
+         */
+        post: operations["command_addon_save_my_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save an add-on’s settings and switches for this business.
+         * @description Risk level 2. Emits addon.settings_saved.
+         */
+        post: operations["command_addon_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/addon.uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Uninstall an add-on: it stops and lets go of what it holds outside HandsFreeOS; its data is kept until an owner deletes it.
+         * @description Risk level 3. Requires addons.manage. Emits addon.disabled, addon.uninstall_started.
+         */
+        post: operations["command_addon_uninstall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_teammate.create": {
         parameters: {
             query?: never;
@@ -7877,6 +8017,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/addon.impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Before changing an add-on: every add-on that would move with it (and the one question to ask), who loses features, and what it holds here.
+         * @description Requires addons.manage.
+         */
+        post: operations["query_addon_impact"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/addon.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added and what is planned.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_addon_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/addon.settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * An add-on’s settings here, and your own settings for it.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_addon_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_teammate.activity": {
         parameters: {
             query?: never;
@@ -11104,6 +11304,278 @@ export interface operations {
                         /** Format: uuid */
                         activityId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_disable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** @default [] */
+                    include?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_enable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** @default [] */
+                    include?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_install: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** @default [] */
+                    include?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_purge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    confirmName: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_addon_save_my_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    settings: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        /** @enum {boolean} */
+                        saved: true;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    flags?: {
+                        [key: string]: boolean;
+                    };
+                    settings?: {
+                        [key: string]: unknown;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        /** @enum {boolean} */
+                        saved: true;
+                    };
+                };
+            };
+        };
+    };
+    command_addon_uninstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** @default [] */
+                    include?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            from: ("installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged") | null;
+                            generation: number;
+                            /** @enum {string} */
+                            to: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                        }[];
                     };
                 };
             };
@@ -21396,8 +21868,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    /** @enum {string} */
-                    permission: "records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove";
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
                     /** Format: uuid */
                     userId: string;
                     /** Format: uuid */
@@ -21431,8 +21902,7 @@ export interface operations {
             content: {
                 "application/json": {
                     allowed: boolean | null;
-                    /** @enum {string} */
-                    permission: "records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove";
+                    permission: ("records.write" | "records.assign" | "records.archive" | "records.import" | "tags.manage" | "pipelines.manage" | "fields.manage" | "files.delete" | "inbox.use" | "channels.manage" | "appointments.write" | "calendars.manage" | "money.read" | "money.bill" | "money.manage" | "workflows.manage" | "forms.manage" | "reviews.manage" | "templates.manage" | "assistant.use" | "knowledge.manage" | "ai_team.manage" | "workspace.update" | "audit.read" | "migrations.manage" | "addons.manage" | "members.invite" | "invitations.read" | "invitations.revoke" | "members.change_role" | "members.remove") | string;
                     /** @enum {string} */
                     role: "admin" | "member";
                     /** Format: uuid */
@@ -28048,6 +28518,7 @@ export interface operations {
                             };
                         };
                         workspaces: {
+                            addons: string[];
                             /** Format: uuid */
                             id: string;
                             industry: string;
@@ -28061,6 +28532,197 @@ export interface operations {
                             slug: string;
                             timezone: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_addon_impact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                        addonId: string;
+                        capabilitiesLost: {
+                            id: string;
+                            label: string;
+                        }[];
+                        holds: {
+                            heldResources: number;
+                            ownRows: number;
+                            pendingJobs: number;
+                            records: number;
+                            relationships: number;
+                            usageEvents: number;
+                        };
+                        moves: {
+                            /** @enum {string} */
+                            action: "install" | "enable" | "disable" | "uninstall" | "purge";
+                            addonId: string;
+                            name: string;
+                        }[];
+                        needsAgreement: string[];
+                        optionalFor: {
+                            addonId: string;
+                            name: string;
+                        }[];
+                        /** @enum {string} */
+                        outcome: "plan" | "already" | "refused";
+                        question: string | null;
+                        refusal: {
+                            message: string;
+                            rule: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_addon_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        capabilities: {
+                            current: {
+                                description: string;
+                                id: string;
+                                label: string;
+                                provider: string;
+                                providerName: string;
+                            }[];
+                            installable: {
+                                description: string;
+                                id: string;
+                                label: string;
+                                provider: string;
+                                providerName: string;
+                            }[];
+                            planned: {
+                                description: string;
+                                id: string;
+                                label: string;
+                                provider: string;
+                                providerName: string;
+                            }[];
+                            restricted: {
+                                description: string;
+                                id: string;
+                                label: string;
+                                provider: string;
+                                providerName: string;
+                            }[];
+                            turnedOff: {
+                                description: string;
+                                id: string;
+                                label: string;
+                                provider: string;
+                                providerName: string;
+                            }[];
+                        };
+                        catalog: {
+                            addonId: string;
+                            category: string;
+                            name: string;
+                            /** @enum {string} */
+                            status: "planned" | "development" | "beta" | "built" | "available" | "deprecated" | "unavailable";
+                            summary: string;
+                        }[];
+                        installed: {
+                            addonId: string;
+                            /** Format: date-time */
+                            changedAt: string;
+                            failedChecks: string[];
+                            generation: number;
+                            installedVersion: string;
+                            lastError: string | null;
+                            latestVersion: string | null;
+                            name: string;
+                            retired: boolean;
+                            /** @enum {string} */
+                            state: "installing" | "enabled" | "disabled" | "uninstalling" | "uninstalled" | "purging" | "purged";
+                            summary: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_addon_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    addonId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        addonId: string;
+                        flags: {
+                            [key: string]: boolean;
+                        } | null;
+                        mySettings: {
+                            [key: string]: unknown;
+                        };
+                        settings: {
+                            [key: string]: unknown;
+                        } | null;
                     };
                 };
             };
@@ -39720,6 +40382,8 @@ export interface operations {
                             pendingInvitations: number;
                         };
                         workspace: {
+                            addons: string[];
+                            capabilities: string[];
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: uuid */

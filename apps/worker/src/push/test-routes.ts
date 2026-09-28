@@ -66,7 +66,14 @@ export function registerPushTestRoutes(app: FastifyInstance, deps: HttpDeps, job
             returning id`,
       ),
     );
-    const ran: JobStats = { claimed: 0, done: 0, rescheduled: 0, retried: 0, failed: 0 };
+    const ran: JobStats = {
+      claimed: 0,
+      done: 0,
+      rescheduled: 0,
+      retried: 0,
+      failed: 0,
+      cancelled: 0,
+    };
     for (let pass = 0; pass < 5; pass++) {
       await asWorker(deps.db, {}, (tx) =>
         tx.execute(
