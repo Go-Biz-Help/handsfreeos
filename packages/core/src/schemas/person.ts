@@ -111,6 +111,25 @@ export const PersonArchiveInput = z.object({
   force: z.boolean().default(false),
 });
 export const PersonArchiveOutput = z.object({ personId: uuid, archivedLeads: z.number().int() });
+/**
+ * Two records for the same customer, merged: `personId` is the duplicate, which is archived; `intoPersonId` is the
+ * record kept, which takes everything that was the duplicate's.
+ */
+export const PersonMergeInput = z.object({
+  workspaceId: uuid,
+  personId: uuid,
+  intoPersonId: uuid,
+});
+export const PersonMergeOutput = z.object({
+  /** The record kept. */
+  personId: uuid,
+  /** The duplicate, now archived and marked merged into the record kept. */
+  mergedPersonId: uuid,
+  /** The details the duplicate filled in on the record kept, in plain words ("email", "other numbers"). */
+  filled: z.array(z.string()),
+  /** How many of each kind of thing moved across ("leads", "invoices", "timeline"…); kinds with none are left out. */
+  moved: z.record(z.string(), z.number().int()),
+});
 export const PersonRestoreInput = z.object({ workspaceId: uuid, personId: uuid });
 export const PersonRestoreOutput = z.object({ personId: uuid });
 
@@ -166,6 +185,8 @@ export const PersonGetOutput = z.object({
     notes: z.string().nullable(),
     /** The fields this business invented, by field id (M15, 0076). */
     custom: z.record(z.string(), z.unknown()),
+    /** A duplicate merged into another record: the one kept, which is where everything went. */
+    mergedInto: z.object({ id: uuid, fullName: z.string() }).nullable(),
     /** AI outbound calls: whether they agreed in writing to calls, and where that's written. */
     callConsent: z.object({
       consent: z.enum(['unknown', 'opted_in', 'opted_out']),

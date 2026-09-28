@@ -467,6 +467,11 @@ export const people = app.table('people', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** A duplicate merged into another record (person.merge): archived, and pointing at the one kept. */
+  mergedIntoId: uuid('merged_into_id').references((): AnyPgColumn => people.id, {
+    onDelete: 'set null',
+  }),
+  mergedAt: ts('merged_at'),
 });
 
 export const tags = app.table('tags', {

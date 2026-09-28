@@ -1,12 +1,12 @@
 /**
- * The inbox and customers: a conversation’s own actions, companies, archiving and who looks after a customer, consent, pets, vehicles and properties and how they relate, and archiving leads.
+ * The inbox and customers: a conversation’s own actions, companies, archiving and merging, who looks after a customer, consent, pets, vehicles and properties and how they relate, and archiving leads.
  *
  * Each tool maps to commands people already use on the screens, so the Assistant can only do what the signed-in
  * person can, with the same rules, events and audit. Anything that reaches a customer or changes a record waits
  * for the person's OK ("confirm").
  *
  * The tools are grouped by the permission their commands need, so each is offered to exactly the people who could
- * press the buttons behind it: the inbox's own buttons are `inbox.use`, archiving anything is `records.archive`,
+ * press the buttons behind it: the inbox's own buttons are `inbox.use`, archiving anything and merging customers is `records.archive`,
  * choosing who looks after a customer is `records.assign`, and the rest is writing records (`records.write`).
  */
 import { z } from 'zod';
@@ -103,6 +103,17 @@ export const inboxCrmTools: readonly AssistantTool[] = [
         .boolean()
         .optional()
         .describe('A customer or company with open work: archive it anyway, with its open leads'),
+    }),
+    autonomy: 'confirm',
+    permission: 'records.archive',
+  }),
+  define({
+    name: 'merge_customers',
+    description:
+      'Merge two records for the same customer into one. Everything that was the duplicate’s moves to the one kept: leads, tasks, notes and the timeline, conversations, calls, bookings, bills, quotes, plans, files, tags and relationships. The one kept keeps its own details and takes the ones it is missing from the duplicate (the duplicate’s email, number and address join its other ones); the duplicate is archived and can’t be brought back. Ids come from search_customers or get_customer: search by the shared name, phone or email to find both. When the person hasn’t said which to keep, ask, or keep the one with more history.',
+    input: z.object({
+      keepId: uuid.describe('The customer kept'),
+      duplicateId: uuid.describe('The duplicate merged into it, which is archived'),
     }),
     autonomy: 'confirm',
     permission: 'records.archive',

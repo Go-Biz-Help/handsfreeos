@@ -19,6 +19,7 @@ export function CustomerPicker({
   onChange,
   id,
   locked,
+  exceptId,
 }: {
   workspaceId: string;
   value: PickedCustomer | null;
@@ -26,6 +27,8 @@ export function CustomerPicker({
   id?: string;
   /** Opened from their page: shown, not changeable. */
   locked?: boolean;
+  /** Left out of the results: the customer this is picked for (merging one into another). */
+  exceptId?: string;
 }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<PickedCustomer[]>([]);
@@ -44,7 +47,9 @@ export function CustomerPicker({
         );
         if (!cancelled)
           setResults(
-            out.items.map((p) => ({ id: p.id, fullName: p.fullName, detail: p.phone ?? p.email })),
+            out.items
+              .filter((p) => p.id !== exceptId)
+              .map((p) => ({ id: p.id, fullName: p.fullName, detail: p.phone ?? p.email })),
           );
       } catch {
         if (!cancelled) setResults([]);
@@ -54,7 +59,7 @@ export function CustomerPicker({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [q, value, workspaceId]);
+  }, [q, value, workspaceId, exceptId]);
 
   if (value)
     return (

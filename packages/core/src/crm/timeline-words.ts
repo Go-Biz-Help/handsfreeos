@@ -153,6 +153,9 @@ export function describeTimeline(
       return `archived ${noun}`;
     case 'restored':
       return `restored ${noun}`;
+    // Two records for the same customer, merged: said on the one kept, naming the duplicate as it was.
+    case 'merged':
+      return `merged ${str(e.meta.mergedName) || 'a duplicate'} into ${noun}`;
     case 'lead_created':
       return `created the lead ${e.body ?? ''}${str(e.meta.stage) ? ` in ${str(e.meta.stage)}` : ''}`;
     case 'stage_changed':

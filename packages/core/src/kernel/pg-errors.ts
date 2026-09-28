@@ -33,6 +33,23 @@ const RULES: Record<string, { status: number; message: string }> = {
   company_workspace_mismatch: { status: 400, message: 'That company is not in this workspace.' },
   record_workspace_mismatch: { status: 400, message: 'That record is not in this workspace.' },
   archive_forbidden: { status: 403, message: 'Only owners and admins archive or restore records.' },
+  // Two records for the same customer merged into one (person.merge).
+  person_merge_forbidden: { status: 403, message: 'Only owners and admins merge customers.' },
+  person_merge_self: { status: 400, message: 'Pick a different customer to merge with.' },
+  person_missing: { status: 404, message: 'Person not found.' },
+  person_already_merged: {
+    status: 409,
+    message: 'That customer was already merged into another one.',
+  },
+  person_merge_into_archived: {
+    status: 409,
+    message: 'Bring the customer you’re keeping back before merging into them.',
+  },
+  person_merge_mark: { status: 403, message: 'Only a merge marks a customer merged.' },
+  person_merged: {
+    status: 409,
+    message: 'This customer was merged into another one and can’t be brought back.',
+  },
   // 0104: being on a customer shows a member its bills and threads, so who is on one is the managers' call.
   customer_team_managers_only: {
     status: 403,

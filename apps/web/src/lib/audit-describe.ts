@@ -174,6 +174,8 @@ function describeAction(e: AuditEntry): string {
       return `archived ${name(e)}`;
     case 'person.restore':
       return `restored ${name(e)}`;
+    case 'person.merge':
+      return `merged ${s(e.before?.mergedName) || 'a duplicate'} into ${name(e)}`;
     case 'tag.create':
       return `created the tag ${name(e)}`;
     case 'tag.update':
