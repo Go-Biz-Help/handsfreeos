@@ -11,11 +11,12 @@ import { editedOnly, orNull } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { LeadCard } from '@/lib/api/types';
 import { formatMoney, parseMoney } from '@/lib/format';
+import { useOpenedWith } from '@/lib/use-opened-with';
 
 /** Title, value, assignee, expected close and source of a lead. Stage and next action have their own controls. */
 export function LeadEditDialog({
   workspaceId,
-  lead,
+  lead: latest,
   open,
   onOpenChange,
   members,
@@ -30,6 +31,8 @@ export function LeadEditDialog({
   myUserId: string;
   onSaved?: () => void;
 }) {
+  // The record as the dialog opened on it, not as the page shows it now: see useOpenedWith.
+  const lead = useOpenedWith(open, latest);
   const router = useRouter();
   const [title, setTitle] = useState(lead.title);
   const [value, setValue] = useState(formatMoney(lead.valueCents));

@@ -13,6 +13,7 @@ import { editedOnly } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Task } from '@/lib/api/types';
 import { toLocalDateValue, toLocalInputValue } from '@/lib/format';
+import { useOpenedWith } from '@/lib/use-opened-with';
 
 export interface TaskRelation {
   personId?: string | null;
@@ -30,7 +31,7 @@ export function TaskDialog({
   members,
   myUserId,
   relation,
-  initial,
+  initial: latest,
   leads,
 }: {
   workspaceId: string;
@@ -42,6 +43,8 @@ export function TaskDialog({
   initial?: Task;
   leads?: { id: string; title: string }[];
 }) {
+  // The record as the dialog opened on it, not as the page shows it now: see useOpenedWith.
+  const initial = useOpenedWith(open, latest);
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');

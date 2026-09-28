@@ -11,6 +11,7 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { editedOnly, orNull, saveTagChanges } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { Match, PersonDetail, Tag } from '@/lib/api/types';
+import { useOpenedWith } from '@/lib/use-opened-with';
 import {
   addressesOut,
   addressRows,
@@ -120,7 +121,7 @@ export function PersonDialog({
   tags,
   open,
   onOpenChange,
-  initial,
+  initial: latest,
   defaultCompanyId,
   defaultPhone,
   defaultEmail,
@@ -140,6 +141,8 @@ export function PersonDialog({
   defaultName?: string;
   onSaved?: (personId: string) => void;
 }) {
+  // The record as the dialog opened on it, not as the page shows it now: see useOpenedWith.
+  const initial = useOpenedWith(open, latest);
   const router = useRouter();
   const [form, setForm] = useState<Form>(() =>
     initial

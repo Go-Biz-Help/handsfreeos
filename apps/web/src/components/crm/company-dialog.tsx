@@ -11,6 +11,7 @@ import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
 import { editedOnly, orNull, saveTagChanges } from '@/lib/api/edits';
 import { fieldErrors } from '@/lib/api/field-errors';
 import type { CompanyDetail, Match, Tag } from '@/lib/api/types';
+import { useOpenedWith } from '@/lib/use-opened-with';
 import {
   addressesOut,
   addressRows,
@@ -113,7 +114,7 @@ export function CompanyDialog({
   tags,
   open,
   onOpenChange,
-  initial,
+  initial: latest,
   onSaved,
 }: {
   workspaceId: string;
@@ -123,6 +124,8 @@ export function CompanyDialog({
   initial?: CompanyDetail;
   onSaved?: (companyId: string) => void;
 }) {
+  // The record as the dialog opened on it, not as the page shows it now: see useOpenedWith.
+  const initial = useOpenedWith(open, latest);
   const router = useRouter();
   const [form, setForm] = useState<Form>(() => (initial ? fromCompany(initial) : empty()));
   const [errors, setErrors] = useState<Record<string, string>>({});

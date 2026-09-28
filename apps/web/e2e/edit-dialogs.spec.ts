@@ -38,10 +38,12 @@ test('dialogs send only what was edited, a dialog left open keeps a teammate’s
   const personUrl = page.url();
   const personId = /people\/([0-9a-f-]{36})$/.exec(personUrl)![1]!;
 
-  // The edit dialog opens here, and stays open while a teammate changes her email in another tab.
+  // The edit dialog opens here, and her last name is changed in it while a teammate changes her email in
+  // another tab.
   await page.getByTestId('record-menu').click();
   await page.getByTestId('record-edit').click();
   await expect(page.getByTestId('person-form')).toBeVisible();
+  await page.getByLabel('Last name').fill('Lopez-Garcia');
 
   const teammate = await page.context().newPage();
   await teammate.goto(personUrl);
@@ -60,8 +62,13 @@ test('dialogs send only what was edited, a dialog left open keeps a teammate’s
   await expect(teammate.getByRole('button', { name: 'maria@new.example' })).toBeVisible();
   await teammate.close();
 
-  // Back in the first dialog, only her last name changes: the old email in the form isn't sent back.
-  await page.getByLabel('Last name').fill('Lopez-Garcia');
+  // The page under the first dialog refreshes with the teammate's email, and the dialog keeps what was typed.
+  await expect(
+    page.getByRole('button', { name: 'maria@new.example', includeHidden: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Last name')).toHaveValue('Lopez-Garcia');
+
+  // Only her last name is sent: the old email in the form isn't sent back.
   const lastNameOnly = await sentBody(page, 'person.update', () =>
     page.getByTestId('person-save').click(),
   );
