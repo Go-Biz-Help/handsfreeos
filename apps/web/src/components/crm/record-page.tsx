@@ -536,8 +536,8 @@ export function RecordPage(props: RecordPageProps) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[3fr_2fr]">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="min-w-0">
           <TabsList className="mb-4">
             <TabsTrigger value="timeline" data-testid="tab-timeline">
               Timeline
@@ -822,7 +822,7 @@ export function RecordPage(props: RecordPageProps) {
           </TabsContent>
         </Tabs>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex min-w-0 flex-col gap-4">
           <AssignedCard
             workspaceId={workspaceId}
             recordType={kind}
