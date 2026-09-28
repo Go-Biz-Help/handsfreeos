@@ -104,16 +104,17 @@ export function AddonRow({
   testID?: string;
 }) {
   const state = view.state ? ADDON_STATE_WORDS[view.state].label : null;
-  // Its trouble, first; else that HandsFreeOS switched it off, or how it could come here when that isn't Install.
+  // Its trouble, first; else that its code is gone or HandsFreeOS switched it off, or how it could come here when
+  // that isn't Install (a planned one's state already says Coming soon).
   const note =
     view.trouble[0] ??
-    (view.state === 'enabled' && !view.running && !view.retired
-      ? ADDON_PHONE_WORDS.paused(view.name)
-      : view.offer === 'paid'
-        ? ADDON_PHONE_WORDS.paid
-        : view.offer === 'support'
-          ? ADDON_PHONE_WORDS.support
-          : null);
+    (view.retired
+      ? ADDON_PHONE_WORDS.retired
+      : view.state === 'enabled' && !view.running
+        ? ADDON_PHONE_WORDS.paused(view.name)
+        : view.offer === 'coming_soon'
+          ? null
+          : view.note);
   return (
     <Pressable
       role="button"

@@ -1,9 +1,13 @@
 import {
+  addonBlockedWords,
   addonCheckWords,
   addonMovesFor,
+  addonOffer,
+  addonOfferNote,
   findAddon,
   isBusyState,
   type AddonManifest,
+  type AddonOffer,
   type Catalog,
   type InstallationState,
   type LifecycleAction,
@@ -35,11 +39,7 @@ export interface AddonGrants {
   readonly purge: boolean;
 }
 
-/**
- * How it could come to this business: Install; HandsFreeOS support turns it on (`paid`, or `support` for one only
- * support hands out); Coming soon (planned); or nothing (it's here already, or it isn't offered).
- */
-export type AddonOffer = 'install' | 'paid' | 'support' | 'coming_soon' | null;
+export type { AddonOffer };
 
 /** One add-on as the screens draw it. */
 export interface AddonView {
@@ -57,7 +57,10 @@ export interface AddonView {
   readonly retired: boolean;
   /** Whether it runs here now: on, and not switched off everywhere by HandsFreeOS. */
   readonly running: boolean;
-  readonly offer: AddonOffer;
+  /** How it could come here (core's `addonOffer`); null while the business has it. */
+  readonly offer: AddonOffer | null;
+  /** What's said in place of Install when that isn't the offer (core's `addonOfferNote`). */
+  readonly note: string | null;
   /** The moves this person can make now, in the order their buttons go. */
   readonly moves: readonly LifecycleAction[];
   /** Why the last move hasn't finished, in words. Empty when nothing is wrong. */
@@ -97,36 +100,31 @@ export { isBusyState };
 export const anyBusy = (list: Pick<AddonList, 'installed'>): boolean =>
   list.installed.some((row) => isBusyState(row.state));
 
+/** Whether HandsFreeOS says it can be installed here now: available, free, and all it needs can come too. */
+const installableHere = (list: AddonList, addonId: string): boolean =>
+  list.capabilities.installable.some((c) => c.provider === addonId);
+
 /**
- * How an add-on the business doesn't have running could come to it. Only for one it has never had, or one
- * uninstalled or with its data deleted: anything else is here already.
+ * How an add-on could come to the business (core's rule, the web's too): from its status now, with HandsFreeOS's
+ * override applied, and HandsFreeOS's own answer on whether it can be installed here.
  */
 export function offerFor(
   list: AddonList,
   catalog: Catalog,
   addonId: string,
   state: InstallationState | null,
-): AddonOffer {
-  const row = list.catalog.find((c) => c.addonId === addonId);
-  if (state === null && row?.status === 'planned') return 'coming_soon';
-  if (state !== null && state !== 'uninstalled' && state !== 'purged') return null;
-  // HandsFreeOS's own answer: available, free, and everything it needs is on here or could come with it.
-  if (list.capabilities.installable.some((c) => c.provider === addonId)) return 'install';
-  const m = findAddon(catalog, addonId);
-  if (!m) return null;
-  // Its status now, with HandsFreeOS's override applied: one switched off everywhere is offered by nobody.
-  const status = row?.status ?? list.installed.find((r) => r.addonId === addonId)?.status ?? null;
-  if (status === 'available' && m.billing.model === 'paid') return 'paid';
-  // One HandsFreeOS support handed this business before (in beta, or built and not offered yet): only support turns
-  // it on again.
-  if (state !== null && (status === 'beta' || status === 'built')) return 'support';
-  return null;
+): AddonOffer | null {
+  const status =
+    list.catalog.find((c) => c.addonId === addonId)?.status ??
+    list.installed.find((r) => r.addonId === addonId)?.status ??
+    null;
+  return addonOffer(state, findAddon(catalog, addonId), status, installableHere(list, addonId));
 }
 
 /** The moves this person can make on an add-on now: core's rule (`addonMovesFor`), Install only where it's offered. */
 export const movesFor = (
   state: InstallationState | null,
-  offer: AddonOffer,
+  offer: AddonOffer | null,
   grants: AddonGrants,
   retired = false,
 ): LifecycleAction[] =>
@@ -178,6 +176,15 @@ function viewOf(
   const state = installed?.state ?? null;
   const retired = installed?.retired ?? false;
   const offer = offerFor(list, catalog, addonId, state);
+  const blocked =
+    offer === 'blocked' && m
+      ? addonBlockedWords(
+          catalog,
+          m,
+          (id) => list.installed.find((r) => r.addonId === id)?.state ?? null,
+          (id) => installableHere(list, id),
+        )
+      : null;
   const link = (kind: 'required' | 'optional') =>
     (m?.requires ?? [])
       .filter((d) => d.kind === kind)
@@ -193,6 +200,7 @@ function viewOf(
     retired,
     running: installed?.running ?? false,
     offer,
+    note: addonOfferNote(offer, blocked),
     moves: movesFor(state, offer, grants, retired),
     trouble: installed ? troubleOf(installed) : [],
     does: doesOf(list, m, addonId),
@@ -228,7 +236,7 @@ export function groupAddons(list: AddonList, catalog: Catalog, grants: AddonGran
   const addable = notHad
     .filter((c) => c.status === 'available')
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c))
-    .filter((v) => v.offer === 'install' || v.offer === 'paid');
+    .filter((v) => v.offer === 'install' || v.offer === 'paid' || v.offer === 'blocked');
   const comingSoon = notHad
     .filter((c) => c.status === 'planned')
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c));

@@ -146,3 +146,34 @@ export function addonMovesFor(
     return true;
   });
 }
+
+/**
+ * How an add-on could come to a business that doesn't have it now, as the Add-ons page offers it (the owner's
+ * decisions, 2026-09-28):
+ * - `install`: HandsFreeOS says it can be installed here now (available, free, and all it needs can come with it);
+ * - `paid`: available but paid, so HandsFreeOS support turns it on (billing isn't built);
+ * - `support`: one only support hands out (in beta, or built and not offered yet), which this business had before;
+ * - `blocked`: available and free, but something it needs can't come with it now;
+ * - `coming_soon`: planned, and never installable;
+ * - `none`: it can't come here now (deprecated, switched off everywhere, or its code is gone).
+ * Null while the business has it (setting up, on, off, or on its way out): there's nothing to offer.
+ */
+export type AddonOffer = 'install' | 'paid' | 'support' | 'blocked' | 'coming_soon' | 'none';
+
+export function addonOffer(
+  state: InstallationState | null,
+  /** Its manifest; undefined when this build has no code for it (retired). */
+  manifest: { readonly billing: { readonly model: string } } | undefined,
+  /** Its catalogue status now, with HandsFreeOS's override applied; null when its code is gone. */
+  status: string | null,
+  /** HandsFreeOS's own answer: it's in the business's `installable` capabilities. */
+  installable: boolean,
+): AddonOffer | null {
+  if (state !== null && state !== 'uninstalled' && state !== 'purged') return null;
+  if (installable) return 'install';
+  if (!manifest || status === null) return 'none';
+  if (status === 'planned') return state === null ? 'coming_soon' : 'none';
+  if (status === 'available') return manifest.billing.model === 'paid' ? 'paid' : 'blocked';
+  if (state !== null && (status === 'beta' || status === 'built')) return 'support';
+  return 'none';
+}

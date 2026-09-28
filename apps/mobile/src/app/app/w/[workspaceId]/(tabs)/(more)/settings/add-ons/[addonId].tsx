@@ -298,21 +298,15 @@ function Moves({
   onMove: (action: LifecycleAction) => void;
   onSupport: () => void;
 }) {
+  // Support turns on a paid one and one in beta, with a button to ask; any other offer that isn't Install says why.
+  const viaSupport = view.offer === 'paid' || view.offer === 'support';
   const notes: string[] = [];
-  const away = view.state === null || view.state === 'uninstalled' || view.state === 'purged';
   if (view.retired) notes.push(ADDON_PHONE_WORDS.retired);
   else if (view.state === 'enabled' && !view.running)
     notes.push(ADDON_PHONE_WORDS.paused(view.name));
-  else if (view.offer === 'coming_soon') notes.push(ADDON_PHONE_WORDS.notYet);
-  // No longer offered, or something it needs can't come with it: no Install, and a sentence that says so.
-  else if (away && view.offer === null) notes.push(ADDON_PHONE_WORDS.cantAdd);
+  else if (!viaSupport && view.note) notes.push(view.note);
   if (view.state === 'uninstalled' && !canPurge) notes.push(ADDON_PHONE_WORDS.ownersDelete);
-  const supportNote =
-    view.offer === 'paid'
-      ? ADDON_PHONE_WORDS.paid
-      : view.offer === 'support'
-        ? ADDON_PHONE_WORDS.support
-        : null;
+  const supportNote = viaSupport ? view.note : null;
   return (
     <View className="gap-2 pt-2">
       {supportNote ? (

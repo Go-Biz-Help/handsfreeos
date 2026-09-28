@@ -47,6 +47,16 @@ describe('the sections', () => {
     expect(isEmptyGroups(groups)).toBe(false);
   });
 
+  it('lists one that can’t come yet, with why, as the web does', () => {
+    // Rent Collection needs Property Management, which is still being removed.
+    const groups = groupAddons(listFor({ fxprop: 'uninstalling' }), FIXTURE_CATALOG, OWNER_GRANTS);
+    expect(groups.addable.find((v) => v.addonId === 'fxrent')).toMatchObject({
+      offer: 'blocked',
+      moves: [],
+      note: 'It needs Property Management, which is still being removed.',
+    });
+  });
+
   it('never offers a beta or a deprecated add-on, and offers nothing already here', () => {
     const groups = groupAddons(listFor({ fxprop: 'enabled' }), FIXTURE_CATALOG, OWNER_GRANTS);
     const all = [...groups.installed, ...groups.addable, ...groups.comingSoon].map(
@@ -129,7 +139,7 @@ describe('what each state offers', () => {
       OWNER_GRANTS,
       'fxgone',
     );
-    expect(view).toMatchObject({ retired: true, name: 'fxgone', moves: ['purge'], offer: null });
+    expect(view).toMatchObject({ retired: true, name: 'fxgone', moves: ['purge'], offer: 'none' });
   });
 
   it('asks first before every move that takes something away', () => {

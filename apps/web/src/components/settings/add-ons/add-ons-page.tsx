@@ -15,6 +15,10 @@ import {
   addonBlockedWords,
   addonMovedLine,
   addonMovesFor,
+  addonOffer,
+  addonOfferNote,
+  type AddonManifest,
+  type AddonOffer,
   findAddon,
   isBusyState,
   isInstalledState,
@@ -155,6 +159,12 @@ export function AddonsSettings({
     return () => clearTimeout(timer);
   }, [focus]);
 
+  /** Why one that's available and free can't be added now, when what it needs says so. */
+  const blockedBy = (m: AddonManifest | undefined, offer: AddonOffer | null) =>
+    offer === 'blocked' && m
+      ? addonBlockedWords(ADDON_CATALOG, m, stateOf, (id) => installable.has(id))
+      : null;
+
   /** What each of an add-on's capabilities is: its manifest's words, or the server's for one this build lacks. */
   const capabilitiesOf = (id: string): CardCapability[] => {
     const m = findAddon(ADDON_CATALOG, id);
@@ -233,16 +243,9 @@ export function AddonsSettings({
     const canInstall = installable.has(i.addonId);
     const target = { addonId: i.addonId, name: i.name };
     const first = on ? places.find((p) => p.key.startsWith(`addon:${i.addonId}:`)) : undefined;
-    // Back again after it was removed: paid ones, and ones only support hands out (beta), come from support.
-    const away = i.state === 'uninstalled' || i.state === 'purged';
-    const note =
-      away && !canInstall && !i.retired
-        ? m?.billing.model === 'paid' && i.status === 'available'
-          ? W.paid
-          : i.status === 'beta' || i.status === 'built'
-            ? W.support
-            : null
-        : null;
+    // Removed: how it could come back when that isn't Install (a retired one says so on its card).
+    const offer = addonOffer(i.state, m, i.status, canInstall);
+    const note = i.retired ? null : addonOfferNote(offer, blockedBy(m, offer));
     return (
       <li key={i.addonId}>
         <AddonCard
@@ -278,12 +281,8 @@ export function AddonsSettings({
   const availableCard = (c: AddonList['catalog'][number]) => {
     const m = findAddon(ADDON_CATALOG, c.addonId);
     const canInstall = installable.has(c.addonId);
-    const note = canInstall
-      ? null
-      : m?.billing.model === 'paid'
-        ? W.paid
-        : ((m ? addonBlockedWords(ADDON_CATALOG, m, stateOf, (id) => installable.has(id)) : null) ??
-          W.cantAdd);
+    const offer = addonOffer(null, m, c.status, canInstall);
+    const note = addonOfferNote(offer, blockedBy(m, offer));
     return (
       <li key={c.addonId}>
         <AddonCard

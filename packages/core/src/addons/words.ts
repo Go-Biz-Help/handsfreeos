@@ -5,7 +5,7 @@
  */
 import { joinNames } from '../account/settings-words';
 import { requirementClosure, type Catalog } from './graph';
-import type { InstallationState, LifecycleAction } from './lifecycle';
+import type { AddonOffer, InstallationState, LifecycleAction } from './lifecycle';
 import type { AddonCategory, AddonManifest } from './manifest';
 
 /** "Rent Collection’s", "Demo Properties’": a name that ends in s takes the apostrophe alone. */
@@ -337,4 +337,29 @@ export function addonBlockedWords(
     if (!here && !canAdd(id)) return `It needs ${nameOf(id)}, which can’t be added here.`;
   }
   return null;
+}
+
+/**
+ * What a page says in place of Install for an add-on the business doesn't have now: support hands out a paid one and
+ * one in beta, one that needs something that can't come says what (`blocked`, from `addonBlockedWords`), a planned
+ * one isn't ready, and anything else can't be added now. Null when it can be installed, or the business has it.
+ */
+export function addonOfferNote(
+  offer: AddonOffer | null,
+  blocked: string | null = null,
+): string | null {
+  switch (offer) {
+    case 'paid':
+      return ADDON_PAGE_WORDS.paid;
+    case 'support':
+      return ADDON_PAGE_WORDS.support;
+    case 'blocked':
+      return blocked ?? ADDON_PAGE_WORDS.cantAdd;
+    case 'coming_soon':
+      return ADDON_PAGE_WORDS.notYet;
+    case 'none':
+      return ADDON_PAGE_WORDS.cantAdd;
+    default:
+      return null;
+  }
 }

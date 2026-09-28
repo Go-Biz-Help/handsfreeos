@@ -21,6 +21,8 @@ import {
   addonHoldsLines,
   addonMovedLine,
   addonMovesFor,
+  addonOffer,
+  addonOfferNote,
   addonOptionalLine,
   isBusyState,
   possessiveOf,
@@ -221,5 +223,47 @@ describe('addonMovesFor', () => {
     expect(addonMovesFor('uninstalled', retired)).toEqual(['purge']);
     expect(addonMovesFor('uninstalled', { ...retired, purge: false })).toEqual([]);
     expect(addonMovesFor('purged', retired)).toEqual([]);
+  });
+});
+
+describe('addonOffer', () => {
+  const free = { billing: { model: 'free' } };
+  const paid = { billing: { model: 'paid' } };
+
+  it('offers Install wherever HandsFreeOS says it can be installed', () => {
+    expect(addonOffer(null, free, 'available', true)).toBe('install');
+    expect(addonOffer('uninstalled', free, 'available', true)).toBe('install');
+    expect(addonOffer('purged', free, 'available', true)).toBe('install');
+  });
+
+  it('offers nothing while the business has it', () => {
+    for (const s of ['installing', 'enabled', 'disabled', 'uninstalling', 'purging'] as const)
+      expect(addonOffer(s, free, 'available', false), s).toBeNull();
+  });
+
+  it('says how one the business can’t install itself could come, or that it can’t', () => {
+    expect(addonOffer(null, paid, 'available', false)).toBe('paid');
+    expect(addonOffer('uninstalled', free, 'beta', false)).toBe('support');
+    // A beta add-on is never offered to a business that never had one.
+    expect(addonOffer(null, free, 'beta', false)).toBe('none');
+    expect(addonOffer(null, free, 'available', false)).toBe('blocked');
+    expect(addonOffer(null, free, 'planned', false)).toBe('coming_soon');
+    expect(addonOffer('uninstalled', free, 'deprecated', false)).toBe('none');
+    expect(addonOffer('uninstalled', free, 'unavailable', false)).toBe('none');
+    // Its code is gone.
+    expect(addonOffer('uninstalled', undefined, null, false)).toBe('none');
+  });
+
+  it('says so in the words both apps use', () => {
+    expect(addonOfferNote('paid')).toBe(ADDON_PAGE_WORDS.paid);
+    expect(addonOfferNote('support')).toBe(ADDON_PAGE_WORDS.support);
+    expect(
+      addonOfferNote('blocked', 'It needs Property Management, which can’t be added here.'),
+    ).toBe('It needs Property Management, which can’t be added here.');
+    expect(addonOfferNote('blocked')).toBe(ADDON_PAGE_WORDS.cantAdd);
+    expect(addonOfferNote('coming_soon')).toBe(ADDON_PAGE_WORDS.notYet);
+    expect(addonOfferNote('none')).toBe(ADDON_PAGE_WORDS.cantAdd);
+    expect(addonOfferNote('install')).toBeNull();
+    expect(addonOfferNote(null)).toBeNull();
   });
 });
