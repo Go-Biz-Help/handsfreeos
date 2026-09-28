@@ -10,7 +10,24 @@
 import type { z } from 'zod';
 import { defineCommand, defineQuery } from '../kernel/define';
 import type { AddonRef, CommandDef, OfflineClass, QueryDef } from '../kernel/types';
+import { ROLE_PERMISSIONS, type Permission } from '../permissions';
 import type { AddonManifest } from './manifest';
+
+/**
+ * The permission an add-on's operation asks for: one of its own (`pm.leases.write`, declared in its manifest), or
+ * one of core's. The kernel checks either the same way, against what the person may do here now.
+ */
+export type OperationPermission = Permission | `${string}.${string}`;
+
+type AddonCommandInput<I extends z.ZodType, O extends z.ZodType> = Omit<
+  CommandDef<I, O>,
+  'kind' | 'offline' | 'addon' | 'permission'
+> & { readonly offline?: OfflineClass; readonly permission: OperationPermission | null };
+
+type AddonQueryInput<I extends z.ZodType, O extends z.ZodType> = Omit<
+  QueryDef<I, O>,
+  'kind' | 'addon' | 'permission'
+> & { readonly permission: OperationPermission | null };
 
 /** How the kernel and history name an add-on. */
 export const addonRef = (m: AddonManifest): AddonRef => ({
@@ -25,21 +42,29 @@ export const AI_TOOL_NAME = /^[a-z][a-z0-9_]{2,63}$/;
 /** One of an add-on's commands. Its name must start with the add-on's id (`pm.lease.create`). */
 export function defineAddonCommand<I extends z.ZodType, O extends z.ZodType>(
   manifest: AddonManifest,
-  def: Omit<CommandDef<I, O>, 'kind' | 'offline' | 'addon'> & { readonly offline?: OfflineClass },
+  def: AddonCommandInput<I, O>,
 ): CommandDef<I, O> {
   if (!def.name.startsWith(`${manifest.id}.`))
     throw new Error(`${def.name} must start with "${manifest.id}."`);
-  return defineCommand({ ...def, addon: addonRef(manifest) });
+  return defineCommand({
+    ...def,
+    permission: def.permission as Permission | null,
+    addon: addonRef(manifest),
+  });
 }
 
 /** One of an add-on's queries. Its name must start with the add-on's id (`pm.lease.list`). */
 export function defineAddonQuery<I extends z.ZodType, O extends z.ZodType>(
   manifest: AddonManifest,
-  def: Omit<QueryDef<I, O>, 'kind' | 'addon'>,
+  def: AddonQueryInput<I, O>,
 ): QueryDef<I, O> {
   if (!def.name.startsWith(`${manifest.id}.`))
     throw new Error(`${def.name} must start with "${manifest.id}."`);
-  return defineQuery({ ...def, addon: addonRef(manifest) });
+  return defineQuery({
+    ...def,
+    permission: def.permission as Permission | null,
+    addon: addonRef(manifest),
+  });
 }
 
 /** An add-on's server half: its manifest, and the operations that are its business logic. */
@@ -60,10 +85,14 @@ export function addonModuleIssues(
   const issues: string[] = [];
   const taken = new Set([...core.commands, ...core.queries].map((op) => op.name));
   const tools = new Set<string>();
+  const corePermissions = new Set<string>(ROLE_PERMISSIONS.owner);
   for (const { manifest: m, commands = [], queries = [] } of modules) {
+    const own = new Set(m.permissions.map((p) => p.key));
     for (const op of [...commands, ...queries]) {
       if (op.addon?.id !== m.id) issues.push(`${op.name} isn't stamped with "${m.id}"`);
       if (!op.name.startsWith(`${m.id}.`)) issues.push(`${op.name} must start with "${m.id}."`);
+      if (op.permission && !own.has(op.permission) && !corePermissions.has(op.permission))
+        issues.push(`${op.name} asks for "${op.permission}", which neither it nor core declares`);
       if (taken.has(op.name)) issues.push(`${op.name} is already an operation`);
       taken.add(op.name);
       if (op.ai) {

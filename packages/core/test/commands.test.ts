@@ -9,6 +9,7 @@ import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kernel/types';
 import {
+  ADDON_SERVER_MODULES,
   auditList,
   hashInvitationToken,
   invitationAccept,
@@ -103,8 +104,9 @@ beforeAll(async () => {
 afterAll(closeTestDbs);
 
 describe('registry', () => {
+  // Core's own, pinned so every change to them is deliberate. Each add-on's are pinned by its own test.
   it('lists every command and query once, with dotted names', () => {
-    expect(registry.commands.map((c) => c.name)).toEqual([
+    expect(registry.commands.filter((c) => !c.addon).map((c) => c.name)).toEqual([
       'organization.create',
       'workspace.create',
       'workspace.join',
@@ -615,7 +617,7 @@ describe('registry', () => {
       'addon.save_settings',
       'addon.save_my_settings',
     ]);
-    expect(registry.queries.map((q) => q.name)).toEqual([
+    expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
       'migration.get',
       'migration.review_queue',
@@ -779,6 +781,16 @@ describe('registry', () => {
       'addon.settings',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
+  });
+
+  it('lists each add-on’s operations after core’s, exactly as its module has them', () => {
+    const named = (ops: readonly { readonly name: string }[]) => ops.map((op) => op.name);
+    expect(named(registry.commands.filter((c) => c.addon))).toEqual(
+      ADDON_SERVER_MODULES.flatMap((m) => named(m.commands ?? [])),
+    );
+    expect(named(registry.queries.filter((q) => q.addon))).toEqual(
+      ADDON_SERVER_MODULES.flatMap((m) => named(m.queries ?? [])),
+    );
   });
 });
 

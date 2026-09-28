@@ -242,8 +242,6 @@ export interface AddonManifest {
   /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
   readonly ai?: { readonly directory: string };
   readonly billing: AddonBilling;
-  /** Ids this version renamed (capabilities, permissions): old → new, applied to what a business stored. */
-  readonly renamed?: Readonly<Record<string, string>>;
 }
 
 /** Declares an add-on. Identity at runtime: validation happens in tests (`manifestIssues`, `catalogIssues`). */
