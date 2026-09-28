@@ -169,10 +169,15 @@ export const personGet = defineQuery({
       custom: Record<string, unknown>;
       call_consent: 'unknown' | 'opted_in' | 'opted_out';
       call_consent_source: string | null;
+      merged_into_id: string | null;
+      merged_into_name: string | null;
     }>(
       ctx.tx,
-      sql`select custom, call_consent::text as call_consent, call_consent_source
-          from app.people where id = ${row.id}`,
+      sql`select p.custom, p.call_consent::text as call_consent, p.call_consent_source, p.merged_into_id,
+            trim(k.first_name || ' ' || k.last_name) as merged_into_name
+          from app.people p
+          left join app.people k on k.id = p.merged_into_id
+          where p.id = ${row.id}`,
     );
     return {
       person: {
@@ -183,6 +188,9 @@ export const personGet = defineQuery({
           consent: values?.call_consent ?? 'unknown',
           source: values?.call_consent_source ?? null,
         },
+        mergedInto: values?.merged_into_id
+          ? { id: values.merged_into_id, fullName: values.merged_into_name ?? '' }
+          : null,
       },
     };
   },

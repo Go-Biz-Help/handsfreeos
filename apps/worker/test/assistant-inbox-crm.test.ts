@@ -240,6 +240,7 @@ const NAMES = [
   'unsent_messages',
   'manage_conversation',
   'archive_or_restore',
+  'merge_customers',
   'find_archived',
   'manage_company',
   'assign_customer',
@@ -269,6 +270,7 @@ describe('the tools', () => {
     );
     // Archiving and choosing who looks after a customer are owners' and admins'.
     expect(member).not.toContain('archive_or_restore');
+    expect(member).not.toContain('merge_customers');
     expect(member).not.toContain('assign_customer');
     const owner = toolsFor((p) => hasWorkspacePermission('owner', p)).map((t) => t.name);
     expect(owner).toEqual(expect.arrayContaining(NAMES));
@@ -655,6 +657,100 @@ describe('archiving and bringing back', () => {
     expect(box.conversations.map((c: { id: string }) => c.id)).toContain(stranger);
     await commit('archive_or_restore', { action: 'restore', what: 'conversation', id: stranger });
     expect((await conv(stranger)).archived).toBe(false);
+  });
+});
+describe('merging two records for the same customer', () => {
+  it('shows both and what the one kept takes, merges only after Confirm, and says the duplicate can’t come back', async () => {
+    const rosa = (
+      await run(
+        personCreate,
+        { workspaceId, firstName: 'Rosa', lastName: 'Diaz', phone: '512-555-0170' },
+        dale,
+      )
+    ).personId;
+    const rosie = (
+      await run(
+        personCreate,
+        {
+          workspaceId,
+          firstName: 'Rosie',
+          lastName: 'Diaz',
+          phone: '512-555-0170',
+          email: 'rosie@diaz.test',
+          ignoreDuplicates: true,
+        },
+        dale,
+      )
+    ).personId;
+    const lead = (
+      await run(leadCreate, { workspaceId, title: 'Furnace check', personId: rosie }, dale)
+    ).leadId;
+    const thread = await insertConversation('email', 'rosie@diaz.test', rosie, 'open');
+
+    const args = { keepId: rosa, duplicateId: rosie };
+    const { card, result } = await prepare('merge_customers', args);
+    expect(card.title).toBe('Merge Rosie Diaz into Rosa Diaz?');
+    expect(card.confirmLabel).toBe('Merge them');
+    expect(field(card, 'Keep')).toBe('Rosa Diaz · (512) 555-0170');
+    expect(field(card, 'Merge in')).toBe('Rosie Diaz · rosie@diaz.test · (512) 555-0170');
+    expect(field(card, 'Why they match')).toBe('Same phone number');
+    expect(field(card, 'Moves over')).toMatch(/^1 open lead, /);
+    expect(field(card, 'Fills in')).toBe('email');
+    expect(result).toMatchObject({ waiting: true });
+    expect(await archived('people', rosie)).toBe(false);
+
+    const done = await commit('merge_customers', args);
+    expect(done).toMatchObject({ outcome: 'Merged, with 1 lead', command: 'person.merge' });
+    expect(await archived('people', rosie)).toBe(true);
+    expect(
+      (await one<{ person_id: string }>(sql`select person_id from app.leads where id = ${lead}`))
+        .person_id,
+    ).toBe(rosa);
+    expect((await conv(thread)).person_id).toBe(rosa);
+    expect(
+      (await one<{ email: string }>(sql`select email::text from app.people where id = ${rosa}`))
+        .email,
+    ).toBe('rosie@diaz.test');
+    const audit = await rows<{ channel: string }>(
+      admin(),
+      sql`select channel from app.audit_logs
+          where workspace_id = ${workspaceId} and entity_id = ${rosa} and action = 'person.merge'`,
+    );
+    expect(audit).toEqual([{ channel: 'assistant' }]);
+
+    await expect(prepare('merge_customers', args)).rejects.toThrow(
+      'Rosie Diaz was already merged into Rosa Diaz.',
+    );
+    const back = await prepare('archive_or_restore', {
+      action: 'restore',
+      what: 'customer',
+      id: rosie,
+    });
+    expect(back.card.confirmLabel).toBe('');
+    expect(back.result).toMatchObject({
+      blocked: true,
+      why: 'They were merged into Rosa Diaz, who has everything of theirs now.',
+    });
+  });
+
+  it('asks before merging two customers who share no number or email, and never one into itself', async () => {
+    const a = (await run(personCreate, { workspaceId, firstName: 'Sam', lastName: 'Ortiz' }, dale))
+      .personId;
+    const b = (
+      await run(
+        personCreate,
+        { workspaceId, firstName: 'Samuel', lastName: 'Ortiz', email: 'sam@ortiz.test' },
+        dale,
+      )
+    ).personId;
+    const { card } = await prepare('merge_customers', { keepId: a, duplicateId: b });
+    expect(field(card, 'Why they match')).toBeUndefined();
+    expect(card.warnings.map((w) => w.text)).toContain(
+      'They share no phone number or email. Check they’re the same customer.',
+    );
+    await expect(prepare('merge_customers', { keepId: a, duplicateId: a })).rejects.toThrow(
+      'Those are the same customer.',
+    );
   });
 });
 

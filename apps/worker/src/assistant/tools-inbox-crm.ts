@@ -17,9 +17,12 @@ import {
   formatClock,
   formatPhone,
   HfosError,
+  mergedDetails,
+  mergeSideOf,
   normalizePhone,
   registry,
   type CustomFieldShape,
+  type MergeSideSource,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { PreparedAction, ToolContext, ToolOutcome } from './runtime';
@@ -685,6 +688,7 @@ interface PersonGet {
     owner: Ref;
     team: { id: string; fullName: string }[];
     callConsent: { consent: 'unknown' | 'opted_in' | 'opted_out'; source: string | null };
+    mergedInto: { id: string; fullName: string } | null;
   };
 }
 interface CompanyGet {
@@ -769,6 +773,11 @@ async function subjectOf(db: Db, ctx: ToolContext, what: Archivable, id: string)
         openTasks: person.archivedAt ? 0 : await openTasks(db, ctx, { personId: id }),
         away: 'They leave Customers and searches but keep their history. Bring them back any time: Customers, Show archived.',
         back: 'They come back to Customers and searches, and can go on new leads again.',
+        ...(person.mergedInto
+          ? {
+              cantRestore: `They were merged into ${person.mergedInto.fullName}, who has everything of theirs now.`,
+            }
+          : {}),
         href: p.person(id),
       };
     }
@@ -945,6 +954,101 @@ const archiveOrRestore: SettingsConfirmTool = {
             : 'Archived',
       href,
       command: name,
+    };
+  },
+};
+
+// ---------- merging two records for the same customer ----------
+
+type MergePerson = PersonGet['person'] & MergeSideSource;
+
+/** "Maria Lopez · maria@example.com · (713) 555-0142": who a side of the merge is, so the person can tell them apart. */
+const mergeLine = (p: MergePerson) =>
+  [p.fullName, p.email, p.phone, p.address.city].filter((v) => !!v).join(' · ');
+
+/** Why the two look like one customer, or null when they share no way of reaching them. */
+function sharedWords(a: MergePerson, b: MergePerson): string | null {
+  if (a.phoneE164 && a.phoneE164 === b.phoneE164) return 'Same phone number';
+  if (a.email && b.email && a.email.toLowerCase() === b.email.toLowerCase())
+    return 'Same email address';
+  return null;
+}
+
+const mergeCustomers: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const keepId = String(args['keepId']);
+    const dupId = String(args['duplicateId']);
+    if (keepId === dupId) throw nothing('Those are the same customer.');
+    const [{ person: keep }, { person: dup }] = await Promise.all([
+      query<{ person: MergePerson }>(db, ctx, 'person.get', { personId: keepId }),
+      query<{ person: MergePerson }>(db, ctx, 'person.get', { personId: dupId }),
+    ]);
+    const tool = 'merge_customers';
+    if (dup.mergedInto)
+      throw nothing(`${dup.fullName} was already merged into ${dup.mergedInto.fullName}.`);
+    const fields: Field[] = [
+      { label: 'Keep', value: mergeLine(keep) },
+      { label: 'Merge in', value: mergeLine(dup) },
+    ];
+    const title = `Merge ${dup.fullName} into ${keep.fullName}?`;
+    if (keep.archivedAt)
+      return blocked(
+        toolCallId,
+        tool,
+        title,
+        fields,
+        `${keep.fullName} is archived. Bring them back before merging into them.`,
+        keep.mergedInto
+          ? `They were merged into ${keep.mergedInto.fullName}: merge into that customer instead.`
+          : 'Ask whether to bring them back with archive_or_restore first.',
+      );
+    const { filled } = mergedDetails(mergeSideOf(keep), mergeSideOf(dup));
+    const tasks = await openTasks(db, ctx, { personId: dupId });
+    const moving = [
+      dup.openLeads ? count(dup.openLeads, 'open lead') : null,
+      tasks ? count(tasks, 'open task') : null,
+      'the timeline, conversations, calls, bookings, bills, files and tags',
+    ].filter((v): v is string => !!v);
+    const shared = sharedWords(keep, dup);
+    return card(
+      toolCallId,
+      tool,
+      title,
+      [
+        ...fields,
+        ...(shared ? [{ label: 'Why they match', value: shared }] : []),
+        { label: 'Moves over', value: moving.join(', ') },
+        { label: 'Fills in', value: filled.length ? filled.join(', ') : 'Nothing: keeps its own' },
+      ],
+      'Merge them',
+      [
+        ...(shared
+          ? []
+          : [
+              {
+                kind: 'caution',
+                text: 'They share no phone number or email. Check they’re the same customer.',
+              },
+            ]),
+        {
+          kind: 'caution',
+          text: `${dup.fullName} is archived and can’t be brought back. ${keep.fullName} keeps their own details.`,
+        },
+      ],
+    );
+  },
+
+  async commit(db, ctx, args) {
+    const keepId = String(args['keepId']);
+    const out = await command<{ moved: Record<string, number> }>(db, ctx, 'person.merge', {
+      personId: String(args['duplicateId']),
+      intoPersonId: keepId,
+    });
+    const leads = out.moved['leads'] ?? 0;
+    return {
+      outcome: leads ? `Merged, with ${count(leads, 'lead')}` : 'Merged',
+      href: paths(ctx.workspaceId).person(keepId),
+      command: 'person.merge',
     };
   },
 };
@@ -2148,6 +2252,7 @@ export const inboxCrmAutoTools: Record<
 export const inboxCrmConfirmTools: Record<string, SettingsConfirmTool> = {
   manage_conversation: manageConversation,
   archive_or_restore: archiveOrRestore,
+  merge_customers: mergeCustomers,
   manage_company: manageCompany,
   assign_customer: assignCustomer,
   record_consent: recordConsent,
@@ -2161,6 +2266,7 @@ export const inboxCrmStepLabels: Record<string, string> = {
   unsent_messages: 'Checking what didn’t go out',
   manage_conversation: 'Getting the conversation ready',
   archive_or_restore: 'Getting it ready for your OK',
+  merge_customers: 'Comparing the two customers',
   find_archived: 'Looking through what’s archived',
   manage_company: 'Getting the company ready',
   assign_customer: 'Choosing who looks after them',

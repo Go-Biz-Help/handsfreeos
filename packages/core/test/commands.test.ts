@@ -139,6 +139,7 @@ describe('registry', () => {
       'person.update',
       'person.archive',
       'person.restore',
+      'person.merge',
       'tag.create',
       'tag.update',
       'tag.delete',
