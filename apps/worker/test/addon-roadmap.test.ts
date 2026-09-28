@@ -6,7 +6,7 @@
  *
  * Over add-ons made up for the run and weeks far in the future, so it never picks one of HandsFreeOS's own.
  */
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import {
   addonRoadmapCommands,
   defineAddon,
@@ -92,9 +92,8 @@ const mailer = {
 const to = (addressees: readonly TestUser[]) => addressees.map((u) => u.email).sort();
 const sentTo = () => sent.map((m) => m.to).sort();
 
-/** A week of its own: somewhere in the 2100s, never one another run closed. */
-const weekEnd = () =>
-  new Date(Date.UTC(2100 + (randomBytes(2).readUInt16BE() % 800), 5, 7, 4)).toISOString();
+/** A week of its own: a random moment after 2100, never one another run closed. */
+const weekEnd = () => new Date(Date.UTC(2100, 0, 1) + randomInt(2 ** 47)).toISOString();
 
 const jobCtx = (kind: string, payload: Record<string, unknown>): JobContext =>
   ({

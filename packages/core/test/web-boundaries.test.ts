@@ -81,4 +81,14 @@ describe('the Add-ons page', () => {
       /'addons\.manage'\)\s*\?\s*api\s*\.POST\('\/v1\/queries\/addon\.suggestion'/,
     );
   });
+
+  it('tells Home about a vote only to people who manage add-ons', () => {
+    expect(read(join(BUSINESS, 'page.tsx'))).toMatch(
+      /'addons\.manage'\)\s*\?\s*api\s*\.POST\('\/v1\/queries\/addon\.news'/,
+    );
+  });
+
+  it('asks for the vote only after the page has checked who is asking', () => {
+    expect(page()).toMatch(/notFound\(\);[\s\S]*\.POST\('\/v1\/queries\/addon\.roadmap'/);
+  });
 });

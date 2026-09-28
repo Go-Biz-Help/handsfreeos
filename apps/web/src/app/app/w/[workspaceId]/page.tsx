@@ -42,7 +42,6 @@ export default async function WorkspaceHomePage({
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
     .then((r) => unwrapPage(r));
-  const manages = workspace.then((w) => can(w.workspace.permissions, 'addons.manage'));
   const [me, got, summary, list, suggested, news] = await Promise.all([
     getMe(),
     workspace,
@@ -53,8 +52,8 @@ export default async function WorkspaceHomePage({
       .catch(() => null),
     // Now and then an add-on that fits the business, for owners and admins only: nobody else is ever asked about
     // one (the owner's decision, 2026-09-28). A nicety: if it fails, Home carries on without it.
-    manages.then((yes) =>
-      yes
+    workspace.then((w) =>
+      can(w.workspace.permissions, 'addons.manage')
         ? api
             .POST('/v1/queries/addon.suggestion', { body: { workspaceId } })
             .then((r) => r.data?.suggestion ?? null)
@@ -62,8 +61,8 @@ export default async function WorkspaceHomePage({
         : null,
     ),
     // An add-on the business voted for is coming soon, or ready to add (0109): the same people, the same nicety.
-    manages.then((yes) =>
-      yes
+    workspace.then((w) =>
+      can(w.workspace.permissions, 'addons.manage')
         ? api
             .POST('/v1/queries/addon.news', { body: { workspaceId } })
             .then((r) => r.data?.news ?? null)

@@ -6,7 +6,7 @@
  * Votes and picks are HandsFreeOS-wide and the test database outlives a run, so everything here is over add-ons of
  * its own, with ids made up for the run, and weeks far in the future.
  */
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -92,9 +92,8 @@ const inRace = [alpha, beta, gamma, delta];
 const { vote, unvote, markNewsSeen, choosePick } = addonRoadmapCommands(catalog);
 const { roadmap, news, overview } = addonRoadmapQueries(catalog);
 
-/** A week of its own: somewhere in the 2100s, never one another run closed. */
-const weekEnd = () =>
-  new Date(Date.UTC(2100 + (randomBytes(2).readUInt16BE() % 800), 0, 4, 5)).toISOString();
+/** A week of its own: a random moment after 2100, never one another run closed. */
+const weekEnd = () => new Date(Date.UTC(2100, 0, 1) + randomInt(2 ** 47)).toISOString();
 
 const closeWeek = (endsAt: string, race: readonly string[] = inRace) =>
   admin().transaction((tx) => closeAddonVoteWeek(tx, new Date(endsAt), race));

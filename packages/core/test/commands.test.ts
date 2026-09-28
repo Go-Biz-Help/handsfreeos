@@ -618,6 +618,10 @@ describe('registry', () => {
       'addon.save_settings',
       'addon.save_my_settings',
       'addon.dismiss_suggestion',
+      'addon.vote',
+      'addon.unvote',
+      'addon.mark_news_seen',
+      'addon_pick.choose',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
@@ -782,6 +786,9 @@ describe('registry', () => {
       'addon.impact',
       'addon.settings',
       'addon.suggestion',
+      'addon.roadmap',
+      'addon.news',
+      'addon_pick.overview',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

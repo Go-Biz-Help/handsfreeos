@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
 import {
@@ -31,6 +31,8 @@ const letters = (n: number) =>
   Array.from(randomBytes(n), (b) => String.fromCharCode(97 + (b % 26))).join('');
 const fresh = () => `zr${letters(12)}`;
 const code = async (fn: () => Promise<unknown>) => (await expectPgError(fn)).code;
+/** A week of its own: a random moment after 2100, never one another run closed. */
+const weekEnd = () => new Date(Date.UTC(2100, 0, 1) + randomInt(2 ** 47)).toISOString();
 
 beforeAll(async () => {
   [owner, member, other, teamAdmin, teamLead] = await Promise.all([
@@ -149,7 +151,7 @@ describe('reading', () => {
   });
 
   it('keeps how the weeks closed to the team who choose', async () => {
-    const endsAt = new Date(Date.UTC(3000 + (randomBytes(1)[0] ?? 0), 0, 1)).toISOString();
+    const endsAt = weekEnd();
     await asService({})((tx) =>
       rows(tx, sql`select private.close_addon_vote_week(${endsAt}::timestamptz, '{}'::text[])`),
     );
@@ -198,7 +200,7 @@ describe('writing what only the database and the team write', () => {
   });
 
   it('lets only the team choose a week’s pick', async () => {
-    const endsAt = new Date(Date.UTC(3300 + (randomBytes(1)[0] ?? 0), 0, 1)).toISOString();
+    const endsAt = weekEnd();
     const [week] = await asService({})((tx) =>
       rows<{ id: string }>(
         tx,
