@@ -25,7 +25,7 @@
 -- p_user is the person, for their own settings; null for someone not yet in the business (an invitation).
 create or replace function private.permissions_for(p_ws uuid, p_role text, p_user uuid)
 returns text[] language sql stable security definer set search_path = '' as $$
-  with live as (select private.active_addons(p_ws) as ids),
+  with live as (select private.running_addons(p_ws) as ids),
   candidates as (
     select rp.permission from app.role_permissions rp, live
     where rp.role = p_role and (rp.addon_id is null or rp.addon_id = any (live.ids))

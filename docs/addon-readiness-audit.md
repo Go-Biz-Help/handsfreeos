@@ -21,6 +21,15 @@ or **Improvement** (useful, not needed yet). Ids point at the reviewer's area: K
 database, P permissions, settings and billing, AI, FE web and phone, WF workflows and integrations, T
 testing.
 
+**Where this stands (2026-09-28).** The foundation is built; `docs/addon-architecture.md` describes it.
+Every Critical finding is fixed except the workflow half of WF-2 (add-on workflow steps and triggers, which
+wait for the first add-on). Fixed: the add-on and capability model (K-1, DB-1, P-1, WF-1, AI-1); the
+add-on check for machine actors (P-1, K-1); registration for operations, event handlers, jobs, Assistant
+tools and menu places (K-2, K-4, FE-2); isolated event delivery (K-3, WF-4); owners on queued work (K-5,
+WF-9); WF-3; managed record kinds (DB-2, DB-3); P-2; P-3; FE-1 and FE-4; AI-2; AI-3. Of the Important
+ones, P-4, K-9, K-10 and DB-13, DB-5 and T-5 (for add-on tables), FE-3, FE-5 and AI-6 are done too; the
+rest are open, and the architecture doc's "Not yet" lists what the first add-on will need.
+
 ## 1. The current architecture
 
 - **One write path.** Every change is a command (`packages/core/src/commands`, 496 of them, 389 reachable

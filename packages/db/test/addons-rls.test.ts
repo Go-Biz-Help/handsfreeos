@@ -142,6 +142,40 @@ describe('what a business has, and who may change it', () => {
     ).toBe('42501');
   });
 
+  it('tells nobody outside a business what it runs, even one who sets the worker’s scope themselves', async () => {
+    const addon = freshId();
+    await turnOn(wsA, orgA, addon);
+    const ask = (u: TestUser, spoof: boolean) =>
+      as(u)(async (tx) => {
+        if (spoof)
+          await tx.execute(sql`select set_config('app.system_scope.workspace_id', ${wsA}, true)`);
+        const [row] = await rows<{ live: string[]; inUse: boolean }>(
+          tx,
+          sql`select private.active_addons(${wsA}) as live,
+                private.addon_in_use(${wsA}, ${addon}, false) as "inUse"`,
+        );
+        return row!;
+      });
+    expect(await ask(member, false)).toMatchObject({ inUse: true });
+    expect((await ask(member, false)).live).toContain(addon);
+    for (const spoof of [false, true])
+      expect(await ask(outsider, spoof)).toEqual({ live: [], inUse: false });
+    // The worker's own check is the worker's alone.
+    expect(
+      (
+        await failure(() =>
+          as(outsider)((tx) => rows(tx, sql`select private.addon_writable(${wsA}, ${addon})`)),
+        )
+      ).code,
+    ).toBe('42501');
+    // The worker, scoped to the business, is answered.
+    const [fromWorker] = await worker(
+      wsA,
+      orgA,
+    )((tx) => rows<{ live: string[] }>(tx, sql`select private.active_addons(${wsA}) as live`));
+    expect(fromWorker!.live).toContain(addon);
+  });
+
   it('a member can’t install, an admin can, and only an owner starts deleting an add-on’s data', async () => {
     const addon = freshId();
     expect((await failure(() => move(member, wsA, addon, 'installing'))).detail).toBe(

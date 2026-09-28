@@ -162,15 +162,31 @@ revoke all on platform.addon_overrides from anon;
 insert into app.role_permissions (role, permission) values ('staff_admin', 'platform.addons.manage');
 
 -- ---------- whether an add-on runs, the one question every checkpoint asks ----------
--- The add-ons running in a business: enabled there, and not switched off by HandsFreeOS. Only the business's own
--- people and its own worker scope get an answer.
-create or replace function private.active_addons(p_ws uuid)
+-- The add-ons running in a business: enabled there, and not switched off by HandsFreeOS. For the database's own rules
+-- (who may do what, what is hidden), which ask about businesses on everyone's behalf: nobody else may call it.
+create or replace function private.running_addons(p_ws uuid)
 returns text[] language sql stable security definer set search_path = '' as $$
   select coalesce(array_agg(i.addon_id order by i.addon_id), '{}'::text[])
   from app.addon_installations i
   where i.workspace_id = p_ws and i.state = 'enabled'
     and not exists (
       select 1 from platform.addon_overrides o where o.addon_id = i.addon_id and o.status = 'unavailable')
+$$;
+
+-- Whether the caller may ask about a business's add-ons: someone who works in it (or support looking at it), or the
+-- worker scoped to it. The worker is told by its role, which nobody else can take; the scope setting alone is
+-- anyone's to set, so it never answers for a person.
+create or replace function private.may_ask_about(p_ws uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select p_ws is not null and (
+    (current_setting('role', true) = 'service_actor' and p_ws = private.system_scope_workspace())
+    or exists (select 1 from private.accessible_workspace_ids() a(id) where a.id = p_ws))
+$$;
+
+-- The add-ons running in a business, for its own people and its own worker scope; anyone else hears of none.
+create or replace function private.active_addons(p_ws uuid)
+returns text[] language sql stable security definer set search_path = '' as $$
+  select case when private.may_ask_about(p_ws) then private.running_addons(p_ws) else '{}'::text[] end
 $$;
 
 -- Whether one add-on runs here, for the kernel. With p_lock it also holds a key-share lock on the business's row
@@ -181,12 +197,8 @@ returns boolean language plpgsql security definer set search_path = '' as $$
 declare
   v_state text;
 begin
-  if p_ws is null or p_addon is null then
-    return false;
-  end if;
   -- Only for the business the asker is in: a person who works there, or the worker scoped to it.
-  if p_ws is distinct from private.system_scope_workspace()
-     and not exists (select 1 from private.accessible_workspace_ids() a(id) where a.id = p_ws) then
+  if p_addon is null or not private.may_ask_about(p_ws) then
     return false;
   end if;
   if p_lock then
@@ -201,7 +213,8 @@ begin
     and not exists (select 1 from platform.addon_overrides o where o.addon_id = p_addon and o.status = 'unavailable');
 end $$;
 
-revoke all on function private.active_addons(uuid), private.addon_in_use(uuid, text, boolean) from public;
+revoke all on function private.running_addons(uuid), private.may_ask_about(uuid), private.active_addons(uuid),
+  private.addon_in_use(uuid, text, boolean) from public;
 grant execute on function private.active_addons(uuid), private.addon_in_use(uuid, text, boolean)
   to authenticated, service_actor;
 
@@ -369,7 +382,7 @@ create index customizable_permissions_addon_idx on app.customizable_permissions 
 create or replace function private.user_permissions(p_user uuid, p_ws uuid)
 returns text[] language sql stable security definer set search_path = '' as $$
   with r as (select private.user_workspace_role(p_user, p_ws) as role),
-  live as (select private.active_addons(p_ws) as ids),
+  live as (select private.running_addons(p_ws) as ids),
   candidates as (
     select rp.permission from app.role_permissions rp, r, live
     where rp.role = r.role and (rp.addon_id is null or rp.addon_id = any (live.ids))

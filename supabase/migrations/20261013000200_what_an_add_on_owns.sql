@@ -181,7 +181,7 @@ returns setof uuid language sql stable security definer set search_path = '' as 
   select t.id from app.custom_record_types t
   where t.addon_id is not null
     and t.workspace_id in (select private.accessible_workspace_ids())
-    and not (t.addon_id = any (private.active_addons(t.workspace_id)))
+    and not (t.addon_id = any (private.running_addons(t.workspace_id)))
 $$;
 
 -- A person's own writes to kinds and types an add-on manages: never making one, never moving what it is or whether
@@ -472,8 +472,10 @@ revoke all on function private.assert_worker_scope(uuid), private.addon_runs_now
   private.record_addon_usage(uuid, text, text, numeric, text, timestamptz), private.create_addon_schema(text),
   private.addon_writable(uuid, text), private.addon_table_policies(regclass, text, text, text)
   from public;
-grant execute on function private.record_kind_owner(uuid), private.hidden_record_kinds(),
-  private.addon_writable(uuid, text) to authenticated, service_actor;
+grant execute on function private.record_kind_owner(uuid), private.hidden_record_kinds()
+  to authenticated, service_actor;
+-- The worker's own policies ask it; a person has no business asking about another's add-ons.
+grant execute on function private.addon_writable(uuid, text) to service_actor;
 grant execute on function private.assert_worker_scope(uuid), private.addon_runs_now(uuid, text, integer),
   private.addon_cancel_work(uuid, text), private.addon_hide_records(uuid, text),
   private.addon_show_records(uuid, text) to service_actor;
