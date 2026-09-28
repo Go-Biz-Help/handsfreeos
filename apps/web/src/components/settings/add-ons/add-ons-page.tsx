@@ -11,8 +11,12 @@
  */
 import {
   ADDON_CATALOG,
-  ADDON_STATE_WORDS,
+  ADDON_PAGE_WORDS,
+  addonBlockedWords,
+  addonMovedLine,
+  addonMovesFor,
   findAddon,
+  isBusyState,
   isInstalledState,
   type InstallationState,
   type LifecycleAction,
@@ -35,34 +39,12 @@ import {
   type MoveTarget,
   type TakingAction,
 } from './move-dialogs';
-import { blockedWords, movedWords } from './words';
+import { addonName } from './words';
 
 /** The rules a move comes back with when other add-ons have to move with it: asked about, then sent again. */
 const ASK_RULES: ReadonlySet<string> = new Set(['addon_needs', 'addon_required_by']);
-const PAID = 'A paid add-on. HandsFreeOS support can turn it on for you.';
+const W = ADDON_PAGE_WORDS;
 const sectionTitle = 'text-lg font-semibold leading-[1.3] tracking-[-0.005em]';
-
-/** The moves open to this person from where an add-on stands here. None while it's on its way somewhere. */
-function movesFor(
-  state: InstallationState,
-  can: { readonly install: boolean; readonly purge: boolean },
-): LifecycleAction[] {
-  switch (state) {
-    case 'enabled':
-      return ['disable', 'uninstall'];
-    case 'disabled':
-      return ['enable', 'uninstall'];
-    case 'uninstalled':
-      return [
-        ...(can.install ? (['install'] as const) : []),
-        ...(can.purge ? (['purge'] as const) : []),
-      ];
-    case 'purged':
-      return can.install ? ['install'] : [];
-    default:
-      return [];
-  }
-}
 
 /** The add-ons a refusal asks about (`details.addons`). */
 const askedAbout = (details: unknown): string[] => {
@@ -152,12 +134,8 @@ export function AddonsSettings({
     (c) => c.status === 'available' && !installedIds.has(c.addonId),
   );
   const coming = list.catalog.filter((c) => c.status === 'planned' && !installedIds.has(c.addonId));
-  const moving = list.installed.some((i) => ADDON_STATE_WORDS[i.state].tone === 'busy');
+  const moving = list.installed.some((i) => isBusyState(i.state));
   const places = addonNavItems(workspaceId, permissions, menuAddons(running));
-  // What works here now, for anyone: what a move could stop.
-  const working = new Set(
-    [...list.capabilities.current, ...list.capabilities.restricted].map((c) => c.id),
-  );
 
   // Installing, uninstalling and deleting finish on their own within seconds: check again every few, in case the
   // live channel is down (it usually gets there first).
@@ -203,8 +181,8 @@ export function AddonsSettings({
             );
       setConfirm(null);
       setAsk(null);
-      if (out.moved.length)
-        toast.success(movedWords(target.addonId, target.name, action, out.moved));
+      const said = addonMovedLine(target.addonId, target.name, action, out.moved, addonName);
+      if (said) toast.success(said);
       router.refresh();
       return null;
     } catch (e) {
@@ -251,16 +229,19 @@ export function AddonsSettings({
 
   const installedCard = (i: InstalledAddon) => {
     const m = findAddon(ADDON_CATALOG, i.addonId);
-    const on = running.includes(i.addonId);
+    const on = i.running;
     const canInstall = installable.has(i.addonId);
     const target = { addonId: i.addonId, name: i.name };
     const first = on ? places.find((p) => p.key.startsWith(`addon:${i.addonId}:`)) : undefined;
-    // Back again after it was removed: paid ones are handed out by HandsFreeOS support.
+    // Back again after it was removed: paid ones, and ones only support hands out (beta), come from support.
+    const away = i.state === 'uninstalled' || i.state === 'purged';
     const note =
-      (i.state === 'uninstalled' || i.state === 'purged') &&
-      !canInstall &&
-      m?.billing.model === 'paid'
-        ? PAID
+      away && !canInstall && !i.retired
+        ? m?.billing.model === 'paid' && i.status === 'available'
+          ? W.paid
+          : i.status === 'beta' || i.status === 'built'
+            ? W.support
+            : null
         : null;
     return (
       <li key={i.addonId}>
@@ -272,7 +253,12 @@ export function AddonsSettings({
           capabilities={capabilitiesOf(i.addonId)}
           place="installed"
           installed={i}
-          moves={i.retired ? [] : movesFor(i.state, { install: canInstall, purge: canPurge })}
+          moves={addonMovesFor(i.state, {
+            manage: true,
+            purge: canPurge,
+            installable: canInstall,
+            retired: i.retired,
+          })}
           pending={pending?.addonId === i.addonId ? pending.action : null}
           running={on}
           highlight={highlight === i.addonId}
@@ -295,9 +281,9 @@ export function AddonsSettings({
     const note = canInstall
       ? null
       : m?.billing.model === 'paid'
-        ? PAID
-        : ((m ? blockedWords(m, stateOf, (id) => installable.has(id)) : null) ??
-          'It can’t be added here right now.');
+        ? W.paid
+        : ((m ? addonBlockedWords(ADDON_CATALOG, m, stateOf, (id) => installable.has(id)) : null) ??
+          W.cantAdd);
     return (
       <li key={c.addonId}>
         <AddonCard
@@ -322,48 +308,38 @@ export function AddonsSettings({
 
   return (
     <div className="flex flex-col gap-7" data-testid="addons-settings">
-      <p className="max-w-[80ch] text-[13.5px] text-text-2">
-        Add-ons add features to HandsFreeOS for particular kinds of work. Turn one off and its
-        screens are hidden, with its data kept for when it’s back on. Only an owner can delete an
-        add-on’s data.
-      </p>
+      <p className="max-w-[80ch] text-[13.5px] text-text-2">{W.intro}</p>
 
-      <Section title="In this business" testId="addons-installed">
+      <Section title={W.inBusiness} testId="addons-installed">
         {here.length ? (
           <ul className="flex flex-col gap-3">{here.map(installedCard)}</ul>
         ) : (
           <div data-testid="addons-installed-empty">
-            <EmptyState title="Nothing added yet" dashed>
-              Add-ons you add show here, with whether each one is on.
+            <EmptyState title={W.noneHereTitle} dashed>
+              {W.noneHere}
             </EmptyState>
           </div>
         )}
       </Section>
 
       <Section
-        title="Available to add"
-        description={
-          toAdd.length ? 'Adding one asks first if it needs another add-on too.' : undefined
-        }
+        title={W.available}
+        description={toAdd.length ? W.availableDetail : undefined}
         testId="addons-available"
       >
         {toAdd.length ? (
           <ul className="flex flex-col gap-3">{toAdd.map(availableCard)}</ul>
         ) : (
           <div data-testid="addons-available-empty">
-            <EmptyState title="None to add yet" dashed>
-              When there’s an add-on this business can use, it shows here.
+            <EmptyState title={W.noneToAddTitle} dashed>
+              {W.noneToAdd}
             </EmptyState>
           </div>
         )}
       </Section>
 
       {coming.length ? (
-        <Section
-          title="Coming soon"
-          description="Being built now. You can’t add these yet."
-          testId="addons-planned"
-        >
+        <Section title={W.comingSoon} description={W.comingSoonDetail} testId="addons-planned">
           <ul className="flex flex-col gap-3">
             {coming.map((c) => (
               <li key={c.addonId}>
@@ -391,7 +367,6 @@ export function AddonsSettings({
       <ConfirmMoveDialog
         workspaceId={workspaceId}
         target={confirm}
-        running={working}
         busy={pending !== null}
         onClose={() => setConfirm(null)}
         onMove={move}

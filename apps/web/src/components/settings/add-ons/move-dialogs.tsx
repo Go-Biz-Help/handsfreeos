@@ -1,5 +1,12 @@
 'use client';
-import { ADDON_MOVE_WORDS, type LifecycleAction } from '@hfos/core';
+import {
+  ADDON_MOVE_WORDS,
+  ADDON_PAGE_WORDS as W,
+  addonAgreeWords,
+  addonHoldsLines,
+  addonOptionalLine,
+  type LifecycleAction,
+} from '@hfos/core';
 import { useEffect, useState } from 'react';
 import { Callout } from '@/components/crm/chips';
 import { Button } from '@/components/ui/button';
@@ -8,7 +15,7 @@ import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { AddonImpact } from '@/lib/api/types';
-import { addonName, agreeLabel, holdsLines, listWords } from './words';
+import { addonName } from './words';
 
 /** One add-on a move is about. */
 export interface MoveTarget {
@@ -41,15 +48,12 @@ const sectionLabel = 'text-xs font-medium text-text-3';
 export function ConfirmMoveDialog({
   workspaceId,
   target,
-  running,
   busy,
   onClose,
   onMove,
 }: {
   workspaceId: string;
   target: (MoveTarget & { readonly action: TakingAction }) | null;
-  /** The capabilities working here now (the list's current and restricted sets): only those can stop. */
-  running: ReadonlySet<string>;
   busy: boolean;
   onClose: () => void;
   onMove: MakeMove;
@@ -61,7 +65,6 @@ export function ConfirmMoveDialog({
           key={`${target.addonId}:${target.action}`}
           workspaceId={workspaceId}
           target={target}
-          running={running}
           busy={busy}
           onClose={onClose}
           onMove={onMove}
@@ -74,14 +77,12 @@ export function ConfirmMoveDialog({
 function ConfirmBody({
   workspaceId,
   target,
-  running,
   busy,
   onClose,
   onMove,
 }: {
   workspaceId: string;
   target: MoveTarget & { readonly action: TakingAction };
-  running: ReadonlySet<string>;
   busy: boolean;
   onClose: () => void;
   onMove: MakeMove;
@@ -106,10 +107,7 @@ function ConfirmBody({
       })
       .catch(() => {
         // The move itself checks again, and asks about any other add-on it would take with it.
-        if (!cancelled)
-          setFailed(
-            'We couldn’t check what else this changes. You can still go ahead: anything else it would stop is asked about first.',
-          );
+        if (!cancelled) setFailed(W.impactFailed);
       });
     return () => {
       cancelled = true;
@@ -118,17 +116,17 @@ function ConfirmBody({
 
   const others = (impact?.needsAgreement ?? []).map(addonName);
   const settled = impact !== null || failed !== null;
-  // What would stop working: an add-on that's already off stops nothing more by being uninstalled.
-  const stops =
-    impact?.outcome === 'plan' ? impact.capabilitiesLost.filter((c) => running.has(c.id)) : [];
-  const lessWithout = impact?.outcome === 'plan' ? impact.optionalFor.map((o) => o.name) : [];
-  const holds = impact?.outcome === 'plan' ? holdsLines(action, impact.holds) : [];
+  // What would stop working (none from an add-on that's already off: the server leaves those out).
+  const stops = impact?.outcome === 'plan' ? impact.capabilitiesLost : [];
+  const lessWithout =
+    impact?.outcome === 'plan' ? addonOptionalLine(impact.optionalFor.map((o) => o.name)) : null;
+  const holds = impact?.outcome === 'plan' ? addonHoldsLines(action, impact.holds) : [];
   const canGo = impact ? impact.outcome === 'plan' : failed !== null;
 
   async function go() {
     setNameError(null);
     if (purge && !typedRight) {
-      setNameError(`Type ${name} to confirm.`);
+      setNameError(`${W.typeName(name)}.`);
       return;
     }
     const wrong = await onMove(target, action, impact?.needsAgreement ?? [], typed.trim());
@@ -144,13 +142,13 @@ function ConfirmBody({
       <div className="mt-4 flex flex-col gap-4" data-testid="addon-confirm" data-action={action}>
         {!settled ? (
           <p className="text-[13px] text-text-3" role="status">
-            Checking what else this changes…
+            {W.checking}
           </p>
         ) : null}
         {failed ? <p className="text-[13px] text-text-2">{failed}</p> : null}
         {impact?.outcome === 'already' ? (
           <p className="text-[13px] text-text-2" data-testid="addon-confirm-already">
-            Nothing to change: it’s already done.
+            {W.already}
           </p>
         ) : null}
         {impact?.outcome === 'refused' && impact.refusal ? (
@@ -161,7 +159,7 @@ function ConfirmBody({
         ) : null}
         {stops.length ? (
           <div>
-            <h3 className={sectionLabel}>What stops</h3>
+            <h3 className={sectionLabel}>{W.whatStops}</h3>
             <ul className="mt-1.5 flex list-disc flex-col gap-0.5 pl-5 text-[13px]">
               {stops.map((c) => (
                 <li key={c.id}>{c.label}</li>
@@ -169,15 +167,10 @@ function ConfirmBody({
             </ul>
           </div>
         ) : null}
-        {lessWithout.length ? (
-          <p className="text-[13px] text-text-2">
-            {listWords(lessWithout)} {lessWithout.length === 1 ? 'uses' : 'use'} it and{' '}
-            {lessWithout.length === 1 ? 'does' : 'do'} less without it.
-          </p>
-        ) : null}
+        {lessWithout ? <p className="text-[13px] text-text-2">{lessWithout}</p> : null}
         {holds.length ? (
           <div data-testid="addon-confirm-holds">
-            <h3 className={sectionLabel}>What it holds here</h3>
+            <h3 className={sectionLabel}>{W.whatItHolds}</h3>
             {holds.map((line) => (
               <p key={line} className="mt-1 text-[13px] text-text-2">
                 {line}
@@ -193,7 +186,7 @@ function ConfirmBody({
               void go();
             }}
           >
-            <Field label={`Type ${name} to confirm`} htmlFor="addon-purge-name" error={nameError}>
+            <Field label={W.typeName(name)} htmlFor="addon-purge-name" error={nameError}>
               <Input
                 id="addon-purge-name"
                 autoComplete="off"
@@ -221,7 +214,7 @@ function ConfirmBody({
             onClick={() => void go()}
             data-testid="addon-confirm-yes"
           >
-            {others.length ? agreeLabel(action, others) : words.button}
+            {others.length ? addonAgreeWords(action, others) : words.button}
           </Button>
         ) : null}
       </div>
@@ -270,7 +263,7 @@ export function AskMoveDialog({
               onClick={() => void onMove(ask, ask.action, ask.include)}
               data-testid="addon-ask-yes"
             >
-              {others.length ? agreeLabel(ask.action, others) : words.button}
+              {others.length ? addonAgreeWords(ask.action, others) : words.button}
             </Button>
           </div>
         </DialogContent>

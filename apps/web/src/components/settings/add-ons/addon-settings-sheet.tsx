@@ -1,5 +1,5 @@
 'use client';
-import type { AddonManifest } from '@hfos/core';
+import { ADDON_PAGE_WORDS as W, type AddonManifest } from '@hfos/core';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ADDON_UI } from '@/addons/registry';
@@ -39,7 +39,7 @@ export function AddonSettingsSheet({
   return (
     <Sheet open={addon !== null} onOpenChange={(open) => (open ? null : onClose())}>
       {addon ? (
-        <SheetContent title={addon.name} description="How it works in this business.">
+        <SheetContent title={addon.name} description={W.settingsDescription}>
           <SettingsBody
             key={addon.id}
             workspaceId={workspaceId}
@@ -97,23 +97,19 @@ function SettingsBody({
     void read();
   }, [read]);
 
-  /**
-   * One switch flipped. Saving replaces the business's switches as a whole, so every switch goes with it, as the
-   * settings were read; the rest wait until it's saved.
-   */
+  /** One switch flipped: saved on its own (the others stay as they are); the rest wait until it's saved. */
   async function flip(key: string, label: string, on: boolean) {
     if (!loaded?.flags) return;
     const before = loaded;
-    const flags = { ...loaded.flags, [key]: on };
-    setLoaded({ ...loaded, flags });
+    setLoaded({ ...loaded, flags: { ...loaded.flags, [key]: on } });
     setSaving(key);
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/addon.save_settings', {
-          body: { workspaceId, addonId: addon.id, flags },
+          body: { workspaceId, addonId: addon.id, flags: { [key]: on } },
         }),
       );
-      toast.success(`${label} is ${on ? 'on' : 'off'}.`);
+      toast.success(W.flipped(label, on));
     } catch (e) {
       setLoaded(before);
       if (!turnedOff(e)) toast.error(errorMessage(e));
@@ -184,9 +180,7 @@ function SettingsBody({
             ))}
           </div>
         ) : (
-          <p className="text-[13px] text-text-2">
-            Only people who may change {addon.name}’s settings can see its switches.
-          </p>
+          <p className="text-[13px] text-text-2">{W.switchesHidden(addon.name)}</p>
         )
       ) : null}
       {Form ? (

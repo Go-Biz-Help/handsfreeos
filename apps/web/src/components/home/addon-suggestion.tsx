@@ -1,5 +1,5 @@
 'use client';
-import type { SuggestionChoice } from '@hfos/core';
+import { ADDON_PAGE_WORDS as W, type SuggestionChoice } from '@hfos/core';
 import { Blocks } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -38,9 +38,7 @@ export function AddonSuggestionCard({
       );
       setGone(true);
       toast.success(
-        choice === 'not_interested'
-          ? `We won’t suggest ${suggestion.name} again.`
-          : 'We’ll hold off on suggestions for a while.',
+        choice === 'not_interested' ? W.notInterestedDone(suggestion.name) : W.notNowDone,
       );
     } catch (e) {
       toast.error(errorMessage(e));
@@ -65,7 +63,7 @@ export function AddonSuggestionCard({
           <Icon className="h-4 w-4" strokeWidth={1.5} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-text-3">An add-on that could help</p>
+          <p className="text-xs font-medium text-text-3">{W.suggested}</p>
           <h3 id={titleId} className="mt-0.5 text-[15px] font-semibold tracking-tight">
             {suggestion.name}
           </h3>
@@ -87,7 +85,7 @@ export function AddonSuggestionCard({
           size="sm"
           data-testid="addon-suggestion-see"
         >
-          See it
+          {W.seeIt}
         </ButtonLink>
         <Button
           variant="ghost"
@@ -97,7 +95,7 @@ export function AddonSuggestionCard({
           onClick={() => void setAside('not_now')}
           data-testid="addon-suggestion-not-now"
         >
-          Not now
+          {W.notNow}
         </Button>
         <Button
           variant="ghost"
@@ -107,7 +105,7 @@ export function AddonSuggestionCard({
           onClick={() => void setAside('not_interested')}
           data-testid="addon-suggestion-not-interested"
         >
-          Not interested
+          {W.notInterested}
         </Button>
       </div>
     </Card>

@@ -1,6 +1,7 @@
 'use client';
 import {
   ADDON_MOVE_WORDS,
+  ADDON_PAGE_WORDS as W,
   ADDON_STATE_WORDS,
   addonCheckWords,
   type AddonManifest,
@@ -114,7 +115,8 @@ export function AddonCard({
   const optional = needs.filter((n) => !n.required);
   const planned = place === 'planned';
   const failedChecks = installed?.failedChecks ?? [];
-  const trouble = !!installed && (failedChecks.length > 0 || installed.lastError !== null);
+  // Checks are only reported while there's trouble (`lastError`), never the last move's.
+  const trouble = !!installed && installed.lastError !== null;
   // On here, but not running: HandsFreeOS has switched it off everywhere for now.
   const paused = state === 'enabled' && !running && !installed?.retired;
   const titleId = `addon-${addonId}-name`;
@@ -153,7 +155,7 @@ export function AddonCard({
               ) : null}
               {planned ? (
                 <Badge variant="accent" data-testid="addon-coming-soon">
-                  Coming soon
+                  {W.comingSoon}
                 </Badge>
               ) : null}
             </div>
@@ -185,7 +187,7 @@ export function AddonCard({
                 aria-label={`Settings for ${name}`}
                 data-testid={`addon-settings-open-${addonId}`}
               >
-                Settings
+                {W.settings}
               </Button>
             ) : null}
             {moves.map((action) => (
@@ -209,20 +211,19 @@ export function AddonCard({
 
       {paused ? (
         <Callout tone="neutral" className="mt-4" data-testid={`addon-paused-${addonId}`}>
-          HandsFreeOS has switched {name} off for now, so it isn’t running. Its data and settings
-          are kept.
+          {W.paused(name)}
         </Callout>
       ) : null}
       {installed?.retired ? (
         <Callout tone="neutral" className="mt-4" data-testid={`addon-retired-${addonId}`}>
-          HandsFreeOS no longer has this add-on. Its data is kept.
+          {W.retired}
         </Callout>
       ) : null}
       {trouble ? (
         <Callout className="mt-4" data-testid={`addon-trouble-${addonId}`}>
           {failedChecks.length ? (
             <>
-              Not quite finished. HandsFreeOS keeps trying on its own.
+              {W.troubleChecks}
               <ul className="mt-1 list-disc pl-5">
                 {failedChecks.map((check) => (
                   <li key={check}>{addonCheckWords(check)}</li>
@@ -230,7 +231,7 @@ export function AddonCard({
               </ul>
             </>
           ) : (
-            'It ran into trouble finishing the last change. HandsFreeOS keeps trying on its own.'
+            W.trouble
           )}
         </Callout>
       ) : null}
@@ -241,9 +242,7 @@ export function AddonCard({
           <div className="grid gap-4 sm:grid-cols-2">
             {capabilities.length ? (
               <div>
-                <h4 className="text-xs font-medium text-text-3">
-                  {planned ? 'What it will let you do' : 'What it lets you do'}
-                </h4>
+                <h4 className="text-xs font-medium text-text-3">{planned ? W.willDo : W.does}</h4>
                 <ul className="mt-1.5 flex flex-col gap-1.5" data-testid="addon-capabilities">
                   {capabilities.map((c) => (
                     <li key={c.id} className="text-[13px]">
@@ -257,7 +256,7 @@ export function AddonCard({
             {manifest ? (
               <div>
                 <h4 className="text-xs font-medium text-text-3">
-                  {planned ? 'What it will need' : 'What it needs'}
+                  {planned ? W.willNeed : W.needs}
                 </h4>
                 {required.length ? (
                   <ul className="mt-1.5 flex flex-col gap-1.5" data-testid="addon-needs">
@@ -269,11 +268,11 @@ export function AddonCard({
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-1.5 text-[13px] text-text-2">Nothing else.</p>
+                  <p className="mt-1.5 text-[13px] text-text-2">{W.needsNothing}</p>
                 )}
                 {optional.length ? (
                   <>
-                    <h4 className="mt-3 text-xs font-medium text-text-3">Works with</h4>
+                    <h4 className="mt-3 text-xs font-medium text-text-3">{W.worksWith}</h4>
                     <ul className="mt-1.5 flex flex-col gap-1.5" data-testid="addon-works-with">
                       {optional.map((n) => (
                         <li key={n.addonId} className="text-[13px]">
