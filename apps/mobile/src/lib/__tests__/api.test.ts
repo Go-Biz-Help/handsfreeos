@@ -111,4 +111,33 @@ describe('the API client', () => {
       'No signal. Try again when you’re back online.',
     );
   });
+
+  it('keeps the rule and what a refusal carries, for a screen that can answer it', () => {
+    let caught: unknown = null;
+    try {
+      unwrap({
+        error: {
+          error: {
+            code: 'rule_violation',
+            message: 'Rent Collection needs Property Management. Turn it on too?',
+            rule: 'addon_needs',
+            details: { addons: ['fxprop'] },
+            disposition: 'ask',
+          },
+        },
+        response: new Response(null, { status: 409 }),
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect(caught).toMatchObject({
+      status: 409,
+      rule: 'addon_needs',
+      details: { addons: ['fxprop'] },
+      disposition: 'ask',
+    });
+    // A refusal with no rule says so, rather than leaving it undefined.
+    expect(new ApiError('No.', 403, 'forbidden', 'final').rule).toBeNull();
+  });
 });

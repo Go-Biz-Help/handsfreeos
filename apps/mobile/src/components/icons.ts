@@ -109,6 +109,7 @@ export { default as PhoneOff } from 'lucide-react-native/icons/phone-off';
 export { default as PhoneOutgoing } from 'lucide-react-native/icons/phone-outgoing';
 export { default as Play } from 'lucide-react-native/icons/play';
 export { default as Plus } from 'lucide-react-native/icons/plus';
+export { default as Puzzle } from 'lucide-react-native/icons/puzzle';
 export { default as Receipt } from 'lucide-react-native/icons/receipt';
 export { default as RectangleEllipsis } from 'lucide-react-native/icons/rectangle-ellipsis';
 export { default as RefreshCw } from 'lucide-react-native/icons/refresh-cw';
