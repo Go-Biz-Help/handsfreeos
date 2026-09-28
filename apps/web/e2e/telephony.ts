@@ -156,7 +156,11 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
   }).toPass({ timeout: 90_000 });
   const display = (await picked.locator('.font-mono').textContent())!.trim();
   await page.getByTestId('buy-number').click();
-  await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 30_000 });
+  // The purchase is taken at once, then the worker sets the number up with the (fake) carrier while the page
+  // checks back every few seconds. On a busy runner the worker is still working through what earlier tests left
+  // it, so that part gets room; a purchase that wasn't taken at all fails the first check, not the second.
+  await expect(page.getByTestId('texting-setup')).not.toHaveAttribute('data-step', 'buy_number');
+  await expect(page.getByTestId('business-step')).toBeVisible({ timeout: 90_000 });
   // The registration is a wizard now: one question at a time, and a step with a blocker on it will not
   // advance. So this walks it the way a business does, and a check that starts failing here is the wizard
   // refusing details a carrier would have refused later.
