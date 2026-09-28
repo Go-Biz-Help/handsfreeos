@@ -93,6 +93,10 @@ export const ROUTES: readonly Rule[] = [
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
   // how the payment provider sends somebody back to the app once they have typed a card.
   { web: 'settings/usage', phone: 'settings/usage', query: ['card'] },
+  // Settings → Add-ons (0108): owners and admins manage them on the phone too, so a link to the page opens the
+  // phone's own screen, and `?addon=` (the web's link to one add-on) opens that add-on's. Anyone else who follows
+  // one is told who looks after add-ons.
+  { web: 'settings/add-ons', phone: 'settings/add-ons', query: ['addon'] },
   // Ideas, the roadmap and What's new (0102): the phone has all four, so a link to any of them opens it here.
   { web: 'ideas', phone: 'ideas' },
   { web: 'ideas/roadmap', phone: 'ideas/roadmap' },

@@ -636,9 +636,40 @@ describe('the add-on check, for every kind of actor', () => {
     expect(await refusal(ask(ping, { workspaceId: wsA }, human(member)))).toMatchObject({
       rule: 'addon_inactive',
     });
+    // The page says so: still on here, but not running; and turning it off would stop nothing more.
+    const soloQueries = addonQueries(catalog);
+    const listed = await ask(soloQueries.list, { workspaceId: wsA }, human(owner));
+    expect(listed.installed.find((i) => i.addonId === id)).toMatchObject({
+      state: 'enabled',
+      status: 'unavailable',
+      running: false,
+    });
+    expect(
+      (
+        await ask(
+          soloQueries.impact,
+          { workspaceId: wsA, addonId: id, action: 'disable' },
+          human(owner),
+        )
+      ).capabilitiesLost,
+    ).toEqual([]);
     // And back.
     await rows(admin(), sql`delete from platform.addon_overrides where addon_id = ${id}`);
     expect(await ask(ping, { workspaceId: wsA }, human(member))).toEqual({ ok: true });
+    expect(
+      (await ask(soloQueries.list, { workspaceId: wsA }, human(owner))).installed.find(
+        (i) => i.addonId === id,
+      ),
+    ).toMatchObject({ status: 'available', running: true });
+    expect(
+      (
+        await ask(
+          soloQueries.impact,
+          { workspaceId: wsA, addonId: id, action: 'disable' },
+          human(owner),
+        )
+      ).capabilitiesLost,
+    ).toEqual([{ id: `${id}.use`, label: 'Switch' }]);
     await run(soloCmds.uninstall, { workspaceId: wsA, addonId: id }, human(owner));
     await finish(wsA);
   });
@@ -675,6 +706,8 @@ describe('settings', () => {
       { workspaceId: wsB, addonId: 'fxacct', flags: { beta_reports: true } },
       human(owner),
     );
+    // Saving some switches leaves the rest as they were: a screen may send only the one flipped.
+    await run(cmds.saveSettings, { workspaceId: wsB, addonId: 'fxacct', flags: {} }, human(owner));
     // An add-on with no settings has none to save.
     expect(
       await refusal(
@@ -822,6 +855,112 @@ describe('uninstalling, deleting its data, and installing again', () => {
     await finish(wsB);
   });
 
+  it('lets an add-on HandsFreeOS no longer has be uninstalled, and an owner delete its data', async () => {
+    // SEO Tools' code is gone from this version of HandsFreeOS (retired), while D still has it on.
+    const without: Catalog = FIXTURE_CATALOG.filter((m) => m.id !== 'fxseo');
+    const gone = addonLifecycleCommands(without);
+    const goneQueries = addonQueries(without);
+    const listed = await ask(goneQueries.list, { workspaceId: wsD }, human(owner));
+    expect(listed.installed.find((i) => i.addonId === 'fxseo')).toMatchObject({
+      name: 'fxseo',
+      state: 'enabled',
+      retired: true,
+    });
+    // Nothing turns it off or on again: it can only leave.
+    expect(
+      await refusal(run(gone.disable, { workspaceId: wsD, addonId: 'fxseo' }, human(owner))),
+    ).toMatchObject({ status: 404, rule: 'addon_unknown' });
+    expect(
+      await ask(
+        goneQueries.impact,
+        { workspaceId: wsD, addonId: 'fxseo', action: 'uninstall' },
+        human(adminUser),
+      ),
+    ).toMatchObject({
+      outcome: 'plan',
+      moves: [{ addonId: 'fxseo', action: 'uninstall', name: 'fxseo' }],
+      capabilitiesLost: [],
+    });
+    expect(
+      (await run(gone.uninstall, { workspaceId: wsD, addonId: 'fxseo' }, human(adminUser))).moved,
+    ).toEqual([
+      { addonId: 'fxseo', action: 'uninstall', from: 'enabled', to: 'uninstalling', generation: 1 },
+    ]);
+    await finish(wsD);
+    // Its data goes like any other's: for an owner, typing the name it goes by here.
+    expect(
+      await refusal(
+        run(
+          gone.purge,
+          { workspaceId: wsD, addonId: 'fxseo', confirmName: 'SEO Tools' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject({ code: 'validation' });
+    expect(
+      (
+        await run(
+          gone.purge,
+          { workspaceId: wsD, addonId: 'fxseo', confirmName: 'FXSEO' },
+          human(owner),
+        )
+      ).moved.map((m) => m.to),
+    ).toEqual(['purging']);
+    await finish(wsD);
+    expect((await stateOf(wsD, 'fxseo'))?.state).toBe('purged');
+    // One this business never had is no add-on at all, whatever is typed.
+    const unknown = { status: 404, rule: 'addon_unknown' };
+    expect(
+      await refusal(run(gone.uninstall, { workspaceId: wsD, addonId: 'fxgone' }, human(owner))),
+    ).toMatchObject(unknown);
+    expect(
+      await refusal(
+        run(
+          gone.purge,
+          { workspaceId: wsD, addonId: 'fxgone', confirmName: 'fxgone' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject(unknown);
+    expect(
+      await refusal(
+        ask(
+          goneQueries.impact,
+          { workspaceId: wsD, addonId: 'fxgone', action: 'purge' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject({ status: 404 });
+  });
+
+  it('says which checks failed only while a move is in trouble, never the last move’s', async () => {
+    const checks = { checks: [{ name: 'record_kinds_shown', ok: false, found: 2 }] };
+    const failedChecks = async () =>
+      (await ask(queries.list, { workspaceId: wsB }, human(owner))).installed.find(
+        (i) => i.addonId === 'fxacct',
+      )?.failedChecks;
+    // The worker found trouble with the last move and said so.
+    await rows(
+      admin(),
+      sql`update app.addon_installations set verification = ${JSON.stringify(checks)}::jsonb,
+            last_error = 'Some of its records are still hidden.'
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+    expect(await failedChecks()).toEqual(['record_kinds_shown']);
+    // A person's move since clears the trouble; those checks were about the move before.
+    await rows(
+      admin(),
+      sql`update app.addon_installations set last_error = null
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+    expect(await failedChecks()).toEqual([]);
+    await rows(
+      admin(),
+      sql`update app.addon_installations set verification = null
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+  });
+
   it('records every move in history, as core’s, with the add-on named', async () => {
     const moves = await rows<{
       event_type: string;
@@ -845,5 +984,50 @@ describe('uninstalling, deleting its data, and installing again', () => {
     expect(
       moves.every((m) => m.addon_id === null && m.payload['name'] === 'Social Media Scheduler'),
     ).toBe(true);
+  });
+});
+
+describe('the one add-on Home may suggest', () => {
+  it('shows owners and admins one that fits, each their own, and rests once it is set aside', async () => {
+    const { workspaceId: harbor } = await run(
+      workspaceCreate,
+      { organizationId: orgId, name: 'Harbor Property Rentals', joinAsOwner: true },
+      human(owner),
+    );
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${harbor}, ${adminUser.id}, 'admin'), (${harbor}, ${member.id}, 'member')`,
+    );
+    const seen = (u: TestUser) =>
+      ask(queries.suggestion, { workspaceId: harbor }, human(u)).then(
+        (r) => r.suggestion?.addonId ?? null,
+      );
+    expect(await seen(owner)).toBe('fxprop');
+    expect(await seen(adminUser)).toBe('fxprop');
+    // Never to someone who can't add it.
+    expect(await seen(member)).toBeNull();
+    const setAside = (choice: 'not_now' | 'not_interested', addonId = 'fxprop') =>
+      run(cmds.dismissSuggestion, { workspaceId: harbor, addonId, choice }, human(owner));
+    expect(await setAside('not_now')).toEqual({ addonId: 'fxprop', choice: 'not_now' });
+    expect(await seen(owner)).toBeNull();
+    // Each person's own: the admin still sees it.
+    expect(await seen(adminUser)).toBe('fxprop');
+    const monthsAgo = (days: number) =>
+      rows(
+        admin(),
+        sql`update app.addon_suggestion_dismissals set decided_at = now() - make_interval(days => ${days})
+            where workspace_id = ${harbor} and user_id = ${owner.id}`,
+      );
+    await monthsAgo(31);
+    expect(await seen(owner)).toBe('fxprop');
+    await setAside('not_interested');
+    await monthsAgo(120);
+    expect(await seen(owner)).toBeNull();
+    // Installed, it's suggested to nobody.
+    await run(cmds.install, { workspaceId: harbor, addonId: 'fxprop' }, human(adminUser));
+    await finish(harbor);
+    expect(await seen(adminUser)).toBeNull();
+    expect(await refusal(setAside('not_now', 'fxnothing'))).toMatchObject({ status: 404 });
   });
 });

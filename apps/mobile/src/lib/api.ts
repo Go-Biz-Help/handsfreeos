@@ -60,6 +60,10 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     readonly disposition: 'final' | 'retry' | 'ask' | null,
+    /** Which rule refused it (`addon_needs`, `quiet_hours`…), when one did. */
+    readonly rule: string | null = null,
+    /** What the refusal carries for a screen to answer it with (the other add-ons to ask about, say). */
+    readonly details: unknown = undefined,
   ) {
     super(message);
   }
@@ -75,6 +79,8 @@ export function unwrap<T>(result: { data?: T; error?: unknown; response: Respons
       result.response.status,
       body.error.code,
       body.error.disposition ?? null,
+      body.error.rule ?? null,
+      body.error.details,
     );
   throw new ApiError('Something went wrong. Try again.', result.response.status, 'unknown', null);
 }

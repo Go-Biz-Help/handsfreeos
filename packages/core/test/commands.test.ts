@@ -617,6 +617,7 @@ describe('registry', () => {
       'addon.purge',
       'addon.save_settings',
       'addon.save_my_settings',
+      'addon.dismiss_suggestion',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
@@ -780,6 +781,7 @@ describe('registry', () => {
       'addon.list',
       'addon.impact',
       'addon.settings',
+      'addon.suggestion',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

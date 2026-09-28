@@ -2,13 +2,19 @@
  * What a business has and could have, what changing an add-on would touch, and an add-on's settings (0108,
  * docs/addon-architecture.md). Made by a factory over a catalogue, like the lifecycle commands.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { addonUserSettings } from '@hfos/db/schema';
-import { capabilitySets } from '../addons/capabilities';
+import {
+  addonSuggestionDismissals,
+  addonUserSettings,
+  customRecordTypes,
+  workspaces,
+} from '@hfos/db/schema';
+import { addonRuns, capabilitySets } from '../addons/capabilities';
 import { findAddon, type Catalog } from '../addons/graph';
 import { capabilityContextOf, loadInstallations, loadOverrides } from '../addons/load';
 import { planTransition } from '../addons/plan';
+import { suggestAddon, type SuggestionChoice } from '../addons/suggest';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -19,6 +25,8 @@ import {
   AddonListOutput,
   AddonSettingsInput,
   AddonSettingsOutput,
+  AddonSuggestionInput,
+  AddonSuggestionOutput,
 } from '../schemas/addon';
 
 /** The checks that failed when the worker last looked, from what it stored on the installation. */
@@ -52,9 +60,8 @@ export function addonQueries(catalog: Catalog) {
         loadOverrides(ctx.tx),
       ]);
       const permissions = ctx.scope.workspacePermissions ?? [];
-      const sets = capabilitySets(
-        capabilityContextOf(catalog, installations, overrides, permissions),
-      );
+      const cctx = capabilityContextOf(catalog, installations, overrides, permissions);
+      const sets = capabilitySets(cctx);
       // Suggestions only ever reach people who could act on them (the owner's decision, 2026-09-28).
       const manages = permissions.includes('addons.manage');
       return {
@@ -70,8 +77,12 @@ export function addonQueries(catalog: Catalog) {
             generation: i.generation,
             changedAt: i.changedAt.toISOString(),
             lastError: i.lastError,
-            failedChecks: failedChecks(i.verification),
+            // Only while there's trouble: a person's move clears it at once, while the checks stored for the move
+            // before stay until the worker looks again.
+            failedChecks: i.lastError ? failedChecks(i.verification) : [],
             retired: !m,
+            status: m ? (overrides[m.id] ?? m.catalog.status) : null,
+            running: addonRuns(cctx, i.addonId),
           };
         }),
         capabilities: {
@@ -105,8 +116,6 @@ export function addonQueries(catalog: Catalog) {
     permission: 'addons.manage',
     scope,
     async handler(ctx, input) {
-      const m = findAddon(catalog, input.addonId);
-      if (!m) throw HfosError.notFound('There is no such add-on.');
       const [installations, overrides, counts] = await Promise.all([
         loadInstallations(ctx.tx, input.workspaceId),
         loadOverrides(ctx.tx),
@@ -119,19 +128,27 @@ export function addonQueries(catalog: Catalog) {
           usage_events: string;
         }>(
           ctx.tx,
-          sql`select * from private.addon_impact_counts(${input.workspaceId}::uuid, ${m.id})`,
+          sql`select * from private.addon_impact_counts(${input.workspaceId}::uuid, ${input.addonId})`,
         ),
       ]);
+      // One this version of HandsFreeOS has, or a retired one this business still has (it can only leave).
+      if (
+        !findAddon(catalog, input.addonId) &&
+        !installations.some((i) => i.addonId === input.addonId)
+      )
+        throw HfosError.notFound('There is no such add-on.');
       const cctx = capabilityContextOf(
         catalog,
         installations,
         overrides,
         ctx.scope.workspacePermissions ?? [],
       );
-      const first = planTransition(cctx, m.id, input.action);
+      const first = planTransition(cctx, input.addonId, input.action);
       // With every add-on it asks about agreed to, so the plan shown is the one that would run after "yes".
       const plan =
-        first.kind === 'needs' ? planTransition(cctx, m.id, input.action, first.addons) : first;
+        first.kind === 'needs'
+          ? planTransition(cctx, input.addonId, input.action, first.addons)
+          : first;
       const name = (id: string) => findAddon(catalog, id)?.name ?? id;
       const moving = plan.kind === 'plan' ? plan.moves : [];
       const stopping = new Set(
@@ -141,7 +158,7 @@ export function addonQueries(catalog: Catalog) {
       );
       const c = counts[0];
       return {
-        addonId: m.id,
+        addonId: input.addonId,
         action: input.action,
         outcome: (plan.kind === 'already'
           ? 'already'
@@ -165,8 +182,9 @@ export function addonQueries(catalog: Catalog) {
           addonId: id,
           name: name(id),
         })),
+        // Only what works now: one already off, or switched off by HandsFreeOS, stops nothing more.
         capabilitiesLost: catalog
-          .filter((a) => stopping.has(a.id))
+          .filter((a) => stopping.has(a.id) && addonRuns(cctx, a.id))
           .flatMap((a) => a.capabilities.map((cap) => ({ id: cap.id, label: cap.label }))),
         holds: {
           records: Number(c?.records ?? 0),
@@ -222,5 +240,65 @@ export function addonQueries(catalog: Catalog) {
     },
   });
 
-  return { list, impact, settings };
+  const suggestion = defineQuery({
+    name: 'addon.suggestion',
+    description:
+      'The one add-on Home may suggest to you now, if any: only to people who may add add-ons, only one that fits what the business does, and never soon after one was set aside.',
+    input: AddonSuggestionInput,
+    output: AddonSuggestionOutput,
+    permission: 'workspace.read',
+    scope,
+    async handler(ctx, input) {
+      const permissions = ctx.scope.workspacePermissions ?? [];
+      // Nobody else ever hears of one, and it costs them nothing to ask.
+      if (!permissions.includes('addons.manage')) return { suggestion: null };
+      const me = requireHuman(ctx).userId;
+      const [installations, overrides, [business], kinds, dismissed] = await Promise.all([
+        loadInstallations(ctx.tx, input.workspaceId),
+        loadOverrides(ctx.tx),
+        ctx.tx
+          .select({ name: workspaces.name, industry: workspaces.industry })
+          .from(workspaces)
+          .where(eq(workspaces.id, input.workspaceId)),
+        // The kinds of records it made for itself, not an add-on's.
+        ctx.tx
+          .select({ singular: customRecordTypes.singular, plural: customRecordTypes.plural })
+          .from(customRecordTypes)
+          .where(
+            and(
+              eq(customRecordTypes.workspaceId, input.workspaceId),
+              isNull(customRecordTypes.addonId),
+              isNull(customRecordTypes.archivedAt),
+            ),
+          ),
+        ctx.tx
+          .select({
+            addonId: addonSuggestionDismissals.addonId,
+            choice: addonSuggestionDismissals.choice,
+            decidedAt: addonSuggestionDismissals.decidedAt,
+          })
+          .from(addonSuggestionDismissals)
+          .where(
+            and(
+              eq(addonSuggestionDismissals.workspaceId, input.workspaceId),
+              eq(addonSuggestionDismissals.userId, me),
+            ),
+          ),
+      ]);
+      if (!business) throw HfosError.notFound();
+      const found = suggestAddon(
+        capabilityContextOf(catalog, installations, overrides, permissions),
+        {
+          name: business.name,
+          industry: business.industry,
+          recordKinds: kinds.flatMap((k) => [k.singular, k.plural]),
+        },
+        dismissed.map((d) => ({ ...d, choice: d.choice as SuggestionChoice })),
+        Date.now(),
+      );
+      return { suggestion: found ? { ...found, does: [...found.does] } : null };
+    },
+  });
+
+  return { list, impact, settings, suggestion };
 }

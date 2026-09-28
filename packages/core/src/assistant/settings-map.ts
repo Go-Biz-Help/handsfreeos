@@ -17,6 +17,7 @@ import type { Permission } from '../permissions';
 export const SETTINGS_AREAS = [
   'business',
   'branded_domain',
+  'add_ons',
   'permissions',
   'pipelines',
   'tags',
@@ -149,6 +150,38 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Give it a moment — it works out what your DNS needs and shows the records on that same card.',
           'Put the records it shows you — usually one, sometimes two — in with whoever you bought the domain from (GoDaddy, Namecheap, wherever it is).',
           'DNS often takes a few hours. The card says when it is working, and it keeps checking on its own.',
+        ],
+      },
+    ],
+  },
+  add_ons: {
+    label: 'Add-ons',
+    what: 'the add-ons this business has (extra features for particular kinds of work) and whether each one is on, the ones it could add, and what’s coming soon',
+    where: ['Settings', 'Add-ons'],
+    onScreen: [
+      'In this business: each add-on, whether it is on, and its Settings',
+      'Available to add',
+      'Coming soon, when something is planned',
+    ],
+    path: '/settings/add-ons',
+    permission: 'addons.manage',
+    canChange: [],
+    handovers: [
+      {
+        what: 'add an add-on, turn one on or off, or uninstall one',
+        why: 'it changes what everyone in the business can do, so an owner or an admin does it on the page',
+        steps: [
+          'Open Settings → Add-ons.',
+          'Press Install, Turn on, Turn off or Uninstall on the add-on. If another add-on has to move with it, you are asked first.',
+        ],
+      },
+      {
+        what: 'delete an add-on’s data',
+        why: 'it can’t be undone, so only an owner does it, typing the add-on’s name',
+        steps: [
+          'Open Settings → Add-ons.',
+          'Uninstall the add-on first, if it is still installed.',
+          'Press Delete its data, and type the add-on’s name to confirm.',
         ],
       },
     ],

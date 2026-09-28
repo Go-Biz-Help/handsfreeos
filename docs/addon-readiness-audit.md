@@ -405,8 +405,9 @@ menu places and slots; the template and generator; tests including 12+ fixture a
 doc.
 
 **Phase 2, with the first add-on:** add-on workflow triggers and a generic command step; Action Center
-sources; the add-on settings page and the "Add-ons" screen; the recommendation card; teammate reach for
-add-on records; a plan-level confirmation card for multi-step AI work.
+sources; teammate reach for add-on records; a plan-level confirmation card for multi-step AI work. The
+Add-ons page (web and phone, with each add-on's settings) and Home's recommendation card came first, on the
+owner's decision, and are built.
 
 **Phase 3, as needed:** a shared integration-connection framework (OAuth, sealed tokens, provider webhook
 routes); entitlements and billing through Stripe; phone sync streams and screens per add-on; federated

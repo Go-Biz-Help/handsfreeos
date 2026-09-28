@@ -45,6 +45,8 @@ describe('the route map', () => {
       settings: { href: 'settings', later: false },
       // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
       'settings/usage': { href: 'settings/usage', later: false },
+      // Settings → Add-ons: owners and admins manage them on the phone too.
+      'settings/add-ons': { href: 'settings/add-ons', later: false },
       // Ideas, the roadmap and What's new (0102), all live on the phone.
       ideas: { href: 'ideas', later: false },
       'ideas/roadmap': { href: 'ideas/roadmap', later: false },
@@ -105,6 +107,11 @@ describe('the route map', () => {
       href: `/app/w/${WS}/approvals?filter=ai`,
       later: null,
       params: { filter: 'ai' },
+    });
+    // Settings → Add-ons at one add-on (the web's "See it"): the phone's list opens that add-on's own screen.
+    expect(routeFor(`/app/w/${WS}/settings/add-ons?addon=fxprop`)).toMatchObject({
+      href: `/app/w/${WS}/settings/add-ons?addon=fxprop`,
+      params: { addon: 'fxprop' },
     });
     // Only the query a screen reads is kept.
     expect(routeFor(`/app/w/${WS}?item=${ID}&utm=email`)).toMatchObject({

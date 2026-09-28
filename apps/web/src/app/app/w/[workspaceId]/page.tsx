@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { ActionCenter } from '@/components/home/action-center';
 import { ActionCenterIntro } from '@/components/home/action-center-intro';
+import { AddonSuggestionCard } from '@/components/home/addon-suggestion';
 import type { MemberOption } from '@/components/home/attention-context';
 import { SetupChecklist } from '@/components/home/setup-checklist';
 import { PageHeader } from '@/components/shell/page-header';
@@ -37,16 +38,32 @@ export default async function WorkspaceHomePage({
   // The Assistant's cards link to one item: /app/w/<id>?item=<itemId>.
   const linked = (await searchParams)['item'];
   const { api, userId } = await apiServer();
-  const [me, got, summary, list] = await Promise.all([
+  const workspace = api
+    .POST('/v1/queries/workspace.get', { body: { workspaceId } })
+    .then((r) => unwrapPage(r));
+  const [me, got, summary, list, suggested] = await Promise.all([
     getMe(),
-    api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then((r) => unwrapPage(r)),
+    workspace,
     api.POST('/v1/queries/crm.summary', { body: { workspaceId } }).then((r) => unwrapPage(r)),
     api
       .POST('/v1/queries/attention.list', { body: { workspaceId, includeHandled: true } })
       .then((r) => unwrap(r))
       .catch(() => null),
+    // Now and then an add-on that fits the business, for owners and admins only: nobody else is ever asked about
+    // one (the owner's decision, 2026-09-28). A nicety: if it fails, Home carries on without it.
+    workspace.then((w) =>
+      can(w.workspace.permissions, 'addons.manage')
+        ? api
+            .POST('/v1/queries/addon.suggestion', { body: { workspaceId } })
+            .then((r) => r.data?.suggestion ?? null)
+            .catch(() => null)
+        : null,
+    ),
   ]);
   const ws = got.workspace;
+  const suggestion = suggested ? (
+    <AddonSuggestionCard workspaceId={ws.id} suggestion={suggested} />
+  ) : null;
   const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
   // The setup checklist is for a brand-new business only: no customers, and nothing needing attention. Someone
@@ -132,6 +149,7 @@ export default async function WorkspaceHomePage({
                 </>
               ) : null}
             </Card>
+            {suggestion}
           </div>
         </div>
       </>
@@ -190,6 +208,7 @@ export default async function WorkspaceHomePage({
       tomorrow={tomorrow}
       newLeadHref={`/app/w/${ws.id}/pipeline`}
       highlightItem={typeof linked === 'string' ? linked : null}
+      suggestion={suggestion}
     />
   );
 }

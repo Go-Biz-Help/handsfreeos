@@ -9,6 +9,7 @@ import type { Appointment, AttentionList, Task } from '@/lib/api/types';
 import { useCalls } from '@/lib/calls/call-provider';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { ItemSheet, useItemActions, type AttentionDialog } from './attention-actions';
 import { SectionHead } from './attention-bits';
@@ -31,7 +32,8 @@ import { useAttentionList } from './use-attention';
  *   Everyone).
  * - The list: Urgent, then Up next, with three or more lower items of one kind folded into a group; then a
  *   collapsed "Handled by HandsFreeOS".
- * - The side rail (1024 px and up): Today, then "Coming up from HandsFreeOS". Narrower, both fold below the list.
+ * - The side rail (1024 px and up): Today, then "Coming up from HandsFreeOS", then now and then an add-on that
+ *   fits the business (for owners and admins). Narrower, they fold below the list.
  * It follows item changes live and re-reads every 30 seconds, so the ranking and the waiting chips stay current.
  */
 export function ActionCenter({
@@ -49,6 +51,7 @@ export function ActionCenter({
   tomorrow,
   newLeadHref,
   highlightItem,
+  suggestion,
 }: {
   workspaceId: string;
   timeZone: string;
@@ -70,6 +73,8 @@ export function ActionCenter({
   newLeadHref: string;
   /** From `?item=`: the Assistant's cards link to one card. */
   highlightItem?: string | null;
+  /** The add-on Home suggests to owners and admins (components/home/addon-suggestion.tsx), when there is one. */
+  suggestion?: ReactNode;
 }) {
   // Today's appointments and tasks come with the page: it's read again when they change.
   useLiveRefresh(['appointment', 'task'], 500);
@@ -79,6 +84,8 @@ export function ActionCenter({
   const [dialog, setDialog] = useState<AttentionDialog | null>(null);
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
   const [highlightId, setHighlightId] = useState<string | null>(highlightItem ?? null);
+  // The suggestion sits in the side rail or the fold, whichever shows: drawn once, so setting it aside is once.
+  const wide = useMatches('(min-width: 1024px)');
   const hasTask = useCallback((taskId: string) => tasks.some((t) => t.id === taskId), [tasks]);
   const act = useItemActions({
     workspaceId,
@@ -296,6 +303,7 @@ export function ActionCenter({
               <SectionHead label="Today" className="mb-0" />
               <TodayFold {...todayProps} />
               <ComingUpFold scheduled={scheduled} />
+              {wide ? null : suggestion}
             </div>
           </div>
           <aside
@@ -304,6 +312,7 @@ export function ActionCenter({
           >
             <TodayCard {...todayProps} />
             <ComingUp scheduled={scheduled} />
+            {wide ? suggestion : null}
           </aside>
         </div>
       </div>

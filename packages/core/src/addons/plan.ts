@@ -59,14 +59,24 @@ export function planTransition(
 ): TransitionPlan {
   const { catalog, installations } = ctx;
   const m = findAddon(catalog, addonId);
-  if (!m) return { kind: 'refused', rule: 'addon_unknown', message: 'There is no such add-on.' };
   const stateOf = (id: AddonId): InstallationState | null => installations[id] ?? null;
+  const unknown: TransitionPlan = {
+    kind: 'refused',
+    rule: 'addon_unknown',
+    message: 'There is no such add-on.',
+  };
+  // One this version of HandsFreeOS no longer has the code for (retired) can still leave a business that has it:
+  // uninstalled, and its data deleted. Nothing turns it on or off again, and it goes by its id.
+  const leaving = action === 'uninstall' || action === 'purge';
+  if (!m && !(leaving && stateOf(addonId) !== null)) return unknown;
+  const name = m?.name ?? addonId;
   const first = moveFor(stateOf(addonId), action);
   if (first.kind === 'refused') return first;
   if (first.kind === 'already') return { kind: 'already' };
   const agreed = new Set(include);
 
   if (action === 'install' || action === 'enable') {
+    if (!m) return unknown;
     if (action === 'install' && !installableHere(ctx, addonId)) {
       const status = effectiveStatus(m, ctx.overrides);
       return {
@@ -127,7 +137,7 @@ export function planTransition(
         kind: 'needs',
         rule: 'addon_required_by',
         addons: unagreed,
-        message: `${names(catalog, unagreed)} ${unagreed.length > 1 ? 'need' : 'needs'} ${m.name}. Turn ${unagreed.length > 1 ? 'them' : 'it'} off too?`,
+        message: `${names(catalog, unagreed)} ${unagreed.length > 1 ? 'need' : 'needs'} ${name}. Turn ${unagreed.length > 1 ? 'them' : 'it'} off too?`,
       };
     // Dependents first, the ones that need the most last-in first-out: reverse of the order things were needed.
     const moves: PlannedMove[] = dependencyOrder(catalog, dependents)

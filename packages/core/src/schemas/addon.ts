@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { CATALOG_STATUSES } from '../addons/manifest';
 import { INSTALLATION_STATES, LIFECYCLE_ACTIONS } from '../addons/lifecycle';
+import { SUGGESTION_CHOICES } from '../addons/suggest';
 import { isoDateTime, uuid } from './common';
 
 export const addonId = z.string().regex(/^[a-z]{2,16}$/, 'Not an add-on.');
@@ -79,10 +80,17 @@ export const AddonListOutput = z.object({
       changedAt: isoDateTime,
       /** Trouble finishing the last move, if any. */
       lastError: z.string().nullable(),
-      /** Checks that failed the last time the worker looked (empty: nothing left behind). */
+      /** While there's trouble (`lastError`), the checks that failed when the worker last looked; else empty. */
       failedChecks: z.array(z.string()),
-      /** The add-on's code is gone from HandsFreeOS (a retired add-on): its data can still be deleted. */
+      /**
+       * The add-on's code is gone from HandsFreeOS (a retired add-on). It goes by its id, nothing turns it on or off
+       * again, and it can still be uninstalled and its data deleted.
+       */
       retired: z.boolean(),
+      /** Its catalogue status now, with HandsFreeOS's override applied (`deprecated`, `unavailable`); null if retired. */
+      status: z.enum(CATALOG_STATUSES).nullable(),
+      /** Whether it runs here now: on, and not switched off everywhere by HandsFreeOS (`unavailable`). */
+      running: z.boolean(),
     }),
   ),
   /** What this person can do here now, and what's installed but not theirs, or turned off. */
@@ -125,7 +133,7 @@ export const AddonImpactOutput = z.object({
   refusal: z.object({ rule: z.string(), message: z.string() }).nullable(),
   /** Add-ons that use it when it's there and would lose those features. */
   optionalFor: z.array(z.object({ addonId, name: z.string() })),
-  /** Capabilities that would stop. */
+  /** Capabilities working now that would stop: none from an add-on that is already off. */
   capabilitiesLost: z.array(z.object({ id: z.string(), label: z.string() })),
   /** What it holds here now. */
   holds: z.object({
@@ -145,4 +153,29 @@ export const AddonSettingsOutput = z.object({
   settings: z.record(z.string(), z.unknown()).nullable(),
   flags: z.record(z.string(), z.boolean()).nullable(),
   mySettings: z.record(z.string(), z.unknown()),
+});
+
+/** The one add-on Home may suggest to this person now (packages/core/src/addons/suggest.ts), or none. */
+export const AddonSuggestionInput = z.object({ workspaceId: uuid });
+export const AddonSuggestionOutput = z.object({
+  suggestion: z
+    .object({
+      addonId,
+      name: z.string(),
+      summary: z.string(),
+      /** What it would let the business do. */
+      does: z.array(z.string()),
+    })
+    .nullable(),
+});
+
+/** Setting a suggestion aside: not now (every suggestion rests a while), or not interested in this one. */
+export const AddonSuggestionDismissInput = z.object({
+  workspaceId: uuid,
+  addonId,
+  choice: z.enum(SUGGESTION_CHOICES),
+});
+export const AddonSuggestionDismissOutput = z.object({
+  addonId,
+  choice: z.enum(SUGGESTION_CHOICES),
 });

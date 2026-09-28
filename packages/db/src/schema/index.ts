@@ -4599,6 +4599,21 @@ export const addonUserSettings = app.table(
   (t) => [primaryKey({ columns: [t.workspaceId, t.userId, t.addonId] })],
 );
 
+/** Someone setting aside an add-on Home suggested (not now, not interested), per business (0108). */
+export const addonSuggestionDismissals = app.table(
+  'addon_suggestion_dismissals',
+  {
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addonId: text('addon_id').notNull(),
+    choice: text('choice').notNull(),
+    decidedAt: ts('decided_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId, t.addonId] })],
+);
+
 /** Something an add-on made at a provider, released when it is uninstalled. */
 export const addonResources = app.table('addon_resources', {
   id: id(),
@@ -6202,6 +6217,7 @@ export const tables = {
   scheduledJobs,
   addonInstallations,
   addonUserSettings,
+  addonSuggestionDismissals,
   addonResources,
   addonUsageEvents,
   addonOverrides,

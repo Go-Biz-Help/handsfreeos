@@ -102,3 +102,78 @@ export function moveFor(from: InstallationState | null, action: LifecycleAction)
       );
   }
 }
+
+/** On its way somewhere: the worker finishes the move by itself within seconds, and nobody makes another meanwhile. */
+export const isBusyState = (state: InstallationState | null | undefined): boolean =>
+  state === 'installing' || state === 'uninstalling' || state === 'purging';
+
+/** The order a page offers moves in: the one that brings it on first, the one that takes most away last. */
+export const ADDON_MOVE_ORDER: readonly LifecycleAction[] = [
+  'enable',
+  'install',
+  'disable',
+  'uninstall',
+  'purge',
+];
+
+/** What a person may do with add-ons here, and what this one allows. */
+export interface AddonMoveGrants {
+  /** `addons.manage`: install, turn on and off, uninstall. Owners and admins. */
+  readonly manage: boolean;
+  /** `addons.purge`: delete an add-on's data, after typing its name. Owners only. */
+  readonly purge: boolean;
+  /** Whether it can be installed here now (HandsFreeOS's own answer: the `installable` capabilities). */
+  readonly installable: boolean;
+  /** Its code is gone from HandsFreeOS (a retired add-on): it can only leave. */
+  readonly retired?: boolean;
+}
+
+/**
+ * The moves a person can make on an add-on from where it stands here, in the order their buttons go: the lifecycle's
+ * own table (`moveFor`), less what a busy state, a retired add-on and their permissions rule out. The web's page and
+ * the phone's offer exactly these; the server checks every move again.
+ */
+export function addonMovesFor(
+  state: InstallationState | null,
+  grants: AddonMoveGrants,
+): LifecycleAction[] {
+  if (!grants.manage || isBusyState(state)) return [];
+  return ADDON_MOVE_ORDER.filter((action) => {
+    if (moveFor(state, action).kind !== 'move') return false;
+    if (grants.retired && action !== 'uninstall' && action !== 'purge') return false;
+    if (action === 'install') return grants.installable;
+    if (action === 'purge') return grants.purge;
+    return true;
+  });
+}
+
+/**
+ * How an add-on could come to a business that doesn't have it now, as the Add-ons page offers it (the owner's
+ * decisions, 2026-09-28):
+ * - `install`: HandsFreeOS says it can be installed here now (available, free, and all it needs can come with it);
+ * - `paid`: available but paid, so HandsFreeOS support turns it on (billing isn't built);
+ * - `support`: one only support hands out (in beta, or built and not offered yet), which this business had before;
+ * - `blocked`: available and free, but something it needs can't come with it now;
+ * - `coming_soon`: planned, and never installable;
+ * - `none`: it can't come here now (deprecated, switched off everywhere, or its code is gone).
+ * Null while the business has it (setting up, on, off, or on its way out): there's nothing to offer.
+ */
+export type AddonOffer = 'install' | 'paid' | 'support' | 'blocked' | 'coming_soon' | 'none';
+
+export function addonOffer(
+  state: InstallationState | null,
+  /** Its manifest; undefined when this build has no code for it (retired). */
+  manifest: { readonly billing: { readonly model: string } } | undefined,
+  /** Its catalogue status now, with HandsFreeOS's override applied; null when its code is gone. */
+  status: string | null,
+  /** HandsFreeOS's own answer: it's in the business's `installable` capabilities. */
+  installable: boolean,
+): AddonOffer | null {
+  if (state !== null && state !== 'uninstalled' && state !== 'purged') return null;
+  if (installable) return 'install';
+  if (!manifest || status === null) return 'none';
+  if (status === 'planned') return state === null ? 'coming_soon' : 'none';
+  if (status === 'available') return manifest.billing.model === 'paid' ? 'paid' : 'blocked';
+  if (state !== null && (status === 'beta' || status === 'built')) return 'support';
+  return 'none';
+}

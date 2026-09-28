@@ -344,6 +344,7 @@ export const {
   purge: addonPurge,
   saveSettings: addonSaveSettings,
   saveMySettings: addonSaveMySettings,
+  dismissSuggestion: addonDismissSuggestion,
 } = addonCommands;
 export { addonLifecycleCommands, ADDON_MOVE_EVENTS } from './addon';
 
@@ -851,6 +852,7 @@ export const commands: readonly CommandDef[] = [
   addonPurge,
   addonSaveSettings,
   addonSaveMySettings,
+  addonDismissSuggestion,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';

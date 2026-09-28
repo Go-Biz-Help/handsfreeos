@@ -52,3 +52,33 @@ describe('add-on pages', () => {
     for (const page of pages) expect(read(page), relative(WEB, page)).toMatch(/\baddonPage\(/);
   });
 });
+
+/**
+ * Settings → Add-ons holds the owner's decisions (2026-09-28) on who does what with add-ons. The server refuses the
+ * rest whatever the screen shows; these keep the screen from offering what it shouldn't.
+ */
+describe('the Add-ons page', () => {
+  const page = () => read(join(BUSINESS, 'settings/add-ons/page.tsx'));
+
+  it('is for owners and admins, and its tab shows only to them', () => {
+    expect(page()).toMatch(/if \(!can\(permissions, 'addons\.manage'\)\) notFound\(\);/);
+    expect(read(join(WEB, 'components/settings/settings-nav.tsx'))).toMatch(
+      /label: 'Add-ons', needs: 'addons\.manage'/,
+    );
+  });
+
+  it('offers deleting an add-on’s data to owners only', () => {
+    expect(page()).toContain("canPurge={can(permissions, 'addons.purge')}");
+  });
+
+  it('draws an add-on’s own settings form inside its own boundary', () => {
+    const sheet = read(join(WEB, 'components/settings/add-ons/addon-settings-sheet.tsx'));
+    expect(sheet).toMatch(/<AddonBoundary[^>]*>[\s\S]*<Form[\s\S]*<\/AddonBoundary>/);
+  });
+
+  it('is suggested on Home only to people who manage add-ons', () => {
+    expect(read(join(BUSINESS, 'page.tsx'))).toMatch(
+      /'addons\.manage'\)\s*\?\s*api\s*\.POST\('\/v1\/queries\/addon\.suggestion'/,
+    );
+  });
+});

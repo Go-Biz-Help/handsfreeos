@@ -82,7 +82,7 @@ describe('capabilitySets', () => {
       ].sort(),
     );
     // Never on offer: planned, beta, paid, deprecated.
-    for (const hidden of ['fxinflu', 'fxbeta', 'fxpaid', 'fxold'])
+    for (const hidden of ['fxinflu', 'fxbeta', 'fxpaid', 'fxgone'])
       expect(installable.has(hidden)).toBe(false);
     expect(sets.planned.map((c) => c.id)).toEqual(['fxinflu.marketplace']);
   });
@@ -247,6 +247,29 @@ describe('planTransition', () => {
     });
     expect(planTransition(B, 'fxprop', 'install')).toEqual({ kind: 'already' });
     expect(planTransition(A, 'nothing', 'install')).toMatchObject({ rule: 'addon_unknown' });
+  });
+
+  it('lets an add-on HandsFreeOS no longer has leave a business that has it, and nothing more', () => {
+    // Its code is gone (retired), but a business still has it on, and another has it uninstalled.
+    const retired = { ...B, installations: { ...B.installations, fxgone: 'enabled' as const } };
+    expect(planTransition(retired, 'fxgone', 'uninstall')).toEqual({
+      kind: 'plan',
+      moves: [{ addonId: 'fxgone', action: 'uninstall', from: 'enabled', to: 'uninstalling' }],
+      optionalFor: [],
+    });
+    const kept = { ...B, installations: { ...B.installations, fxgone: 'uninstalled' as const } };
+    expect(planTransition(kept, 'fxgone', 'purge')).toEqual({
+      kind: 'plan',
+      moves: [{ addonId: 'fxgone', action: 'purge', from: 'uninstalled', to: 'purging' }],
+      optionalFor: [],
+    });
+    for (const action of ['install', 'enable', 'disable'] as const)
+      expect(planTransition(retired, 'fxgone', action), action).toMatchObject({
+        rule: 'addon_unknown',
+      });
+    // Nowhere here, it is no add-on at all.
+    expect(planTransition(B, 'fxgone', 'uninstall')).toMatchObject({ rule: 'addon_unknown' });
+    expect(planTransition(B, 'fxgone', 'purge')).toMatchObject({ rule: 'addon_unknown' });
   });
 });
 

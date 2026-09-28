@@ -45850,6 +45850,79 @@
         }
       }
     },
+    "/v1/commands/addon.dismiss_suggestion": {
+      "post": {
+        "operationId": "command_addon_dismiss_suggestion",
+        "summary": "Set aside an add-on Home suggested: not now (no suggestions for a while), or not interested in this one again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "choice": {
+                    "type": "string",
+                    "enum": [
+                      "not_now",
+                      "not_interested"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId",
+                  "choice"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "choice": {
+                      "type": "string",
+                      "enum": [
+                        "not_now",
+                        "not_interested"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "choice"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -93207,6 +93280,28 @@
                           },
                           "retired": {
                             "type": "boolean"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "planned",
+                                  "development",
+                                  "beta",
+                                  "built",
+                                  "available",
+                                  "deprecated",
+                                  "unavailable"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "running": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -93220,7 +93315,9 @@
                           "changedAt",
                           "lastError",
                           "failedChecks",
-                          "retired"
+                          "retired",
+                          "status",
+                          "running"
                         ],
                         "additionalProperties": false
                       }
@@ -93781,6 +93878,89 @@
                     "settings",
                     "flags",
                     "mySettings"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon.suggestion": {
+      "post": {
+        "operationId": "query_addon_suggestion",
+        "summary": "The one add-on Home may suggest to you now, if any: only to people who may add add-ons, only one that fits what the business does, and never soon after one was set aside.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "suggestion": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "addonId": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2,16}$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            },
+                            "does": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "addonId",
+                            "name",
+                            "summary",
+                            "does"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "suggestion"
                   ],
                   "additionalProperties": false
                 }
