@@ -1,8 +1,8 @@
 import {
-  ADDON_STATE_WORDS,
   addonCheckWords,
+  addonMovesFor,
   findAddon,
-  moveFor,
+  isBusyState,
   type AddonManifest,
   type Catalog,
   type InstallationState,
@@ -22,6 +22,7 @@ import { ADDON_PHONE_WORDS } from './words';
  * - a state that is still on its way somewhere (tone `busy`) shows progress and offers no move;
  * - what could be added is what HandsFreeOS says this business can install, plus paid add-ons, which say that
  *   HandsFreeOS support can turn them on (billing isn't built); a beta add-on is never offered;
+ * - which moves each state offers is core's rule (`addonMovesFor`), the one the web's page follows too;
  * - planned add-ons are Coming soon, with no Install;
  * - a move's trouble is said in the checks' words, never the worker's own message.
  */
@@ -35,10 +36,10 @@ export interface AddonGrants {
 }
 
 /**
- * How it could come to this business: Install; HandsFreeOS support turns it on (paid, or one only support hands
- * out); Coming soon (planned); or nothing (it's here already, or it isn't offered).
+ * How it could come to this business: Install; HandsFreeOS support turns it on (`paid`, or `support` for one only
+ * support hands out); Coming soon (planned); or nothing (it's here already, or it isn't offered).
  */
-export type AddonOffer = 'install' | 'support' | 'coming_soon' | null;
+export type AddonOffer = 'install' | 'paid' | 'support' | 'coming_soon' | null;
 
 /** One add-on as the screens draw it. */
 export interface AddonView {
@@ -54,6 +55,8 @@ export interface AddonView {
   readonly busy: boolean;
   /** Its code is gone from HandsFreeOS. */
   readonly retired: boolean;
+  /** Whether it runs here now: on, and not switched off everywhere by HandsFreeOS. */
+  readonly running: boolean;
   readonly offer: AddonOffer;
   /** The moves this person can make now, in the order their buttons go. */
   readonly moves: readonly LifecycleAction[];
@@ -88,17 +91,7 @@ export interface AddonGroups {
   readonly comingSoon: readonly AddonView[];
 }
 
-/** The order the buttons go in: the move that brings it on first, the one that takes most away last. */
-const MOVE_ORDER: readonly LifecycleAction[] = [
-  'enable',
-  'install',
-  'disable',
-  'uninstall',
-  'purge',
-];
-
-export const isBusyState = (state: InstallationState | null): boolean =>
-  state !== null && ADDON_STATE_WORDS[state].tone === 'busy';
+export { isBusyState };
 
 /** Whether any add-on here is still on its way somewhere, so the list is worth asking for again soon. */
 export const anyBusy = (list: Pick<AddonList, 'installed'>): boolean =>
@@ -121,47 +114,33 @@ export function offerFor(
   if (list.capabilities.installable.some((c) => c.provider === addonId)) return 'install';
   const m = findAddon(catalog, addonId);
   if (!m) return null;
-  if (row?.status === 'available' && m.billing.model === 'paid') return 'support';
+  // Its status now, with HandsFreeOS's override applied: one switched off everywhere is offered by nobody.
+  const status = row?.status ?? list.installed.find((r) => r.addonId === addonId)?.status ?? null;
+  if (status === 'available' && m.billing.model === 'paid') return 'paid';
   // One HandsFreeOS support handed this business before (in beta, or built and not offered yet): only support turns
   // it on again.
-  if (state !== null && (m.catalog.status === 'beta' || m.catalog.status === 'built'))
-    return 'support';
+  if (state !== null && (status === 'beta' || status === 'built')) return 'support';
   return null;
 }
 
-/** All a retired add-on (its code gone from HandsFreeOS) can do: leave, and then have its data deleted. */
-const RETIRED_MOVES: ReadonlySet<LifecycleAction> = new Set(['uninstall', 'purge']);
-
-/**
- * The moves this person can make on an add-on now: the lifecycle's own table (core's `moveFor`), less what a busy
- * state, a retired add-on, the offer and their permissions rule out.
- */
-export function movesFor(
+/** The moves this person can make on an add-on now: core's rule (`addonMovesFor`), Install only where it's offered. */
+export const movesFor = (
   state: InstallationState | null,
   offer: AddonOffer,
   grants: AddonGrants,
   retired = false,
-): LifecycleAction[] {
-  if (!grants.manage || isBusyState(state)) return [];
-  return MOVE_ORDER.filter((action) => {
-    if (moveFor(state, action).kind !== 'move') return false;
-    if (retired && !RETIRED_MOVES.has(action)) return false;
-    if (action === 'install') return offer === 'install';
-    if (action === 'purge') return grants.purge;
-    return true;
-  });
-}
+): LifecycleAction[] =>
+  addonMovesFor(state, { ...grants, installable: offer === 'install', retired });
 
 /**
- * Why the move it's making now hasn't finished, in words: each failed check as core says it, or a plain line when
- * the worker only left its own message (which is for HandsFreeOS, not the business). Only while there's trouble
- * (`lastError`): the worker sets it whenever a check fails, and a person's next move clears it at once, while the
- * checks stored for the move before stay until the worker looks again.
+ * Why the move it's making now hasn't finished, in words: that it isn't finished, then each failed check as core says
+ * it, or one plain line when the worker only left its own message (which is for HandsFreeOS, not the business). Only
+ * while there's trouble (`lastError`, which a person's next move clears).
  */
 export function troubleOf(row: Pick<InstalledRow, 'failedChecks' | 'lastError'>): string[] {
   if (!row.lastError) return [];
-  const lines = [...new Set(row.failedChecks.map(addonCheckWords))];
-  return lines.length ? lines : [ADDON_PHONE_WORDS.stillTrying];
+  const checks = [...new Set(row.failedChecks.map(addonCheckWords))];
+  return checks.length ? [ADDON_PHONE_WORDS.troubleChecks, ...checks] : [ADDON_PHONE_WORDS.trouble];
 }
 
 /** An add-on's name, from what HandsFreeOS said and then the catalogue; its id when neither knows it. */
@@ -212,6 +191,7 @@ function viewOf(
     state,
     busy: isBusyState(state),
     retired,
+    running: installed?.running ?? false,
     offer,
     moves: movesFor(state, offer, grants, retired),
     trouble: installed ? troubleOf(installed) : [],
@@ -248,7 +228,7 @@ export function groupAddons(list: AddonList, catalog: Catalog, grants: AddonGran
   const addable = notHad
     .filter((c) => c.status === 'available')
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c))
-    .filter((v) => v.offer === 'install' || v.offer === 'support');
+    .filter((v) => v.offer === 'install' || v.offer === 'paid');
   const comingSoon = notHad
     .filter((c) => c.status === 'planned')
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c));

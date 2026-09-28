@@ -1,5 +1,5 @@
 import { ADDON_CATALOG } from '@hfos/core';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 
 import { Puzzle } from '@/components/icons';
@@ -44,6 +44,15 @@ export default function Addons() {
 
   const open = (view: AddonView) =>
     router.push(businessHref(business.id, `settings/add-ons/${view.addonId}`));
+
+  // A link to one add-on (`?addon=`, the web's "See it"): its own screen, once, over this list.
+  const { addon } = useLocalSearchParams<{ addon?: string }>();
+  const openedLink = React.useRef(false);
+  React.useEffect(() => {
+    if (!addon || !grants.manage || openedLink.current) return;
+    openedLink.current = true;
+    router.push(businessHref(business.id, `settings/add-ons/${addon}`));
+  }, [addon, business.id, grants.manage]);
   const rows = (views: readonly AddonView[]) =>
     views.map((view) => (
       <AddonRow
@@ -79,7 +88,10 @@ export default function Addons() {
             {groups.installed.length ? (
               <List testID="add-ons-installed">{rows(groups.installed)}</List>
             ) : (
-              <Card className="px-4 py-3.5" testID="add-ons-none-here">
+              <Card className="gap-0.5 px-4 py-3.5" testID="add-ons-none-here">
+                <Text className="text-[14.5px] font-semibold">
+                  {ADDON_PHONE_WORDS.noneHereTitle}
+                </Text>
                 <Text className="text-[14px] leading-5 text-text-2">
                   {ADDON_PHONE_WORDS.noneHere}
                 </Text>
@@ -87,7 +99,7 @@ export default function Addons() {
             )}
             {groups.addable.length ? (
               <>
-                <ListLabel>{ADDON_PHONE_WORDS.couldAdd}</ListLabel>
+                <ListLabel>{ADDON_PHONE_WORDS.available}</ListLabel>
                 <List testID="add-ons-addable">{rows(groups.addable)}</List>
               </>
             ) : null}
@@ -106,7 +118,7 @@ export default function Addons() {
       )}
       {grants.manage ? (
         <Text className="px-1 pt-1 text-[12.5px] leading-[18px] text-text-3">
-          {ADDON_PHONE_WORDS.footnote}
+          {ADDON_PHONE_WORDS.intro}
         </Text>
       ) : null}
     </Screen>

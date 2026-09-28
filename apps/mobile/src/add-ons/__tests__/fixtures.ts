@@ -260,6 +260,8 @@ export function listFor(
         lastError: null,
         failedChecks: [],
         retired: !m,
+        status: m?.catalog.status ?? null,
+        running: !!m && state === 'enabled',
         ...rows[addonId],
       };
     }),

@@ -13,22 +13,13 @@ import {
   typedNameMatches,
   type AddonGrants,
 } from '../rules';
-import {
-  ADDON_PHONE_WORDS,
-  alsoLine,
-  categoryLine,
-  holdsLines,
-  lostLine,
-  movedLine,
-  optionalLine,
-  yesWords,
-} from '../words';
+import { ADDON_PHONE_WORDS } from '../words';
 import { ADMIN, FIXTURE_CATALOG, listFor, MEMBER } from './fixtures';
 
 /**
  * What the Add-ons screens show and offer, pinned without drawing anything: the three sections, what each state
- * offers whom (the owner's decisions of 2026-09-28), paid, beta and planned add-ons, trouble in core's words, the
- * question a refused move asks, and the lines under a question.
+ * offers whom (the owner's decisions of 2026-09-28), paid, beta and planned add-ons, trouble in core's words, and the
+ * question a refused move asks. The sentences themselves are core's, tested there (test/addons/words.test.ts).
  */
 
 const OWNER_GRANTS: AddonGrants = { manage: true, purge: true };
@@ -50,12 +41,7 @@ describe('the sections', () => {
     expect(ids(groups.installed)).toEqual(['fxprop', 'fxacct']);
     // Rent Collection can come now its property management is on; Premium Payroll is paid, so support turns it on.
     expect(ids(groups.addable)).toEqual(['fxrent', 'fxsocial', 'fxcontent', 'fxpaid']);
-    expect(groups.addable.map((v) => v.offer)).toEqual([
-      'install',
-      'install',
-      'install',
-      'support',
-    ]);
+    expect(groups.addable.map((v) => v.offer)).toEqual(['install', 'install', 'install', 'paid']);
     expect(ids(groups.comingSoon)).toEqual(['fxinflu']);
     expect(groups.comingSoon[0]).toMatchObject({ offer: 'coming_soon', moves: [], state: null });
     expect(isEmptyGroups(groups)).toBe(false);
@@ -160,7 +146,7 @@ describe('how one could come to the business', () => {
       moves: ['purge'],
     });
     expect(findAddonView(list, FIXTURE_CATALOG, OWNER_GRANTS, 'fxpaid')).toMatchObject({
-      offer: 'support',
+      offer: 'paid',
       moves: [],
     });
   });
@@ -218,13 +204,18 @@ describe('trouble', () => {
         failedChecks: ['no_jobs_pending', 'no_resources_held', 'no_jobs_pending'],
         lastError: 'Not finished: no_jobs_pending (3), no_resources_held (1)',
       }),
-    ).toEqual([addonCheckWords('no_jobs_pending'), addonCheckWords('no_resources_held')]);
+    ).toEqual([
+      ADDON_PHONE_WORDS.troubleChecks,
+      addonCheckWords('no_jobs_pending'),
+      addonCheckWords('no_resources_held'),
+    ]);
     expect(troubleOf({ failedChecks: ['something_new'], lastError: 'Not finished' })).toEqual([
+      ADDON_PHONE_WORDS.troubleChecks,
       'Something it left behind is still being cleared up.',
     ]);
     expect(
       troubleOf({ failedChecks: [], lastError: 'relation "addon_fx.x" does not exist' }),
-    ).toEqual([ADDON_PHONE_WORDS.stillTrying]);
+    ).toEqual([ADDON_PHONE_WORDS.trouble]);
     expect(troubleOf({ failedChecks: [], lastError: null })).toEqual([]);
   });
 
@@ -270,111 +261,9 @@ describe('the question a refused move asks', () => {
   it('keeps everything agreed to so far when it asks again', () => {
     expect(agreedWith(['fxprop'], ['fxsocial', 'fxprop'])).toEqual(['fxprop', 'fxsocial']);
   });
-
-  it('answers with a yes that says what it does', () => {
-    expect(yesWords('addon_needs', 1)).toBe('Yes, turn it on too');
-    expect(yesWords('addon_needs', 2)).toBe('Yes, turn them on too');
-    expect(yesWords('addon_required_by', 1)).toBe('Yes, turn it off too');
-    expect(yesWords('addon_required_by', 3)).toBe('Yes, turn them off too');
-  });
 });
 
-describe('the lines under a question', () => {
-  it('says what else turns off with it, and what turns on', () => {
-    expect(alsoLine('Property Management', [{ name: 'Rent Collection', action: 'disable' }])).toBe(
-      'Rent Collection needs Property Management, so it turns off too.',
-    );
-    expect(
-      alsoLine('Property Management', [
-        { name: 'Rent Collection', action: 'disable' },
-        { name: 'Late Fees', action: 'disable' },
-      ]),
-    ).toBe('Rent Collection and Late Fees need Property Management, so they turn off too.');
-    expect(alsoLine('Rent Collection', [{ name: 'Property Management', action: 'install' }])).toBe(
-      'Rent Collection needs Property Management, so it’s turned on too.',
-    );
-    expect(alsoLine('Property Management', [])).toBeNull();
-  });
-
-  it('says who does less without it, and what everyone loses', () => {
-    expect(optionalLine(['Content Creator'])).toBe(
-      'Content Creator works with it and does less without it.',
-    );
-    expect(optionalLine(['Content Creator', 'SEO Tools'])).toBe(
-      'Content Creator and SEO Tools work with it and do less without it.',
-    );
-    expect(optionalLine([])).toBeNull();
-    expect(lostLine(['Properties and units', 'Leases', 'Leases', 'Overdue rent'])).toBe(
-      'Everyone here loses: Properties and units, Leases and Overdue rent.',
-    );
-    expect(lostLine([])).toBeNull();
-  });
-
-  it('says what it keeps here, only what it has', () => {
-    const none = {
-      records: 0,
-      relationships: 0,
-      pendingJobs: 0,
-      heldResources: 0,
-      ownRows: 0,
-      usageEvents: 0,
-    };
-    expect(holdsLines(none)).toEqual(['It keeps nothing here yet.']);
-    expect(
-      holdsLines({
-        ...none,
-        records: 1204,
-        relationships: 3,
-        ownRows: 1,
-        pendingJobs: 2,
-        heldResources: 1,
-        usageEvents: 99,
-      }),
-    ).toEqual([
-      'It keeps 1,204 records, 3 relationships and 1 item of its own here.',
-      'It has 2 things scheduled.',
-      'It holds 1 thing outside HandsFreeOS.',
-    ]);
-    expect(holdsLines({ ...none, records: 1 })).toEqual(['It keeps 1 record here.']);
-  });
-
-  it('says what a move did', () => {
-    const names: Record<string, string> = {
-      fxprop: 'Property Management',
-      fxrent: 'Rent Collection',
-    };
-    const nameOf = (id: string) => names[id] ?? id;
-    expect(
-      movedLine(
-        [
-          { addonId: 'fxrent', to: 'disabled' },
-          { addonId: 'fxprop', to: 'uninstalling' },
-        ],
-        nameOf,
-      ),
-    ).toBe('Rent Collection is off. Uninstalling Property Management.');
-    expect(
-      movedLine(
-        [
-          { addonId: 'fxprop', to: 'installing' },
-          { addonId: 'fxrent', to: 'installing' },
-        ],
-        nameOf,
-      ),
-    ).toBe('Setting up Property Management and Rent Collection.');
-    expect(movedLine([{ addonId: 'fxprop', to: 'purging' }], nameOf)).toBe(
-      'Deleting Property Management’s data.',
-    );
-    expect(movedLine([], nameOf)).toBeNull();
-  });
-
-  it('names the category under an add-on’s name', () => {
-    expect(categoryLine('finance')).toBe('Finance add-on');
-    expect(categoryLine('ai')).toBe('AI add-on');
-    expect(categoryLine('something_new')).toBeNull();
-    expect(categoryLine(null)).toBeNull();
-  });
-
+describe('the name typed to delete its data', () => {
   it('takes the typed name in any case, with spaces around it', () => {
     expect(typedNameMatches('  property management ', 'Property Management')).toBe(true);
     expect(typedNameMatches('Property', 'Property Management')).toBe(false);

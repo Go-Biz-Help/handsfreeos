@@ -2,6 +2,7 @@ import {
   ADDON_CATALOG,
   ADDON_MOVE_WORDS,
   ADDON_STATE_WORDS,
+  addonCategoryLine,
   findAddon,
   type LifecycleAction,
 } from '@hfos/core';
@@ -37,7 +38,7 @@ import {
 } from '@/add-ons/use-add-ons';
 import type { AddonSettings } from '@/add-ons/types';
 import { useAddonMove } from '@/add-ons/use-move';
-import { ADDON_PHONE_WORDS, categoryLine } from '@/add-ons/words';
+import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import { errorMessage } from '@/lib/api';
 
 /**
@@ -76,7 +77,7 @@ export default function AddonScreen() {
   return (
     <Screen
       title={title}
-      subtitle={view ? (categoryLine(view.category) ?? undefined) : undefined}
+      subtitle={view ? (addonCategoryLine(view.category) ?? undefined) : undefined}
       leading="back"
       back={businessHref(business.id, 'settings/add-ons')}
       testID="add-on"
@@ -231,7 +232,9 @@ function Switches({
     setSaving(true);
     try {
       await addonCommands.saveFlags(workspaceId, view.addonId, { [key]: on });
-      toast.show(ADDON_PHONE_WORDS.saved);
+      toast.show(
+        ADDON_PHONE_WORDS.flipped(view.flags.find((f) => f.key === key)?.label ?? key, on),
+      );
       onSaved();
     } catch (e) {
       setFlipped((was) => {
@@ -298,14 +301,22 @@ function Moves({
   const notes: string[] = [];
   const away = view.state === null || view.state === 'uninstalled' || view.state === 'purged';
   if (view.retired) notes.push(ADDON_PHONE_WORDS.retired);
+  else if (view.state === 'enabled' && !view.running)
+    notes.push(ADDON_PHONE_WORDS.paused(view.name));
   else if (view.offer === 'coming_soon') notes.push(ADDON_PHONE_WORDS.notYet);
   // No longer offered, or something it needs can't come with it: no Install, and a sentence that says so.
-  else if (away && view.offer === null) notes.push(ADDON_PHONE_WORDS.cantInstall);
+  else if (away && view.offer === null) notes.push(ADDON_PHONE_WORDS.cantAdd);
   if (view.state === 'uninstalled' && !canPurge) notes.push(ADDON_PHONE_WORDS.ownersDelete);
+  const supportNote =
+    view.offer === 'paid'
+      ? ADDON_PHONE_WORDS.paid
+      : view.offer === 'support'
+        ? ADDON_PHONE_WORDS.support
+        : null;
   return (
     <View className="gap-2 pt-2">
-      {view.offer === 'support' ? (
-        <Note tone="info" lines={[ADDON_PHONE_WORDS.support]} testID="add-on-support">
+      {supportNote ? (
+        <Note tone="info" lines={[supportNote]} testID="add-on-support">
           <Button
             variant="secondary"
             size="sm"

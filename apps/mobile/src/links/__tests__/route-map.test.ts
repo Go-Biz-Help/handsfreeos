@@ -108,6 +108,11 @@ describe('the route map', () => {
       later: null,
       params: { filter: 'ai' },
     });
+    // Settings → Add-ons at one add-on (the web's "See it"): the phone's list opens that add-on's own screen.
+    expect(routeFor(`/app/w/${WS}/settings/add-ons?addon=fxprop`)).toMatchObject({
+      href: `/app/w/${WS}/settings/add-ons?addon=fxprop`,
+      params: { addon: 'fxprop' },
+    });
     // Only the query a screen reads is kept.
     expect(routeFor(`/app/w/${WS}?item=${ID}&utm=email`)).toMatchObject({
       href: `/app/w/${WS}?item=${ID}`,

@@ -1,4 +1,4 @@
-import type { LifecycleAction } from '@hfos/core';
+import { addonMovedLine, type LifecycleAction } from '@hfos/core';
 import * as React from 'react';
 
 import { toast } from '@/components/ui/toast';
@@ -14,7 +14,6 @@ import {
 } from './rules';
 import type { AddonImpact, AddonMoved } from './types';
 import { addonCommands, useAddonImpact, type Live } from './use-add-ons';
-import { movedLine } from './words';
 
 /**
  * Moving an add-on, from the button to the toast. Turning it on or installing it goes at once; turning it off,
@@ -60,6 +59,8 @@ export interface MoveFlow {
   /** Whether `confirm` would send anything now. */
   readonly canConfirm: boolean;
   close(): void;
+  /** An add-on's name, for the other add-ons a move takes with it. */
+  nameOf(addonId: string): string;
 }
 
 export function useAddonMove({
@@ -84,9 +85,9 @@ export function useAddonMove({
 
   const close = React.useCallback(() => setStep({ kind: 'idle' }), []);
 
-  const moved = (done: readonly AddonMoved[]) => {
+  const moved = (view: AddonView, action: LifecycleAction, done: readonly AddonMoved[]) => {
     setStep({ kind: 'idle' });
-    const line = movedLine(done, nameOf);
+    const line = addonMovedLine(view.addonId, view.name, action, done, nameOf);
     if (line) toast.show(line);
     onMoved();
   };
@@ -100,7 +101,7 @@ export function useAddonMove({
   const send = async (view: AddonView, action: Move, include: readonly string[]) => {
     setSending(true);
     try {
-      moved(await addonCommands.move(workspaceId, view.addonId, action, include));
+      moved(view, action, await addonCommands.move(workspaceId, view.addonId, action, include));
     } catch (e) {
       const question = questionOf(e);
       if (question)
@@ -120,7 +121,7 @@ export function useAddonMove({
   const purge = async (view: AddonView, name: string) => {
     setSending(true);
     try {
-      moved(await addonCommands.purge(workspaceId, view.addonId, name.trim()));
+      moved(view, 'purge', await addonCommands.purge(workspaceId, view.addonId, name.trim()));
     } catch (e) {
       // A name HandsFreeOS doesn't take stays in the question, under the box, to be typed again.
       if ((e as { code?: unknown } | null)?.code === 'validation') setRefusedName(errorMessage(e));
@@ -176,5 +177,6 @@ export function useAddonMove({
     confirm,
     canConfirm,
     close,
+    nameOf,
   };
 }

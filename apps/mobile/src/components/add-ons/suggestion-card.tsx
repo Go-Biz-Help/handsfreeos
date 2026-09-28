@@ -34,7 +34,9 @@ export function AddonSuggestionCard({ className }: { className?: string }) {
     dismiss(choice)
       .then(() =>
         toast.show(
-          choice === 'not_now' ? ADDON_PHONE_WORDS.notNowDone : ADDON_PHONE_WORDS.notInterestedDone,
+          choice === 'not_now'
+            ? ADDON_PHONE_WORDS.notNowDone
+            : ADDON_PHONE_WORDS.notInterestedDone(suggestion.name),
         ),
       )
       .catch((e: unknown) => toast.error(errorMessage(e)));

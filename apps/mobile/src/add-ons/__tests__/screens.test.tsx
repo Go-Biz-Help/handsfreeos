@@ -135,7 +135,7 @@ describe('Settings → Add-ons', () => {
       },
     );
     expect(screen.queryByTestId('add-ons-installed')).toBeNull();
-    expect(screen.getByText(ADDON_PHONE_WORDS.footnote)).toBeTruthy();
+    expect(screen.getByText(ADDON_PHONE_WORDS.intro)).toBeTruthy();
     expect(sent('/v1/queries/addon.list')[0]![1]).toEqual({ body: { workspaceId: LONE_STAR } });
   });
 
@@ -155,12 +155,10 @@ describe('Settings → Add-ons', () => {
     const installed = await screen.findByTestId('add-ons-installed');
     expect(installed).toHaveTextContent('Property Management', { exact: false });
     expect(screen.getByTestId('add-on-row-fxprop')).toHaveTextContent('On', { exact: false });
-    // Its trouble in core's words, never the worker's own message.
+    // Its trouble in core's words (its own screen lists each check), never the worker's own message.
     expect(screen.getByTestId('add-on-row-fxprop')).toHaveTextContent(
-      addonCheckWords('no_jobs_pending'),
-      {
-        exact: false,
-      },
+      ADDON_PHONE_WORDS.troubleChecks,
+      { exact: false },
     );
     expect(screen.queryByText(/Not finished/)).toBeNull();
     expect(screen.getByTestId('add-on-row-fxacct')).toHaveTextContent('Off', { exact: false });
@@ -169,7 +167,7 @@ describe('Settings → Add-ons', () => {
       exact: false,
     });
     // Paid: support turns it on, since billing isn't built.
-    expect(screen.getByTestId('add-on-row-fxpaid')).toHaveTextContent(ADDON_PHONE_WORDS.support, {
+    expect(screen.getByTestId('add-on-row-fxpaid')).toHaveTextContent(ADDON_PHONE_WORDS.paid, {
       exact: false,
     });
     expect(screen.getByTestId('add-ons-coming-soon')).toHaveTextContent('Influencer Marketplace', {
@@ -188,11 +186,22 @@ describe('Settings → Add-ons', () => {
     expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons/fxrent`);
   });
 
+  it('opens one add-on’s own screen when a link names it', async () => {
+    mockParams = { addon: 'fxprop' };
+    answers['/v1/queries/addon.list'] = listFor({ fxprop: 'enabled' });
+    await show(<Addons />);
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons/fxprop`),
+    );
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+
   it('says so when this business has none yet but some could be added', async () => {
     answers['/v1/queries/addon.list'] = listFor({});
     await show(<Addons />);
     expect(await screen.findByTestId('add-ons-none-here')).toHaveTextContent(
       ADDON_PHONE_WORDS.noneHere,
+      { exact: false },
     );
     expect(screen.getByTestId('add-ons-addable')).toBeTruthy();
   });
@@ -292,17 +301,20 @@ describe('one add-on', () => {
       'Turn off Property Management?',
     );
     expect(screen.getByText(ADDON_MOVE_WORDS.disable.consequence!)).toBeTruthy();
-    expect(await screen.findByTestId('addon-impact-also')).toHaveTextContent(
-      'Rent Collection needs Property Management, so it turns off too.',
+    expect(await screen.findByTestId('addon-impact-question')).toHaveTextContent(
+      'Rent Collection needs Property Management. Turn it off too?',
     );
-    const lines = screen.getByTestId('addon-impact-lines');
-    expect(lines).toHaveTextContent('Everyone here loses: Overdue rent and Properties and units.', {
+    expect(screen.getByTestId('addon-impact-lines')).toHaveTextContent(
+      'What stops: Overdue rent and Properties and units.',
+      { exact: false },
+    );
+    const holds = screen.getByTestId('addon-impact-holds');
+    expect(holds).toHaveTextContent('12 records and 3 relationships stay for when it’s back on.', {
       exact: false,
     });
-    expect(lines).toHaveTextContent('It keeps 12 records and 3 relationships here.', {
-      exact: false,
-    });
-    expect(lines).toHaveTextContent('It has 2 things scheduled.', { exact: false });
+    expect(holds).toHaveTextContent('2 things it had scheduled are cancelled.', { exact: false });
+    // The button says it takes Rent Collection with it.
+    expect(screen.getByTestId('addon-confirm')).toHaveTextContent('Turn off both');
     expect(sent('/v1/queries/addon.impact')[0]![1]).toEqual({
       body: { workspaceId: LONE_STAR, addonId: 'fxprop', action: 'disable' },
     });
@@ -316,7 +328,9 @@ describe('one add-on', () => {
       body: { workspaceId: LONE_STAR, addonId: 'fxprop', include: ['fxrent'] },
     });
     await waitFor(() =>
-      expect(toast.show).toHaveBeenCalledWith('Rent Collection and Property Management are off.'),
+      expect(toast.show).toHaveBeenCalledWith(
+        'Property Management is off. Rent Collection is off too.',
+      ),
     );
     // Read again: it's off now, and Turn on is its move.
     expect(await screen.findByTestId('add-on-enable')).toHaveTextContent(
@@ -339,9 +353,9 @@ describe('one add-on', () => {
 
     answers['/v1/queries/addon.impact'] = impactOf({ addonId: 'fxprop', action: 'uninstall' });
     await fireEvent.press(screen.getByTestId('addon-impact-retry'));
-    expect(await screen.findByTestId('addon-impact-lines')).toHaveTextContent(
-      'It keeps nothing here yet.',
-    );
+    // It holds nothing and nothing else moves: nothing more to say, and the move can go.
+    expect(await screen.findByTestId('addon-impact')).toBeTruthy();
+    expect(screen.queryByTestId('addon-impact-holds')).toBeNull();
     expect(screen.getByTestId('addon-confirm')).not.toBeDisabled();
   });
 
@@ -374,7 +388,7 @@ describe('one add-on', () => {
       'Rent Collection needs Property Management. Turn it on too?',
     );
     expect(sent('/v1/queries/addon.impact')).toHaveLength(0);
-    expect(screen.getByTestId('addon-question-yes')).toHaveTextContent('Yes, turn it on too');
+    expect(screen.getByTestId('addon-question-yes')).toHaveTextContent('Add both');
 
     await fireEvent.press(screen.getByTestId('addon-question-yes'));
     await waitFor(() => expect(sent('/v1/commands/addon.install')).toHaveLength(2));
@@ -384,7 +398,7 @@ describe('one add-on', () => {
     ]);
     await waitFor(() =>
       expect(toast.show).toHaveBeenCalledWith(
-        'Setting up Property Management and Rent Collection.',
+        'Setting up Rent Collection. It turns on by itself in a moment. Property Management is being set up too.',
       ),
     );
   });
@@ -434,9 +448,11 @@ describe('one add-on', () => {
     expect(await screen.findByTestId('addon-confirm-title')).toHaveTextContent(
       'Delete Property Management’s data for good?',
     );
-    expect(await screen.findByTestId('addon-impact-lines')).toHaveTextContent(
-      'It keeps 40 records and 7 items of its own here.',
-    );
+    const holds = await screen.findByTestId('addon-impact-holds');
+    expect(holds).toHaveTextContent('40 records keep their names and nothing else.', {
+      exact: false,
+    });
+    expect(holds).toHaveTextContent('7 other saved items are deleted.', { exact: false });
     expect(screen.getByText(ADDON_PHONE_WORDS.typeName('Property Management'))).toBeTruthy();
     expect(screen.getByTestId('addon-confirm')).toBeDisabled();
 
@@ -451,7 +467,9 @@ describe('one add-on', () => {
       body: { workspaceId: LONE_STAR, addonId: 'fxprop', confirmName: 'property management' },
     });
     await waitFor(() =>
-      expect(toast.show).toHaveBeenCalledWith('Deleting Property Management’s data.'),
+      expect(toast.show).toHaveBeenCalledWith(
+        'Deleting Property Management’s data. This takes a little while.',
+      ),
     );
   });
 
@@ -466,7 +484,7 @@ describe('one add-on', () => {
     });
     await show(<AddonScreen />);
     await fireEvent.press(await screen.findByTestId('add-on-purge'));
-    await screen.findByTestId('addon-impact-lines');
+    await screen.findByTestId('addon-impact');
     await fireEvent.changeText(screen.getByTestId('addon-confirm-name'), 'Property Management');
     await fireEvent.press(screen.getByTestId('addon-confirm'));
     expect(await screen.findByTestId('addon-confirm-name-refused')).toHaveTextContent(
@@ -510,7 +528,11 @@ describe('one add-on', () => {
     expect(sent('/v1/commands/addon.save_settings')[0]![1]).toEqual({
       body: { workspaceId: LONE_STAR, addonId: 'fxacct', flags: { beta_reports: true } },
     });
-    await waitFor(() => expect(toast.show).toHaveBeenCalledWith(ADDON_PHONE_WORDS.saved));
+    await waitFor(() =>
+      expect(toast.show).toHaveBeenCalledWith(
+        ADDON_PHONE_WORDS.flipped('Try the new reports', true),
+      ),
+    );
 
     answers['/v1/commands/addon.save_settings'] = refused(403, {
       code: 'forbidden',
@@ -559,14 +581,46 @@ describe('one add-on', () => {
     expect(sent('/v1/queries/addon.settings')).toHaveLength(0);
   });
 
+  it('says why its last change isn’t finished, check by check, in core’s words', async () => {
+    mockParams = { addonId: 'fxprop' };
+    answers['/v1/queries/addon.list'] = listFor(
+      { fxprop: 'enabled' },
+      {
+        rows: {
+          fxprop: {
+            failedChecks: ['no_jobs_pending', 'no_resources_held'],
+            lastError: 'Not finished: no_jobs_pending (2), no_resources_held (1)',
+          },
+        },
+      },
+    );
+    await show(<AddonScreen />);
+    const trouble = await screen.findByTestId('add-on-trouble');
+    expect(trouble).toHaveTextContent(ADDON_PHONE_WORDS.troubleChecks, { exact: false });
+    expect(trouble).toHaveTextContent(addonCheckWords('no_jobs_pending'), { exact: false });
+    expect(trouble).toHaveTextContent(addonCheckWords('no_resources_held'), { exact: false });
+    expect(screen.queryByText(/Not finished/)).toBeNull();
+  });
+
+  it('says when HandsFreeOS has switched it off everywhere for now', async () => {
+    mockParams = { addonId: 'fxprop' };
+    answers['/v1/queries/addon.list'] = listFor(
+      { fxprop: 'enabled' },
+      { rows: { fxprop: { running: false, status: 'unavailable' } } },
+    );
+    await show(<AddonScreen />);
+    expect(await screen.findByTestId('add-on-notes')).toHaveTextContent(
+      ADDON_PHONE_WORDS.paused('Property Management'),
+    );
+  });
+
   it('says support turns on a paid add-on, in place of Install', async () => {
     mockParams = { addonId: 'fxpaid' };
     answers['/v1/queries/addon.list'] = listFor({});
     await show(<AddonScreen />);
-    expect(await screen.findByTestId('add-on-support')).toHaveTextContent(
-      ADDON_PHONE_WORDS.support,
-      { exact: false },
-    );
+    expect(await screen.findByTestId('add-on-support')).toHaveTextContent(ADDON_PHONE_WORDS.paid, {
+      exact: false,
+    });
     expect(screen.queryByTestId('add-on-install')).toBeNull();
     await fireEvent.press(screen.getByTestId('add-on-ask-support'));
     expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/get-help`);
@@ -576,9 +630,7 @@ describe('one add-on', () => {
     mockParams = { addonId: 'fxold' };
     answers['/v1/queries/addon.list'] = listFor({ fxold: 'uninstalled' });
     await show(<AddonScreen />);
-    expect(await screen.findByTestId('add-on-notes')).toHaveTextContent(
-      ADDON_PHONE_WORDS.cantInstall,
-    );
+    expect(await screen.findByTestId('add-on-notes')).toHaveTextContent(ADDON_PHONE_WORDS.cantAdd);
     expect(screen.queryByTestId('add-on-install')).toBeNull();
     expect(screen.getByTestId('add-on-purge')).toHaveTextContent(ADDON_MOVE_WORDS.purge.button);
   });

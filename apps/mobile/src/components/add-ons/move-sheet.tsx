@@ -1,4 +1,10 @@
-import { ADDON_MOVE_WORDS } from '@hfos/core';
+import {
+  ADDON_MOVE_WORDS,
+  addonAgreeWords,
+  addonHoldsLines,
+  addonOptionalLine,
+  joinNames,
+} from '@hfos/core';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
@@ -13,25 +19,19 @@ import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import type { AddonImpact } from '@/add-ons/types';
 import type { MoveFlow, MoveStep } from '@/add-ons/use-move';
-import {
-  ADDON_PHONE_WORDS,
-  alsoLine,
-  holdsLines,
-  lostLine,
-  optionalLine,
-  yesWords,
-} from '@/add-ons/words';
+import { ADDON_PHONE_WORDS } from '@/add-ons/words';
 import { useColors } from '@/theme';
 
 import { Note } from './addon-bits';
 
 /**
  * The one sheet a move opens. Before turning an add-on off, uninstalling it or deleting its data it asks with core's
- * question and consequence, then says what `addon.impact` found: the add-ons that need it and turn off with it, the
- * ones that do less without it, what everyone here loses and what it keeps here. Deleting data asks for the add-on's
- * name, typed, as deleting an account asks for the email address. When HandsFreeOS asks about other add-ons, its own
- * question goes here too, with a yes that sends the move again. One sheet for all of them, because iOS shows only one
- * at a time: a question that follows another changes what this one says rather than opening a second.
+ * question and consequence, then says what `addon.impact` found, as the web's page does: HandsFreeOS's question about
+ * the add-ons that need it (and a button that says it moves them too), what stops, the ones that do less without it,
+ * and what it holds here. Deleting data asks for the add-on's name, typed, as deleting an account asks for the email
+ * address. When HandsFreeOS asks about other add-ons after a move, its question goes here too, with a yes that sends
+ * the move again. One sheet for all of them, because iOS shows only one at a time: a question that follows another
+ * changes what this one says rather than opening a second.
  */
 export function AddonMoveSheet({ flow }: { flow: MoveFlow }) {
   // The last question stays drawn while the sheet slides away.
@@ -63,6 +63,8 @@ function Confirm({ flow, step }: { flow: MoveFlow; step: Extract<MoveStep, { kin
   const name = step.view.name;
   const tile = TILE[step.action];
   const purge = step.action === 'purge';
+  // The other add-ons it takes with it, which the button names ("Turn off both").
+  const others = (flow.impact.data?.needsAgreement ?? []).map(flow.nameOf);
   return (
     <>
       <ScrollView
@@ -82,7 +84,7 @@ function Confirm({ flow, step }: { flow: MoveFlow; step: Extract<MoveStep, { kin
             ) : null}
           </View>
         </View>
-        <Impact flow={flow} name={name} />
+        <Impact flow={flow} action={step.action} />
       </ScrollView>
       <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-2 pt-4">
         {purge ? (
@@ -110,7 +112,7 @@ function Confirm({ flow, step }: { flow: MoveFlow; step: Extract<MoveStep, { kin
           onPress={flow.confirm}
           testID="addon-confirm"
         >
-          {words.button}
+          {others.length ? addonAgreeWords(step.action, others) : words.button}
         </Button>
         <Button variant="ghost" onPress={flow.close} testID="addon-confirm-cancel">
           {ADDON_PHONE_WORDS.cancel}
@@ -121,7 +123,7 @@ function Confirm({ flow, step }: { flow: MoveFlow; step: Extract<MoveStep, { kin
 }
 
 /** What the move would do, from `addon.impact`: asked each time the question opens. */
-function Impact({ flow, name }: { flow: MoveFlow; name: string }) {
+function Impact({ flow, action }: { flow: MoveFlow; action: 'disable' | 'uninstall' | 'purge' }) {
   const colors = useColors();
   const { data, error, loading, reload } = flow.impact;
   if (loading || (!data && !error))
@@ -159,23 +161,36 @@ function Impact({ flow, name }: { flow: MoveFlow; name: string }) {
     );
   if (data.outcome === 'already')
     return <Note tone="info" lines={[ADDON_PHONE_WORDS.already]} testID="addon-impact-already" />;
-  return <Plan impact={data} name={name} />;
+  return <Plan impact={data} action={action} />;
 }
 
-function Plan({ impact, name }: { impact: AddonImpact; name: string }) {
-  const also = alsoLine(
-    name,
-    impact.moves.filter((m) => m.addonId !== impact.addonId),
-  );
+function Plan({
+  impact,
+  action,
+}: {
+  impact: AddonImpact;
+  action: 'disable' | 'uninstall' | 'purge';
+}) {
+  const stops = [...new Set(impact.capabilitiesLost.map((c) => c.label))];
   const lines = [
-    optionalLine(impact.optionalFor.map((o) => o.name)),
-    lostLine(impact.capabilitiesLost.map((c) => c.label)),
-    ...holdsLines(impact.holds),
+    stops.length ? `${ADDON_PHONE_WORDS.whatStops}: ${joinNames(stops)}.` : null,
+    addonOptionalLine(impact.optionalFor.map((o) => o.name)),
   ].filter((line): line is string => line !== null);
+  const holds = addonHoldsLines(action, impact.holds);
   return (
     <View className="gap-2.5" testID="addon-impact">
-      {also ? <Note tone="warning" lines={[also]} testID="addon-impact-also" /> : null}
-      <Note tone="info" lines={lines} testID="addon-impact-lines" />
+      {impact.question ? (
+        <Note tone="warning" lines={[impact.question]} testID="addon-impact-question" />
+      ) : null}
+      {lines.length ? <Note tone="info" lines={lines} testID="addon-impact-lines" /> : null}
+      {holds.length ? (
+        <View className="gap-1" testID="addon-impact-holds">
+          <Text className="px-0.5 text-[12px] font-medium text-text-3">
+            {ADDON_PHONE_WORDS.whatItHolds}
+          </Text>
+          <Note tone="info" lines={holds} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -205,7 +220,10 @@ function Question({
           onPress={flow.confirm}
           testID="addon-question-yes"
         >
-          {yesWords(step.question.rule, step.question.addons.length)}
+          {addonAgreeWords(
+            step.action,
+            step.include.filter((id) => id !== step.view.addonId).map(flow.nameOf),
+          )}
         </Button>
         <Button variant="ghost" onPress={flow.close} testID="addon-question-cancel">
           {ADDON_PHONE_WORDS.cancel}
