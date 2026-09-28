@@ -13,7 +13,7 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 
 const settingsNav = (page: Page) => page.getByRole('navigation', { name: 'Settings' });
 
-test('an owner finds Add-ons in Settings with nothing added yet; a member never sees it; Home suggests nothing', async ({
+test('an owner finds Add-ons at the foot of the menu with nothing added yet; a member never sees it; Home suggests nothing', async ({
   page,
   browser,
 }) => {
