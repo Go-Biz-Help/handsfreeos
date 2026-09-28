@@ -80,9 +80,12 @@ export const AddonListOutput = z.object({
       changedAt: isoDateTime,
       /** Trouble finishing the last move, if any. */
       lastError: z.string().nullable(),
-      /** Checks that failed the last time the worker looked (empty: nothing left behind). */
+      /** While there's trouble (`lastError`), the checks that failed when the worker last looked; else empty. */
       failedChecks: z.array(z.string()),
-      /** The add-on's code is gone from HandsFreeOS (a retired add-on): its data can still be deleted. */
+      /**
+       * The add-on's code is gone from HandsFreeOS (a retired add-on). It goes by its id, nothing turns it on or off
+       * again, and it can still be uninstalled and its data deleted.
+       */
       retired: z.boolean(),
     }),
   ),

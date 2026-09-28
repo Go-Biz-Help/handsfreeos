@@ -78,7 +78,9 @@ export function addonQueries(catalog: Catalog) {
             generation: i.generation,
             changedAt: i.changedAt.toISOString(),
             lastError: i.lastError,
-            failedChecks: failedChecks(i.verification),
+            // Only while there's trouble: a person's move clears it at once, while the checks stored for the move
+            // before stay until the worker looks again.
+            failedChecks: i.lastError ? failedChecks(i.verification) : [],
             retired: !m,
           };
         }),
@@ -113,8 +115,6 @@ export function addonQueries(catalog: Catalog) {
     permission: 'addons.manage',
     scope,
     async handler(ctx, input) {
-      const m = findAddon(catalog, input.addonId);
-      if (!m) throw HfosError.notFound('There is no such add-on.');
       const [installations, overrides, counts] = await Promise.all([
         loadInstallations(ctx.tx, input.workspaceId),
         loadOverrides(ctx.tx),
@@ -127,19 +127,27 @@ export function addonQueries(catalog: Catalog) {
           usage_events: string;
         }>(
           ctx.tx,
-          sql`select * from private.addon_impact_counts(${input.workspaceId}::uuid, ${m.id})`,
+          sql`select * from private.addon_impact_counts(${input.workspaceId}::uuid, ${input.addonId})`,
         ),
       ]);
+      // One this version of HandsFreeOS has, or a retired one this business still has (it can only leave).
+      if (
+        !findAddon(catalog, input.addonId) &&
+        !installations.some((i) => i.addonId === input.addonId)
+      )
+        throw HfosError.notFound('There is no such add-on.');
       const cctx = capabilityContextOf(
         catalog,
         installations,
         overrides,
         ctx.scope.workspacePermissions ?? [],
       );
-      const first = planTransition(cctx, m.id, input.action);
+      const first = planTransition(cctx, input.addonId, input.action);
       // With every add-on it asks about agreed to, so the plan shown is the one that would run after "yes".
       const plan =
-        first.kind === 'needs' ? planTransition(cctx, m.id, input.action, first.addons) : first;
+        first.kind === 'needs'
+          ? planTransition(cctx, input.addonId, input.action, first.addons)
+          : first;
       const name = (id: string) => findAddon(catalog, id)?.name ?? id;
       const moving = plan.kind === 'plan' ? plan.moves : [];
       const stopping = new Set(
@@ -149,7 +157,7 @@ export function addonQueries(catalog: Catalog) {
       );
       const c = counts[0];
       return {
-        addonId: m.id,
+        addonId: input.addonId,
         action: input.action,
         outcome: (plan.kind === 'already'
           ? 'already'

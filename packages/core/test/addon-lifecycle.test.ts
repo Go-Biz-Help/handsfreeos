@@ -822,6 +822,105 @@ describe('uninstalling, deleting its data, and installing again', () => {
     await finish(wsB);
   });
 
+  it('lets an add-on HandsFreeOS no longer has be uninstalled, and an owner delete its data', async () => {
+    // SEO Tools' code is gone from this version of HandsFreeOS (retired), while D still has it on.
+    const without: Catalog = FIXTURE_CATALOG.filter((m) => m.id !== 'fxseo');
+    const gone = addonLifecycleCommands(without);
+    const goneQueries = addonQueries(without);
+    const listed = await ask(goneQueries.list, { workspaceId: wsD }, human(owner));
+    expect(listed.installed.find((i) => i.addonId === 'fxseo')).toMatchObject({
+      name: 'fxseo',
+      state: 'enabled',
+      retired: true,
+    });
+    // Nothing turns it off or on again: it can only leave.
+    expect(
+      await refusal(run(gone.disable, { workspaceId: wsD, addonId: 'fxseo' }, human(owner))),
+    ).toMatchObject({ status: 404, rule: 'addon_unknown' });
+    expect(
+      await ask(
+        goneQueries.impact,
+        { workspaceId: wsD, addonId: 'fxseo', action: 'uninstall' },
+        human(adminUser),
+      ),
+    ).toMatchObject({
+      outcome: 'plan',
+      moves: [{ addonId: 'fxseo', action: 'uninstall', name: 'fxseo' }],
+      capabilitiesLost: [],
+    });
+    expect(
+      (await run(gone.uninstall, { workspaceId: wsD, addonId: 'fxseo' }, human(adminUser))).moved,
+    ).toEqual([
+      { addonId: 'fxseo', action: 'uninstall', from: 'enabled', to: 'uninstalling', generation: 1 },
+    ]);
+    await finish(wsD);
+    // Its data goes like any other's: for an owner, typing the name it goes by here.
+    expect(
+      await refusal(
+        run(
+          gone.purge,
+          { workspaceId: wsD, addonId: 'fxseo', confirmName: 'SEO Tools' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject({ code: 'validation' });
+    expect(
+      (
+        await run(
+          gone.purge,
+          { workspaceId: wsD, addonId: 'fxseo', confirmName: 'FXSEO' },
+          human(owner),
+        )
+      ).moved.map((m) => m.to),
+    ).toEqual(['purging']);
+    await finish(wsD);
+    expect((await stateOf(wsD, 'fxseo'))?.state).toBe('purged');
+    // One this business never had is no add-on at all, whatever is typed.
+    for (const cmd of [gone.uninstall, gone.purge])
+      expect(
+        await refusal(
+          run(cmd, { workspaceId: wsD, addonId: 'fxgone', confirmName: 'fxgone' }, human(owner)),
+        ),
+      ).toMatchObject({ status: 404, rule: 'addon_unknown' });
+    expect(
+      await refusal(
+        ask(
+          goneQueries.impact,
+          { workspaceId: wsD, addonId: 'fxgone', action: 'purge' },
+          human(owner),
+        ),
+      ),
+    ).toMatchObject({ status: 404 });
+  });
+
+  it('says which checks failed only while a move is in trouble, never the last move’s', async () => {
+    const checks = { checks: [{ name: 'record_kinds_shown', ok: false, found: 2 }] };
+    const failedChecks = async () =>
+      (await ask(queries.list, { workspaceId: wsB }, human(owner))).installed.find(
+        (i) => i.addonId === 'fxacct',
+      )?.failedChecks;
+    // The worker found trouble with the last move and said so.
+    await rows(
+      admin(),
+      sql`update app.addon_installations set verification = ${JSON.stringify(checks)}::jsonb,
+            last_error = 'Some of its records are still hidden.'
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+    expect(await failedChecks()).toEqual(['record_kinds_shown']);
+    // A person's move since clears the trouble; those checks were about the move before.
+    await rows(
+      admin(),
+      sql`update app.addon_installations set last_error = null
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+    expect(await failedChecks()).toEqual([]);
+    await rows(
+      admin(),
+      sql`update app.addon_installations set verification = null
+          where workspace_id = ${wsB} and addon_id = 'fxacct'`,
+    );
+  });
+
   it('records every move in history, as core’s, with the add-on named', async () => {
     const moves = await rows<{
       event_type: string;

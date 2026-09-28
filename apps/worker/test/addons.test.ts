@@ -856,4 +856,30 @@ describe('thirteen add-ons (C)', () => {
     await expectSettled(wsC, 'fxseo', 'enabled');
     await rows(admin(), sql`delete from app.scheduled_jobs where id = ${sweep!.id}`);
   });
+
+  it('lets an add-on whose code is gone leave, and deletes its data, all proved', async () => {
+    // SEO Tools is retired: this version of HandsFreeOS has no code for it, and the business still has it on.
+    const without: Catalog = FIXTURE_CATALOG.filter((m) => m.id !== 'fxseo');
+    const gone = addonLifecycleCommands(without);
+    const v3 = addonWorker(without, [propModule(fxprop), rentModule]);
+    const W3: Worker = { handlers: v3.withAddons({}), jobs: v3.jobs };
+    await run(gone.uninstall, { workspaceId: wsC, addonId: 'fxseo' }, owner);
+    await drain(wsC, W3);
+    await expectSettled(wsC, 'fxseo', 'uninstalled');
+    await run(gone.purge, { workspaceId: wsC, addonId: 'fxseo', confirmName: 'fxseo' }, owner);
+    await drain(wsC, W3);
+    await expectSettled(wsC, 'fxseo', 'purged');
+    // History says so, by the only name it has here now.
+    expect(
+      await rows(
+        admin(),
+        sql`select event_type, payload ->> 'name' as name from app.events
+            where workspace_id = ${wsC} and event_type in ('addon.uninstalled', 'addon.purged')
+              and payload ->> 'addonId' = 'fxseo' order by created_at`,
+      ),
+    ).toEqual([
+      { event_type: 'addon.uninstalled', name: 'fxseo' },
+      { event_type: 'addon.purged', name: 'fxseo' },
+    ]);
+  });
 });

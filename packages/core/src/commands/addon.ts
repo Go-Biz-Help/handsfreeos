@@ -46,13 +46,18 @@ export const ADDON_MOVE_EVENTS: Readonly<Record<LifecycleAction, string>> = {
 
 type Moved = z.input<typeof AddonMoveOutput>['moved'][number];
 
-/** Plans a move and makes it, with every other move it needs that the person agreed to, in order. */
+/**
+ * Plans a move and makes it, with every other move it needs that the person agreed to, in order. `agreed` runs once
+ * the plan stands, before anything moves (deleting data checks the name typed there, so a move that can't be made
+ * says why first).
+ */
 async function makeMoves(
   ctx: CommandContext,
   catalog: Catalog,
   addonId: string,
   action: LifecycleAction,
   include: readonly string[],
+  agreed?: () => void,
 ): Promise<{ moved: Moved[] }> {
   const workspaceId = ctx.scope.workspaceId!;
   const [installations, overrides] = await Promise.all([
@@ -70,33 +75,35 @@ async function makeMoves(
     throw HfosError.rule(plan.rule, plan.rule === 'addon_unknown' ? 404 : 409, plan.message);
   if (plan.kind === 'needs')
     throw new HfosError('rule_violation', 409, plan.message, { addons: plan.addons }, plan.rule);
+  agreed?.();
   const moved: Moved[] = [];
   for (const mv of plan.moves) {
-    const m = findAddon(catalog, mv.addonId)!;
+    // Undefined only for a retired add-on on its way out, whose versions matter to nothing but installing.
+    const m = findAddon(catalog, mv.addonId);
     const [row] = await rows<{
       state: Moved['to'];
       generation: number;
       previous_state: Moved['from'];
     }>(
       ctx.tx,
-      sql`select * from private.addon_move(${workspaceId}::uuid, ${m.id}, ${mv.to}, ${m.version},
-            ${m.dataVersion}, ${m.settings?.version ?? 1})`,
+      sql`select * from private.addon_move(${workspaceId}::uuid, ${mv.addonId}, ${mv.to},
+            ${m?.version ?? null}::text, ${m?.dataVersion ?? null}::integer, ${m?.settings?.version ?? 1}::integer)`,
     );
     if (!row) throw HfosError.internal();
     await ctx.emit({
       type: ADDON_MOVE_EVENTS[mv.action],
       entityType: 'addon',
       payload: {
-        addonId: m.id,
-        name: m.name,
-        version: m.version,
+        addonId: mv.addonId,
+        name: m?.name ?? mv.addonId,
+        version: m?.version ?? null,
         from: row.previous_state,
         to: row.state,
         generation: row.generation,
       },
     });
     moved.push({
-      addonId: m.id,
+      addonId: mv.addonId,
       action: mv.action,
       from: row.previous_state,
       to: row.state,
@@ -205,13 +212,15 @@ export function addonLifecycleCommands(catalog: Catalog) {
     scope,
     emits: [ADDON_MOVE_EVENTS.purge],
     async handler(ctx, input) {
-      const m = known(catalog, input.addonId);
-      if (input.confirmName.trim().toLowerCase() !== m.name.trim().toLowerCase())
-        throw HfosError.validation(
-          [{ path: 'confirmName', message: `Type ${m.name} to confirm.` }],
-          `Type ${m.name} to confirm.`,
-        );
-      return makeMoves(ctx, catalog, input.addonId, 'purge', []);
+      // A retired add-on (its code gone from HandsFreeOS) goes by its id, as `addon.list` names it.
+      const name = findAddon(catalog, input.addonId)?.name ?? input.addonId;
+      return makeMoves(ctx, catalog, input.addonId, 'purge', [], () => {
+        if (input.confirmName.trim().toLowerCase() !== name.trim().toLowerCase())
+          throw HfosError.validation(
+            [{ path: 'confirmName', message: `Type ${name} to confirm.` }],
+            `Type ${name} to confirm.`,
+          );
+      });
     },
   });
 
