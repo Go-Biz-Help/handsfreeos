@@ -204,11 +204,12 @@ A business can keep its own kinds of records — pets, vehicles, properties, uni
 
 ## Add-ons
 
-Optional features a business turns on for itself — property management, rent collection, a social scheduler — are add-ons: first-party code in every build, switched on per business (`app.addon_installations`). None is built yet; the foundation they stand on is.
+Optional features a business turns on for itself — property management, rent collection, a social scheduler — are add-ons: first-party code in every build, switched on per business (`app.addon_installations`). None is built yet; the foundation they stand on is, and so is the page where they're managed.
 
 - **Off means off, everywhere.** The kernel refuses an add-on's work for people, the system, workflows and the AI teammate while it isn't on; its permissions, menu places, pages, panels and AI tools exist only while it runs; its queued jobs are cancelled and its records hidden.
 - **On core's records.** An add-on keeps its things as records of kinds it manages and ties them to customers with relationships, so timelines, tasks and files work on them unchanged. It hears about the business through events, never through another add-on.
 - **Removed cleanly, and provably.** Uninstalling keeps its data hidden until an owner deletes it; deleting keeps each record's name and every history line. Every move ends with a check that nothing is left behind.
+- **Managed on the web and the phone.** **Settings** → **Add-ons** shows what the business has and whether each one is on, what it could add, and what's coming soon. Owners and admins install, turn on and off and uninstall, and are asked first when another add-on has to move with it; only an owner deletes an add-on's data, typing its name. Now and then Home suggests one that fits the business, to owners and admins only, and it's easy to set aside.
 
 `pnpm addon:new <id>` starts one. `docs/addon-architecture.md` covers the pieces, the owner's decisions and what isn't done yet; `docs/addon-readiness-audit.md` is the audit behind it.
 

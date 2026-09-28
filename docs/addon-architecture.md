@@ -23,10 +23,12 @@ Three rules shape the design:
 | Manifests, catalogue, rules (pure)      | `packages/core/src/addons/` (`manifest.ts`, `catalog.ts`, `graph.ts`, `lifecycle.ts`, `capabilities.ts`, `plan.ts`, `recommend.ts`)                           |
 | Server half: operations, registry       | `packages/core/src/addons/server.ts`, `modules.ts`, `load.ts`; the kernel's check in `kernel/execute.ts`                                                      |
 | Lifecycle commands and queries          | `packages/core/src/commands/addon.ts`, `queries/addon.ts`, `schemas/addon.ts`                                                                                 |
+| What the pages say, and Home's pick     | `packages/core/src/addons/words.ts` (words and move rules both apps use), `suggest.ts`                                                                        |
+| The Add-ons page and Home's card        | web: `apps/web/src/components/settings/add-ons/`, `components/home/addon-suggestion.tsx`; phone: `apps/mobile/src/add-ons/`, `components/add-ons/`            |
 | AI tools and `find_capabilities`        | `packages/core/src/addons/ai.ts`, `assistant/tools-addons.ts`; `apps/worker/src/assistant/tools-addons.ts`                                                    |
 | Worker: reconcile, delivery, guards     | `apps/worker/src/addons/`; the guards in `jobs.ts` and `deliveries.ts`                                                                                        |
 | Web: registry, gate, slots, menu places | `apps/web/src/addons/`, `components/addons/`, `app/app/w/[workspaceId]/a/`; `packages/core/src/account/menu.ts`                                               |
-| Database                                | migrations `20261013000100` to `20261013000500`                                                                                                               |
+| Database                                | migrations `20261013000100` to `20261013000700`                                                                                                               |
 | Starting one                            | `pnpm addon:new <id>` (`scripts/addon-new.mjs`, templates in `addons/_template/`)                                                                             |
 | Tests                                   | `packages/core/test/addons/`, `addon-lifecycle.test.ts`; `packages/db/test/addons-rls.test.ts`; `apps/worker/test/addons.test.ts`, `assistant-addons.test.ts` |
 
@@ -96,6 +98,36 @@ What each step does to what it owns:
 | uninstall | kept           | hidden          | hidden                | untouched    | kept     | kept                     |
 | reinstall | migrated       | shown again     | shown again           | untouched    | migrated | kept                     |
 | purge     | deleted        | names kept only | deleted               | untouched    | deleted  | lines kept, details gone |
+
+**An add-on whose code is gone** (retired: taken out of HandsFreeOS while a business still has it) can still leave:
+`addon.uninstall` and `addon.purge` work without its code, and the worker does both by its id. Nothing turns it on
+or off again, and it goes by its id, which is also the name an owner types to delete its data.
+
+## The Add-ons page
+
+**Settings** → **Add-ons**, on the web and in the phone app, is for owners and admins (`addons.manage`); nobody else
+sees it. It has three parts: what the business has (every installation, whatever its state), what it could add
+(what HandsFreeOS says is installable here, and paid add-ons, which say HandsFreeOS support can turn them on), and
+Coming soon (planned add-ons, with no Install, shown only when something is planned). A beta add-on is never
+offered: only support turns one on.
+
+- **Both apps say the same thing.** Every word on the page, and the moves each state offers (`addonMovesFor`), come
+  from `packages/core/src/addons/words.ts`.
+- **Taking something away asks first.** Before turning an add-on off, uninstalling it or deleting its data, the page
+  shows `addon.impact`: HandsFreeOS's question about the add-ons that need it (and a button that names them: "Turn
+  off both"), what stops, who does less without it, and what it holds here. Deleting data asks an owner to type the
+  add-on's name.
+- **It follows the worker.** A state on its way (Setting up, Uninstalling, Deleting its data) shows progress and
+  offers no move; the page redraws on every add-on event and asks again every few seconds meanwhile. Trouble is
+  said in the checks' own words, and only while it's current.
+- **Settings.** Its switches are saved one at a time. An add-on's own settings form is `settings` in the web's
+  registry, loaded when it's opened and drawn in its own error boundary.
+
+**Home's card.** Now and then Home suggests one add-on that fits the business (`suggestAddon`): only to owners and
+admins, only an available, free add-on that `recommendAddons` would name from the business's name, its line of work
+and the kinds of records it made for itself, and one card at most. "Not now" quiets every suggestion for that person
+for 30 days; "Not interested" never shows them that add-on again (`app.addon_suggestion_dismissals`, each person's
+own).
 
 ## Rules worth knowing before changing anything
 
@@ -169,12 +201,6 @@ the manifest too), panels in the web registry, its own tables with `private.addo
 
 What's decided but not built, with the owner's decisions (2026-09-28) that shape each:
 
-- **The Add-ons page, next.** On the web and in the phone app: what the business has, what could be added, and
-  what's planned (shown to owners and admins as Coming soon, with no install button), with every move, its
-  questions and its impact, and each add-on's settings. A beta add-on is turned on only by HandsFreeOS support. The
-  API behind it is here (`addon.list`, `addon.impact`, `addon.settings` and the lifecycle commands).
-- **Suggesting an add-on on Home.** Occasionally, a small card for owners and admins when an available add-on fits
-  what the business does, easy to dismiss. Today suggestions come only from the Assistant, when asked.
 - **Downloading a turned-off add-on's records.** Its records are hidden until it's back on, and owners may still
   take a copy; the download isn't built.
 - **Add-on workflow steps and triggers.** Workflows can't use an add-on's steps yet. When they can, a workflow
@@ -189,5 +215,5 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
-- **The first real add-on:** a Real Estate Agent add-on (MLS and property data, showings, lockbox details,
-  comparative reports, listing activity, buyer and seller workflows), after the Add-ons page.
+- **The first real add-on, next:** a Real Estate Agent add-on (MLS and property data, showings, lockbox details,
+  comparative reports, listing activity, buyer and seller workflows).
