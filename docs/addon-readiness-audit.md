@@ -354,16 +354,18 @@ Web: `app/global-error.tsx`, `app/app/w/[workspaceId]/{error,not-found}.tsx`, `l
 `components/shell/*`, new `addons/` and `components/addons/`. Database: new migrations, the Drizzle mirror,
 `packages/db/test`. Scripts: `scripts/addon-new.mjs`. Docs: `docs/addon-architecture.md`, README.
 
-## 16. Decisions needed from the owner
+## 16. Decisions made by the owner (2026-09-28)
 
-1. What happens when someone turns off or uninstalls an add-on another installed add-on needs.
-2. How long an uninstalled add-on's data is kept.
-3. Whether permanently deleting an add-on's data also removes the history lines it wrote.
-4. What happens to things an add-on had scheduled when it's turned off.
-5. Who may install, turn off, uninstall and permanently delete add-ons.
-6. How much the AI may do on its own in a task that spans several add-ons.
-7. What happens to workflows that use a step from an add-on that's turned off.
-8. Whether people can still look at a turned-off add-on's records.
+| Question                                                             | Decision                                                                                                                                   |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Turning off or uninstalling an add-on another installed one needs    | **Offer to turn off both.** Show what depends on it and what would stop working, then ask. Nothing is removed silently.                    |
+| How long an uninstalled add-on's data is kept                        | **Until an owner deletes it.** Hidden but kept, so reinstalling brings it back; permanent deletion is a separate, confirmed action.        |
+| Whether permanent deletion removes the history lines an add-on wrote | **Keep the lines, drop the details.** Who, when, what happened and the record's name stay; the add-on's detailed data goes.                |
+| What happens to things an add-on scheduled when it's turned off      | **They stop, and nothing goes out late.** Anything that came due while it was off waits for a person to reschedule it.                     |
+| Who may install, turn off and uninstall add-ons                      | **Owners and admins** (a business can change it per role or person). **Only owners** may permanently delete an add-on's data.              |
+| How much the AI may do on its own across several add-ons             | **Ask only for sensitive steps.** Look-ups, notes and tasks run on their own; messaging customers, moving money, deleting or settings ask. |
+| Workflows using a step from an add-on that's turned off              | **Hold and tell the owner.** Customers wait at that step and carry on when it's back on; uninstalling pauses those workflows.              |
+| Whether people can look at a turned-off add-on's records             | **Hidden until it's back on.** Owners can still download a copy.                                                                           |
 
 Billing questions (who pays, per-seat counting, wallet or card, access after a mid-period cancel) can wait
 until the first paid add-on: the foundation keeps prices out of add-ons and records usage either way.

@@ -42,6 +42,36 @@ export interface ContactAiVia {
   readonly sweepId: string | null;
 }
 /**
+ * The add-on an operation belongs to, or that work is done for (0108), as its manifest names it. The kernel refuses
+ * the operation, for every kind of actor, while the add-on isn't on in the business, and stamps it on every event and
+ * audit row the work causes, so history says which add-on did what even after it is gone.
+ */
+export interface AddonRef {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+}
+
+/**
+ * How an operation may be offered to the AI as a tool (0108). Only add-on operations carry it today; the Assistant
+ * derives the tool from the operation itself (its input schema, permission and risk), so an add-on never writes
+ * separate glue for the AI.
+ */
+export interface OperationAi {
+  /** The name the model sees: `<addon>_<verb>_<noun>`, letters, digits and underscores. */
+  readonly tool: string;
+  /** What the model reads to decide when to use it. Defaults to the operation's description. */
+  readonly description?: string;
+  /**
+   * Stricter than the operation's risk allows, never looser: risk 0–1 may run on their own, 2–3 wait for the
+   * person's OK, 4 is never offered (packages/core/src/addons/ai.ts).
+   */
+  readonly autonomy?: 'auto' | 'confirm' | 'never';
+  /** Extra words tool search should match on. */
+  readonly keywords?: readonly string[];
+}
+
+/**
  * A non-human actor (the worker today; the assistant and AI employees later). Runs inside the worker's
  * tenant scope with the `service_actor` policies, so it is root within one workspace and nothing outside it.
  */
@@ -55,6 +85,11 @@ export interface SystemActor {
   readonly via?: ActionCenterVia | null;
   /** The AI keeping customers' tags and details up to date, when it's the one acting. */
   readonly contactAi?: ContactAiVia | null;
+  /**
+   * The add-on this work is for (0108): its jobs and event deliveries run as the system on its behalf. Refused, like
+   * the add-on's own operations, while it isn't on, and stamped on everything the work does.
+   */
+  readonly addon?: AddonRef | null;
 }
 /**
  * A workflow step (M6). Runs exactly like the system (no permission check, `service_actor` bound to its
@@ -191,6 +226,11 @@ export interface QueryContext {
 
 export interface CommandContext extends QueryContext {
   readonly commandName: string;
+  /**
+   * The add-on this command's work is for, if any (0108): its own, or that of the add-on command or job it runs
+   * inside. Commands it runs within carry it on, so what an add-on causes in core is attributed to it.
+   */
+  readonly addon?: AddonRef | null;
   /** Writes the event, outbox and audit rows now, in this transaction. Resolves to the event id. */
   emit(event: EmitInput): Promise<string>;
 }
@@ -223,6 +263,10 @@ export interface CommandDef<I extends z.ZodType = z.ZodType, O extends z.ZodType
    * like a credential.
    */
   readonly shownOnce?: readonly string[];
+  /** The add-on it belongs to (0108), set by defineAddonCommand. Absent for core's own. */
+  readonly addon?: AddonRef;
+  /** How it may be offered to the AI (0108). */
+  readonly ai?: OperationAi;
   readonly handler: (ctx: CommandContext, input: z.output<I>) => Promise<z.input<O>>;
 }
 
@@ -239,6 +283,10 @@ export interface QueryDef<I extends z.ZodType = z.ZodType, O extends z.ZodType =
    * system actor (availability), which reads as root within its tenant, like a system command.
    */
   readonly actors?: readonly ActorKind[];
+  /** The add-on it belongs to (0108), set by defineAddonQuery. Absent for core's own. */
+  readonly addon?: AddonRef;
+  /** How it may be offered to the AI (0108). */
+  readonly ai?: OperationAi;
   readonly handler: (ctx: QueryContext, input: z.output<I>) => Promise<z.input<O>>;
 }
 

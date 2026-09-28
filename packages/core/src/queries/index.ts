@@ -172,6 +172,14 @@ export {
 
 export { emailComposeOptions };
 
+import { addonQueries } from './addon';
+import { ADDON_CATALOG } from '../addons/catalog';
+
+/** What a business has and could have, what a change would touch, and settings, over the real catalogue (0108). */
+const addonQueryDefs = addonQueries(ADDON_CATALOG);
+export const { list: addonList, impact: addonImpact, settings: addonSettings } = addonQueryDefs;
+export { addonQueries } from './addon';
+
 export const queries: readonly QueryDef[] = [
   ...migrationQueries,
   ...supportQueries,
@@ -286,6 +294,10 @@ export const queries: readonly QueryDef[] = [
   ...relationshipQueries,
   // Ideas, the roadmap and What's new (0102).
   ...ideaQueries,
+  // Add-ons (0108).
+  addonList,
+  addonImpact,
+  addonSettings,
 ] as unknown as readonly QueryDef[];
 
 export {

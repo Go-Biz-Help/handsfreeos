@@ -888,6 +888,7 @@
                       "workspace.update",
                       "audit.read",
                       "migrations.manage",
+                      "addons.manage",
                       "members.invite",
                       "invitations.read",
                       "invitations.revoke",
@@ -995,6 +996,7 @@
                       "workspace.update",
                       "audit.read",
                       "migrations.manage",
+                      "addons.manage",
                       "members.invite",
                       "invitations.read",
                       "invitations.revoke",
@@ -44953,6 +44955,795 @@
         }
       }
     },
+    "/v1/commands/addon.install": {
+      "post": {
+        "operationId": "command_addon_install",
+        "summary": "Install an add-on in this business (and, with `include`, what it needs). It turns on once the worker has set it up.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires addons.manage. Emits addon.install_started, addon.enabled.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "include": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "installing",
+                                  "enabled",
+                                  "disabled",
+                                  "uninstalling",
+                                  "uninstalled",
+                                  "purging",
+                                  "purged"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "from",
+                          "to",
+                          "generation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.enable": {
+      "post": {
+        "operationId": "command_addon_enable",
+        "summary": "Turn an installed add-on back on, with its data and settings as they were.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires addons.manage. Emits addon.enabled, addon.install_started.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "include": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "installing",
+                                  "enabled",
+                                  "disabled",
+                                  "uninstalling",
+                                  "uninstalled",
+                                  "purging",
+                                  "purged"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "from",
+                          "to",
+                          "generation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.disable": {
+      "post": {
+        "operationId": "command_addon_disable",
+        "summary": "Turn an add-on off: it stops, its screens and records are hidden, and its data and settings are kept.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires addons.manage. Emits addon.disabled.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "include": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "installing",
+                                  "enabled",
+                                  "disabled",
+                                  "uninstalling",
+                                  "uninstalled",
+                                  "purging",
+                                  "purged"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "from",
+                          "to",
+                          "generation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.uninstall": {
+      "post": {
+        "operationId": "command_addon_uninstall",
+        "summary": "Uninstall an add-on: it stops and lets go of what it holds outside HandsFreeOS; its data is kept until an owner deletes it.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 3. Requires addons.manage. Emits addon.disabled, addon.uninstall_started.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "include": {
+                    "default": [],
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "installing",
+                                  "enabled",
+                                  "disabled",
+                                  "uninstalling",
+                                  "uninstalled",
+                                  "purging",
+                                  "purged"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "from",
+                          "to",
+                          "generation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.purge": {
+      "post": {
+        "operationId": "command_addon_purge",
+        "summary": "Permanently delete an uninstalled add-on’s data. Core records it touched stay; history keeps its lines without the details.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 4. Requires addons.purge. Emits addon.purge_started.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "confirmName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId",
+                  "confirmName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "moved": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "from": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "installing",
+                                  "enabled",
+                                  "disabled",
+                                  "uninstalling",
+                                  "uninstalled",
+                                  "purging",
+                                  "purged"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "to": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "from",
+                          "to",
+                          "generation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "moved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.save_settings": {
+      "post": {
+        "operationId": "command_addon_save_settings",
+        "summary": "Save an add-on’s settings and switches for this business.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Emits addon.settings_saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "flags": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "saved": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "saved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.save_my_settings": {
+      "post": {
+        "operationId": "command_addon_save_my_settings",
+        "summary": "Save your own settings for an add-on.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.read. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "settings": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId",
+                  "settings"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "saved": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "saved"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -49981,6 +50772,12 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "addons": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -49992,7 +50789,8 @@
                           "timezone",
                           "industry",
                           "role",
-                          "permissions"
+                          "permissions",
+                          "addons"
                         ],
                         "additionalProperties": false
                       }
@@ -50514,6 +51312,12 @@
                             "type": "string"
                           }
                         },
+                        "addons": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "settings": {
                           "type": "object",
                           "propertyNames": {
@@ -50528,6 +51332,12 @@
                           "type": "string",
                           "format": "date-time",
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        "capabilities": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [
@@ -50540,9 +51350,11 @@
                         "industry",
                         "role",
                         "permissions",
+                        "addons",
                         "settings",
                         "inboxPerPerson",
-                        "createdAt"
+                        "createdAt",
+                        "capabilities"
                       ],
                       "additionalProperties": false
                     },
@@ -92158,6 +92970,685 @@
                     "businessCount",
                     "voters",
                     "followerCount"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon.list": {
+      "post": {
+        "operationId": "query_addon_list",
+        "summary": "The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added and what is planned.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "installed": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "installing",
+                              "enabled",
+                              "disabled",
+                              "uninstalling",
+                              "uninstalled",
+                              "purging",
+                              "purged"
+                            ]
+                          },
+                          "installedVersion": {
+                            "type": "string"
+                          },
+                          "latestVersion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "generation": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "changedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastError": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "failedChecks": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retired": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name",
+                          "summary",
+                          "state",
+                          "installedVersion",
+                          "latestVersion",
+                          "generation",
+                          "changedAt",
+                          "lastError",
+                          "failedChecks",
+                          "retired"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "current": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "providerName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "description",
+                              "provider",
+                              "providerName"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "restricted": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "providerName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "description",
+                              "provider",
+                              "providerName"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "turnedOff": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "providerName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "description",
+                              "provider",
+                              "providerName"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "installable": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "providerName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "description",
+                              "provider",
+                              "providerName"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "planned": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "providerName": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "label",
+                              "description",
+                              "provider",
+                              "providerName"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "current",
+                        "restricted",
+                        "turnedOff",
+                        "installable",
+                        "planned"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "catalog": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "planned",
+                              "development",
+                              "beta",
+                              "built",
+                              "available",
+                              "deprecated",
+                              "unavailable"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name",
+                          "summary",
+                          "category",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "installed",
+                    "capabilities",
+                    "catalog"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon.impact": {
+      "post": {
+        "operationId": "query_addon_impact",
+        "summary": "Before changing an add-on: every add-on that would move with it (and the one question to ask), who loses features, and what it holds here.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires addons.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "install",
+                      "enable",
+                      "disable",
+                      "uninstall",
+                      "purge"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId",
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "install",
+                        "enable",
+                        "disable",
+                        "uninstall",
+                        "purge"
+                      ]
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": [
+                        "plan",
+                        "already",
+                        "refused"
+                      ]
+                    },
+                    "moves": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "install",
+                              "enable",
+                              "disable",
+                              "uninstall",
+                              "purge"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "action",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "needsAgreement": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z]{2,16}$"
+                      }
+                    },
+                    "question": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "refusal": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "rule": {
+                              "type": "string"
+                            },
+                            "message": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "rule",
+                            "message"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "optionalFor": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "capabilitiesLost": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "label"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "holds": {
+                      "type": "object",
+                      "properties": {
+                        "records": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "relationships": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "pendingJobs": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "heldResources": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "ownRows": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "usageEvents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "records",
+                        "relationships",
+                        "pendingJobs",
+                        "heldResources",
+                        "ownRows",
+                        "usageEvents"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "action",
+                    "outcome",
+                    "moves",
+                    "needsAgreement",
+                    "question",
+                    "refusal",
+                    "optionalFor",
+                    "capabilitiesLost",
+                    "holds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon.settings": {
+      "post": {
+        "operationId": "query_addon_settings",
+        "summary": "An add-on’s settings here, and your own settings for it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "settings": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "flags": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "boolean"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mySettings": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "settings",
+                    "flags",
+                    "mySettings"
                   ],
                   "additionalProperties": false
                 }

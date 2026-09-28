@@ -75,6 +75,9 @@ export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
   telephony: 'phone.update_settings',
   attention: 'attention.save_settings',
   automations: 'automations.save_settings',
+  // Which add-ons a business has, and their settings, live in app.addon_installations behind addons.manage
+  // (0108), never in these settings, which any admin with workspace.update may write and every member reads.
+  addons: 'addon.install',
 } as const;
 
 export const WorkspaceUpdateInput = z
@@ -180,6 +183,11 @@ export const WorkspaceSummary = z.object({
    * applied. Screens ask this, not the role, so they show what the server will allow.
    */
   permissions: z.array(z.string()),
+  /**
+   * The add-ons running here (0108): enabled, and not switched off by HandsFreeOS. What the menu, the add-on pages
+   * and the panels on core pages decide from; the server enforces the same on every request.
+   */
+  addons: z.array(z.string()),
 });
 export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 
@@ -194,6 +202,11 @@ export const WorkspaceGetOutput = z.object({
      */
     inboxPerPerson: z.boolean(),
     createdAt: isoDateTime,
+    /**
+     * What this person can do here now (0108): core's capabilities and running add-ons', where they hold the
+     * permission — `workspace.can('social.publish')` for the screens.
+     */
+    capabilities: z.array(z.string()),
   }),
   counts: z.object({ members: z.number().int(), pendingInvitations: z.number().int() }),
 });

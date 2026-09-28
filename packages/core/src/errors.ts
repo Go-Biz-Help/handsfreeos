@@ -113,6 +113,19 @@ export class HfosError extends Error {
   static rule(rule: string, status: number, message: string): HfosError {
     return new HfosError('rule_violation', status, message, undefined, rule);
   }
+  /**
+   * An add-on's operation, or work for one, while that add-on isn't on in the business (0108). Final: turning it
+   * back on is a person's decision, not something a retry or an answer fixes.
+   */
+  static addonInactive(name: string): HfosError {
+    return new HfosError(
+      'rule_violation',
+      403,
+      `${name} is turned off for this business.`,
+      undefined,
+      'addon_inactive',
+    );
+  }
   /** An app build older than the API accepts: it pauses, keeps its unsent changes and asks to be updated. */
   static upgradeRequired(minVersion: string): HfosError {
     return new HfosError(

@@ -34,8 +34,15 @@ export * from './campaigns/postal-address';
 export * from './attention/items';
 export * from './attention/auto-plan';
 export * from './attention/hints';
+// Add-ons, server side: defining their operations and composing them with core's (docs/addon-architecture.md).
+export * from './addons/server';
+export * from './addons/modules';
+import { ADDON_SERVER_MODULES } from './addons/modules';
+import { composeOperations } from './addons/server';
 import { commands } from './commands/index';
 import { createRegistry } from './kernel/registry';
 import { queries } from './queries/index';
 
-export const registry = createRegistry(commands, queries);
+/** Core's operations, then every add-on's, in the catalogue's order: what the API mounts and everything looks up. */
+const operations = composeOperations({ commands, queries }, ADDON_SERVER_MODULES);
+export const registry = createRegistry(operations.commands, operations.queries);

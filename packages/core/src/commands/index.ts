@@ -330,6 +330,22 @@ import { phoneModelCommands } from './phone-model';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import { migrationCommands } from './migration';
 
+import { addonLifecycleCommands } from './addon';
+import { ADDON_CATALOG } from '../addons/catalog';
+
+/** Installing, turning on and off, uninstalling and deleting add-ons' data, over the real catalogue (0108). */
+const addonCommands = addonLifecycleCommands(ADDON_CATALOG);
+export const {
+  install: addonInstall,
+  enable: addonEnable,
+  disable: addonDisable,
+  uninstall: addonUninstall,
+  purge: addonPurge,
+  saveSettings: addonSaveSettings,
+  saveMySettings: addonSaveMySettings,
+} = addonCommands;
+export { addonLifecycleCommands, ADDON_MOVE_EVENTS } from './addon';
+
 export {
   conversationAssign,
   conversationArchive,
@@ -824,6 +840,14 @@ export const commands: readonly CommandDef[] = [
   ...ideaCommands,
   // A business's RCS sender: connected, paused, looked at again and let go (0103).
   ...rcsCommands,
+  // Add-ons: installing, turning on and off, uninstalling, deleting their data, their settings (0108).
+  addonInstall,
+  addonEnable,
+  addonDisable,
+  addonUninstall,
+  addonPurge,
+  addonSaveSettings,
+  addonSaveMySettings,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';

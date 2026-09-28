@@ -157,6 +157,8 @@ export const rolePermissions = app.table(
   {
     role: text('role').notNull(),
     permission: text('permission').notNull(),
+    /** The add-on this permission belongs to (0108); null for core's. Exists for people only while it runs. */
+    addonId: text('addon_id'),
   },
   (t) => [primaryKey({ columns: [t.role, t.permission] })],
 );
@@ -195,6 +197,8 @@ export const events = app.table('events', {
   correlationId: uuid('correlation_id').notNull(),
   causationId: uuid('causation_id'),
   createdAt: ts('created_at').notNull().defaultNow(),
+  /** The add-on that caused it (0108), so history says which, and its details can go when its data does. */
+  addonId: text('addon_id'),
   /**
    * Milestone 10: when the change was really made (the phone's moment, corrected for its clock, never later than
    * now). Defaults to the event's own time; null on events recorded before 0054, which happened at created_at.
@@ -241,6 +245,8 @@ export const auditLogs = app.table('audit_logs', {
   correlationId: uuid('correlation_id').notNull(),
   causationId: uuid('causation_id'),
   createdAt: ts('created_at').notNull().defaultNow(),
+  /** The add-on whose command this was (0108). */
+  addonId: text('addon_id'),
 });
 
 // ---------- Milestone 2: CRM core ----------
@@ -1304,6 +1310,8 @@ export const webhookDeliveries = app.table('webhook_deliveries', {
   lastError: text('last_error'),
   receivedAt: ts('received_at').notNull().defaultNow(),
   processedAt: ts('processed_at'),
+  /** The add-on it is for (0108): set aside, not processed, while that add-on is off. */
+  addonId: text('addon_id'),
   ...timestamps(),
 });
 
@@ -1323,6 +1331,12 @@ export const scheduledJobs = app.table('scheduled_jobs', {
   lockedBy: text('locked_by'),
   lastError: text('last_error'),
   finishedAt: ts('finished_at'),
+  /**
+   * The add-on that queued it and its generation then (0108): cancelled, not run, when the add-on is off or was
+   * installed again since.
+   */
+  addonId: text('addon_id'),
+  addonGeneration: integer('addon_generation'),
   ...timestamps(),
 });
 
@@ -3596,6 +3610,8 @@ export const customizablePermissions = app.table('customizable_permissions', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** The add-on this permission belongs to (0108); null for core's. */
+  addonId: text('addon_id'),
 });
 
 /** A business's own answer for one role and one permission (0106), in place of the default. Never for owners. */
@@ -4529,6 +4545,86 @@ export const intakeSubmissions = app.table('intake_submissions', {
 });
 
 /* ===========================================================================
+ * Add-ons (0108): where each add-on stands in each business, what it holds
+ * outside HandsFreeOS, what it counts, and HandsFreeOS switching one off
+ * everywhere. What an add-on is lives in code (packages/core/src/addons).
+ * ======================================================================== */
+
+/** One business and one add-on it ever installed. Only `enabled` runs. */
+export const addonInstallations = app.table(
+  'addon_installations',
+  {
+    workspaceId: workspaceRef(),
+    addonId: text('addon_id').notNull(),
+    /** installing, enabled, disabled, uninstalling, uninstalled, purging, purged. */
+    state: text('state').notNull(),
+    installedVersion: text('installed_version').notNull(),
+    dataVersion: integer('data_version').notNull().default(1),
+    settings: jsonb('settings').$type<Json>().notNull().default({}),
+    settingsVersion: integer('settings_version').notNull().default(1),
+    flags: jsonb('flags').$type<Record<string, boolean>>().notNull().default({}),
+    /** One more on every reinstall: work queued for an earlier generation never runs. */
+    generation: integer('generation').notNull().default(1),
+    installedBy: userRef('installed_by'),
+    installedAt: ts('installed_at').notNull().defaultNow(),
+    changedBy: userRef('changed_by'),
+    changedAt: ts('changed_at').notNull().defaultNow(),
+    /** What the worker found when it last checked nothing was left behind (private.addon_verify). */
+    verification: jsonb('verification').$type<Json | null>(),
+    verifiedAt: ts('verified_at'),
+    lastError: text('last_error'),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.addonId] })],
+);
+
+/** One person's own settings for one add-on in one business. */
+export const addonUserSettings = app.table(
+  'addon_user_settings',
+  {
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addonId: text('addon_id').notNull(),
+    settings: jsonb('settings').$type<Json>().notNull().default({}),
+    settingsVersion: integer('settings_version').notNull().default(1),
+    ...timestamps(),
+  },
+  (t) => [primaryKey({ columns: [t.workspaceId, t.userId, t.addonId] })],
+);
+
+/** Something an add-on made at a provider, released when it is uninstalled. */
+export const addonResources = app.table('addon_resources', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  generation: integer('generation').notNull(),
+  /** `<addon>.<kind>`, as its manifest's `resources` lists it. */
+  kind: text('kind').notNull(),
+  externalId: text('external_id').notNull(),
+  label: text('label'),
+  /** active, released, failed. */
+  status: text('status').notNull().default('active'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  releasedAt: ts('released_at'),
+  ...timestamps(),
+});
+
+/** Usage an add-on counted, once per key, only while it ran. Append-only. */
+export const addonUsageEvents = app.table('addon_usage_events', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  meter: text('meter').notNull(),
+  quantity: numeric('quantity').notNull(),
+  idempotencyKey: text('idempotency_key').notNull(),
+  occurredAt: ts('occurred_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.
  * ======================================================================== */
@@ -4554,6 +4650,16 @@ export type TicketPriority = (typeof ticketPriority.enumValues)[number];
 export type TicketChannel = (typeof ticketChannel.enumValues)[number];
 
 /** The people who answer support. A suspended row keeps their name on old tickets and nothing else. */
+/** HandsFreeOS switching an add-on off (or marking it deprecated) for every business (0108). */
+export const addonOverrides = platform.table('addon_overrides', {
+  addonId: text('addon_id').primaryKey(),
+  /** deprecated or unavailable: only ever downwards. */
+  status: text('status').notNull(),
+  reason: text('reason').notNull(),
+  setBy: uuid('set_by').references(() => users.id, { onDelete: 'set null' }),
+  setAt: ts('set_at').notNull().defaultNow(),
+});
+
 export const staff = platform.table('staff', {
   userId: uuid('user_id')
     .primaryKey()
@@ -5188,6 +5294,10 @@ export const customRecordTypes = app.table('custom_record_types', {
   position: integer('position').notNull().default(0),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
+  /** The add-on that manages this kind (0108): only it makes the kind or decides whether it shows. */
+  addonId: text('addon_id'),
+  /** The permission its records are written with: the add-on's own. Set exactly when addonId is. */
+  writePermission: text('write_permission'),
   ...timestamps(),
 });
 
@@ -5210,6 +5320,8 @@ export const customRecords = app.table('custom_records', {
   searchText: text('search_text').generatedAlwaysAs(
     sql`lower(name || ' ' || coalesce(jsonb_path_query_array(custom, 'strict $.*')::text, ''))`,
   ),
+  /** Its add-on's data was permanently deleted (0108): only the name is left, so what pointed at it reads. */
+  purgedAt: ts('purged_at'),
 });
 
 /** Which two kinds of record relate, what each end is called from the other, and how many on each end. */
@@ -5228,6 +5340,9 @@ export const relationshipTypes = app.table('relationship_types', {
   position: integer('position').notNull().default(0),
   archivedAt: ts('archived_at'),
   createdBy: userRef('created_by'),
+  /** The add-on that manages this type (0108), and its key in the add-on's manifest. */
+  addonId: text('addon_id'),
+  addonKey: text('addon_key'),
   ...timestamps(),
 });
 
@@ -6080,4 +6195,9 @@ export const tables = {
   optOuts,
   webhookDeliveries,
   scheduledJobs,
+  addonInstallations,
+  addonUserSettings,
+  addonResources,
+  addonUsageEvents,
+  addonOverrides,
 } as const;

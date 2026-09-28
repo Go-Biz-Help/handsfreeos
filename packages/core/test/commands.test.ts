@@ -606,6 +606,14 @@ describe('registry', () => {
       'rcs_sender.refresh',
       'rcs_sender.disconnect',
       'rcs_sender.record_state',
+      // Add-ons (0108).
+      'addon.install',
+      'addon.enable',
+      'addon.disable',
+      'addon.uninstall',
+      'addon.purge',
+      'addon.save_settings',
+      'addon.save_my_settings',
     ]);
     expect(registry.queries.map((q) => q.name)).toEqual([
       'migration.list',
@@ -766,6 +774,9 @@ describe('registry', () => {
       'whats_new.unseen',
       'idea.triage',
       'idea.team_view',
+      'addon.list',
+      'addon.impact',
+      'addon.settings',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });
