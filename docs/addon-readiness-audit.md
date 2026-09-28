@@ -376,7 +376,22 @@ Web: `app/global-error.tsx`, `app/app/w/[workspaceId]/{error,not-found}.tsx`, `l
 | Workflows using a step from an add-on that's turned off              | **Hold and tell the owner.** Customers wait at that step and carry on when it's back on; uninstalling pauses those workflows.              |
 | Whether people can look at a turned-off add-on's records             | **Hidden until it's back on.** Owners can still download a copy.                                                                           |
 
-Billing questions (who pays, per-seat counting, wallet or card, access after a mid-period cancel) can wait
+A second round, the same day, once the foundation was built:
+
+| Question                                                              | Decision                                                                                                                                                |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What to build next                                                    | **The Add-ons page**, on the web and in the phone app, in its own pull request.                                                                         |
+| The first real add-on                                                 | **A Real Estate Agent add-on:** MLS and property data, showings, lockbox details, comparative reports, listing activity and buyer and seller workflows. |
+| Add-ons that are planned but not ready                                | **Shown to owners and admins as Coming soon**, clearly marked, with no install button.                                                                  |
+| Add-ons in beta                                                       | **Only HandsFreeOS support turns one on** for a business.                                                                                               |
+| Support looking at a business                                         | **Sees its add-ons' pages, read-only**, as it sees core's.                                                                                              |
+| A kind of record the business renamed, when its add-on is reinstalled | **Keeps the business's name.**                                                                                                                          |
+| How paid add-ons are charged                                          | **Per add-on:** a monthly price, usage from the wallet, or both.                                                                                        |
+| The customer-facing AI teammate and add-ons                           | **Look-ups, and actions that wait for a person's OK.**                                                                                                  |
+| Who may give an add-on the business's own account for another service | **Owners and admins.** Never readable once saved.                                                                                                       |
+| HandsFreeOS suggesting an add-on unasked                              | **Occasionally, on Home:** a small card for owners and admins, easy to dismiss.                                                                         |
+
+The rest of billing (per-seat counting, wallet or card, access after a cancel part-way through a month) can wait
 until the first paid add-on: the foundation keeps prices out of add-ons and records usage either way.
 
 ## Build order

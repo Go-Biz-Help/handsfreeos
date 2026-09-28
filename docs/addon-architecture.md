@@ -75,13 +75,13 @@ A person moves an add-on with `addon.install`, `addon.enable`, `addon.disable`, 
 (`private.addon_move`), and recorded as an event. The worker's `addon.reconcile` job, queued by that event, does
 the slow part and proves it:
 
-| State          | What the worker does                                                                                                                                          |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `installing`   | waits for what it requires; makes (or finds again) its kinds and types; brings data and settings up a version at a time; `onInstall`; turns it on; `onEnable` |
-| `enabled`      | shows its records; `onEnable`                                                                                                                                 |
-| `disabled`     | cancels its queued jobs and provider messages; hides its records; `onDisable`                                                                                 |
-| `uninstalling` | the same, then lets go of everything in `app.addon_resources`; `onUninstall`; marks it uninstalled                                                            |
-| `purging`      | deletes its data in batches (`private.purge_addon_batch`); marks it purged                                                                                    |
+| State          | What the worker does                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `installing`   | waits for what it requires; makes (or finds again, keeping any name the business gave them) its kinds and types; brings data and settings up a version at a time; `onInstall`; turns it on; `onEnable` |
+| `enabled`      | shows its records; `onEnable`                                                                                                                                                                          |
+| `disabled`     | cancels its queued jobs and provider messages; hides its records; `onDisable`                                                                                                                          |
+| `uninstalling` | the same, then lets go of everything in `app.addon_resources`; `onUninstall`; marks it uninstalled                                                                                                     |
+| `purging`      | deletes its data in batches (`private.purge_addon_batch`); marks it purged                                                                                                                             |
 
 Every move ends with `private.addon_verify`: no permission held while off, no job or delivery waiting, its kinds
 hidden, nothing held at a provider after uninstalling, and after a purge no rows left, records reduced to their
@@ -148,7 +148,8 @@ when asked what's coming, and never as something to install.
 **The web hides what isn't on.** The menu shows an add-on's places only while it runs and the person may open them,
 keeping where the person put them while it's off. Every add-on page opens through `addonPage` (the gate), and a
 panel on a core page (`<AddonSlot>`) is loaded only while its add-on runs, inside its own error boundary. Only the
-web's registry imports an add-on's folder; a lint rule holds the rest of the web to it.
+web's registry imports an add-on's folder; a lint rule holds the rest of the web to it. HandsFreeOS support looking
+at a business sees its add-ons' pages as it sees core's: read-only (the owner's decision).
 
 ## Making an add-on
 
@@ -166,15 +167,27 @@ the manifest too), panels in the web registry, its own tables with `private.addo
 
 ## Not yet
 
+What's decided but not built, with the owner's decisions (2026-09-28) that shape each:
+
+- **The Add-ons page, next.** On the web and in the phone app: what the business has, what could be added, and
+  what's planned (shown to owners and admins as Coming soon, with no install button), with every move, its
+  questions and its impact, and each add-on's settings. A beta add-on is turned on only by HandsFreeOS support. The
+  API behind it is here (`addon.list`, `addon.impact`, `addon.settings` and the lifecycle commands).
+- **Suggesting an add-on on Home.** Occasionally, a small card for owners and admins when an available add-on fits
+  what the business does, easy to dismiss. Today suggestions come only from the Assistant, when asked.
+- **Downloading a turned-off add-on's records.** Its records are hidden until it's back on, and owners may still
+  take a copy; the download isn't built.
 - **Add-on workflow steps and triggers.** Workflows can't use an add-on's steps yet. When they can, a workflow
   holding a turned-off add-on's step is held and the owner told, and resumes when it's back (the owner's decision);
   uninstalling pauses those workflows. Today one whose saved steps can't be read is passed over without stopping
   the event (WF-3).
 - **Billing.** Usage is counted (`app.addon_usage_events`, refused while off) but nothing is priced; a `paid` add-on
-  can only be handed out by staff.
+  can only be handed out by staff. Each paid add-on will have a monthly price, usage from the wallet, or both.
+- **An add-on's own credentials.** A business can't yet give an add-on its account for another service (the MLS
+  login a real estate add-on needs). Owners and admins will; once saved, nobody can read one back.
 - **Add-on webhook routes.** The delivery guard is in place, but `app.webhook_deliveries.provider` is a closed list
   and the worker's HTTP server has no route for an add-on's provider.
-- **Secrets.** A business can't yet give an add-on its own credentials.
-- **The screens.** The Add-ons page, an add-on's settings page, the recommendation card and the Action Center's
-  add-on sources come with the first add-on. The API behind them is here.
-- **The AI teammate** doesn't use add-on tools yet, and a multi-step plan isn't confirmed as a whole.
+- **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
+  actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
+- **The first real add-on:** a Real Estate Agent add-on (MLS and property data, showings, lockbox details,
+  comparative reports, listing activity, buyer and seller workflows), after the Add-ons page.
