@@ -37,6 +37,7 @@ export * from './attention/hints';
 // Add-ons, server side: defining their operations and composing them with core's (docs/addon-architecture.md).
 export * from './addons/server';
 export * from './addons/modules';
+export * from './addons/ai';
 import { ADDON_SERVER_MODULES } from './addons/modules';
 import { composeOperations } from './addons/server';
 import { commands } from './commands/index';

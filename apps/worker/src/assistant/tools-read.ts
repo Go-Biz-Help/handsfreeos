@@ -46,6 +46,11 @@ export const when = (iso: string | null, timezone: string): string =>
 /** Anything a customer wrote, marked so the model reads it as their words and nothing more. */
 export const quoted = (text: string | null | undefined) => (text ? { customer_wrote: text } : null);
 
+/**
+ * Runs a query as the person, in the business the question was asked in. The business id goes on last, so an
+ * input carrying another `workspaceId` (one a model wrote) can never point the query at another business the person
+ * also works in (audit AI-3).
+ */
 export const query = <T>(
   db: Db,
   ctx: ToolContext,
@@ -55,14 +60,15 @@ export const query = <T>(
   personQuery<T>(
     db,
     name,
-    { workspaceId: ctx.workspaceId, ...input },
+    { ...input, workspaceId: ctx.workspaceId },
     ctx.actor,
     ctx.correlationId,
   );
 
 /**
  * Runs a command as the person, through the same kernel as a click, marked as done through the Assistant. A
- * `reason` the person gave (why these customers get this tag) is kept on the audit row.
+ * `reason` the person gave (why these customers get this tag) is kept on the audit row. Like `query`, the business
+ * id always wins over one in the input.
  */
 export async function command<T>(
   db: Db,
@@ -76,7 +82,7 @@ export async function command<T>(
   const done = await executeCommand(
     db,
     def,
-    { workspaceId: ctx.workspaceId, ...input },
+    { ...input, workspaceId: ctx.workspaceId },
     ctx.actor,
     {
       correlationId: ctx.correlationId,

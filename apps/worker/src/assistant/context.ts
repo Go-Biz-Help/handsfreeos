@@ -1,4 +1,8 @@
 import {
+  ADDON_CATALOG,
+  ADDON_SERVER_MODULES,
+  addonAiTools,
+  addonDirectory,
   assistantTools,
   ATTENTION_KIND_LABELS,
   briefFromProfile,
@@ -8,8 +12,10 @@ import {
   quoteData,
   registry,
   ROLE_LABELS,
+  type AddonServerModule,
   type AssistantTool,
   type AttentionKind,
+  type Catalog,
   type HumanActor,
   type Permission,
 } from '@hfos/core/server';
@@ -19,6 +25,7 @@ import type { TenantScope } from '../services';
 import { approvalPreview, approvalWhat } from './approval-words';
 import { atLabel, joinAnd, rangeLabel } from './calendar-format';
 import type { PromptContext } from './prompt';
+import type { OfferedTool } from './runtime';
 
 export interface PageRecord {
   readonly type:
@@ -28,8 +35,11 @@ export interface PageRecord {
 
 export interface QuestionContext {
   readonly prompt: PromptContext;
-  /** The tools this person's role allows (the commands check again when they run). */
-  readonly tools: readonly AssistantTool[];
+  /**
+   * The tools this person's permissions allow: core's, then those of the add-ons running here (the commands and the
+   * kernel's add-on check run again when they're used).
+   */
+  readonly tools: readonly OfferedTool[];
   readonly organizationId: string;
   readonly timezone: string;
 }
@@ -37,6 +47,15 @@ export interface QuestionContext {
 /** The tools a person is offered: only the ones their permissions allow, so the model never sees the rest. */
 export const toolsFor = (can: (permission: Permission) => boolean): AssistantTool[] =>
   assistantTools.filter((t) => can(t.permission));
+
+/**
+ * The add-ons the Assistant knows: their operations (whose `ai` makes them tools) and the catalogue (the directory
+ * line, find_capabilities). Every one HandsFreeOS ships, unless a test hands it its own.
+ */
+export interface AssistantAddons {
+  readonly modules?: readonly AddonServerModule[] | undefined;
+  readonly catalog?: Catalog | undefined;
+}
 
 /** Runs one of the person's own queries, exactly as the web app would. */
 export async function personQuery<T>(
@@ -62,6 +81,8 @@ interface WorkspaceGet {
     role: 'owner' | 'admin' | 'member';
     /** What the business lets them do (0106): what the tools follow. */
     permissions: string[];
+    /** The add-ons running here (0108): their tools are offered, and the model is told what they cover. */
+    addons: string[];
   };
 }
 interface PipelineList {
@@ -281,9 +302,11 @@ export async function questionContext(
   page: PageRecord | null,
   correlationId: string,
   now: Date = new Date(),
+  addons: AssistantAddons = {},
 ): Promise<QuestionContext> {
+  // The business id goes on last, so no input can point a look-up at another business (audit AI-3).
   const ask: Ask = (name, input = {}) =>
-    personQuery(db, name, { workspaceId, ...input }, actor, correlationId);
+    personQuery(db, name, { ...input, workspaceId }, actor, correlationId);
   const [{ workspace }, { pipelines }, team, services] = await Promise.all([
     ask<WorkspaceGet>('workspace.get'),
     ask<PipelineList>('pipeline.list'),
@@ -325,7 +348,14 @@ export async function questionContext(
   return {
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
-    tools: toolsFor((p) => holds(workspace, p)),
+    tools: [
+      ...toolsFor((p) => holds(workspace, p)),
+      // Only add-ons running here, only what the person may do in them; always last, in the modules' order.
+      ...addonAiTools(addons.modules ?? ADDON_SERVER_MODULES, {
+        active: workspace.addons,
+        permissions: workspace.permissions,
+      }),
+    ],
     prompt: {
       businessName: workspace.name,
       personName: me?.fullName || actor.email,
@@ -359,6 +389,7 @@ export async function questionContext(
         })),
       knowledge,
       attention: attentionFor(attention),
+      addons: addonDirectory(addons.catalog ?? ADDON_CATALOG, workspace.addons),
     },
   };
 }

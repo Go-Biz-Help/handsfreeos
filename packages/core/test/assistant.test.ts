@@ -93,7 +93,8 @@ describe('Assistant tools', () => {
     const names = assistantTools.map((t) => t.name);
     expect(new Set(names).size).toBe(names.length);
     for (const tool of assistantTools) {
-      expect(tool.name).toMatch(/^[a-z][a-z_]{0,63}$/);
+      // app.assistant_tool_calls' check (20261013000500): letters, digits and underscores, as add-on tools use.
+      expect(tool.name).toMatch(/^[a-z][a-z0-9_]{0,63}$/);
       const schema = toolInputSchema(tool);
       expect(schema).toMatchObject({ type: 'object' });
       expect(schema).not.toHaveProperty('$schema');
