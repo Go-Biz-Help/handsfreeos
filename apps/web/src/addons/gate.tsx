@@ -45,6 +45,7 @@ export async function addonPage(
     <AddonUnavailable
       workspaceId={workspaceId}
       name={addon.name}
+      addonId={addon.id}
       canManage={current.permissions.includes('addons.manage')}
     />
   );

@@ -315,3 +315,12 @@ export type WhatsNewEntry = WhatsNewList['entries'][number];
 export type IdeaTriage = Ok<'/v1/queries/idea.triage'>;
 export type IdeaTriageRow = IdeaTriage['ideas'][number];
 export type IdeaTeamView = Ok<'/v1/queries/idea.team_view'>;
+
+// Add-ons (0108): what a business has and could add, what a move would change, and an add-on's settings.
+export type AddonList = Ok<'/v1/queries/addon.list'>;
+export type InstalledAddon = AddonList['installed'][number];
+export type CatalogAddon = AddonList['catalog'][number];
+export type AddonImpact = Ok<'/v1/queries/addon.impact'>;
+export type AddonSettingsOut = Ok<'/v1/queries/addon.settings'>;
+export type AddonSuggestion = NonNullable<Ok<'/v1/queries/addon.suggestion'>['suggestion']>;
+export type AddonMoved = Ok<'/v1/commands/addon.install'>['moved'][number];
