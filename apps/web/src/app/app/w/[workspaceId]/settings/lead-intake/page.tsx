@@ -2,7 +2,6 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { LeadIntakeSettings } from '@/components/settings/lead-intake-page';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
@@ -28,10 +27,10 @@ export default async function LeadIntakeSettingsPage({
   return (
     <>
       <PageHeader
+        section
         title="Lead intake"
         description="Leads that arrive on their own, without anybody typing them in."
       />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <LeadIntakeSettings
         workspaceId={workspaceId}
         sources={intake.sources}

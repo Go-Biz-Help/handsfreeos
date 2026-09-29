@@ -55,6 +55,12 @@ const assistantLines = keep([
   'AI_MODEL',
   'ASSISTANT_TOOL_SEARCH',
   'ASSISTANT_DAILY_TOKENS',
+  // The backup AI (OpenAI), the same way.
+  'OPENAI_API_KEY',
+  'OPENAI_MODEL',
+  'OPENAI_ASSISTANT_MODEL',
+  'OPENAI_VOICE_MODEL',
+  'AI_ALERT_EMAILS',
 ]);
 // A Deepgram key someone pasted in stays too, the same way: without it the worker falls back to the fake
 // transcriber, and a rerun would quietly stop a local voicemail ever having words.
@@ -135,6 +141,8 @@ write('apps/web/.env.local', [
   `NEXT_PUBLIC_SUPABASE_URL=${vals.API_URL}`,
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${vals.PUBLISHABLE_KEY}`,
   'NEXT_PUBLIC_PASSKEYS_ENABLED=true',
+  // The agency switch on Set up your business, which production hides. The browser tests sign agencies up with it.
+  'NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED=true',
   // The matching always-pass test site key (public). The worker names it too; this is the pages' fallback.
   'NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA',
 ]);

@@ -8,8 +8,8 @@
 # POSTMARK_ACCOUNT_TOKEN and POSTMARK_WEBHOOK_PASSWORD (24+ characters). SUPABASE_SECRET_KEY (files),
 # TWILIO_PRIMARY_PROFILE_SID (local numbers), the Microsoft and Google OAuth client values (mailboxes; Outlook
 # calendars reuse the Microsoft ones), GOOGLE_CALENDAR_OAUTH_CLIENT_ID and GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
-# (Google Calendar, its own Google Cloud project), ANTHROPIC_API_KEY (the Assistant) and EXPO_ACCESS_TOKEN (push
-# notifications to phones) turn features on.
+# (Google Calendar, its own Google Cloud project), ANTHROPIC_API_KEY (the Assistant), OPENAI_API_KEY (the backup
+# AI when Claude is down) and EXPO_ACCESS_TOKEN (push notifications to phones) turn features on.
 # CALENDAR_REFRESH_MS (default 600000) sets how often connected calendars' busy times are read.
 # TURNSTILE_SECRET_KEY turns on Cloudflare Turnstile for the public booking page (its site key goes on Vercel as
 # NEXT_PUBLIC_TURNSTILE_SITE_KEY). The worker refuses to start without it unless ALLOW_NO_BOT_CHECK=1, when
@@ -36,6 +36,9 @@ kill_timeout = "30s"
   WEB_ORIGINS = "https://app.handsfreeos.com"
   SUPABASE_URL = "https://ybupfghakoszfcxhyrby.supabase.co"
   MAIL_FROM = "HandsFreeOS <alerts@handsfreeos.com>"
+  # Who is emailed each time the AI switches to OpenAI and back (comma-separated). See docs/operations.md,
+  # "The backup AI: OpenAI".
+  AI_ALERT_EMAILS = "chris@gobizhelp.com"
   TELEPHONY_PROVIDER = "twilio"
   # How far the usage wallet has got (M16): `off` records nothing, `shadow` prices and records every text,
   # call and AI request and never warns or stops anything, `on` warns and enforces for the businesses whose

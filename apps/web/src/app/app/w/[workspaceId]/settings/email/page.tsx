@@ -2,8 +2,6 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { EmailPage } from '@/components/settings/email-page';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Email' };
@@ -34,8 +32,6 @@ export default async function EmailSettingsPage({
   ]);
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <EmailPage
         workspaceId={workspaceId}
         workspaceName={got.workspace.name}

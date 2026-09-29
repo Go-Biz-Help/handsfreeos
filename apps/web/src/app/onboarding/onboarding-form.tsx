@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { publicEnv } from '@/lib/env';
 import { cn } from '@/lib/utils';
 
 export const TIMEZONES = [
@@ -98,47 +99,51 @@ export function OnboardingForm() {
           ))}
         </Select>
       </Field>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={agency}
-        onClick={() => setAgency((v) => !v)}
-        className="flex w-full items-start gap-3 rounded-menu border border-border bg-card-2 p-3.5 text-left"
-      >
-        <span
-          className={cn(
-            'relative mt-0.5 h-5 w-9 flex-none rounded-full transition-colors',
-            agency ? 'bg-accent' : 'bg-border-strong',
-          )}
-        >
-          <span
-            className={cn(
-              'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left]',
-              agency ? 'left-[18px]' : 'left-0.5',
-            )}
-          />
-        </span>
-        <span className="flex flex-col gap-0.5">
-          <span className="font-medium">I run an agency that manages several businesses</span>
-          <span className="text-[13px] text-text-3">
-            Each client becomes its own workspace under one organization you control.
-          </span>
-        </span>
-      </button>
-      {agency ? (
-        <Field
-          label="Agency name"
-          htmlFor="agency"
-          hint={`Shown in the workspace switcher as the organization that owns ${name.trim() || 'your business'}.`}
-        >
-          <Input
-            id="agency"
-            inputSize="lg"
-            placeholder="Go Biz Help"
-            value={agencyName}
-            onChange={(e) => setAgencyName(e.target.value)}
-          />
-        </Field>
+      {publicEnv.agencySignupEnabled ? (
+        <>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={agency}
+            onClick={() => setAgency((v) => !v)}
+            className="flex w-full items-start gap-3 rounded-menu border border-border bg-card-2 p-3.5 text-left"
+          >
+            <span
+              className={cn(
+                'relative mt-0.5 h-5 w-9 flex-none rounded-full transition-colors',
+                agency ? 'bg-accent' : 'bg-border-strong',
+              )}
+            >
+              <span
+                className={cn(
+                  'absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-[left]',
+                  agency ? 'left-[18px]' : 'left-0.5',
+                )}
+              />
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium">I run an agency that manages several businesses</span>
+              <span className="text-[13px] text-text-3">
+                Each client becomes its own workspace under one organization you control.
+              </span>
+            </span>
+          </button>
+          {agency ? (
+            <Field
+              label="Agency name"
+              htmlFor="agency"
+              hint={`Shown in the workspace switcher as the organization that owns ${name.trim() || 'your business'}.`}
+            >
+              <Input
+                id="agency"
+                inputSize="lg"
+                placeholder="Go Biz Help"
+                value={agencyName}
+                onChange={(e) => setAgencyName(e.target.value)}
+              />
+            </Field>
+          ) : null}
+        </>
       ) : null}
       <Button type="submit" size="lg" className="mt-1 w-full" loading={busy}>
         Create business

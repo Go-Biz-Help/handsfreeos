@@ -9,12 +9,13 @@ import { company, urls } from '@/content/site';
  * Three parts of this page exist because somebody checks them:
  *   - "Google user data" (#google) carries the Limited Use wording Google's OAuth review reads.
  *   - "Texting" (#messaging) carries the opt-in wording the carriers and Twilio's A2P review read.
- *   - "What happens to AI" names Anthropic, because Apple guideline 5.1.2(i) asks us to.
+ *   - "What happens to AI" names Anthropic, and OpenAI as its backup, because Apple guideline 5.1.2(i)
+ *     asks us to.
  * Do not trim those sections without checking the reviewer's requirement first.
 
  */
 
-const LAST_UPDATED = 'September 26, 2026';
+const LAST_UPDATED = 'September 29, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy',
@@ -231,12 +232,13 @@ export default function PrivacyPage() {
           The Assistant and the AI teammate are built on Claude, made by Anthropic. When they answer
           a question or draft a reply, the part of your business data needed for that answer — the
           conversation, the customer, your services and hours, the relevant notes — is sent to
-          Anthropic to produce it.
+          Anthropic to produce it. If Claude is unavailable, the same request goes to OpenAI, the
+          maker of ChatGPT, instead.
         </p>
         <ul>
           <li>
-            It is used to produce your answer and then it is done. Under our agreement with
-            Anthropic, your data is not used to train their models.
+            It is used to produce your answer and then it is done. Under our agreements with
+            Anthropic and OpenAI, your data is not used to train their models.
           </li>
           <li>
             In the phone app you are asked to agree before anything about a customer is sent to the
@@ -288,6 +290,10 @@ export default function PrivacyPage() {
             <tr>
               <td>Anthropic</td>
               <td>The AI that answers questions and drafts replies</td>
+            </tr>
+            <tr>
+              <td>OpenAI</td>
+              <td>The backup AI, used only when Anthropic&rsquo;s is unavailable</td>
             </tr>
             <tr>
               <td>Stripe and Square</td>

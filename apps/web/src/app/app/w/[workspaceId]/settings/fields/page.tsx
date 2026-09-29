@@ -3,8 +3,6 @@ import { lowerLabel } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { FieldsSettings, type FieldTarget } from '@/components/settings/fields-settings';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Fields' };
@@ -64,8 +62,6 @@ export default async function FieldsSettingsPage({
   );
   return (
     <>
-      <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <FieldsSettings workspaceId={workspaceId} targets={targets} target={target} fields={fields} />
     </>
   );

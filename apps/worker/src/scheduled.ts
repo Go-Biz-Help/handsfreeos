@@ -17,6 +17,7 @@ import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
 import { workspaceJobs } from './workspace/delete';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
+import { AI_PROVIDER_CHECK_JOB, AI_PROVIDER_CHECK_KEY, aiProviderCheck } from './ai/switch';
 import { teammateJobs } from './ai-team/index';
 import { alertUrgent, waitOf } from './attention/alerts';
 import { ATTENTION_JOBS, ATTENTION_PLAN_KEY, attentionJobs } from './attention/index';
@@ -342,6 +343,8 @@ export const checkEmailDomainJob: JobHandler = async (ctx) => {
 };
 
 export const jobs: JobMap = {
+  // Which AI answers: Claude's status page read every 5 minutes, and OpenAI while Claude is in trouble.
+  [AI_PROVIDER_CHECK_JOB]: aiProviderCheck,
   // The AI's suggested answer to a support ticket, written in the background so nothing waits on it (M13).
   ...SUPPORT_JOBS,
   'conversation.unanswered_check': unansweredCheck,
@@ -437,6 +440,16 @@ export const jobs: JobMap = {
 export async function ensureRecurringJobs(services: WorkerServices): Promise<void> {
   const runAt = new Date(Date.now() + 60 * 60_000);
   await asWorker(services.db, {}, async (tx) => {
+    // Claude's status page, every 5 minutes, from a minute after the start: only with a backup to move to.
+    if (services.aiSwitch)
+      await scheduleJob(tx, {
+        kind: AI_PROVIDER_CHECK_JOB,
+        dedupeKey: AI_PROVIDER_CHECK_KEY,
+        runAt: new Date(Date.now() + 60_000),
+        payload: {},
+        workspaceId: null,
+        organizationId: null,
+      });
     await scheduleJob(tx, {
       kind: 'webhook_deliveries.sweep',
       dedupeKey: 'sweep:webhook_deliveries',

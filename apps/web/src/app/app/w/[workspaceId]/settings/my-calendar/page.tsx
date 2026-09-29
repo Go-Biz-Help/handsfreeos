@@ -2,8 +2,6 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MyCalendar } from '@/components/settings/my-calendar';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'My calendar' };
@@ -56,8 +54,6 @@ export default async function MyCalendarPage({
   if (!person) notFound();
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <MyCalendar
         workspaceId={workspaceId}
         person={person}

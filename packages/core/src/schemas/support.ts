@@ -395,6 +395,44 @@ export const PhoneModelSetOutput = z.object({
   changed: z.boolean(),
 });
 
+// ---------- which AI answers ----------
+
+/** auto follows the worker's checks; claude and openai keep it there whatever the checks say. */
+export const AiProviderModeValue = z.enum(['auto', 'claude', 'openai']);
+export type AiProviderModeValue = z.infer<typeof AiProviderModeValue>;
+export const AiProviderValue = z.enum(['claude', 'openai']);
+/** Why the checks moved it to OpenAI: Claude's status page said so, or Claude's answers kept failing. */
+export const AiProviderReasonValue = z.enum(['status', 'errors']);
+
+export const AiProviderGetInput = z.object({});
+export const AiProviderGetOutput = z.object({
+  mode: AiProviderModeValue,
+  /** Who the worker's checks chose, which is who answers while the mode is auto. */
+  active: AiProviderValue,
+  /** Who is answering right now: the one support picked, or `active` on auto. */
+  answering: AiProviderValue,
+  /** Null while on Claude. */
+  reason: AiProviderReasonValue.nullable(),
+  /** What Claude's status page last said about the Claude API (operational, degraded_performance, …). */
+  claudeStatus: z.string().nullable(),
+  /** Checks in a row that found Claude well, while on OpenAI: two bring it back. */
+  goodChecks: z.int(),
+  checkedAt: isoDateTime.nullable(),
+  switchedAt: isoDateTime.nullable(),
+  modeSetAt: isoDateTime.nullable(),
+  /** The person who last pressed the switch, by the name support knows them by. */
+  modeSetBy: z.string().nullable(),
+});
+
+export const AiProviderSetModeInput = z.object({ mode: AiProviderModeValue });
+
+export const AiProviderSetModeOutput = z.object({
+  was: AiProviderModeValue,
+  mode: AiProviderModeValue,
+  /** False when it was already that, so a double-click is visibly a no-op. */
+  changed: z.boolean(),
+});
+
 // ---------- is anything broken ----------
 
 export const HealthSummaryInput = z.object({

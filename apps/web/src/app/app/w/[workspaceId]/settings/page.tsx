@@ -9,8 +9,6 @@ import { NotificationsSection } from '@/components/settings/notifications-sectio
 import { PasskeysSection } from '@/components/settings/passkeys-section';
 import { PasswordSection } from '@/components/settings/password-section';
 import { ProfileForm } from '@/components/settings/profile-form';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { Card } from '@/components/ui/card';
 import { apiServer, getMe, unwrap } from '@/lib/api/server';
 import { parseTheme } from '@/lib/theme';
@@ -60,8 +58,6 @@ export default async function SettingsPage({
   const number = phone?.number && phone.number.status === 'active' ? phone.number.e164 : null;
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={current?.permissions ?? []} />
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
           <div className="flex flex-col gap-5">

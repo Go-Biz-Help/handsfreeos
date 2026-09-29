@@ -1,9 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { UsagePage } from '@/components/settings/usage-page';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Usage & balance' };
@@ -33,8 +31,6 @@ export default async function UsageSettingsPage({
   ]);
   return (
     <>
-      <PageHeader title="Settings" />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <UsagePage workspaceId={workspaceId} wallet={wallet} prices={prices} statement={statement} />
     </>
   );

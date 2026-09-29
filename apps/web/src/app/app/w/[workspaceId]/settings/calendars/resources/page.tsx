@@ -3,8 +3,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ResourcesPage } from '@/components/calendars/resources-page';
 import { CalendarsSubnav } from '@/components/calendars/subnav';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Resources' };
@@ -23,8 +21,6 @@ export default async function ResourcesSettingsPage({
   );
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <CalendarsSubnav workspaceId={workspaceId} />
       <ResourcesPage workspaceId={workspaceId} resources={resources.items} />
     </>
