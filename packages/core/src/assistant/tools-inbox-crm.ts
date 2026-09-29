@@ -137,7 +137,7 @@ export const inboxCrmTools: readonly AssistantTool[] = [
   define({
     name: 'manage_company',
     description:
-      'Add a company to Customers, or change a company’s details (companyId from search_customers): name, main phone and email, website, address (only the parts that change; null clears a part), notes and source. Pass only what changes; null takes a detail off. A person joins a company with update_customer (companyId), tags go on with tag_customers, who looks after it is assign_customer, and archiving is archive_or_restore.',
+      'Add a company to Contacts, or change a company’s details (companyId from search_customers): name, main phone and email, website, address (only the parts that change; null clears a part), notes and source. Pass only what changes; null takes a detail off. A person joins a company with update_customer (companyId), tags go on with tag_customers, who looks after it is assign_customer, and archiving is archive_or_restore.',
     input: z.object({
       action: z.enum(['create', 'change']),
       companyId: uuid.optional().describe('change: the company'),

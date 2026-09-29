@@ -151,8 +151,8 @@ export function RelationshipsSettings({
             </h2>
             <p className="max-w-[640px] text-[13px] text-text-2">
               The things your customers have that you keep track of: pets, vehicles, properties.
-              Each gets a tab under Customers, its own fields, and its own timeline, tasks, files
-              and visits.
+              Each gets a tab under Contacts, its own fields, and its own timeline, tasks, files and
+              visits.
             </p>
           </div>
           <Button onClick={() => setNewKind(true)} data-testid="kind-new">

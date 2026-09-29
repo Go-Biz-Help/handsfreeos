@@ -33,7 +33,7 @@ import { useGrants } from '@/lib/grants';
 import { openWeb } from '@/lib/open-web';
 
 /**
- * More: Customers, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
+ * More: Contacts, Tasks, Money, Approvals, the AI teammate's test console (for those who manage it) and Settings,
  * then Ideas and Get help, which are about HandsFreeOS itself, and Open on the web for the desk work.
  */
 export default function More() {

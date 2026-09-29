@@ -15,7 +15,7 @@ import { useVoice } from '@/voice/use-voice';
 import { firstName, historyOf, newTurn, stepTurn, type Turn } from './test-console';
 import { streamTest, TestConsoleError, type TestFailure } from './test-stream';
 
-/** Who the manager plays: someone in Customers, or nobody (an unknown visitor or caller). */
+/** Who the manager plays: someone in Contacts, or nobody (an unknown visitor or caller). */
 export interface TestPerson {
   readonly id: string;
   readonly name: string;

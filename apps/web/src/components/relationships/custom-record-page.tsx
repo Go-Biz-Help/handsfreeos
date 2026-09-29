@@ -139,7 +139,7 @@ export function CustomRecordPage(props: CustomRecordPageProps) {
     <div className="pb-6" data-testid="record-page-custom_record">
       <div className="mb-3.5 flex items-center gap-1.5 text-[13px]">
         <Link href={base} className="text-accent-text hover:underline">
-          Customers
+          Contacts
         </Link>
         <span className="text-text-3">/</span>
         <Link href={`${base}?kind=${kind.id}`} className="text-accent-text hover:underline">

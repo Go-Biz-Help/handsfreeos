@@ -101,7 +101,7 @@ export function PersonPicker({
         >
           {results.length === 0 ? (
             <li className="px-2.5 py-2 text-[13px] text-text-3">
-              Nobody matches. Add them from Customers first.
+              Nobody matches. Add them from Contacts first.
             </li>
           ) : null}
           {results.map((p) => (

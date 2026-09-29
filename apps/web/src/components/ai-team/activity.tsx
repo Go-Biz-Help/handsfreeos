@@ -58,7 +58,7 @@ import { LogRow } from './log';
 
 type Filter = 'all' | 'handed_off' | 'drafted';
 
-/** Who the run was for: someone not in Customers is a website chat's visitor, or a customer by text or email. */
+/** Who the run was for: someone not in Contacts is a website chat's visitor, or a customer by text or email. */
 const whoOf = (r: Pick<TeammateRun, 'person' | 'channel'>): string =>
   r.person?.fullName ?? (r.channel === 'chat' ? 'Unknown visitor' : 'Unknown customer');
 

@@ -1599,7 +1599,7 @@ const calendarName = (e: AuditEntry) =>
 
 function emailReceiveSentence(e: AuditEntry): string {
   if (e.entityType === 'email_unmatched')
-    return `held an email from ${s(e.after?.from)}, who isn’t in Customers yet`;
+    return `held an email from ${s(e.after?.from)}, who isn’t in Contacts yet`;
   if (e.entityType === 'conversation')
     return s(e.after?.person)
       ? `matched ${s(e.after?.with)} to ${s(e.after?.person)}`
@@ -1652,7 +1652,7 @@ export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   members: 'Members',
   invitations: 'Invitations',
   workspace: 'Workspace',
-  customers: 'Customers',
+  customers: 'Contacts',
   inbox: 'Texts, calls & email',
   calendar: 'Calendar',
   leads: 'Leads',

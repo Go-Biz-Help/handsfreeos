@@ -61,7 +61,7 @@ import { useColors } from '@/theme';
 
 /**
  * The AI teammate's test console on the phone: everything the web's has (apps/web/src/components/ai-team/
- * test-console.tsx). Write as someone in Customers or an unknown visitor, by text, chat or email, or play a phone
+ * test-console.tsx). Write as someone in Contacts or an unknown visitor, by text, chat or email, or play a phone
  * call either way (they call in, or it calls them to confirm a visit, ring back a missed call, follow up a quote or
  * for a campaign), now or at a pretend time. The reply streams in, and "What Ava did" shows what it looked up, the
  * knowledge it used, the checks it passed, and anything it would have done. Look-ups are real, changes are
@@ -647,7 +647,7 @@ function SetupSheet({
           ) : null}
           {!c.person ? (
             <Text className="mt-1.5 text-xs text-text-3">
-              Pick a customer above: it only calls people in Customers.
+              Pick a customer above: it only calls people in Contacts.
             </Text>
           ) : null}
         </Field>

@@ -58,13 +58,13 @@ export const APP_PLACES: readonly AppPlace[] = [
     what: 'every conversation with customers: texts, calls, email and website chat',
     where: ['Inbox'],
     onScreen: [
-      'New message, at the top (it starts a text to someone already in Customers)',
+      'New message, at the top (it starts a text to someone already in Contacts)',
       'Mine, Unassigned, and All (Everyone when each person sees only their own); Needs a person and the AI teammate’s own box when it is on',
       'Search conversations (names, numbers and words in messages), and Open, Snoozed, Closed or Archived',
     ],
     howTo: [
       'Text a customer who hasn’t written in: Inbox, press New message, pick them in To, then Open conversation',
-      'Email someone new: open their page in Customers and press Email (New message only starts texts)',
+      'Email someone new: open their page in Contacts and press Email (New message only starts texts)',
       'Find an archived conversation: Inbox, then Archived in the status picker',
       'See what the AI teammate handed over: Inbox, Needs a person',
     ],
@@ -111,21 +111,23 @@ export const APP_PLACES: readonly AppPlace[] = [
     path: '/inbox/[conversationId]',
   },
   {
-    label: 'Customers',
-    what: 'people, companies and the business’s own kinds of records',
-    where: ['Customers'],
+    label: 'Contacts',
+    what: 'people, companies and the business’s own kinds of records: leads and clients alike',
+    where: ['Contacts'],
     onScreen: [
       'Tabs: People, Companies, and any kinds of records of your own',
       'Import and Add person (Add company on Companies), at the top',
-      'Search by name, phone, email or street; Any tag; Assigned to anyone; Show archived',
+      'Search by name, phone, email or street; All, Leads or Clients; Any tag; Assigned to anyone; Show archived',
+      'A Client badge beside each client’s name',
     ],
     howTo: [
-      'Add a customer: Customers, press Add person, then Save person (it warns when they may already be there)',
-      'Add a company: Customers → Companies, press Add company',
-      'Import a spreadsheet: Customers, press Import (the same as Settings → Imports)',
-      'Find everyone with a tag: Customers, then Any tag',
-      'Bring back an archived customer: Customers, Show archived, press them, then ⋯ and Restore',
-      'Search from anywhere: Search customers at the top of the side menu',
+      'Add a customer: Contacts, press Add person, then Save person (it warns when they may already be there)',
+      'Add a company: Contacts → Companies, press Add company',
+      'Import a spreadsheet: Contacts, press Import (the same as Settings → Imports)',
+      'See only leads or only clients: Contacts, then Leads or Clients beside the search (a client has a won lead, a job underway or done, a visit they came to, a plan they’re on, or a paid bill; everyone else is a lead)',
+      'Find everyone with a tag: Contacts, then Any tag',
+      'Bring back an archived customer: Contacts, Show archived, press them, then ⋯ and Restore',
+      'Search from anywhere: Search contacts at the top of the side menu',
     ],
     notHere: [
       'deleting a customer for good (archive them)',
@@ -143,7 +145,7 @@ export const APP_PLACES: readonly AppPlace[] = [
   {
     label: 'A customer’s page',
     what: 'one person: everything the business has done with them (a company’s page is the same, without calling, texting, booking or money)',
-    where: ['Customers'],
+    where: ['Contacts'],
     then: 'press the person',
     onScreen: [
       'At the top: their tags (Add tag, or + to change them), and ⋯ with Edit details, Merge… and Archive',
@@ -190,7 +192,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Pressing a lead opens it at the side; Open full page opens its own page',
     ],
     howTo: [
-      'Add a lead: Pipeline, press New lead, pick the customer (they need to be in Customers first), then Create lead',
+      'Add a lead: Pipeline, press New lead, pick the customer (they need to be in Contacts first), then Create lead',
       'Move a lead: drag it on the board, change Stage in the list, or press a stage on the lead',
       'Switch pipeline: the picker at the top of Pipeline',
     ],
@@ -240,7 +242,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Book repeat visits: in New appointment, pick Every week, Every 2 weeks or Every month under Repeats and how many visits, then Book; Repeats shows when the calendar’s Repeats section has Staff can repeat visits on, and dates that don’t fit are listed, not booked',
     ],
     notHere: [
-      'adding a new customer from the booking box (add them in Customers first)',
+      'adding a new customer from the booking box (add them in Contacts first)',
       'blocking time from the calendar itself (time off is Settings → My calendar, Add time off)',
     ],
     canChange: ['list appointments over any dates, done, missed or cancelled included'],
@@ -590,7 +592,7 @@ export const APP_PLACES: readonly AppPlace[] = [
 
 /** What is on every page, around the page itself. */
 export const EVERY_PAGE: readonly string[] = [
-  'Top of the side menu: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search customers (it searches customers only), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
+  'Top of the side menu: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search contacts (it searches contacts only), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
   'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers), and Sign out',
   'Each person can reorder, group or hide places in their side menu (Settings → Account, under Side menu); a place may be inside a group called More; Home and Settings never hide',
   'A place their role doesn’t allow isn’t in their side menu at all: Inbox, Money and Audit log need their own permission',
@@ -608,7 +610,7 @@ export const NOT_ANYWHERE: readonly string[] = [
 /** The phone app, which does less than the web. */
 export const PHONE_APP: readonly string[] = [
   'The bar along the bottom: Home, Inbox, Pipeline, Calendar and More',
-  'More: Customers, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web',
+  'More: Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web',
   'Its Settings: My cell phone, unlocking with Face ID or a fingerprint, Businesses on this phone, Usage & balance, Notifications, Appearance, Sign out, Delete my account',
   'Only on the web: workflows, the AI teammate’s settings, Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
 ];

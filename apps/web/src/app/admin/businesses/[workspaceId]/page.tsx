@@ -51,7 +51,7 @@ export default async function BusinessPage({
 
       <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
-          { label: 'Customers', value: detail.counts.people },
+          { label: 'Contacts', value: detail.counts.people },
           { label: 'Leads', value: detail.counts.leads },
           { label: 'Conversations', value: detail.counts.conversations },
           { label: 'Appointments', value: detail.counts.appointments },

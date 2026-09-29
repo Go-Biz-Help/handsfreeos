@@ -22,7 +22,7 @@ records — without anyone writing code. Each connection shows on both records' 
 
 - **A kind of record** (`app.custom_record_types`): what one is called and more than one ("Pet", "Pets"),
   what its name is called ("Pet's name", "Address"), and a picture. Each kind gets a tab under
-  **Customers**. Owners and admins make them (`fields.manage`).
+  **Contacts**. Owners and admins make them (`fields.manage`).
 - **A record** (`app.custom_records`): a name, notes, and its own fields. It has the same timeline,
   notes, tasks, appointments and files as a customer: `activities`, `tasks` and `appointments` each gained
   a `custom_record_id`, and files hang off it like any other record. Its page also shows the

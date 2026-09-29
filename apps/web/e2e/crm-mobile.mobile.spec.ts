@@ -8,7 +8,7 @@ test('navigates with the drawer and bottom bar, opens a customer, and moves a le
   await signUpAndConfirm(page, 'mobile-owner');
   const workspaceId = await createBusiness(page, { name: 'Bayou Plumbing Co.' });
 
-  // Customers sits under More since the calendar joined the bottom bar; the sidebar is hidden on phones.
+  // Contacts sits under More since the calendar joined the bottom bar; the sidebar is hidden on phones.
   await expect(page.getByRole('navigation', { name: 'Primary' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeHidden();
   await page
@@ -17,7 +17,7 @@ test('navigates with the drawer and bottom bar, opens a customer, and moves a le
     .click();
   await page
     .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'Customers' })
+    .getByRole('link', { name: 'Contacts' })
     .click();
   await expect(page).toHaveURL(/\/customers$/);
   await expect(page.getByText('No people yet')).toBeVisible();

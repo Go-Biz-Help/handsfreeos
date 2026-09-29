@@ -608,7 +608,7 @@ const createCustomer: ConfirmTool = {
       }),
     );
     return {
-      outcome: `Added ${fullNameOf(args)} to Customers`,
+      outcome: `Added ${fullNameOf(args)} to Contacts`,
       href: paths(ctx.workspaceId).person(personId),
       command: 'person.create',
     };

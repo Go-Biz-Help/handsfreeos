@@ -380,7 +380,7 @@ export function ChatVisitorStrip({
               name ? ` ${name} never shares that customer’s details in the chat.` : ''
             }`
           : person
-            ? ', and gave their details, so they were added to Customers.'
+            ? ', and gave their details, so they were added to Contacts.'
             : '.'}
         {chat.blocked ? ' They’re blocked from the website chat.' : ''}
       </span>

@@ -164,3 +164,20 @@ export function archivedNotice(kind: 'person' | 'company', canRestore: boolean):
     canRestore ? ' Restore from the menu to use it again.' : ''
   }`;
 }
+
+/**
+ * The Contacts page: its name, and its filter between leads and clients. Who counts as a client is the list's to
+ * work out (crm/clients.ts); `clientRule` says the same thing in words, so the two are changed together.
+ */
+export const CONTACTS_WORDS = {
+  title: 'Contacts',
+  search: 'Search contacts',
+  standing: 'Leads or clients',
+  all: 'All',
+  leads: 'Leads',
+  clients: 'Clients',
+  lead: 'Lead',
+  client: 'Client',
+  clientRule:
+    'Clients are people you’re working for, have worked for, or who have paid you: a won lead, a job underway or done, a visit they came to, a plan they’re on, or a paid bill. Everyone else is a lead.',
+} as const;

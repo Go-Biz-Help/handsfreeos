@@ -693,7 +693,7 @@ const manageRecordKind: SettingsConfirmTool = {
             {
               label: 'Tied to',
               value: linkTo
-                ? `${linkTo === 'person' ? 'Customers' : 'Companies'}, as “${linkLabel}”`
+                ? `${linkTo === 'person' ? 'Contacts' : 'Companies'}, as “${linkLabel}”`
                 : '',
             },
             {
@@ -2250,8 +2250,8 @@ export const setupAutoTools: Record<
             type: 'list',
             title:
               items.length === 1
-                ? '1 email from someone not in Customers'
-                : `${items.length} emails from people not in Customers`,
+                ? '1 email from someone not in Contacts'
+                : `${items.length} emails from people not in Contacts`,
             items: items.slice(0, 12).map((u) => ({
               title: fromLine(u),
               detail: clip(u.subject ?? u.snippet ?? '(no subject)', 100),
@@ -2322,7 +2322,7 @@ export const setupStepLabels: Record<string, string> = {
   manage_numbers: 'Changing your number',
   set_inbox_visibility: 'Changing who sees which conversations',
   manage_web_address: 'Setting up your web address',
-  list_unmatched_email: 'Looking at mail from people not in Customers',
+  list_unmatched_email: 'Looking at mail from people not in Contacts',
   sort_unmatched_email: 'Sorting the email',
   list_blocked_email: 'Looking at blocked addresses',
   block_email_address: 'Blocking the address',

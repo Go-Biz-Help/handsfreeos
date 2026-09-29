@@ -155,6 +155,9 @@ export type OtherAddressOut = z.infer<typeof OtherAddressOut>;
 export const seenList = z.array(z.record(z.string(), z.unknown())).max(50).nullable().optional();
 
 export const TagRef = z.object({ id: uuid, name: z.string(), color: z.string() });
+
+/** A lead the business is still winning, or a client it works or worked for (crm/clients.ts). */
+export const Standing = z.enum(['lead', 'client']);
 export type TagRef = z.infer<typeof TagRef>;
 
 export const tagIds = z.array(uuid).max(20);

@@ -1,16 +1,16 @@
-import { can } from '@hfos/core';
+import { can, CONTACTS_WORDS } from '@hfos/core';
 import type { Metadata } from 'next';
-import { CustomersList } from '@/components/crm/customers-list';
+import { CustomersList, type CustomerFilters } from '@/components/crm/customers-list';
 import { PageHeader } from '@/components/shell/page-header';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
-export const metadata: Metadata = { title: 'Customers' };
+export const metadata: Metadata = { title: CONTACTS_WORDS.title };
 
 const one = (v: string | string[] | undefined): string =>
   Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
 
-export default async function CustomersPage({
+export default async function ContactsPage({
   params,
   searchParams,
 }: {
@@ -21,11 +21,13 @@ export default async function CustomersPage({
   const sp = await searchParams;
   // A kind of record the business keeps (0101) has a tab of its own: ?kind=<its id>.
   const kindId = /^[0-9a-f-]{36}$/.test(one(sp.kind)) ? one(sp.kind) : '';
-  const filters = {
+  const filters: CustomerFilters = {
     q: one(sp.q).trim().slice(0, 120),
     tagId: /^[0-9a-f-]{36}$/.test(one(sp.tag)) ? one(sp.tag) : '',
     // `owner` is what links said before a customer could have a team.
     assignedUserId: [one(sp.assigned), one(sp.owner)].find((v) => /^[0-9a-f-]{36}$/.test(v)) ?? '',
+    // Leads or clients: ?show=leads or ?show=clients.
+    standing: one(sp.show) === 'leads' ? 'lead' : one(sp.show) === 'clients' ? 'client' : '',
     archived: one(sp.archived) === '1',
   };
   const { api } = await apiServer();
@@ -39,6 +41,7 @@ export default async function CustomersPage({
     q: filters.q || undefined,
     tagId: filters.tagId || undefined,
     assignedUserId: filters.assignedUserId || undefined,
+    standing: filters.standing || undefined,
     includeArchived: filters.archived,
     limit: 50,
   };
@@ -76,7 +79,10 @@ export default async function CustomersPage({
   ]);
   return (
     <>
-      <PageHeader title="Customers" description={`Everyone ${got.workspace.name} works with.`} />
+      <PageHeader
+        title={CONTACTS_WORDS.title}
+        description={`Everyone ${got.workspace.name} works with.`}
+      />
       <CustomersList
         workspaceId={workspaceId}
         tab={tab}

@@ -245,7 +245,7 @@ export function RecordPage(props: RecordPageProps) {
           href={`/app/w/${workspaceId}/customers${kind === 'company' ? '?tab=companies' : ''}`}
           className="text-accent-text hover:underline"
         >
-          Customers
+          Contacts
         </Link>
         <span className="text-text-3">/</span>
         <span className="truncate text-text-2">{name}</span>

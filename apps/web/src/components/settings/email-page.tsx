@@ -590,7 +590,7 @@ function Mailboxes({
   return (
     <Section
       title="Connected mailboxes"
-      description="Email between these mailboxes and people in Customers shows in the inbox and on the timeline. Other mail stays private."
+      description="Email between these mailboxes and people in Contacts shows in the inbox and on the timeline. Other mail stays private."
     >
       <div className="mt-3" data-testid="mailboxes">
         {mailboxes.map((m) => {
@@ -726,7 +726,7 @@ function Blocked({
   );
 }
 
-// ---------- mail from people not in Customers ----------
+// ---------- mail from people not in Contacts ----------
 const initials = (name: string) =>
   name
     .split(/[\s@._-]+/)
@@ -846,7 +846,7 @@ function Unmatched({
   }
   return (
     <Section
-      title="Mail from people not in Customers"
+      title="Mail from people not in Contacts"
       description="Replies to the workspace address from someone we can’t match wait here."
     >
       <div className="mt-2.5" data-testid="unmatched-mail">

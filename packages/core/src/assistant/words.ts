@@ -222,7 +222,7 @@ export const ASSISTANT_WORDS = {
     body: 'Your question is saved — ask again when you’re back online.',
     again: 'Ask again',
     works:
-      'Customers, notes, photos, tasks, the calendar and most of Money keep working with no signal.',
+      'Contacts, notes, photos, tasks, the calendar and most of Money keep working with no signal.',
     composer: 'The Assistant needs signal',
     hint: 'Ask again when you’re back online',
   },

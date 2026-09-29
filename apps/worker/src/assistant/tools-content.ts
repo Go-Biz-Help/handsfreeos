@@ -2388,7 +2388,7 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
         what: draftTitle(d),
         kind: d.kind,
         teammate: d.teammate.name,
-        for: d.person?.fullName ?? 'Someone not in Customers yet',
+        for: d.person?.fullName ?? 'Someone not in Contacts yet',
         personId: d.person?.id ?? null,
         conversationId: d.conversationId,
         ...(d.preview.message

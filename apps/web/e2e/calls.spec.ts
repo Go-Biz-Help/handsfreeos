@@ -107,7 +107,7 @@ test('calls: ring, answer, move around, hang up, voicemail, and call a customer'
   const bar = page.getByRole('region', { name: 'Call in progress' });
   await expect(bar).toContainText('Mike Johnson');
   await expect(bar.getByTestId('call-status')).toHaveText(/^0:0\d$/);
-  await page.locator('aside').getByRole('link', { name: 'Customers' }).click();
+  await page.locator('aside').getByRole('link', { name: 'Contacts' }).click();
   await expect(page).toHaveURL(/\/customers/);
   await expect(bar).toBeVisible();
   await bar.getByTestId('call-mute').click();
