@@ -8543,7 +8543,10 @@ migrations".
 1. Ask them to sign up to HandsFreeOS first, with the email they applied with. A seat belongs to a business, and
    there has to be one to give it to.
 2. In **Admin** → **Founding**, find their application under **Waiting on you** and press **Approve**.
-3. Paste their business id, add a note on why them if you like, and press **Approve and hold a seat**.
+3. Paste their business id, add a note on why them if you like, and press **Approve and hold a seat**. The
+   business id is under the business's name on its page in **Admin** → **Businesses**. The id in that page's
+   address is a workspace's, and Approve refuses it, naming the business that workspace belongs to — which
+   may not be theirs.
 4. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
    copy is kept, so closing the window without copying it means approving them again.
 

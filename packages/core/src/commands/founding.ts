@@ -35,7 +35,9 @@ import {
   foundingCheckouts,
   foundingGrants,
   foundingOffers,
+  organizations,
   workspacePlans,
+  workspaces,
 } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
@@ -153,6 +155,13 @@ function asRefusal(err: unknown): never {
     );
   if (detail === 'founding_checkout_missing')
     throw HfosError.notFound('There is no checkout by that id.');
+  // Approve checks the business first (aBusiness); this is one deleted in between.
+  if (constraint === 'founding_grants_organization_id_fkey')
+    throw HfosError.rule(
+      'founding_business_missing',
+      404,
+      'That business isn’t there anymore. Refresh and try again.',
+    );
   if (constraint === 'founding_grants_one_live_per_org')
     throw HfosError.rule(
       'founding_org_has_a_seat',
@@ -195,6 +204,39 @@ const offerOut = (o: OfferRow, claimed: number) => ({
   openedAt: o.openedAt?.toISOString() ?? null,
 });
 
+const COPY_THE_BUSINESS_ID =
+  'Open their business in Admin → Businesses and copy the business id under its name.';
+
+/**
+ * The id pasted into Approve is a business's. Staff reach a business through Admin → Businesses, whose pages
+ * are its workspaces, so a workspace's id is the easy one to paste. Resolving it to its business quietly would
+ * hold the seat for whichever business that workspace sits in, which need not be the applicant's (an agency's
+ * workspace named after a client, say), so this names both and asks instead.
+ */
+async function aBusiness(ctx: CommandContext, id: string): Promise<void> {
+  const [org] = await ctx.tx
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.id, id));
+  if (org) return;
+  const [ws] = await ctx.tx
+    .select({ name: workspaces.name, business: organizations.name })
+    .from(workspaces)
+    .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
+    .where(eq(workspaces.id, id));
+  if (ws)
+    throw HfosError.rule(
+      'founding_not_a_business',
+      422,
+      `That’s the id of the workspace “${ws.name}”${ws.business ? `, in the business “${ws.business}”` : ''}, not a business id. ${COPY_THE_BUSINESS_ID}`,
+    );
+  throw HfosError.rule(
+    'founding_business_missing',
+    404,
+    `No business has that id. Check they’ve signed up with the email they applied with. ${COPY_THE_BUSINESS_ID}`,
+  );
+}
+
 // ---------- deciding ----------
 
 export const foundingApprove = defineCommand({
@@ -222,6 +264,8 @@ export const foundingApprove = defineCommand({
         409,
         `That application was already ${application.status}. Refresh to see where it stands.`,
       );
+
+    await aBusiness(ctx, input.organizationId);
 
     const found = await offer(ctx, application.offerId);
     const token = newClaimToken();

@@ -15,6 +15,7 @@ import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta, SystemActor } from '../src/kernel/types';
 import {
+  foundingApprove,
   foundingCheckoutStatus,
   foundingClaim,
   foundingClaimPreview,
@@ -56,13 +57,15 @@ const PAID = 'test_cmd_paid';
 
 let owner: TestUser;
 let member: TestUser;
+let staff: TestUser;
 let orgId: string;
 let wsId: string;
 
 beforeAll(async () => {
-  [owner, member] = await Promise.all([
+  [owner, member, staff] = await Promise.all([
     createTestUser('founding-owner', { fullName: 'Dana Owner' }),
     createTestUser('founding-member', { fullName: 'Marco Member' }),
+    createTestUser('founding-staff'),
   ]);
   const org = await run(organizationCreate, { businessName: 'Founding Plumbing' }, owner);
   orgId = org.organizationId;
@@ -70,6 +73,10 @@ beforeAll(async () => {
   await admin().execute(
     sql`insert into app.workspace_memberships (workspace_id, user_id, role)
         values (${wsId}, ${member.id}, 'member')`,
+  );
+  await admin().execute(
+    sql`insert into platform.staff (user_id, role) values (${staff.id}, 'admin')
+        on conflict (user_id) do update set role = 'admin', status = 'active'`,
   );
 });
 afterAll(closeTestDbs);
@@ -253,5 +260,49 @@ describe('a paid seat', () => {
     expect(paid.output.outcome).toBe('no_seat');
     expect(await eventsOf('founding.payment_stranded', started.checkoutId)).toHaveLength(1);
     expect(await eventsOf('founding.claimed', grantId)).toHaveLength(0);
+  });
+});
+
+describe('approving', () => {
+  const apply = async (offer: string): Promise<string> => {
+    const [row] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into platform.founding_applications (offer_id, business_name, contact_name, email)
+          values (${offer}, 'Founding Plumbing', 'Dana', ${`${randomUUID()}@hfos.test`}) returning id`,
+    );
+    return row!.id;
+  };
+  const heldOn = (offer: string) =>
+    rows<{ id: string }>(
+      admin(),
+      sql`select id from platform.founding_grants where offer_id = ${offer}`,
+    );
+
+  it('holds a seat for the business whose id was pasted', async () => {
+    const applicationId = await apply(FREE);
+    const out = await run(foundingApprove, { applicationId, organizationId: orgId }, staff);
+    expect(out).toMatchObject({ offerId: FREE, remaining: 4 });
+    expect(out.claimToken).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('refuses a workspace id in words that name its business, and holds nothing', async () => {
+    const applicationId = await apply(FREE);
+    const e = await refusal(() =>
+      run(foundingApprove, { applicationId, organizationId: wsId }, staff),
+    );
+    expect(e.status).toBe(422);
+    expect(e.rule).toBe('founding_not_a_business');
+    expect(e.message).toContain('Founding Plumbing');
+    expect(await heldOn(FREE)).toHaveLength(0);
+  });
+
+  it('refuses an id nothing has, instead of failing on our side', async () => {
+    const applicationId = await apply(FREE);
+    const e = await refusal(() =>
+      run(foundingApprove, { applicationId, organizationId: randomUUID() }, staff),
+    );
+    expect(e.status).toBe(404);
+    expect(e.rule).toBe('founding_business_missing');
+    expect(await heldOn(FREE)).toHaveLength(0);
   });
 });

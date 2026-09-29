@@ -441,7 +441,7 @@ function ApproveDialog({
           <Field
             label="Their business id"
             htmlFor="founding-approve-org"
-            hint="The organization this seat belongs to. They must have signed up first."
+            hint="On their business’s page in Admin → Businesses, under its name. Not a workspace id. They must have signed up first."
           >
             <Input
               id="founding-approve-org"
