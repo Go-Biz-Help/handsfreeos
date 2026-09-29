@@ -384,11 +384,7 @@ export const onboardingSendLink = defineCommand({
     const out = (sent: boolean) => ({ workspaceId: ws, step: input.step, email: me.email, sent });
     if ((asked?.again ?? 0) > 0) return out(false);
     if ((asked?.today ?? 0) >= LINKS_PER_DAY)
-      throw HfosError.rule(
-        'onboarding_link_limit',
-        429,
-        ONBOARDING_WORDS.linkLimit(asked!.today),
-      );
+      throw HfosError.rule('onboarding_link_limit', 429, ONBOARDING_WORDS.linkLimit(asked!.today));
     await ctx.emit({
       type: 'onboarding.link_requested',
       entityType: 'user',

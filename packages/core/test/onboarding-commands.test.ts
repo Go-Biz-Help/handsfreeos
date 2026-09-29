@@ -353,7 +353,9 @@ describe('emailing a link', () => {
     const again = await run(onboardingSendLink, { workspaceId: ws, step: 'customers' }, dale);
     expect(again.sent).toBe(false);
     // Another step is its own link.
-    expect((await run(onboardingSendLink, { workspaceId: ws, step: 'team' }, dale)).sent).toBe(true);
+    expect((await run(onboardingSendLink, { workspaceId: ws, step: 'team' }, dale)).sent).toBe(
+      true,
+    );
     expect((await requested(dale)).map((e) => e.payload)).toEqual([
       { step: 'customers', path: `/onboarding/${ws}/setup/customers` },
       { step: 'team', path: `/app/w/${ws}/members?invite=1` },
