@@ -361,7 +361,7 @@ describe('calling a customer through your own cell', () => {
       'no_verified_cell',
     );
     expect(err.message).toBe(
-      'Verify your cell phone first. HandsFreeOS rings it, then connects the customer.',
+      'Verify your cell phone first, under My cell phone in Settings. HandsFreeOS rings it, then connects the customer.',
     );
   });
 

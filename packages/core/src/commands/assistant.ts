@@ -16,6 +16,9 @@ import {
 const ownThread = (ctx: CommandContext, threadId: string) =>
   and(eq(assistantThreads.id, threadId), eq(assistantThreads.workspaceId, ctx.scope.workspaceId!));
 
+const chatGone = () =>
+  HfosError.notFound('That chat isn’t in your chat history anymore. Refresh and try again.');
+
 export const assistantThreadRename = defineCommand({
   name: 'assistant_thread.rename',
   description: 'Rename one of your chats with the Assistant.',
@@ -31,7 +34,7 @@ export const assistantThreadRename = defineCommand({
       .set({ title: input.title })
       .where(ownThread(ctx, input.threadId))
       .returning({ id: assistantThreads.id });
-    if (!row) throw HfosError.notFound('Chat not found.');
+    if (!row) throw chatGone();
     return { threadId: row.id };
   },
 });
@@ -52,7 +55,7 @@ export const assistantThreadArchive = defineCommand({
       .set({ archivedAt: dsql`coalesce(${assistantThreads.archivedAt}, now())` })
       .where(ownThread(ctx, input.threadId))
       .returning({ id: assistantThreads.id });
-    if (!row) throw HfosError.notFound('Chat not found.');
+    if (!row) throw chatGone();
     return { threadId: row.id };
   },
 });

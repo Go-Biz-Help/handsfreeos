@@ -83,6 +83,18 @@ function issuesError(issues: readonly CalendarIssue[], message: string): HfosErr
   return new HfosError('rule_violation', 422, message, { issues }, 'calendar_issues');
 }
 
+/** The first blocking conflict in a calendar's settings, and how to get past it and any others. */
+function conflictWords(issues: readonly CalendarIssue[], then: string): string {
+  const errors = issues.filter((i) => i.severity === 'error');
+  const first = errors[0]?.message.replace(/\.$/, '');
+  const more = errors.length - 1;
+  const fix =
+    more > 0
+      ? `Fix that and the ${more} other ${more === 1 ? 'conflict' : 'conflicts'} marked in the calendar’s settings, then ${then}.`
+      : `Fix that in the calendar’s settings, then ${then}.`;
+  return first ? `${first}. ${fix}` : fix;
+}
+
 /**
  * References to catalog rows that don't exist in this workspace are refused outright (a service or truck
  * that was archived, or a person who left, is a rule with a fix instead).
@@ -419,7 +431,10 @@ async function saveCalendar(ctx: CommandContext, args: SaveArgs) {
   const now = await dbNow(ctx.tx);
   const issues = validateCalendar(next, catalogs, now);
   if (current.status === 'active' && hasBlockingIssues(issues))
-    throw issuesError(issues, 'Fix the settings conflicts before saving an active calendar.');
+    throw issuesError(
+      issues,
+      `${current.name} is taking bookings, so its settings can’t conflict. ${conflictWords(issues, 'save')}`,
+    );
   const analysis = analyzeImpact(
     prev,
     next,
@@ -648,7 +663,10 @@ export const calendarRestoreRevision = defineCommand({
           eq(calendarRevisions.revision, input.revision),
         ),
       );
-    if (!rev) throw HfosError.notFound('Revision not found.');
+    if (!rev)
+      throw HfosError.notFound(
+        'That version isn’t in this calendar’s History anymore. Refresh and pick another one.',
+      );
     return saveCalendar(ctx, {
       calendarId: input.calendarId,
       baseRevision: input.baseRevision,
@@ -682,7 +700,10 @@ export const calendarSetStatus = defineCommand({
     if (current.status === input.status)
       return { calendarId: current.id, status: current.status, issues };
     if (input.status === 'active' && hasBlockingIssues(issues))
-      throw issuesError(issues, 'Fix the settings conflicts before turning this calendar on.');
+      throw issuesError(
+        issues,
+        `${current.name} can’t be turned on yet. ${conflictWords(issues, 'turn it on')}`,
+      );
     await ctx.tx
       .update(calendars)
       .set({ status: input.status })
@@ -724,7 +745,11 @@ export const calendarSetSlug = defineCommand({
           ne(calendars.id, current.id),
         ),
       );
-    const taken = () => HfosError.conflict('Another calendar uses that link.', 'slug_taken');
+    const taken = () =>
+      HfosError.conflict(
+        `Another calendar already uses the link name “${input.slug}”. Pick a different one.`,
+        'slug_taken',
+      );
     if (clash) throw taken();
     try {
       await ctx.tx.update(calendars).set({ slug: input.slug }).where(eq(calendars.id, current.id));

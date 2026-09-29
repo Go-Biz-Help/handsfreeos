@@ -104,13 +104,20 @@ export const attendeeConfirm = defineCommand({
         ),
       )
       .for('update');
-    if (!seat) throw HfosError.notFound('Booking not found.');
+    if (!seat)
+      throw HfosError.notFound(
+        'That booking isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const appt = await requireAppointment(ctx.tx, ws, seat.appointmentId);
     const on = { personId: seat.personId, leadId: appt.leadId };
     if (input.confirmed) {
       if (seat.confirmedAt) return confirmation(appt, seat, false);
       if (seat.status === 'cancelled')
-        throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
+        throw HfosError.rule(
+          'booking_cancelled',
+          409,
+          'This booking was cancelled, so there’s nothing to confirm. Book them again if they still need a visit.',
+        );
       requireScheduled(appt);
       // Moved to another time after this was marked (on a phone, perhaps long before it had signal): the customer
       // said yes to the old time, so it stays unconfirmed.
@@ -213,7 +220,11 @@ export const attendeeConfirmOnline = defineCommand({
     );
     const { att, appt } = await loadBooked(ctx, input.attendeeId, input.manageVersion);
     if (appt.startsAt.getTime() <= Date.now())
-      throw HfosError.rule('appointment_started', 409, 'This appointment has already started.');
+      throw HfosError.rule(
+        'appointment_started',
+        409,
+        'This appointment has already started, so there’s nothing left to confirm.',
+      );
     if (att.confirmedAt) return confirmation(appt, att, false);
     const [row] = await ctx.tx
       .update(appointmentAttendees)

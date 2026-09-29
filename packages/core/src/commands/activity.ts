@@ -35,7 +35,10 @@ export const activityLog = defineCommand({
     // The AI teammate adds notes to its own customer's timeline, nothing else.
     if (ctx.actor.type === 'ai_employee') {
       if (input.kind !== 'note')
-        throw HfosError.validation([{ path: 'kind', message: 'The AI teammate only adds notes.' }]);
+        throw HfosError.validation(
+          [{ path: 'kind', message: 'The AI teammate can only add notes. Log this as a note.' }],
+          'The AI teammate can only add notes to a timeline. Log this as a note instead.',
+        );
       await assertAiReach(ctx, input);
     }
     const earlier = await madeBefore(ctx.tx, 'activities', input.id, workspaceId);
@@ -47,7 +50,10 @@ export const activityLog = defineCommand({
         .select({ id: leads.id })
         .from(leads)
         .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
-      if (!lead) throw HfosError.notFound('Lead not found.');
+      if (!lead)
+        throw HfosError.notFound(
+          'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+        );
     }
     if (input.customRecordId) await requireCustomRecord(ctx.tx, workspaceId, input.customRecordId);
     const [row] = await insertWithId('activities', input.id, () =>
@@ -108,9 +114,14 @@ export const activityUpdate = defineCommand({
           eq(activities.workspaceId, ctx.scope.workspaceId!),
         ),
       );
-    if (!current) throw HfosError.notFound('Activity not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That timeline entry isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (current.kind === 'system')
-      throw HfosError.forbidden('System timeline entries cannot be changed.');
+      throw HfosError.forbidden(
+        'HandsFreeOS added this entry on its own, so it can’t be edited. Add a note of your own instead.',
+      );
     const patch: { body?: string; occurredAt?: Date } = {};
     if (input.body !== undefined && input.body !== current.body) patch.body = input.body;
     if (
@@ -125,7 +136,10 @@ export const activityUpdate = defineCommand({
       .set(patch)
       .where(eq(activities.id, current.id))
       .returning({ id: activities.id });
-    if (rows.length === 0) throw HfosError.forbidden('Only the author can edit this entry.');
+    if (rows.length === 0)
+      throw HfosError.forbidden(
+        'Only the person who logged this entry can edit it. Ask them to change it, or add a note of your own.',
+      );
     await ctx.emit({
       type: 'activity.updated',
       entityType: 'activity',
@@ -157,15 +171,22 @@ export const activityDelete = defineCommand({
           eq(activities.workspaceId, ctx.scope.workspaceId!),
         ),
       );
-    if (!current) throw HfosError.notFound('Activity not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That timeline entry isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (current.kind === 'system')
-      throw HfosError.forbidden('System timeline entries cannot be deleted.');
+      throw HfosError.forbidden(
+        'HandsFreeOS added this entry on its own, so it can’t be deleted. It keeps a record of what happened.',
+      );
     const rows = await ctx.tx
       .delete(activities)
       .where(eq(activities.id, current.id))
       .returning({ id: activities.id });
     if (rows.length === 0)
-      throw HfosError.forbidden('Only the author, or an owner or admin, can delete this entry.');
+      throw HfosError.forbidden(
+        'Only the person who logged this entry, or an owner or admin of this business, can delete it. Ask one of them.',
+      );
     await ctx.emit({
       type: 'activity.deleted',
       entityType: 'activity',

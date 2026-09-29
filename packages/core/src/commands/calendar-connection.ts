@@ -57,6 +57,12 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 const STATE_TTL_MS = 10 * 60_000;
 /** One of these per person per workspace at a time (a partial unique index). */
 const LIVE = ['active', 'reauth_required', 'error'] as const;
+/** How Settings → My calendar names each provider. */
+const PROVIDER_NAMES: Record<'google' | 'microsoft', string> = {
+  google: 'Google Calendar',
+  microsoft: 'Outlook',
+};
+
 const sha256Hex = (value: string) => createHash('sha256').update(value).digest('hex');
 
 async function loadConnection(ctx: CommandContext, connectionId: string) {
@@ -76,7 +82,10 @@ async function loadConnection(ctx: CommandContext, connectionId: string) {
       ),
     );
   // People see their own connection; owners and admins see everyone's (RLS).
-  if (!c) throw HfosError.notFound('Calendar connection not found.');
+  if (!c)
+    throw HfosError.notFound(
+      'That connected calendar isn’t there anymore. It may have been disconnected. Refresh and try again.',
+    );
   return c;
 }
 
@@ -145,7 +154,9 @@ export const calendarConnectionDisconnect = defineCommand({
     const c = await loadConnection(ctx, input.connectionId);
     const own = c.userId === me.userId;
     if (!own && !scopeCan(ctx.scope, 'calendars.manage'))
-      throw HfosError.forbidden('You can only disconnect your own calendar.');
+      throw HfosError.forbidden(
+        'You can only disconnect your own calendar. Ask an owner or admin of this business to disconnect someone else’s.',
+      );
     if (c.status === 'disconnected') return { connectionId: c.id };
     // The update guard clears the sealed tokens, the sign-in secret and the refresh schedule, and a trigger
     // removes the busy times, so the calendar stops blocking time at once.
@@ -186,12 +197,19 @@ export const calendarConnectionSyncNow = defineCommand({
   async handler(ctx, input) {
     const me = requireHuman(ctx);
     const c = await loadConnection(ctx, input.connectionId);
-    if (c.userId !== me.userId) throw HfosError.forbidden('You can only sync your own calendar.');
+    if (c.userId !== me.userId)
+      throw HfosError.forbidden(
+        'You can only sync your own calendar. Ask them to press Sync now in Settings → My calendar.',
+      );
     if (c.status !== 'active' && c.status !== 'error')
       throw HfosError.rule(
         'calendar_connection_not_active',
         409,
-        'Only a connected calendar can sync. Reconnect it first.',
+        c.status === 'reauth_required'
+          ? `${PROVIDER_NAMES[c.provider]} needs you to sign in again before this calendar can sync. Press Reconnect in Settings → My calendar.`
+          : c.status === 'pending'
+            ? `This calendar hasn’t finished connecting, so it can’t sync yet. Connect ${PROVIDER_NAMES[c.provider]} again in Settings → My calendar and finish signing in.`
+            : 'This calendar is disconnected, so it can’t sync. Reconnect it in Settings → My calendar.',
       );
     // The worker brings the refresh forward when it sees this.
     await ctx.emit({

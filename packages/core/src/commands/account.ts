@@ -54,7 +54,10 @@ export const accountDelete = defineCommand({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const [user] = await ctx.tx.select().from(users).where(eq(users.id, me));
-    if (!user) throw HfosError.notFound('Profile not found.');
+    if (!user)
+      throw HfosError.notFound(
+        'We can’t find your account. Sign out, then sign back in and try again.',
+      );
     if (user.deletedAt) return { userId: me, requestedAt: user.deletedAt.toISOString() };
     if (input.confirmEmail !== user.email.toLowerCase())
       throw HfosError.validation([
@@ -147,7 +150,10 @@ export const assistantConsent = defineCommand({
       .select({ settings: users.settings })
       .from(users)
       .where(eq(users.id, me));
-    if (!user) throw HfosError.notFound('Profile not found.');
+    if (!user)
+      throw HfosError.notFound(
+        'We can’t find your account. Sign out, then sign back in and try again.',
+      );
     const current = assistantConsentOf(user.settings);
     if (current.consentedVersion !== null && current.consentedVersion >= input.version)
       return {

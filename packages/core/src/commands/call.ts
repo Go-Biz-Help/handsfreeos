@@ -96,6 +96,48 @@ async function loadCall(
 const counterpartOf = (c: Pick<Call, 'direction' | 'fromE164' | 'toE164'>) =>
   (c.direction === 'inbound' ? c.fromE164 : c.toE164) ?? '';
 
+/** A thread that isn't texts has no number to call. */
+const notByPhone = (channel: string) =>
+  `This conversation is ${channel === 'chat' ? 'a website chat' : 'by email'}, so there’s no number to call. Call the customer from their page instead.`;
+
+const customerName = (p: { firstName: string; lastName: string }) =>
+  `${p.firstName} ${p.lastName}`.trim() || 'This customer';
+
+const personArchived = (p: { firstName: string; lastName: string }) =>
+  HfosError.rule(
+    'person_archived',
+    409,
+    `${customerName(p)} is archived. Restore them on their page, then call.`,
+  );
+
+const noPhone = (p: { firstName: string; lastName: string }) =>
+  HfosError.rule(
+    'no_phone',
+    400,
+    `${customerName(p)} has no phone number. Add one on their page, then call.`,
+  );
+
+/** No business number to call from, or one that can't place calls yet. */
+const noNumber = (status: string | null) =>
+  HfosError.rule(
+    'no_number',
+    409,
+    status === null
+      ? 'This business doesn’t have a phone number yet. Get one under Get a business number in Settings → Texting & calls, then call.'
+      : status === 'porting'
+        ? 'The business number is still moving over from your old carrier, so it can’t call yet. Settings → Texting & calls shows how that’s going.'
+        : status === 'provisioning'
+          ? 'The business number is still being set up. Try again in a few minutes.'
+          : 'The business number isn’t working, so calls can’t go out. Check it in Settings → Texting & calls.',
+  );
+
+const ownNumber = () =>
+  HfosError.rule(
+    'own_number',
+    400,
+    'That’s the business’s own number, so it can’t be called from here. Check the number and try again.',
+  );
+
 export const callStart = defineCommand({
   name: 'call.start',
   description:
@@ -119,22 +161,15 @@ export const callStart = defineCommand({
     let fromId: string | null = null;
     if (input.conversationId) {
       const c = await loadConversation(ctx, input.conversationId);
-      if (c.channel !== 'sms')
-        throw HfosError.rule(
-          'channel_mismatch',
-          400,
-          'This conversation is email. Call the customer from their page.',
-        );
+      if (c.channel !== 'sms') throw HfosError.rule('channel_mismatch', 400, notByPhone(c.channel));
       to = c.counterpart;
       personId = c.personId;
       conversationId = c.id;
       fromId = c.phoneNumberId;
     } else if (input.personId) {
       const p = await requirePerson(ctx.tx, workspaceId, input.personId);
-      if (p.archivedAt)
-        throw HfosError.rule('person_archived', 409, 'Restore this customer before calling them.');
-      if (!p.phoneE164)
-        throw HfosError.rule('no_phone', 400, 'Add a phone number to call this customer.');
+      if (p.archivedAt) throw personArchived(p);
+      if (!p.phoneE164) throw noPhone(p);
       to = p.phoneE164;
       personId = p.id;
     } else {
@@ -142,10 +177,8 @@ export const callStart = defineCommand({
       personId = await matchPersonByPhone(ctx.tx, workspaceId, to);
     }
     const number = await conversationNumber(ctx.tx, workspaceId, fromId);
-    if (!number || number.status !== 'active')
-      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
-    if (to === number.e164)
-      throw HfosError.rule('own_number', 400, 'That is the business number itself.');
+    if (!number || number.status !== 'active') throw noNumber(number?.status ?? null);
+    if (to === number.e164) throw ownNumber();
     if (!conversationId) {
       const { conversation } = await findOrCreateConversation(ctx, {
         channel: 'sms',
@@ -200,12 +233,7 @@ async function bridgeTarget(
   const workspaceId = ctx.scope.workspaceId!;
   if (input.conversationId) {
     const c = await loadConversation(ctx, input.conversationId);
-    if (c.channel !== 'sms')
-      throw HfosError.rule(
-        'channel_mismatch',
-        400,
-        'This conversation is email. Call the customer from their page.',
-      );
+    if (c.channel !== 'sms') throw HfosError.rule('channel_mismatch', 400, notByPhone(c.channel));
     return {
       to: c.counterpart,
       personId: c.personId,
@@ -215,10 +243,8 @@ async function bridgeTarget(
   }
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
-    if (p.archivedAt)
-      throw HfosError.rule('person_archived', 409, 'Restore this customer before calling them.');
-    if (!p.phoneE164)
-      throw HfosError.rule('no_phone', 400, 'Add a phone number to call this customer.');
+    if (p.archivedAt) throw personArchived(p);
+    if (!p.phoneE164) throw noPhone(p);
     return { to: p.phoneE164, personId: p.id, conversationId: null, phoneNumberId: null };
   }
   const to = input.toPhone!;
@@ -233,7 +259,7 @@ async function bridgeTarget(
   throw HfosError.rule(
     'unknown_number',
     409,
-    'HandsFreeOS only calls numbers this business already has: a customer’s, or one that texted or called.',
+    'HandsFreeOS only calls numbers this business already has: a customer’s, or one that texted or called. Add them as a customer first, then call.',
   );
 }
 
@@ -258,7 +284,7 @@ export const callConnectMe = defineCommand({
       throw HfosError.rule(
         'no_verified_cell',
         409,
-        'Verify your cell phone first. HandsFreeOS rings it, then connects the customer.',
+        'Verify your cell phone first, under My cell phone in Settings. HandsFreeOS rings it, then connects the customer.',
       );
     // Two outbound legs, so it costs more than a browser call does — and the same refusal either way.
     await assertWalletHasRoom(ctx.tx, workspaceId, 'call');
@@ -266,11 +292,14 @@ export const callConnectMe = defineCommand({
     const { to, personId } = target;
     // Same rule as a text: the thread's number, falling back to the business default for a new one.
     const number = await conversationNumber(ctx.tx, workspaceId, target.phoneNumberId);
-    if (!number || number.status !== 'active')
-      throw HfosError.rule('no_number', 409, 'Get a business number to call customers.');
-    if (to === number.e164)
-      throw HfosError.rule('own_number', 400, 'That is the business number itself.');
-    if (to === cell.e164) throw HfosError.rule('own_cell', 400, 'That is your own cell.');
+    if (!number || number.status !== 'active') throw noNumber(number?.status ?? null);
+    if (to === number.e164) throw ownNumber();
+    if (to === cell.e164)
+      throw HfosError.rule(
+        'own_cell',
+        400,
+        'That’s your own cell, so there’s nobody to connect you to. Call the customer’s number instead.',
+      );
 
     // One call through a person's cell at a time. Pressing Call twice for the same customer is the same call.
     const [live] = await rows<{
@@ -380,7 +409,9 @@ export const callCancelConnect = defineCommand({
       .where(and(eq(calls.id, input.callId), eq(calls.workspaceId, workspaceId)));
     // Only the person's own call through their cell: anyone else's doesn't exist here.
     if (!c || c.placedBy !== me || c.answeredVia !== 'bridge')
-      throw HfosError.notFound('Call not found.');
+      throw HfosError.notFound(
+        'That call isn’t yours to cancel, or it isn’t there anymore. Refresh to see where it stands.',
+      );
     if (FINAL.has(c.status) || c.endedAt) return { callId: c.id, cancelled: false };
     if (c.answeredAt) {
       const [p] = c.personId
@@ -421,7 +452,10 @@ export const callCancelConnect = defineCommand({
     );
     // Answered or ended in the same instant: nothing here is kept, and a second look tells them which.
     if (!done?.cancelled)
-      throw HfosError.conflict('That call just changed. Look at it again.', 'call_changed');
+      throw HfosError.conflict(
+        'That call was answered or ended just now. Refresh to see where it stands.',
+        'call_changed',
+      );
     return { callId: c.id, cancelled: true };
   },
 });

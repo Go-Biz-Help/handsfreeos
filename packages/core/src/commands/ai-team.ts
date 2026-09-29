@@ -37,7 +37,7 @@ import {
   teammateUserIds,
 } from '../ai-team/load';
 import { TEAMMATE_PRESETS, teammateConfigFromPreset } from '../ai-team/presets';
-import { hasBlockingTeammateIssues, validateTeammate } from '../ai-team/rules';
+import { hasBlockingTeammateIssues, validateTeammate, type TeammateIssue } from '../ai-team/rules';
 import { HfosError } from '../errors';
 import { FRESH_MINUTES } from '../mobile';
 import { requireHuman } from '../kernel/actor';
@@ -86,6 +86,24 @@ function configError(e: unknown): unknown {
   if (e instanceof TeammateConfigVersionError)
     return HfosError.validation([{ path: 'config.version', message: e.message }]);
   return e;
+}
+
+/** A draft that isn't in this business. */
+const draftGone = () =>
+  HfosError.notFound('That draft isn’t there anymore. Refresh to see what’s waiting for an OK.');
+
+/** Why the teammate can't be turned on: the first blocking problem, and how many more there are. */
+function blockingWords(name: string, issues: readonly TeammateIssue[]): string {
+  const errors = issues.filter((i) => i.severity === 'error');
+  const first = errors[0]?.message.replace(/\.$/, '');
+  const more = errors.length - 1;
+  const fix =
+    more > 0
+      ? `Fix that and the ${more} other ${more === 1 ? 'problem' : 'problems'} marked on the AI teammate page, then turn it on.`
+      : 'Fix that on the AI teammate page, then turn it on.';
+  return first
+    ? `${name} can’t be turned on yet. ${first}. ${fix}`
+    : `${name} can’t be turned on yet. ${fix}`;
 }
 
 function parseConfig(raw: unknown): TeammateConfig {
@@ -191,7 +209,10 @@ export const aiTeammateCreate = defineCommand({
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const exists = () =>
-      HfosError.conflict('This business already has an AI teammate.', 'teammate_exists');
+      HfosError.conflict(
+        'This business already has an AI teammate, and it can only have one. Open AI teammate to change it.',
+        'teammate_exists',
+      );
     if (await loadTeammate(ctx.tx, ws)) throw exists();
     const [workspace] = await ctx.tx
       .select({ industry: workspaces.industry })
@@ -309,7 +330,10 @@ export const aiTeammateRestore = defineCommand({
           eq(aiTeammateRevisions.revision, input.revision),
         ),
       );
-    if (!rev) throw HfosError.notFound('That version wasn’t found.');
+    if (!rev)
+      throw HfosError.notFound(
+        'That version isn’t in the AI teammate’s History anymore. Refresh and pick another one.',
+      );
     return saveTeammate(ctx, {
       teammateId: input.teammateId,
       baseRevision: input.baseRevision,
@@ -345,7 +369,7 @@ export const aiTeammateSetStatus = defineCommand({
         throw new HfosError(
           'rule_violation',
           422,
-          `Fix ${current.name}’s settings before turning it on.`,
+          blockingWords(current.name, issues),
           { issues },
           'teammate_issues',
         );
@@ -404,17 +428,32 @@ export const aiTeammateDecideDraft = defineCommand({
       .select()
       .from(aiTeammateDrafts)
       .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)));
-    if (!d) throw HfosError.notFound('Draft not found.');
+    if (!d) throw draftGone();
     // Reply drafts are the inbox's; what the teammate asks approval for (a discount) is a manager's.
     if (d.kind === 'approval' && !scopeCan(ctx.scope, 'ai_team.manage'))
       throw HfosError.forbidden(
-        'Only owners and admins decide what the AI teammate asks approval for.',
+        'Only owners and admins decide what the AI teammate asks approval for. Ask one of them to decide this one.',
         'not_an_approver',
       );
-    const decided = () => HfosError.conflict('This was already decided.', 'draft_decided');
-    if (d.status !== 'pending') throw decided();
+    const decided = (status?: string) =>
+      HfosError.conflict(
+        status === 'approved'
+          ? 'Someone already approved this draft, so there’s nothing left to decide.'
+          : status === 'rejected'
+            ? 'Someone already rejected this draft, so there’s nothing left to decide.'
+            : status === 'expired'
+              ? 'This draft expired before anyone decided, so it won’t go out. Reply to the customer yourself if they still need an answer.'
+              : status === 'cancelled'
+                ? 'This draft was withdrawn, so there’s nothing to decide.'
+                : 'Someone decided this draft just now. Refresh to see what they chose.',
+        'draft_decided',
+      );
+    if (d.status !== 'pending') throw decided(d.status);
     if (d.expiresAt && d.expiresAt.getTime() <= Date.now())
-      throw HfosError.conflict('This draft expired.', 'draft_expired');
+      throw HfosError.conflict(
+        'This draft waited too long for an OK and expired, so it won’t go out. Reply to the customer yourself if they still need an answer.',
+        'draft_expired',
+      );
     // A draft answers what the customer had said when it was written; once they've written again it may
     // not fit. The teammate writes a new one for the new message.
     if (d.conversationId) {
@@ -521,7 +560,7 @@ export const aiTeammateRetry = defineCommand({
       .select()
       .from(aiTeammateDrafts)
       .where(and(eq(aiTeammateDrafts.id, input.draftId), eq(aiTeammateDrafts.workspaceId, ws)));
-    if (!d) throw HfosError.notFound('Draft not found.');
+    if (!d) throw draftGone();
     if (d.kind !== 'reply' || !d.conversationId || d.status !== 'rejected')
       throw HfosError.rule(
         'not_a_rejected_reply',
@@ -563,8 +602,8 @@ export const aiTeammateRetry = defineCommand({
     if (newer)
       throw HfosError.conflict(
         newer.status === 'pending'
-          ? 'A new draft is already waiting for an OK.'
-          : 'A newer draft already answered this.',
+          ? 'A newer draft for this conversation is already waiting for an OK. Approve or reject that one instead.'
+          : 'A newer draft already answered the customer, so there’s nothing to try again.',
         'draft_superseded',
       );
     await ctx.emit({

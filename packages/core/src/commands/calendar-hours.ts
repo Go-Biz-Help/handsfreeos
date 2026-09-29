@@ -42,8 +42,8 @@ function assertMayEditHours(ctx: CommandContext, ownerKind: OwnerKind, ownerId: 
   if (!scopeCan(ctx.scope, 'calendars.manage'))
     throw HfosError.forbidden(
       ownerKind === 'user'
-        ? 'Only owners and admins change someone else’s hours.'
-        : 'Only owners and admins change these hours.',
+        ? 'Only owners and admins change someone else’s hours. Ask one of them, or change your own.'
+        : 'Only owners and admins change these hours. Ask one of them.',
     );
 }
 
@@ -58,7 +58,10 @@ async function ownerName(
       tx,
       sql`select private.workspace_has_user(${workspaceId}, ${id}::uuid) as ok`,
     );
-    if (!ok?.ok) throw HfosError.notFound('That person isn’t on this team.');
+    if (!ok?.ok)
+      throw HfosError.notFound(
+        'That person isn’t on this business’s team anymore. Refresh and pick someone else.',
+      );
     return (await userNames(tx, [id])).get(id) ?? 'Someone';
   }
   if (kind === 'resource') {
@@ -66,7 +69,10 @@ async function ownerName(
       .select({ name: resources.name })
       .from(resources)
       .where(and(eq(resources.id, id), eq(resources.workspaceId, workspaceId)));
-    if (!r) throw HfosError.notFound('Resource not found.');
+    if (!r)
+      throw HfosError.notFound(
+        'That resource isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     return r.name;
   }
   if (kind === 'service') {
@@ -74,7 +80,10 @@ async function ownerName(
       .select({ name: services.name })
       .from(services)
       .where(and(eq(services.id, id), eq(services.workspaceId, workspaceId)));
-    if (!s) throw HfosError.notFound('Service not found.');
+    if (!s)
+      throw HfosError.notFound(
+        'That service isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     return s.name;
   }
   return 'The calendar';
@@ -281,7 +290,10 @@ export const timeOffRemove = defineCommand({
           from app.schedule_exceptions e join app.schedules s on s.id = e.schedule_id
           where e.id = ${input.exceptionId} and e.workspace_id = ${ws}`,
     );
-    if (!row) throw HfosError.notFound('Time off not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That time off isn’t there anymore. It may have been removed. Refresh and try again.',
+      );
     assertMayEditHours(ctx, row.owner_kind, row.owner_id);
     const name = await ownerName(ctx.tx, ws, row.owner_kind, row.owner_id);
     await ctx.tx.delete(scheduleExceptions).where(eq(scheduleExceptions.id, row.id));

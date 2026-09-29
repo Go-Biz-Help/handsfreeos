@@ -115,7 +115,12 @@ async function makeMoves(
 
 const known = (catalog: Catalog, addonId: string): AddonManifest => {
   const m = findAddon(catalog, addonId);
-  if (!m) throw HfosError.rule('addon_unknown', 404, 'There is no such add-on.');
+  if (!m)
+    throw HfosError.rule(
+      'addon_unknown',
+      404,
+      'HandsFreeOS doesn’t have that add-on. Refresh Settings → Add-ons and pick one from the list.',
+    );
   return m;
 };
 
@@ -133,8 +138,13 @@ function checked(
   schema: z.ZodType | undefined,
   value: Record<string, unknown>,
   what: string,
+  addonName: string,
 ): unknown {
-  if (!schema) throw HfosError.validation(undefined, `This add-on has no ${what}.`);
+  if (!schema)
+    throw HfosError.validation(
+      undefined,
+      `${addonName} has no ${what} to save. Refresh the page and try again.`,
+    );
   const parsed = schema.safeParse(value);
   if (!parsed.success)
     throw HfosError.validation(
@@ -239,15 +249,21 @@ export function addonLifecycleCommands(catalog: Catalog) {
       const m = known(catalog, input.addonId);
       await assertOn(ctx, m);
       const permission = m.settings?.permission ?? 'addons.manage';
-      if (!(ctx.scope.workspacePermissions ?? []).includes(permission)) throw HfosError.forbidden();
+      if (!(ctx.scope.workspacePermissions ?? []).includes(permission))
+        throw HfosError.forbidden(
+          `You don’t have permission to change ${m.name}’s settings. An owner of this business can give it to you in Settings → Permissions.`,
+        );
       const settings =
         input.settings === undefined
           ? null
-          : checked(m.settings?.workspace, input.settings, 'business settings');
+          : checked(m.settings?.workspace, input.settings, 'business settings', m.name);
       const declared = m.settings?.flags ?? {};
       for (const key of Object.keys(input.flags ?? {}))
         if (!Object.hasOwn(declared, key))
-          throw HfosError.validation([{ path: `flags.${key}`, message: 'No such switch.' }]);
+          throw HfosError.validation(
+            [{ path: `flags.${key}`, message: `${m.name} has no switch by that name.` }],
+            `One of those switches isn’t part of ${m.name} anymore. Refresh the page and try again.`,
+          );
       await rows(
         ctx.tx,
         sql`select private.save_addon_settings(${ctx.scope.workspaceId}::uuid, ${m.id}, ${permission},
@@ -280,10 +296,12 @@ export function addonLifecycleCommands(catalog: Catalog) {
     async handler(ctx, input) {
       const m = known(catalog, input.addonId);
       await assertOn(ctx, m);
-      const settings = checked(m.settings?.user, input.settings, 'personal settings') as Record<
-        string,
-        unknown
-      >;
+      const settings = checked(
+        m.settings?.user,
+        input.settings,
+        'personal settings',
+        m.name,
+      ) as Record<string, unknown>;
       if (ctx.actor.type !== 'human') throw HfosError.forbidden();
       // Row security keeps it to the person's own row, and only while the add-on runs here.
       await ctx.tx
