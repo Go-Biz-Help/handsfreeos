@@ -50765,6 +50765,45 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "theirBusinesses": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "workspaceId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "workspaceName": {
+                                  "type": "string"
+                                },
+                                "organizationId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "organizationName": {
+                                  "type": "string"
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "owner",
+                                    "admin"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "workspaceId",
+                                "workspaceName",
+                                "organizationId",
+                                "organizationName",
+                                "role"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -50782,7 +50821,8 @@
                           "status",
                           "decisionNote",
                           "createdAt",
-                          "reviewedAt"
+                          "reviewedAt",
+                          "theirBusinesses"
                         ],
                         "additionalProperties": false
                       }

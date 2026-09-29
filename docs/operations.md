@@ -8843,8 +8843,12 @@ migrations".
 1. Ask them to sign up to HandsFreeOS first, with the email they applied with. A seat belongs to a business, and
    there has to be one to give it to.
 2. In **Admin** → **Founding**, find their application under **Waiting on you** and press **Approve**.
-3. Paste their business id, add a note on why them if you like, and press **Approve and hold a seat**.
-4. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
+3. Under **Their business**, pick their business. The list shows the businesses run (as owner or admin) by
+   whoever signed up with the email they applied with, and picks it for you when there is only one. If they
+   signed up with another email, choose **Search for another business…** and find it by name — and make sure it
+   is theirs: an agency's workspace named after a client belongs to the agency, not the client.
+4. Add a note on why them if you like, and press **Approve and hold a seat**.
+5. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
    copy is kept, so closing the window without copying it means approving them again.
 
 You should see the seat under **Seats out**, marked "approved, not taken up". It is held for them for fourteen

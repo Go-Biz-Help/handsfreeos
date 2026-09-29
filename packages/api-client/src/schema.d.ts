@@ -38184,6 +38184,16 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
                             teamSize: string | null;
+                            theirBusinesses: {
+                                /** Format: uuid */
+                                organizationId: string;
+                                organizationName: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin";
+                                /** Format: uuid */
+                                workspaceId: string;
+                                workspaceName: string;
+                            }[];
                             website: string | null;
                         }[];
                         grants: {
