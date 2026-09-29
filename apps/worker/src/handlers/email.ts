@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { HANDSFREEOS_DOMAIN } from '@hfos/core';
 import {
   emailDomainRecord,
   emailReceive,
   emailSuppressionRecord,
   executeCommand,
   messageUpdateStatus,
+  scheduleJob,
 } from '@hfos/core/server';
 import type { Tx } from '@hfos/db/client';
 import {
@@ -34,8 +36,9 @@ const metaOf = (ctx: HandlerContext) => workerMeta(ctx.event.correlationId, ctx.
 type Message = typeof messages.$inferSelect;
 
 /**
- * Sends a queued email from a workspace address. Replies always come back through the shared subdomain,
- * whatever address sent it: the Reply-To's +token names the conversation.
+ * Sends a queued email from a workspace address. Replies come back through the shared subdomain, whatever address
+ * sent it: the Reply-To's +token names the conversation. An address on a domain whose mail arrives here (M19) has
+ * no Reply-To: the reply comes straight back to it, and its In-Reply-To finds the conversation.
  */
 export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<void> {
   const scope = tenantOf(ctx.scope);
@@ -62,8 +65,13 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
     .where(eq(conversations.id, m.conversationId));
   const [from] = m.emailAddressId
     ? await ctx.tx
-        .select({ address: emailAddresses.address, displayName: emailAddresses.displayName })
+        .select({
+          address: emailAddresses.address,
+          displayName: emailAddresses.displayName,
+          receiving: emailDomains.receiving,
+        })
         .from(emailAddresses)
+        .leftJoin(emailDomains, eq(emailDomains.id, emailAddresses.emailDomainId))
         .where(eq(emailAddresses.id, m.emailAddressId))
     : [];
   const [shared] = await ctx.tx
@@ -83,7 +91,7 @@ export async function sendQueuedEmail(ctx: HandlerContext, m: Message): Promise<
     return;
   }
   const replyTo =
-    conv.token && shared
+    conv.token && shared && from.receiving !== 'on'
       ? mailbox(from.displayName, `${shared.localPart}+${conv.token}@${ctx.email.mailDomain}`)
       : null;
   const attachments: EmailAttachment[] = [];
@@ -286,10 +294,39 @@ export const onEmailDomainChecked: EventHandler = async (ctx) => {
   for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
 };
 
-/** The workspace removed its domain: remove it at the mail service too. */
+/** A receiving domain's MX check (scheduled.ts): now, every 15 minutes while it waits, and daily after. */
+export const EMAIL_RECEIVING_CHECK_JOB = 'email_domain.receiving_check';
+export const receivingCheckKey = (emailDomainId: string) =>
+  `email-receiving-check:${emailDomainId}`;
+
+/** A business asked to receive its mail at one of its domains (M19): look for its MX now. */
+export const onEmailDomainReceivingRequested: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const emailDomainId = ctx.event.entityId;
+  if (!emailDomainId) return;
+  await scheduleJob(
+    ctx.tx,
+    {
+      kind: EMAIL_RECEIVING_CHECK_JOB,
+      dedupeKey: receivingCheckKey(emailDomainId),
+      runAt: new Date(),
+      payload: { emailDomainId },
+      workspaceId: scope.workspaceId,
+      organizationId: scope.organizationId,
+    },
+    // A daily check already waiting for this domain comes forward instead.
+    { pullEarlier: true },
+  );
+};
+
+/**
+ * The workspace removed its domain: remove it at the mail service too. Never handsfreeos.com (M19): HandsFreeOS's
+ * own mail (no-reply@, alerts@, the support desk) sends as it, whichever business had it in its settings.
+ */
 export const onEmailDomainRemoved: EventHandler = async (ctx) => {
-  const id = (ctx.event.payload as { providerDomainId?: string | null }).providerDomainId;
-  if (id) await ctx.email.domains.remove(id);
+  const p = ctx.event.payload as { domain?: string; providerDomainId?: string | null };
+  if (p.domain === HANDSFREEOS_DOMAIN) return;
+  if (p.providerDomainId) await ctx.email.domains.remove(p.providerDomainId);
 };
 
 /** Mail from someone we didn't know was claimed for a customer: file it in their conversation. */

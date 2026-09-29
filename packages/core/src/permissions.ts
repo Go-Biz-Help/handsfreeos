@@ -158,6 +158,8 @@ export const ROLE_PERMISSIONS = {
     'platform.ideas.manage',
     // Switching an add-on off for every business, or marking it deprecated (platform.addon_overrides).
     'platform.addons.manage',
+    // Marking HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
+    'platform.own_business.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 

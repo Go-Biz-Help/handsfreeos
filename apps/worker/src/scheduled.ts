@@ -3,6 +3,7 @@ import {
   carrierHasDetails,
   conversationReopen,
   emailDomainRecord,
+  emailDomainRecordReceiving,
   executeCommand,
   openHoursOf,
   registrationUpdateStatus,
@@ -30,7 +31,13 @@ import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
-import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
+import {
+  EMAIL_RECEIVING_CHECK_JOB,
+  domainRecordInput,
+  lapsedMessage,
+  receivingCheckKey,
+  sharedAddress,
+} from './handlers/email';
 import {
   nextReceiptCleanUp,
   RECEIPT_JOBS,
@@ -328,7 +335,62 @@ export const checkEmailDomains: JobHandler = async (ctx) => {
           on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
     ),
   );
+  // And every domain that receives mail (M19): its MX may have moved away, or come back.
+  await asWorker(ctx.db, {}, (tx) =>
+    tx.execute(
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+          select d.organization_id, d.workspace_id, ${EMAIL_RECEIVING_CHECK_JOB},
+            ${receivingCheckKey('')} || d.email_domain_id::text,
+            now() + (abs(hashtext(d.email_domain_id::text)::bigint) % ${EMAIL_DOMAIN_CHECK_SPREAD_MS}::bigint)
+              * interval '1 millisecond',
+            jsonb_build_object('emailDomainId', d.email_domain_id)
+          from private.email_receiving_to_check() d
+          on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
+    ),
+  );
   return { rescheduleAt: new Date(Date.now() + DAY) };
+};
+
+/**
+ * How long between MX looks while a receiving domain still waits on its DNS. Fifteen minutes, as for branded
+ * domains: DNS changes take hours, and a check every minute would ask the same question a thousand times.
+ */
+const RECEIVING_WAIT_MS = 15 * 60_000;
+
+/**
+ * One receiving domain's MX, looked at again (M19). A pending domain turns on once its MX names Postmark, and one
+ * that is on turns lapsed once its MX stops. A domain still waiting is looked at again in 15 minutes; the others
+ * wait for the daily check.
+ */
+export const checkEmailReceivingJob: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const emailDomainId = String(ctx.job.payload['emailDomainId'] ?? '');
+  const d = await asWorker(
+    ctx.db,
+    scope,
+    async (tx) =>
+      (
+        await tx
+          .select({ domain: emailDomains.domain, receiving: emailDomains.receiving })
+          .from(emailDomains)
+          .where(eq(emailDomains.id, emailDomainId))
+      )[0],
+  );
+  // Removed, or turned off, while this waited.
+  if (!d || d.receiving === 'off') return;
+  const { output } = await executeCommand(
+    ctx.db,
+    emailDomainRecordReceiving,
+    {
+      workspaceId: scope.workspaceId,
+      emailDomainId,
+      mxFound: await ctx.email.domains.receives(d.domain),
+    },
+    systemActor(scope),
+    workerMeta(),
+  );
+  if (output.receiving === 'pending')
+    return { rescheduleAt: new Date(Date.now() + RECEIVING_WAIT_MS) };
 };
 
 /** One domain, bound to its business. */
@@ -361,6 +423,7 @@ export const jobs: JobMap = {
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,
   [EMAIL_DOMAIN_CHECK_JOB]: checkEmailDomainJob,
+  [EMAIL_RECEIVING_CHECK_JOB]: checkEmailReceivingJob,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
   // What customers said in public: each connected place asked on a timer, and an answer posted back.

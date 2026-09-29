@@ -7,6 +7,7 @@ import {
   emailInboundUnmatched,
   emailSuppressions,
   mailboxConnections,
+  workspaces,
 } from '@hfos/db/schema';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -23,8 +24,10 @@ import {
   EmailClaimUnmatchedInput,
   EmailClaimUnmatchedOutput,
   EmailDomainAddInput,
+  EmailDomainReceivingOutput,
   EmailDomainRecordInput,
   EmailDomainRecordOutput,
+  EmailDomainRecordReceivingInput,
   EmailDomainRefInput,
   EmailDomainRefOutput,
   EmailSuppressionAddInput,
@@ -32,6 +35,8 @@ import {
   EmailSuppressionReleaseInput,
   EmailUnmatchedRefInput,
   EmailUnmatchedRefOutput,
+  HANDSFREEOS_DOMAIN,
+  INBOUND_MX_HOST,
   MAX_EMAIL_DOMAINS,
   MailboxActivateInput,
   MailboxConnectInput,
@@ -56,12 +61,16 @@ const sha256Hex = (value: string) => createHash('sha256').update(value).digest('
 
 // The same rules kernel/pg-errors raises when the database guard catches these first. Here they can name
 // the address or domain.
-const reserved = (localPart: string) =>
+const reserved = (localPart: string, domain: string | null) =>
   HfosError.rule(
     'email_local_part_reserved',
     400,
-    `“${localPart}” is kept for HandsFreeOS itself on the shared address. Pick another name.`,
+    domain === HANDSFREEOS_DOMAIN
+      ? `“${localPart}” is kept for HandsFreeOS itself on ${HANDSFREEOS_DOMAIN}: the support desk or HandsFreeOS’s own mail uses it. Pick another name.`
+      : `“${localPart}” is kept for HandsFreeOS itself on the shared address. Pick another name.`,
   );
+/** Where the reserved names are HandsFreeOS's: the shared subdomain, and handsfreeos.com itself (M19). */
+const namesReserved = (domain: string | null) => !domain || domain === HANDSFREEOS_DOMAIN;
 const unverified = (domain: string) =>
   HfosError.rule(
     'email_domain_unverified',
@@ -70,6 +79,15 @@ const unverified = (domain: string) =>
   );
 const addressTaken = (address: string) =>
   HfosError.rule('email_address_taken', 409, `${address} is already taken. Pick another name.`);
+
+/** HandsFreeOS's own business (M19): the one workspace that may use handsfreeos.com. */
+async function isOwnBusiness(ctx: CommandContext): Promise<boolean> {
+  const [w] = await ctx.tx
+    .select({ isPlatform: workspaces.isPlatform })
+    .from(workspaces)
+    .where(eq(workspaces.id, ctx.scope.workspaceId!));
+  return w?.isPlatform ?? false;
+}
 
 async function loadDomain(ctx: CommandContext, emailDomainId: string) {
   const [d] = await ctx.tx
@@ -186,7 +204,9 @@ export const emailDomainAdd = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const domain = input.domain;
-    if (isHandsFreeOsDomain(domain))
+    // handsfreeos.com itself is HandsFreeOS's own business's (M19); its subdomains are nobody's.
+    const ours = domain === HANDSFREEOS_DOMAIN && (await isOwnBusiness(ctx));
+    if (isHandsFreeOsDomain(domain) && !ours)
       throw HfosError.rule(
         'email_domain_ours',
         400,
@@ -348,6 +368,118 @@ export const emailDomainRecord = defineCommand({
   },
 });
 
+// ---------- receiving mail at the business's own domain (M19) ----------
+
+export const emailDomainReceive = defineCommand({
+  name: 'email_domain.receive',
+  description: `Start receiving the business’s mail at one of its verified domains. Once its MX record points at ${INBOUND_MX_HOST}, mail to every address there arrives in the Inbox.`,
+  risk: 2,
+  input: EmailDomainRefInput,
+  output: EmailDomainReceivingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.receiving_requested'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    if (d.status !== 'verified') throw unverified(d.domain);
+    // Each domain needs its own Postmark server, and creating them comes later (M19 step 6). Until then only
+    // handsfreeos.com receives, through the support desk's server.
+    if (!(await isOwnBusiness(ctx)))
+      throw HfosError.rule(
+        'email_receiving_not_yet',
+        409,
+        `Receiving mail at your own domain isn’t open to every business yet. Until it is, mail to ${d.domain} keeps arriving where it does now, and replies to what you send still come back to your Inbox.`,
+      );
+    if (d.receiving === 'pending' || d.receiving === 'on')
+      return { emailDomainId: d.id, receiving: d.receiving, changed: false };
+    await ctx.tx
+      .update(emailDomains)
+      .set({ receiving: 'pending' })
+      .where(eq(emailDomains.id, d.id));
+    await ctx.emit({
+      type: 'email_domain.receiving_requested',
+      entityType: 'email_domain',
+      entityId: d.id,
+      payload: { domain: d.domain },
+      before: { receiving: d.receiving },
+      after: { domain: d.domain, receiving: 'pending' },
+    });
+    return { emailDomainId: d.id, receiving: 'pending' as const, changed: true };
+  },
+});
+
+export const emailDomainStopReceiving = defineCommand({
+  name: 'email_domain.stop_receiving',
+  description:
+    'Stop receiving the business’s mail at one of its domains. Mail sent there is no longer filed here, so point its MX record somewhere else first.',
+  risk: 3,
+  input: EmailDomainRefInput,
+  output: EmailDomainReceivingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.receiving_stopped'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    if (d.receiving === 'off')
+      return { emailDomainId: d.id, receiving: 'off' as const, changed: false };
+    await ctx.tx.update(emailDomains).set({ receiving: 'off' }).where(eq(emailDomains.id, d.id));
+    await ctx.emit({
+      type: 'email_domain.receiving_stopped',
+      entityType: 'email_domain',
+      entityId: d.id,
+      payload: { domain: d.domain, inboundServerId: d.inboundServerId },
+      before: { domain: d.domain, receiving: d.receiving },
+      after: { receiving: 'off' },
+    });
+    return { emailDomainId: d.id, receiving: 'off' as const, changed: true };
+  },
+});
+
+export const emailDomainRecordReceiving = defineCommand({
+  name: 'email_domain.record_receiving',
+  description: `Worker: whether a receiving domain’s MX record points at ${INBOUND_MX_HOST}.`,
+  risk: 1,
+  input: EmailDomainRecordReceivingInput,
+  output: EmailDomainReceivingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.receiving_checked'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    // Turned off while the check ran: nothing to say about a domain that no longer receives.
+    if (d.receiving === 'off')
+      return { emailDomainId: d.id, receiving: 'off' as const, changed: false };
+    const now = new Date();
+    // DNS not answering is no news: the domain keeps what it had.
+    const receiving =
+      input.mxFound === true
+        ? ('on' as const)
+        : input.mxFound === false && d.receiving === 'on'
+          ? ('lapsed' as const)
+          : d.receiving;
+    await ctx.tx
+      .update(emailDomains)
+      .set({
+        receiving,
+        mxCheckedAt: now,
+        ...(input.mxFound ? { mxVerifiedAt: now } : {}),
+      })
+      .where(eq(emailDomains.id, d.id));
+    const changed = receiving !== d.receiving;
+    if (changed)
+      await ctx.emit({
+        type: 'email_domain.receiving_checked',
+        entityType: 'email_domain',
+        entityId: d.id,
+        payload: { receiving, changed, from: d.receiving },
+        before: { receiving: d.receiving },
+        after: { domain: d.domain, receiving },
+      });
+    return { emailDomainId: d.id, receiving, changed };
+  },
+});
+
 // ---------- sending addresses ----------
 
 export const emailAddressCreate = defineCommand({
@@ -363,7 +495,8 @@ export const emailAddressCreate = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const domain = input.emailDomainId ? await loadDomain(ctx, input.emailDomainId) : null;
-    if (!domain && isReservedLocalPart(input.localPart)) throw reserved(input.localPart);
+    if (namesReserved(domain?.domain ?? null) && isReservedLocalPart(input.localPart))
+      throw reserved(input.localPart, domain?.domain ?? null);
     if (domain && domain.status !== 'verified') throw unverified(domain.domain);
     const previous = input.isDefault ? await clearDefault(ctx) : null;
     // The database fills in the address from the name and domain; this copy only satisfies the insert.
@@ -421,7 +554,8 @@ export const emailAddressUpdate = defineCommand({
     if (input.displayName !== undefined && input.displayName !== a.displayName)
       patch.displayName = input.displayName;
     if (input.localPart !== undefined && input.localPart !== a.localPart) {
-      if (!domain && isReservedLocalPart(input.localPart)) throw reserved(input.localPart);
+      if (namesReserved(domain?.domain ?? null) && isReservedLocalPart(input.localPart))
+        throw reserved(input.localPart, domain?.domain ?? null);
       patch.localPart = input.localPart;
     }
     // The workspace always has a default; it moves by picking another one.

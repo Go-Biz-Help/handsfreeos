@@ -66,6 +66,10 @@ export function normalizeEmailDomain(value: string): string {
 
 export const isHandsFreeOsDomain = (domain: string): boolean =>
   /(^|\.)handsfreeos\.com$/.test(domain);
+/** HandsFreeOS's own domain. Only HandsFreeOS's own business may send and receive on it, never a subdomain (M19). */
+export const HANDSFREEOS_DOMAIN = 'handsfreeos.com';
+/** Where a domain's MX points for its mail to arrive in HandsFreeOS (M19). */
+export const INBOUND_MX_HOST = 'inbound.postmarkapp.com';
 export const isConsumerMailDomain = (domain: string): boolean =>
   CONSUMER_MAIL_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`));
 export const isReservedLocalPart = (localPart: string): boolean =>
@@ -98,6 +102,8 @@ export const emailLocalPart = z
   });
 
 export const emailDomainStatus = z.enum(['pending', 'verified', 'failed']);
+/** Whether a domain's mail arrives here (M19): people ask (pending), the worker says on or lapsed. */
+export const emailReceivingStatus = z.enum(['off', 'pending', 'on', 'lapsed']);
 export const mailboxProvider = z.enum(['microsoft', 'google']);
 export const mailboxStatus = z.enum([
   'pending',
@@ -131,6 +137,19 @@ export const EmailDomainRecordOutput = z.object({
   emailDomainId: uuid,
   status: emailDomainStatus,
   changed: z.boolean(),
+});
+
+/** Turning receiving on or off, or what the worker saw of the MX. `changed` is false for a repeat. */
+export const EmailDomainReceivingOutput = z.object({
+  emailDomainId: uuid,
+  receiving: emailReceivingStatus,
+  changed: z.boolean(),
+});
+/** Worker-only: whether the domain's MX points at Postmark. Null when DNS didn't answer, which changes nothing. */
+export const EmailDomainRecordReceivingInput = z.object({
+  workspaceId: uuid,
+  emailDomainId: uuid,
+  mxFound: z.boolean().nullable(),
 });
 
 // ---------- sending addresses ----------

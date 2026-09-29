@@ -1,6 +1,7 @@
 /**
  * Looks up a workspace domain's sending records ourselves. Postmark keeps DKIM "verified" once it ever was, even
- * after the record is removed from DNS, so a record that is gone only shows up here.
+ * after the record is removed from DNS, so a record that is gone only shows up here. Also where a receiving
+ * domain's MX points (M19), which only DNS can tell.
  */
 import { promises as dns } from 'node:dns';
 
@@ -8,11 +9,14 @@ export interface DnsLookup {
   /** TXT records at a host, each as the strings it was split into. */
   txt(host: string): Promise<string[][]>;
   cname(host: string): Promise<string[]>;
+  /** The mail servers a domain's MX records name. */
+  mx(host: string): Promise<{ exchange: string }[]>;
 }
 
 export const systemDns: DnsLookup = {
   txt: (host) => dns.resolveTxt(host),
   cname: (host) => dns.resolveCname(host),
+  mx: (host) => dns.resolveMx(host),
 };
 
 /** Answers that mean the record is not there. Anything else (a timeout, a failing server) means nobody can tell. */
@@ -54,4 +58,15 @@ export async function cnameInDns(
   const found = await lookUp(() => lookup.cname(host));
   if (found === null) return null;
   return found.some((t) => hostName(t) === hostName(target));
+}
+
+/** Whether one of the domain's MX records names the host: true, false, or null when DNS did not answer. */
+export async function mxInDns(
+  lookup: DnsLookup,
+  domain: string,
+  exchange: string,
+): Promise<boolean | null> {
+  const found = await lookUp(() => lookup.mx(domain));
+  if (found === null) return null;
+  return found.some((r) => hostName(r.exchange) === hostName(exchange));
 }

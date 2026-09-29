@@ -61,8 +61,9 @@ Carried over, not re-asked:
   MX every 15 minutes while pending and once a day after, as it does for branded domains. Receiving
   is `on` only once the MX answers.
 - Only a verified domain can receive: DKIM and Return-Path already prove the business controls its
-  DNS. Email domains also get the fix branded domains got in `20261012050100`: a name is held only
-  once it is proved, so nobody can sit on a name another business needs.
+  DNS. Before Step 6 opens it to everyone, email domains also get the fix branded domains got in
+  `20261012050100`: a name is held only once it is proved, so nobody can sit on a name another
+  business needs.
 - The worker routes a recipient on a receiving domain through a new
   `private.email_receiving_route(address)`: the address itself, or else the domain's catch-all (the
   business's default shared address). Mail is never dropped because nobody has that address.
@@ -117,8 +118,9 @@ Carried over, not re-asked:
 
 ### HandsFreeOS's own business
 
-- `app.workspaces` gains `is_platform`, which only a staff admin sets (the pattern of `phone_model`
-  in `20261010000800`). At most one workspace has it.
+- `app.workspaces` gains `is_platform`, which only a staff admin sets (`own_business.set`, the
+  pattern of `phone_model` in `20261010000800`). A domain belongs to one business, so only one of
+  them can hold `handsfreeos.com` at a time.
 - The check on `app.email_domains` becomes a trigger that allows `handsfreeos.com` itself for that
   workspace only. Subdomains stay refused for everyone. Core's `email_domain_ours` refusal lets that
   workspace through for the bare domain only.
@@ -146,17 +148,32 @@ Carried over, not re-asked:
 Each step is its own commits, with CI green before the next. Each migration goes on the hosted
 database before its step reaches `main`.
 
-### Step 1 — Receive on a domain
+### Step 1 — Receive on a domain (built, 2026-09-29)
 
 1. Migration: the `receiving` columns, `private.email_receiving_route`, `workspaces.is_platform`, the
-   `handsfreeos.com` trigger, and proof before a name is held. The Drizzle mirror.
-2. Core: `email_domain.receive` and `email_domain.stop_receiving`, `workspace.set_platform` (staff
-   only), the `email_domain_ours` exception, and their error messages.
+   `handsfreeos.com` trigger, and the reserved names on `handsfreeos.com`. The Drizzle mirror.
+2. Core: `email_domain.receive`, `email_domain.stop_receiving` and `email_domain.record_receiving`,
+   `own_business.set` (staff admins only), the `email_domain_ours` exception, and their error
+   messages. Until Step 6 only HandsFreeOS's own business can turn receiving on
+   (`email_receiving_not_yet`).
 3. Worker: MX lookup in `dns.ts`, the receiving check job, routing in `http/email.ts`, and no
    Reply-To on receiving domains.
 4. Tests: routing (the address, the catch-all, the support desk first), the `handsfreeos.com`
    exception, and who may set the flag. Creating Postmark servers waits for Step 6, since the support
    server already covers `handsfreeos.com`.
+
+**As built:**
+
+- Routing tries the address the mail was delivered to (Postmark's `OriginalRecipient`) first when
+  it is on a receiving domain, then a reply token or a `mail.handsfreeos.com` address, then a
+  receiving domain the headers name. Each receiving domain will have its own Postmark server, so a
+  copy goes to the business it was delivered for, whatever its To line says.
+- More than one business may carry the flag. `handsfreeos.com` itself can still belong to only one
+  of them, since a domain belongs to one business.
+- Removing `handsfreeos.com` from the business's settings never removes it at Postmark, because
+  `no-reply@`, `alerts@` and the support desk send as it.
+- The MX check lives on the mail service (`receives(domain)`). The local stand-in says yes except
+  for `nomx-…` domains, and `lapsed-…` domains say yes once, then no.
 
 ### Step 2 — Other mail and Spam
 
@@ -189,10 +206,11 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
 ### Step 6 — Every business
 
 1. Chris moves Postmark to the Platform plan, which has no limit on servers (Pro stops at 10).
-2. Worker: create and remove a Postmark server for each receiving domain, all posting to the one
+2. Email domains are held only once proved, as branded domains are (`20261012050100`).
+3. Worker: create and remove a Postmark server for each receiving domain, all posting to the one
    webhook address.
-3. `docs/operations.md`: turning it on, the MX change, moving back to another host, and trouble.
-4. Offer it: a business turns it on in Settings → Email.
+4. `docs/operations.md`: turning it on, the MX change, moving back to another host, and trouble.
+5. Offer it: a business turns it on in Settings → Email.
 
 ## Not in this milestone
 

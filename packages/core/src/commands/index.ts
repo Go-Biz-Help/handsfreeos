@@ -114,8 +114,11 @@ import {
   emailClaimUnmatched,
   emailDismissUnmatched,
   emailDomainAdd,
+  emailDomainReceive,
   emailDomainRecord,
+  emailDomainRecordReceiving,
   emailDomainRemove,
+  emailDomainStopReceiving,
   emailDomainVerify,
   emailSuppressionAdd,
   emailSuppressionRelease,
@@ -328,6 +331,7 @@ import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
+import { ownBusinessCommands } from './own-business';
 import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import { migrationCommands } from './migration';
@@ -412,8 +416,11 @@ export {
   emailClaimUnmatched,
   emailDismissUnmatched,
   emailDomainAdd,
+  emailDomainReceive,
   emailDomainRecord,
+  emailDomainRecordReceiving,
   emailDomainRemove,
+  emailDomainStopReceiving,
   emailDomainVerify,
   emailSuppressionAdd,
   emailSuppressionRelease,
@@ -642,6 +649,9 @@ export const commands: readonly CommandDef[] = [
   emailDomainVerify,
   emailDomainRemove,
   emailDomainRecord,
+  emailDomainReceive,
+  emailDomainStopReceiving,
+  emailDomainRecordReceiving,
   emailAddressCreate,
   emailAddressUpdate,
   mailboxConnect,
@@ -830,6 +840,8 @@ export const commands: readonly CommandDef[] = [
   ...walletCommands,
   ...foundingCommands,
   ...phoneModelCommands,
+  // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
+  ...ownBusinessCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
   ...aiProviderCommands,
   moneySaveSettings,
@@ -930,6 +942,7 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
+export * from './own-business';
 export * from './ai-provider';
 export * from './job';
 export * from './custom-field';

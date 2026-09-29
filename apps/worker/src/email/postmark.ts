@@ -1,7 +1,8 @@
 /**
  * Postmark over plain HTTPS: sending with the server token, workspace domains with the account token.
  */
-import { cnameInDns, dkimInDns, systemDns, type DnsLookup } from './dns';
+import { INBOUND_MX_HOST } from '@hfos/core';
+import { cnameInDns, dkimInDns, mxInDns, systemDns, type DnsLookup } from './dns';
 import {
   EmailError,
   mailbox,
@@ -194,6 +195,7 @@ export function createPostmark(opts: {
           if (!(e instanceof EmailError && (e.code === '510' || e.httpStatus === 404))) throw e;
         }
       },
+      receives: (domain) => mxInDns(dns, domain, INBOUND_MX_HOST),
     },
   };
 }

@@ -217,7 +217,29 @@ const RULES: Record<string, { status: number; message: string }> = {
   // Email (0012): the address and domain guards.
   email_local_part_reserved: {
     status: 400,
-    message: 'That name is reserved on the shared address. Pick another.',
+    message:
+      'That name is kept for HandsFreeOS itself, for its support desk or its own mail. Pick another.',
+  },
+  // M19: handsfreeos.com, receiving mail, and HandsFreeOS's own business.
+  email_domain_ours: {
+    status: 400,
+    message:
+      'That domain is HandsFreeOS’s own. Use a domain your business owns, like lonestarhvac.com.',
+  },
+  email_domain_provider_fields: {
+    status: 403,
+    message:
+      'HandsFreeOS says when a domain’s mail starts arriving, once it finds the MX record. Turn receiving on or off in Settings → Email instead.',
+  },
+  no_workspace: {
+    status: 404,
+    message:
+      'That business isn’t there anymore. It may have been deleted. Refresh the list and pick another.',
+  },
+  platform_holds_our_domain: {
+    status: 409,
+    message:
+      'This business still uses handsfreeos.com for its email. Remove handsfreeos.com under Use your own domain in its Settings → Email first.',
   },
   email_domain_unverified: {
     status: 409,

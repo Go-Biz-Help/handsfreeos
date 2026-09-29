@@ -2237,6 +2237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_domain.receive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start receiving the business’s mail at one of its verified domains. Once its MX record points at inbound.postmarkapp.com, mail to every address there arrives in the Inbox.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.receiving_requested.
+         */
+        post: operations["command_email_domain_receive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_domain.remove": {
         parameters: {
             query?: never;
@@ -2251,6 +2271,26 @@ export interface paths {
          * @description Risk level 3. Requires channels.manage. Emits email_domain.removed.
          */
         post: operations["command_email_domain_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_domain.stop_receiving": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop receiving the business’s mail at one of its domains. Mail sent there is no longer filed here, so point its MX record somewhere else first.
+         * @description Risk level 3. Requires channels.manage. Emits email_domain.receiving_stopped.
+         */
+        post: operations["command_email_domain_stop_receiving"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4851,6 +4891,26 @@ export interface paths {
          * @description Risk level 1. Emits organization.created, workspace.created.
          */
         post: operations["command_organization_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/own_business.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: mark one business as HandsFreeOS’s own, so it can use handsfreeos.com for its email, or unmark it.
+         * @description Risk level 3. Requires platform.own_business.manage. Emits own_business.changed.
+         */
+        post: operations["command_own_business_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -16442,6 +16502,41 @@ export interface operations {
             };
         };
     };
+    command_email_domain_receive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        emailDomainId: string;
+                        /** @enum {string} */
+                        receiving: "off" | "pending" | "on" | "lapsed";
+                    };
+                };
+            };
+        };
+    };
     command_email_domain_remove: {
         parameters: {
             query?: never;
@@ -16469,6 +16564,41 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         emailDomainId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_domain_stop_receiving: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        emailDomainId: string;
+                        /** @enum {string} */
+                        receiving: "off" | "pending" | "on" | "lapsed";
                     };
                 };
             };
@@ -22002,6 +22132,40 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         organizationId: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_own_business_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    on: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        on: boolean;
+                        was: boolean;
                         /** Format: uuid */
                         workspaceId: string;
                     };

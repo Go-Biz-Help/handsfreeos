@@ -62,6 +62,11 @@ export interface EmailDomains {
   /** Asks the service to look for the DNS records now; a record that isn't there yet is not an error. */
   verify(providerDomainId: string): Promise<DomainState>;
   remove(providerDomainId: string): Promise<void>;
+  /**
+   * Whether the domain's mail comes to the service (M19): its MX names the service's inbound host. Null when DNS
+   * didn't answer, which says nothing either way.
+   */
+  receives(domain: string): Promise<boolean | null>;
 }
 
 /** A refusal. Permanent ones (a bad address, a stopped recipient) are recorded on the message; the rest retry. */

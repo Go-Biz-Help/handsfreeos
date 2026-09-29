@@ -82,6 +82,8 @@ export const workspaces = app.table('workspaces', {
   }),
   /** The model its calls think with, picked by support in /admin; null is the worker's VOICE_MODEL. */
   phoneModel: text('phone_model'),
+  /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
+  isPlatform: boolean('is_platform').notNull().default(false),
   ...timestamps(),
 });
 
@@ -737,7 +739,15 @@ export const suppressionReason = app.enum('suppression_reason', [
   'spam_complaint',
   'manual',
 ]);
+/** Whether a domain's mail arrives in HandsFreeOS (M19): people ask (pending), the worker says on or lapsed. */
+export const emailReceivingStatus = app.enum('email_receiving_status', [
+  'off',
+  'pending',
+  'on',
+  'lapsed',
+]);
 export type EmailDomainStatus = (typeof emailDomainStatus.enumValues)[number];
+export type EmailReceivingStatus = (typeof emailReceivingStatus.enumValues)[number];
 export type MailboxProvider = (typeof mailboxProvider.enumValues)[number];
 export type MailboxStatus = (typeof mailboxStatus.enumValues)[number];
 export type SuppressionReason = (typeof suppressionReason.enumValues)[number];
@@ -1360,6 +1370,12 @@ export const emailDomains = app.table('email_domains', {
   returnPathVerifiedAt: ts('return_path_verified_at'),
   lastCheckedAt: ts('last_checked_at'),
   lastError: text('last_error'),
+  /** Whether its mail arrives here (M19), and what the worker last saw of its MX. */
+  receiving: emailReceivingStatus('receiving').notNull().default('off'),
+  mxVerifiedAt: ts('mx_verified_at'),
+  mxCheckedAt: ts('mx_checked_at'),
+  /** The Postmark server that receives it; null for handsfreeos.com, which the support server receives. */
+  inboundServerId: text('inbound_server_id'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });

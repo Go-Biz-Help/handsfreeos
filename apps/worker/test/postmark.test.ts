@@ -40,7 +40,11 @@ function mockPostmark(domain: typeof DOMAIN = DOMAIN): string[] {
 afterEach(() => vi.unstubAllGlobals());
 
 const dnsError = (code: string) => Object.assign(new Error(`queryTxt ${code}`), { code });
-const dns = (answers: { txt?: string[][] | Error; cname?: string[] | Error }): DnsLookup => ({
+const dns = (answers: {
+  txt?: string[][] | Error;
+  cname?: string[] | Error;
+  mx?: string[] | Error;
+}): DnsLookup => ({
   async txt() {
     if (answers.txt instanceof Error) throw answers.txt;
     return answers.txt ?? [];
@@ -48,6 +52,10 @@ const dns = (answers: { txt?: string[][] | Error; cname?: string[] | Error }): D
   async cname() {
     if (answers.cname instanceof Error) throw answers.cname;
     return answers.cname ?? [];
+  },
+  async mx() {
+    if (answers.mx instanceof Error) throw answers.mx;
+    return (answers.mx ?? []).map((exchange) => ({ exchange }));
   },
 });
 const domains = (lookup: DnsLookup) =>
@@ -104,5 +112,30 @@ describe('checking a workspace domain', () => {
         '4410123',
       ),
     ).toMatchObject({ dkimVerified: false, returnPathVerified: false });
+  });
+});
+
+describe('whether a domain receives here (M19)', () => {
+  it('finds Postmark among its MX records, however DNS writes the name', async () => {
+    expect(
+      await domains(dns({ mx: ['aspmx.l.google.com', 'INBOUND.POSTMARKAPP.COM.'] })).receives(
+        'lonestarhvac.com',
+      ),
+    ).toBe(true);
+  });
+
+  it('says no when the MX points elsewhere or there is none', async () => {
+    expect(await domains(dns({ mx: ['aspmx.l.google.com'] })).receives('lonestarhvac.com')).toBe(
+      false,
+    );
+    expect(await domains(dns({ mx: dnsError('ENODATA') })).receives('lonestarhvac.com')).toBe(
+      false,
+    );
+  });
+
+  it('says nothing when DNS does not answer', async () => {
+    expect(
+      await domains(dns({ mx: dnsError('ETIMEOUT') })).receives('lonestarhvac.com'),
+    ).toBeNull();
   });
 });

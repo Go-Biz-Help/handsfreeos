@@ -1,7 +1,7 @@
 /**
  * Local and test email: messages go to Mailpit over SMTP, the "mail service" reports delivery to the
  * worker's own events webhook (an address at bounce.example.com bounces instead), and domains verify when
- * asked. Nothing leaves the machine.
+ * asked. A receiving domain's MX "points here" too, unless its name says otherwise. Nothing leaves the machine.
  */
 import { randomUUID } from 'node:crypto';
 import nodemailer from 'nodemailer';
@@ -31,6 +31,7 @@ export function createLocalEmail(opts: {
 }): { transport: EmailTransport; domains: EmailDomains } {
   const smtp = nodemailer.createTransport(opts.smtpUrl);
   const domains = new Map<string, { name: string; verified: boolean; checks: number }>();
+  const mxChecks = new Map<string, number>();
   const report = (payload: Record<string, unknown>) => {
     if (!opts.eventsUrl) return;
     const url = opts.eventsUrl;
@@ -124,6 +125,12 @@ export function createLocalEmail(opts: {
       },
       async remove(id) {
         domains.delete(id);
+      },
+      async receives(domain) {
+        const checks = (mxChecks.get(domain) ?? 0) + 1;
+        mxChecks.set(domain, checks);
+        // nomx-… never points here, and a lapsed-… domain does the first time, then stops (the daily check's case).
+        return !(/^nomx-/.test(domain) || (/^lapsed-/.test(domain) && checks > 1));
       },
     },
   };

@@ -94,8 +94,48 @@ async function routeInbound(
 }
 
 /**
+ * Mail to a business's own domain once it receives there (M19): the address's own lane, or the business's default
+ * address when nobody has that name.
+ */
+async function routeReceiving(
+  deps: HttpDeps,
+  candidates: readonly PostmarkParty[],
+): Promise<InboundRoute | null> {
+  const tried = new Set<string>();
+  for (const r of candidates) {
+    const email = (r.Email ?? '').trim().toLowerCase();
+    const at = email.lastIndexOf('@');
+    if (at < 1) continue;
+    const domain = email.slice(at + 1);
+    if (domain === deps.email.mailDomain) continue;
+    const local = email.slice(0, at);
+    const plus = local.indexOf('+');
+    // chris+invoices@ is chris@: no address has a + in it.
+    const address = `${plus === -1 ? local : local.slice(0, plus)}@${domain}`;
+    if (tried.has(address)) continue;
+    tried.add(address);
+    const [a] = await asWorker(deps.httpDb, {}, (tx) =>
+      rows<{ email_address_id: string; workspace_id: string; organization_id: string }>(
+        tx,
+        sql`select email_address_id, workspace_id, organization_id
+            from private.email_receiving_route(${address})`,
+      ),
+    );
+    if (a)
+      return {
+        workspaceId: a.workspace_id,
+        organizationId: a.organization_id,
+        emailAddressId: a.email_address_id,
+        replyToken: null,
+      };
+  }
+  return null;
+}
+
+/**
  * Mail to HandsFreeOS's own support address (M13). It is checked before the businesses' routing and answered
- * separately: the businesses send from a subdomain, support lives on the bare domain, and the two never meet.
+ * separately. HandsFreeOS's own business may receive the rest of handsfreeos.com (M19), but never support@ or
+ * help@: those are always the support desk's.
  */
 function routeSupport(
   deps: HttpDeps,
@@ -193,7 +233,17 @@ export function registerEmailRoutes(app: FastifyInstance, deps: HttpDeps): void 
       await recordSupportInbound(deps, p, support.replyToken);
       return reply.code(200).send({ ok: true });
     }
-    const route = await routeInbound(deps, recipients);
+    // The envelope first when it is on a business's receiving domain: each such domain has its own Postmark server
+    // (M19), and the copy a server posts is for the address it was delivered to, whatever the headers say. Then a
+    // reply token or a mail.handsfreeos.com address, then a receiving domain the headers name.
+    const route =
+      (await routeReceiving(deps, p.OriginalRecipient ? [{ Email: p.OriginalRecipient }] : [])) ??
+      (await routeInbound(deps, recipients)) ??
+      (await routeReceiving(deps, [
+        ...(p.ToFull ?? []),
+        ...(p.CcFull ?? []),
+        ...(p.BccFull ?? []),
+      ]));
     // Mail for an address nobody owns is accepted (so Postmark stops) and dropped.
     if (!route) return reply.code(200).send({ ok: true });
     const folder = createHash('sha256').update(p.MessageID).digest('hex').slice(0, 24);
