@@ -98,6 +98,7 @@ import { onCallReferral, onMessageReferral } from '../automations/referrals';
 import { onCompletedThankYou } from '../automations/thank-you';
 import { supportHandlers } from './support';
 import { ideaHandlers } from './ideas';
+import { roadmapHandlers } from '../addons/roadmap';
 import type { HandlerMap } from './types';
 import { onSeatFreed, onWaitedForChanged, onWaitlistAdded } from './waitlist';
 
@@ -315,4 +316,6 @@ export const handlers: HandlerMap = {
   ...supportHandlers,
   // Ideas, the roadmap and What's new (0102): HandsFreeOS's own too, so beside the support desk's.
   ...ideaHandlers,
+  // Voting on what's next (0109): the team's pick, told to the businesses that voted for it.
+  ...roadmapHandlers,
 };

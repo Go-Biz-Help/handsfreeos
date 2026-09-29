@@ -63,13 +63,16 @@ export type CatalogStatus = (typeof CATALOG_STATUSES)[number];
 export const OVERRIDE_STATUSES = ['deprecated', 'unavailable'] as const;
 export type OverrideStatus = (typeof OVERRIDE_STATUSES)[number];
 
+/** In the order the planned list's filters show them. */
 export const ADDON_CATEGORIES = [
+  'industry',
   'sales',
   'marketing',
+  'customers',
   'operations',
+  'team',
   'finance',
-  'industry',
-  'productivity',
+  'insights',
   'ai',
 ] as const;
 export type AddonCategory = (typeof ADDON_CATEGORIES)[number];
@@ -217,6 +220,10 @@ export interface AddonManifest {
     readonly industries?: readonly string[];
     /** A deprecated add-on's replacement. */
     readonly replacedBy?: AddonId;
+    /** What the planned list filters it by: a line of work, or the areas it belongs to ("Social Media"). */
+    readonly groups?: readonly string[];
+    /** For a planned one that overlaps core: what HandsFreeOS already does of it, and what the add-on would add. */
+    readonly overlap?: string;
   };
   readonly capabilities: readonly AddonCapability[];
   readonly permissions: readonly AddonPermission[];
@@ -386,6 +393,14 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     if ((m.tables ?? []).length || (m.jobs ?? []).length || (m.recordKinds ?? []).length)
       say('a planned add-on has no code yet, so it declares no tables, jobs or record kinds');
   }
+  for (const g of m.catalog.groups ?? [])
+    if (!g.trim() || g.length > 60) say(`group "${g}" must be 1–60 characters`);
+  unique('group', m.catalog.groups ?? []);
+  if (
+    m.catalog.overlap !== undefined &&
+    (!m.catalog.overlap.trim() || m.catalog.overlap.length > 300)
+  )
+    say('catalog.overlap must be 1–300 characters');
   if (m.catalog.replacedBy === m.id) say('an add-on cannot replace itself');
   return issues.map((message) => ({ addon: m.id, message }));
 }

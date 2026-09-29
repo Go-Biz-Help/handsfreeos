@@ -173,9 +173,12 @@ describe('get_settings', () => {
 
   it('reads the add-ons as the page shows them, and leaves every move to a person', async () => {
     const { result } = await readTool('get_settings', 'add_ons', owner);
-    expect(result['where']).toBe('Settings → Add-ons');
-    // Nothing in the catalogue yet, as until the first add-on ships.
-    expect(result['addOns']).toEqual({ inThisBusiness: [], availableToAdd: [], comingSoon: [] });
+    expect(result['where']).toBe('Add-ons');
+    // Nothing built yet, as until the first add-on ships; Real Estate Agent is coming soon, and the rest are voted on.
+    expect(result['addOns']).toEqual({ inThisBusiness: [], availableToAdd: [] });
+    const vote = result['vote'] as { comingSoon: string[]; mostVotes: unknown[]; planned: number };
+    expect(vote.comingSoon).toContain('Real Estate Agent');
+    expect(vote.planned).toBeGreaterThan(100);
     expect(JSON.stringify(result['theyDoThemselves'])).toContain('delete an add-on’s data');
   });
 

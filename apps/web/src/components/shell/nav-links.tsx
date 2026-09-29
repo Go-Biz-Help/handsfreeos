@@ -3,6 +3,7 @@ import * as Popover from '@radix-ui/react-popover';
 import {
   ADDON_CATALOG,
   MENU_KEYS,
+  can,
   addonMenuPlace,
   addonMenuPlaces,
   currentMenuPlace,
@@ -56,8 +57,8 @@ import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
 import { useMenu } from './menu-provider';
 
-export interface NavItem {
-  readonly key: MenuPlaceKey;
+export interface NavItem<K extends MenuPlaceKey | FootKey = MenuPlaceKey> {
+  readonly key: K;
   readonly href: string;
   readonly label: string;
   readonly icon: ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -105,11 +106,37 @@ const PLACES: Record<MenuKey, Place> = {
   tasks: { path: '/tasks', label: 'Tasks', icon: ClipboardList },
   members: { path: '/members', label: 'Members', icon: UserCircle },
   audit: { path: '/audit', label: 'Audit log', icon: ListOrdered },
-  // Ideas, the roadmap and What's new: about HandsFreeOS itself, so it sits last before Settings, and in the
-  // drawer on phones. A dot says What's new has something the person has not read.
-  ideas: { path: '/ideas', label: 'Ideas', icon: Lightbulb },
   settings: { path: '/settings', label: 'Settings', icon: Settings2 },
 };
+
+/**
+ * The places about HandsFreeOS itself rather than the business (the owner's decision, 2026-09-28): Add-ons, for the
+ * owners and admins who manage them, and Ideas. They sit at the foot of the sidebar and the drawer, above Get help,
+ * where nobody arranges them; the menu (core's `MENU_KEYS`) never holds them.
+ */
+export type FootKey = 'add-ons' | 'ideas';
+
+/** The foot's places open to this person, top to bottom. */
+export function footItems(
+  workspaceId: string,
+  permissions?: readonly string[] | null,
+): NavItem<FootKey>[] {
+  const items: NavItem<FootKey>[] = [];
+  if (can(permissions ?? [], 'addons.manage'))
+    items.push({
+      key: 'add-ons',
+      href: `/app/w/${workspaceId}/add-ons`,
+      label: 'Add-ons',
+      icon: Blocks,
+    });
+  items.push({
+    key: 'ideas',
+    href: `/app/w/${workspaceId}/ideas`,
+    label: 'Ideas',
+    icon: Lightbulb,
+  });
+  return items;
+}
 
 /** One place, by key. */
 export function navItemOf(workspaceId: string, key: MenuKey): NavItem {
@@ -261,7 +288,7 @@ function NavLink({
   badge,
   className,
 }: {
-  item: NavItem;
+  item: NavItem<MenuPlaceKey | FootKey>;
   active: boolean;
   onNavigate?: () => void;
   badge?: ReactNode;
@@ -480,7 +507,6 @@ export function NavLinks({
   const activeKey = currentMenuPlace([...items.values()], pathname)?.key ?? null;
   const unread = useUnread().summary?.unread.all ?? 0;
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
-  const whatsNew = useWhatsNewUnseen();
   const badges = (key: MenuPlaceKey, after = onNavigate): ReactNode => {
     if (key === 'home') return <UrgentCount key="u" count={urgent} />;
     if (key === 'inbox')
@@ -494,7 +520,6 @@ export function NavLinks({
           onNavigate={after}
         />
       );
-    if (key === 'ideas') return <NewDot key="w" count={whatsNew} />;
     return null;
   };
   const Group = variant === 'drawer' ? GroupAccordion : GroupFlyout;
@@ -524,6 +549,44 @@ export function NavLinks({
           />
         ) : null;
       })}
+    </nav>
+  );
+}
+
+/**
+ * The foot of the sidebar and the drawer, above Get help: Add-ons (for whoever manages them) and Ideas, with a dot
+ * when What's new has something the person hasn't read. Not part of the menu a person arranges.
+ */
+export function FootLinks({
+  workspaceId,
+  permissions,
+  onNavigate,
+}: {
+  workspaceId: string;
+  permissions?: readonly string[] | null;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const whatsNew = useWhatsNewUnseen();
+  const items = footItems(workspaceId, permissions);
+  const activeKey = currentMenuPlace(items, pathname)?.key ?? null;
+  return (
+    <nav className="flex flex-col gap-0.5" aria-label="HandsFreeOS" data-testid="sidebar-foot">
+      {items.map((item) => (
+        <NavLink
+          key={item.key}
+          item={item}
+          active={item.key === activeKey}
+          onNavigate={onNavigate}
+          badge={
+            item.key === 'ideas' ? (
+              <span className="ml-auto">
+                <NewDot count={whatsNew} />
+              </span>
+            ) : null
+          }
+        />
+      ))}
     </nav>
   );
 }

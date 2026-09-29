@@ -174,6 +174,31 @@ describe('normalizeMenu', () => {
     expect(normalizeMenu(DEFAULT_MENU)).toEqual(DEFAULT_MENU);
     expect(new Set(menuKeys(SUGGESTED_MENU))).toEqual(new Set(MENU_KEYS));
   });
+
+  it('suggests Campaigns as its own row, just above More', () => {
+    const rows = SUGGESTED_MENU.entries.map((e) => (e.kind === 'link' ? e.key : `group:${e.id}`));
+    expect(rows.indexOf('campaigns')).toBe(rows.indexOf('group:more') - 1);
+    const more = SUGGESTED_MENU.entries.find((e) => e.kind === 'group');
+    expect(more?.kind === 'group' ? more.keys : []).not.toContain('campaigns');
+  });
+
+  it('keeps Ideas out: it sits with Get help, and a saved menu that names it loses it', () => {
+    expect(MENU_KEYS as readonly string[]).not.toContain('ideas');
+    const saved = menuOf({
+      menu: {
+        v: 1,
+        entries: [
+          { kind: 'link', key: 'home' },
+          { kind: 'link', key: 'ideas' },
+          { kind: 'group', id: 'g1', label: 'More', keys: ['ideas', 'audit'] },
+        ],
+        hidden: ['ideas'],
+      },
+    });
+    expect(menuKeys(saved) as readonly string[]).not.toContain('ideas');
+    expect(saved.hidden as readonly string[]).not.toContain('ideas');
+    expect(new Set(menuKeys(saved))).toEqual(new Set(MENU_KEYS));
+  });
 });
 
 describe('editing helpers', () => {

@@ -18,9 +18,8 @@ import type { Tx } from '@hfos/db/client';
 import { assistantToolByName } from '../assistant/tools';
 import type { CommandDef, QueryDef } from '../kernel/types';
 import type { CapabilityContext, CapabilityView } from './capabilities';
-import { capabilitySets } from './capabilities';
+import { capabilitySets, effectiveStatus } from './capabilities';
 import type { Catalog } from './graph';
-import { findAddon } from './graph';
 import { capabilityContextOf, loadInstallations, loadOverrides } from './load';
 import type { AddonId, AddonManifest, CapabilityId } from './manifest';
 import { recommendAddons, words } from './recommend';
@@ -294,6 +293,9 @@ export interface AddonSuggestion {
   readonly available: true;
 }
 
+/** How many planned add-ons one answer lists at most. */
+export const PLANNED_SHOWN = 8;
+
 /** Something planned: a promise, never something to add. */
 export interface PlannedAddon {
   readonly addonId: AddonId;
@@ -323,7 +325,8 @@ const SAY = {
   turnedOff: 'Installed here but turned off: an owner or admin can turn it back on.',
   suggestions:
     'Add-ons they could add that do what they asked. Mention one only if it answers their request, once, in a sentence, and never push it.',
-  planned: 'Planned and not available yet: say it is coming, never that they can add it.',
+  planned:
+    'Planned and not available yet: say it is coming, never that they can add it. Owners and admins vote for what comes next on Add-ons, at the bottom of the side menu.',
 } as const;
 
 const line = (c: CapabilityView): CapabilityLine => ({
@@ -374,20 +377,20 @@ export function findCapabilities(
       : [];
   let planned: PlannedAddon[] | undefined;
   if (manages && input.includePlanned) {
-    const ids = [...new Set(sets.planned.map((c) => c.provider))];
-    const addons = ids.flatMap((id) => {
-      const m = findAddon(ctx.catalog, id);
-      return m ? [m] : [];
-    });
+    // Straight from the catalogue: a planned add-on often declares nothing it will do yet. The best matches, and
+    // only a few: there are over a hundred.
+    const addons = ctx.catalog.filter((m) => effectiveStatus(m, ctx.overrides) === 'planned');
     planned = byNeed(addons, wanted, (m) =>
       [m.name, m.summary, ...m.catalog.keywords, ...m.capabilities.map((c) => c.label)].join(' '),
-    ).map((m) => ({
-      addonId: m.id,
-      name: m.name,
-      summary: m.summary,
-      does: m.capabilities.map((c) => c.label),
-      available: false,
-    }));
+    )
+      .slice(0, PLANNED_SHOWN)
+      .map((m) => ({
+        addonId: m.id,
+        name: m.name,
+        summary: m.summary,
+        does: m.capabilities.map((c) => c.label),
+        available: false,
+      }));
   }
   const say: Record<string, string> = {};
   if (restricted.length) say['restricted'] = SAY.restricted;

@@ -26,6 +26,15 @@ export type AddonHolds = AddonImpact['holds'];
 /** `addon.settings`: the business's settings and switches (for whoever may see them), and the person's own. */
 export type AddonSettings = Ok<'/v1/queries/addon.settings'>;
 
+/** `addon.roadmap` (0109): what's coming soon, and every planned add-on up for a vote. */
+export type AddonRoadmap = Ok<'/v1/queries/addon.roadmap'>;
+export type ComingSoonRow = AddonRoadmap['comingSoon'][number];
+export type PlannedRow = AddonRoadmap['planned'][number];
+/** `addon.vote` and `addon.unvote`: where the business's vote stands now. */
+export type AddonVoted = Ok<'/v1/commands/addon.vote'>;
+/** Home's note: an add-on the business voted for is coming soon, or ready to add. */
+export type AddonNews = NonNullable<Ok<'/v1/queries/addon.news'>['news']>;
+
 /** The one add-on Home may suggest now. */
 export type AddonSuggestion = NonNullable<Ok<'/v1/queries/addon.suggestion'>['suggestion']>;
 

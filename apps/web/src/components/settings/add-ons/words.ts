@@ -1,5 +1,5 @@
 /**
- * Settings → Add-ons: the add-on names and dependency lines its cards draw. Everything the page says is the words the
+ * The Add-ons page: the add-on names and dependency lines its cards draw. Everything the page says is the words the
  * web and the phone share (`ADDON_PAGE_WORDS`, `ADDON_STATE_WORDS`, `ADDON_MOVE_WORDS`, `addonCheckWords` and the
  * sentence helpers in @hfos/core), so the two say exactly the same thing. Browser-safe and pure.
  */

@@ -972,7 +972,6 @@ const MENU_LABELS: Record<MenuKey, string> = {
   tasks: 'Tasks',
   members: 'Members',
   audit: 'Audit log',
-  ideas: 'Ideas',
   settings: 'Settings',
 };
 const placesWords = (keys: readonly MenuKey[]) => joinAnd(keys.map((k) => MENU_LABELS[k]));

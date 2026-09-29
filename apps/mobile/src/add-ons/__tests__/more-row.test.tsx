@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as React from 'react';
 
+import More from '@/app/app/w/[workspaceId]/(tabs)/(more)/more';
 import Settings from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings';
 import { BusinessProvider } from '@/components/shell/business-context';
 import type { Business, Me } from '@/lib/businesses';
@@ -9,8 +10,9 @@ import type { Business, Me } from '@/lib/businesses';
 import { ADDON_PHONE_WORDS } from '../words';
 
 /**
- * Settings → Add-ons is for whoever may install add-ons (owners and admins, `addons.manage`); nobody else sees the
- * row. Its screen reads nothing until it's opened.
+ * Add-ons is a place of its own in More, beside Ideas and Get help, not a setting (the owner's decision,
+ * 2026-09-28). Its row is for whoever may install add-ons (owners and admins, `addons.manage`); nobody else sees it,
+ * and Settings no longer has one. Its screen reads nothing until it's opened.
  */
 
 jest.mock('expo-router', () => ({
@@ -18,13 +20,20 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
   usePathname: () => '/',
 }));
+jest.mock('@powersync/react-native', () => ({
+  ...jest.requireActual<object>('@powersync/common'),
+  useQuery: jest.fn(() => ({ data: [], isLoading: false, isFetching: false })),
+  usePowerSync: () => ({ getOptional: jest.fn(async () => null) }),
+}));
 jest.mock('@/components/shell/status-strip', () => ({ StatusStrip: () => null }));
 jest.mock('@/components/shell/up-to-date', () => ({ UpToDate: () => null }));
+jest.mock('@/components/home/approvals-count', () => ({ ApprovalsCount: () => null }));
+jest.mock('@/ideas/whats-new-signal', () => ({ useWhatsNewUnseen: () => 0 }));
 
 const DALE = '11111111-1111-4111-8111-111111111111';
 const LONE_STAR = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-async function show(role: Business['role'], permissions?: string[]) {
+async function show(screenOf: React.ReactElement, role: Business['role'], permissions?: string[]) {
   const business: Business = {
     id: LONE_STAR,
     name: 'Lone Star HVAC & Roofing',
@@ -42,35 +51,42 @@ async function show(role: Business['role'], permissions?: string[]) {
   };
   await render(
     <BusinessProvider value={{ userId: DALE, me, business, openSwitcher: () => undefined }}>
-      <Settings />
+      {screenOf}
     </BusinessProvider>,
   );
 }
 
 beforeEach(() => jest.clearAllMocks());
 
-it('shows an owner and an admin the Add-ons row, and opens the screen', async () => {
-  await show('owner');
-  const row = await screen.findByTestId('setting-add-ons');
+it('shows an owner and an admin Add-ons in More, beside Ideas and Get help, and opens the screen', async () => {
+  await show(<More />, 'owner');
+  const row = await screen.findByTestId('more-add-ons');
   expect(row).toHaveTextContent(ADDON_PHONE_WORDS.title, { exact: false });
+  expect(screen.getByTestId('more-ideas')).toBeTruthy();
+  expect(screen.getByTestId('more-get-help')).toBeTruthy();
   await fireEvent.press(row);
-  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/add-ons`);
+  expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/add-ons`);
   await screen.unmount();
 
-  await show('admin');
-  expect(await screen.findByTestId('setting-add-ons')).toBeTruthy();
+  await show(<More />, 'admin');
+  expect(await screen.findByTestId('more-add-ons')).toBeTruthy();
 });
 
 it('shows no Add-ons row to a member, nor to an admin the business took add-ons away from', async () => {
-  await show('member');
-  expect(await screen.findByTestId('settings')).toBeTruthy();
-  expect(screen.queryByTestId('setting-add-ons')).toBeNull();
+  await show(<More />, 'member');
+  expect(await screen.findByTestId('more-ideas')).toBeTruthy();
+  expect(screen.queryByTestId('more-add-ons')).toBeNull();
   await screen.unmount();
 
   // addons.manage is one a business sets per role and per person (0106).
-  await show('admin', ['workspace.read', 'money.read', 'money.manage']);
+  await show(<More />, 'admin', ['workspace.read', 'money.read', 'money.manage']);
+  expect(await screen.findByTestId('more-ideas')).toBeTruthy();
+  expect(screen.queryByTestId('more-add-ons')).toBeNull();
+});
+
+it('keeps Add-ons out of Settings, where the balance stays', async () => {
+  await show(<Settings />, 'owner');
   expect(await screen.findByTestId('settings')).toBeTruthy();
   expect(screen.queryByTestId('setting-add-ons')).toBeNull();
-  // The balance is still theirs, in the same group.
   expect(screen.getByTestId('setting-usage')).toBeTruthy();
 });

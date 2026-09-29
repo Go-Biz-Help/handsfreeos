@@ -13,6 +13,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations, emailDomains, telephonyRegistrations } from '@hfos/db/schema';
 import { accountJobs } from './account/delete';
 import { addonJobs, ensureAddonSweep } from './addons/index';
+import { ensureAddonVoting, roadmapJobs } from './addons/roadmap';
 import { workspaceJobs } from './workspace/delete';
 import { DIGEST_JOBS, DIGEST_PLAN_KEY, digestJobs } from './agency-digest';
 import { handoffAlertDue } from './ai-team/escalation';
@@ -428,6 +429,8 @@ export const jobs: JobMap = {
   // Add-ons: each one brought in line with its state in each business, the hourly sweep behind that, events
   // handed to the add-ons that subscribe, and each add-on's own jobs (addons/).
   ...addonJobs,
+  // Voting on what's next: each week's vote closing, and picks that shipped (addons/roadmap.ts).
+  ...roadmapJobs,
 };
 
 /** Periodic jobs exist exactly once (their dedupe key keeps one pending row); the first run is an hour out. */
@@ -556,5 +559,7 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     });
     // Add-ons, hourly: any move a business made that isn't finished and proved gets its reconcile again.
     await ensureAddonSweep(tx, runAt);
+    // Voting on what's next: this week's close on Sunday at midnight Eastern, and a check for picks that shipped.
+    await ensureAddonVoting(tx, Date.now());
   });
 }

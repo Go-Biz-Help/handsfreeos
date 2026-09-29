@@ -185,6 +185,16 @@ export const {
 } = addonQueryDefs;
 export { addonQueries } from './addon';
 
+import { addonRoadmapQueries } from './addon-roadmap';
+
+/** Voting on what's next: the planned list, Home's note, and the team's view (0109). */
+export const {
+  roadmap: addonRoadmap,
+  news: addonNews,
+  overview: addonPickOverview,
+} = addonRoadmapQueries(ADDON_CATALOG);
+export { addonRoadmapQueries, ADDON_NEWS_DAYS } from './addon-roadmap';
+
 export const queries: readonly QueryDef[] = [
   ...migrationQueries,
   ...supportQueries,
@@ -304,6 +314,10 @@ export const queries: readonly QueryDef[] = [
   addonImpact,
   addonSettings,
   addonSuggestion,
+  // Voting on what's next (0109).
+  addonRoadmap,
+  addonNews,
+  addonPickOverview,
 ] as unknown as readonly QueryDef[];
 
 export {

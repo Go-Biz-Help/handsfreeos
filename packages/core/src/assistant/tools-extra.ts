@@ -251,7 +251,12 @@ export const extraTools: readonly AssistantTool[] = [
       'Change the person’s own side menu: hide places or show hidden ones, use the suggested groups (everyday places stay out, the rest fold into More), or start over with every place one under the other. Home and Settings never hide. Theirs alone.',
     input: z.object({
       action: z.enum(['hide', 'show', 'use_suggested', 'start_over']),
-      places: z.array(z.enum(MENU_KEYS)).min(1).max(17).optional().describe('For hide and show'),
+      places: z
+        .array(z.enum(MENU_KEYS))
+        .min(1)
+        .max(MENU_KEYS.length)
+        .optional()
+        .describe('For hide and show'),
     }),
     autonomy: 'confirm',
     permission: 'assistant.use',

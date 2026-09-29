@@ -359,7 +359,7 @@ describe('saving your own settings on what you last read', () => {
     const newer = storedMenu(SUGGESTED_MENU);
     await run(userUpdateProfile, { settings: { menu: newer } }, u);
     // The editor, still on the first menu, tries to save over it.
-    const stale = storedMenu(moveKey(menuOf({ menu: first }), 'ideas', 'hidden'));
+    const stale = storedMenu(moveKey(menuOf({ menu: first }), 'reviews', 'hidden'));
     const err = await expectHfos(
       () =>
         run(userUpdateProfile, { settings: { menu: stale }, expectedSettings: { menu: first } }, u),
@@ -391,7 +391,7 @@ describe('saving your own settings on what you last read', () => {
     const base = storedMenu(DEFAULT_MENU);
     await run(userUpdateProfile, { settings: { menu: base } }, u);
     const a = storedMenu(moveKey(DEFAULT_MENU, 'audit', 'hidden'));
-    const b = storedMenu(moveKey(DEFAULT_MENU, 'ideas', 'hidden'));
+    const b = storedMenu(moveKey(DEFAULT_MENU, 'reviews', 'hidden'));
     const results = await Promise.allSettled(
       [a, b].map((menu) =>
         run(userUpdateProfile, { settings: { menu }, expectedSettings: { menu: base } }, u),

@@ -4680,6 +4680,87 @@ export const addonOverrides = platform.table('addon_overrides', {
   setAt: ts('set_at').notNull().defaultNow(),
 });
 
+/** A business's vote for a planned add-on (0109): one per business per add-on, cast by an owner or admin. */
+export const addonVotes = platform.table(
+  'addon_votes',
+  {
+    addonId: text('addon_id').notNull(),
+    workspaceId: workspaceRef(),
+    votedBy: userRef('voted_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.addonId, t.workspaceId] })],
+);
+
+/** Each planned add-on's votes, kept by a trigger on addon_votes (0109). */
+export const addonVoteCounts = platform.table('addon_vote_counts', {
+  addonId: text('addon_id').primaryKey(),
+  votes: integer('votes').notNull().default(0),
+  lastVoteAt: ts('last_vote_at'),
+});
+
+/** How each week's vote closed (0109): a winner, or nothing voted for or a tie, waiting for the team. */
+export const addonVoteWeeks = platform.table('addon_vote_weeks', {
+  id: id(),
+  endsAt: ts('ends_at').notNull().unique(),
+  /** votes, no_votes or tie. */
+  outcome: text('outcome').notNull(),
+  addonId: text('addon_id'),
+  tied: text('tied').array().notNull().default([]),
+  topVotes: integer('top_votes').notNull().default(0),
+  decidedAt: ts('decided_at'),
+  decidedBy: userRef('decided_by'),
+  teamToldAt: ts('team_told_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** Every add-on picked to come next (0109): Coming soon until it ships. */
+export const addonPicks = platform.table('addon_picks', {
+  addonId: text('addon_id').primaryKey(),
+  /** votes, team or plan. */
+  how: text('how').notNull(),
+  weekId: uuid('week_id').references(() => addonVoteWeeks.id, { onDelete: 'set null' }),
+  votes: integer('votes').notNull().default(0),
+  pickedAt: ts('picked_at').notNull().defaultNow(),
+  pickedBy: userRef('picked_by'),
+  votersToldAt: ts('voters_told_at'),
+  shippedAt: ts('shipped_at'),
+  shippedToldAt: ts('shipped_told_at'),
+});
+
+/** One person told about one pick (0109), so a retry tells nobody twice. The worker's alone. */
+export const addonPickDeliveries = platform.table(
+  'addon_pick_deliveries',
+  {
+    addonId: text('addon_id')
+      .notNull()
+      .references(() => addonPicks.addonId, { onDelete: 'cascade' }),
+    /** picked or shipped. */
+    kind: text('kind').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sentAt: ts('sent_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.addonId, t.kind, t.userId] })],
+);
+
+/** Home's note about a pick, set aside by one person (0109). */
+export const addonNewsSeen = platform.table(
+  'addon_news_seen',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    addonId: text('addon_id')
+      .notNull()
+      .references(() => addonPicks.addonId, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    seenAt: ts('seen_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.addonId, t.kind] })],
+);
+
 export const staff = platform.table('staff', {
   userId: uuid('user_id')
     .primaryKey()
@@ -6221,4 +6302,10 @@ export const tables = {
   addonResources,
   addonUsageEvents,
   addonOverrides,
+  addonVotes,
+  addonVoteCounts,
+  addonVoteWeeks,
+  addonPicks,
+  addonPickDeliveries,
+  addonNewsSeen,
 } as const;

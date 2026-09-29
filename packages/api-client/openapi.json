@@ -45923,6 +45923,283 @@
         }
       }
     },
+    "/v1/commands/addon.vote": {
+      "post": {
+        "operationId": "command_addon_vote",
+        "summary": "Vote for a planned add-on for this business: one vote per business on each add-on it wants. Every Sunday at midnight Eastern, the one with the most votes becomes Coming soon.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires addons.manage. Emits addon.voted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "voted": {
+                      "type": "boolean"
+                    },
+                    "votes": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "voted",
+                    "votes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.unvote": {
+      "post": {
+        "operationId": "command_addon_unvote",
+        "summary": "Take back this business’s vote for a planned add-on.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires addons.manage. Emits addon.unvoted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "voted": {
+                      "type": "boolean"
+                    },
+                    "votes": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "voted",
+                    "votes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon.mark_news_seen": {
+      "post": {
+        "operationId": "command_addon_mark_news_seen",
+        "summary": "Set aside Home’s note that an add-on this business voted for is coming soon, or ready to add.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "picked",
+                      "shipped"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "addonId",
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "picked",
+                        "shipped"
+                      ]
+                    },
+                    "seen": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "addonId",
+                    "kind",
+                    "seen"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon_pick.choose": {
+      "post": {
+        "operationId": "command_addon_pick_choose",
+        "summary": "Choose what comes next for a week that closed with nothing voted for or a tie: it becomes Coming soon, and the businesses that voted for it are told.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires platform.addons.manage. Emits platform.addon_picked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "weekId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "addonId": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,16}$"
+                  }
+                },
+                "required": [
+                  "weekId",
+                  "addonId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "weekId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "addonId": {
+                      "type": "string",
+                      "pattern": "^[a-z]{2,16}$"
+                    }
+                  },
+                  "required": [
+                    "weekId",
+                    "addonId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -93209,7 +93486,7 @@
     "/v1/queries/addon.list": {
       "post": {
         "operationId": "query_addon_list",
-        "summary": "The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added and what is planned.",
+        "summary": "The add-ons this business has and where each stands, and what you can do here now; for people who manage add-ons, what could be added. What is planned and coming soon is addon.roadmap.",
         "tags": [
           "queries"
         ],
@@ -93983,6 +94260,500 @@
                   },
                   "required": [
                     "suggestion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon.roadmap": {
+      "post": {
+        "operationId": "query_addon_roadmap",
+        "summary": "What is coming soon, and every planned add-on still up for a vote, with its votes and whether this business voted for it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires addons.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comingSoon": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "votes",
+                              "team",
+                              "plan"
+                            ]
+                          },
+                          "pickedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "votes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "voted": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name",
+                          "summary",
+                          "how",
+                          "pickedAt",
+                          "votes",
+                          "voted"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "planned": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "groups": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "overlap": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "votes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "voted": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name",
+                          "summary",
+                          "category",
+                          "groups",
+                          "overlap",
+                          "votes",
+                          "voted"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextPickAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "comingSoon",
+                    "planned",
+                    "nextPickAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon.news": {
+      "post": {
+        "operationId": "query_addon_news",
+        "summary": "Home’s note, if any: an add-on this business voted for is coming soon, or ready to add. Only for people who manage add-ons.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires workspace.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "news": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "addonId": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2,16}$"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "picked",
+                                "shipped"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "addonId",
+                            "name",
+                            "summary",
+                            "kind"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "news"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/addon_pick.overview": {
+      "post": {
+        "operationId": "query_addon_pick_overview",
+        "summary": "The team’s view of the vote: weeks waiting for a pick, the last weeks, every planned add-on by votes, and what’s coming soon.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.addons.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "waiting": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "weekId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "endsAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "no_votes",
+                              "tie"
+                            ]
+                          },
+                          "tied": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z]{2,16}$"
+                            }
+                          },
+                          "topVotes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "weekId",
+                          "endsAt",
+                          "outcome",
+                          "tied",
+                          "topVotes"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "weeks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "weekId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "endsAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "votes",
+                              "no_votes",
+                              "tie"
+                            ]
+                          },
+                          "addonId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[a-z]{2,16}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "topVotes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "decidedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "decidedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "weekId",
+                          "endsAt",
+                          "outcome",
+                          "addonId",
+                          "name",
+                          "topVotes",
+                          "decidedAt",
+                          "decidedBy"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "race": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string"
+                          },
+                          "votes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name",
+                          "category",
+                          "votes"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "comingSoon": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "addonId": {
+                            "type": "string",
+                            "pattern": "^[a-z]{2,16}$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "how": {
+                            "type": "string",
+                            "enum": [
+                              "votes",
+                              "team",
+                              "plan"
+                            ]
+                          },
+                          "pickedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "votes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "shippedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "addonId",
+                          "name",
+                          "how",
+                          "pickedAt",
+                          "votes",
+                          "shippedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextPickAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    }
+                  },
+                  "required": [
+                    "waiting",
+                    "weeks",
+                    "race",
+                    "comingSoon",
+                    "nextPickAt"
                   ],
                   "additionalProperties": false
                 }

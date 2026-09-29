@@ -38,6 +38,8 @@ export * from './attention/hints';
 export * from './addons/server';
 export * from './addons/modules';
 export * from './addons/ai';
+export * from './addons/roadmap-load';
+export { loadOverrides } from './addons/load';
 import { ADDON_SERVER_MODULES } from './addons/modules';
 import { composeOperations } from './addons/server';
 import { commands } from './commands/index';

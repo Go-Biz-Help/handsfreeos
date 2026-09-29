@@ -1272,3 +1272,115 @@ export function ideaTeamAnswerEmail(input: {
   );
   return { subject, text, html };
 }
+
+// ---- Voting on what's next (0109) ----
+
+const ADDON_VOTE_FOOT =
+  'You get this because your business voted for this add-on on the Add-ons page in HandsFreeOS.';
+
+/**
+ * The owners and admins of a business that voted for an add-on hear when it is picked: it won the week's vote, or
+ * the team chose it when a week had no winner. Either way it's next to be built.
+ */
+export function addonPickedEmail(input: {
+  firstName: string;
+  name: string;
+  summary: string;
+  business: string;
+  link: string;
+}): EmailContent {
+  const subject = `${input.name} is coming soon`;
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const what = `${input.business} voted for ${input.name}, and it’s next to be built. We’ll email you again when you can add it.`;
+  const text = [
+    hello,
+    '',
+    what,
+    '',
+    input.summary,
+    '',
+    `See what’s coming: ${input.link}`,
+    '',
+    ADDON_VOTE_FOOT,
+  ].join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(what)) +
+      `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin: 8px 0;"><strong>${escapeHtml(input.name)}</strong><br>${escapeHtml(input.summary)}</div>` +
+      button(input.link, 'See what’s coming') +
+      small(escapeHtml(ADDON_VOTE_FOOT)),
+  );
+  return { subject, text, html };
+}
+
+/** The same people hear again when the add-on they voted for can be added. */
+export function addonShippedEmail(input: {
+  firstName: string;
+  name: string;
+  summary: string;
+  business: string;
+  link: string;
+}): EmailContent {
+  const subject = `${input.name} is ready to add`;
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const what = `${input.business} voted for ${input.name}, and it’s ready. You can add it now on the Add-ons page.`;
+  const text = [
+    hello,
+    '',
+    what,
+    '',
+    input.summary,
+    '',
+    `Add it: ${input.link}`,
+    '',
+    ADDON_VOTE_FOOT,
+  ].join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(what)) +
+      `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin: 8px 0;"><strong>${escapeHtml(input.name)}</strong><br>${escapeHtml(input.summary)}</div>` +
+      button(input.link, 'Add it') +
+      small(escapeHtml(ADDON_VOTE_FOOT)),
+  );
+  return { subject, text, html };
+}
+
+/**
+ * The team who choose what comes next hear when a week's vote closed with no winner: nothing voted for, or a tie.
+ * Nothing becomes Coming soon until one of them chooses.
+ */
+export function addonPickNeededEmail(input: {
+  firstName: string;
+  outcome: 'no_votes' | 'tie';
+  /** For a tie, the names that tied. */
+  tied: readonly string[];
+  votes: number;
+  link: string;
+}): EmailContent {
+  const tied =
+    input.tied.length <= 2
+      ? input.tied.join(' and ')
+      : `${input.tied.slice(0, -1).join(', ')} and ${input.tied.at(-1)}`;
+  const subject =
+    input.outcome === 'tie'
+      ? 'This week’s add-on vote is a tie'
+      : 'Nobody voted for an add-on this week';
+  const what =
+    input.outcome === 'tie'
+      ? `This week’s vote ended in a tie between ${tied}, with ${input.votes} ${input.votes === 1 ? 'vote' : 'votes'} each. Choose which one comes next.`
+      : 'This week’s vote closed with no votes, so nothing new is Coming soon. Choose what HandsFreeOS builds next.';
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const text = [hello, '', what, '', `Choose it: ${input.link}`].join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(what)) +
+      button(input.link, 'Choose it'),
+  );
+  return { subject, text, html };
+}

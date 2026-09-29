@@ -156,14 +156,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   add_ons: {
     label: 'Add-ons',
-    what: 'the add-ons this business has (extra features for particular kinds of work) and whether each one is on, the ones it could add, and what’s coming soon',
-    where: ['Settings', 'Add-ons'],
+    what: 'the add-ons this business has (extra features for particular kinds of work) and whether each one is on, the ones it could add, what’s coming soon, and the vote on what comes next',
+    where: ['Add-ons'],
     onScreen: [
       'In this business: each add-on, whether it is on, and its Settings',
       'Available to add',
-      'Coming soon, when something is planned',
+      'Coming soon: what the weekly vote picked, until it can be added',
+      'Vote on what’s next: every planned add-on, with a search, categories, groups and an upvote on each',
     ],
-    path: '/settings/add-ons',
+    path: '/add-ons',
     permission: 'addons.manage',
     canChange: [],
     handovers: [
@@ -171,7 +172,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         what: 'add an add-on, turn one on or off, or uninstall one',
         why: 'it changes what everyone in the business can do, so an owner or an admin does it on the page',
         steps: [
-          'Open Settings → Add-ons.',
+          'Open Add-ons, at the bottom of the side menu.',
           'Press Install, Turn on, Turn off or Uninstall on the add-on. If another add-on has to move with it, you are asked first.',
         ],
       },
@@ -179,7 +180,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         what: 'delete an add-on’s data',
         why: 'it can’t be undone, so only an owner does it, typing the add-on’s name',
         steps: [
-          'Open Settings → Add-ons.',
+          'Open Add-ons, at the bottom of the side menu.',
           'Uninstall the add-on first, if it is still installed.',
           'Press Delete its data, and type the add-on’s name to confirm.',
         ],

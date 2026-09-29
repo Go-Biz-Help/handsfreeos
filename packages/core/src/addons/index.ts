@@ -12,3 +12,5 @@ export * from './recommend';
 export * from './suggest';
 export * from './words';
 export * from './catalog';
+export * from './planned';
+export * from './roadmap';

@@ -348,6 +348,17 @@ export const {
 } = addonCommands;
 export { addonLifecycleCommands, ADDON_MOVE_EVENTS } from './addon';
 
+import { addonRoadmapCommands } from './addon-roadmap';
+
+/** Voting on what's next: a business's vote, Home's note set aside, and the team's pick (0109). */
+export const {
+  vote: addonVote,
+  unvote: addonUnvote,
+  markNewsSeen: addonMarkNewsSeen,
+  choosePick: addonPickChoose,
+} = addonRoadmapCommands(ADDON_CATALOG);
+export { addonRoadmapCommands } from './addon-roadmap';
+
 export {
   conversationAssign,
   conversationArchive,
@@ -853,6 +864,11 @@ export const commands: readonly CommandDef[] = [
   addonSaveSettings,
   addonSaveMySettings,
   addonDismissSuggestion,
+  // Voting on what's next (0109).
+  addonVote,
+  addonUnvote,
+  addonMarkNewsSeen,
+  addonPickChoose,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';

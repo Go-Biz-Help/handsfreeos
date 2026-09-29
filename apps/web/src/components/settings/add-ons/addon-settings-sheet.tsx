@@ -18,7 +18,7 @@ export const hasSettings = (m: AddonManifest): boolean =>
   Object.keys(m.settings?.flags ?? {}).length > 0 || !!ADDON_UI[m.id]?.settings;
 
 /**
- * An add-on's settings, from its card on Settings → Add-ons, while it's on (its settings are hidden while it's off,
+ * An add-on's settings, from its card on the Add-ons page, while it's on (its settings are hidden while it's off,
  * like the rest of it): its switches, each saved the moment it's flipped, and below them its own settings form
  * (`settings` in addons/registry.ts), fetched the first time it's opened and fenced off in its own boundary so a
  * broken form never takes the page with it.

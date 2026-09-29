@@ -98,6 +98,7 @@ export { default as Moon } from 'lucide-react-native/icons/moon';
 export { default as MousePointerClick } from 'lucide-react-native/icons/mouse-pointer-click';
 export { default as PackageCheck } from 'lucide-react-native/icons/package-check';
 export { default as Paperclip } from 'lucide-react-native/icons/paperclip';
+export { default as PartyPopper } from 'lucide-react-native/icons/party-popper';
 export { default as Pause } from 'lucide-react-native/icons/pause';
 export { default as Pencil } from 'lucide-react-native/icons/pencil';
 export { default as Percent } from 'lucide-react-native/icons/percent';
@@ -115,6 +116,7 @@ export { default as RectangleEllipsis } from 'lucide-react-native/icons/rectangl
 export { default as RefreshCw } from 'lucide-react-native/icons/refresh-cw';
 export { default as Repeat } from 'lucide-react-native/icons/repeat';
 export { default as Reply } from 'lucide-react-native/icons/reply';
+export { default as Rocket } from 'lucide-react-native/icons/rocket';
 export { default as RotateCcw } from 'lucide-react-native/icons/rotate-ccw';
 export { default as ScanFace } from 'lucide-react-native/icons/scan-face';
 export { default as Search } from 'lucide-react-native/icons/search';

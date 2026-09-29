@@ -1,5 +1,6 @@
 'use client';
 import {
+  Blocks,
   Building2,
   HeartPulse,
   Inbox,
@@ -36,6 +37,8 @@ const SECTIONS: readonly {
   { href: '/admin/tickets', label: 'Tickets', icon: Inbox },
   // Ideas, the roadmap and What's new (0102): every support role answers them; leads and admins move them.
   { href: '/admin/ideas', label: 'Ideas', icon: Lightbulb, needs: 'platform.ideas.moderate' },
+  // Voting on what's next (0109): the weekly pick, and choosing one when a week has no winner.
+  { href: '/admin/add-ons', label: 'Add-on votes', icon: Blocks, needs: 'platform.addons.manage' },
   {
     href: '/admin/businesses',
     label: 'Businesses',

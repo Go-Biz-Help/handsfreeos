@@ -27,7 +27,7 @@ import { ADDON_PHONE_WORDS } from './words';
  * - what could be added is what HandsFreeOS says this business can install, plus paid add-ons, which say that
  *   HandsFreeOS support can turn them on (billing isn't built); a beta add-on is never offered;
  * - which moves each state offers is core's rule (`addonMovesFor`), the one the web's page follows too;
- * - planned add-ons are Coming soon, with no Install;
+ * - what's coming soon, and the vote on what comes next, are `addon.roadmap`'s (the screen draws them itself);
  * - a move's trouble is said in the checks' words, never the worker's own message.
  */
 
@@ -90,8 +90,6 @@ export interface AddonGroups {
   readonly installed: readonly AddonView[];
   /** What could be added: installable here, or paid (support turns it on). */
   readonly addable: readonly AddonView[];
-  /** Planned: shown as Coming soon, never installable. */
-  readonly comingSoon: readonly AddonView[];
 }
 
 export { isBusyState };
@@ -224,7 +222,7 @@ function inCatalogueOrder(catalog: Catalog) {
     place(a.addonId) - place(b.addonId) || a.name.localeCompare(b.name);
 }
 
-/** The three sections of the Add-ons screen. */
+/** What the business has, and what it could add: the Add-ons screen's first two sections. */
 export function groupAddons(list: AddonList, catalog: Catalog, grants: AddonGrants): AddonGroups {
   const had = new Set(list.installed.map((r) => r.addonId));
   const order = inCatalogueOrder(catalog);
@@ -237,10 +235,7 @@ export function groupAddons(list: AddonList, catalog: Catalog, grants: AddonGran
     .filter((c) => c.status === 'available')
     .map((c) => viewOf(list, catalog, grants, c.addonId, null, c))
     .filter((v) => v.offer === 'install' || v.offer === 'paid' || v.offer === 'blocked');
-  const comingSoon = notHad
-    .filter((c) => c.status === 'planned')
-    .map((c) => viewOf(list, catalog, grants, c.addonId, null, c));
-  return { installed, addable, comingSoon };
+  return { installed, addable };
 }
 
 /** One add-on, for its own screen: one the business has had, or one the catalogue offers or promises. */
@@ -256,8 +251,7 @@ export function findAddonView(
   return viewOf(list, catalog, grants, addonId, installed, listed);
 }
 
-export const isEmptyGroups = (g: AddonGroups): boolean =>
-  !g.installed.length && !g.addable.length && !g.comingSoon.length;
+export const isEmptyGroups = (g: AddonGroups): boolean => !g.installed.length && !g.addable.length;
 
 /** A refusal a person can answer: "Rent Collection needs Property Management. Turn it on too?" */
 export interface AddonQuestion {
