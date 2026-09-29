@@ -12,6 +12,7 @@
  *   they aren't interested in;
  * - one card at most, best fit first.
  */
+import { industryLabel } from '../industries';
 import type { CapabilityContext } from './capabilities';
 import { findAddon } from './graph';
 import type { AddonId } from './manifest';
@@ -33,7 +34,7 @@ export interface SuggestionDismissal {
 /** What the business is, in its own words. */
 export interface SuggestionProfile {
   readonly name: string;
-  /** Its line of work, as onboarding records it (`home_services`, `other`). */
+  /** Its line of work, as onboarding records it: an id on core's list (`plumbing`, `pet_grooming`). */
   readonly industry: string;
   /** The kinds of records it made for itself: "Pet", "Pets", "Property", "Properties". */
   readonly recordKinds: readonly string[];
@@ -49,7 +50,9 @@ export interface HomeSuggestion {
 
 /** The words a business is described by: its name, its line of work and its own kinds of records. */
 export const profileText = (p: SuggestionProfile): string =>
-  [p.name, p.industry.replace(/_/g, ' '), ...p.recordKinds].join(' ');
+  [p.name, p.industry === 'other' ? '' : industryLabel(p.industry), ...p.recordKinds]
+    .filter(Boolean)
+    .join(' ');
 
 /** The add-on to suggest to this person now, or null. */
 export function suggestAddon(

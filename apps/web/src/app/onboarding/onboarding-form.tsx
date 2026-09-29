@@ -1,6 +1,8 @@
 'use client';
+import type { IndustryId } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import { IndustryPicker } from '@/components/settings/industry-picker';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -20,7 +22,7 @@ export const TIMEZONES = [
 export function OnboardingForm() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [industry, setIndustry] = useState<'home_services' | 'other'>('home_services');
+  const [industry, setIndustry] = useState('home_services');
   const [timezone, setTimezone] = useState('America/Chicago');
   const [agency, setAgency] = useState(false);
   const [agencyName, setAgencyName] = useState('');
@@ -42,7 +44,7 @@ export function OnboardingForm() {
             businessName: name.trim(),
             organizationName: agency && agencyName.trim() ? agencyName.trim() : undefined,
             timezone,
-            industry,
+            industry: industry as IndustryId,
           },
         }),
       );
@@ -75,33 +77,27 @@ export function OnboardingForm() {
           autoFocus
         />
       </Field>
-      <div className="grid grid-cols-2 gap-3.5">
-        <Field label="Industry" htmlFor="industry">
-          <Select
-            id="industry"
-            selectSize="lg"
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value as 'home_services' | 'other')}
-          >
-            <option value="home_services">Home services</option>
-            <option value="other">Other</option>
-          </Select>
-        </Field>
-        <Field label="Time zone" htmlFor="timezone">
-          <Select
-            id="timezone"
-            selectSize="lg"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-          >
-            {TIMEZONES.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
+      <Field
+        label="Industry"
+        htmlFor="industry"
+        hint="Type to search, like “plumber” or “dog grooming”. Pick Other if it isn’t there."
+      >
+        <IndustryPicker id="industry" inputSize="lg" value={industry} onChange={setIndustry} />
+      </Field>
+      <Field label="Time zone" htmlFor="timezone">
+        <Select
+          id="timezone"
+          selectSize="lg"
+          value={timezone}
+          onChange={(e) => setTimezone(e.target.value)}
+        >
+          {TIMEZONES.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <button
         type="button"
         role="switch"

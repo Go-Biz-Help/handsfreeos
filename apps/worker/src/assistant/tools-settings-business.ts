@@ -7,6 +7,7 @@
  * way in. Both say so on the card before anyone agrees.
  */
 
+import { HfosError, industryFromText, type IndustryOption } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -64,6 +65,19 @@ const membersOf = (db: Db, ctx: ToolContext) =>
     members: [] as Member[],
   }));
 
+/** The kind of business the model named ("plumber", "HVAC", "pet_grooming"), or a refusal it can pass on. */
+function industryOf(named: string | undefined): IndustryOption | undefined {
+  if (!named) return undefined;
+  const found = industryFromText(named);
+  if (!found)
+    throw HfosError.rule(
+      'industry_unknown',
+      400,
+      `“${named}” isn’t on the list of kinds of business. Pick the nearest one, or Other, under Industry in Settings → Workspace.`,
+    );
+  return found;
+}
+
 const stageIn = (pipelines: Pipeline[], stageId: unknown) => {
   for (const p of pipelines) {
     const stage = p.stages.find((s) => s.id === stageId);
@@ -83,9 +97,10 @@ const updateBusiness: SettingsConfirmTool = {
       fields.push({ label: 'Name', value: name });
       if (name !== workspace.name) fields.push({ label: 'Was', value: workspace.name });
     }
+    const industry = industryOf(str(args['industry']));
+    if (industry) fields.push({ label: 'Industry', value: industry.label });
     for (const [key, label] of [
       ['timezone', 'Time zone'],
-      ['industry', 'Industry'],
       ['website', 'Website'],
       ['reviewLink', 'Review link'],
     ] as const) {
@@ -123,7 +138,7 @@ const updateBusiness: SettingsConfirmTool = {
       ...defined({
         name: str(args['name']),
         timezone: str(args['timezone']),
-        industry: str(args['industry']),
+        industry: industryOf(str(args['industry']))?.id,
       }),
       ...(Object.keys(settings).length ? { settings } : {}),
     });
