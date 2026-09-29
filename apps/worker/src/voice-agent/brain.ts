@@ -16,7 +16,7 @@
  * - `finishCall`: the words of the call on the call's record (the timeline and the inbox show them, and the next
  *   text reply reads them), and the run closed.
  */
-import type { AiProvider, AiUsage } from '@hfos/ai';
+import { totalTokens, type AiProvider, type AiUsage } from '@hfos/ai';
 import {
   callAttachTranscript,
   callRecord,
@@ -428,6 +428,8 @@ export async function warmCall(deps: BrainDeps, call: PreparedCall): Promise<voi
       tools: toolsFor(call).map((t) => streamSpoken(toolDefinition(t))),
       messages: [],
     });
+    // Nothing read, nothing to record: the backup AI fills its own cache.
+    if (totalTokens(usage) === 0) return;
     await recordAndChargeAi(deps, call.scope, {
       source: 'teammate',
       teammateId: call.teammate.id,

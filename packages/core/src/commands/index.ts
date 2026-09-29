@@ -328,6 +328,7 @@ import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
+import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import {
   onboardingAsYouGo,
@@ -836,6 +837,8 @@ export const commands: readonly CommandDef[] = [
   ...walletCommands,
   ...foundingCommands,
   ...phoneModelCommands,
+  // Which AI answers: Claude, or OpenAI while Claude is in trouble.
+  ...aiProviderCommands,
   moneySaveSettings,
   pushDeviceRegister,
   pushDeviceRemove,
@@ -941,6 +944,7 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
+export * from './ai-provider';
 export * from './job';
 export * from './custom-field';
 export * from './custom-record';

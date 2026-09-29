@@ -1,11 +1,10 @@
 import { hostname } from 'node:os';
-import { AnthropicProvider } from '@hfos/ai';
 import { TELEPHONY_BUCKET } from '@hfos/core';
 import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
 import { createAuthAdmin } from './account/auth-admin';
-import { createAi } from './ai/provider';
+import { claudeWithBackup, createAi, createAiSwitch } from './ai/provider';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
 import { createBotCheck } from './booking/bot-check';
@@ -55,15 +54,18 @@ const log = pino(
 const handle = createDb(env.databaseUrl, { max: 8, applicationName: 'hfos-worker' });
 // Webhooks, sign-ins and the Assistant's questions; each question holds a connection only per step.
 const httpHandle = createDb(env.databaseUrl, { max: 6, applicationName: 'hfos-worker-http' });
+const mailer = createSmtpMailer(env.smtpUrl, env.mailFrom);
+// Which AI answers: Claude, or OpenAI while Claude is in trouble (ai/switch.ts). Null without OPENAI_API_KEY.
+const aiSwitch = createAiSwitch(env, { db: handle.db, log, mailer });
 // Workflow AI steps, the AI builder and the knowledge base: the Assistant's model and daily limit.
-const ai = createAi(env);
+const ai = createAi(env, aiSwitch);
 const telephony = createTelephony(env, log);
 // The usage wallet (M16). `off` until somebody turns it on: a repo that starts charging the day it deploys
 // would be a nasty surprise, and every step of the rollout is a decision.
 const wallet = { db: handle.db, log, mode: env.walletMode };
 const services: EngineServices = {
   db: handle.db,
-  mailer: createSmtpMailer(env.smtpUrl, env.mailFrom),
+  mailer,
   store:
     env.supabaseUrl && env.supabaseSecretKey
       ? createSupabaseStore(env.supabaseUrl, env.supabaseSecretKey)
@@ -76,8 +78,8 @@ const services: EngineServices = {
   geocoder: createGeocoder(env, log),
   driving: createDriveTimer(env, log),
   speech: createSpeech(env, log),
-  voiceAi: createVoiceAi(env),
-  aiFor: createModelPicker(env),
+  voiceAi: createVoiceAi(env, aiSwitch),
+  aiFor: createModelPicker(env, aiSwitch),
   siteHost: createSiteHost(env),
   // With Supabase's admin key it can also read the website visitor a person signed up as (opinly.ts).
   opinly: createOpinly(
@@ -118,6 +120,7 @@ const services: EngineServices = {
     testOrigins: !env.production && env.telephonyProvider === 'fake' ? env.fetchTestOrigins : [],
   }),
   ai,
+  aiSwitch,
   // Push notifications to the phone app: Expo's service, or the stand-in locally (push/index.ts).
   push: createPush(env),
   // Deleting an account ends its sessions and blocks sign-in with the worker's own secret key (account/).
@@ -154,11 +157,12 @@ const loopDeps = { ...services, workerId, batchSize: env.batchSize };
 
 const model =
   env.assistantProvider === 'anthropic' && env.anthropicApiKey
-    ? new AnthropicProvider({
-        apiKey: env.anthropicApiKey,
-        model: env.assistantModel,
-        toolSearch: env.assistantToolSearch,
-      })
+    ? claudeWithBackup(
+        env,
+        aiSwitch,
+        { model: env.assistantModel, toolSearch: env.assistantToolSearch },
+        { model: env.openAiAssistantModel, toolSearch: env.assistantToolSearch },
+      )
     : env.assistantProvider === 'scripted'
       ? scriptedAssistant()
       : null;
@@ -207,6 +211,14 @@ const app = await buildHttpServer({
 });
 await app.listen({ port: env.httpPort, host: env.httpHost });
 await ensureRecurringJobs(services);
+// Where the last check left it (a worker that starts while Claude is down starts on OpenAI), then in step with
+// every other machine and support's switch.
+if (aiSwitch) {
+  await aiSwitch
+    .refresh()
+    .catch((e: unknown) => log.warn({ err: errorMessage(e) }, 'couldn’t read which AI answers'));
+  aiSwitch.watch();
+}
 
 log.info(
   {
@@ -221,6 +233,7 @@ log.info(
     migrations: env.migrationSource,
     push: env.pushProvider,
     assistant: env.assistantProvider,
+    aiBackup: aiSwitch ? 'openai' : 'none',
     handlers: Object.keys(handlers),
     storage: !!env.supabaseSecretKey,
   },
@@ -295,6 +308,7 @@ const loops = [
 
 const shutdown = async (signal: string) => {
   running = false;
+  aiSwitch?.stop();
   log.info({ signal }, 'worker stopping: closing the listener, then finishing the current passes');
   await app.close();
   await Promise.all(loops);

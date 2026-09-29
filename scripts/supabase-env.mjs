@@ -55,6 +55,12 @@ const assistantLines = keep([
   'AI_MODEL',
   'ASSISTANT_TOOL_SEARCH',
   'ASSISTANT_DAILY_TOKENS',
+  // The backup AI (OpenAI), the same way.
+  'OPENAI_API_KEY',
+  'OPENAI_MODEL',
+  'OPENAI_ASSISTANT_MODEL',
+  'OPENAI_VOICE_MODEL',
+  'AI_ALERT_EMAILS',
 ]);
 // A Deepgram key someone pasted in stays too, the same way: without it the worker falls back to the fake
 // transcriber, and a rerun would quietly stop a local voicemail ever having words.

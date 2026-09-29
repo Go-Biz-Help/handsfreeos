@@ -8,7 +8,9 @@
 import { and, asc, desc, eq, ilike, isNull, lt, or, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import {
+  aiProvider,
   organizations,
+  staff,
   tickets,
   users,
   viewAsSessions,
@@ -30,6 +32,11 @@ import { defineQuery } from '../kernel/define';
 import {
   AdminWalletGetInput,
   AdminWalletGetOutput,
+  AiProviderGetInput,
+  AiProviderGetOutput,
+  AiProviderModeValue,
+  AiProviderReasonValue,
+  AiProviderValue,
   BusinessGetInput,
   BusinessGetOutput,
   BusinessListInput,
@@ -306,6 +313,49 @@ export const platformHealthSummary = defineQuery({
 });
 
 /**
+ * Which AI is answering, Claude or OpenAI, and why: the worker's checks write it, support's switch pins it
+ * (commands/ai-provider.ts). Read on the Health page, beside what has failed, because it is where an outage shows.
+ */
+export const platformAiProviderGet = defineQuery({
+  name: 'platform.ai_provider.get',
+  description:
+    'Which AI is answering, Claude or OpenAI, why, and what Claude’s status page last said.',
+  input: AiProviderGetInput,
+  output: AiProviderGetOutput,
+  permission: 'platform.health.read',
+  scope: onPlatform,
+  async handler(ctx) {
+    const [row] = await ctx.tx
+      .select({
+        p: aiProvider,
+        staffName: staff.displayName,
+        fullName: users.fullName,
+        email: dsql<string | null>`${users.email}::text`,
+      })
+      .from(aiProvider)
+      .leftJoin(users, eq(users.id, aiProvider.modeSetBy))
+      .leftJoin(staff, eq(staff.userId, aiProvider.modeSetBy))
+      .limit(1);
+    const mode = AiProviderModeValue.options.find((m) => m === row?.p.mode) ?? 'auto';
+    const active = AiProviderValue.options.find((a) => a === row?.p.active) ?? 'claude';
+    const reason = AiProviderReasonValue.options.find((r) => r === row?.p.reason) ?? null;
+    const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
+    return {
+      mode,
+      active,
+      answering: mode === 'auto' ? active : mode,
+      reason,
+      claudeStatus: row?.p.claudeStatus ?? null,
+      goodChecks: row?.p.goodChecks ?? 0,
+      checkedAt: iso(row?.p.checkedAt),
+      switchedAt: iso(row?.p.switchedAt),
+      modeSetAt: iso(row?.p.modeSetAt),
+      modeSetBy: row?.p.modeSetBy ? row.staffName || row.fullName || row.email || null : null,
+    };
+  },
+});
+
+/**
  * One business's balance, for the support desk (M16).
  *
  * This is the page a "my texts stopped" ticket is answered from, so it is the one view of a wallet that shows
@@ -520,6 +570,7 @@ export const platformQueries = [
   platformBusinessList,
   platformBusinessGet,
   platformHealthSummary,
+  platformAiProviderGet,
   platformViewAsCurrent,
   platformRateCard,
   platformWalletGet,

@@ -3,9 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BrandedDomainCard } from '@/components/settings/branded-domain-card';
 import { DeleteWorkspace } from '@/components/settings/delete-workspace';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
-import { PageHeader } from '@/components/shell/page-header';
 import { Card } from '@/components/ui/card';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
@@ -27,8 +25,6 @@ export default async function WorkspaceSettingsPage({
   );
   return (
     <>
-      <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <div className="flex flex-col gap-5">
         <Card className="p-6">
           <h2 className="text-lg font-semibold tracking-tight">Workspace</h2>

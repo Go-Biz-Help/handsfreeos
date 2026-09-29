@@ -2,7 +2,6 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
@@ -36,15 +35,15 @@ export default async function ImportsSettingsPage({
   return (
     <>
       <PageHeader
-        title="Settings"
-        description={`How ${got.workspace.name} is set up.`}
+        section
+        title="Imports"
+        description="Customer lists brought in from a spreadsheet, each with how it went."
         actions={
           <ButtonLink href={`/app/w/${workspaceId}/imports/new`} variant="primary">
             Import a spreadsheet
           </ButtonLink>
         }
       />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <Card className="overflow-hidden" data-testid="imports-list">
         {imports.length === 0 ? (
           <EmptyState title="No imports yet">

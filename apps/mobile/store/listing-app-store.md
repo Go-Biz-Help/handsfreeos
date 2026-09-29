@@ -103,8 +103,9 @@ card are involved: nothing the demo business sends leaves our servers.
 Notes for review:
 • Face ID is offered to unlock the app and to confirm anything that reaches a customer. Skip is always
   offered, and the demo login has no unlock set, so the reviewer is never stopped by it.
-• Anything you ask the Assistant is sent to Anthropic's Claude. The first use explains that and asks for
-  permission; the demo login has not yet given it, so the consent screen can be seen.
+• Anything you ask the Assistant is sent to Anthropic's Claude, or to OpenAI as a backup when Claude is
+  unavailable. The first use explains that and asks for permission; the demo login has not yet given it, so
+  the consent screen can be seen.
 • The app never takes a card number. Payments happen on the payment provider's own hosted page in the
   browser.
 • Some desk work — workflow editors, business settings, members, payment connections — opens the web app in

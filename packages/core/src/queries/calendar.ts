@@ -31,6 +31,7 @@ import {
   calendars,
   customRecords,
   customRecordTypes,
+  organizationMemberships,
   people,
   resources,
   schedules,
@@ -815,13 +816,21 @@ export const scheduleTeam = defineQuery({
     const zone = await workspaceZone(ctx.tx, ws);
     const ids =
       input.userIds ??
-      (
-        await ctx.tx
+      [
+        ...(await ctx.tx
           .select({ userId: workspaceMemberships.userId })
           .from(workspaceMemberships)
           .where(eq(workspaceMemberships.workspaceId, ws))
-          .orderBy(asc(workspaceMemberships.createdAt))
-      ).map((m) => m.userId);
+          .orderBy(asc(workspaceMemberships.createdAt))),
+        // The organization’s owners and admins work here too (private.workspace_has_user), so they have
+        // hours and a Google or Outlook calendar here even in a business nobody has joined directly. As in
+        // workspace.members, only the organization’s own people can see them (RLS).
+        ...(await ctx.tx
+          .select({ userId: organizationMemberships.userId })
+          .from(organizationMemberships)
+          .where(eq(organizationMemberships.organizationId, ctx.scope.organizationId!))
+          .orderBy(asc(organizationMemberships.createdAt))),
+      ].map((m) => m.userId);
     const staff = await loadStaffData(
       ctx.tx,
       ws,

@@ -127,15 +127,36 @@ export const platformFounding = defineQuery({
         decision_note: string;
         created_at: Date;
         reviewed_at: Date | null;
+        their_businesses: {
+          workspace_id: string;
+          workspace_name: string;
+          organization_id: string;
+          organization_name: string;
+          role: 'owner' | 'admin';
+        }[];
       }>(
         ctx.tx,
-        sql`select id, offer_id, business_name, contact_name, email::text as email, phone, website,
-              industry, team_size, note, source, status::text as status, decision_note,
-              created_at, reviewed_at
-            from platform.founding_applications
-            where (${offerFilter}::text is null or offer_id = ${offerFilter})
-              and (${statusFilter}::text is null or status::text = ${statusFilter})
-            order by created_at desc
+        // Their businesses are matched on the email they applied with, which is why the page tells staff to
+        // have them sign up with it. Only an owner's or an admin's: nobody else can take the seat up. Lowered
+        // by hand: citext's own = is not on this login's search path, and text = on its own minds the case.
+        sql`select a.id, a.offer_id, a.business_name, a.contact_name, a.email::text as email, a.phone,
+              a.website, a.industry, a.team_size, a.note, a.source, a.status::text as status,
+              a.decision_note, a.created_at, a.reviewed_at,
+              coalesce((
+                select json_agg(json_build_object(
+                  'workspace_id', w.id, 'workspace_name', w.name,
+                  'organization_id', o.id, 'organization_name', o.name, 'role', m.role
+                ) order by m.role, w.name)
+                from app.users u
+                join app.workspace_memberships m on m.user_id = u.id and m.role in ('owner', 'admin')
+                join app.workspaces w on w.id = m.workspace_id and w.deletion_requested_at is null
+                join app.organizations o on o.id = w.organization_id
+                where lower(u.email::text) = lower(a.email::text)
+              ), '[]'::json) as their_businesses
+            from platform.founding_applications a
+            where (${offerFilter}::text is null or a.offer_id = ${offerFilter})
+              and (${statusFilter}::text is null or a.status::text = ${statusFilter})
+            order by a.created_at desc
             limit ${input.limit}`,
       ),
       rows<{
@@ -206,6 +227,13 @@ export const platformFounding = defineQuery({
         decisionNote: a.decision_note,
         createdAt: iso(a.created_at)!,
         reviewedAt: iso(a.reviewed_at),
+        theirBusinesses: a.their_businesses.map((b) => ({
+          workspaceId: b.workspace_id,
+          workspaceName: b.workspace_name,
+          organizationId: b.organization_id,
+          organizationName: b.organization_name,
+          role: b.role,
+        })),
       })),
       grants: grants.map((g) => ({
         grantId: g.id,

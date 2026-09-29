@@ -357,6 +357,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/ai_provider.set_mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: let the checks choose which AI answers every business (auto), or keep it on Claude or on OpenAI whatever they say.
+         * @description Risk level 3. Requires platform.ai.manage. Emits ai_provider.mode_changed.
+         */
+        post: operations["command_ai_provider_set_mode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_teammate.create": {
         parameters: {
             query?: never;
@@ -10457,6 +10477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.ai_provider.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which AI is answering, Claude or OpenAI, why, and what Claude’s status page last said.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_ai_provider_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.business.get": {
         parameters: {
             query?: never;
@@ -12042,6 +12082,39 @@ export interface operations {
                         addonId: string;
                         voted: boolean;
                         votes: number;
+                    };
+                };
+            };
+        };
+    };
+    command_ai_provider_set_mode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mode: "auto" | "claude" | "openai";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** @enum {string} */
+                        mode: "auto" | "claude" | "openai";
+                        /** @enum {string} */
+                        was: "auto" | "claude" | "openai";
                     };
                 };
             };
@@ -38283,6 +38356,44 @@ export interface operations {
             };
         };
     };
+    query_platform_ai_provider_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        active: "claude" | "openai";
+                        /** @enum {string} */
+                        answering: "claude" | "openai";
+                        checkedAt: string | null;
+                        claudeStatus: string | null;
+                        goodChecks: number;
+                        /** @enum {string} */
+                        mode: "auto" | "claude" | "openai";
+                        modeSetAt: string | null;
+                        modeSetBy: string | null;
+                        reason: ("status" | "errors") | null;
+                        switchedAt: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_platform_business_get: {
         parameters: {
             query?: never;
@@ -38459,6 +38570,16 @@ export interface operations {
                             /** @enum {string} */
                             status: "pending" | "approved" | "declined" | "waitlisted" | "expired" | "withdrawn";
                             teamSize: string | null;
+                            theirBusinesses: {
+                                /** Format: uuid */
+                                organizationId: string;
+                                organizationName: string;
+                                /** @enum {string} */
+                                role: "owner" | "admin";
+                                /** Format: uuid */
+                                workspaceId: string;
+                                workspaceName: string;
+                            }[];
                             website: string | null;
                         }[];
                         grants: {

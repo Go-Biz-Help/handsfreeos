@@ -26,6 +26,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Email: Postmark](#email-postmark)
 - [Connected mailboxes: Outlook and Gmail](#connected-mailboxes-outlook-and-gmail)
 - [The Assistant: Anthropic](#the-assistant-anthropic)
+- [The backup AI: OpenAI](#the-backup-ai-openai)
 - [The calendar: Google, Outlook and online booking](#the-calendar-google-outlook-and-online-booking)
 - [Workflows, the knowledge base and agency templates](#workflows-the-knowledge-base-and-agency-templates)
 - [The AI teammate and website chat](#the-ai-teammate-and-website-chat)
@@ -58,6 +59,7 @@ Go Biz Help (or the company that owns HandsFreeOS, if it has its own) holds and 
 | Microsoft Entra tenant, plus the Microsoft AI Cloud Partner Program | The Outlook app registration and publisher verification                                                                                                                                                 | Free (an Azure sign-up may ask for a card to confirm who you are)                                                                                                                                                                                                                            | "Connected mailboxes: Outlook and Gmail"    |
 | Google Cloud                                                        | The Gmail client, the Google Calendar client (its own project) and the Google sign-in client                                                                                                            | Free from Google. The CASA security assessment is paid to an authorized lab: for example $675 to $855 one time for the lowest level, or $4,500 to $5,400 a year on a lab's yearly plan.                                                                                                      | "Connected mailboxes: Outlook and Gmail"    |
 | Anthropic (a Claude Console organization, with prepaid credits)     | Claude, the model behind the Assistant                                                                                                                                                                  | Pay as you go from prepaid credits. Ask HandsFreeOS uses Claude Opus 5.5 ($4 per million tokens sent, $20 per million written back); everything else uses Claude Sonnet 5 ($2 and $10). HandsFreeOS caps each workspace at 2,000,000 tokens a day, so at most about $40 a day per workspace. | "The Assistant: Anthropic"                  |
+| OpenAI (an OpenAI Platform organization, with prepaid credits)      | GPT, the backup that answers every AI feature while Claude is down                                                                                                                                      | Pay as you go from prepaid credits. It answers only while Claude is in trouble, so most months it costs little or nothing. Businesses pay the same whichever AI answers.                                                                                                                     | "The backup AI: OpenAI"                     |
 | GitHub, account `gobizhelp` (already exists)                        | The repository `gobizhelp/handsfreeos`, CI and the Deploy workflow                                                                                                                                      | No new cost                                                                                                                                                                                                                                                                                  | "Hosting: the API and the worker on Fly.io" |
 | Cloudflare (already holds the DNS for `handsfreeos.com`)            | DNS records, optionally a tunnel for laptop testing, and Turnstile for the booking pages and the website chat                                                                                           | DNS: no new cost. Zero Trust Free plan for the tunnel. Turnstile is free.                                                                                                                                                                                                                    | Several sections                            |
 | Vercel, a second project for `handsfreeos.com`                      | The public website: home page, pricing, the phone app page, `/privacy`, `/terms` and `/support`. It is `apps/site` in this repository. Google, Microsoft, Twilio and both app stores check those pages. | No new cost on the same Vercel plan                                                                                                                                                                                                                                                          | "The public website on Vercel"              |
@@ -144,6 +146,7 @@ Make one folder in your password manager named `HandsFreeOS`. Every secret in th
 | Google sign-in client                                                      | The separate OAuth client for Sign in with Google                                                                                                                                                                                                                                                                                   | Supabase's Google provider only                                                                                                                                                                                                 |
 | Google local sign-in client                                                | The OAuth client for Sign in with Google on the local stack (see "Local development")                                                                                                                                                                                                                                               | The repository-root `.env` on your Mac only, as `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Git ignores that file.                                                                    |
 | Anthropic API key                                                          | The production key (starts with `sk-ant-api`), linked to the `handsfreeos-worker` service account. A key for your laptop is a separate entry, "Anthropic local key".                                                                                                                                                                | Fly.io secret `ANTHROPIC_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                      |
+| OpenAI API key                                                             | The production key (starts with `sk-proj-`) in the `HandsFreeOS` project. A key for your laptop is a separate entry, "OpenAI local key".                                                                                                                                                                                            | Fly.io secret `OPENAI_API_KEY` on `handsfreeos-worker` only. The local key goes only in `apps/worker/.env` on your Mac.                                                                                                         |
 | Cloudflare Turnstile                                                       | The Turnstile widget's site key (not secret) and secret key, for the booking pages and the website chat                                                                                                                                                                                                                             | Site key: Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Secret key: Fly.io secret `TURNSTILE_SECRET_KEY` on `handsfreeos-worker` only                                                                                                |
 | Google Maps (M18 service areas)                                            | Two API keys: a browser key restricted to the web app's domains (Maps JavaScript, Geocoding and Places (New) APIs), and a server key restricted to the Geocoding and Routes APIs                                                                                                                                                    | Browser key: Vercel `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`. Server key: Fly.io secret `GOOGLE_MAPS_SERVER_KEY` on `handsfreeos-worker` only. Without them only ZIP-code areas are offered                                        |
 | Chat IP key                                                                | `CHAT_IP_KEY`, a value you make with `openssl rand -base64 32`. The website chat keeps visitors' IP addresses only as a one-way hash made with it.                                                                                                                                                                                  | Fly.io secret `CHAT_IP_KEY` on `handsfreeos-worker` only                                                                                                                                                                        |
@@ -1407,6 +1410,7 @@ Both apps check sign-ins against Supabase's published signing keys and cache the
 | `WEB_ORIGINS`        | Yes                                                                                            | `http://localhost:3000`                    | `https://app.handsfreeos.com`. Lets the browser call the worker directly for number search and call tokens.                                                    |
 | `SUPABASE_URL`       | Yes in practice. The worker starts without it, but files and the worker's sign-in checks fail. | None                                       | `https://ybupfghakoszfcxhyrby.supabase.co`                                                                                                                     |
 | `MAIL_FROM`          | Yes                                                                                            | `HandsFreeOS <hello@handsfreeos.local>`    | `HandsFreeOS <alerts@handsfreeos.com>`. The sender of platform mail (invitations, alerts). `handsfreeos.com` must be a verified sender domain in Postmark.     |
+| `AI_ALERT_EMAILS`    | No                                                                                             | The addresses in `PLATFORM_OWNER_EMAILS`   | `chris@gobizhelp.com`. Comma-separated addresses emailed each time the AI moves to OpenAI and back ("The backup AI: OpenAI").                                  |
 | `TELEPHONY_PROVIDER` | Yes                                                                                            | `twilio` in production                     | `twilio`. Production refuses `fake`.                                                                                                                           |
 | `LOG_LEVEL`          | No                                                                                             | `info`                                     | `info`                                                                                                                                                         |
 
@@ -1439,6 +1443,7 @@ If the Twilio or Postmark screens have moved, search their consoles for "Account
 | `GOOGLE_OAUTH_CLIENT_ID`              | Only for Connect Gmail                                                        | Connect Gmail shows a page titled "Gmail isn’t set up yet".                                                                                                                                                                                                                                                                                                                     | The Google Cloud OAuth client (type Web application).                                                                                                                                                                                              |
 | `GOOGLE_OAUTH_CLIENT_SECRET`          | Only for Connect Gmail                                                        | Same as above.                                                                                                                                                                                                                                                                                                                                                                  | The same Google Cloud OAuth client (starts with `GOCSPX-`).                                                                                                                                                                                        |
 | `ANTHROPIC_API_KEY`                   | Only for the Assistant                                                        | The worker starts, and its `worker started` line shows `"assistant":"none"`. The Assistant panel says "The Assistant isn’t available yet". Everything else works.                                                                                                                                                                                                               | The Claude Console, **Settings** → **API keys**: the key linked to the `handsfreeos-worker` service account and tied to the `HandsFreeOS` workspace (starts with `sk-ant-api`). See "The Assistant: Anthropic". Worker only.                       |
+| `OPENAI_API_KEY`                      | Only for a backup while Claude is down                                        | The worker starts, and its `worker started` line shows `"aiBackup":"none"`. Every AI feature uses Claude alone, as before, and fails while Claude is down.                                                                                                                                                                                                                      | OpenAI's dashboard, the `HandsFreeOS` project's **API keys** (starts with `sk-proj-`). See "The backup AI: OpenAI". Worker only.                                                                                                                   |
 | `DEEPGRAM_API_KEY`                    | Recommended, for the words of calls and voicemails                            | Without it the worker falls back to Twilio Conversational Intelligence, which costs about eight times as much per minute. Recordings still play; only the words are affected.                                                                                                                                                                                                   | The Deepgram console, **API Keys**. Give it to `handsfreeos-worker` with `fly secrets import`, never `fly secrets set`. Worker only.                                                                                                               |
 | `TRANSCRIBER`                         | No                                                                            | Picks who turns a recording into words: `deepgram` (the default once `DEEPGRAM_API_KEY` is set), `twilio` (Conversational Intelligence), or `fake` for development. Production refuses `fake`.                                                                                                                                                                                  | Leave unset unless you are deliberately moving off Deepgram. Worker only.                                                                                                                                                                          |
 | `GOOGLE_MAPS_SERVER_KEY`              | For service areas by distance or drawn on a map, and On my way's arrival time | The worker starts, and only ZIP-code service areas work: the teammate and the booking page can't place a street address. On my way texts a rough arrival time instead of Google's driving time.                                                                                                                                                                                 | Google Cloud, **APIs & Services** → **Credentials**: an API key restricted to the **Geocoding API** and the **Routes API** (no referrer restriction; it is used from the worker). Worker only.                                                     |
@@ -1497,6 +1502,9 @@ The defaults are right in production. Setting some of these changes real behavio
 | `ASSISTANT_PROVIDER`                       | `anthropic` when `ANTHROPIC_API_KEY` is set, otherwise `none`              | Production refuses `scripted`, the stand-in the tests use. `none` turns the Assistant off even with a key.                                                                                                                   |
 | `ASSISTANT_MODEL`                          | `claude-opus-5-5`                                                          | The Claude model Ask HandsFreeOS (the team's own helper) uses. Change it only as "Change the model" in "The Assistant: Anthropic" describes.                                                                                 |
 | `AI_MODEL`                                 | `claude-sonnet-5`                                                          | The Claude model for everything else: the AI teammate, calls (unless `VOICE_MODEL`), workflow AI steps, the builders and the knowledge base. See "Change the model".                                                         |
+| `OPENAI_ASSISTANT_MODEL`                   | `gpt-6-sol`                                                                | OpenAI's stand-in for `ASSISTANT_MODEL` while Claude is down. See "Change the backup models" in "The backup AI: OpenAI".                                                                                                     |
+| `OPENAI_MODEL`                             | `gpt-6-sol`                                                                | OpenAI's stand-in for `AI_MODEL` while Claude is down. See "Change the backup models".                                                                                                                                       |
+| `OPENAI_VOICE_MODEL`                       | `gpt-6-luna`                                                               | OpenAI's model on calls while Claude is down, whatever model they use on Claude. A fast one keeps the pauses short. See "Change the backup models".                                                                          |
 | `ASSISTANT_TOOL_SEARCH`                    | `on`                                                                       | `on`: Ask HandsFreeOS keeps about 20 tools loaded and finds the rest by searching (Anthropic's tool search). `off` sends every tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool. |
 | `ASSISTANT_DAILY_TOKENS`                   | `2000000` tokens per workspace per day                                     | Change it only as "Change the daily limit" in "The Assistant: Anthropic" describes, with the same number on `handsfreeos-api`.                                                                                               |
 | `PUSH_PROVIDER`                            | `expo` when `EXPO_ACCESS_TOKEN` is set, otherwise `none`                   | Production refuses `fake`, the stand-in for local development and tests. `none` turns push off even with a token.                                                                                                            |
@@ -1737,7 +1745,7 @@ The worker only checks that these three values are present, never that they are 
 
 8. Delete the "handsfreeos-worker first import" note from your password manager. Each value already has its own entry, and a leftover note would be one more copy of every secret that no rotation step updates.
 
-Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail"), `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"), the Google Calendar values ("The calendar: Google, Outlook and online booking"), and `TURNSTILE_SECRET_KEY` ("Protect the booking page with Turnstile (optional)" in the same section), which the website chat uses too. After the first deploy, each secrets change restarts the worker.
+Add the feature secrets later, as their own sections describe: `TWILIO_PRIMARY_PROFILE_SID` (Twilio Step 4), the Microsoft and Google values ("Connected mailboxes: Outlook and Gmail"), `ANTHROPIC_API_KEY` ("The Assistant: Anthropic"), `OPENAI_API_KEY` ("The backup AI: OpenAI"), the Google Calendar values ("The calendar: Google, Outlook and online booking"), and `TURNSTILE_SECRET_KEY` ("Protect the booking page with Turnstile (optional)" in the same section), which the website chat uses too. After the first deploy, each secrets change restarts the worker.
 
 ### Fly Part 7: The first deploy, by hand
 
@@ -2189,7 +2197,7 @@ Both apps log one JSON object per line. The message is in the `msg` field. `"lev
 
 | Log message                                                                                                                                                                                                       | What it means                                                                                                                                                        | What to do                                                                                                                                                                                                                            |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `worker started`                                                                                                                                                                                                  | The worker is up. The line shows `publicUrl`, its providers (`telephony`, `email`, `mailboxes`, `calendars`, `assistant`) and whether `storage` is set.              | Check that `publicUrl` is `https://hooks.handsfreeos.com`, `telephony` is `twilio`, `email` is `postmark`, `mailboxes` and `calendars` are `real` and `storage` is `true`. Once the Anthropic key is set, `assistant` is `anthropic`. |
+| `worker started`                                                                                                                                                                                                  | The worker is up. The line shows `publicUrl`, its providers (`telephony`, `email`, `mailboxes`, `calendars`, `assistant`, `aiBackup`) and whether `storage` is set.  | Check that `publicUrl` is `https://hooks.handsfreeos.com`, `telephony` is `twilio`, `email` is `postmark`, `mailboxes` and `calendars` are `real` and `storage` is `true`. Once the Anthropic key is set, `assistant` is `anthropic`. |
 | `worker stopping: closing the listener, then finishing the current pass`                                                                                                                                          | A normal stop during a deploy or restart.                                                                                                                            | Nothing.                                                                                                                                                                                                                              |
 | `worker pass crashed`                                                                                                                                                                                             | One loop pass failed. The health check stays green.                                                                                                                  | Read the `err` field. It is often a database problem. If it repeats, save the lines for a developer.                                                                                                                                  |
 | `worker http error`                                                                                                                                                                                               | The worker answered a provider or the browser with a 500 error, `Something went wrong on our side.`                                                                  | Read `err`. If it says `No key <id> to open this value. Add the old key to WORKER_ENCRYPTION_KEYS_PREVIOUS.`, an old encryption key is missing.                                                                                       |
@@ -2385,6 +2393,7 @@ The console steps below describe the goal. If a console has moved or works diffe
 | `FLY_API_TOKEN`                        | `fly tokens create org` (Fly Part 9)                     | Store the new token in GitHub, then find the old token's ID and revoke it (end of Fly Part 9).                                                                                                                                                                                                  |
 | `WORKER_ENCRYPTION_KEY`                | `openssl rand -base64 32`                                | See "Rotating the worker encryption key" below.                                                                                                                                                                                                                                                 |
 | `ANTHROPIC_API_KEY`                    | The Claude Console, **Settings** → **API keys**          | See "Rotate the key" in "The Assistant: Anthropic". Give the worker the new key before you disable the old one.                                                                                                                                                                                 |
+| `OPENAI_API_KEY`                       | OpenAI's dashboard, the project's **API keys**           | See "Rotate the OpenAI key" in "The backup AI: OpenAI". Give the worker the new key before you revoke the old one.                                                                                                                                                                              |
 | `CHAT_IP_KEY`                          | `openssl rand -base64 32`                                | Rarely worth it. The website chat keeps its network blocks and its count of new visitors from one network under this key, so a new key forgets both: blocked networks are unblocked, while blocked visitors stay blocked. Save the new key in your password manager, then set it on the worker. |
 
 #### Changing the Postmark webhook password
@@ -2540,7 +2549,7 @@ The sync service for the phone app adds about $13 to $15 a month on Fly (see "Ro
 Other bills:
 
 - Supabase bills separately. The Go Biz Help organization is on the Pro plan, from $25 a month for the whole organization. This project's compute comes on top: when the project was created, Supabase quoted about $10 a month for its Micro size.
-- Twilio, Postmark, Vercel and Anthropic also bill separately (see "Before you start" at the top of this guide).
+- Twilio, Postmark, Vercel, Anthropic and OpenAI also bill separately (see "Before you start" at the top of this guide).
 - Fly's pricing page lists no charge for its builders as of September 2026. Check your first invoice for any line you do not expect.
 
 ## Sync service: PowerSync on Fly
@@ -6165,7 +6174,7 @@ fly logs --app handsfreeos-worker --no-tail
 | Something about your credit balance                                                                                | The prepaid credits ran out.                                                               | Buy credits on **Settings** → **Billing**, and turn on auto-reload.                                     |
 | `not_found_error` and `model:`                                                                                     | `ASSISTANT_MODEL` names a model that does not exist, or that your organization cannot use. | Fix it or remove it (see "Change the model" below).                                                     |
 
-In all of these, the panel says "Something went wrong". When the cause is on Anthropic's side (overloaded, rate-limited or unreachable), it says "The Assistant is busy right now" instead. Try again after a minute. If it keeps happening and `err` says `rate_limit_error` with `enforced_spend_limit_reached`, your organization has used the whole monthly cap of its usage tier. Ask for more with **Request rate limit increase** on the Console's **Rate limits** page (`https://platform.claude.com/settings/limits`), or wait for the next month.
+In all of these, the panel says "Something went wrong". When the cause is on Anthropic's side (overloaded, rate-limited or unreachable), it says "The Assistant is busy right now" instead. Try again after a minute. With `OPENAI_API_KEY` set, OpenAI answers those instead, unless part of Claude's answer had already shown (see "The backup AI: OpenAI"). If it keeps happening and `err` says `rate_limit_error` with `enforced_spend_limit_reached`, your organization has used the whole monthly cap of its usage tier. Ask for more with **Request rate limit increase** on the Console's **Rate limits** page (`https://platform.claude.com/settings/limits`), or wait for the next month.
 
 ### Change the daily limit
 
@@ -6308,6 +6317,295 @@ fly secrets unset --app handsfreeos-worker ANTHROPIC_API_KEY
 ```
 
 Leave `ASSISTANT_PROVIDER` unset. The worker uses `anthropic` when the key is set and `none` when it is not. It refuses to start with `scripted`, the stand-in the automated tests use.
+
+## The backup AI: OpenAI
+
+Every AI feature in HandsFreeOS runs on Claude: Ask HandsFreeOS, the AI teammate in texts, email and the website chat, the live phone agent and AI calls, workflow AI steps, the form and workflow builders, the knowledge base, contact AI, automations and support's drafts. When Claude is down or struggling, the worker sends the same requests to OpenAI instead, and goes back to Claude once it's well again. Claude stays the main one: OpenAI answers only while Claude is in trouble, or while support has pinned it there from `/admin`.
+
+The worker is the only part of HandsFreeOS that talks to OpenAI, so the OpenAI key goes on `handsfreeos-worker` and nowhere else, like the Anthropic key. The API refuses to start if it holds any variable whose name starts with `OPENAI_`, and the key never goes in Vercel or GitHub.
+
+The backup is optional. Without `OPENAI_API_KEY` there is no backup, and everything works as before, on Claude alone. Which AI is answering is kept in one row, the table `platform.ai_provider` from the migration `20261013000900_a_backup_for_the_ai.sql`, so every worker machine follows the same choice. If the hosted project doesn't have that migration yet, push it with "Apply new migrations" in "The database: Supabase (hosted)" before the code reaches `main`.
+
+**Nothing a business sees names either one.** The Assistant's OK says that what people ask about goes to "an AI service" ("Each person's OK" in "The Assistant: Anthropic"). So the same OK covers OpenAI, and nobody is asked again when the AI switches. Keep it that way: the vendors are named in this guide, the code, the environment variables and `/admin`, never on a screen a business sees. The one exception is the privacy policy at `https://handsfreeos.com/privacy`, which names both because Apple asks it to.
+
+### Before you start
+
+You need:
+
+- Your password manager, with the `HandsFreeOS` folder.
+- A payment card for OpenAI's prepaid credits.
+- The Fly.io sign-in from "Tools on your Mac" in "Before you start".
+- The Anthropic key on the worker ("The Assistant: Anthropic"). The backup stands behind Claude, not in place of it: without `ANTHROPIC_API_KEY` the worker has no AI at all.
+- For the checks: a support admin sign-in for `https://app.handsfreeos.com/admin` ("Getting in the first time" in "Support and the admin side").
+
+### What it costs
+
+OpenAI charges by the token, like Anthropic, from prepaid credits. It answers only while Claude is in trouble, so most months it costs little or nothing. OpenAI lists its prices at `https://openai.com/api/pricing`.
+
+Businesses pay the same whichever AI answers. Their AI use is charged to their balance at the rate card's AI prices, whatever the model, so a day on OpenAI changes nothing on their bill. Ask HandsFreeOS stays free to them, as it is on Claude.
+
+### Make the account and set a budget
+
+OpenAI's console is at `https://platform.openai.com`. If a screen has moved, look for the name in bold under **Settings**.
+
+1. Open `https://platform.openai.com` and sign up with your Go Biz Help email address. If it asks for an organization name, type `Go Biz Help`.
+
+   You should land in OpenAI's dashboard.
+
+2. Go to **Settings** → **Billing**. Add your payment card, then add credits, for example $20.
+
+   You should see the credit balance on the **Billing** page. When it runs out, OpenAI refuses every request, and there is no backup until you add more.
+
+3. On the same page, turn on **Auto recharge**. Set the balance that triggers it and the amount to top up to.
+
+   You should see your two amounts on the page.
+
+4. Go to **Settings** → **Projects** and click **Create project**. Name it `HandsFreeOS`. This keeps the HandsFreeOS key and its spending apart from anything else you do at OpenAI.
+
+   You should see `HandsFreeOS` in the list of projects.
+
+5. Open the `HandsFreeOS` project's **Limits** page. Set a monthly budget, for example $50, and an alert for when spending reaches about half of it.
+
+   You should see the budget and the alert on the page.
+
+### Make the production key
+
+1. With the `HandsFreeOS` project picked at the top of the page, go to **Settings** → **API keys** and click **Create new secret key**.
+2. Fill in the form:
+   - **Owned by**: **You**.
+   - Name: `handsfreeos-worker production`.
+   - Project: `HandsFreeOS`.
+   - Permissions: **All**.
+
+3. Create the key. It starts with `sk-proj-`. Copy it before you close the window, and save it in your password manager in a new entry named "OpenAI API key", with today's date.
+
+   You should see the new key in the project's list of keys. Never commit the key, and never paste it anywhere except the steps below.
+
+4. Check the key before it goes to Fly. This loads it into a shell variable, which keeps it off the screen and out of your shell history. Run the command, paste the key and press Return. Nothing appears while you paste.
+
+   ```bash
+   read -s T
+   ```
+
+5. Ask OpenAI about the two backup models. This uses no tokens.
+
+   ```bash
+   curl -s -H "Authorization: Bearer $T" https://api.openai.com/v1/models/gpt-6-sol
+   curl -s -H "Authorization: Bearer $T" https://api.openai.com/v1/models/gpt-6-luna
+   ```
+
+   You should see a reply for each, with `"id": "gpt-6-sol"` and `"id": "gpt-6-luna"`. If a reply says `invalid_api_key`, the key is wrong or was cut short: copy it again and repeat steps 4 and 5. If it says `model_not_found`, the project can't use that model: check the models allowed on the project's **Limits** page.
+
+6. Clear the variable.
+
+   ```bash
+   unset T
+   ```
+
+### Give the worker the OpenAI key
+
+`fly secrets import` reads the value you paste, so the key never lands in your Terminal history. Never put the key in a `fly secrets set` command.
+
+1. Copy the key from the "OpenAI API key" entry.
+2. Start the import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+   If the worker has never been deployed, add `--stage` to the command, and the key waits for the first deploy.
+
+3. Type `OPENAI_API_KEY=`, then paste the key right after it, with no space and no quotes. The line looks like this, with the real key in it:
+
+   ```text
+   OPENAI_API_KEY=sk-proj-<rest of the key>
+   ```
+
+4. Press Return, then Control-D.
+
+   Fly restarts the worker with the key.
+
+5. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+6. Check the secret.
+
+   ```bash
+   fly secrets list --app handsfreeos-worker
+   ```
+
+   You should see `OPENAI_API_KEY` in the `NAME` column. Fly never shows the value, only a digest.
+
+Never run this import with `--app handsfreeos-api`. The API would refuse to start with `The API process must never hold privileged keys. Remove: OPENAI_API_KEY`.
+
+### Check that OpenAI answers
+
+1. Watch the worker's log.
+
+   ```bash
+   fly logs --app handsfreeos-worker
+   ```
+
+   You should see a `worker started` line with `"aiBackup":"openai"`. If it shows `"aiBackup":"none"`, the worker has no OpenAI key: go back to "Give the worker the OpenAI key".
+
+2. Press Control-C to stop watching.
+3. Sign in at `https://app.handsfreeos.com/admin` and open **Health**.
+4. Under **Which AI answers**, pick **Always OpenAI**.
+5. Open a workspace, click **Ask HandsFreeOS** under the search field in the sidebar (or press Command-J), type `What can you help me with here?` and send it.
+
+   You should see the answer appear as it's written, the same as with Claude.
+
+6. Back in `/admin` → **Health**, pick **Auto** under **Which AI answers**. Don't skip this: while it says **Always OpenAI**, OpenAI answers everything, even with Claude well.
+
+### How it chooses
+
+With the switch on **Auto**, the default, the worker decides in two ways:
+
+- **Claude's status page.** Every 5 minutes the worker reads Claude's public status page (`https://status.claude.com/api/v2/components.json`) and looks at the "Claude API (api.anthropic.com)" part. Anything but `operational` (`degraded_performance`, `partial_outage`, `major_outage` or `under_maintenance`) moves every AI feature to OpenAI.
+- **Claude's own answers.** When a request to Claude fails because Claude is down, overloaded or busy, OpenAI answers that same request straight away, so nobody waits for the next check. If part of Claude's answer had already shown, that one fails as it did before, because a second answer would repeat the words already shown. Three such failures within 2 minutes move everything to OpenAI.
+
+Other failures, such as a wrong Anthropic key, don't go to OpenAI. They need fixing: see "When a question fails" in "The Assistant: Anthropic".
+
+While it's on OpenAI, the 5-minute check also asks whether Claude is well again: its status page says `operational`, and a tiny test question to Claude gets an answer. Two good checks in a row, so 10 minutes, bring everything back to Claude. A bad check starts the count again.
+
+`/admin` → **Health** shows which AI is answering and why: Claude's status page, or Claude's answers failing.
+
+### The switch in /admin
+
+Support can pin the choice from `https://app.handsfreeos.com/admin` → **Health** → **Which AI answers**:
+
+- **Auto**, the default: the worker decides, as in "How it chooses".
+- **Always Claude**: Claude answers whatever the checks say. Use it if OpenAI is the one misbehaving. While Claude is down, the AI features then fail as they did before there was a backup.
+- **Always OpenAI**: OpenAI answers everything, even with Claude well. Use it when Claude is struggling in a way its status page hasn't caught yet, and for the check in "Check that OpenAI answers".
+
+Every worker machine follows a change within half a minute. A pin stays until someone picks another, so go back to **Auto** when you're done. Leads and admins see the switch (`platform.health.read`). Only admins can change it (`platform.ai.manage`), and the database checks that itself. HandsFreeOS keeps who set it and when.
+
+### The alert emails
+
+While the switch is on **Auto**, the worker emails the addresses in `AI_ALERT_EMAILS` each time the AI moves to OpenAI, and again each time it comes back to Claude. A pin sends nothing: whoever set it already knows. `AI_ALERT_EMAILS` is a comma-separated list under `[env]` in `apps/worker/fly.toml`, set to `chris@gobizhelp.com`. It isn't a secret, so it lives in the file, where every change is a commit somebody reviewed. When it's unset, the emails go to the addresses in `PLATFORM_OWNER_EMAILS`.
+
+To change who hears, edit the line in `apps/worker/fly.toml`, then commit and push to `main`. The deploy restarts the worker with it.
+
+```toml
+AI_ALERT_EMAILS = "chris@gobizhelp.com,<another address>"
+```
+
+### Change the backup models
+
+Three settings choose OpenAI's models. Each stands in for one of Claude's:
+
+| Setting                  | Stands in for                                                                                                                                                  | Unless set   |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `OPENAI_ASSISTANT_MODEL` | `ASSISTANT_MODEL`: Ask HandsFreeOS, the team's own helper                                                                                                      | `gpt-6-sol`  |
+| `OPENAI_MODEL`           | `AI_MODEL`: the AI teammate, workflow AI steps, the builders, the knowledge base, contact AI, automations and support's drafts                                 | `gpt-6-sol`  |
+| `OPENAI_VOICE_MODEL`     | Calls, whatever model they use on Claude (`VOICE_MODEL`, or support's pick under **AI on their calls**). Callers wait on every reply, so keep a fast one here. | `gpt-6-luna` |
+
+Try any other model on your laptop first ("On your laptop" below). The worker doesn't check the ID when it starts. With a mistyped one it starts normally, and every request sent to OpenAI fails.
+
+1. Start an import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+2. Paste the line with the model ID, then press Return and Control-D. Use `OPENAI_ASSISTANT_MODEL=` or `OPENAI_VOICE_MODEL=` instead to change the others.
+
+   ```text
+   OPENAI_MODEL=<model ID>
+   ```
+
+   Fly restarts the worker.
+
+3. Check it as in "Check that OpenAI answers", and put the switch back on **Auto**.
+
+   You should see an answer.
+
+To go back to the models HandsFreeOS ships with:
+
+```bash
+fly secrets unset --app handsfreeos-worker OPENAI_MODEL OPENAI_ASSISTANT_MODEL OPENAI_VOICE_MODEL
+```
+
+Businesses pay the rate card's AI prices whichever model answers, so a dearer backup model costs HandsFreeOS more for the hours it answers, not them.
+
+### Rotate the OpenAI key
+
+Replace the key on a schedule you choose, when someone who saw it leaves, and at once if it may have leaked. OpenAI can't pause a key, only revoke it, so give the worker the new key before you revoke the old one.
+
+1. Make a new key with steps 1 to 6 of "Make the production key" above. Put the date in its name, for example `handsfreeos-worker 2027-09`.
+2. Save the new key in the "OpenAI API key" entry. Keep the old value there too until step 7.
+3. Start an import.
+
+   ```bash
+   fly secrets import --app handsfreeos-worker
+   ```
+
+4. Type `OPENAI_API_KEY=`, paste the new key right after it, then press Return and Control-D.
+
+   Fly restarts the worker with the new key.
+
+5. Clear the clipboard.
+
+   ```bash
+   pbcopy < /dev/null
+   ```
+
+6. Check it as in "Check that OpenAI answers", and put the switch back on **Auto**.
+
+   You should see an answer.
+
+7. In OpenAI's dashboard, open the `HandsFreeOS` project's **API keys** and revoke the old key. This cannot be undone. Then remove the old value from your password manager entry.
+
+If the key may have leaked, revoke it first, then do steps 1 to 6 right away. Claude still answers in between; there is just no backup.
+
+### Without an OpenAI key
+
+- The worker starts as usual. Its `worker started` line shows `"aiBackup":"none"`.
+- Every AI feature uses Claude alone, as before. While Claude is down, they fail as they did before there was a backup.
+- Nothing else in HandsFreeOS needs the key.
+
+To turn the backup off on purpose, remove the key from the worker. Fly restarts it. The key stays in your password manager, so "Give the worker the OpenAI key" turns the backup back on.
+
+```bash
+fly secrets unset --app handsfreeos-worker OPENAI_API_KEY
+```
+
+To keep the key but stop the switching for a while, pick **Always Claude** in `/admin` instead.
+
+### On your laptop
+
+Locally nothing reaches OpenAI until you give the local worker a key of its own. It needs your Anthropic local key too ("Trying the Assistant" in "Local development"), because the backup stands behind Claude.
+
+1. In OpenAI's dashboard, create a second project named `HandsFreeOS local`, and give it a small monthly budget on its **Limits** page, for example $10.
+2. In that project, make a key named `handsfreeos-local <your name>`. Save it in your password manager as a new entry named "OpenAI local key". Never use the production key on a laptop.
+3. Open `apps/worker/.env` in a plain-text editor.
+
+   ```bash
+   nano apps/worker/.env
+   ```
+
+4. Add this line at the end, with your local key in place of the placeholder and no quotes, then save with Control-O, Return and Control-X.
+
+   ```text
+   OPENAI_API_KEY=<OpenAI local key>
+   ```
+
+   Git ignores `apps/worker/.env`. Never commit it, and never put the key in any other file in the repository.
+
+5. Stop `pnpm dev` with Control-C and start it again.
+
+   You should see `aiBackup: "openai"` in the `worker started` line.
+
+6. To see OpenAI answer, you need `/admin` on your laptop. Add a `PLATFORM_OWNER_EMAILS=` line with the address you sign in with, restart `pnpm dev`, then pick **Always OpenAI** at `http://localhost:3000/admin` → **Health** and ask the Assistant a question. Put it back on **Auto** afterwards.
+
+Good to know:
+
+- `pnpm env:local` keeps the `OPENAI_` and `AI_ALERT_EMAILS` lines when it rewrites `apps/worker/.env`, but not `PLATFORM_OWNER_EMAILS`, so add that one back after each run.
+- Never `export OPENAI_API_KEY` in your shell. The API refuses to start while it can see any name that starts with `OPENAI_`.
+- The browser tests never call OpenAI. Their worker uses the scripted stand-in, which has no backup.
 
 ## The calendar: Google, Outlook and online booking
 
@@ -8545,8 +8843,12 @@ migrations".
 1. Ask them to sign up to HandsFreeOS first, with the email they applied with. A seat belongs to a business, and
    there has to be one to give it to.
 2. In **Admin** → **Founding**, find their application under **Waiting on you** and press **Approve**.
-3. Paste their business id, add a note on why them if you like, and press **Approve and hold a seat**.
-4. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
+3. Under **Their business**, pick their business. The list shows the businesses run (as owner or admin) by
+   whoever signed up with the email they applied with, and picks it for you when there is only one. If they
+   signed up with another email, choose **Search for another business…** and find it by name — and make sure it
+   is theirs: an agency's workspace named after a client belongs to the agency, not the client.
+4. Add a note on why them if you like, and press **Approve and hold a seat**.
+5. **Copy the claim link that appears, and email it to them straight away.** It is shown once. Only a scrambled
    copy is kept, so closing the window without copying it means approving them again.
 
 You should see the seat under **Seats out**, marked "approved, not taken up". It is held for them for fourteen
@@ -10812,7 +11114,7 @@ You need:
   cd ~/Projects/HandsFreeOS
   ```
 
-- The accounts listed in "Before you start" at the top of this guide: Fly.io (with a payment card), Vercel (connected to GitHub), Twilio, Postmark, Microsoft Entra and the Microsoft AI Cloud Partner Program, Google Cloud, and Anthropic (for the Assistant).
+- The accounts listed in "Before you start" at the top of this guide: Fly.io (with a payment card), Vercel (connected to GitHub), Twilio, Postmark, Microsoft Entra and the Microsoft AI Cloud Partner Program, Google Cloud, Anthropic (for the Assistant), and OpenAI (the backup AI, optional).
 - Admin rights on the HandsFreeOS GitHub repository, `gobizhelp/handsfreeos`.
 - Your password manager, with the `HandsFreeOS` folder. Every secret goes there first, then only into the place named in "Your password manager folder" at the top of this guide. None of these values ever goes into the repository, a commit, a chat or a support ticket.
 - Access to the DNS settings for `handsfreeos.com` at Cloudflare.
@@ -10951,7 +11253,7 @@ Then set up the sync service, which the phone app reads through: do Sync Parts 1
 
 3. A green Sync health run, and in the Deploy run the sync service's steps with check marks.
 
-Then give the worker the Anthropic key, so the Assistant can answer: do "Make the account and set a spend limit", "Make the production key" and "Give the worker the key" in "The Assistant: Anthropic". The worker runs without it, and until then the Assistant panel says "The Assistant isn’t available yet". Ask the Assistant its first question once you have an account (Stage 5).
+Then give the worker the Anthropic key, so the Assistant can answer: do "Make the account and set a spend limit", "Make the production key" and "Give the worker the key" in "The Assistant: Anthropic". The worker runs without it, and until then the Assistant panel says "The Assistant isn’t available yet". Ask the Assistant its first question once you have an account (Stage 5). To give the AI a backup for when Claude is down, also do "Make the account and set a budget", "Make the production key" and "Give the worker the OpenAI key" in "The backup AI: OpenAI". It's optional.
 
 #### Stage 5: the web app on Vercel, and your first account
 
@@ -11262,7 +11564,7 @@ Two more errors come from Supabase's connection pooler, not from the worker, and
 
    You should see `worker started`.
 
-Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook, for mailboxes and calendars), missing Google Calendar values (the **Google** button in **Settings** → **My calendar**), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), a missing or wrong `ANTHROPIC_API_KEY` (the Assistant, and the AI teammate, whose conversations then all go to a person), a missing `TURNSTILE_SECRET_KEY` (bookings and website chats then rely on their limits alone), and a missing `EXPO_ACCESS_TOKEN` (push notifications to phones). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
+Some gaps do not stop the worker but break features later: a missing or wrong `SUPABASE_SECRET_KEY` (photos, voicemails, attachments, imports), missing Microsoft client values (Connect Outlook, for mailboxes and calendars), missing Google Calendar values (the **Google** button in **Settings** → **My calendar**), a missing `TWILIO_PRIMARY_PROFILE_SID` (local-number registrations), a missing or wrong `ANTHROPIC_API_KEY` (the Assistant, and the AI teammate, whose conversations then all go to a person), a missing or wrong `OPENAI_API_KEY` (no backup, so the AI features stop while Claude is down), a missing `TURNSTILE_SECRET_KEY` (bookings and website chats then rely on their limits alone), and a missing `EXPO_ACCESS_TOKEN` (push notifications to phones). Each has its own entry below or in its section. The worker also starts with Postmark tokens that are set but wrong; customer email then fails, and so does adding a business's own domain. "Check the Postmark tokens and the Supabase key" in Fly Part 6 catches a wrong key or token before it goes live.
 
 #### The Deploy workflow did nothing
 

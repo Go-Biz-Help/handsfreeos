@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ConnectSourceButton, StartMigrationButton } from '@/components/migrations/connect';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -44,9 +43,8 @@ export default async function WorkspaceMigrationsPage({
 
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={current.permissions} />
       <PageHeader
+        section
         title="Migrations"
         description={`Bring ${current.name} here from the CRM it uses today. We look first and count everything, you choose what comes, and your old account is never changed or cancelled.`}
         actions={

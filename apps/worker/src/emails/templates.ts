@@ -1384,3 +1384,52 @@ export function addonPickNeededEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** What Claude's status page says about the Claude API, in the words the email uses. */
+const CLAUDE_STATUS_WORDS: Readonly<Record<string, string>> = {
+  degraded_performance: 'slow',
+  partial_outage: 'partly down',
+  major_outage: 'down',
+  under_maintenance: 'under maintenance',
+};
+
+/**
+ * HandsFreeOS's own people hear when every AI feature moves to OpenAI because Claude is in trouble, and when
+ * it comes back (ai/switch.ts). Nothing for them to do: it's so a surprise in the logs has an explanation.
+ */
+export function aiSwitchEmail(input: {
+  to: 'openai' | 'claude';
+  /** Why it moved to OpenAI. */
+  reason?: 'status' | 'errors';
+  /** What Claude's status page said (operational, degraded_performance, …). */
+  claudeStatus?: string | null;
+  /** How long it was on OpenAI, when it comes back. */
+  minutes?: number | null;
+  link: string;
+}): EmailContent {
+  const subject = input.to === 'openai' ? 'The AI switched to OpenAI' : 'The AI is back on Claude';
+  const status = CLAUDE_STATUS_WORDS[input.claudeStatus ?? ''] ?? 'having trouble';
+  const why =
+    input.reason === 'errors'
+      ? 'Claude’s answers kept failing'
+      : `Claude’s status page says the Claude API is ${status}`;
+  const how =
+    input.minutes == null
+      ? ''
+      : ` It was on OpenAI for ${input.minutes} ${input.minutes === 1 ? 'minute' : 'minutes'}.`;
+  const what =
+    input.to === 'openai'
+      ? `${why}, so every AI feature is answering with OpenAI. It goes back to Claude on its own after two good checks in a row, 5 minutes apart.`
+      : `Claude has been well for two checks in a row, so every AI feature is answering with Claude again.${how}`;
+  const next =
+    'Nothing for you to do. To keep it on one of them, open Admin → Health → Which AI answers.';
+  const text = [what, '', next, '', `Open Health: ${input.link}`].join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(what)) +
+      para(escapeHtml(next)) +
+      button(input.link, 'Open Health'),
+  );
+  return { subject, text, html };
+}
