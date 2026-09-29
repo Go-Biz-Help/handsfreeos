@@ -686,27 +686,29 @@ export function CalendarPage(props: {
           );
         })}
 
+        {/* A line, not a card: people’s hours and Google or Outlook busy times still show below it. */}
         {liveCalendars.length === 0 ? (
-          <Card>
-            <EmptyState
-              title="No calendars yet"
-              actions={
-                canManage ? (
-                  <ButtonLink
-                    href={`/app/w/${workspaceId}/settings/calendars/new`}
-                    variant="primary"
-                    size="sm"
-                  >
-                    Set up a calendar
-                  </ButtonLink>
-                ) : undefined
-              }
-            >
+          <div
+            className="flex flex-wrap items-center gap-3 rounded-menu border border-border bg-card px-3.5 py-2.5 text-[13px] text-text-2"
+            data-testid="no-calendars-notice"
+          >
+            <CalendarDays className="h-4 w-4 flex-none text-text-3" strokeWidth={1.5} />
+            <span className="min-w-0 flex-1">
+              <strong className="font-semibold text-text">No calendars yet.</strong>{' '}
               {canManage
-                ? 'Start with a preset like Personal or Round Robin. It only takes a minute.'
+                ? 'Set one up so customers can book online. Start with a preset like Personal or Round Robin.'
                 : 'Someone who sets up calendars does it in Settings.'}
-            </EmptyState>
-          </Card>
+            </span>
+            {canManage ? (
+              <ButtonLink
+                href={`/app/w/${workspaceId}/settings/calendars/new`}
+                variant="primary"
+                size="sm"
+              >
+                Set up a calendar
+              </ButtonLink>
+            ) : null}
+          </div>
         ) : null}
 
         {(q.view === 'week' || q.view === 'day' || q.view === 'month') && focus ? (
