@@ -669,7 +669,7 @@ describe('running an add-on’s tools', () => {
     ).rejects.toMatchObject({
       rule: 'addon_inactive',
       message:
-        'Pool Service is turned off for this business, so nothing was done. An owner or admin can turn it back on.',
+        'Pool Service is turned off for this business, so nothing was done. An owner or admin can turn it back on in Settings → Add-ons.',
     });
   });
 
@@ -801,7 +801,7 @@ describe('running an add-on’s tools', () => {
     expect(refused.json()).toMatchObject({
       status: 'failed',
       error:
-        'Pool Service is turned off for this business, so nothing was done. An owner or admin can turn it back on.',
+        'Pool Service is turned off for this business, so nothing was done. An owner or admin can turn it back on in Settings → Add-ons.',
     });
     expect(
       (await events(wsA, `${LIVE}.visit.cancelled`)).filter(

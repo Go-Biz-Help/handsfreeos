@@ -274,7 +274,8 @@ async function handlePlan(
     return blockedPlan(
       item.kind === 'ai_approval'
         ? 'Approvals always wait for a person to decide. I can approve or reject it for you instead.'
-        : (preview.reason ?? 'HandsFreeOS doesn’t handle this kind of item.'),
+        : (preview.reason ??
+            'HandsFreeOS can’t take care of this kind of item for you. Open it on Home to deal with it yourself.'),
     );
   if (!item.actions.letHandle)
     return blockedPlan('Your role can’t hand this one off. An owner or admin can.');
@@ -291,7 +292,10 @@ async function handlePlan(
         'scheduled',
       );
     const plan = preview.auto;
-    if (!plan) return blockedPlan('HandsFreeOS doesn’t handle this kind of item.');
+    if (!plan)
+      return blockedPlan(
+        'HandsFreeOS can’t take care of this kind of item for you. Open it on Home to deal with it yourself.',
+      );
     if (plan.blocked) return blockedPlan(plan.blocked.message);
     return { kind: 'auto', plan };
   }
@@ -311,9 +315,13 @@ async function handlePlan(
   if (!chosen)
     throw HfosError.validation(
       [{ path: 'action', message: 'That isn’t one of the ways to handle this one.' }],
-      `This one can be handled with: ${preview.options.map((o) => o.action).join(', ')}.`,
+      `This one can’t be handled with ${action}. Use one of these for action instead: ${preview.options.map((o) => o.action).join(', ')}.`,
     );
-  if (!chosen.available) return blockedPlan(chosen.reason ?? 'That can’t be done right now.');
+  if (!chosen.available)
+    return blockedPlan(
+      chosen.reason ??
+        'That way of handling it isn’t open for this one right now. Try another way, or open it on Home.',
+    );
 
   switch (chosen.action) {
     case 'hand_to_ai':
@@ -339,7 +347,7 @@ async function handlePlan(
       if (channel === 'email' && !subject)
         throw HfosError.validation(
           [{ path: 'subject', message: 'Give the email a subject.' }],
-          'Give the email a subject.',
+          'This reply goes by email, so it needs a subject. Put one in subject.',
         );
       const [person, setup] = await Promise.all([
         item.personId
@@ -372,7 +380,7 @@ async function handlePlan(
       if (!text)
         throw HfosError.validation(
           [{ path: 'nextAction', message: 'Say what to do next.' }],
-          'Say what to do next.',
+          'There’s no suggested next action for this one. Say what to do next in nextAction.',
         );
       const dueAt =
         str(args['dueAt']) ?? (str(args['nextAction']) ? null : (chosen.suggestion?.dueAt ?? null));
@@ -653,17 +661,20 @@ const actionOf = (v: unknown): UpdateAction => (v === 'dismiss' || v === 'assign
 function snoozeUntil(args: Args): number {
   const until = str(args['until']);
   if (!until)
-    throw HfosError.validation([{ path: 'until', message: 'Say until when.' }], 'Say until when.');
+    throw HfosError.validation(
+      [{ path: 'until', message: 'Say until when.' }],
+      'Say when it should come back: give until, a date and time.',
+    );
   const at = Date.parse(until);
   if (!Number.isFinite(at) || at < Date.now() + MIN)
     throw HfosError.validation(
       [{ path: 'until', message: 'Pick a time in the future.' }],
-      'Pick a time in the future.',
+      'That snooze time has already passed. Pick a later time.',
     );
   if (at > Date.now() + SNOOZE_MAX_DAYS * DAY)
     throw HfosError.validation(
       [{ path: 'until', message: `Snooze for ${SNOOZE_MAX_DAYS} days at most.` }],
-      `Snooze for ${SNOOZE_MAX_DAYS} days at most.`,
+      `That’s more than ${SNOOZE_MAX_DAYS} days away. Snooze it for ${SNOOZE_MAX_DAYS} days at most, or dismiss it instead.`,
     );
   return at;
 }
@@ -733,13 +744,13 @@ const updateItem: AttentionConfirmTool = {
         if (to === undefined)
           throw HfosError.validation(
             [{ path: 'assigneeUserId', message: 'Say who to assign it to.' }],
-            'Say who to assign it to (a user id from the team), or null to leave it for anyone.',
+            'Say who to assign it to: a user id from list_team, or null to leave it for anyone.',
           );
         const who = typeof to === 'string' ? await teammateName(db, ctx, to) : null;
         if (typeof to === 'string' && !who)
           throw HfosError.validation(
             [{ path: 'assigneeUserId', message: 'Pick someone in this workspace.' }],
-            'Pick someone in this workspace.',
+            'Nobody on this business’s team has that user id. Look them up with list_team and use the id it gives.',
           );
         const now = item.assignee?.fullName ?? 'Nobody';
         const same = (item.assignee?.id ?? null) === (typeof to === 'string' ? to : null);

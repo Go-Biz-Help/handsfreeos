@@ -55,11 +55,18 @@ const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 const clip = (s: string, max = 300) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** Asked for something that is already so: said before a card is drawn, not after Confirm. */
-const nothing = () => HfosError.validation([], 'Nothing would change.');
-const need = (path: string, message: string) => HfosError.validation([{ path, message }], message);
+/** Asked for something that is already so: said before a card is drawn, not after Confirm, with what already is. */
+const nothing = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
+/** A refusal about one argument; `detail` is the field's own shorter line when the message says more. */
+const need = (path: string, message: string, detail = message) =>
+  HfosError.validation([{ path, message: detail }], message);
 
 const href = (ctx: ToolContext, path: string) => `/app/w/${ctx.workspaceId}/${path}`;
+
+const SAME_BOTH_WAYS =
+  'A relationship that’s the same both ways can’t be one-sided. Each can have one, or each can have many. Use one_to_one or many_to_many for cardinality.';
+const TEXT_NO_SUBJECT =
+  'A text message has no subject line. Leave out subject, or make it an email template.';
 
 /** A settings card: title, the lines it changes, the button, and anything to know first. */
 const card = (
@@ -176,13 +183,21 @@ const permissionArg = (args: Args) => {
 
 const roleArg = (args: Args): CustomizableRole => {
   const role = str(args['role']);
-  if (role !== 'admin' && role !== 'member') throw need('role', 'Say admins or members.');
+  if (role !== 'admin' && role !== 'member')
+    throw need(
+      'role',
+      'Say whose permissions to change: give role as admin or member.',
+      'Say admins or members.',
+    );
   return role;
 };
 
 const personIn = (s: PermissionSettings, userId: unknown) => {
   const person = s.people.find((p) => p.userId === userId);
-  if (!person) throw HfosError.notFound('That person isn’t in this business.');
+  if (!person)
+    throw HfosError.notFound(
+      'Nobody in this business has that userId. get_settings (area permissions) or list_team gives each person’s id.',
+    );
   if (person.role === 'owner')
     throw need(
       'userId',
@@ -204,7 +219,7 @@ const managePermissions: SettingsConfirmTool = {
       const who = PLURAL[role];
       if (act === 'reset_role') {
         const set = Object.keys(settings).filter((p) => infoOf(p));
-        if (!set.length) throw nothing();
+        if (!set.length) throw nothing(`${cap(who)} already have the defaults.`);
         return {
           card: card(
             toolCallId,
@@ -227,7 +242,7 @@ const managePermissions: SettingsConfirmTool = {
       }
       const { permission, allowed } = permissionArg(args);
       const was = settings[permission];
-      if ((was ?? null) === allowed) throw nothing();
+      if ((was ?? null) === allowed) throw nothing(`That’s already how it’s set for ${who}.`);
       const next = { ...settings };
       if (allowed === null) delete next[permission];
       else next[permission] = allowed;
@@ -253,7 +268,10 @@ const managePermissions: SettingsConfirmTool = {
     const whoLine = `${person.fullName} (${ROLE_LABELS[person.role]})`;
     if (act === 'reset_person') {
       const set = Object.keys(person.settings).filter((p) => infoOf(p));
-      if (!set.length) throw nothing();
+      if (!set.length)
+        throw nothing(
+          `${person.fullName} has no settings of their own, so they already do what their role says.`,
+        );
       return {
         card: card(
           toolCallId,
@@ -281,7 +299,8 @@ const managePermissions: SettingsConfirmTool = {
     }
     const { permission, allowed } = permissionArg(args);
     const was = person.settings[permission];
-    if ((was ?? null) === allowed) throw nothing();
+    if ((was ?? null) === allowed)
+      throw nothing(`That’s already how it’s set for ${person.fullName}.`);
     const next = { ...person.settings };
     if (allowed === null) delete next[permission];
     else next[permission] = allowed;
@@ -420,11 +439,26 @@ function targetOf(entity: string, kind: Pick<Kind, 'id' | 'singular' | 'plural'>
 
 /** A list field needs choices, and only a list field has them: said here, before the card. */
 function checkChoices(type: CustomFieldType, given: string[] | undefined, path = 'choices') {
-  if (hasOptions(type) && !given?.length) throw need(path, 'Add at least one choice.');
-  if (!hasOptions(type) && given?.length) throw need(path, 'Only a list field has choices.');
+  if (hasOptions(type) && !given?.length)
+    throw need(
+      path,
+      'A list field needs choices to pick from. Add at least one choice.',
+      'Add at least one choice.',
+    );
+  if (!hasOptions(type) && given?.length)
+    throw need(
+      path,
+      `Only a list field has choices, and this one holds ${typeWords(type).toLowerCase()}. Leave out the choices.`,
+      'Only a list field has choices.',
+    );
   const seen = new Set<string>();
   for (const c of given ?? []) {
-    if (seen.has(c.toLowerCase())) throw need(path, 'Two choices have the same name.');
+    if (seen.has(c.toLowerCase()))
+      throw need(
+        path,
+        `Two choices are both called “${c}”. Give each choice its own name.`,
+        'Two choices have the same name.',
+      );
     seen.add(c.toLowerCase());
   }
 }
@@ -440,12 +474,18 @@ const typeWords = (t: CustomFieldType) => CUSTOM_FIELD_TYPE_LABELS[t] ?? t;
 
 async function liveField(db: Db, ctx: ToolContext, id: unknown) {
   const field = (await fieldsOf(db, ctx)).find((f) => f.id === id);
-  if (!field) throw HfosError.notFound('That field isn’t here, or it was retired.');
+  if (!field)
+    throw HfosError.notFound(
+      'No field has that id, or it was retired. Field ids are in get_settings (area fields).',
+    );
   const kind = field.recordTypeId
     ? (await kindsOf(db, ctx, true)).find((k) => k.id === field.recordTypeId)
     : undefined;
   return { field, target: targetOf(field.entity, kind) };
 }
+
+const NO_SUCH_KIND =
+  'No kind of record has that id. Ids are in get_settings (area relationships); archived ones in list_archived_setup.';
 
 const manageCustomField: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -466,9 +506,10 @@ const manageCustomField: SettingsConfirmTool = {
       let kind: Kind | undefined;
       if (entity === 'custom_record') {
         kind = (await kindsOf(db, ctx)).find((k) => k.id === args['recordTypeId']);
-        if (!kind) throw HfosError.notFound('That kind of record isn’t here.');
+        if (!kind) throw HfosError.notFound(NO_SUCH_KIND);
       }
-      if (!name) throw need('name', 'Name the field.');
+      if (!name)
+        throw need('name', 'A new field needs a name. Give it in name.', 'Name the field.');
       const type = (str(args['holds']) ?? 'text') as CustomFieldType;
       checkChoices(type, given);
       const target = targetOf(entity, kind);
@@ -480,7 +521,7 @@ const manageCustomField: SettingsConfirmTool = {
       );
       if (clash)
         throw HfosError.conflict(
-          `There’s already a field called “${clash.label}” on ${target.many}.`,
+          `There’s already a field called “${clash.label}” on ${target.many}. Use that one, or give this one another name.`,
           'field_label_taken',
         );
       return {
@@ -553,7 +594,7 @@ const manageCustomField: SettingsConfirmTool = {
       );
       if (clash)
         throw HfosError.conflict(
-          `There’s already a field called “${clash.label}” on ${target.many}.`,
+          `There’s already a field called “${clash.label}” on ${target.many}. Use that one, or give this one another name.`,
           'field_label_taken',
         );
       fields.push({ label: 'Name', value: name });
@@ -586,7 +627,7 @@ const manageCustomField: SettingsConfirmTool = {
       });
       changes++;
     }
-    if (!changes) throw nothing();
+    if (!changes) throw nothing(`The ${field.label} field is already set up that way.`);
     return {
       card: card(
         toolCallId,
@@ -664,7 +705,7 @@ const manageRecordKind: SettingsConfirmTool = {
       const clash = live.find((k) => same(k.singular, name));
       if (clash)
         throw HfosError.conflict(
-          `There’s already a kind of record called “${clash.singular}”.`,
+          `There’s already a kind of record called “${clash.singular}”. Use that one, or give this one another name.`,
           'record_type_taken',
         );
       const many = str(args['plural']) ?? pluralOf(name);
@@ -721,10 +762,15 @@ const manageRecordKind: SettingsConfirmTool = {
     }
 
     const kind = kinds.find((k) => k.id === args['customRecordTypeId']);
-    if (!kind) throw HfosError.notFound('That kind of record isn’t here.');
+    if (!kind) throw HfosError.notFound(NO_SUCH_KIND);
 
     if (act === 'restore') {
-      if (!kind.archivedAt) throw need('customRecordTypeId', `${kind.plural} aren’t archived.`);
+      if (!kind.archivedAt)
+        throw need(
+          'customRecordTypeId',
+          `${kind.plural} aren’t archived, so there’s nothing to bring back.`,
+          `${kind.plural} aren’t archived.`,
+        );
       const clash = live.find((k) => same(k.singular, kind.singular));
       if (clash)
         throw HfosError.conflict(
@@ -782,7 +828,7 @@ const manageRecordKind: SettingsConfirmTool = {
       const clash = live.find((k) => k.id !== kind.id && same(k.singular, name));
       if (clash)
         throw HfosError.conflict(
-          `There’s already a kind of record called “${clash.singular}”.`,
+          `There’s already a kind of record called “${clash.singular}”. Use that one, or give this one another name.`,
           'record_type_taken',
         );
       fields.push({ label: 'One is called', value: name }, { label: 'Was', value: kind.singular });
@@ -795,7 +841,7 @@ const manageRecordKind: SettingsConfirmTool = {
     const icon = iconOf(args['icon']);
     if (icon && icon !== kind.icon)
       fields.push({ label: 'Picture', value: RECORD_ICON_LABELS[icon] });
-    if (fields.length === 1) throw nothing();
+    if (fields.length === 1) throw nothing(`${kind.plural} are already set up that way.`);
     return {
       card: card(toolCallId, tool, `Change ${kind.plural}`, fields, 'Save the change'),
       result: { waiting: true, changes: fields.slice(1).map((f) => f.label) },
@@ -887,16 +933,23 @@ const manageRelationshipType: SettingsConfirmTool = {
       const mutual = bool(args['sameBothWays']) ?? false;
       const a = args['a'] as EndIn | undefined;
       const b = mutual ? a : (args['b'] as EndIn | undefined);
-      if (!a || !b) throw need(a ? 'b' : 'a', 'Say what each end is and what it’s called.');
+      if (!a || !b)
+        throw need(
+          a ? 'b' : 'a',
+          `Say what end ${a ? 'B' : 'A'} is and what it’s called: give ${a ? 'b' : 'a'}.`,
+          'Say what each end is and what it’s called.',
+        );
       for (const [path, e] of [
         ['a', a],
         ['b', b],
       ] as const)
         if (e.end === 'custom_record' && !kinds.some((k) => k.id === e.recordTypeId))
-          throw HfosError.notFound(`End ${path.toUpperCase()}’s kind of record isn’t here.`);
+          throw HfosError.notFound(
+            `End ${path.toUpperCase()}’s kind of record isn’t set up, or it was archived. Kinds of records are in get_settings (area relationships).`,
+          );
       const how = (str(args['cardinality']) ?? 'many_to_many') as RelationshipCardinality;
       if (mutual && how !== 'one_to_one' && how !== 'many_to_many')
-        throw need('cardinality', 'Each can have one, or each can have many.');
+        throw need('cardinality', SAME_BOTH_WAYS, 'Each can have one, or each can have many.');
       const key = (e: EndIn) =>
         `${e.end}:${e.end === 'custom_record' ? e.recordTypeId : ''}:${e.label.trim().toLowerCase()}`;
       const liveKey = (e: RelEnd) =>
@@ -908,7 +961,10 @@ const manageRelationshipType: SettingsConfirmTool = {
             (liveKey(t.a) === key(b) && liveKey(t.b) === key(a)),
         )
       )
-        throw HfosError.conflict('That relationship is already set up.', 'relationship_type_taken');
+        throw HfosError.conflict(
+          'That relationship is already set up. Use that one, or give an end another name.',
+          'relationship_type_taken',
+        );
       const words = { a: endWords(a, kinds), b: endWords(b, kinds), cardinality: how, mutual };
       return {
         card: card(
@@ -932,13 +988,26 @@ const manageRelationshipType: SettingsConfirmTool = {
     }
 
     const type = types.find((t) => t.id === args['relationshipTypeId']);
-    if (!type) throw HfosError.notFound('That relationship type isn’t here.');
+    if (!type)
+      throw HfosError.notFound(
+        'No relationship type has that id. Ids are in get_settings (area relationships); archived ones in list_archived_setup.',
+      );
     const name = relationshipTypeName(type);
 
     if (act === 'restore') {
-      if (!type.archivedAt) throw need('relationshipTypeId', `“${name}” isn’t archived.`);
+      if (!type.archivedAt)
+        throw need(
+          'relationshipTypeId',
+          `“${name}” isn’t archived, so there’s nothing to bring back.`,
+          `“${name}” isn’t archived.`,
+        );
       const gone = [type.a.recordType, type.b.recordType].find((k) => k?.archived);
-      if (gone) throw need('relationshipTypeId', `Bring back ${gone.plural} first.`);
+      if (gone)
+        throw need(
+          'relationshipTypeId',
+          `“${name}” needs ${gone.plural}, which are archived. Bring back ${gone.plural} first.`,
+          `Bring back ${gone.plural} first.`,
+        );
       return {
         card: card(
           toolCallId,
@@ -982,7 +1051,7 @@ const manageRelationshipType: SettingsConfirmTool = {
     const bLabel = type.mutual ? aLabel : str(args['bLabel']);
     const how = str(args['cardinality']) as RelationshipCardinality | undefined;
     if (type.mutual && how && how !== 'one_to_one' && how !== 'many_to_many')
-      throw need('cardinality', 'Each can have one, or each can have many.');
+      throw need('cardinality', SAME_BOTH_WAYS, 'Each can have one, or each can have many.');
     const out = relOut(type);
     const next = {
       ...out,
@@ -992,7 +1061,7 @@ const manageRelationshipType: SettingsConfirmTool = {
     };
     const renamed = next.a.label !== type.a.label || next.b.label !== type.b.label;
     const counted = next.cardinality !== type.cardinality;
-    if (!renamed && !counted) throw nothing();
+    if (!renamed && !counted) throw nothing(`“${name}” is already set up that way.`);
     const narrower = (['a', 'b'] as const).some(
       (side) => manyFor(type.cardinality, side) && !manyFor(next.cardinality, side),
     );
@@ -1107,18 +1176,23 @@ const manageTemplate: SettingsConfirmTool = {
       const clash = live.find((t) => t.id !== except && same(t.name, n));
       if (clash)
         throw HfosError.conflict(
-          `You already have a template called "${clash.name}".`,
+          `You already have a template called “${clash.name}”. Give this one another name.`,
           'duplicate',
         );
     };
 
     if (act === 'create') {
       if (!name) throw need('name', 'Name it, so it can be found again.');
-      if (!body) throw need('body', 'Write the message.');
+      if (!body)
+        throw need(
+          'body',
+          'The template has no words yet. Write the message in body.',
+          'Write the message.',
+        );
       const channel = (str(args['channel']) ?? 'sms') as Template['channel'];
       const subject = str(args['subject']);
       if (channel === 'sms' && subject)
-        throw need('subject', 'A text message has no subject line.');
+        throw need('subject', TEXT_NO_SUBJECT, 'A text message has no subject line.');
       taken(name);
       const { fills, broken } = placeholderLines(`${subject ?? ''}\n${body}`);
       return {
@@ -1150,10 +1224,18 @@ const manageTemplate: SettingsConfirmTool = {
     }
 
     const template = all.find((t) => t.id === args['templateId']);
-    if (!template) throw HfosError.notFound('That template isn’t here.');
+    if (!template)
+      throw HfosError.notFound(
+        'No template has that id. Ids are in get_settings (area templates); archived ones in list_archived_setup.',
+      );
 
     if (act === 'restore') {
-      if (!template.archivedAt) throw need('templateId', `${template.name} isn’t archived.`);
+      if (!template.archivedAt)
+        throw need(
+          'templateId',
+          `${template.name} isn’t archived, so there’s nothing to bring back.`,
+          `${template.name} isn’t archived.`,
+        );
       taken(template.name);
       return {
         card: card(
@@ -1204,7 +1286,8 @@ const manageTemplate: SettingsConfirmTool = {
     const channel = str(args['channel']) as Template['channel'] | undefined;
     const to = channel ?? template.channel;
     const subject = args['subject'] === undefined ? undefined : (str(args['subject']) ?? null);
-    if (to === 'sms' && subject) throw need('subject', 'A text message has no subject line.');
+    if (to === 'sms' && subject)
+      throw need('subject', TEXT_NO_SUBJECT, 'A text message has no subject line.');
     if (channel && channel !== template.channel) {
       fields.push({ label: 'Send as', value: CHANNEL_WORDS[channel] });
       if (channel === 'sms' && template.subject)
@@ -1217,7 +1300,8 @@ const manageTemplate: SettingsConfirmTool = {
       fields.push({ label: 'Folder', value: folder ?? 'None' });
     const wording = body && body !== template.body ? body : undefined;
     if (wording) fields.push({ label: 'Message', value: 'New wording, below' });
-    if (fields.length === 1) throw nothing();
+    if (fields.length === 1)
+      throw nothing(`The ${template.name} template already has that wording and those settings.`);
     const { fills, broken } = placeholderLines(
       `${(subject === undefined ? template.subject : subject) ?? ''}\n${wording ?? template.body}`,
     );
@@ -1310,7 +1394,10 @@ const teamOf = (db: Db, ctx: ToolContext) =>
 const lineName = (n: PhoneNumber) => (n.label ? `${n.label} · ${n.display}` : n.display);
 const numberIn = (status: PhoneStatus, id: unknown) => {
   const n = status.numbers.find((x) => x.id === id);
-  if (!n) throw HfosError.notFound('That number isn’t one of the business’s.');
+  if (!n)
+    throw HfosError.notFound(
+      'No business number has that id. Numbers are in get_settings (area texting).',
+    );
   return n;
 };
 
@@ -1336,7 +1423,12 @@ const manageNumbers: SettingsConfirmTool = {
     if (act === 'rename') {
       if (args['label'] === undefined) throw need('label', 'Say what to call it.');
       const label = str(args['label']) ?? null;
-      if (label === (n.label ?? null)) throw nothing();
+      if (label === (n.label ?? null))
+        throw nothing(
+          label
+            ? `${n.display} is already called “${label}”.`
+            : `${n.display} already has no name.`,
+        );
       return {
         card: card(
           toolCallId,
@@ -1354,7 +1446,7 @@ const manageNumbers: SettingsConfirmTool = {
     }
 
     if (act === 'make_default') {
-      if (n.isDefault) throw nothing();
+      if (n.isDefault) throw nothing(`${lineName(n)} is already the default.`);
       // The screen offers it only for a number in use, which is the one thing a default must be.
       if (n.status !== 'active')
         throw need('phoneNumberId', 'That number isn’t in use yet, so nothing can go out from it.');
@@ -1388,14 +1480,17 @@ const manageNumbers: SettingsConfirmTool = {
     for (const id of wanted) {
       const member = team.members.find((m) => m.userId === id);
       if (!member && !team.organizationAdmins.some((a) => a.userId === id))
-        throw HfosError.notFound('Someone on that list isn’t in this business.');
+        throw HfosError.notFound(
+          'Someone on that list isn’t in this business. Use the user ids list_team gives.',
+        );
       if (member?.permissions && !member.permissions.includes('inbox.use'))
         throw need(
           'userIds',
           `${member.fullName || member.email} doesn’t work the inbox, so a number can’t ring them.`,
         );
     }
-    if ([...wanted].sort().join() === [...n.memberUserIds].sort().join()) throw nothing();
+    if ([...wanted].sort().join() === [...n.memberUserIds].sort().join())
+      throw nothing(`${lineName(n)} already rings exactly those people.`);
     const { workspace } = await query<{ workspace: { inboxPerPerson: boolean } }>(
       db,
       ctx,
@@ -1468,7 +1563,12 @@ const setInboxVisibility: SettingsConfirmTool = {
       ctx,
       'workspace.get',
     );
-    if (workspace.inboxPerPerson === want) throw nothing();
+    if (workspace.inboxPerPerson === want)
+      throw nothing(
+        want
+          ? 'Each person already sees only their own conversations.'
+          : 'Everyone already sees every conversation.',
+      );
     return {
       card: want
         ? card(
@@ -1550,7 +1650,10 @@ const recordLines = (d: Domain) => d.records.map((r) => `${r.kind} ${r.host} →
 /** The domain on the card is the one acted on: if it has changed since, nothing happens. */
 async function theDomain(db: Db, ctx: ToolContext, typed: unknown): Promise<Domain> {
   const d = await domainOf(db, ctx);
-  if (!d) throw HfosError.notFound('There’s no web address of the business’s own set up.');
+  if (!d)
+    throw HfosError.notFound(
+      'The business has no web address of its own set up yet, so there’s nothing to check or stop. Add one first (action add).',
+    );
   if (d.domain !== String(typed).trim().toLowerCase())
     throw need('domain', `The business is on ${d.domain}, not ${String(typed)}.`);
   return d;
@@ -1602,7 +1705,12 @@ const manageWebAddress: SettingsConfirmTool = {
 
     const d = await theDomain(db, ctx, domain);
     if (act === 'check') {
-      if (serving(d)) throw need('domain', `${d.domain} is already working.`);
+      if (serving(d))
+        throw need(
+          'domain',
+          `${d.domain} is already working, so there’s nothing to check.`,
+          `${d.domain} is already working.`,
+        );
       return {
         card: card(
           toolCallId,
@@ -1735,7 +1843,10 @@ const fromLine = (u: Unmatched) =>
 
 const unmatchedIn = async (db: Db, ctx: ToolContext, id: unknown) => {
   const u = (await pages<Unmatched>(db, ctx, 'email.unmatched_list')).find((x) => x.id === id);
-  if (!u) throw HfosError.notFound('That email isn’t waiting any more; it was filed or dismissed.');
+  if (!u)
+    throw HfosError.notFound(
+      'That email isn’t waiting any more: someone filed or dismissed it already. list_unmatched_email shows what’s still waiting.',
+    );
   return u;
 };
 
@@ -1763,7 +1874,11 @@ const sortUnmatchedEmail: SettingsConfirmTool = {
       person: { id: string; fullName: string; archivedAt: string | null };
     }>(db, ctx, 'person.get', { personId: args['personId'] });
     if (person.archivedAt)
-      throw need('personId', `Restore ${person.fullName} before filing mail under them.`);
+      throw need(
+        'personId',
+        `${person.fullName} is archived. Bring them back with archive_or_restore before filing mail under them.`,
+        `Restore ${person.fullName} before filing mail under them.`,
+      );
     return {
       card: card(
         toolCallId,
@@ -1800,7 +1915,11 @@ const blockEmailAddress: SettingsConfirmTool = {
     const address = String(args['address']).trim().toLowerCase();
     const blocked = await pages<Suppression>(db, ctx, 'email_suppression.list');
     if (blocked.some((s) => same(s.address, address)))
-      throw need('address', 'Email to this address is already stopped.');
+      throw need(
+        'address',
+        `Email to ${address} is already stopped, so there’s nothing to block.`,
+        'Email to this address is already stopped.',
+      );
     const { items } = await query<{
       items: { id: string; fullName: string; email: string | null }[];
     }>(db, ctx, 'person.list', { q: address, limit: 5 }).catch(() => ({
@@ -1878,14 +1997,15 @@ const manageRcs: SettingsConfirmTool = {
     ];
     // The screen only offers these once the sender has settled; a moment later is soon enough.
     if (s.status === 'connecting' || s.status === 'disconnecting') {
-      if (act === 'disconnect' && s.status === 'disconnecting') throw nothing();
+      if (act === 'disconnect' && s.status === 'disconnecting')
+        throw nothing('The RCS sender is already disconnecting.');
       throw need('action', `It’s ${rcsWords(s).toLowerCase()} right now. Try again in a moment.`);
     }
     switch (act) {
       case 'pause':
       case 'turn_on': {
         const on = act === 'turn_on';
-        if (s.enabled === on) throw nothing();
+        if (s.enabled === on) throw nothing(on ? 'RCS is already on.' : 'RCS is already paused.');
         return {
           card: card(
             toolCallId,
@@ -1921,7 +2041,7 @@ const manageRcs: SettingsConfirmTool = {
             'phoneNumberId',
             'That number isn’t in use yet, so no conversation can start on it.',
           );
-        if (id === s.phoneNumberId) throw nothing();
+        if (id === s.phoneNumberId) throw nothing('New RCS conversations already start there.');
         const was = s.phoneNumberId ? status.numbers.find((x) => x.id === s.phoneNumberId) : null;
         return {
           card: card(
@@ -2017,7 +2137,7 @@ const sourceIn = async (db: Db, ctx: ToolContext, id: unknown) => {
   );
   if (!source)
     throw HfosError.notFound(
-      'That form or connected app isn’t here. Texts, calls and emails are changed with manage_lead_intake.',
+      'No website form or connected app has that id. Ids are in get_settings (area lead_intake); texts, calls and emails are changed with manage_lead_intake.',
     );
   return { intake, source, form: source.kind === 'website_form' };
 };
@@ -2031,7 +2151,8 @@ const manageLeadForm: SettingsConfirmTool = {
 
     if (act === 'pause' || act === 'turn_on') {
       const on = act === 'turn_on';
-      if (source.active === on) throw nothing();
+      if (source.active === on)
+        throw nothing(on ? `${source.name} is already on.` : `${source.name} is already paused.`);
       return {
         card: card(
           toolCallId,
@@ -2092,7 +2213,11 @@ const manageLeadForm: SettingsConfirmTool = {
     // change
     const sites = list<string>(args['websites']);
     if (!form && (sites || args['thankYouPage'] !== undefined))
-      throw need('websites', 'Sites and a thank-you page belong to a website form.');
+      throw need(
+        'websites',
+        'Sites and a thank-you page belong to a website form, and this is a connected app. Leave out websites and thankYouPage.',
+        'Sites and a thank-you page belong to a website form.',
+      );
     const fields: Field[] = [what];
     const name = str(args['name']);
     if (name && name !== source.name) fields.push({ label: 'Filed under', value: name });
@@ -2105,10 +2230,20 @@ const manageLeadForm: SettingsConfirmTool = {
           ? source.pipelineId
           : (args['pipelineId'] as string | null);
       const pipeline = pipelineId ? intake.pipelines.find((p) => p.id === pipelineId) : null;
-      if (pipelineId && !pipeline) throw need('pipelineId', 'Pick one of your pipelines.');
+      if (pipelineId && !pipeline)
+        throw need(
+          'pipelineId',
+          'No pipeline has that id. Pick one from get_settings (area pipelines).',
+          'Pick one of your pipelines.',
+        );
       const stageId = str(args['stageId']);
       const stage = stageId ? pipeline?.stages.find((s) => s.id === stageId) : null;
-      if (stageId && !stage) throw need('stageId', 'Pick a stage in that pipeline.');
+      if (stageId && !stage)
+        throw need(
+          'stageId',
+          `That stage isn’t in ${pipeline?.name ?? 'that pipeline'}. Pick one of its stages from get_settings (area pipelines).`,
+          'Pick a stage in that pipeline.',
+        );
       if (pipelineId !== source.pipelineId || (stageId && stageId !== source.stageId))
         fields.push(
           { label: 'Lands in', value: pipeline?.name ?? 'Your first pipeline' },
@@ -2131,7 +2266,7 @@ const manageLeadForm: SettingsConfirmTool = {
         label: 'Thank-you page',
         value: str(args['thankYouPage']) ?? 'None; the form says thank you itself',
       });
-    if (fields.length === 1) throw nothing();
+    if (fields.length === 1) throw nothing(`${source.name} is already set up that way.`);
     return {
       card: card(toolCallId, tool, `Change ${source.name}`, fields, 'Save the change', warnings),
       result: { waiting: true, changes: fields.slice(1).map((f) => f.label) },

@@ -270,7 +270,8 @@ function card(
   return { ...settingsCard(toolCallId, tool, c), personId: c.personId ?? null };
 }
 
-const nothingChanges = () => HfosError.validation([], 'Nothing would change.');
+/** "Nothing would change.", and why, so the model can tell the person what already matches. */
+const nothingChanges = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
 
 // ---------- look-ups ----------
 
@@ -293,7 +294,10 @@ function rangeOf(args: Args, tz: string): { from: number; to: number } {
     };
   else range = { from: startOfLocalDay(today, tz), to: startOfLocalDay(addDays(today, 1), tz) };
   if (!(range.to > range.from))
-    throw HfosError.validation([{ path: 'to', message: 'The end comes before the start.' }]);
+    throw HfosError.validation(
+      [{ path: 'to', message: 'The end comes before the start.' }],
+      'The range ends before it starts: to is earlier than from. Give a to on or after from.',
+    );
   return { from: range.from, to: Math.min(range.to, range.from + 62 * DAY) };
 }
 
@@ -653,7 +657,11 @@ async function planUpdate(db: Db, ctx: ToolContext, args: Args): Promise<UpdateP
   const outcome = args['outcome'] as 'done' | 'no_show' | undefined;
   if (outcome) {
     if (a.status === 'cancelled')
-      throw HfosError.rule('appointment_not_scheduled', 409, 'That appointment was cancelled.');
+      throw HfosError.rule(
+        'appointment_not_scheduled',
+        409,
+        'That appointment was cancelled, so it can’t be marked done or a no-show.',
+      );
     const to = outcome === 'done' ? 'completed' : 'no_show';
     if (a.status !== to) {
       plan.status = to;
@@ -675,7 +683,13 @@ async function planUpdate(db: Db, ctx: ToolContext, args: Args): Promise<UpdateP
       throw HfosError.rule(
         'confirm_one_customer',
         409,
-        'Only a visit for one customer can be marked confirmed.',
+        `Only a visit for one customer can be marked confirmed, and this one ${
+          isGroup(a)
+            ? 'is a group session'
+            : people.length
+              ? `has ${people.length} customers on it`
+              : 'has no customer on it'
+        }.`,
       );
     const first = firstName(seat.fullName);
     if (args['confirmed'] && !seat.confirmedAt) {
@@ -685,7 +699,7 @@ async function planUpdate(db: Db, ctx: ToolContext, args: Args): Promise<UpdateP
         throw HfosError.rule(
           'appointment_not_upcoming',
           409,
-          'Only a visit still to come can be marked confirmed.',
+          `This visit ${a.status === 'cancelled' ? 'was cancelled' : 'has already started or happened'}, so it can’t be marked confirmed. Only a visit still to come can be.`,
         );
       if (seat.heldUntil && Date.parse(seat.heldUntil) > now)
         throw HfosError.rule(
@@ -755,7 +769,8 @@ async function planUpdate(db: Db, ctx: ToolContext, args: Args): Promise<UpdateP
 const updateAppointment: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const plan = await planUpdate(db, ctx, args);
-    if (!plan.what.length) throw nothingChanges();
+    if (!plan.what.length)
+      throw nothingChanges('The appointment already matches everything given.');
     const { a, tz } = plan;
     const { name, first } = whose(a);
     const only = plan.what.length === 1 ? plan.what[0] : null;
@@ -882,13 +897,21 @@ interface JobPlan {
 async function planJob(db: Db, ctx: ToolContext, args: Args): Promise<JobPlan> {
   const a = await appointmentOf(db, ctx, args['appointmentId']);
   if (a.status === 'cancelled')
-    throw HfosError.rule('visit_cancelled', 409, 'That visit was cancelled.');
+    throw HfosError.rule(
+      'visit_cancelled',
+      409,
+      'That visit was cancelled, so its job can’t move along.',
+    );
   // The appointment sheet shows a job only where there is one; a class published for seats has none to move.
   if (!a.job && a.kind === 'session')
     throw HfosError.rule('no_job', 409, 'A group session has no job to move along.');
   const was: JobStatus = a.job?.status ?? 'scheduled';
   if (was === 'cancelled')
-    throw HfosError.rule('visit_cancelled', 409, 'That job was cancelled with its visits.');
+    throw HfosError.rule(
+      'visit_cancelled',
+      409,
+      'That job was cancelled with its visits, so its status can’t change.',
+    );
   const status = (str(args['status']) as JobStatus | undefined) ?? was;
   const note = args['note'] === undefined ? undefined : (str(args['note']) ?? null);
   const { calendar } = await calendarOf(db, ctx, a.calendar.id);
@@ -915,7 +938,8 @@ async function businessName(db: Db, ctx: ToolContext): Promise<string> {
 const updateJobStatus: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const plan = await planJob(db, ctx, args);
-    if (!plan.statusChanged && !plan.noteChanged) throw nothingChanges();
+    if (!plan.statusChanged && !plan.noteChanged)
+      throw nothingChanges('The job already has that status and note.');
     const { a, tz, was, status } = plan;
     const [canText, business] = await Promise.all([textingReady(db, ctx), businessName(db, ctx)]);
     const { name } = whose(a);
@@ -1035,6 +1059,16 @@ const updateJobStatus: SettingsConfirmTool = {
 
 // ---------- seats on a group session ----------
 
+/** A session that was cancelled or has been held: nobody can join it or wait for it now. */
+const sessionOver = (a: Appt) =>
+  HfosError.rule(
+    'appointment_not_scheduled',
+    409,
+    a.status === 'cancelled'
+      ? 'That session was cancelled, so nobody can be added to it or wait for it.'
+      : 'That session is already over, so nobody can be added to it or wait for it.',
+  );
+
 async function sessionFor(db: Db, ctx: ToolContext, args: Args) {
   const a = await appointmentOf(db, ctx, args['appointmentId']);
   const act = String(args['action']);
@@ -1063,10 +1097,14 @@ const manageAttendees: SettingsConfirmTool = {
     const start = Date.parse(a.startsAt);
     const session = `${whatOf(a)} · ${rangeLabel(start, Date.parse(a.endsAt), tz)}`;
     if (act === 'add') {
-      if (a.status !== 'scheduled')
-        throw HfosError.rule('appointment_not_scheduled', 409, 'That session isn’t on any more.');
-      if (booked(a).some((p) => p.personId === personId && p.status === 'booked'))
-        throw HfosError.rule('already_booked', 409, 'They’re already on it.');
+      if (a.status !== 'scheduled') throw sessionOver(a);
+      const on = booked(a).find((p) => p.personId === personId && p.status === 'booked');
+      if (on)
+        throw HfosError.rule(
+          'already_booked',
+          409,
+          `${on.fullName} is already booked on this session, so there’s nothing to add.`,
+        );
       const seats = Number(args['seats'] ?? 1);
       const left = Math.max(0, a.capacity - a.seatsTaken);
       if (seats > left)
@@ -1075,7 +1113,7 @@ const manageAttendees: SettingsConfirmTool = {
           409,
           left === 0
             ? 'It’s full. Put them on its waitlist instead.'
-            : `Only ${plural(left, 'seat')} left.`,
+            : `Only ${plural(left, 'seat')} left, and that asks for ${seats}. Ask for fewer seats, or put them on its waitlist.`,
         );
       // The command's own answer, rolled back: who they are to it and how they'd hear.
       const seat = await dryRun(db, async (tx) => {
@@ -1118,7 +1156,10 @@ const manageAttendees: SettingsConfirmTool = {
       };
     }
     const seat = booked(a).find((p) => p.personId === personId);
-    if (!seat) throw HfosError.notFound('They aren’t booked on this.');
+    if (!seat)
+      throw HfosError.notFound(
+        'That customer isn’t booked on this session. get_appointment lists who is.',
+      );
     const first = firstName(seat.fullName);
     const next = (a.waitlist ?? []).filter((w) => w.status === 'waiting');
     return {
@@ -1209,7 +1250,7 @@ const need = (args: Args, keys: string[]) => {
   if (missing.length)
     throw HfosError.validation(
       missing.map((path) => ({ path, message: 'Needed for this.' })),
-      `Say ${missing.join(', ')}.`,
+      `This needs ${missing.join(', ')} as well. Give ${missing.length === 1 ? 'it' : 'them'} and try again.`,
     );
 };
 
@@ -1279,19 +1320,19 @@ async function seriesPlan(db: Db, ctx: ToolContext, args: Args) {
     throw HfosError.rule(
       'series_sessions',
       409,
-      `${calendar.name} books fixed sessions. Repeat visits are for one-customer bookings.`,
+      `${calendar.name} books fixed sessions, and repeat visits are for one-customer bookings. Add them to each session with manage_attendees instead.`,
     );
   if (!config.recurring.staffSeries)
     throw HfosError.rule(
       'series_off',
       409,
-      `Repeats are off for ${calendar.name}. Turn on “Staff can repeat visits” in its settings first.`,
+      `Repeats are off for ${calendar.name}. Turn on “Staff can repeat visits” under Repeats in Settings → Calendars → ${calendar.name} first.`,
     );
   const max = config.recurring.maxOccurrences;
   if (Number(args['visits']) > max)
     throw HfosError.validation(
       [{ path: 'visits', message: `At most ${max} visits in a series here.` }],
-      `${calendar.name} books at most ${max} visits in a series.`,
+      `${calendar.name} books at most ${max} visits in a series, and this asks for ${Number(args['visits'])}. Ask for ${max} or fewer.`,
     );
   return { calendar, person, input: seriesInput(args, calendar, person) };
 }
@@ -1440,7 +1481,11 @@ async function prepareSeriesCancel(db: Db, ctx: ToolContext, args: Args, toolCal
     };
   });
   if (!cancelled.length || !first || !last)
-    throw HfosError.rule('nothing_to_cancel', 409, 'There are no visits left in it to cancel.');
+    throw HfosError.rule(
+      'nothing_to_cancel',
+      409,
+      'There are no visits left in that series to cancel: they’re already cancelled or over.',
+    );
   const n = cancelled.length;
   const { name, first: who } = whose(a);
   const reason = str(args['reason']);
@@ -1520,23 +1565,28 @@ async function waitlistAddPlan(db: Db, ctx: ToolContext, args: Args) {
     throw HfosError.rule(
       'waitlist_off',
       409,
-      `${calendar.name}’s waitlist is off. Turn it on in its settings first.`,
+      `${calendar.name}’s waitlist is off. Turn on Waitlist in Settings → Calendars → ${calendar.name} first.`,
     );
   const seats = Number(args['seats'] ?? 1);
   if (str(args['appointmentId'])) {
     const a = await appointmentOf(db, ctx, args['appointmentId']);
     if (a.calendar.id !== calendar.id)
-      throw HfosError.notFound('That session isn’t on this calendar.');
+      throw HfosError.notFound(
+        `That session is on another calendar, not ${calendar.name}. Give the calendarId it’s on.`,
+      );
     if (!isGroup(a))
       throw HfosError.rule(
         'not_a_session',
         409,
         'Only a group session has seats to wait for. For a one-customer time, give the window they want.',
       );
-    if (a.status !== 'scheduled')
-      throw HfosError.rule('appointment_not_scheduled', 409, 'That session isn’t on any more.');
+    if (a.status !== 'scheduled') throw sessionOver(a);
     if (booked(a).some((p) => p.personId === person.id))
-      throw HfosError.rule('already_booked', 409, 'They’re already on it.');
+      throw HfosError.rule(
+        'already_booked',
+        409,
+        `${person.fullName} is already booked on this session, so there’s no seat to wait for.`,
+      );
     return {
       calendar,
       person,
@@ -1578,7 +1628,10 @@ async function waitlistRemovePlan(db: Db, ctx: ToolContext, args: Args) {
     need(args, ['calendarId', 'entryId']);
     const { calendar } = await calendarOf(db, ctx, args['calendarId']);
     const entry = (await waitlistOf(db, ctx, calendar.id)).find((w) => w.id === args['entryId']);
-    if (!entry) throw HfosError.notFound('They aren’t on this calendar’s waitlist.');
+    if (!entry)
+      throw HfosError.notFound(
+        `Nobody on ${calendar.name}’s waitlist has that entryId. get_waitlist lists who’s waiting, with their ids.`,
+      );
     return {
       entry,
       waitingFor: waitingFor(entry, calendar.timezone),
@@ -1591,7 +1644,10 @@ async function waitlistRemovePlan(db: Db, ctx: ToolContext, args: Args) {
   const entry = (a.waitlist ?? []).find((w) =>
     str(args['entryId']) ? w.id === args['entryId'] : w.personId === args['personId'],
   );
-  if (!entry) throw HfosError.notFound('They aren’t on this session’s waitlist.');
+  if (!entry)
+    throw HfosError.notFound(
+      'That customer isn’t on this session’s waitlist. get_waitlist lists who’s waiting.',
+    );
   const { calendar } = await calendarOf(db, ctx, a.calendar.id);
   const when = rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), calendar.timezone);
   return { entry, waitingFor: `${whatOf(a)} · ${when}`, href: calendarPath(ctx.workspaceId) };
@@ -1852,7 +1908,7 @@ async function settingsPatch(
         if (!stageId)
           throw HfosError.validation(
             [{ path: 'crm.createLead.pipelineId', message: 'That pipeline isn’t there.' }],
-            'Pick a pipeline from get_settings (pipelines).',
+            'No pipeline has that id. Pick one from get_settings (pipelines).',
           );
       }
       createLead = { pipelineId: lead.pipelineId, stageId };
@@ -1879,7 +1935,7 @@ async function settingsPatch(
             message: 'Give a percent, a dollar amount, or the business’s deposit.',
           },
         ],
-        'Pick one kind of deposit.',
+        'That gives more than one kind of deposit. In payments, give only one of depositPercent, depositDollars or useBusinessDeposit.',
       );
     patch['payments'] = some({
       mode: pay['take'],
@@ -1908,7 +1964,8 @@ function draftOf(config: CalendarConfig, patch: ConfigPatch): CalendarConfig {
     if (!issues) throw e;
     throw HfosError.validation(
       issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message })),
-      issues[0]?.message ?? 'Some settings need attention.',
+      issues[0]?.message ??
+        'Some of those settings can’t be saved as they are. Check them and try again.',
     );
   }
 }
@@ -1952,7 +2009,10 @@ async function saveSettings(
   if (args['action'] === 'restore') {
     need(args, ['revision']);
     if (args['revision'] === calendar.revision)
-      throw HfosError.validation([], 'That’s the version it’s on now.');
+      throw HfosError.validation(
+        [],
+        `${calendar.name} is already on version ${String(args['revision'])}, so there’s nothing to restore. get_calendar_settings lists its earlier versions.`,
+      );
     const { out, kept } = await keepingBooked((impactDecisions) =>
       command<SaveOut>(db, ctx, 'calendar.restore_revision', {
         calendarId: calendar.id,
@@ -1964,7 +2024,8 @@ async function saveSettings(
     return { out, kept, calendar, draft: null };
   }
   const patch = await settingsPatch(db, ctx, args, calendar.config);
-  if (!Object.keys(patch).length) throw nothingChanges();
+  if (!Object.keys(patch).length)
+    throw nothingChanges(`${calendar.name} already has those settings.`);
   const draft = draftOf(calendar.config, patch);
   const { out, kept } = await keepingBooked((impactDecisions) =>
     command<SaveOut>(db, ctx, 'calendar.save', {
@@ -2067,7 +2128,7 @@ const updateCalendarSettings: SettingsConfirmTool = {
     }
     const { out, kept, draft } = dry;
     const diff = out.diff.filter((l) => !/^Restored revision/.test(l));
-    if (!diff.length) throw nothingChanges();
+    if (!diff.length) throw nothingChanges(`${current.name} already has those settings.`);
     const fields =
       diff.length > 9
         ? [

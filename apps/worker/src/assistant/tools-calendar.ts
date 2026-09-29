@@ -319,7 +319,10 @@ export const calendarReadTools: Record<string, ReadTool> = {
         : Date.parse(to)
       : startOfLocalDay(addDays(localDateOf(fromMs, tz), 1), tz);
     if (!(toMs > fromMs))
-      throw HfosError.validation([{ path: 'to', message: 'The end comes before the start.' }]);
+      throw HfosError.validation(
+        [{ path: 'to', message: 'The end comes before the start.' }],
+        `The range ends (${to}) before it starts (${from}). Give a to that’s later than from, or leave to out for the rest of that day.`,
+      );
     const [open, services] = await Promise.all([
       q<{
         serviceId: string | null;
@@ -695,8 +698,10 @@ async function scheduledAppointment(db: Db, ctx: ToolContext, appointmentId: unk
       'appointment_not_scheduled',
       409,
       appt.status === 'cancelled'
-        ? 'That appointment was cancelled.'
-        : 'That appointment already happened.',
+        ? 'That appointment was already cancelled, so it can’t be changed. Book a new one if it’s still needed.'
+        : appt.status === 'no_show'
+          ? 'That appointment is already marked as a no-show, so it can’t be changed. Book a new one if they still want to come.'
+          : 'That appointment is already marked done, so it can’t be changed. Book a new one if they need another visit.',
     );
   const { calendar } = await calendarGet(db, ctx, appt.calendar.id);
   return {
@@ -783,7 +788,11 @@ const rescheduleAppointment: ConfirmTool = {
     const was = { start: Date.parse(appt.startsAt), end: Date.parse(appt.endsAt) };
     const now = { start: Date.parse(moved.startsAt), end: Date.parse(moved.endsAt) };
     if (was.start === now.start && sameOrder(staffOf(appt), staffOf(after)))
-      throw HfosError.rule('same_time', 409, 'It’s already at that time.');
+      throw HfosError.rule(
+        'same_time',
+        409,
+        `It’s already at ${atLabel(was.start, tz)} with the same people, so nothing would change. Give a different startsAt or userIds.`,
+      );
     const warnings = await warningsFor(db, ctx, raw, { ...now, timeZone: tz });
     const { name, first } = whose(appt);
     const tell = tellRow(appt, first, true, canText, 'with the new time');

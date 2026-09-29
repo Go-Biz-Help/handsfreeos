@@ -68,7 +68,7 @@ function saidPlainly(tool: AddonAiTool, e: unknown): unknown {
     return new HfosError(
       e.code,
       e.status,
-      `${tool.addonName} is turned off for this business, so nothing was done. An owner or admin can turn it back on.`,
+      `${tool.addonName} is turned off for this business, so nothing was done. An owner or admin can turn it back on in Settings → Add-ons.`,
       e.details,
       e.rule,
     );
@@ -152,7 +152,11 @@ export function prepareAddonTool(
       path: i.path.map(String).join('.'),
       message: i.message,
     }));
-    throw HfosError.validation(issues, issues[0]?.message ?? 'Some fields need attention.');
+    throw HfosError.validation(
+      issues,
+      issues[0]?.message ??
+        `Some of that doesn’t fit what ${tool.addonName} takes. Check the details and call ${tool.name} again.`,
+    );
   }
   const shown = tool.input.safeParse(args);
   return {

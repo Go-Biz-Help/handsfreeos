@@ -16,7 +16,6 @@ import {
 } from '@hfos/core/server';
 import { asWorker, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
-import { AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
 import { proposeGap } from '../knowledge/gaps';
 import { systemActor, type WorkerServices } from '../services';
 import { draftProposal, proposalLines } from '../workflows/builder';
@@ -180,7 +179,12 @@ export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
   },
 
   async draft_workflow(db, ctx, args, deps) {
-    if (!deps?.ai.provider) throw HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
+    if (!deps?.ai.provider)
+      throw HfosError.rule(
+        'ai_not_configured',
+        503,
+        'The AI isn’t set up for HandsFreeOS yet, so it can’t draft a workflow. Build one by hand from New workflow in Workflows instead.',
+      );
     const workflowId = str(args['workflowId']) ?? null;
     const current = workflowId ? await workflowGet(db, ctx, workflowId) : null;
     const { proposal, catalogs } = await draftProposal(
@@ -551,7 +555,10 @@ async function pendingApproval(db: Db, ctx: ToolContext, id: unknown): Promise<A
     limit: 100,
   });
   const a = items.find((x) => x.id === id);
-  if (!a) throw HfosError.notFound('That approval isn’t waiting any more.');
+  if (!a)
+    throw HfosError.notFound(
+      'That approval isn’t waiting anymore. Someone may have answered it already, or its run ended.',
+    );
   return a;
 }
 

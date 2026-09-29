@@ -363,7 +363,7 @@ describe('Settings → Automations', () => {
     expect(reengage.card.warnings[0]!.text).toContain('Looks good, turn on');
     expect(reengage.result['blocked']).toBe(true);
     await expect(confirm('update_automations', reengage.parsed)).rejects.toThrow(
-      'can only be done on Settings → Automations',
+      'turns on only from Settings → Automations',
     );
     expect((await settings())['automations'].switches.reengage).toBe(false);
 
@@ -527,7 +527,7 @@ describe('Ideas', () => {
     ideaId = ideas[0]!.id;
     await expect(
       prepare('manage_idea', { action: 'share', title: 'Something', areaId: 'nowhere' }),
-    ).rejects.toThrow('Pick what it is about.');
+    ).rejects.toThrow('isn’t one of the areas an idea can be about');
   });
 
   it('votes and takes the vote back, as someone else', async () => {
@@ -634,7 +634,7 @@ describe('adding a business, and the agency area', () => {
     newId = added.id;
     await expect(
       prepare('add_business', { name: 'Elsewhere', whoRunsIt: 'me', timezone: 'Mars/Olympus' }),
-    ).rejects.toThrow('Unknown time zone');
+    ).rejects.toThrow('isn’t a time zone');
   });
 
   it('lists the agency’s businesses, templates and packs', async () => {
@@ -723,7 +723,7 @@ describe('adding a business, and the agency area', () => {
         templateId: draft,
         businessIds: [newId],
       }),
-    ).rejects.toThrow('Publish the template before pushing it');
+    ).rejects.toThrow('hasn’t been published yet');
   });
 
   it('tells an admin of one business that only the agency’s owners and admins can', async () => {

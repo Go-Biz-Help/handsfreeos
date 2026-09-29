@@ -490,7 +490,7 @@ describe('a conversation’s buttons', () => {
         conversationId: bobText,
         messageId: failedEmail,
       }),
-    ).rejects.toThrow('That message isn’t in this conversation.');
+    ).rejects.toThrow('That message is in another conversation, not this one.');
   });
 
   it('sends an email that didn’t go out again, saying it reaches them now', async () => {

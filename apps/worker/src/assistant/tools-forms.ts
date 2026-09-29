@@ -65,6 +65,9 @@ interface FormSummary {
   version: number | null;
 }
 
+/** Said when a form tool is called without a form. */
+const NO_FORM_ID = 'Say which form: give its formId, from list_forms.';
+
 // ---------- reading ----------
 
 async function listForms(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
@@ -90,7 +93,7 @@ async function listForms(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
 
 async function getForm(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const formId = str(args['formId']);
-  if (!formId) throw HfosError.validation(undefined, 'Which form?');
+  if (!formId) throw HfosError.validation(undefined, NO_FORM_ID);
   const out = await query<{
     form: FormSummary;
     definition: unknown;
@@ -120,7 +123,7 @@ async function getForm(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcom
 
 async function formResults(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const formId = str(args['formId']);
-  if (!formId) throw HfosError.validation(undefined, 'Which form?');
+  if (!formId) throw HfosError.validation(undefined, NO_FORM_ID);
   const out = await query<{
     name: string;
     mode: string;
@@ -164,7 +167,11 @@ async function buildForm(
   deps: FormToolDeps | null,
 ): Promise<ToolOutcome> {
   const description = str(args['description']);
-  if (!description) throw HfosError.validation(undefined, 'What should the form ask?');
+  if (!description)
+    throw HfosError.validation(
+      undefined,
+      'Say what the form should ask: put it in description, in the person’s words.',
+    );
   if (!deps?.ai.provider) return { result: { error: AI_UNAVAILABLE_MESSAGE }, isError: true };
 
   let formId = str(args['formId']);
@@ -240,7 +247,7 @@ const publishForm: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const formId = str(args['formId']);
     const action = (str(args['action']) ?? 'publish') as keyof typeof ACTION_WORDS;
-    if (!formId) throw HfosError.validation(undefined, 'Which form?');
+    if (!formId) throw HfosError.validation(undefined, NO_FORM_ID);
     const out = await query<{
       form: FormSummary;
       issues: { message: string }[];
@@ -321,14 +328,22 @@ const sendForm: ConfirmTool = {
     const formId = str(args['formId']);
     const personId = str(args['personId']);
     const message = str(args['message']);
-    if (!formId || !personId || !message)
-      throw HfosError.validation(undefined, 'Which form, to whom, and what should it say?');
+    if (!formId || !personId || !message) {
+      const lacking = [
+        !formId && 'formId (from list_forms)',
+        !personId && 'personId (from search_customers)',
+        !message && 'message (what to say with the link)',
+      ].filter(Boolean);
+      throw HfosError.validation(undefined, `This needs ${lacking.join(' and ')} too.`);
+    }
     const form = await query<{ form: FormSummary }>(db, ctx, 'form.get', { formId });
     if (form.form.status !== 'live')
       throw HfosError.rule(
         'form_not_live',
         409,
-        'That form isn’t taking answers yet. Publish it first.',
+        form.form.status === 'closed'
+          ? `“${form.form.name}” was closed and isn’t taking answers. Reopen it with publish_form first.`
+          : `“${form.form.name}” isn’t published yet, so it isn’t taking answers. Publish it with publish_form first.`,
       );
     const person = await query<{ person: { fullName: string } }>(db, ctx, 'person.get', {
       personId,

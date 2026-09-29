@@ -279,7 +279,11 @@ async function textTarget(db: Db, ctx: ToolContext, args: Args): Promise<TextTar
       quiet: c.quiet,
     };
   }
-  if (!personId) throw HfosError.validation([], 'Say who the text is for.');
+  if (!personId)
+    throw HfosError.validation(
+      [],
+      'Say who the text is for: give their personId (search_customers finds it) or the conversationId.',
+    );
   const { person } = await query<{ person: { fullName: string; phone: string | null } }>(
     db,
     ctx,
@@ -393,7 +397,11 @@ interface ComposeOptions {
 async function emailTarget(db: Db, ctx: ToolContext, args: Args) {
   const conversationId = str(args['conversationId']);
   const personId = str(args['personId']);
-  if (!conversationId && !personId) throw HfosError.validation([], 'Say who the email is for.');
+  if (!conversationId && !personId)
+    throw HfosError.validation(
+      [],
+      'Say who the email is for: give their personId (search_customers finds it) or the conversationId.',
+    );
   const opts = await query<ComposeOptions>(
     db,
     ctx,
@@ -497,9 +505,17 @@ const moveLead: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { lead, stages } = await leadGet(db, ctx, args['leadId']);
     const to = stages.find((s) => s.id === args['stageId']);
-    if (!to) throw HfosError.validation([], 'That stage isn’t in this lead’s pipeline.');
+    if (!to)
+      throw HfosError.validation(
+        [],
+        'That stage isn’t in this lead’s pipeline. Use one of the stage ids get_lead gives for this lead.',
+      );
     if (to.id === lead.stageId)
-      throw HfosError.rule('same_stage', 409, `It’s already in ${to.name}.`);
+      throw HfosError.rule(
+        'same_stage',
+        409,
+        `It’s already in ${to.name}, so nothing would change.`,
+      );
     const reason = str(args['lostReason']);
     const lost = to.kind === 'lost';
     return {
@@ -532,9 +548,17 @@ const moveLead: ConfirmTool = {
   async commit(db, ctx, args, extra) {
     const { stages } = await leadGet(db, ctx, args['leadId']);
     const to = stages.find((s) => s.id === args['stageId']);
-    if (!to) throw HfosError.validation([], 'That stage isn’t in this lead’s pipeline.');
+    if (!to)
+      throw HfosError.validation(
+        [],
+        'That stage isn’t in this lead’s pipeline anymore. It may have been removed in Settings → Pipelines. Ask again to move it to another stage.',
+      );
     const reason = extra.lostReason ?? str(args['lostReason']);
-    if (to.kind === 'lost' && !reason) throw HfosError.validation([], 'Pick a reason first.');
+    if (to.kind === 'lost' && !reason)
+      throw HfosError.validation(
+        [],
+        `Moving it to ${to.name} needs a reason it was lost. Pick one under Why was it lost? on the card, then confirm.`,
+      );
     await command(
       db,
       ctx,
@@ -559,7 +583,11 @@ const fullNameOf = (args: Args) =>
 const createCustomer: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const name = fullNameOf(args);
-    if (!name) throw HfosError.validation([], 'Give them a first or last name.');
+    if (!name)
+      throw HfosError.validation(
+        [],
+        'A new customer needs a name. Give a firstName, a lastName or both.',
+      );
     const { matches } = await query<{ matches: { name: string; matchedOn: string }[] }>(
       db,
       ctx,
@@ -702,7 +730,11 @@ const updateLead: ConfirmTool = {
         label: 'Next',
         value: `${lead.nextAction ?? 'none'} → ${str(args['nextAction']) ?? 'none'}`,
       });
-    if (!fields.length) throw HfosError.validation([], 'Nothing would change.');
+    if (!fields.length)
+      throw HfosError.validation(
+        [],
+        'Nothing would change. Give assigneeUserId, value or nextAction; a nextActionAt only counts with a nextAction.',
+      );
     return {
       card: confirmCard(toolCallId, 'update_lead', {
         title: `Change ${lead.title}?`,
@@ -846,7 +878,10 @@ export function createToolExecutor(
           await command(db, ctx, 'activity.delete', { activityId: record['activityId'] });
           return 'Undone. The note is gone.';
         default:
-          throw HfosError.conflict('There is nothing to undo here.', 'nothing_to_undo');
+          throw HfosError.conflict(
+            'This can’t be undone from here. Only a task or note the Assistant added, or a task it completed, can be.',
+            'nothing_to_undo',
+          );
       }
     },
   };

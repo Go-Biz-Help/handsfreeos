@@ -60,7 +60,8 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…`
 const counted = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const defined = (o: Args) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
-const nothingChanges = () => HfosError.validation([], 'Nothing would change.');
+/** "Nothing would change.", and why, so the model can tell the person what already matches. */
+const nothingChanges = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
 
 /** A local date ('2026-10-22') as people say it, in the business's zone. */
 const dayWords = (date: string, timezone: string) =>
@@ -401,12 +402,12 @@ function lineFrom(l: LineArg, products: Map<string, Product>, settings: MoneySet
   if (!l.name)
     throw HfosError.validation(
       [{ path: 'lines', message: 'Name the line.' }],
-      'A line not from the catalogue needs a name.',
+      'A line not from the catalogue needs a name. Give it one in name, or use a productId from the catalogue.',
     );
   if (l.unitPrice === undefined)
     throw HfosError.validation(
       [{ path: 'lines', message: 'Give it a price.' }],
-      `Give “${l.name}” a price.`,
+      `“${l.name}” isn’t from the catalogue, so it needs a price. Give one in unitPrice.`,
     );
   return {
     productId: null,
@@ -553,7 +554,7 @@ async function draftOf(
     if (!lines.length)
       throw HfosError.validation(
         [{ path: 'lines', message: 'Add a line.' }],
-        `Give the ${kind} at least one line.`,
+        `A new ${kind} needs at least one line. Pass them in lines: a productId from the catalogue, or a name and unitPrice.`,
       );
     draft = {
       kind,
@@ -572,7 +573,8 @@ async function draftOf(
     };
   } else {
     const keys = kind === 'estimate' ? ESTIMATE_CHANGES : INVOICE_CHANGES;
-    if (!keys.some((k) => args[k] !== undefined)) throw nothingChanges();
+    if (!keys.some((k) => args[k] !== undefined))
+      throw nothingChanges(`Pass what to change: ${keys.join(', ')}.`);
     const doc =
       kind === 'estimate'
         ? (await estimateOf(db, ctx, id)).estimate
@@ -593,7 +595,7 @@ async function draftOf(
     if (!lines.length)
       throw HfosError.validation(
         [{ path: 'lines', message: 'Keep a line.' }],
-        `An ${kind} needs at least one line.`,
+        `That would leave the ${kind} with no lines, and it needs at least one. Keep a line, or add one in addLines.`,
       );
     const est = kind === 'estimate' ? (doc as Estimate) : null;
     draft = {
@@ -828,7 +830,11 @@ const manageEstimate: SettingsConfirmTool = {
     ];
     if (act === 'void') {
       if (e.status === 'void')
-        throw HfosError.rule('estimate_not_open', 409, 'That estimate is already void.');
+        throw HfosError.rule(
+          'estimate_not_open',
+          409,
+          'That estimate is already void, so there’s nothing to void. Write a new one to quote again.',
+        );
       return {
         card: billCard(toolCallId, 'manage_estimate', {
           title: `Void ${estimateName(e)}?`,
@@ -864,7 +870,11 @@ const manageEstimate: SettingsConfirmTool = {
     }
     if (act === 'record_yes') {
       if (e.status === 'accepted')
-        throw HfosError.rule('estimate_not_open', 409, 'That estimate was already approved.');
+        throw HfosError.rule(
+          'estimate_not_open',
+          409,
+          'That estimate was already approved, so there’s no yes to record. To bill it, use manage_estimate with make_invoice.',
+        );
       if (e.status !== 'sent')
         throw HfosError.rule(
           'estimate_not_open',
@@ -872,7 +882,7 @@ const manageEstimate: SettingsConfirmTool = {
           e.status === 'draft'
             ? 'That estimate hasn’t been sent yet. Send it first (send_estimate), then record their yes.'
             : (estimateMoveProblem(e.status as EstimateStatus, 'accepted') ??
-                'That estimate can’t be approved.'),
+                'That estimate can’t be approved as it stands. Write a new one and send it instead.'),
         );
       const name = str(args['name']) ?? who;
       return {
@@ -1007,6 +1017,16 @@ function reachable(person: Person, asked: readonly string[]) {
   return { can, missing, words: can.map(how).join(' and ') };
 }
 
+/** Why nothing can go to someone, from the ways asked for that they have nothing on file for. */
+const unreachable = (who: string, missing: readonly string[], what: string) =>
+  `${who} has no ${
+    missing.length > 1
+      ? 'mobile number or email address'
+      : missing[0] === 'sms'
+        ? 'mobile number'
+        : 'email address'
+  } on file, so ${what} can’t go to them. Add one on their page in Customers, then try again.`;
+
 const noContact = (who: string, channel: string) =>
   channel === 'sms'
     ? `No mobile number on file for ${who}, so no text goes.`
@@ -1026,7 +1046,11 @@ const manageInvoice: SettingsConfirmTool = {
           `${invoiceName(i)} has already gone out. Void it and write a new one to send it again.`,
         );
       if (!i.lines.length)
-        throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
+        throw HfosError.rule(
+          'money_document_empty',
+          409,
+          'This invoice has no lines yet, so there’s nothing to bill. Add one with write_invoice, then send it.',
+        );
       const asked = list<string>(args['channels']) ?? ['email'];
       const to = reachable(i.person, asked);
       const [{ settings, nextInvoiceNumber }, accounts] = await Promise.all([
@@ -1090,7 +1114,11 @@ const manageInvoice: SettingsConfirmTool = {
     }
     // void
     if (i.status === 'void')
-      throw HfosError.rule('invoice_not_open', 409, 'That invoice is already void.');
+      throw HfosError.rule(
+        'invoice_not_open',
+        409,
+        'That invoice is already void, so there’s nothing to void.',
+      );
     const block = invoiceVoidBlock({
       paidCents: i.amountPaidCents,
       refundedCents: i.amountRefundedCents,
@@ -1155,7 +1183,7 @@ const manageInvoice: SettingsConfirmTool = {
         throw HfosError.rule(
           'no_contact',
           409,
-          `There is no way to reach ${invoice.person.fullName}.`,
+          unreachable(invoice.person.fullName, to.missing, 'the invoice'),
         );
       const out = await command<{ number: string | null }>(db, ctx, 'invoice.send', {
         invoiceId,
@@ -1207,7 +1235,7 @@ async function refundOf(db: Db, ctx: ToolContext, args: Args): Promise<RefundPla
         [{ path: 'paymentId', message: 'Which payment?' }],
         `This invoice has ${open.length} payments that can be refunded (${open
           .map((p) => `${money(p.amountCents)} by ${paymentWords(p)}, id ${p.id}`)
-          .join('; ')}). Say which one.`,
+          .join('; ')}). Say which one in paymentId.`,
       );
     payment = open[0] ?? payments.find((p) => p.status === 'processing');
     if (!payment)
@@ -1232,19 +1260,19 @@ async function refundOf(db: Db, ctx: ToolContext, args: Args): Promise<RefundPla
     throw HfosError.rule(
       'refund_over_balance',
       409,
-      'That payment has already been refunded in full.',
+      'That payment has already been refunded in full, so there’s nothing left to give back.',
     );
   const amountCents = args['amount'] === undefined ? leftCents : cents(Number(args['amount']));
   if (amountCents < 1)
     throw HfosError.validation(
       [{ path: 'amount', message: 'How much?' }],
-      'Refund at least a cent.',
+      `A refund has to be at least $0.01. Give a bigger amount, or leave amount out to refund all ${money(leftCents)} that’s left.`,
     );
   if (amountCents > leftCents)
     throw HfosError.rule(
       'refund_over_balance',
       409,
-      `Only ${money(leftCents)} of that payment can still be refunded.`,
+      `Only ${money(leftCents)} of that payment can still be refunded. Refund that much or less.`,
     );
   return { invoice, payment, amountCents, leftCents };
 }
@@ -1367,8 +1395,8 @@ function planPatch(args: Args, now: Plan | null): Record<string, unknown> {
         throw HfosError.validation(
           [{ path: serviceId ? 'visitEveryMonths' : 'serviceId', message: 'Both, or neither.' }],
           serviceId
-            ? 'Say how often members are due the service, in months.'
-            : 'Say which service members are due (get_settings with area services).',
+            ? 'Say how often members are due the service, in months, in visitEveryMonths.'
+            : 'Say which service members are due in serviceId (get_settings with area services lists them).',
         );
       patch['serviceId'] = serviceId;
       patch['visitEveryMonths'] = months;
@@ -1406,7 +1434,11 @@ const managePlan: SettingsConfirmTool = {
       if (!name || num(args['priceDollars']) === undefined)
         throw HfosError.validation(
           [{ path: name ? 'priceDollars' : 'name', message: 'Needed for a new plan.' }],
-          'A new plan needs a name and a price.',
+          name
+            ? `The new plan “${name}” needs a price. Give it in priceDollars.`
+            : num(args['priceDollars']) === undefined
+              ? 'A new plan needs a name and a price. Give them in name and priceDollars.'
+              : 'A new plan needs a name. Give it in name.',
         );
       const p = planPatch(args, null);
       const price = planPriceLabel(
@@ -1468,7 +1500,9 @@ const managePlan: SettingsConfirmTool = {
       if (stopping === !!plan.archivedAt)
         throw HfosError.validation(
           [],
-          stopping ? `${plan.name} is already off sale.` : `${plan.name} is already on sale.`,
+          stopping
+            ? `${plan.name} is already off sale, so nothing would change.`
+            : `${plan.name} is already on sale, so nothing would change.`,
         );
       const onIt = await customersOn(db, ctx, plan.id);
       return {
@@ -1526,7 +1560,7 @@ const managePlan: SettingsConfirmTool = {
       });
     if (p['description'] !== undefined && p['description'] !== plan.description)
       fields.push({ label: 'About it', value: String(p['description']) });
-    if (fields.length === 1) throw nothingChanges();
+    if (fields.length === 1) throw nothingChanges(`Everything given already matches ${plan.name}.`);
     return {
       card: billCard(toolCallId, 'manage_plan', {
         title: `Change ${plan.name}`,
@@ -1753,13 +1787,23 @@ const manageCustomerPlan: SettingsConfirmTool = {
 
     if (act === 'pause') {
       if (s.status === 'paused')
-        throw HfosError.rule('subscription_not_active', 409, 'That plan is already paused.');
+        throw HfosError.rule(
+          'subscription_not_active',
+          409,
+          `${first}’s ${s.planName} is already paused, so there’s nothing to pause.`,
+        );
       assertManaged(s, 'pause');
       if (s.status !== 'active' && s.status !== 'past_due')
         throw HfosError.rule(
           'subscription_not_active',
           409,
-          'Only a plan that is billing can be paused.',
+          `Only a plan that is billing can be paused, and ${first}’s ${s.planName} ${
+            s.status === 'cancelled'
+              ? 'has ended'
+              : s.status === 'draft'
+                ? 'is still waiting on a card'
+                : 'isn’t billing right now'
+          }.`,
         );
       return card(`Pause ${first}’s ${s.planName}?`, 'Pause it', [
         {
@@ -1770,13 +1814,19 @@ const manageCustomerPlan: SettingsConfirmTool = {
     }
     if (act === 'resume') {
       if (s.status === 'active')
-        throw HfosError.rule('subscription_not_paused', 409, 'That plan is already billing.');
+        throw HfosError.rule(
+          'subscription_not_paused',
+          409,
+          `${first}’s ${s.planName} is already billing, so there’s nothing to start again.`,
+        );
       assertManaged(s, 'resume');
       if (s.status !== 'paused')
         throw HfosError.rule(
           'subscription_not_paused',
           409,
-          'Only a paused plan can be started again.',
+          s.status === 'cancelled'
+            ? `${first}’s ${s.planName} has ended, so it can’t be started again. Start a new plan instead.`
+            : `${first}’s ${s.planName} isn’t paused, so there’s nothing to start again.`,
         );
       return card(`Start ${first}’s ${s.planName} again?`, 'Start it again', [
         {
@@ -1787,7 +1837,11 @@ const manageCustomerPlan: SettingsConfirmTool = {
     }
     if (act === 'cancel') {
       if (s.status === 'cancelled')
-        throw HfosError.rule('subscription_cancelled', 409, 'That plan has already ended.');
+        throw HfosError.rule(
+          'subscription_cancelled',
+          409,
+          `${first}’s ${s.planName} has already ended, so there’s nothing to cancel.`,
+        );
       const warnings: Warning[] =
         s.status === 'unmanaged'
           ? [
@@ -1906,7 +1960,11 @@ const manageCustomerPlan: SettingsConfirmTool = {
     const s = await subscriptionOf(db, ctx, subscriptionId);
     const to = cardChannels(s.person, args);
     if (!to.can.length)
-      throw HfosError.rule('no_contact', 409, `There is no way to reach ${s.person.fullName}.`);
+      throw HfosError.rule(
+        'no_contact',
+        409,
+        unreachable(s.person.fullName, to.missing, 'the link to add a card'),
+      );
     await command(db, ctx, 'subscription.request_card', {
       subscriptionId,
       channels: to.can,
@@ -1998,7 +2056,8 @@ const updateNumberingAndWaysToPay: SettingsConfirmTool = {
           ? 'Offered, and shown first'
           : 'Not offered — customers see card only',
       });
-    if (!fields.length) throw nothingChanges();
+    if (!fields.length)
+      throw nothingChanges('The numbering and bank transfer are already set that way.');
     if (
       next.numbering.estimate.prefix.trim().toLowerCase() ===
       next.numbering.invoice.prefix.trim().toLowerCase()
@@ -2087,7 +2146,8 @@ const updateAutoTopup: SettingsConfirmTool = {
     const cardShort = w?.card ? `${w.card.brand ?? 'Card'} ending ${w.card.last4 ?? '••••'}` : null;
     // The switch on the screen is greyed out without a card, and the command refuses it: said here first.
     const blocked = bool(args['on']) === true && !!w && !card;
-    if (!blocked && !Object.keys(patch).length) throw nothingChanges();
+    if (!blocked && !Object.keys(patch).length)
+      throw nothingChanges('Automatic top-up is already set that way.');
     const was = (key: string, words: string) => (w && key in patch ? ` · was ${words}` : '');
     const fields: Field[] = [
       {
@@ -2373,7 +2433,12 @@ export const billingAutoTools: Record<
     const estimateId = str(args['estimateId']);
     const invoiceId = str(args['invoiceId']);
     if (!estimateId === !invoiceId)
-      throw HfosError.validation([], 'Pass one id: an estimateId or an invoiceId.');
+      throw HfosError.validation(
+        [],
+        estimateId
+          ? 'Pass only one id: an estimateId or an invoiceId, not both.'
+          : 'Say which document: pass an estimateId or an invoiceId.',
+      );
     return estimateId
       ? estimateDocument(db, ctx, estimateId)
       : invoiceDocument(db, ctx, invoiceId!);
