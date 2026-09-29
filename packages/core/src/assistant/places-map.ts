@@ -39,10 +39,12 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Urgent and Up next; each item has its own button (Reply, Call, Approve, Set next action, Open the invoice…), Let HandsFreeOS Handle, and ⋯ with Assign…, Snooze (1 hour, This evening, Tomorrow morning, Next week, Pick a time…) and Dismiss…',
       'Handled by HandsFreeOS',
       'Beside the list: Today (Open calendar, today’s visits, Tasks due today) and Coming up from HandsFreeOS, each with Cancel',
-      'A new business sees Finish setting up instead: Confirm your email, Create your business, Invite your team, Add a passkey, Connect Google sign-in',
+      'Getting started at the top until the person finishes or hides it: for owners and admins the business’s steps (The basics, then When you’re ready), each with its own button and Skip; for everyone else Get set up, their own short list; and Hide guide',
     ],
     howTo: [
       'Let HandsFreeOS deal with an item: press Let HandsFreeOS Handle on it',
+      'Put off a setup step: Skip on its row in Getting started; Undo brings it back',
+      'Bring Getting started back after hiding it: Get help at the foot of the menu, then Getting started',
       'Put an item off: its ⋯, then Snooze and a time (Pick a time… for an exact one)',
       'Give an item to someone: its ⋯, then Assign…',
       'Clear an item: its ⋯, then Dismiss…; the note that pops up has Undo',

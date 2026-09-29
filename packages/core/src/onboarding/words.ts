@@ -262,7 +262,7 @@ function needsFixLine(step: OnboardingStep): Line {
     return n.phase === 'needs_info'
       ? {
           detail: `${provider} needs more details from you before you can keep taking payments. Add them in your ${provider} dashboard.`,
-          action: `Open ${provider}`,
+          action: 'See what’s needed',
         }
       : {
           detail: `${provider} needs you to sign in again before you can take payments.`,
@@ -324,4 +324,38 @@ export const ONBOARDING_WORDS = {
   /** The guide hidden. */
   hidden: 'Getting started is hidden. It’s under Get help whenever you want it.',
   finished: 'You’re set up.',
+} as const;
+
+/** The guide's own words on a screen, around the steps. */
+export const GUIDE_WORDS = {
+  title: 'Getting started',
+  /** A teammate's list. */
+  teammateTitle: 'Get set up',
+  teammateIntro: 'A few quick things, about 2 minutes.',
+  basics: 'The basics',
+  later: 'When you’re ready',
+  next: 'Next up',
+  hide: 'Hide guide',
+  skip: 'Skip',
+  undo: 'Undo',
+  showAll: (n: number) => `Show all ${n} steps`,
+  showFewer: 'Show fewer',
+  assistantHint: 'Stuck? Press ⌘J and ask HandsFreeOS. It can change most settings for you.',
+  /** Under Get help. */
+  menuItem: 'Getting started',
+  menuShow: 'Show it on Home again',
+  menuOnHome: 'On Home',
+  askForHelp: 'Ask us for help',
+  finishedTitle: 'You’re set up',
+  finishedDetail: (skipped: readonly string[]) =>
+    skipped.length === 0
+      ? 'Everything on your list is done. From here, Home lists what needs you, most important first.'
+      : `Everything else is done. You skipped ${listed(skipped)}; ${skipped.length === 1 ? 'it’s' : 'each is'} in Settings whenever you want it.`,
+  finishedDone: 'Done',
+  appTitle: 'Get the phone app',
+  appTesting:
+    'It’s in testing for now. Scan a code with your phone’s camera, or open the link on your phone, then sign in with this account.',
+  appAndroidNote:
+    'If Google Play says the app isn’t available, ask us to add your Google account to the testers.',
+  appNotificationsNote: 'Notifications are turned on in the app itself, on your phone.',
 } as const;

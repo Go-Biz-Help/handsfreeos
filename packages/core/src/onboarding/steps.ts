@@ -4,6 +4,7 @@
  * agency view agree. Browser-safe: the facts come from `onboarding/load.ts` on the server, and the phone and the
  * browser add what only they know (`DeviceFacts`).
  */
+import type { Permission } from '../permissions';
 import type { PhoneNextStep } from '../schemas/telephony';
 
 /** Shared by everyone who manages the business, and what the agency view counts. */
@@ -26,6 +27,29 @@ export type OnboardingStepKey = BusinessStepKey | PersonalStepKey;
 
 export const isBusinessStep = (key: string): key is BusinessStepKey =>
   (BUSINESS_STEPS as readonly string[]).includes(key);
+
+/**
+ * Who can act on a step: any one of these permissions (none: anyone). A screen shows a step's button only to
+ * someone who can use what it opens; the step itself still shows, so they know what's left.
+ */
+export const STEP_PERMISSIONS: Readonly<Record<OnboardingStepKey, readonly Permission[]>> = {
+  number: ['channels.manage'],
+  payments: ['money.manage'],
+  customers: ['records.import', 'migrations.manage'],
+  calendar: ['calendars.manage'],
+  ai: ['ai_team.manage', 'knowledge.manage'],
+  team: ['members.invite'],
+  email_chat: ['channels.manage'],
+  app: [],
+  sign_in: [],
+  notifications: [],
+  my_calendar: ['appointments.write'],
+};
+
+export function canActOnStep(key: OnboardingStepKey, permissions: readonly string[]): boolean {
+  const needs = STEP_PERMISSIONS[key];
+  return needs.length === 0 || needs.some((p) => permissions.includes(p));
+}
 
 /** "What do you want help with first?" */
 export const ONBOARDING_GOALS = ['leads', 'booked', 'paid', 'organized'] as const;

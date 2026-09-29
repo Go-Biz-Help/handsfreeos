@@ -9,6 +9,7 @@ import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import { Input } from '@/components/ui/input';
 import { GetHelp } from '@/components/support/get-help';
+import { guideOf } from '@/lib/guide';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
@@ -194,7 +195,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
               permissions={current.permissions}
               onNavigate={() => setDrawer(false)}
             />
-            <GetHelp workspaceId={current.id} />
+            <GetHelp workspaceId={current.id} guide={guideOf(me, current.id)} />
             <UserMenu user={me.user} />
           </div>
         </SheetContent>

@@ -23,7 +23,7 @@ test('sign up, confirm by email, create the business, sign out and back in with 
   await expect(
     page.getByRole('heading', { name: `Welcome back, ${name.split(' ')[0]}` }),
   ).toBeVisible();
-  await expect(page.getByTestId('setup-checklist')).toContainText('2 of 5 done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
   await expect(page.getByTestId('workspace-switcher')).toContainText('Go Biz Help');
 
   await signOut(page);

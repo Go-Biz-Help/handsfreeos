@@ -6,8 +6,8 @@ first customer arrives. This plan replaces it with a guide: four quick questions
 through the few things every business needs, a checklist on Home for the rest, and a short tour of the menu.
 Teammates get a short list of their own, and an agency sees where every client business has got to.
 
-> **Status: step 1 of §11 is built** (the core: the catalogue, `onboarding.status`, the commands, the words and
-> their tests). Nothing shows on a screen yet. The screens are in `design/onboarding` (twelve boards, most clickable
+> **Status: steps 1 and 2 of §11 are built**: the core (the catalogue, `onboarding.status`, the commands, the
+> words and their tests), and Getting started on Home with skip, hide, the phone app's links and Get help. The screens are in `design/onboarding` (twelve boards, most clickable
 > in Play). Read them with this plan.
 
 ---
@@ -226,11 +226,15 @@ The boards in `design/onboarding` show each one.
     hours, then `ServicesPage` (filled from the scan), the Google/Outlook buttons, and the booking site switch.
   - `payments`: `connectPaymentAccount(workspaceId, provider)`. The sign-in always comes back to
     `/settings/payments` (`apps/worker/src/http/oauth.ts`); add a `returnTo` limited to the app's own setup pages.
-- **Home** (board 6): `GettingStarted` replaces `SetupChecklist`. It shows until `finishedAt` or `hidden`, whether
-  or not the business has customers; once there are, the Action Center sits under it. Two groups, The basics and
-  When you're ready, each row with its state and one button. The next open must-do is highlighted. Right-hand
-  cards: who can help (the agency, when there is one, and ⌘J). When the last step is done or skipped, the card
-  shows "You're set up" once, lists what was skipped with where to find each, and `onboarding.finish` runs.
+- **Home** (board 6): `GettingStarted` (`components/home/getting-started.tsx`) replaces `SetupChecklist`. It
+  shows until `finishedAt` or `hidden`, whether or not the business has customers. A brand-new business gets the
+  whole card in place of the old one, above "This page becomes your Action Center"; a business already running gets
+  it compact above its Action Center (the next step, and "Show all 9 steps"), so the list of what needs attention
+  isn't pushed down. Two groups, The basics and When you're ready, each row with its state, one button and Skip;
+  the next open step is highlighted and its button is the page's one primary. A line under it points at ⌘J. Until
+  the wizard exists, each button opens the settings page that does the step. When the last step is done or
+  skipped, the card says "You're set up" once, names what was skipped, and Done runs `onboarding.finish`. Whether
+  the person signs in faster (a passkey or Google) is read on the server, only while that step is still open.
 - **Businesses that already exist** get the same card on Home, above the Action Center. They never went through the
   questions, so the card offers "Answer 4 quick questions to put these in order" (the questions page, then back to
   Home) and uses the default order until then. The wizard isn't opened for them; each row still opens its wizard
@@ -239,9 +243,11 @@ The boards in `design/onboarding` show each one.
   wizard and again from Get help. Anchored to `data-tour` attributes on the sidebar rows. On a phone-width browser
   it points at the bottom bar instead, and skips Ask HandsFreeOS. A small component of our own: there's no tour
   library in the app, and five popovers don't need one.
-- **Get help** (board 8): "Getting started · 3 of 9" (shows the guide again) and "Take the tour". A dot on Get help
-  while the guide is hidden and unfinished. Hiding shows a toast: "Getting started is hidden. It's under Get help
-  whenever you want it."
+- **Get help** (board 8): while the person's guide isn't finished, Get help is a short menu: Getting started (brings
+  the guide back to Home when it was hidden) and Ask us for help (the same form as before); "Take the tour" joins it
+  with the tour. A dot on Get help while the guide is hidden and unfinished. Once the guide is finished, Get help
+  opens the form straight away, as it always did. Hiding shows a toast: "Getting started is hidden. It's under Get
+  help whenever you want it."
 - **Agency** (board 11): a Setup column (the seven business steps) and All / Stuck / Setting up / Done filters on
   **Client businesses**. A
   business opens a side sheet with its steps. "Do it for them" opens the client's workspace at that wizard step;
@@ -312,7 +318,7 @@ None. The five from the first draft were settled on 2026-09-29 and are in §1. O
 Each step ships alone and leaves the tree green.
 
 1. ✅ **Core**: the catalogue, `onboarding.status`, the commands, the words, and their tests. `pnpm openapi`.
-2. **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card,
+2. ✅ **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card,
    for new and existing businesses. The phone app links sheet. The e2e specs move with it.
 3. **The quick questions** after Create business, and the order they set.
 4. **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back

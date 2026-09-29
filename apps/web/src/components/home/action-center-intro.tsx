@@ -16,7 +16,7 @@ const KINDS: readonly (readonly [AttentionKind, string])[] = [
   ['overdue_task', 'Overdue tasks'],
 ];
 
-/** A brand-new business's Home, under the setup checklist: what this page becomes once there are customers. */
+/** A brand-new business's Home, under Getting started: what this page becomes once there are customers. */
 export function ActionCenterIntro({
   workspaceId,
   canImport,

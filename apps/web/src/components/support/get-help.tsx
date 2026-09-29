@@ -1,9 +1,17 @@
 'use client';
-import { LifeBuoy } from 'lucide-react';
-import { usePathname } from 'next/navigation';
+import { GUIDE_WORDS, ONBOARDING_WORDS } from '@hfos/core';
+import { ListChecks, LifeBuoy } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,9 +24,22 @@ import { cn } from '@/lib/utils';
  * The advantage over an email is that we already know who they are, which business they are in and what
  * screen they were on, so nobody has to ask "which account is this?" as their first reply. The page is sent
  * with the message; nothing else about what is on it is.
+ *
+ * While the person's Getting started guide isn't finished, Get help is a short menu instead: the guide (brought
+ * back to Home when they hid it, with a dot on Get help meanwhile) and the same "Ask us for help".
  */
-export function GetHelp({ workspaceId, className }: { workspaceId: string; className?: string }) {
+export function GetHelp({
+  workspaceId,
+  className,
+  guide,
+}: {
+  workspaceId: string;
+  className?: string;
+  /** This person's guide in this business (users.settings.onboarding); left out, Get help is only the form. */
+  guide?: { readonly hidden: boolean; readonly finished: boolean };
+}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -52,20 +73,80 @@ export function GetHelp({ workspaceId, className }: { workspaceId: string; class
     }
   };
 
+  const home = `/app/w/${workspaceId}`;
+  const showGuide = async () => {
+    if (guide?.hidden) {
+      try {
+        const r = await apiBrowser().POST('/v1/commands/onboarding.set_view', {
+          body: { workspaceId, hidden: false },
+        });
+        unwrap(r);
+        toast(ONBOARDING_WORDS.shownAgain);
+      } catch (e) {
+        toast.error(errorMessage(e));
+        return;
+      }
+    }
+    router.push(`${home}#getting-started`);
+    router.refresh();
+  };
+  const trigger = cn(
+    'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-sm font-medium text-text-2 hover:bg-card-2 hover:text-text',
+    className,
+  );
+  const label = (
+    <>
+      <LifeBuoy className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
+      Get help
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        data-testid="get-help"
-        className={cn(
-          'flex h-9 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium text-text-2 hover:bg-card-2 hover:text-text',
-          className,
-        )}
-      >
-        <LifeBuoy className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />
-        Get help
-      </button>
+      {guide && !guide.finished ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" data-testid="get-help" className={trigger}>
+              {label}
+              {guide.hidden ? (
+                <span
+                  className="ml-auto h-2 w-2 rounded-full bg-accent"
+                  aria-label="Getting started isn’t finished"
+                  data-testid="get-help-dot"
+                />
+              ) : null}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-64">
+            <DropdownMenuItem
+              className="h-auto py-2"
+              onSelect={() => void showGuide()}
+              data-testid="get-help-guide"
+            >
+              <ListChecks className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />
+              <span className="flex flex-col">
+                <span className="font-medium">{GUIDE_WORDS.menuItem}</span>
+                <span className="text-xs text-text-3">
+                  {guide.hidden ? GUIDE_WORDS.menuShow : GUIDE_WORDS.menuOnHome}
+                </span>
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setOpen(true)} data-testid="get-help-ask">
+              <LifeBuoy className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />
+              {GUIDE_WORDS.askForHelp}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          data-testid="get-help"
+          className={trigger}
+        >
+          {label}
+        </button>
+      )}
       <DialogContent
         title="Ask us for help"
         description="A person reads these, Monday to Friday, and answers by email. We already know which business you are in and what screen you were on."

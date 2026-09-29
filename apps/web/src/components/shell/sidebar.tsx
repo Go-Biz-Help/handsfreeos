@@ -3,6 +3,7 @@ import { CallsPill } from '@/components/calls/calls-pill';
 import { Brand } from '@/components/ui/brand';
 import type { Me, WorkspaceSummary } from '@/lib/api/types';
 import { GetHelp } from '@/components/support/get-help';
+import { guideOf } from '@/lib/guide';
 import { FootLinks, NavLinks } from './nav-links';
 import { SearchField } from './search-field';
 import { UserMenu } from './user-menu';
@@ -43,7 +44,7 @@ export function Sidebar({ me, current }: { me: Me; current: WorkspaceSummary }) 
       <div className="flex-none pt-2">
         <CallsPill />
         <FootLinks workspaceId={current.id} permissions={current.permissions} />
-        <GetHelp workspaceId={current.id} />
+        <GetHelp workspaceId={current.id} guide={guideOf(me, current.id)} />
         <UserMenu user={me.user} />
       </div>
     </aside>

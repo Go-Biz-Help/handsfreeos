@@ -52,6 +52,7 @@ export function ActionCenter({
   newLeadHref,
   highlightItem,
   suggestion,
+  guide,
 }: {
   workspaceId: string;
   timeZone: string;
@@ -75,6 +76,8 @@ export function ActionCenter({
   highlightItem?: string | null;
   /** The add-on Home suggests to owners and admins (components/home/addon-suggestion.tsx), when there is one. */
   suggestion?: ReactNode;
+  /** Getting started, while the person's guide is still showing (components/home/getting-started.tsx). */
+  guide?: ReactNode;
 }) {
   // Today's appointments and tasks come with the page: it's read again when they change.
   useLiveRefresh(['appointment', 'task'], 500);
@@ -256,6 +259,7 @@ export function ActionCenter({
           onScope={list.setScope}
           newLeadHref={newLeadHref}
         />
+        {guide ? <div className="mb-6 empty:hidden">{guide}</div> : null}
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div
             className={cn('min-w-0 transition-opacity', list.loading && data && 'opacity-60')}
