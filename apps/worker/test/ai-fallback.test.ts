@@ -240,11 +240,12 @@ describe('the 5-minute check', () => {
       await conn`select pg_advisory_unlock(hashtext('platform.ai_provider'))`;
       conn.release();
     };
-    [found] = await rows<Record<string, unknown>>(
+    const [row] = await rows<Record<string, unknown>>(
       admin(),
       sql`select mode, active, reason, claude_status, good_checks, checked_at, switched_at
           from platform.ai_provider`,
     );
+    found = row!;
   });
 
   beforeEach(async () => {
