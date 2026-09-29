@@ -11,7 +11,7 @@ import { currentFoundingOffer, foundingCounts } from '@/lib/founding';
  * free seat went.
  */
 export const metadata: Metadata = {
-  title: 'Founding seats — a few businesses, before HandsFreeOS goes on sale',
+  title: 'Founding seats for the first few businesses',
   description:
     'A limited number of businesses get HandsFreeOS free or for one payment, for as long as it exists. The count is live. Texts, calls and AI are billed for what you use.',
   alternates: { canonical: '/founding' },

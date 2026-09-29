@@ -3,7 +3,13 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { SignUpForm } from './sign-up-form';
 
-export const metadata: Metadata = { title: 'Create your account' };
+// The canonical drops `?next=` and the site's `?oa=`, so search engines see one sign-up page.
+export const metadata: Metadata = {
+  title: 'Create your account',
+  description:
+    'Create your HandsFreeOS account, then set up your business: calls, texts, booking, quotes and invoices in one place.',
+  alternates: { canonical: 'https://app.handsfreeos.com/sign-up' },
+};
 
 export default function SignUpPage() {
   return (
