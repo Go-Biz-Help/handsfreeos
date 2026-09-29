@@ -23,6 +23,8 @@ import {
   leadCreate,
   pipelineList,
   seriesCancel,
+  serviceCreate,
+  serviceUpdate,
   seriesCreate,
   sessionPublish,
   timeOffAdd,
@@ -232,6 +234,66 @@ describe('staff booking', () => {
       staff: ['Priya Tech'],
       customers: ['Maria Customer'],
     });
+  });
+
+  it('says why nobody can take a booking the calendar chooses for, and where to fix it', async () => {
+    const day = nextWeekday(4);
+    const bookOn = (calendarId: string, input: Record<string, unknown> = {}) =>
+      run(
+        appointmentCreate,
+        { workspaceId: t.wsId, calendarId, startsAt: isoAt(day, '10:00'), ...input },
+        t.owner,
+      );
+    const empty = await makeCalendar(t, 'Nobody yet', {
+      team: { members: [], assignment: 'round_robin' },
+    });
+    const noTeam = await expectHfos(() => bookOn(empty.id), 'no_one_eligible', 409);
+    expect(noTeam.message).toContain('nobody on its team');
+    expect(noTeam.message).toContain('Team & assignment');
+
+    // Saving the calendar refuses this, so it comes about when the service changes afterwards.
+    const service = await run(
+      serviceCreate,
+      { workspaceId: t.wsId, name: 'Duct cleaning', durations: [60] },
+      t.owner,
+    );
+    const priyaOnly = await makeCalendar(t, 'Priya only', {
+      team: { members: [{ userId: t.priya.id }], assignment: 'round_robin' },
+      services: { mode: 'choice', items: [{ serviceId: service.serviceId, overrides: {} }] },
+    });
+    await run(
+      serviceUpdate,
+      { workspaceId: t.wsId, serviceId: service.serviceId, staffUserIds: [t.marco.id] },
+      t.owner,
+    );
+    const wrongPeople = await expectHfos(
+      () => bookOn(priyaOnly.id, { serviceId: service.serviceId }),
+      'no_one_eligible',
+      409,
+    );
+    expect(wrongPeople.message).toContain('Nobody on this calendar’s team does Duct cleaning');
+    expect(wrongPeople.message).toContain('Who can do it');
+    // Choosing the person yourself still books it.
+    const byHand = await bookOn(priyaOnly.id, {
+      serviceId: service.serviceId,
+      userIds: [t.priya.id],
+      acknowledgeWarnings: true,
+    });
+    expect(byHand.userIds).toEqual([t.priya.id]);
+
+    const crew = await makeCalendar(t, 'Crew of two', {
+      team: {
+        members: [{ userId: t.priya.id }, { userId: t.marco.id }],
+        assignment: 'round_robin',
+        crewSize: 2,
+      },
+    });
+    // Priya took the 10:00 above; now Marco is busy too.
+    await bookOn(visits.id, { userIds: [t.marco.id], acknowledgeWarnings: true });
+    const short = await expectHfos(() => bookOn(crew.id), 'not_enough_people', 409);
+    expect(short.message).toBe(
+      'This booking needs 2 people and nobody is free then. Pick another time, or lower People per booking under Team & assignment in the calendar’s settings.',
+    );
   });
 });
 

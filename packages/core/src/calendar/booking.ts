@@ -30,7 +30,7 @@ import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import type { CommandContext } from '../kernel/types';
 import type { AppointmentLocation, AppointmentWarning, SlotOut } from '../schemas/calendar';
-import type { CatalogService } from './catalogs';
+import { zip5, type CatalogService } from './catalogs';
 import type { CalendarConfig, LocationKind } from './config';
 import {
   containsInterval,
@@ -695,12 +695,41 @@ async function bookAsCustomer(
   throw await unavailableError(ctx.tx, req.calendar, base, req.startsAt, service);
 }
 
+/**
+ * Why nobody on the calendar can take a booking, and where to fix it. `candidatePool` narrows the team by
+ * the service's people, then by territory, so the first of those that leaves nobody is the one to name.
+ */
+function noOneEligible(loaded: LoadedSlots): HfosError {
+  const say = (message: string) => HfosError.rule('no_one_eligible', 409, message);
+  const team = loaded.config.team.members.map((m) => m.userId);
+  if (!team.length)
+    return say(
+      'This calendar has nobody on its team. Add people under Team & assignment in the calendar’s settings.',
+    );
+  const eligible = loaded.terms.eligibleUserIds;
+  if (eligible && !team.some((u) => eligible.includes(u))) {
+    const service = loaded.service?.name ?? 'this service';
+    // The catalog's people are on the team, so it's this calendar's own narrowing that leaves nobody.
+    if (loaded.service?.eligibleUserIds.some((u) => team.includes(u)))
+      return say(
+        `This calendar lets only people who aren’t on its team do ${service}. Add them under Team & assignment in the calendar’s settings, or choose who it’s with yourself.`,
+      );
+    return say(
+      `Nobody on this calendar’s team does ${service}. Tick someone from the team under Who can do it in Settings → Calendars → Services, or choose who it’s with yourself.`,
+    );
+  }
+  const zip = zip5(loaded.input.postalCode);
+  const where = zip ? `ZIP code ${zip}` : 'that address';
+  return say(
+    `Nobody on this calendar’s team covers ${where}. Add it to a territory with someone from the team in Settings → Calendars → Territories, or choose who it’s with yourself.`,
+  );
+}
+
 /** People the strategy may pick from for a staff booking: free ones first, then ones with warnings. */
 function staffCandidates(loaded: LoadedSlots, data: CheckData, span: BookingSpan): string[] {
   const { config } = loaded;
   const pool = candidatePool(loaded.input, loaded.terms);
-  if (!pool.length)
-    throw HfosError.rule('no_one_eligible', 409, 'No one on this calendar can take this booking.');
+  if (!pool.length) throw noOneEligible(loaded);
   const checks = new Map(pool.map((u) => [u, checkPerson(data, u, span)]));
   const free = pool.filter((u) => !checks.get(u)!.overlap);
   const clean = free.filter((u) => checks.get(u)!.warnings.length === 0);
@@ -726,8 +755,15 @@ function staffCandidates(loaded: LoadedSlots, data: CheckData, span: BookingSpan
   if (host && !free.includes(host)) throw busy(host);
   const ordered = clean.length >= k ? clean : [...clean, ...soft];
   const list = host ? [host, ...ordered.filter((u) => u !== host)] : ordered;
-  if (list.length < k)
-    throw HfosError.rule('not_enough_people', 409, 'Not enough people are free then.');
+  if (list.length < k) {
+    const free =
+      list.length === 0 ? 'nobody is' : list.length === 1 ? 'only 1 is' : `only ${list.length} are`;
+    throw HfosError.rule(
+      'not_enough_people',
+      409,
+      `This booking needs ${k} people and ${free} free then. Pick another time, or lower People per booking under Team & assignment in the calendar’s settings.`,
+    );
+  }
   return list;
 }
 
