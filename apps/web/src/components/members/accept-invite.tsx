@@ -39,7 +39,8 @@ export function AcceptInvite({
             );
             document.cookie = `${WORKSPACE_COOKIE}=${out.workspaceId}; path=/; max-age=31536000; samesite=lax`;
             toast.success('You are in.');
-            router.replace(`/app/w/${out.workspaceId}`);
+            // Home, with the tour of the menu the first time (components/onboarding/tour.tsx).
+            router.replace(`/app/w/${out.workspaceId}?tour=1`);
             router.refresh();
           } catch (e) {
             setBusy(false);

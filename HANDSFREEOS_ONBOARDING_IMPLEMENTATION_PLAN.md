@@ -249,6 +249,10 @@ The boards in `design/onboarding` show each one.
   business step with a wizard screen opens it; the rest open the settings page that does the step. When the last step is done or
   skipped, the card says "You're set up" once, names what was skipped, and Done runs `onboarding.finish`. Whether
   the person signs in faster (a passkey or Google) is read on the server, only while that step is still open.
+- **A teammate's Home** (web) gets "Get set up": the four personal rows and nothing of the business's, each row
+  opening the page that does it (the phone app's links, Settings → My calendar, the passkey or Google section of
+  Settings). Accepting an invitation lands on Home with the tour, once. With every row done or skipped it says
+  "You're set up" once, always: a teammate has no answers of their own to tell a list set up before the guide.
 - **Businesses that already exist** get the same card on Home, above the Action Center. They never went through the
   questions, so the card offers "Answer 4 quick questions to put these in order" (the questions page, then back to
   Home) and uses the default order until then. The wizard isn't opened for them; each row still opens its wizard
@@ -343,7 +347,7 @@ Each step ships alone and leaves the tree green.
 4. ✅ **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back
    from a migration), `calendar`, then `payments` (with the way back from a sign-in).
 5. ✅ **The tour.**
-6. **Teammates**: the personal list on the web.
+6. ✅ **Teammates**: the personal list on the web.
 7. **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
 8. **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
 9. **The `texting_rejected` card**, with its migration applied to the hosted database first.

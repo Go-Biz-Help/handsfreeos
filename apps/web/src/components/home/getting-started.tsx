@@ -405,12 +405,13 @@ function StepRow({
 
 /**
  * The last step done or skipped: "You're set up", once. A business that was set up before the guide existed (no
- * answers, nothing skipped) never needed it, so it finishes without a word.
+ * answers, nothing skipped) never needed it, so it finishes without a word. A teammate's list has no answers of
+ * its own, so it always says it.
  */
 function SetUp({ workspaceId, status }: { workspaceId: string; status: OnboardingStatus }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const quiet = !status.answers && status.skipped === 0;
+  const quiet = status.audience === 'business' && !status.answers && status.skipped === 0;
   const sent = useRef(false);
   const finish = () =>
     apiBrowser().POST('/v1/commands/onboarding.finish', { body: { workspaceId } }).then(unwrap);
