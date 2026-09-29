@@ -432,6 +432,19 @@ export const sweepSpam: JobHandler = async (ctx) => {
   };
 };
 
+/**
+ * The files of mail an owner removed with a departed person's address (M19, email_address.reassign). Only what
+ * inbound mail stored for this business in its own email folder: a customer file sent as an attachment is the
+ * customer's, and stays.
+ */
+export const removeEmailFiles: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const files = (ctx.job.payload['files'] ?? []) as { bucket?: string; objectPath?: string }[];
+  for (const f of files)
+    if (f.bucket === 'telephony' && f.objectPath?.startsWith(`${scope.workspaceId}/email/`))
+      await ctx.store.remove(f.bucket, f.objectPath);
+};
+
 /** One domain, bound to its business. */
 export const checkEmailDomainJob: JobHandler = async (ctx) => {
   const emailDomainId = String(ctx.job.payload['emailDomainId'] ?? '');
@@ -464,6 +477,7 @@ export const jobs: JobMap = {
   [EMAIL_DOMAIN_CHECK_JOB]: checkEmailDomainJob,
   [EMAIL_RECEIVING_CHECK_JOB]: checkEmailReceivingJob,
   [SPAM_SWEEP_JOB]: sweepSpam,
+  'email.remove_files': removeEmailFiles,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
   // What customers said in public: each connected place asked on a timer, and an answer posted back.

@@ -423,6 +423,11 @@ export const inboxList = defineQuery({
         : input.box === 'other' || input.box === 'spam'
           ? sql`and ${c}.folder = ${input.box}::app.conversation_folder`
           : sql`and ${c}.folder = 'inbox'`;
+      // The team's threads, or the person's own mailbox (M19). The policies already keep anyone else's out.
+      const mailbox =
+        input.mailbox === 'mine'
+          ? sql`and ${c}.private_to = ${me}`
+          : sql`and ${c}.private_to is null`;
       // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
       const archived =
         input.box === 'archived'
@@ -446,6 +451,7 @@ export const inboxList = defineQuery({
             }
             ${box}
             ${folder}
+            ${mailbox}
             ${archived}
             ${input.channel ? sql`and ${c}.channel = ${input.channel}::app.channel` : sql``}
             ${input.unread ? sql`and ${c}.unread_count > 0` : sql``}
@@ -552,7 +558,7 @@ export const inboxSummary = defineQuery({
             count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
           from app.conversations c
           where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
-            and c.archived_at is null and c.folder = 'inbox'`,
+            and c.archived_at is null and c.folder = 'inbox' and c.private_to is null`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     return {

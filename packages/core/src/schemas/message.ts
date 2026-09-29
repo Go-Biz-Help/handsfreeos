@@ -438,6 +438,8 @@ export const EmailComposeOptionsOutput = z.object({
       displayName: z.string(),
       isDefault: z.boolean(),
       usable: z.boolean(),
+      /** The person's own address (M19): email from it stays in their own mailbox. */
+      mine: z.boolean().optional(),
     }),
   ),
   /** Where this email goes from unless someone picks another. */

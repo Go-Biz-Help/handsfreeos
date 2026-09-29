@@ -52,8 +52,12 @@ const CONVERSATION_BASE = `
  * `archived_at` reached it, so a thread put away on the web stayed in the inbox on the phone — for good,
  * since nothing else ever takes it out. The phone has no archived box to show them in; when it gets one,
  * this is where the other half goes.
+ *
+ * **Nor Other mail, Spam or the person's own mailbox (M19)**, as `inbox.list`'s team boxes leave them out. A row
+ * copied before `folder` reached the phone has none, and was in the Inbox.
  */
-export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL`;
+export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL
+  AND coalesce(c.folder, 'inbox') = 'inbox' AND c.private_to IS NULL`;
 
 /** One conversation, archived or not: this is how an archived one is opened to be brought back. */
 export const CONVERSATION_SQL = `${CONVERSATION_BASE} AND c.id = ?`;

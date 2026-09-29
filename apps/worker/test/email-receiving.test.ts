@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
   emailAddressCreate,
+  emailAddressUpdate,
   emailDomainAdd,
   emailDomainReceive,
   executeCommand,
@@ -32,7 +33,12 @@ import { buildHttpServer } from '../src/http/server';
 import { processJobs, type JobRow } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { processors } from '../src/processors/index';
-import { checkEmailDomains, checkEmailReceivingJob, jobs } from '../src/scheduled';
+import {
+  checkEmailDomains,
+  checkEmailReceivingJob,
+  jobs,
+  removeEmailFiles,
+} from '../src/scheduled';
 import { testServices, type TestServices } from './helpers';
 
 const env = testEnv();
@@ -204,6 +210,13 @@ beforeAll(async () => {
 });
 // A business holds up to 3 domains: each test's go when it's done.
 afterEach(async () => {
+  // Their threads first: removing an address leaves a thread on it with no address, and two of one sender's
+  // threads with none would be the same lane.
+  await rows(
+    admin(),
+    sql`delete from app.conversations where email_address_id in (
+          select id from app.email_addresses where workspace_id = ${workspaceId} and email_domain_id is not null)`,
+  );
   await rows(admin(), sql`delete from app.email_domains where workspace_id = ${workspaceId}`);
 });
 afterAll(async () => {
@@ -400,5 +413,85 @@ describe('sending from a receiving domain', () => {
     }
     expect(mail?.From.Address).toBe(`chris@${domain}`);
     expect(mail?.ReplyTo).toEqual([]);
+  });
+});
+
+describe('someone’s own address (M19)', () => {
+  it('files mail to it as theirs alone, and sends their answer from it', async () => {
+    const domain = `own-${token()}.example.com`;
+    const { addressId } = await domainWith(domain, 'on', 'chris');
+    await executeCommand(
+      api(),
+      emailAddressUpdate,
+      { workspaceId, emailAddressId: addressId, ownerUserId: owner.id },
+      actor(owner),
+      meta(),
+    );
+    // Mike is a customer, and still his mail to someone's own address is theirs, not on his record.
+    const p = inbound(`chris@${domain}`, { Subject: 'Just between us' });
+    expect((await post(p)).statusCode).toBe(200);
+    await drain();
+    const m = (await filed(p.MessageID))!;
+    expect(m).toMatchObject({ emailAddressId: addressId, privateTo: owner.id });
+    const [c] = await rows<{ private_to: string | null; person_id: string | null }>(
+      admin(),
+      sql`select private_to, person_id from app.conversations where id = ${m.conversationId}`,
+    );
+    expect(c).toEqual({ private_to: owner.id, person_id: null });
+
+    const subject = `Re: Just between us ${token()}`;
+    await executeCommand(
+      api(),
+      messageSend,
+      {
+        workspaceId,
+        channel: 'email',
+        conversationId: m.conversationId,
+        subject,
+        body: 'Sure thing.',
+      },
+      actor(owner),
+      meta(),
+    );
+    await drain();
+    const deadline = Date.now() + 10_000;
+    let mail: { From: { Address: string }; ReplyTo: { Address: string }[] } | undefined;
+    while (!mail && Date.now() < deadline) {
+      const res = await fetch(
+        `${env.mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:"${mike}" subject:"${subject}"`)}`,
+      );
+      const hit = ((await res.json()) as { messages: { ID: string }[] }).messages[0];
+      if (hit)
+        mail = (await (
+          await fetch(`${env.mailpitUrl}/api/v1/message/${hit.ID}`)
+        ).json()) as typeof mail;
+      else await new Promise((r) => setTimeout(r, 250));
+    }
+    expect(mail?.From.Address).toBe(`chris@${domain}`);
+    expect(mail?.ReplyTo).toEqual([]);
+  });
+
+  it('removes a departed person’s removed mail from storage, and nothing outside the business’s mail', async () => {
+    const mine = `${workspaceId}/email/${token()}/0-letter.txt`;
+    const elsewhere = `${randomUUID()}/email/${token()}/0-other.txt`;
+    for (const path of [mine, elsewhere])
+      await s.store.upload('telephony', path, Buffer.from('hello'), 'text/plain', { upsert: true });
+    await removeEmailFiles({
+      ...s,
+      job: {
+        payload: {
+          files: [
+            { bucket: 'telephony', objectPath: mine },
+            { bucket: 'telephony', objectPath: elsewhere },
+          ],
+        },
+      } as unknown as JobRow,
+      scope: { workspaceId, organizationId },
+      attempt: 1,
+      now: Date.now(),
+    });
+    expect(await s.store.exists('telephony', mine)).toBe(false);
+    expect(await s.store.exists('telephony', elsewhere)).toBe(true);
+    await s.store.remove('telephony', elsewhere);
   });
 });

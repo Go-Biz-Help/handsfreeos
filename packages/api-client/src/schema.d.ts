@@ -1937,6 +1937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is.
+         * @description Risk level 2. Requires inbox.use. Emits conversation.shared, conversation.linked.
+         */
+        post: operations["command_conversation_share"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.snooze": {
         parameters: {
             query?: never;
@@ -2211,6 +2231,26 @@ export interface paths {
          * @description Risk level 2. Requires channels.manage. Emits email_address.created.
          */
         post: operations["command_email_address_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_address.reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Owners: decide what becomes of the own address of someone who has left, and of their mail on it: the team’s, someone else’s, or removed.
+         * @description Risk level 3. Requires channels.manage. Emits email_address.reassigned.
+         */
+        post: operations["command_email_address_reassign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4288,7 +4328,7 @@ export interface paths {
         put?: never;
         /**
          * Text, email or chat with a customer: a text from the business number, an email from a workspace address or a connected mailbox, or a reply in a website chat. Texts and emails are queued here and the worker sends them. A person writing in a conversation the AI teammate is answering takes it over.
-         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 2. Requires inbox.use. Emits message.queued, message.sent, message.scheduled, conversation.created, conversation.taken_over, email.private_queued. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_message_send"];
         delete?: never;
@@ -15971,6 +16011,39 @@ export interface operations {
             };
         };
     };
+    command_conversation_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        conversationId: string;
+                        personId: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_conversation_snooze: {
         parameters: {
             query?: never;
@@ -16492,6 +16565,7 @@ export interface operations {
                     /** @default false */
                     isDefault?: boolean;
                     localPart: string;
+                    ownerUserId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -16513,6 +16587,45 @@ export interface operations {
             };
         };
     };
+    command_email_address_reassign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailAddressId: string;
+                    /** @enum {string} */
+                    to: "team" | "person" | "remove";
+                    /** Format: uuid */
+                    userId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailAddressId: string;
+                        threads: number;
+                        /** @enum {string} */
+                        to: "team" | "person" | "remove";
+                    };
+                };
+            };
+        };
+    };
     command_email_address_update: {
         parameters: {
             query?: never;
@@ -16528,6 +16641,7 @@ export interface operations {
                     emailAddressId: string;
                     isDefault?: boolean;
                     localPart?: string;
+                    ownerUserId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -33660,6 +33774,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             isDefault: boolean;
+                            mine?: boolean;
                             usable: boolean;
                         }[];
                         canEmail: {
@@ -35261,6 +35376,11 @@ export interface operations {
                     cursor?: string;
                     /** @default 50 */
                     limit?: number;
+                    /**
+                     * @default team
+                     * @enum {string}
+                     */
+                    mailbox?: "team" | "mine";
                     /** Format: uuid */
                     personId?: string;
                     q?: string;

@@ -5,14 +5,18 @@
  * next new thread goes to the same place.
  */
 import { and, eq } from 'drizzle-orm';
-import { conversations, emailSenderRules } from '@hfos/db/schema';
+import { conversations, emailSenderRules, people } from '@hfos/db/schema';
+import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
-import { userIdOf } from '../kernel/actor';
+import { requireHuman, userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { matchPersonByEmail } from '../messaging/email';
 import { loadConversation } from '../messaging/store';
 import {
   ConversationMoveInput,
   ConversationMoveOutput,
+  ConversationRefInput,
+  ConversationShareOutput,
   EmailSenderRuleRemoveInput,
   EmailSenderRuleRemoveOutput,
 } from '../schemas/conversation';
@@ -41,6 +45,13 @@ export const conversationMove = defineCommand({
         'conversation_not_email',
         400,
         'Only email moves between the Inbox, Other mail and Spam. Texts and chats always stay in the Inbox.',
+      );
+    // Sender rules are the team's: saved from someone's own mailbox, they would tell the team who writes to them.
+    if (input.remember && c.privateTo)
+      throw HfosError.rule(
+        'sender_rule_private',
+        409,
+        'Where a sender’s mail goes is the team’s to remember, so it can’t be saved from your own mailbox. Move this thread without remembering.',
       );
     const changed = c.folder !== input.folder;
     if (changed)
@@ -110,4 +121,60 @@ export const emailSenderRuleRemove = defineCommand({
   },
 });
 
-export const mailFolderCommands = [conversationMove, emailSenderRuleRemove];
+/**
+ * Sharing a thread from someone's own mailbox with the team (M19): only its person does it, and from then on it is a
+ * team thread, linked to the customer when their address is on one (their timeline then gets its mail), and mail
+ * from them to that address comes to the team too.
+ */
+export const conversationShare = defineCommand({
+  name: 'conversation.share',
+  description:
+    'Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is.',
+  risk: 2,
+  input: ConversationRefInput,
+  output: ConversationShareOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  emits: ['conversation.shared', 'conversation.linked'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const c = await loadConversation(ctx, input.conversationId);
+    if (!c.privateTo)
+      throw HfosError.rule(
+        'conversation_not_private',
+        409,
+        'This thread is the team’s already, so there’s nothing to share.',
+      );
+    if (c.privateTo !== me) throw HfosError.forbidden();
+    const personId = await matchPersonByEmail(ctx.tx, c.workspaceId, c.counterpart);
+    await ctx.tx
+      .update(conversations)
+      .set({ privateTo: null, ...(personId ? { personId } : {}) })
+      .where(eq(conversations.id, c.id));
+    await ctx.emit({
+      type: 'conversation.shared',
+      entityType: 'conversation',
+      entityId: c.id,
+      payload: { personId },
+      before: { mailbox: 'their own' },
+      after: { mailbox: 'the team’s', with: c.counterpart },
+    });
+    if (personId) {
+      const [p] = await ctx.tx
+        .select({ firstName: people.firstName, lastName: people.lastName })
+        .from(people)
+        .where(eq(people.id, personId));
+      await ctx.emit({
+        type: 'conversation.linked',
+        entityType: 'conversation',
+        entityId: c.id,
+        payload: { personId, previousPersonId: null, phoneAdded: false, auto: true },
+        before: { person: null },
+        after: { person: p ? fullName(p.firstName, p.lastName) : null, with: c.counterpart },
+      });
+    }
+    return { conversationId: c.id, personId };
+  },
+});
+
+export const mailFolderCommands = [conversationMove, emailSenderRuleRemove, conversationShare];

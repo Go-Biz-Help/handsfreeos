@@ -115,6 +115,8 @@ export type ConversationSummary = z.infer<typeof ConversationSummary>;
 export const InboxListInput = ListInput.extend({
   workspaceId: uuid,
   box: inboxBox.default('all'),
+  /** The team's threads, or the person's own mailbox (M19): the same boxes, over their own mail. */
+  mailbox: z.enum(['team', 'mine']).default('team'),
   status: conversationStatus.default('open'),
   channel: conversationChannel.optional(),
   q: z.string().trim().max(100).optional(),
@@ -276,6 +278,12 @@ export const ConversationMoveOutput = z.object({
   folder: conversationFolder,
   /** False when it was already there, so a double-click is visibly a no-op. */
   changed: z.boolean(),
+});
+/** Sharing a thread from a person's own mailbox with the team (M19). */
+export const ConversationShareOutput = z.object({
+  conversationId: uuid,
+  /** The customer it is now linked to, when their address is on one. */
+  personId: uuid.nullable(),
 });
 export const EmailSenderRuleRemoveInput = z.object({
   workspaceId: uuid,

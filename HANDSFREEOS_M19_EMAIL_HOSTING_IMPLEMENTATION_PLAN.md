@@ -95,22 +95,30 @@ Carried over, not re-asked:
 ### Private mailboxes
 
 - `app.email_addresses` gains `owner_user_id`. An address with an owner is that person's mailbox, and
-  only its owner sends from it. Only an address on a receiving domain can have an owner.
-- `app.conversations` and `app.messages` gain `private_to`, copied from the address's owner.
-  Row-level security adds `private_to is null or private_to = auth.uid()` to **every** select arm, so
-  owners and admins don't read someone else's mailbox either. `packages/db/test` proves it.
-- Nothing copies private mail anywhere else: no timeline activity, no customer summary, no AI
-  teammate, no Action Center, no workflow. Push goes to the owner only. Attachments are stored under
-  `<workspace>/private/<user>/…`, with a storage policy to match. The Assistant can read a person's
-  own mailbox, because it runs as that person.
+  only its owner sends from it. Only an address on the business's own domain can have an owner, and
+  never the default one.
+- `app.conversations` and `app.messages` gain `private_to`, set from the address's owner. The
+  whole-business select policies gain "and it isn't private", and a third policy shows a private
+  thread to its person. So owners and admins don't read someone else's mailbox either.
+  `packages/db/test` proves it.
+- **A private thread is never linked to a customer** (a check on `app.conversations`). Almost
+  everything that copies mail where the team can read it finds that mail through the customer:
+  the timeline, the AI's notes on a customer, campaigns, workflows and the Action Center. So an
+  unlinked thread reaches none of them. It also emits `email.filed` or `email.private_queued`,
+  never `message.received` or `message.queued`, writes no timeline activity, and keeps who and what
+  out of the audit log. The Assistant can read a person's own mailbox, because it runs as that
+  person.
+- Attachments stay where they are. Storage refuses a file on someone else's private message,
+  through an index over private messages' files.
 - **Share with the team** (`conversation.share`, the owner only) clears `private_to` on the thread
-  and its messages. From then on it is a normal team thread.
+  and its messages, and links it to the customer whose address it is. From then on it is a normal
+  team thread.
 - Private threads have the same folders, so each person has their own Inbox, Other mail and Spam.
 - **When a person leaves**, each address they read waits for an owner (`email_address.reassign`,
   owners only), and the Action Center asks. The owner can:
   - **make it shared**: its mail, old and new, moves to the team Inbox;
   - **give it to someone else**: its mail goes with it;
-  - **remove it**: its mail is deleted after 30 days.
+  - **remove it**: the address and its mail are deleted.
 
   Until an owner decides, new mail to the address goes to the team Inbox, so nothing is missed. The
   old mail stays unread by anyone. While the person is still with the business, only they can share
@@ -140,7 +148,8 @@ Carried over, not re-asked:
   - Every domain shows, not just the first (today only `domains[0]` does).
 - **Inbox**, on the web and the phone: **My mail** (private), **Other mail** and **Spam** beside
   Mine, Unassigned and All. In a thread: **Move to Inbox**, **Not spam** and **Share with the team**.
-- One batched change to `apps/sync/sync-config.yaml` carries `folder` and `private_to` to the phone.
+- One batched change to `apps/sync/sync-config.yaml` carries `folder` and `private_to` to the phone
+  (made in Step 3, since private mail must never reach another phone).
   It narrows the streams in place, as 0083 did, so no app build syncs mail its person shouldn't see.
 
 ## Build order
@@ -205,7 +214,7 @@ database before its step reaches `main`.
 - Spam goes in a daily sweep (`email.spam_sweep`) through `private.delete_old_spam`, 200 threads at
   a time, and their attachments are removed from storage.
 
-### Step 3 — Private mailboxes
+### Step 3 — Private mailboxes (built, 2026-09-29)
 
 1. Migration: `email_addresses.owner_user_id`, `private_to` on conversations and messages, the
    policies, and the storage paths.
@@ -215,10 +224,31 @@ database before its step reaches `main`.
 3. Tests in `packages/db/test`: an owner, an admin and a member can't read someone else's mailbox, its
    messages or its attachments.
 
+**As built:**
+
+- The sync change moved here from Step 4. Private mail reaches only its person's phone: a private
+  thread's viewer list is them alone, so the existing `me_v1` arm carries it, and `business_v1`'s
+  conversations and messages send only `private_to IS NULL`. Conversations add `folder` and
+  `private_to`, and addresses add `owner_user_id`, in place (the header of `sync-config.yaml` says
+  why). The phone's Inbox shows team Inbox threads only until Step 4 gives it boxes. Run `sync.yml`
+  on the branch before this reaches `main`.
+- Which mailbox a new email is in: the thread already on the address it came to decides, and a new
+  one belongs to that address's person. A token or header match counts only when it is as private
+  as the mail, so a reply never crosses between someone's own mail and the team's.
+- The "latest thread" every automatic send uses (reminders, invoices, workflows, the AI teammate) is
+  the team's only (`latestConversation`), so HandsFreeOS never writes into someone's own mail.
+- The AI teammate can't pick a person's own address. The composer offers only the team's addresses
+  and the person's own, and in a thread, only the ones that may answer there.
+- Sender rules can't be saved from someone's own mailbox, because they are the team's.
+- Removing a departed person's address deletes its mail at once, and a job removes the files. This
+  replaces the 30 days first planned, since nothing could bring the mail back meanwhile.
+- **Push for someone's own mail comes with Step 4.** Until then their new mail shows up in their own
+  mailbox with no alert.
+
 ### Step 4 — Screens
 
-Settings → Email and the Inbox on the web, the phone's boxes, the one sync change (then run
-`sync.yml` on the branch), `pnpm openapi`, and the phone's schema.
+Settings → Email and the Inbox on the web, the phone's boxes, push for someone's own mail, and
+`pnpm openapi`. (The sync change was made in Step 3.)
 
 ### Step 5 — HandsFreeOS's own business
 
@@ -241,3 +271,5 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
 - Vacation replies, forwarding to another address, and folders beyond Inbox, Other mail, Spam and
   Archive.
 - Personal addresses on `mail.handsfreeos.com`.
+- Uploading a new file to attach to an email from someone's own mailbox. A customer's files can
+  still be attached, since they are on the customer's record for the team anyway.

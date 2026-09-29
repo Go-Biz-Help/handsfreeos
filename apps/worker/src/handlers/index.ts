@@ -147,6 +147,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
     // on; and someone really talking with the business may need a deal of their own.
     // …and "Promises not kept" reads what a person on the team wrote for one (automations/promises.ts).
     'message.queued': [onMessageQueued, onPipelineEvidence, onEngaged, onMessagePromise],
+    // An email from someone's own mailbox (M19): sent, and heard by nothing else.
+    'email.private_queued': onMessageQueued,
     // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
     'message.scheduled': onTextScheduled,
     'message.schedule_cancelled': onScheduleCancelled,

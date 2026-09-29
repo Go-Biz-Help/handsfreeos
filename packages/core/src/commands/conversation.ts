@@ -530,6 +530,13 @@ export const conversationLinkPerson = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const c = await loadConversation(ctx, input.conversationId);
+    // A person's own mail stays off every customer's record until they share it with the team (M19).
+    if (c.privateTo)
+      throw HfosError.rule(
+        'conversation_private',
+        409,
+        'This is your own mail, so it isn’t linked to a customer. Share it with the team first, then link it.',
+      );
     const person = await requirePerson(ctx.tx, workspaceId, input.personId);
     if (person.archivedAt)
       throw HfosError.rule(

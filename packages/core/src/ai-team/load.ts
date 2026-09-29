@@ -212,7 +212,10 @@ export async function loadTeammateCatalogs(
   const messaging = await workspaceMessaging(tx, workspaceId);
   const number = await defaultNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);
-  const addresses = (await workspaceAddresses(tx, workspaceId)).filter((a) => a.usable);
+  // The team's addresses only: the AI teammate never writes as one person (M19).
+  const addresses = (await workspaceAddresses(tx, workspaceId)).filter(
+    (a) => a.usable && !a.ownerUserId,
+  );
   const widgets = await tx
     .select({ id: chatWidgets.id, origins: chatWidgets.allowedOrigins })
     .from(chatWidgets)

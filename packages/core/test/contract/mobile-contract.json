@@ -6001,7 +6001,9 @@
         "ai_disclosed_at": "timestamp with time zone",
         "created_by": "uuid",
         "created_at": "timestamp with time zone",
-        "updated_at": "timestamp with time zone"
+        "updated_at": "timestamp with time zone",
+        "folder": "app.conversation_folder",
+        "private_to": "uuid"
       }
     },
     "business_v1.email_addresses": {
@@ -6014,6 +6016,7 @@
         "display_name": "text",
         "is_default": "boolean",
         "verified_at": "timestamp with time zone",
+        "owner_user_id": "uuid",
         "created_at": "timestamp with time zone",
         "updated_at": "timestamp with time zone"
       }
@@ -6734,7 +6737,9 @@
         "ai_disclosed_at": "timestamp with time zone",
         "created_by": "uuid",
         "created_at": "timestamp with time zone",
-        "updated_at": "timestamp with time zone"
+        "updated_at": "timestamp with time zone",
+        "folder": "app.conversation_folder",
+        "private_to": "uuid"
       }
     },
     "me_v1.estimate_lines": {

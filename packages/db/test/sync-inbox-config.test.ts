@@ -32,6 +32,11 @@ const WIDE_LOOKUP: Record<(typeof INBOX_TABLES)[number], string> = {
   ai_teammate_drafts: 'inbox_drafts',
 };
 
+// A person's own mail (M19): the wide arm skips private threads and their messages, which reach their person through
+// the narrowed arm, whose list for a private thread is that person alone (20261013001200).
+const PRIVATE_TABLES: readonly string[] = ['conversations', 'messages'];
+const NOT_PRIVATE = 'private_to IS NULL';
+
 const { queries } = readSyncConfig();
 const sending = queries.filter((q) => !q.cte);
 const lookups = queries.filter((q) => q.cte);
@@ -80,11 +85,24 @@ describe('the narrowed inbox reaches a phone exactly as RLS reads it', () => {
         where
           .replace(`workspace_id IN ${WIDE_LOOKUP[table]}`, '')
           .replace('auth.user_id() IN member_viewer_ids', '')
+          .replace(`AND ${NOT_PRIVATE}`, '')
           .replace(/^\s*AND\s*/, '')
+          .replace(/\s+/g, ' ')
           .trim();
       const wide = sending.find((q) => q.table === table && q.stream === 'business_v1')!;
       const narrow = sending.find((q) => q.table === table && q.stream === 'me_v1')!;
       expect(strip(narrow.where)).toEqual(strip(wide.where));
+    }
+  });
+
+  it('keeps a person’s own mail out of the wide arm, and in the narrowed one', () => {
+    for (const table of PRIVATE_TABLES) {
+      const wide = sending.find((q) => q.table === table && q.stream === 'business_v1')!;
+      const narrow = sending.find((q) => q.table === table && q.stream === 'me_v1')!;
+      // Without it every owner's and admin's phone would hold everyone's private mail (M19).
+      expect(wide.where).toContain(NOT_PRIVATE);
+      // The narrowed arm is how a private thread reaches its person: its list is them alone.
+      expect(narrow.where).not.toContain('private_to');
     }
   });
 

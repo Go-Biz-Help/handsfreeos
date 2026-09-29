@@ -110,6 +110,7 @@ import { telephonyAccountCommands } from './telephony-account';
 import { rcsCommands } from './rcs';
 import {
   emailAddressCreate,
+  emailAddressReassign,
   emailAddressUpdate,
   emailClaimUnmatched,
   emailDismissUnmatched,
@@ -413,6 +414,7 @@ export {
   accountNoteDeleted,
   assistantConsent,
   emailAddressCreate,
+  emailAddressReassign,
   emailAddressUpdate,
   emailClaimUnmatched,
   emailDismissUnmatched,
@@ -654,6 +656,7 @@ export const commands: readonly CommandDef[] = [
   emailDomainStopReceiving,
   emailDomainRecordReceiving,
   emailAddressCreate,
+  emailAddressReassign,
   emailAddressUpdate,
   mailboxConnect,
   mailboxDisconnect,

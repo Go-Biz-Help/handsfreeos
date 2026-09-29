@@ -1166,6 +1166,8 @@ export const conversations = app.table('conversations', {
   language: text('language'),
   /** M19: the Inbox, Other mail or Spam. Set when the thread starts; only people move it. */
   folder: conversationFolder('folder').notNull().default('inbox'),
+  /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
+  privateTo: uuid('private_to'),
 });
 
 /** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */
@@ -1263,6 +1265,8 @@ export const messages = app.table('messages', {
    * conversation's preview follow this, with or without a customer.
    */
   went: boolean('went').notNull().default(true),
+  /** M19: its thread's private_to, kept by triggers so the policy reads the row alone. */
+  privateTo: uuid('private_to'),
 });
 
 export const calls = app.table('calls', {
@@ -1411,6 +1415,8 @@ export const emailAddresses = app.table('email_addresses', {
   verifiedAt: ts('verified_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** M19: the person whose own address this is; only they send from it, and its mail is theirs alone. */
+  ownerUserId: uuid('owner_user_id'),
 });
 
 /** An Outlook or Gmail mailbox; tokens and sign-in secrets are sealed by the worker. */

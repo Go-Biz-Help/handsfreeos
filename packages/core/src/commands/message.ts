@@ -40,6 +40,7 @@ import {
   pickFromAddress,
   replySubject,
   resolveEmailConversation,
+  sendableAddresses,
   sendableMailboxes,
   SHARED_MAIL_DOMAIN,
   suppressionMessage,
@@ -675,7 +676,33 @@ function afterOutbound(keep: boolean, created: boolean, now: Date) {
  */
 async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendInput>) {
   const workspaceId = ctx.scope.workspaceId!;
-  const { conversation: conv, created } = await resolveEmailConversation(ctx, input);
+  const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+  // A person's own address (M19) sends for them alone, and only in their own mail.
+  const addresses = await workspaceAddresses(ctx.tx, workspaceId);
+  const chosen = input.emailAddressId
+    ? addresses.find((a) => a.id === input.emailAddressId)
+    : undefined;
+  if (chosen?.ownerUserId && chosen.ownerUserId !== me)
+    throw HfosError.rule(
+      'email_address_private',
+      403,
+      me
+        ? `${chosen.address} is someone else’s own address, so only they can send from it. Pick a team address instead.`
+        : `${chosen.address} is someone’s own address, and HandsFreeOS sends only from the team’s. Pick a team address.`,
+    );
+  const { conversation: conv, created } = await resolveEmailConversation(
+    ctx,
+    input,
+    chosen?.ownerUserId ? chosen : null,
+  );
+  // Their own mail: only they see it, and nothing copies it anywhere the team can read (M19).
+  const sealed = conv.privateTo !== null;
+  if (chosen?.ownerUserId && !sealed)
+    throw HfosError.rule(
+      'email_address_private_thread',
+      409,
+      `${chosen.address} is your own address, so it sends only in your own mailbox. Pick a team address to answer here.`,
+    );
   if (input.clientId) {
     const [dup] = await ctx.tx
       .select({ id: messages.id, status: messages.status })
@@ -696,7 +723,6 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         `Email to ${address} is stopped. Take it out of Cc, or unblock it under Blocked addresses in Settings → Email.`,
       );
 
-  const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
   let from: {
     address: string;
     domain: string;
@@ -704,6 +730,12 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     mailboxConnectionId: string | null;
     provider: string;
   };
+  if (input.mailboxConnectionId && sealed)
+    throw HfosError.rule(
+      'email_address_private_thread',
+      409,
+      'This is your own mail, so the answer goes from your own address, not a connected mailbox.',
+    );
   if (input.mailboxConnectionId) {
     const mailbox = (await sendableMailboxes(ctx.tx, workspaceId, null)).find(
       (m) => m.id === input.mailboxConnectionId,
@@ -732,7 +764,8 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       provider: mailbox.provider,
     };
   } else {
-    const list = await workspaceAddresses(ctx.tx, workspaceId);
+    // Someone else's own address is never a fallback: a team thread on it (one they shared) answers from the team's.
+    const list = sendableAddresses(addresses, me);
     if (input.emailAddressId) {
       const wanted = list.find((a) => a.id === input.emailAddressId);
       if (!wanted)
@@ -753,6 +786,17 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
         409,
         'This business has no email address to send from yet. Set one up in Settings → Email.',
       );
+    // Private mail goes from its own address or not at all, never quietly from the team's.
+    if (sealed && a.id !== conv.emailAddressId) {
+      const own = addresses.find((x) => x.id === conv.emailAddressId);
+      throw HfosError.rule(
+        'email_address_private_thread',
+        409,
+        own && !own.usable
+          ? `${own.address} can’t send until ${own.domain} is verified. Finish verifying it in Settings → Email.`
+          : 'This is your own mail, so the answer goes from your own address. Send it from there.',
+      );
+    }
     from = {
       address: a.address,
       domain: a.domain,
@@ -774,16 +818,17 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
   const now = new Date();
   const header = newMessageIdHeader(from.domain);
   const preview = emailPreview(subject, input.body, media.length);
+  // Private mail keeps who and what out of the history owners read, and wakes only the worker that sends it.
   if (created)
     await ctx.emit({
       type: 'conversation.created',
       entityType: 'conversation',
       entityId: conv.id,
-      payload: { channel: 'email', personId: conv.personId },
-      after: { with: conv.counterpart, channel: 'email' },
+      payload: { channel: 'email', personId: conv.personId, ...(sealed ? { private: true } : {}) },
+      after: sealed ? { channel: 'email' } : { with: conv.counterpart, channel: 'email' },
     });
   const eventId = await ctx.emit({
-    type: 'message.queued',
+    type: sealed ? 'email.private_queued' : 'message.queued',
     entityType: 'message',
     entityId: messageId,
     payload: {
@@ -793,26 +838,30 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       mediaCount: media.length,
       via: from.mailboxConnectionId ? 'mailbox' : 'address',
     },
-    after: { to: conv.counterpart, from: from.address, subject, mediaCount: media.length },
+    after: sealed
+      ? { mediaCount: media.length }
+      : { to: conv.counterpart, from: from.address, subject, mediaCount: media.length },
   });
-  const activityId = await logChannelActivity(ctx, {
-    kind: 'email',
-    subtype: 'outbound',
-    personId: conv.personId,
-    body: input.body,
-    occurredAt: now,
-    eventId,
-    meta: {
-      direction: 'outbound',
-      messageId,
-      conversationId: conv.id,
-      status: 'queued',
-      subject,
-      from: from.address,
-      mediaCount: media.length,
-      attachments: media.map(({ name, bucket, objectPath }) => ({ name, bucket, objectPath })),
-    },
-  });
+  const activityId = sealed
+    ? null
+    : await logChannelActivity(ctx, {
+        kind: 'email',
+        subtype: 'outbound',
+        personId: conv.personId,
+        body: input.body,
+        occurredAt: now,
+        eventId,
+        meta: {
+          direction: 'outbound',
+          messageId,
+          conversationId: conv.id,
+          status: 'queued',
+          subject,
+          from: from.address,
+          mediaCount: media.length,
+          attachments: media.map(({ name, bucket, objectPath }) => ({ name, bucket, objectPath })),
+        },
+      });
   await ctx.tx.insert(messages).values({
     id: messageId,
     workspaceId,
@@ -853,8 +902,10 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       ...(claim && ai ? { handledBy: 'ai' as const, aiTeammateId: ai.teammateId } : {}),
     })
     .where(eq(conversations.id, conv.id));
-  if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
-  await claimOnReply(ctx, conv);
+  if (!sealed) {
+    if (personTakesOver(ctx, conv)) await takeOver(ctx, conv, 'reply');
+    await claimOnReply(ctx, conv);
+  }
   return { messageId, conversationId: conv.id, status: 'queued', duplicate: false };
 }
 
@@ -953,6 +1004,8 @@ export const messageSend = defineCommand({
     'message.scheduled',
     'conversation.created',
     'conversation.taken_over',
+    // An email from a person's own mailbox (M19): only the worker that sends it hears of it.
+    'email.private_queued',
   ],
   actors: ['human', 'system', 'workflow', 'ai_employee'],
   offline: { freshMinutes: FRESH_MINUTES },

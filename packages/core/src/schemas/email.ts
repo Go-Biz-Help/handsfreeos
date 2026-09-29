@@ -160,6 +160,8 @@ export const EmailAddressCreateInput = z.object({
   emailDomainId: uuid.nullable().optional(),
   displayName,
   isDefault: z.boolean().default(false),
+  /** The person whose own address it is (M19): only they send from it, and its mail is theirs alone. */
+  ownerUserId: uuid.nullable().optional(),
 });
 export const EmailAddressCreateOutput = z.object({ emailAddressId: uuid, address: z.string() });
 export const EmailAddressUpdateInput = z.object({
@@ -168,11 +170,36 @@ export const EmailAddressUpdateInput = z.object({
   displayName: displayName.optional(),
   isDefault: z.boolean().optional(),
   localPart: emailLocalPart.optional(),
+  /** Give a team address to one person (M19). Taking one from its person is email_address.reassign's. */
+  ownerUserId: uuid.nullable().optional(),
 });
 export const EmailAddressUpdateOutput = z.object({
   emailAddressId: uuid,
   address: z.string(),
   updated: z.array(z.string()),
+});
+
+/**
+ * What becomes of the address of someone who has left, and of their mail on it (M19): the team's, another
+ * person's, or removed with it.
+ */
+export const EmailAddressReassignInput = z
+  .object({
+    workspaceId: uuid,
+    emailAddressId: uuid,
+    to: z.enum(['team', 'person', 'remove']),
+    /** Who gets it, when `to` is person. */
+    userId: uuid.optional(),
+  })
+  .refine((v) => (v.to === 'person') === !!v.userId, {
+    path: ['userId'],
+    message: 'Pick who gets the address.',
+  });
+export const EmailAddressReassignOutput = z.object({
+  emailAddressId: uuid,
+  to: z.enum(['team', 'person', 'remove']),
+  /** How many threads went with it. */
+  threads: z.number().int(),
 });
 
 // ---------- connected mailboxes ----------

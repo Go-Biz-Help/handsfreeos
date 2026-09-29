@@ -231,6 +231,45 @@ const RULES: Record<string, { status: number; message: string }> = {
     message:
       'HandsFreeOS says when a domain’s mail starts arriving, once it finds the MX record. Turn receiving on or off in Settings → Email instead.',
   },
+  // M19: a person's own address and mailbox.
+  email_address_private: {
+    status: 403,
+    message:
+      'That address is one person’s own, so only they can send from it. Pick a team address instead.',
+  },
+  email_address_owner_is_theirs: {
+    status: 409,
+    message:
+      'That address is one person’s own, and its mail is theirs. Once they’ve left the business, an owner can make it the team’s or give it to someone else.',
+  },
+  email_address_owner_not_here: {
+    status: 400,
+    message:
+      'That person isn’t on this business’s team. Invite them in Settings → Team first, then give them the address.',
+  },
+  private_thread_is_theirs: {
+    status: 403,
+    message: 'That mail is one person’s own. Only they can open it or share it with the team.',
+  },
+  email_address_reassign_owner: {
+    status: 403,
+    message:
+      'Only an owner of the business decides what becomes of someone’s own address. Ask an owner to do it.',
+  },
+  email_address_not_owned: {
+    status: 409,
+    message: 'That address is the team’s already, so there’s nothing to decide.',
+  },
+  email_address_owner_still_here: {
+    status: 409,
+    message:
+      'The person whose address this is still works here, so it stays theirs. Once they’ve left, an owner can decide what becomes of it.',
+  },
+  no_email_address: {
+    status: 404,
+    message:
+      'That address isn’t there anymore. It may have been removed. Refresh Settings → Email and try again.',
+  },
   no_workspace: {
     status: 404,
     message:

@@ -16,9 +16,12 @@ import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
+import { scheduleJob, workspaceMessaging } from '../messaging/store';
 import {
   EmailAddressCreateInput,
   EmailAddressCreateOutput,
+  EmailAddressReassignInput,
+  EmailAddressReassignOutput,
   EmailAddressUpdateInput,
   EmailAddressUpdateOutput,
   EmailClaimUnmatchedInput,
@@ -79,6 +82,38 @@ const unverified = (domain: string) =>
   );
 const addressTaken = (address: string) =>
   HfosError.rule('email_address_taken', 409, `${address} is already taken. Pick another name.`);
+
+/** A person's own address (M19): on the business's own domain, never the default, and only for someone here. */
+async function checkOwner(
+  ctx: CommandContext,
+  ownerUserId: string,
+  address: string,
+  domain: { domain: string } | null,
+  isDefault: boolean,
+) {
+  if (!domain)
+    throw HfosError.rule(
+      'email_address_owner_domain',
+      400,
+      `A person’s own address has to be on your own domain, like chris@lonestarhvac.com, not on ${SHARED_MAIL_DOMAIN}. Add your domain under Use your own domain in Settings → Email first.`,
+    );
+  if (isDefault)
+    throw HfosError.rule(
+      'email_address_owner_default',
+      409,
+      `${address} is one person’s own address, so it can’t be the business’s default. Make a team address the default instead.`,
+    );
+  const [here] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.works_in(${ownerUserId}::uuid, ${ctx.scope.workspaceId!}::uuid) as ok`,
+  );
+  if (!here?.ok)
+    throw HfosError.rule(
+      'email_address_owner_not_here',
+      400,
+      `The person you picked for ${address} isn’t on this business’s team. Invite them in Settings → Team first.`,
+    );
+}
 
 /** HandsFreeOS's own business (M19): the one workspace that may use handsfreeos.com. */
 async function isOwnBusiness(ctx: CommandContext): Promise<boolean> {
@@ -498,6 +533,8 @@ export const emailAddressCreate = defineCommand({
     if (namesReserved(domain?.domain ?? null) && isReservedLocalPart(input.localPart))
       throw reserved(input.localPart, domain?.domain ?? null);
     if (domain && domain.status !== 'verified') throw unverified(domain.domain);
+    const where = `${input.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`;
+    if (input.ownerUserId) await checkOwner(ctx, input.ownerUserId, where, domain, input.isDefault);
     const previous = input.isDefault ? await clearDefault(ctx) : null;
     // The database fills in the address from the name and domain; this copy only satisfies the insert.
     const [row] = await ctx.tx
@@ -512,6 +549,7 @@ export const emailAddressCreate = defineCommand({
         // It can send from the start: the shared subdomain and a verified domain both already pass Postmark.
         verifiedAt: new Date(),
         createdBy: userIdOf(ctx.actor),
+        ownerUserId: input.ownerUserId ?? null,
       })
       .onConflictDoNothing({ target: emailAddresses.address })
       .returning({ id: emailAddresses.id, address: emailAddresses.address });
@@ -530,6 +568,7 @@ export const emailAddressCreate = defineCommand({
         address: row.address,
         displayName: input.displayName,
         isDefault: input.isDefault,
+        ...(input.ownerUserId ? { ownerUserId: input.ownerUserId } : {}),
         ...(previous ? { previousDefault: previous.address } : {}),
       },
     });
@@ -550,7 +589,23 @@ export const emailAddressUpdate = defineCommand({
   async handler(ctx, input) {
     const a = await loadAddress(ctx, input.emailAddressId);
     const domain = a.emailDomainId ? await loadDomain(ctx, a.emailDomainId) : null;
-    const patch: { displayName?: string; localPart?: string; isDefault?: boolean } = {};
+    const patch: {
+      displayName?: string;
+      localPart?: string;
+      isDefault?: boolean;
+      ownerUserId?: string | null;
+    } = {};
+    if (input.ownerUserId !== undefined && input.ownerUserId !== a.ownerUserId) {
+      // Taking an address from its person takes their mail with it: an owner does that, once they have left.
+      if (a.ownerUserId)
+        throw HfosError.rule(
+          'email_address_owner_is_theirs',
+          409,
+          `${a.address} is one person’s own address, and its mail is theirs. Once they’ve left the business, an owner can make it the team’s or give it to someone else.`,
+        );
+      await checkOwner(ctx, input.ownerUserId!, a.address, domain, a.isDefault);
+      patch.ownerUserId = input.ownerUserId;
+    }
     if (input.displayName !== undefined && input.displayName !== a.displayName)
       patch.displayName = input.displayName;
     if (input.localPart !== undefined && input.localPart !== a.localPart) {
@@ -567,6 +622,12 @@ export const emailAddressUpdate = defineCommand({
       );
     if (input.isDefault === true && !a.isDefault) {
       if (domain && domain.status !== 'verified') throw unverified(domain.domain);
+      if (a.ownerUserId || patch.ownerUserId)
+        throw HfosError.rule(
+          'email_address_owner_default',
+          409,
+          `${a.address} is one person’s own address, so it can’t be the business’s default. Make a team address the default instead.`,
+        );
       patch.isDefault = true;
     }
     const updated = Object.keys(patch);
@@ -599,6 +660,10 @@ export const emailAddressUpdate = defineCommand({
       after.isDefault = true;
       if (previous) after.previousDefault = previous.address;
     }
+    if (patch.ownerUserId !== undefined) {
+      before.ownerUserId = null;
+      after.ownerUserId = patch.ownerUserId;
+    }
     await ctx.emit({
       type: 'email_address.updated',
       entityType: 'email_address',
@@ -608,6 +673,62 @@ export const emailAddressUpdate = defineCommand({
       after,
     });
     return { emailAddressId: a.id, address: row.address, updated };
+  },
+});
+
+/**
+ * What becomes of the address of someone who has left (M19), and of their mail on it: an owner makes it the team's,
+ * gives it to someone else, or removes it with its mail. Until then new mail to it goes to the default address.
+ * The SQL checks all of it again for itself: an owner, a person who has left.
+ */
+export const emailAddressReassign = defineCommand({
+  name: 'email_address.reassign',
+  description:
+    'Owners: decide what becomes of the own address of someone who has left, and of their mail on it: the team’s, someone else’s, or removed.',
+  risk: 3,
+  input: EmailAddressReassignInput,
+  output: EmailAddressReassignOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_address.reassigned'],
+  async handler(ctx, input) {
+    const a = await loadAddress(ctx, input.emailAddressId);
+    const [row] = await rows<{
+      was: string;
+      threads: number;
+      media: { bucket?: string; objectPath?: string }[];
+    }>(
+      ctx.tx,
+      sql`select was, threads, media from private.reassign_email_address(
+            ${a.id}::uuid, ${input.to === 'person' ? input.userId! : null}::uuid, ${input.to === 'remove'})`,
+    );
+    if (!row) throw HfosError.forbidden();
+    // The files the removed mail carried: the worker takes them out of storage. A job's payload, which nobody
+    // reads, rather than the history, which owners do.
+    const files = input.to === 'remove' ? row.media.filter((m) => m.bucket && m.objectPath) : [];
+    if (files.length > 0)
+      await scheduleJob(ctx.tx, {
+        kind: 'email.remove_files',
+        dedupeKey: `remove-files:${a.id}`,
+        runAt: new Date(),
+        payload: { files },
+        workspaceId: ctx.scope.workspaceId!,
+        organizationId: (await workspaceMessaging(ctx.tx, ctx.scope.workspaceId!)).organizationId,
+      });
+    await ctx.emit({
+      type: 'email_address.reassigned',
+      entityType: 'email_address',
+      entityId: a.id,
+      payload: { to: input.to, userId: input.userId ?? null, threads: row.threads },
+      before: { address: a.address, ownerUserId: row.was },
+      after: {
+        address: a.address,
+        to: input.to === 'team' ? 'the team' : input.to === 'remove' ? 'removed' : 'another person',
+        ...(input.userId ? { ownerUserId: input.userId } : {}),
+        threads: row.threads,
+      },
+    });
+    return { emailAddressId: a.id, to: input.to, threads: row.threads };
   },
 });
 

@@ -7,6 +7,7 @@ import {
   activeSuppression,
   pickFromAddress,
   replySubject,
+  sendableAddresses,
   sendableMailboxes,
   threadHeaders,
   workspaceAddresses,
@@ -27,6 +28,8 @@ export const emailComposeOptions = defineQuery({
     let to: string | null = null;
     let conversationId: string | null = null;
     let usedAddressId: string | null = null;
+    // Answering in a named email thread: its privacy decides which addresses may answer (M19).
+    let threadPrivateTo: string | null | undefined;
     if (input.conversationId) {
       const [c] = await ctx.tx
         .select()
@@ -45,6 +48,7 @@ export const emailComposeOptions = defineQuery({
         to = c.counterpart;
         conversationId = c.id;
         usedAddressId = c.emailAddressId;
+        threadPrivateTo = c.privateTo;
       } else if (c.personId) {
         to = (await requirePerson(ctx.tx, workspaceId, c.personId)).email?.toLowerCase() ?? null;
       }
@@ -63,8 +67,14 @@ export const emailComposeOptions = defineQuery({
       }
     }
     const stopped = to ? await activeSuppression(ctx.tx, workspaceId, to) : null;
-    const addresses = await workspaceAddresses(ctx.tx, workspaceId);
     const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
+    // Never someone else's own address (M19). In a person's own thread, only its address answers; in a team
+    // thread, only the team's; writing fresh, the team's and their own.
+    const addresses = sendableAddresses(await workspaceAddresses(ctx.tx, workspaceId), me).filter(
+      (a) =>
+        threadPrivateTo === undefined ||
+        (threadPrivateTo ? a.id === usedAddressId : !a.ownerUserId),
+    );
     const mailboxes = await sendableMailboxes(ctx.tx, workspaceId, me);
     const thread = conversationId ? await threadHeaders(ctx.tx, conversationId) : null;
     return {
@@ -77,12 +87,13 @@ export const emailComposeOptions = defineQuery({
       suppressed: stopped
         ? { reason: stopped.reason, since: stopped.createdAt.toISOString() }
         : null,
-      addresses: addresses.map(({ id, address, displayName, isDefault, usable }) => ({
+      addresses: addresses.map(({ id, address, displayName, isDefault, usable, ownerUserId }) => ({
         id,
         address,
         displayName,
         isDefault,
         usable,
+        mine: ownerUserId !== null,
       })),
       fromAddressId: pickFromAddress(addresses, [usedAddressId])?.id ?? null,
       mailboxes: mailboxes.map(({ id, provider, accountEmail, displayName }) => ({
