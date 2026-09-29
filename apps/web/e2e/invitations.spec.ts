@@ -74,7 +74,7 @@ test('owner invites a teammate; the teammate accepts the emailed link; roles and
   await page.getByRole('button', { name: `More for ${owner.name}` }).click();
   await page.getByRole('menuitem', { name: 'Leave workspace' }).click();
   await page.getByTestId('confirm-remove').click();
-  await expect(page.getByText(/at least one Owner/)).toBeVisible();
+  await expect(page.getByText(/at least one owner/)).toBeVisible();
 
   // The audit log tells the story, including the worker's email.
   await page.goto(`/app/w/${workspaceId}/audit`);
