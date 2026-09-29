@@ -71,7 +71,9 @@ export function WizardFrame({
     : at === 0 && status.answers
       ? `/onboarding/${workspaceId}/questions`
       : home;
-  const next = nextStep ? setupHref(workspaceId, nextStep.key as WizardStepKey) : home;
+  // Out of the wizard, Home shows the tour of the menu the first time (components/onboarding/tour.tsx).
+  const out = `${home}?tour=1`;
+  const next = nextStep ? setupHref(workspaceId, nextStep.key as WizardStepKey) : out;
   const state = current?.state ?? 'todo';
 
   return (
@@ -83,7 +85,7 @@ export function WizardFrame({
         <span className="hidden truncate text-[13px] text-text-2 sm:block">
           {WIZARD_WORDS.settingUp(businessName)}
         </span>
-        <ButtonLink href={home} variant="ghost" data-testid="setup-finish-later">
+        <ButtonLink href={out} variant="ghost" data-testid="setup-finish-later">
           {WIZARD_WORDS.finishLater}
         </ButtonLink>
       </header>

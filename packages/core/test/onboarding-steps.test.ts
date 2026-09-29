@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   businessOnboardingOf,
+  GUIDE_WORDS,
   isWizardStep,
   laterOrder,
   mustDoOrder,
@@ -19,6 +20,8 @@ import {
   PHONE_APP_LINKS,
   progressWords,
   stepWords,
+  TOUR_STOPS,
+  tourStopWords,
   waitingDay,
   withPersonalOnboarding,
   type OnboardingAnswers,
@@ -337,6 +340,15 @@ describe('the words', () => {
     );
     expect(stepWords(n).badge).toBe('In review · day 1');
     expect(stepWords(n).detail).toMatch(/^\(512\) 555-0148\. Calls work now\./);
+  });
+
+  it('walks the tour down the menu, and names the shortcut this browser uses', () => {
+    expect(TOUR_STOPS).toEqual(['home', 'inbox', 'pipeline', 'calendar', 'ask']);
+    expect(tourStopWords('ask', 'Ctrl J').body).toMatch(/^Press Ctrl J to ask/);
+    expect(tourStopWords('ask').body).toMatch(/^Open it to ask/);
+    expect(GUIDE_WORDS.assistantHint('⌘J')).toBe(
+      'Stuck? Press ⌘J and ask HandsFreeOS. It can change most settings for you.',
+    );
   });
 
   it('says under each step in the wizard where it stands', () => {

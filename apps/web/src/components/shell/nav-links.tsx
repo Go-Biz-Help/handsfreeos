@@ -300,6 +300,8 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
+      // Where the tour points (components/onboarding/tour.tsx).
+      data-tour={item.key}
       className={rowClass(active, className)}
     >
       <Icon className="h-[18px] w-[18px] flex-none" strokeWidth={1.5} />

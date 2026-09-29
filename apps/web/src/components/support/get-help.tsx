@@ -1,9 +1,10 @@
 'use client';
-import { GUIDE_WORDS, ONBOARDING_WORDS } from '@hfos/core';
-import { ListChecks, LifeBuoy } from 'lucide-react';
+import { GUIDE_WORDS, ONBOARDING_WORDS, TOUR_WORDS } from '@hfos/core';
+import { Compass, ListChecks, LifeBuoy } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { startTour } from '@/components/onboarding/tour';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
@@ -26,17 +27,21 @@ import { cn } from '@/lib/utils';
  * with the message; nothing else about what is on it is.
  *
  * While the person's Getting started guide isn't finished, Get help is a short menu instead: the guide (brought
- * back to Home when they hid it, with a dot on Get help meanwhile) and the same "Ask us for help".
+ * back to Home when they hid it, with a dot on Get help meanwhile), the tour of the menu, and the same "Ask us for
+ * help".
  */
 export function GetHelp({
   workspaceId,
   className,
   guide,
+  onNavigate,
 }: {
   workspaceId: string;
   className?: string;
   /** This person's guide in this business (users.settings.onboarding); left out, Get help is only the form. */
   guide?: { readonly hidden: boolean; readonly finished: boolean };
+  /** Leaving the drawer it's in: the guide opens on Home, and the tour points at the bottom bar. */
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -74,7 +79,13 @@ export function GetHelp({
   };
 
   const home = `/app/w/${workspaceId}`;
+  const takeTour = () => {
+    onNavigate?.();
+    // Once the menu (and the drawer) has closed and given the keyboard back, so the tour can take it.
+    window.setTimeout(startTour, 250);
+  };
   const showGuide = async () => {
+    onNavigate?.();
     if (guide?.hidden) {
       try {
         const r = await apiBrowser().POST('/v1/commands/onboarding.set_view', {
@@ -117,7 +128,8 @@ export function GetHelp({
               ) : null}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="top" align="start" className="w-64">
+          {/* Above the phone's menu drawer, which Get help is also in. */}
+          <DropdownMenuContent side="top" align="start" className="z-[60] w-64">
             <DropdownMenuItem
               className="h-auto py-2"
               onSelect={() => void showGuide()}
@@ -130,6 +142,10 @@ export function GetHelp({
                   {guide.hidden ? GUIDE_WORDS.menuShow : GUIDE_WORDS.menuOnHome}
                 </span>
               </span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={takeTour} data-testid="get-help-tour">
+              <Compass className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />
+              {TOUR_WORDS.take}
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setOpen(true)} data-testid="get-help-ask">
               <LifeBuoy className="h-4 w-4 flex-none text-text-2" strokeWidth={1.5} />

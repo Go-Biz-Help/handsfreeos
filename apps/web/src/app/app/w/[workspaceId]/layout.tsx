@@ -4,6 +4,7 @@ import { ViewAsBanner } from '@/components/admin/view-as-banner';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
+import { Tour } from '@/components/onboarding/tour';
 import { MenuEditor } from '@/components/shell/menu-editor';
 import { MenuProvider } from '@/components/shell/menu-provider';
 import { MobileShell } from '@/components/shell/mobile-shell';
@@ -12,6 +13,7 @@ import { ThemeSync } from '@/components/shell/theme-sync';
 import { WorkspaceMain } from '@/components/shell/workspace-main';
 import { WorkspaceShellProvider } from '@/components/shell/workspace-shell';
 import { getMe, getWorkspaceShell } from '@/lib/api/server';
+import { guideOf } from '@/lib/guide';
 import { CallProvider } from '@/lib/calls/call-provider';
 import { AttentionSummaryProvider } from '@/lib/realtime/attention-summary';
 import { LiveProvider } from '@/lib/realtime/live-provider';
@@ -82,6 +84,8 @@ export default async function WorkspaceLayout({
                   />
                 </MenuProvider>
                 <CallOverlays />
+                {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
+                <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
               </AssistantProvider>
             </CallProvider>
           </AttentionSummaryProvider>

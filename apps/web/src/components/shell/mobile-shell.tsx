@@ -128,6 +128,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
               key={item.key}
               href={item.href}
               aria-current={on ? 'page' : undefined}
+              data-tour={item.key}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium',
                 on ? 'text-accent-text' : 'text-text-3',
@@ -195,7 +196,11 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
               permissions={current.permissions}
               onNavigate={() => setDrawer(false)}
             />
-            <GetHelp workspaceId={current.id} guide={guideOf(me, current.id)} />
+            <GetHelp
+              workspaceId={current.id}
+              guide={guideOf(me, current.id)}
+              onNavigate={() => setDrawer(false)}
+            />
             <UserMenu user={me.user} />
           </div>
         </SheetContent>

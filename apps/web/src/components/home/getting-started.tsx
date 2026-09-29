@@ -7,6 +7,7 @@ import {
   progressWords,
   stepTitle,
   stepWords,
+  TOUR_WORDS,
 } from '@hfos/core';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -21,6 +22,8 @@ import type { OnboardingStatus, OnboardingStep } from '@/lib/api/types';
 import { publicEnv } from '@/lib/env';
 import { setupHref } from '@/lib/setup';
 import { cn } from '@/lib/utils';
+import { useAssistant } from '@/components/assistant/assistant-provider';
+import { startTour } from '@/components/onboarding/tour';
 import { PhoneAppDialog } from './phone-app-dialog';
 
 /**
@@ -69,6 +72,7 @@ function Steps({
   const [expanded, setExpanded] = useState(!compact);
   const [phone, setPhone] = useState<null | 'app' | 'notifications'>(null);
   const business = status.audience === 'business';
+  const shortcut = useAssistant().shortcut?.label ?? null;
 
   const act = async (key: string, fn: () => Promise<void>, after?: () => void) => {
     setBusy(key);
@@ -201,8 +205,24 @@ function Steps({
       ) : (
         <ul className="flex flex-col">{status.steps.map(row)}</ul>
       )}
+      {status.view.tourDoneAt ? null : (
+        <p className="mt-2 px-1 text-xs text-text-3" data-testid="getting-started-tour">
+          {TOUR_WORDS.offer}{' '}
+          <button
+            type="button"
+            onClick={startTour}
+            className="font-medium text-accent-text hover:underline focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          >
+            {TOUR_WORDS.take}
+          </button>
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
-        {business ? <p className="text-xs text-text-3">{GUIDE_WORDS.assistantHint}</p> : <span />}
+        {business ? (
+          <p className="text-xs text-text-3">{GUIDE_WORDS.assistantHint(shortcut)}</p>
+        ) : (
+          <span />
+        )}
         {compact ? (
           <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
             {expanded ? (

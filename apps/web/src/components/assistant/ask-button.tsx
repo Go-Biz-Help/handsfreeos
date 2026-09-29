@@ -14,6 +14,7 @@ export function AskButton({ className }: { className?: string }) {
       aria-pressed={a.open}
       aria-keyshortcuts={a.shortcut?.aria}
       data-testid="ask-assistant"
+      data-tour="ask"
       className={cn(
         'flex h-9 w-full items-center gap-[9px] whitespace-nowrap rounded-control border pl-[9px] pr-2 text-left text-[13.5px] font-medium transition-colors',
         a.open

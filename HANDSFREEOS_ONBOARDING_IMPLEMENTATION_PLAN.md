@@ -256,7 +256,12 @@ The boards in `design/onboarding` show each one.
 - **The tour** (board 7): five stops (Home, Inbox, Pipeline, Calendar, Ask HandsFreeOS), shown once after the
   wizard and again from Get help. Anchored to `data-tour` attributes on the sidebar rows. On a phone-width browser
   it points at the bottom bar instead, and skips Ask HandsFreeOS. A small component of our own: there's no tour
-  library in the app, and five popovers don't need one.
+  library in the app, and five popovers don't need one. `components/onboarding/tour.tsx`, in the business's
+  layout: the wizard hands over to Home with `?tour=1` (Finish later, or the last step), which opens it once
+  while it hasn't been taken; the card offers it ("Take the tour") until then, and Get help always does while the
+  guide isn't finished. Done, Skip tour or Escape records `tourDoneAt` (`onboarding.set_view`). A stop whose place
+  isn't on screen (taken out of the menu, or one the person can't open) is left out, and the count says so. The
+  Ask stop names the shortcut this browser uses (⌘J or Ctrl J), and so does the card's hint.
 - **Get help** (board 8): while the person's guide isn't finished, Get help is a short menu: Getting started (brings
   the guide back to Home when it was hidden) and Ask us for help (the same form as before); "Take the tour" joins it
   with the tour. A dot on Get help while the guide is hidden and unfinished. Once the guide is finished, Get help
@@ -337,7 +342,7 @@ Each step ships alone and leaves the tree green.
 3. ✅ **The quick questions** after Create business, and the order they set.
 4. ✅ **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back
    from a migration), `calendar`, then `payments` (with the way back from a sign-in).
-5. **The tour.**
+5. ✅ **The tour.**
 6. **Teammates**: the personal list on the web.
 7. **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
 8. **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.

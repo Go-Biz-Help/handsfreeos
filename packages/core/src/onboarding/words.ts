@@ -340,7 +340,9 @@ export const GUIDE_WORDS = {
   undo: 'Undo',
   showAll: (n: number) => `Show all ${n} steps`,
   showFewer: 'Show fewer',
-  assistantHint: 'Stuck? Press ⌘J and ask HandsFreeOS. It can change most settings for you.',
+  /** `shortcut` is how this browser opens Ask HandsFreeOS, like ⌘J or Ctrl J. */
+  assistantHint: (shortcut: string | null) =>
+    `Stuck? ${shortcut ? `Press ${shortcut} and ask` : 'Ask'} HandsFreeOS. It can change most settings for you.`,
   /** Under Get help. */
   menuItem: 'Getting started',
   menuShow: 'Show it on Home again',
@@ -581,4 +583,58 @@ export function railLine(
         return 'Done';
     }
   return previewDetail(step.key, answers);
+}
+
+/**
+ * The tour's stops, in order (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, board 7): each one a place in the
+ * menu. The phone's bottom bar has no Ask HandsFreeOS, so a phone-width tour skips it; a place someone took out of
+ * their menu, or can't open, is skipped too.
+ */
+export const TOUR_STOPS = ['home', 'inbox', 'pipeline', 'calendar', 'ask'] as const;
+export type TourStop = (typeof TOUR_STOPS)[number];
+
+export const TOUR_WORDS = {
+  label: 'Tour of the menu',
+  position: (n: number, of: number) => `${n} of ${of}`,
+  skip: 'Skip tour',
+  back: 'Back',
+  next: 'Next',
+  done: 'Done',
+  take: 'Take the tour',
+  /** On the Getting started card, until the tour is taken or skipped. */
+  offer: 'New here? A one-minute tour shows where everything is.',
+} as const;
+
+/** One stop's title and words. `shortcut` is how this browser opens Ask HandsFreeOS, like ⌘J. */
+export function tourStopWords(
+  stop: TourStop,
+  shortcut: string | null = null,
+): { readonly title: string; readonly body: string } {
+  switch (stop) {
+    case 'home':
+      return {
+        title: 'Home is your Action Center',
+        body: 'What needs you, most important first, with the money at stake. Your Getting started guide lives here until you finish or hide it.',
+      };
+    case 'inbox':
+      return {
+        title: 'Every conversation in one place',
+        body: 'Texts, calls, email and website chat land in Inbox. Your AI teammate’s drafts wait here for your OK.',
+      };
+    case 'pipeline':
+      return {
+        title: 'Your leads and jobs',
+        body: 'Each lead has a stage, from New to Won. Move it along as the job does, and see the money in each stage.',
+      };
+    case 'calendar':
+      return {
+        title: 'Every visit, however it was booked',
+        body: 'Visits booked on your booking page, by your AI teammate, or by your team all show up here.',
+      };
+    case 'ask':
+      return {
+        title: 'Ask HandsFreeOS anything',
+        body: `${shortcut ? `Press ${shortcut}` : 'Open it'} to ask about your business or get something done, like “add a service called Duct cleaning.”`,
+      };
+  }
 }

@@ -55,6 +55,24 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(links.getByRole('link', { name: 'Open Google Play testing' })).toBeVisible();
   await page.keyboard.press('Escape');
 
+  // The card offers the tour. Escape ends it, which counts as taken: the offer goes.
+  await page
+    .getByTestId('getting-started-tour')
+    .getByRole('button', { name: 'Take the tour' })
+    .click();
+  const tour = page.getByTestId('tour');
+  await expect(tour).toHaveAttribute('data-stop', 'home');
+  await expect(tour).toContainText('1 of 5');
+  await page.keyboard.press('Escape');
+  await expect(tour).toHaveCount(0);
+  await expect(page.getByTestId('getting-started-tour')).toHaveCount(0);
+  // Get help still has it.
+  await page.getByTestId('get-help').click();
+  await page.getByTestId('get-help-tour').click();
+  await expect(tour).toHaveAttribute('data-stop', 'home');
+  await page.getByTestId('tour-skip').click();
+  await expect(tour).toHaveCount(0);
+
   // Hide it: it goes, the toast says where it is, and Get help carries a dot until it's back.
   await page.getByTestId('getting-started-hide').click();
   await expect(page.getByText('Getting started is hidden.', { exact: false })).toBeVisible();
@@ -151,6 +169,26 @@ test('the quick questions put the steps in order, and the wizard walks them', as
   await page.getByTestId('setup-skip').click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
 
+  // Out of the wizard, the tour: five stops down the menu, Back and Next, then Done.
+  const tour = page.getByTestId('tour');
+  const stops: string[] = [];
+  await expect(tour).toBeVisible();
+  for (let i = 0; i < 5; i++) {
+    stops.push((await tour.getAttribute('data-stop'))!);
+    await expect(tour).toContainText(`${i + 1} of 5`);
+    if (i === 1) {
+      await page.getByTestId('tour-back').click();
+      await expect(tour).toHaveAttribute('data-stop', 'home');
+      await page.getByTestId('tour-next').click();
+    }
+    if (i < 4) await page.getByTestId('tour-next').click();
+  }
+  expect(stops).toEqual(['home', 'inbox', 'pipeline', 'calendar', 'ask']);
+  await expect(tour).toContainText('Ask HandsFreeOS anything');
+  await page.getByTestId('tour-done').click();
+  await expect(tour).toHaveCount(0);
+  await expect(page.getByTestId('getting-started-tour')).toHaveCount(0);
+
   // Home follows the answers and the wizard: payments is a must-do, second; there's no team step; customers are
   // done; three steps were skipped; nothing to answer again.
   const rows = page.getByTestId('getting-started').locator('li[data-state]');
@@ -182,4 +220,7 @@ test('a sign-in started in the wizard comes back to it', async ({ page }) => {
   await page.getByTestId('setup-continue').click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
   await expect(page.getByTestId('getting-started-payments')).toHaveAttribute('data-state', 'done');
+  // The tour, which they haven't taken yet: skipped.
+  await page.getByTestId('tour-skip').click();
+  await expect(page.getByTestId('tour')).toHaveCount(0);
 });
