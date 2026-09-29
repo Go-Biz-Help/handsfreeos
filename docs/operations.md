@@ -965,7 +965,7 @@ Before you start:
 6. Fill in **Business name**. For the go-live test, use the business whose details you will send to the carriers.
 7. Pick the **Industry**.
 8. Pick the **Time zone**. Quiet hours for texts follow it.
-9. Leave the agency switch as it is.
+9. If you see the agency switch, leave it as it is. Production hides it.
 10. Click **Create business**.
 
     You should see your workspace's home page, at an address like `https://app.handsfreeos.com/app/w/<workspace id>`.
@@ -3152,7 +3152,7 @@ Total: about $13 to $15 a month on Fly.
 
 ## The web app on Vercel
 
-The web app (`apps/web`, a Next.js app) runs on Vercel at `https://app.handsfreeos.com`. Vercel builds it from GitHub by itself: every push to `main` goes live, and every other branch gets a preview. The web app holds no secrets. Every value it needs is public and ends up in the browser, so the Vercel project gets seven plain settings, an optional eighth for the booking page's bot check, and nothing else.
+The web app (`apps/web`, a Next.js app) runs on Vercel at `https://app.handsfreeos.com`. Vercel builds it from GitHub by itself: every push to `main` goes live, and every other branch gets a preview. The web app holds no secrets. Every value it needs is public and ends up in the browser, so the Vercel project gets eight plain settings, an optional ninth for the booking page's bot check, and nothing else.
 
 Set up the API (`handsfreeos-api`) and the worker (`handsfreeos-worker`) on Fly.io first (see "Hosting: the API and the worker on Fly.io"). The web app is only useful once both answer.
 
@@ -3228,7 +3228,7 @@ The trial ends after 14 days, or sooner if the team reaches the trial's usage li
 
 8. Check that **Framework Preset** shows **Next.js**. If it does not, pick **Next.js** from the list.
 9. Open **Build and Output Settings** and leave every **Override** switch off. Vercel then builds only the web app. It installs with pnpm because it finds `pnpm-lock.yaml` at the top of the repository.
-10. Open **Environment Variables**. In the block below, replace `<publishable key>` with the key from your password manager. Then paste the whole block into the first **Name** (or **Key**) field. Vercel splits a pasted `.env` block into separate variables. If the form does not split it, add the seven lines one at a time as name and value. If the form lets you choose a type for each variable, choose **Config** for all seven.
+10. Open **Environment Variables**. In the block below, replace `<publishable key>` with the key from your password manager. Then paste the whole block into the first **Name** (or **Key**) field. Vercel splits a pasted `.env` block into separate variables. If the form does not split it, add the eight lines one at a time as name and value. If the form lets you choose a type for each variable, choose **Config** for all eight.
 
     ```text
     NEXT_PUBLIC_API_URL=https://api.handsfreeos.com
@@ -3237,6 +3237,7 @@ The trial ends after 14 days, or sooner if the team reaches the trial's usage li
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key>
     NEXT_PUBLIC_PASSKEYS_ENABLED=true
     NEXT_PUBLIC_GMAIL_ENABLED=false
+    NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED=false
     ENABLE_EXPERIMENTAL_COREPACK=1
     ```
 
@@ -3324,7 +3325,7 @@ Never use the root `pnpm build` as the build command. It builds the API and the 
 
 ### Environment variables
 
-The web app reads six settings, plus a seventh for the check that bookings and website chats come from people and two for Google Maps, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
+The web app reads seven settings, plus an eighth for the check that bookings and website chats come from people and two for Google Maps, and Vercel reads one more for the install. All of them are plain, public values. Next.js copies the `NEXT_PUBLIC_` ones into the pages, so anyone can read them in a browser. That is why none of them may ever be a secret.
 
 | Name                                   | Value                                      | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3334,6 +3335,7 @@ The web app reads six settings, plus a seventh for the check that bookings and w
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `<publishable key>`                        | Copied from Supabase **Project Settings** → **API Keys** and kept in your password manager. Starts with `sb_publishable_`. Required, like the URL, and fails the same way without it.                                                                                                                                                                                                                                                                                                                 |
 | `NEXT_PUBLIC_PASSKEYS_ENABLED`         | `true`                                     | Shows passkey sign-in and the passkey settings. Only the exact value `false` turns them off.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `NEXT_PUBLIC_GMAIL_ENABLED`            | `false`                                    | Keeps **Connect Gmail** off until Google approves the restricted scopes. Only the exact value `true`, in lower case, turns it on; `True`, `1` or `yes` leave Gmail off. Leaving it unset also keeps Gmail off.                                                                                                                                                                                                                                                                                        |
+| `NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED`    | `false`                                    | Hides the **I run an agency that manages several businesses** switch on **Set up your business**, so everyone who signs up gets a plain business. Only the exact value `true`, in lower case, shows it. Leaving it unset also hides it. Agencies already set up keep working.                                                                                                                                                                                                                         |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`       | `<Turnstile site key>` (optional)          | The public site key of the Cloudflare Turnstile widget that checks bookings and website chats come from people. The check shows only once the worker also has `TURNSTILE_SECRET_KEY`. Set this one and redeploy before the worker gets its secret: with the secret and no site key, every online booking and every website chat message fails. See "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".                                        |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY`  | `<browser key>` (optional)                 | Google Maps for territories by distance, drawn on a map or picked on a map by ZIP code: a key restricted to the app's domains, with the Maps JavaScript, Geocoding and Places (New) APIs. Without it, ZIP codes are typed.                                                                                                                                                                                                                                                                            |
 | `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`       | `<map ID>` (optional)                      | Shades a territory's ZIP codes on a map and lets people click them on or off. In Google Cloud, **Map management**: a JavaScript map ID whose style has the **Postal code** feature layer on; its light and dark modes follow the app.                                                                                                                                                                                                                                                                 |
