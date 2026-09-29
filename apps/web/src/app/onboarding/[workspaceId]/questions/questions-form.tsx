@@ -77,10 +77,13 @@ function fieldMessage(e: unknown, path: string): string | null {
 export function QuestionsForm({
   workspaceId,
   overline,
+  next,
   initial,
 }: {
   workspaceId: string;
   overline: string;
+  /** Where Continue and Skip go: the setup wizard's first step, or Home from the Getting started card. */
+  next: string;
   initial: { answers: OnboardingAnswers | null; website: string | null };
 }) {
   const router = useRouter();
@@ -94,7 +97,6 @@ export function QuestionsForm({
   const [error, setError] = useState<string | null>(null);
   const [siteError, setSiteError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const home = `/app/w/${workspaceId}`;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -118,7 +120,7 @@ export function QuestionsForm({
           },
         }),
       );
-      router.push(home);
+      router.push(next);
       router.refresh();
     } catch (err) {
       setBusy(false);
@@ -229,7 +231,7 @@ export function QuestionsForm({
 
         {error ? <FieldError>{error}</FieldError> : null}
         <div className="flex flex-wrap-reverse items-center justify-between gap-3">
-          <ButtonLink href={home} variant="ghost" data-testid="questions-skip">
+          <ButtonLink href={next} variant="ghost" data-testid="questions-skip">
             {QUESTION_WORDS.skip}
           </ButtonLink>
           <Button type="submit" size="lg" loading={busy} data-testid="questions-continue">

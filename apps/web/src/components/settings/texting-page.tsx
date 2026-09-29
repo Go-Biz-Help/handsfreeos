@@ -66,7 +66,7 @@ import { SetRow } from './set-row';
 import { TestTextDialog } from './test-text-dialog';
 
 type Status = PhoneSetupStatus;
-type NumberType = 'local' | 'toll_free';
+export type NumberType = 'local' | 'toll_free';
 
 const BUSINESS_TYPES = [
   ['llc', 'Limited liability company (LLC)'],
@@ -104,6 +104,7 @@ export function TextingPage({
   twilio,
   inboxPerPerson,
   surfaces,
+  setup,
 }: {
   workspaceId: string;
   businessName: string;
@@ -134,6 +135,11 @@ export function TextingPage({
    * addresses a carrier can open into the sentence it sends.
    */
   surfaces: HostedSurfaces;
+  /**
+   * Shown inside the setup wizard (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6): the kind of number its EIN
+   * question picked, and none of the account's own settings, which aren't a first-day question.
+   */
+  setup?: { numberType: NumberType };
 }) {
   useLiveRefresh([
     'phone_number',
@@ -172,7 +178,7 @@ export function TextingPage({
   );
   // Phone & texting on or off, and the business's Twilio Account SID: first on the page, because moving a
   // number here starts with giving that SID to HighLevel or Twilio.
-  const accountCard = <PhoneAccountCard workspaceId={workspaceId} />;
+  const accountCard = setup ? null : <PhoneAccountCard workspaceId={workspaceId} />;
   const sentSheet = (
     <SubmissionSheet open={showSent} onOpenChange={setShowSent} submission={submission} />
   );
@@ -311,6 +317,7 @@ export function TextingPage({
             failed={status.number?.status === 'failed' ? status.number : null}
             ports={ports}
             porting={porting}
+            numberType={setup?.numberType}
           />
         ) : step === 'porting' ? (
           // Weeks with a carrier, not seconds with us, so it is its own screen rather than the spinner that
@@ -453,11 +460,14 @@ function NumberStep({
   failed,
   ports,
   porting,
+  numberType = 'toll_free',
 }: {
   workspaceId: string;
   failed: PhoneNumberInfo | null;
   ports: readonly PortInfo[];
   porting: Porting;
+  /** The kind to search first. Toll-free unless the setup wizard's EIN question said local. */
+  numberType?: NumberType;
 }) {
   const router = useRouter();
   /**
@@ -475,7 +485,7 @@ function NumberStep({
       ? 'bring'
       : 'new',
   );
-  const [type, setType] = useState<NumberType>('toll_free');
+  const [type, setType] = useState<NumberType>(numberType);
   const [area, setArea] = useState('');
   const [prefix, setPrefix] = useState('');
   const [city, setCity] = useState('');

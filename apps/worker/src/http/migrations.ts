@@ -92,8 +92,21 @@ export function registerMigrationRoutes(
   // No source name in the redirect: GoHighLevel's marketplace form refuses a redirect URL that mentions
   // HighLevel, and the source is already known from the one-time state, so the path never needed it.
   const callbackUrl = () => `${deps.publicUrl}/migrations/callback`;
-  const backTo = (organizationId: string, extra = '') =>
-    `${deps.webUrl}/app/org/${organizationId}/migrations${extra}`;
+  /**
+   * Where a finished sign-in goes: the business's own Migrations page when it was connected from one, since only an
+   * agency's owners and admins can open the agency's; the agency's otherwise.
+   */
+  const backTo = async (row: StateRow, extra = '') => {
+    const [c] = await asWorker(deps.httpDb, { organizationId: row.organization_id }, (tx) =>
+      rows<{ workspace_id: string | null }>(
+        tx,
+        sql`select workspace_id from app.migration_connections where id = ${row.connection_id}`,
+      ),
+    );
+    return c?.workspace_id
+      ? `${deps.webUrl}/app/w/${c.workspace_id}/settings/migrations${extra}`
+      : `${deps.webUrl}/app/org/${row.organization_id}/migrations${extra}`;
+  };
 
   /** The pending sign-in a state belongs to, checked in constant time. */
   const stateRow = async (state: string | undefined): Promise<StateRow | null> => {
@@ -272,7 +285,7 @@ export function registerMigrationRoutes(
                    oauth_state_hash = null, oauth_state_expires_at = null
              where id = ${row.connection_id}`),
       );
-      return { next: backTo(row.organization_id, '?connect=cancelled') };
+      return { next: await backTo(row, '?connect=cancelled') };
     }
     const adapter = adapters.get(row.source_system);
     if (!adapter)
@@ -333,7 +346,7 @@ export function registerMigrationRoutes(
           causationId: row.connection_id,
         });
       });
-      return { next: backTo(row.organization_id, '?connected=1') };
+      return { next: await backTo(row, '?connected=1') };
     } catch (e) {
       // Never the body of the answer: a failed exchange can carry the code, and the code is a secret.
       deps.log.warn({ connectionId: row.connection_id }, 'source sign-in did not finish');
@@ -344,7 +357,7 @@ export function registerMigrationRoutes(
                    oauth_state_hash = null, oauth_state_expires_at = null
              where id = ${row.connection_id}`),
       );
-      return { next: backTo(row.organization_id, '?connect=failed') };
+      return { next: await backTo(row, '?connect=failed') };
     }
   });
 

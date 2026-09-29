@@ -3,14 +3,16 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { Brand } from '@/components/ui/brand';
 import { apiServer, getMe } from '@/lib/api/server';
+import { setupHref } from '@/lib/setup';
 import { QuestionsForm } from './questions-form';
 
 export const metadata: Metadata = { title: QUESTION_WORDS.title };
 
 /**
  * The quick questions (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6, board 1 in design/onboarding): straight
- * after Create business, and from the Getting started card for a business that never answered them. Only someone
- * who sets the business up answers them; anyone else goes to Home.
+ * after Create business, then the setup wizard, answered or skipped; and from the Getting started card for a
+ * business that never answered them, then back to Home. Only someone who sets the business up answers them; anyone
+ * else goes to Home.
  */
 export default async function QuestionsPage({
   params,
@@ -37,7 +39,8 @@ export default async function QuestionsPage({
       <Brand size={32} className="text-base" />
       <QuestionsForm
         workspaceId={workspaceId}
-        overline={fromGuide ? GUIDE_WORDS.title : 'Step 2 of 2'}
+        overline={fromGuide ? GUIDE_WORDS.title : 'Step 2 of 3'}
+        next={fromGuide ? `/app/w/${workspaceId}` : setupHref(workspaceId, 'number')}
         initial={{ answers: status?.answers ?? null, website: status?.website ?? null }}
       />
       <p className="text-[13px] text-text-3">

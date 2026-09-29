@@ -209,36 +209,44 @@ The boards in `design/onboarding` show each one.
 
 **Web**
 
-- **Create business** (board: none, unchanged apart from "Step 1 of 2"; "of 3" once the wizard follows the
-  questions).
-- **The quick questions** (board 1): `/onboarding/[workspaceId]/questions`, "Step 2 of 2", straight after Create
+- **Create business** (board: none, unchanged apart from "Step 1 of 3").
+- **The quick questions** (board 1): `/onboarding/[workspaceId]/questions`, "Step 2 of 3", straight after Create
   business. Chips, one website field (typed without the https://, or "We don't have one"), and a live "Your setup,
-  in this order" panel. Continue saves them with `onboarding.save_answers` and goes to Home (the wizard, once it
-  exists); Skip these questions goes to Home in the default order. A business that never answered them gets
-  "Answer 4 quick questions to put these in order" on its card, which opens the same page with `?from=guide`.
-  Someone without `workspace.update` is sent to Home.
-- **The wizard** (boards 2 to 5b): `/app/w/[workspaceId]/setup/[step]`. A rail of the must-dos in their order, with
-  the optional steps listed underneath as "Later, from your checklist"; Back, Skip for now, and one primary button.
-  Finish later goes to Home. Each step **mounts the existing component** rather than rebuilding it. Most need a
-  small change to live outside their page:
-  - `number`: the EIN question, then the number search, then `A2pWizard`. The search is `NumberStep`, private to
-    `texting-page.tsx` (2,000 lines); export it. `A2pWizard` already takes its data as props.
-  - `ai`: `TeammatePresetPicker` (Answer new leads, Qualify leads, Book visits) and the name, then `WebsiteScan`.
-    The scan refreshes through `router.refresh()`, so the step is a server page that loads it, as the knowledge page
-    does.
-  - `customers`: `ImportWizard` embeds as it is. `ConnectSourceButton` sends people to the migration's own page after
-    the scan; give it a way back to the wizard, since counting a big account takes a while.
-  - `calendar`: not `CalendarBuilder` (1,000 lines, tied to its page). Create a service calendar with the business's
-    hours, then `ServicesPage` (filled from the scan), the Google/Outlook buttons, and the booking site switch.
-  - `payments`: `connectPaymentAccount(workspaceId, provider)`. The sign-in always comes back to
-    `/settings/payments` (`apps/worker/src/http/oauth.ts`); add a `returnTo` limited to the app's own setup pages.
+  in this order" panel. Continue saves them with `onboarding.save_answers` and goes to the wizard's first step;
+  Skip these questions goes there too, in the default order. A business that never answered them gets "Answer 4
+  quick questions to put these in order" on its card, which opens the same page with `?from=guide`, and goes back
+  to Home. Someone without `workspace.update` is sent to Home.
+- **The wizard** (boards 2 to 5b): `/onboarding/[workspaceId]/setup/[step]`, outside `/app/w` like the questions,
+  so it has its own frame (the top bar with Finish later, no sidebar) around the live updates and permissions its
+  steps need. A rail of the must-dos in their order, with the optional steps listed underneath as "Later, from your
+  checklist"; Back, and Skip for now on a step still to do or Continue on one that's done, waiting or skipped. The
+  last step's Continue, and Finish later, go to Home. Payments has a screen whether or not it's a must-do; opened
+  from Home when it isn't, it goes back there. Each step **mounts the existing component** rather than rebuilding
+  it:
+  - `number`: the EIN question (yes: local; no, or a sole proprietor: toll-free), then Settings → Texting & calls
+    itself (`TextingPage` with `setup`, which drops the account card and starts the search on that kind), from
+    the search through `A2pWizard`. Once texting is on, just the number.
+  - `ai`: `TeammatePresetPicker` until there's a teammate, then `WebsiteScan`, with the questions' website ready to
+    scan, and links to Knowledge and to turning the teammate on.
+  - `customers`: move from GoHighLevel, import a spreadsheet, or add them as you go, with the answer's way marked.
+    `ImportWizard` as it is; `ConnectSourceButton`, then `StartMigrationButton`, which stays in the wizard while the
+    count runs, with a link to the move's own page.
+  - `calendar`: not `CalendarBuilder`. `ServicesPage`, then "Make my booking calendar" (a `service` calendar with
+    every service on it, turned on), `BookingSiteForm`, and a link to connecting Google or Outlook.
+  - `payments`: Stripe or Square through `connectPaymentAccount`.
+  - **Back from a sign-in.** The worker sends a finished Stripe, Square or GoHighLevel sign-in to the step's
+    Settings page. A step that starts one keeps a note in the tab first (`lib/setup-return.ts`), and the finishing
+    page goes back to the wizard instead, with `?payments=` as it came. Only in that tab, for 30 minutes, and only
+    when the worker was sending the person to that step's own page; no database change. A GoHighLevel sign-in
+    started from a business now comes back to that business's Migrations page rather than the agency's, which a
+    business owner can't open.
 - **Home** (board 6): `GettingStarted` (`components/home/getting-started.tsx`) replaces `SetupChecklist`. It
   shows until `finishedAt` or `hidden`, whether or not the business has customers. A brand-new business gets the
   whole card in place of the old one, above "This page becomes your Action Center"; a business already running gets
   it compact above its Action Center (the next step, and "Show all 9 steps"), so the list of what needs attention
   isn't pushed down. Two groups, The basics and When you're ready, each row with its state, one button and Skip;
-  the next open step is highlighted and its button is the page's one primary. A line under it points at ⌘J. Until
-  the wizard exists, each button opens the settings page that does the step. When the last step is done or
+  the next open step is highlighted and its button is the page's one primary. A line under it points at ⌘J. A
+  business step with a wizard screen opens it; the rest open the settings page that does the step. When the last step is done or
   skipped, the card says "You're set up" once, names what was skipped, and Done runs `onboarding.finish`. Whether
   the person signs in faster (a passkey or Google) is read on the server, only while that step is still open.
 - **Businesses that already exist** get the same card on Home, above the Action Center. They never went through the
@@ -327,8 +335,8 @@ Each step ships alone and leaves the tree green.
 2. ✅ **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card,
    for new and existing businesses. The phone app links sheet. The e2e specs move with it.
 3. ✅ **The quick questions** after Create business, and the order they set.
-4. **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back
-   from a migration), `calendar`, then `payments` (with the worker's `returnTo`).
+4. ✅ **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back
+   from a migration), `calendar`, then `payments` (with the way back from a sign-in).
 5. **The tour.**
 6. **Teammates**: the personal list on the web.
 7. **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).

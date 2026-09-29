@@ -1,10 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6). On Home, a new business's owner sees the
  * business's steps, the number first; skips one and takes it back; opens the phone app's links; hides the guide and
- * gets it back from Get help. Before that, the quick questions after Create business put the steps in order.
+ * gets it back from Get help. Before that, the quick questions after Create business put the steps in order, and
+ * the setup wizard walks them.
  */
 test('a new owner works through Getting started on Home, hides it, and brings it back', async ({
   page,
@@ -28,7 +30,7 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(number).toContainText('Business number & texting');
   await expect(number.getByRole('link', { name: 'Get a number' })).toHaveAttribute(
     'href',
-    /\/settings\/texting$/,
+    /\/onboarding\/[0-9a-f-]{36}\/setup\/number$/,
   );
 
   // Skip it: it says so, drops off the count, and Undo takes it back.
@@ -71,7 +73,7 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(page.getByRole('dialog', { name: 'Ask us for help' })).toBeVisible();
 });
 
-test('the quick questions put the steps in order, and check the website', async ({ page }) => {
+test('the quick questions put the steps in order, and the wizard walks them', async ({ page }) => {
   await signUpAndConfirm(page, 'guide-questions');
   const workspaceId = await createBusiness(page, {
     name: 'Questions Test Roofing',
@@ -101,17 +103,83 @@ test('the quick questions put the steps in order, and check the website', async 
   );
   await page.getByLabel('What’s your website?').fill('questionsroofing.test');
   await page.getByTestId('questions-continue').click();
+
+  // The wizard, in the answers' order: the number first, then payments. Invite your team isn't anywhere.
+  await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/setup/number$`));
+  const rail = page.getByTestId('setup-rail');
+  await expect(rail.getByRole('link')).toHaveCount(5);
+  await expect(rail.getByRole('link').nth(1)).toHaveAttribute('data-testid', 'setup-rail-payments');
+  await expect(rail).not.toContainText('Invite your team');
+  await expect(page.getByRole('heading', { name: 'Get your business number' })).toBeVisible();
+  // Whether there's an EIN decides the kind of number; the search below is Settings → Texting & calls.
+  await expect(page.getByTestId('setup-ein-yes')).toBeVisible();
+  await expect(page.getByTestId('texting-setup')).toBeVisible();
+
+  // Skip it for now: on to payments, and the side says so.
+  await page.getByTestId('setup-skip').click();
+  await expect(page).toHaveURL(new RegExp(`/setup/payments$`));
+  await expect(page.getByTestId('setup-rail-number')).toHaveAttribute('data-state', 'skipped');
+  await expect(page.getByText('You said getting paid comes first.')).toBeVisible();
+  await expect(page.getByTestId('setup-payments-connect')).toHaveText('Connect Stripe');
+  await page.getByTestId('setup-payments-square').click();
+  await expect(page.getByTestId('setup-payments-connect')).toHaveText('Connect Square');
+  // Back goes to the number; the rail goes anywhere.
+  await page.getByTestId('setup-back').click();
+  await expect(page).toHaveURL(new RegExp(`/setup/number$`));
+  await page.getByTestId('setup-rail-customers').click();
+
+  // Customers: GoHighLevel fits the answer; adding them as they come finishes the step.
+  await expect(page).toHaveURL(new RegExp(`/setup/customers$`));
+  await expect(page.getByText('You said your customers are in GoHighLevel.')).toBeVisible();
+  await expect(page.getByTestId('setup-customers-migrate')).toContainText('Fits your answer');
+  await expect(page.getByTestId('migration-connect')).toBeVisible();
+  await page.getByTestId('setup-customers-asYouGo').click();
+  await page.getByTestId('setup-customers-as-you-go').click();
+  await expect(page.getByTestId('setup-done')).toBeVisible();
+  await expect(page.getByTestId('setup-rail-customers')).toHaveAttribute('data-state', 'done');
+  await page.getByTestId('setup-continue').click();
+
+  // The calendar needs a service before there's something to book.
+  await expect(page).toHaveURL(new RegExp(`/setup/calendar$`));
+  await expect(page.getByTestId('setup-calendar-make')).toBeDisabled();
+  await expect(page.getByTestId('booking-site')).toBeVisible();
+  await page.getByTestId('setup-skip').click();
+
+  // The AI teammate, last: made from a preset. Skipping the last step goes Home.
+  await expect(page).toHaveURL(new RegExp(`/setup/ai$`));
+  await expect(page.getByTestId('teammate-preset-picker')).toBeVisible();
+  await page.getByTestId('setup-skip').click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
 
-  // Home follows the answers: payments is a must-do, second; there's no team step; nothing to answer again.
+  // Home follows the answers and the wizard: payments is a must-do, second; there's no team step; customers are
+  // done; three steps were skipped; nothing to answer again.
   const rows = page.getByTestId('getting-started').locator('li[data-state]');
   await expect(rows.nth(1)).toHaveAttribute('data-testid', 'getting-started-payments');
-  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 8 done');
   await expect(page.getByTestId('getting-started-team')).toHaveCount(0);
-  await expect(
-    page
-      .getByTestId('getting-started-customers')
-      .getByRole('link', { name: 'Move from GoHighLevel' }),
-  ).toBeVisible();
+  await expect(page.getByTestId('getting-started-customers')).toHaveAttribute('data-state', 'done');
+  await expect(page.getByTestId('getting-started-count')).toHaveText('1 of 5 done');
   await expect(page.getByTestId('getting-started-questions')).toHaveCount(0);
+});
+
+test('a sign-in started in the wizard comes back to it', async ({ page }) => {
+  await signUpAndConfirm(page, 'guide-payments');
+  const workspaceId = await createBusiness(page, { name: 'Wizard Pay Plumbing' });
+  await page.goto(`/onboarding/${workspaceId}/setup/payments`);
+  await expect(page.getByRole('heading', { name: 'Connect how you get paid' })).toBeVisible();
+  // Not a must-do without "Getting paid": it's among the later steps, and Continue goes Home.
+  await expect(page.getByTestId('setup-rail-payments')).toHaveCount(0);
+
+  // Stripe's sign-in (the stand-in) goes back to the wizard's step, not to Settings → Payments.
+  await page.getByTestId('setup-payments-connect').click();
+  await page.waitForURL(/\/oauth\/fake\/payments\/stripe\/authorize/);
+  await page.locator('#account').fill(`acct_wizard_${randomUUID().slice(0, 8)}`);
+  await page.getByTestId('fake-connect').click();
+  await expect(page).toHaveURL(new RegExp(`/onboarding/${workspaceId}/setup/payments$`));
+  await expect(
+    page.getByText('Connected. Money from HandsFreeOS goes straight into it.'),
+  ).toBeVisible();
+  await expect(page.getByTestId('setup-done')).toBeVisible();
+  await page.getByTestId('setup-continue').click();
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
+  await expect(page.getByTestId('getting-started-payments')).toHaveAttribute('data-state', 'done');
 });

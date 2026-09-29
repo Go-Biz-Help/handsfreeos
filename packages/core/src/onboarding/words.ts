@@ -448,6 +448,87 @@ export const WIZARD_WORDS = {
   finish: 'Finish and see Home',
   /** A step already done, when someone opens it again. */
   alreadyDone: 'This one’s done. Change anything below, or carry on.',
+  /** Someone who can set the business up but not use what a step opens (a custom role). */
+  cantDo:
+    'You can’t change this part of the business. Ask an owner of this business to do this step, or skip it for now.',
+  ein: {
+    question: 'Does your business have an EIN?',
+    yes: 'Yes',
+    yesDetail: 'You get a local number. Carriers approve texting in 1 to 3 weeks.',
+    no: 'No, or I’m a sole proprietor',
+    noDetail: 'You get a toll-free number. Carriers approve texting in a few business days.',
+  },
+  numberReady: (number: string) => `${number} is yours, and texting is on.`,
+  numberSettings: 'Change it in Settings → Texting & calls',
+  aiManual: 'No website, or something it missed? Add it by hand in Knowledge.',
+  aiManualLink: 'Open Knowledge',
+  aiTurnOn: 'Your AI teammate starts off. Turn it on from the AI teammate page when you’re ready.',
+  aiTurnOnLink: 'Open AI teammate',
+  /** What the quick questions said about where the customers are now. */
+  customersSaid: {
+    sheet: 'You said your customers are in a spreadsheet.',
+    ghl: 'You said your customers are in GoHighLevel.',
+    crm: 'You said your customers are in another CRM. Export them from it as a spreadsheet, then import that here.',
+    phone:
+      'You said your customers are in your phone’s contacts. Export them as a spreadsheet, or add them as you go.',
+    none: 'You said you don’t keep a list yet, so new leads can add themselves.',
+  },
+  fitsAnswer: 'Fits your answer',
+  ways: {
+    migrate: {
+      title: 'Move from GoHighLevel',
+      detail:
+        'Sign in to GoHighLevel. We count what’s there and show you before anything moves. Nothing in GoHighLevel is changed or cancelled.',
+    },
+    sheet: {
+      title: 'Import a spreadsheet',
+      detail: 'A CSV with up to 20,000 rows. You match the columns before anything is added.',
+    },
+    asYouGo: {
+      title: 'Add them as you go',
+      detail: 'New leads from calls, texts and your booking page add themselves.',
+    },
+  },
+  asYouGoAction: 'Add them as I go',
+  migrationCounting: {
+    title: 'Counting a big account takes a while',
+    detail:
+      'Keep setting up. The counts wait for you under Settings → Migrations, and on your checklist.',
+  },
+  migrationOpen: 'See the move',
+  migrationReady: 'Open it to choose what comes across. Nothing moves until you say so.',
+  calendarServices: 'Services',
+  calendarServicesHint: 'What customers can book. Add each one with how long it takes.',
+  calendarName: 'Service calls',
+  calendarMake: 'Make my booking calendar',
+  calendarMakeDetail:
+    'One calendar your team takes bookings on, open during their working hours. Change anything later in Settings → Calendars.',
+  calendarNeedsService: 'Add a service first, so there’s something to book.',
+  calendarMade: (name: string) => `${name} takes bookings.`,
+  calendarDraft: (name: string) =>
+    `${name} isn’t taking bookings yet. Finish it in Settings → Calendars.`,
+  calendarOpen: 'Open it',
+  busyTimes: 'Your busy times',
+  busyTimesDetail:
+    'Connect Google or Outlook so nobody books you while you’re already out on a job.',
+  busyTimesLink: 'Connect your calendar',
+  paymentsSaid: 'You said getting paid comes first.',
+  providers: {
+    stripe: {
+      title: 'Stripe',
+      badge: 'Most businesses',
+      detail:
+        'Cards and bank payments. No account yet? You can open one while you connect. Stripe may take a day or two to check your details.',
+    },
+    square: {
+      title: 'Square',
+      detail:
+        'If you already take payments with Square, keep using it. Your payments and payouts stay the same.',
+    },
+  },
+  connect: (provider: string) => `Connect ${provider}`,
+  paymentsWaiting: (provider: string) =>
+    `${provider} is checking your details. That usually takes a day or two, and you can carry on meanwhile.`,
   titles: {
     number: 'Get your business number',
     payments: 'Connect how you get paid',
@@ -468,6 +549,7 @@ export const WIZARD_WORDS = {
 } as const satisfies {
   titles: Record<'number' | 'payments' | 'customers' | 'calendar' | 'ai', string>;
   intros: Record<'number' | 'payments' | 'customers' | 'calendar' | 'ai', string>;
+  customersSaid: Record<OnboardingAnswers['customersIn'], string>;
   [key: string]: unknown;
 };
 

@@ -54,19 +54,12 @@ import type { PaymentConnectionRow } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import type { TeamMember } from './payment-access-dialog';
-import { connectPaymentAccount, PaymentConnectionCard } from './payment-connection-card';
+import {
+  connectPaymentAccount,
+  PAYMENT_RESULT,
+  PaymentConnectionCard,
+} from './payment-connection-card';
 import { SetRow } from './set-row';
-
-/** What the redirect from Stripe or Square says when it lands back here. */
-const RESULT: Readonly<Record<string, { tone: 'success' | 'error' | 'plain'; text: string }>> = {
-  connected: { tone: 'success', text: 'Connected. Money from HandsFreeOS goes straight into it.' },
-  cancelled: { tone: 'plain', text: 'Nothing was connected.' },
-  missing_permissions: {
-    tone: 'error',
-    text: 'A permission was left unticked, so we couldn’t finish. Try again and leave them all on.',
-  },
-  failed: { tone: 'error', text: 'That account didn’t connect. Try again.' },
-};
 
 const TERM_WORDS: Readonly<Record<PaymentTerms, string>> = {
   due_on_receipt: 'When they get it',
@@ -239,7 +232,7 @@ export function PaymentsSettings({
   useEffect(() => {
     if (!result || told.current) return;
     told.current = true;
-    const r = RESULT[result] ?? RESULT.failed!;
+    const r = PAYMENT_RESULT[result] ?? PAYMENT_RESULT.failed!;
     if (r.tone === 'success') toast.success(r.text);
     else if (r.tone === 'error') toast.error(r.text);
     else toast(r.text);

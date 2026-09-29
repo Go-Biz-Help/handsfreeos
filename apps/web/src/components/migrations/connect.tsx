@@ -56,10 +56,13 @@ async function pasteToken(input: {
 export function ConnectSourceButton({
   organizationId,
   workspaceId,
+  beforeLeave,
 }: {
   organizationId: string;
   /** Set on a business's own Settings page: the connection is then recorded as that business's. */
   workspaceId?: string;
+  /** Just before the browser leaves for the old system's sign-in: the setup wizard notes its way back. */
+  beforeLeave?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -72,6 +75,7 @@ export function ConnectSourceButton({
         <ConnectDialog
           organizationId={organizationId}
           workspaceId={workspaceId}
+          beforeLeave={beforeLeave}
           onOpenChange={setOpen}
         />
       ) : null}
@@ -82,10 +86,12 @@ export function ConnectSourceButton({
 function ConnectDialog({
   organizationId,
   workspaceId,
+  beforeLeave,
   onOpenChange,
 }: {
   organizationId: string;
   workspaceId?: string;
+  beforeLeave?: () => void;
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
@@ -118,6 +124,7 @@ function ConnectDialog({
       );
       if (!pasting) {
         // Off to the old system's own sign-in, through the worker.
+        beforeLeave?.();
         window.location.href = `${publicEnv.workerUrl}${out.startPath}`;
         return;
       }
@@ -285,11 +292,14 @@ export function StartMigrationButton({
   workspaceId,
   connectionId,
   sourceLabel,
+  onStarted,
 }: {
   organizationId: string;
   workspaceId?: string;
   connectionId: string;
   sourceLabel: string;
+  /** In place of opening the migration's page: the setup wizard stays where it is while the count runs. */
+  onStarted?: (migrationId: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -319,6 +329,12 @@ export function StartMigrationButton({
         }),
       );
       toast.success('Looking at the old system. This only reads — nothing moves yet.');
+      if (onStarted) {
+        setOpen(false);
+        setBusy(false);
+        onStarted(created.migrationId);
+        return;
+      }
       router.push(
         workspaceId
           ? `/app/w/${workspaceId}/settings/migrations/${created.migrationId}`

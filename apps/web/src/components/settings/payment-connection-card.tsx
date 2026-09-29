@@ -28,6 +28,19 @@ import { PaymentAccessDialog, usedByWords, type TeamMember } from './payment-acc
 
 export type ConnectableProvider = 'stripe' | 'square';
 
+/** What the redirect from Stripe or Square says when it lands back here. */
+export const PAYMENT_RESULT: Readonly<
+  Record<string, { tone: 'success' | 'error' | 'plain'; text: string }>
+> = {
+  connected: { tone: 'success', text: 'Connected. Money from HandsFreeOS goes straight into it.' },
+  cancelled: { tone: 'plain', text: 'Nothing was connected.' },
+  missing_permissions: {
+    tone: 'error',
+    text: 'A permission was left unticked, so we couldn’t finish. Try again and leave them all on.',
+  },
+  failed: { tone: 'error', text: 'That account didn’t connect. Try again.' },
+};
+
 export const PROVIDER_NAME: Readonly<Record<string, string>> = {
   stripe: 'Stripe',
   square: 'Square',

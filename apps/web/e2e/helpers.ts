@@ -89,12 +89,14 @@ export async function createBusiness(
     await page.getByLabel('Agency name').fill(opts.agencyName);
   }
   await page.getByRole('button', { name: 'Create business' }).click();
-  // The quick questions come next (getting-started.spec.ts answers them); everything else skips them.
+  // The quick questions and the setup wizard come next (getting-started.spec.ts goes through them); everything
+  // else goes straight to Home, as Finish later would.
   await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\/questions$/);
-  if (opts.answerQuestions) return /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
-  await page.getByTestId('questions-skip').click();
-  await expect(page).toHaveURL(/\/app\/w\/[0-9a-f-]{36}$/);
-  return /\/app\/w\/([0-9a-f-]{36})/.exec(page.url())![1]!;
+  const id = /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
+  if (opts.answerQuestions) return id;
+  await page.goto(`/app/w/${id}`);
+  await expect(page).toHaveURL(new RegExp(`/app/w/${id}$`));
+  return id;
 }
 
 export async function signIn(

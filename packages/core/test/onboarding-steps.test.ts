@@ -6,7 +6,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   businessOnboardingOf,
+  isWizardStep,
   laterOrder,
+  mustDoOrder,
+  ONBOARDING_GOALS,
+  railLine,
   previewDetail,
   QUESTION_WORDS,
   ONBOARDING_WORDS,
@@ -79,6 +83,13 @@ const step = (p: ReturnType<typeof owner>, key: OnboardingStepKey) =>
   p.steps.find((s) => s.key === key)!;
 
 describe('the order', () => {
+  it('gives every must-do, whatever the goal, a screen in the setup wizard', () => {
+    for (const goal of [...ONBOARDING_GOALS, null])
+      for (const key of mustDoOrder(goal)) expect(isWizardStep(key), `${goal}: ${key}`).toBe(true);
+    expect(isWizardStep('team')).toBe(false);
+    expect(isWizardStep('app')).toBe(false);
+  });
+
   it('puts the number first and the rest in a sensible order when nothing was answered', () => {
     const p = owner(facts());
     expect(keys(p, 'basics')).toEqual(['number', 'customers', 'calendar', 'ai']);
@@ -326,6 +337,22 @@ describe('the words', () => {
     );
     expect(stepWords(n).badge).toBe('In review · day 1');
     expect(stepWords(n).detail).toMatch(/^\(512\) 555-0148\. Calls work now\./);
+  });
+
+  it('says under each step in the wizard where it stands', () => {
+    const p = owner(
+      facts({
+        number: { next: 'awaiting_approval', display: '(512) 555-0148', since: null },
+        customers: { count: 42 },
+      }),
+      answers(),
+      ['calendar'],
+    );
+    expect(railLine(step(p, 'number'))).toBe('(512) 555-0148 · texting in review');
+    expect(railLine(step(p, 'customers'))).toBe('42 in');
+    expect(railLine(step(p, 'calendar'))).toBe('Skipped for now');
+    // Still to do: what the quick questions' preview said about it.
+    expect(railLine(step(p, 'ai'), answers())).toBe(previewDetail('ai', answers()));
   });
 });
 

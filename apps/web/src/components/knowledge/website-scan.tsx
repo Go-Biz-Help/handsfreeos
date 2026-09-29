@@ -32,6 +32,7 @@ export function WebsiteScan({
   scan,
   suggestions,
   current,
+  suggestedUrl,
 }: {
   workspaceId: string;
   canManage: boolean;
@@ -39,9 +40,11 @@ export function WebsiteScan({
   scan: KnowledgeScan | null;
   suggestions: readonly KnowledgeSuggestion[];
   current: Readonly<Record<string, CurrentItem>>;
+  /** Before any website is saved here: the one the quick questions gave, ready to scan. */
+  suggestedUrl?: string | null;
 }) {
   const router = useRouter();
-  const [url, setUrl] = useState(source?.url ?? '');
+  const [url, setUrl] = useState(source?.url ?? suggestedUrl ?? '');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'save' | 'scan' | null>(null);
   const live = scanLive(scan);

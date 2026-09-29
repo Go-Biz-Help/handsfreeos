@@ -2,6 +2,7 @@
 import {
   canActOnStep,
   GUIDE_WORDS,
+  isWizardStep,
   ONBOARDING_WORDS,
   progressWords,
   stepTitle,
@@ -18,6 +19,7 @@ import { Card } from '@/components/ui/card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { OnboardingStatus, OnboardingStep } from '@/lib/api/types';
 import { publicEnv } from '@/lib/env';
+import { setupHref } from '@/lib/setup';
 import { cn } from '@/lib/utils';
 import { PhoneAppDialog } from './phone-app-dialog';
 
@@ -221,35 +223,21 @@ function Steps({
   );
 }
 
-/** Where a step's button goes. The phone app and its notifications open the app's links instead. */
-function stepHref(workspaceId: string, step: OnboardingStep, status: OnboardingStatus) {
+/**
+ * Where a step's button goes: the setup wizard's screen for a business step that has one, else the page that does
+ * it. The phone app and its notifications open the app's links instead.
+ */
+function stepHref(workspaceId: string, step: OnboardingStep) {
+  const key = step.key;
+  if (isWizardStep(key)) return setupHref(workspaceId, key);
   const base = `/app/w/${workspaceId}`;
-  const phase = step.note.phase;
-  switch (step.key) {
-    case 'number':
-      return `${base}/settings/texting`;
-    case 'payments':
-      return `${base}/settings/payments`;
-    case 'customers':
-      if (phase === 'migration_check' || status.answers?.customersIn === 'ghl')
-        return `${base}/settings/migrations`;
-      return status.answers?.customersIn === 'sheet' || status.answers?.customersIn === 'crm'
-        ? `${base}/imports/new`
-        : `${base}/customers`;
-    case 'calendar':
-      return phase === 'booking'
-        ? `${base}/settings/calendars/booking-site`
-        : `${base}/settings/calendars`;
-    case 'ai':
-      return phase === 'suggestions' || phase === 'scanning'
-        ? `${base}/knowledge/website`
-        : phase === 'thin'
-          ? `${base}/knowledge`
-          : `${base}/ai-team`;
+  switch (key) {
     case 'team':
       return `${base}/members?invite=1`;
     case 'email_chat':
-      return phase === 'mailbox' ? `${base}/settings/website-chat` : `${base}/settings/email`;
+      return step.note.phase === 'mailbox'
+        ? `${base}/settings/website-chat`
+        : `${base}/settings/email`;
     case 'sign_in':
       return `${base}/settings#${publicEnv.passkeysEnabled ? 'passkeys' : 'google'}`;
     case 'my_calendar':
@@ -316,7 +304,7 @@ function StepRow({
 }) {
   const words = stepWords(step, status.answers);
   const open = step.state === 'todo' || step.state === 'needs_fix';
-  const href = stepHref(workspaceId, step, status);
+  const href = stepHref(workspaceId, step);
   const action =
     canAct && words.action && (open || step.state === 'skipped') ? (
       href ? (

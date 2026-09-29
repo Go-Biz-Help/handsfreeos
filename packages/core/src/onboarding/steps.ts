@@ -19,6 +19,15 @@ export const BUSINESS_STEPS = [
 ] as const;
 export type BusinessStepKey = (typeof BUSINESS_STEPS)[number];
 
+/**
+ * The business steps with a screen of their own in the setup wizard (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md
+ * §6): every must-do, and payments, which is one only for "Getting paid". The rest open their settings page.
+ */
+export const WIZARD_STEPS = ['number', 'payments', 'customers', 'calendar', 'ai'] as const;
+export type WizardStepKey = (typeof WIZARD_STEPS)[number];
+export const isWizardStep = (key: string): key is WizardStepKey =>
+  (WIZARD_STEPS as readonly string[]).includes(key);
+
 /** One person's own: an owner sees the first two under "When you're ready", a teammate sees all four. */
 export const PERSONAL_STEPS = ['app', 'sign_in', 'notifications', 'my_calendar'] as const;
 export type PersonalStepKey = (typeof PERSONAL_STEPS)[number];
