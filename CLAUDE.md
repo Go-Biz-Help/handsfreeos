@@ -42,6 +42,16 @@ Don't route around these. The tests hold most of them.
 - **Side effects come from events**, which the worker takes from the outbox.
 - **One copy of shared logic.** What the web and the phone both show or decide lives once, in `@hfos/core`. Money is worked out in `packages/core/src/money`, the push categories are in `push.ts`, and the Add-ons page's words are in `addons/words.ts`.
 
+## Error messages
+
+Every refusal a person can read explains the problem and, when anything can be done, how to fix it.
+
+- **Say what's wrong, then what to do.** "Nobody on this calendar’s team does Duct cleaning. Tick someone under Who can do it in Settings → Calendars → Services." Name the screen or setting where the fix is.
+- **Use what the request knows:** the name of the thing, the number, the ZIP code. Work out which cause it was rather than listing every possible one.
+- **When the person can't fix it,** say who can ("Ask an owner of this business…") or what to try ("Try again in a minute.").
+- **Plain words, short sentences, curly apostrophes.** No codes, ids or table names, and never blame.
+- **Clients branch on `rule`, never on the words,** so wording can always improve. Tests check the rule, and only the parts of the message that matter.
+
 ## Add-ons
 
 `docs/addon-architecture.md` is the guide; read it before touching add-on code. What matters most:

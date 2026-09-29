@@ -576,3 +576,24 @@ export function effectiveWorkspaceRole(
   if (candidates.length === 0) return null;
   return candidates.sort((a, b) => roleRank(b) - roleRank(a))[0] ?? null;
 }
+
+/**
+ * What a person refused for lacking `permission` reads: what they'd need, and who can give it. `role` is theirs in
+ * the business, null when they aren't in it.
+ */
+export function missingPermissionMessage(
+  permission: Permission,
+  role: WorkspaceRole | null,
+): string {
+  if (isStaffPermission(permission))
+    return 'Your support role doesn’t cover that. A support admin can change your role.';
+  if (isOrgPermission(permission))
+    return 'Only an owner or admin of the agency can do that. Ask one of them.';
+  if (!role) return 'You’re not in this business. Ask one of its owners to invite you.';
+  const info = CUSTOMIZABLE_PERMISSIONS.find((p) => p.permission === permission);
+  if (info)
+    return `You need the “${info.label}” permission for that. An owner of this business can turn it on for you in Settings → Permissions.`;
+  if (!hasWorkspacePermission('admin', permission))
+    return 'Only an owner of this business can do that. Ask one of them.';
+  return 'Only owners and admins of this business can do that. Ask an owner to change your role on the Members page.';
+}

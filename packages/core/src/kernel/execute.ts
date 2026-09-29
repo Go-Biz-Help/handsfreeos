@@ -9,6 +9,7 @@ import {
   hasWorkspacePermission,
   isOrgPermission,
   isStaffPermission,
+  missingPermissionMessage,
   type OrgRole,
   type Permission,
   type StaffRole,
@@ -157,7 +158,7 @@ function assertPermission(scope: ResolvedScope, permission: Permission): void {
     : isOrgPermission(permission)
       ? hasOrgPermission(scope.orgRole, permission)
       : scopeCan(scope, permission);
-  if (!ok) throw HfosError.forbidden();
+  if (!ok) throw HfosError.forbidden(missingPermissionMessage(permission, scope.workspaceRole));
 }
 
 /**
