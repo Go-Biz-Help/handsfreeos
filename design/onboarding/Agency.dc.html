@@ -92,7 +92,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
 <button class="{{ r.cls }}" onClick="{{ r.open }}">
 <span class="row" style="gap: 10px; min-width: 0;"><span class="avatar" style="background: {{ r.color }};">{{ r.initials }}</span><span class="stack" style="min-width: 0;"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.name }}</span><span class="xs faint">{{ r.owner }}</span></span></span>
-<span class="row" style="gap: 8px;"><span class="mini"><i style="width: {{ r.pct }}%;"></i></span><span class="small tnum muted">{{ r.done }} of 8</span></span>
+<span class="row" style="gap: 8px;"><span class="mini"><i style="width: {{ r.pct }}%;"></i></span><span class="small tnum muted">{{ r.done }} of 7</span></span>
 <span class="row" style="gap: 8px; min-width: 0;"><span class="{{ r.badgeCls }}">{{ r.badge }}</span><span class="small muted" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.note }}</span></span>
 </button>
 </sc-for>
@@ -104,7 +104,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 <div class="scrim"></div>
 <aside class="sheet" role="dialog" aria-label="Northstar Electric setup">
 <div class="row" style="justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border);">
-<div class="stack" style="gap: 2px;"><h2 style="font-size: 18px; font-weight: 600;">Northstar Electric</h2><span class="small muted">Riley Chen · 1 of 8 done · last signed in 2 days ago</span></div>
+<div class="stack" style="gap: 2px;"><h2 style="font-size: 18px; font-weight: 600;">Northstar Electric</h2><span class="small muted">Riley Chen · 1 of 7 done · last signed in 2 days ago</span></div>
 <button class="btn btn-ghost" aria-label="Close" onClick="{{ close }}" style="width: 36px; padding: 0;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
 </div>
 <div style="flex: 1; overflow: hidden; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
@@ -125,9 +125,7 @@ a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover
 <div class="overline" style="margin-bottom: 4px;">When they’re ready</div>
 <div class="step"><span class="st"></span><span style="flex: 1; font-weight: 500;">Invite their team</span><span class="xs faint">Owner’s call</span></div>
 <div class="step"><span class="st"></span><span style="flex: 1; font-weight: 500;">Connect payments</span><span class="xs faint">Owner signs in to Stripe or Square</span></div>
-<div class="step"><span class="st" style="border-style: dashed;"></span><span style="flex: 1; font-weight: 500; color: var(--text-3);">Email &amp; website chat</span><span class="badge badge-gray">Skipped</span></div>
-<div class="step"><span class="st"></span><span style="flex: 1; font-weight: 500;">Get the phone app</span><span class="xs faint">Owner’s phone</span></div>
-</div>
+<div class="step"><span class="st" style="border-style: dashed;"></span><span style="flex: 1; font-weight: 500; color: var(--text-3);">Email &amp; website chat</span><span class="badge badge-gray">Skipped</span></div></div>
 </div>
 <div class="row" style="padding: 14px 24px; border-top: 1px solid var(--border); justify-content: space-between;">
 <button class="btn btn-secondary">Email Riley a reminder</button>
@@ -151,8 +149,8 @@ class Component extends DCLogic {
       { name: 'Riverbend Roofing', owner: 'Tomás Ortega', initials: 'RR', color: '#996300', done: 2, group: 'stuck', badge: 'Stuck', badgeCls: 'badge badge-bad', note: 'Hasn’t signed in for 6 days' },
       { name: 'Lone Star HVAC & Roofing', owner: 'Dale Ramsey', initials: 'LS', color: '#2d69d8', done: 3, group: 'setup', badge: 'In review', badgeCls: 'badge badge-wait', note: 'Texting in review · customers skipped' },
       { name: 'Bluebonnet Plumbing', owner: 'Ana Ruiz', initials: 'BP', color: '#1950b5', done: 5, group: 'setup', badge: 'Needs a look', badgeCls: 'badge badge-wait', note: 'Website scan waiting for review' },
-      { name: 'Cedar Park Pools', owner: 'Jordan Blake', initials: 'CP', color: '#008743', done: 6, group: 'setup', badge: 'Optional left', badgeCls: 'badge badge-gray', note: 'Payments and phone app' },
-      { name: 'Hill Country Pest Control', owner: 'Marcus Webb', initials: 'HC', color: '#5b616a', done: 8, group: 'done', badge: 'Done', badgeCls: 'badge badge-ok', note: 'Finished Sep 22' }
+      { name: 'Cedar Park Pools', owner: 'Jordan Blake', initials: 'CP', color: '#008743', done: 6, group: 'setup', badge: 'Optional left', badgeCls: 'badge badge-gray', note: 'Connect payments' },
+      { name: 'Hill Country Pest Control', owner: 'Marcus Webb', initials: 'HC', color: '#5b616a', done: 7, group: 'done', badge: 'Done', badgeCls: 'badge badge-ok', note: 'Finished Sep 22' }
     ];
     const counts = { all: 12, stuck: 2, setup: 4, done: 6 };
     const filters = [['all', 'All'], ['stuck', 'Stuck'], ['setup', 'Setting up'], ['done', 'Done']];
@@ -162,7 +160,7 @@ class Component extends DCLogic {
       filters: filters.map(([id, label]) => ({ label: label + ' · ' + counts[id], on: f === id, cls: 'chip' + (f === id ? ' on' : ''), pick: () => this.setState({ filter: id }) })),
       open,
       close: () => this.setState({ open: false }),
-      rows: all.filter((r) => f === 'all' || r.group === f).map((r) => ({ ...r, pct: Math.round((r.done / 8) * 100), cls: 'trow' + (r.sel && open ? ' sel' : ''), open: () => this.setState({ open: true }) }))
+      rows: all.filter((r) => f === 'all' || r.group === f).map((r) => ({ ...r, pct: Math.round((r.done / 7) * 100), cls: 'trow' + (r.sel && open ? ' sel' : ''), open: () => this.setState({ open: true }) }))
     };
   }
 }

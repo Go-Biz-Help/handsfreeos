@@ -24,8 +24,13 @@ Teammates get a short list of their own, and an agency sees where every client b
 | When the guide goes away   | **Once every step is done or skipped.** Not after a set time                                                                                                              |
 | Who sees it                | **Owners and admins get the business guide. Teammates get a short list of their own** (the phone app, their calendar, sign-in) and the tour                               |
 | Agencies                   | **An agency sees every client's setup and can do steps for them**                                                                                                         |
+| Businesses that exist      | **They get the guide on Home too**, with what they've already done ticked                                                                                                 |
+| The phone app step         | **Sends the test links** (TestFlight and Google Play internal testing) **until Chris says to switch** to the store versions                                               |
+| Texting turned down later  | **A card on Home, plus the email that already goes out.** The guide stays gone                                                                                            |
+| When the AI step is done   | **The teammate exists and its knowledge isn't thin.** It stays in training until it has earned its approvals, as today                                                    |
+| Today's checklist items    | **Confirm email and Create business go. Passkey and Google sign-in become "Sign in faster" on everyone's list**, owners included                                          |
 
-Choices the decisions didn't spell out, made on the boards and open to change (§10):
+Choices the decisions didn't spell out, made on the boards and open to change:
 
 - **The business number always goes first**, whatever the answers: carrier review takes days (toll-free) to weeks
   (local), and everything else can happen while it runs.
@@ -67,8 +72,8 @@ Choices the decisions didn't spell out, made on the boards and open to change (�
 - The founding-offers plan (§9 there) ends onboarding on a **plan picker** when there's no claim token or
   subscription. That isn't built. When it is, it goes **between Create business and the questions**, so the numbering
   becomes "Step 1 of 4".
-- The phone app is on **TestFlight only**; the store addresses in `apps/site/src/content/site.ts` are empty. Until
-  they're filled, "Get the phone app" has nowhere to send people (§10).
+- The phone app isn't in the stores yet; the store addresses in `apps/site/src/content/site.ts` are empty. The app
+  step sends the test links instead (§3).
 
 ## 3. The steps
 
@@ -84,16 +89,30 @@ is, when it's done and what it says.
 | `ai`         | `ai_team.manage` and `knowledge.manage` | Yes                        | The teammate exists and its knowledge isn't thin (`ai_teammate.get`; thin is under 5 items or the profile under half full) | Waiting while the website scan has suggestions nobody has kept (`knowledge_scan.get`)            |
 | `team`       | `members.invite`                        | No. Hidden for "Just me"   | More than one member, or an invitation that hasn't expired                                                                 | —                                                                                                |
 | `email_chat` | `channels.manage`                       | No                         | A mailbox `active` **and** the chat widget seen on the site (`email.setup_status`, `chat_widget.list` `install.seen`)      | Shows "1 of 2" when one is done                                                                  |
-| `app`        | Everyone                                | No                         | This person has a phone registered (`push_device.list`)                                                                    | —                                                                                                |
 
-The teammate's own list, for anyone without `workspace.update`:
+Those seven are the **business steps**: shared by everyone who manages the business, and what the agency view
+counts. The **personal steps** belong to one person:
 
-| Step            | Done when                                                                       |
-| --------------- | ------------------------------------------------------------------------------- |
-| `app`           | They have a phone registered                                                    |
-| `notifications` | That phone has push allowed                                                     |
-| `my_calendar`   | They have an `active` Google or Outlook connection (`calendar_connection.list`) |
-| `sign_in`       | They have a passkey or Google sign-in (read in the browser, as today)           |
+| Step            | Who       | Done when                                                                       |
+| --------------- | --------- | ------------------------------------------------------------------------------- |
+| `app`           | Everyone  | This person has a phone registered (`push_device.list`)                         |
+| `sign_in`       | Everyone  | They have a passkey or Google sign-in (read in the browser, as today)           |
+| `notifications` | Teammates | That phone has push allowed                                                     |
+| `my_calendar`   | Teammates | They have an `active` Google or Outlook connection (`calendar_connection.list`) |
+
+An owner or admin sees the business steps plus `app` and `sign_in` under "When you're ready" (9 rows, "3 of 9
+done" on the boards). A teammate, anyone without `workspace.update`, sees only the four personal steps.
+
+**The phone app links.** Until the app is in the stores, "Get the phone app" opens a small sheet with one link
+for iPhone and one for Android, each with a QR code to scan from a computer:
+
+- iPhone (TestFlight): `https://testflight.apple.com/join/GBEM8rJU`
+- Android (Google Play internal testing): `https://play.google.com/apps/internaltest/4701652122344223804`
+
+They live in one place, `packages/core/src/onboarding/app-links.ts`, which the web, the phone's teammate list and
+the emails all read. When Chris says the store versions are out, that file changes to the store addresses (and
+`apps/site/src/content/site.ts` gets them too). Google Play's internal testing installs only for Google accounts on
+the test's tester list in Play Console; anyone else sees "app not available".
 
 Two details:
 
@@ -105,7 +124,8 @@ Two details:
 
 ## 4. What's kept, and where
 
-No new tables. Everything fits the settings documents that already exist.
+No new tables. Everything fits the settings documents that already exist. (The one migration is for the new Home
+card, §6.)
 
 **The business's answers and skips**, in `workspaces.settings.onboarding`, with its own command (added to
 `SETTINGS_WITH_THEIR_OWN_COMMAND`, so `workspace.update` refuses it):
@@ -140,7 +160,11 @@ Both documents already sync to the phone (`apps/sync/sync-config.yaml`), so noth
 
 **Why `finishedAt` is stored and not only worked out:** a mailbox that signs out next month shouldn't bring the
 guide back. Once every step has been done or skipped, the guide is finished for good. After that, problems go where
-they go today: the Action Center (`connection_error`) and the settings pages.
+they go today: the Action Center (`connection_error`, and the new `texting_rejected`, §6) and the settings pages.
+
+**Businesses that already exist** need nothing moved: no `finishedAt` means the guide shows. Their steps are worked
+out from what they've already set up, so most arrive ticked. One that's already complete finishes without showing
+anything.
 
 ## 5. Commands and queries
 
@@ -198,14 +222,19 @@ The boards in `design/onboarding` show each one.
   When you're ready, each row with its state and one button. The next open must-do is highlighted. Right-hand
   cards: who can help (the agency, when there is one, and ⌘J). When the last step is done or skipped, the card
   shows "You're set up" once, lists what was skipped with where to find each, and `onboarding.finish` runs.
+- **Businesses that already exist** get the same card on Home, above the Action Center. They never went through the
+  questions, so the card offers "Answer 4 quick questions to put these in order" (the questions page, then back to
+  Home) and uses the default order until then. The wizard isn't opened for them; each row still opens its wizard
+  screen. The tour is offered once, from the card.
 - **The tour** (board 7): five stops (Home, Inbox, Pipeline, Calendar, Ask HandsFreeOS), shown once after the
   wizard and again from Get help. Anchored to `data-tour` attributes on the sidebar rows. On a phone-width browser
   it points at the bottom bar instead, and skips Ask HandsFreeOS. A small component of our own: there's no tour
   library in the app, and five popovers don't need one.
-- **Get help** (board 8): "Getting started · 3 of 8" (shows the guide again) and "Take the tour". A dot on Get help
+- **Get help** (board 8): "Getting started · 3 of 9" (shows the guide again) and "Take the tour". A dot on Get help
   while the guide is hidden and unfinished. Hiding shows a toast: "Getting started is hidden. It's under Get help
   whenever you want it."
-- **Agency** (board 11): a Setup column and All / Stuck / Setting up / Done filters on **Client businesses**. A
+- **Agency** (board 11): a Setup column (the seven business steps) and All / Stuck / Setting up / Done filters on
+  **Client businesses**. A
   business opens a side sheet with its steps. "Do it for them" opens the client's workspace at that wizard step;
   "Email a reminder" runs `onboarding.remind`. Stuck means a step needs a fix, or the owner hasn't signed in for 5
   days with must-dos open. The daily agency digest gets one line per stuck business.
@@ -220,6 +249,21 @@ The boards in `design/onboarding` show each one.
   phone copy everything again.
 - The notifications row is answered on the phone itself, from the phone's own permission.
 
+**Texting turned down after the guide is gone**
+
+The `number` step counts as done once the details go to the carriers, and they can refuse weeks later. Owners
+already get `textingRejectedEmail`. Nothing puts it on Home today: `connection_error` only covers a phone number
+whose status is `failed`, not a refused registration. So a new Action Center kind, `texting_rejected`:
+
+- Raised when a registration's status becomes `rejected`, for owners and admins, always on (like `connection_error`).
+- Its words quote the carriers' `rejection_reason` and say what to do: fix the details in Settings → Texting & calls
+  and send them again. The button opens that page.
+- It clears when a new registration is sent, or one is approved.
+- Built by the checklist every new kind follows (`HANDSFREEOS_AUTOMATIONS_IMPLEMENTATION_PLAN.md`, "New Action
+  Center kinds"): `attention/kinds.ts`, a `kindSwitches` default, a detector, its facts loader, the worker's
+  subjects, the Home words, and a migration re-creating `attention_items_kind_check`. The hosted database gets that
+  migration before `main` does (`docs/operations.md`, "Apply new migrations").
+
 ## 7. Words
 
 Every title, detail, waiting line, refusal and toast lives in `packages/core/src/onboarding/words.ts`, the way the
@@ -229,7 +273,9 @@ Add-ons page's words live in `addons/words.ts`. The web and the phone import the
 
 - `packages/core/test/onboarding/`: each step's done, waiting and needs-fix rules; the order for each goal; `payments`
   becoming a must-do for "paid"; `team` hidden for "just me"; expired invitations not counting; `onboarding.finish`
-  refused while a step is open.
+  refused while a step is open; an existing, fully set-up business finishing without a card; the agency count
+  leaving out personal steps.
+- `texting_rejected`: raised on a refused registration, quotes the reason, clears on a new one or an approval.
 - `packages/db/test`: the new settings keys are refused by `workspace.update`; someone without `workspace.update`
   can't skip a business step; an agency admin can read `onboarding.clients` for its own businesses and no others.
 - `packages/core/test/commands.test.ts`: the new names in its ordered lists.
@@ -246,25 +292,19 @@ in `app.events` to count. The agency view is the other half: which step business
 
 ## 10. Open items
 
-1. **The phone app step before the stores.** Hide "Get the phone app" until the store addresses are filled, or
-   send a TestFlight invite meanwhile?
-2. **Texting turned down after the guide finished.** The owners already get `textingRejectedEmail`. Proposed: the
-   guide stays finished, and the Action Center gets a card too. Check whether `connection_error` covers a refused
-   registration today, and add it if not.
-3. **When the AI step counts as done.** Proposed: the teammate exists and its knowledge isn't thin. It stays in
-   training (drafts wait for an OK) until it has earned its approvals, as it does today.
-4. **Businesses that already exist.** Proposed: no guide on Home for businesses created before this ships; they can
-   open it from Get help.
-5. **Today's checklist items.** Confirm email and Create business go (they're always done). Passkey and Google
-   sign-in move to everyone's personal list, owners included.
+None. The five from the first draft were settled on 2026-09-29 and are in §1. One thing to do outside the code:
+
+- **The Android testers list.** Google Play's internal test installs only for Google accounts added in Play
+  Console. Until the store version is out, each new business's owner (and their team) has to be added there, or the
+  Android link won't work for them.
 
 ## 11. Build order
 
 Each step ships alone and leaves the tree green.
 
 1. **Core**: the catalogue, `onboarding.status`, the commands, the words, and their tests. `pnpm openapi`.
-2. **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card.
-   The e2e specs move with it.
+2. **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card,
+   for new and existing businesses. The phone app links sheet. The e2e specs move with it.
 3. **The quick questions** after Create business, and the order they set.
 4. **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back
    from a migration), `calendar`, then `payments` (with the worker's `returnTo`).
@@ -272,4 +312,5 @@ Each step ships alone and leaves the tree green.
 6. **Teammates**: the personal list on the web.
 7. **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
 8. **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
-9. **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.
+9. **The `texting_rejected` card**, with its migration applied to the hosted database first.
+10. **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.

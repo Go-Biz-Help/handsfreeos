@@ -175,21 +175,22 @@ class Component extends DCLogic {
   renderVals() {
     const sk = this.state.skipped;
     const items = [
-      ['team', 'Invite your team', 'You said 2 to 5 people work with you. Each gets their own short setup.', 'Invite'],
-      ['pay', 'Connect payments', 'Stripe or Square, for estimates, invoices and deposits. Money goes straight to your account.', 'Connect'],
-      ['mail', 'Email & website chat', 'Email already sends from your HandsFreeOS address. Connect your own mailbox and add chat to your site.', 'Set up'],
-      ['app', 'Get the phone app', 'Answer customers and hear about new leads between jobs.', 'Text me a link']
+      ['team', 'Invite your team', 'You said 2 to 5 people work with you.', 'Invite'],
+      ['pay', 'Connect payments', 'Stripe or Square. Money goes straight to your account.', 'Connect'],
+      ['mail', 'Email & website chat', 'Connect your mailbox and add chat to your website.', 'Set up'],
+      ['app', 'Get the phone app', 'Test version for now: TestFlight or Google Play.', 'Get the links'],
+      ['signin', 'Sign in faster', 'A passkey or Google, instead of your password.', 'Set up']
     ];
     const skippedCount = items.filter((i) => sk[i[0]]).length;
     const done = 3;
-    const total = 8 - skippedCount;
+    const total = 9 - skippedCount;
     return {
       accent: this.props.accent ?? '#2d69d8',
       theme: this.props.theme ?? 'light',
       doneCount: done,
       total,
       pct: Math.round((done / total) * 100),
-      laterDone: skippedCount ? skippedCount + ' skipped' : '0 of 4',
+      laterDone: skippedCount ? skippedCount + ' skipped' : '0 of 5',
       later: items.map(([id, title, detail, action]) => ({
         title, detail, action,
         skipped: !!sk[id],
