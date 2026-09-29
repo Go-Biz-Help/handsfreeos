@@ -24,8 +24,17 @@ export function SiteHeader() {
           className="flex items-center gap-2.5 font-bold"
           onClick={() => setOpen(false)}
         >
-          <Image src="/handsfreeos-mark.png" alt="" width={28} height={28} className="rounded-md" />
-          <span className="text-[1.0625rem] tracking-tight">HandsFreeOS</span>
+          {/* The picture carries the name; the word is hidden from screen readers so it is read once. */}
+          <Image
+            src="/handsfreeos-mark.png"
+            alt="HandsFreeOS"
+            width={28}
+            height={28}
+            className="rounded-md"
+          />
+          <span aria-hidden className="text-[1.0625rem] tracking-tight">
+            HandsFreeOS
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Main">

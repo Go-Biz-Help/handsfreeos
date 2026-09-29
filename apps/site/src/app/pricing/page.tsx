@@ -12,7 +12,7 @@ import { currentFoundingOffer, foundingCounts, monthlyOnSale } from '@/lib/found
  * beside them — and a search result keeps a page's title for weeks after the page has moved on.
  */
 export const metadata: Metadata = {
-  title: 'Pricing — founding seats, then one plan with everything in it',
+  title: 'Pricing — founding seats, then one all-in plan',
   description: `Founding seats while they last, then one plan at $${plan.price} a month: every feature, one business, unlimited people and customers. Texts, calls and AI are billed for what you use.`,
   alternates: { canonical: '/pricing' },
 };

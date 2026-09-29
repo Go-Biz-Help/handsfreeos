@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { INDUSTRY_IDS } from '../industries';
 import { canonicalTimeZone, isValidTimeZone } from '../intl/time-zones';
 
 export const uuid = z.uuid();
@@ -14,7 +15,10 @@ export const displayName = z
   .trim()
   .min(1, 'Enter a name.')
   .max(120, 'Keep it under 120 characters.');
-export const industry = z.enum(['home_services', 'other']);
+/** A kind of business on core's list (industries.ts). */
+export const industry = z.enum(INDUSTRY_IDS, {
+  error: 'Pick the kind of business from the list, or Other.',
+});
 export const isoDateTime = z.iso.datetime();
 
 /**

@@ -1,4 +1,4 @@
-import { addDays, can, localInstant } from '@hfos/core';
+import { addDays, can, industryLabel, localInstant } from '@hfos/core';
 import Link from 'next/link';
 import { Plus, UserPlus } from 'lucide-react';
 import { ActionCenter } from '@/components/home/action-center';
@@ -15,8 +15,6 @@ import { apiServer, getMe, unwrap, unwrapPage } from '@/lib/api/server';
 import { loadOnboarding } from '@/lib/onboarding';
 import type { Members, Task } from '@/lib/api/types';
 import { todayIn } from '@/lib/calendar/time';
-
-const INDUSTRY: Record<string, string> = { home_services: 'Home services', other: 'Other' };
 
 /** Everyone an item can be assigned to: the workspace's members, and the organization's owners and admins. */
 function memberOptions(m: Members): MemberOption[] {
@@ -103,7 +101,7 @@ export default async function WorkspaceHomePage({
       <>
         <PageHeader
           title={`Welcome back, ${firstName}`}
-          description={`${ws.name} · ${INDUSTRY[ws.industry] ?? ws.industry} · ${ws.timezone}`}
+          description={`${ws.name} · ${industryLabel(ws.industry)} · ${ws.timezone}`}
           actions={
             // One primary button on a page: while the guide shows, its next step is it.
             <ButtonLink
@@ -136,7 +134,7 @@ export default async function WorkspaceHomePage({
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-text-2">Industry</dt>
-                  <dd className="font-medium">{INDUSTRY[ws.industry] ?? ws.industry}</dd>
+                  <dd className="font-medium">{industryLabel(ws.industry)}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-text-2">Time zone</dt>

@@ -93,7 +93,17 @@ describe('suggestAddon', () => {
 
   it('describes a business in its own words', () => {
     expect(profileText(business('Harbor Rentals', ['Unit', 'Units']))).toBe(
-      'Harbor Rentals home services Unit Units',
+      'Harbor Rentals General home services Unit Units',
     );
+    expect(profileText({ name: 'Harbor', industry: 'property_management', recordKinds: [] })).toBe(
+      'Harbor Property management',
+    );
+    // "Other" says nothing about the business, so it isn't matched on.
+    expect(profileText({ name: 'Harbor', industry: 'other', recordKinds: [] })).toBe('Harbor');
+  });
+
+  it('hears the line of work picked at sign-up', () => {
+    const rentals = { name: 'Harbor', industry: 'property_management', recordKinds: [] };
+    expect(suggestAddon(manager(), rentals, [], NOW)?.addonId).toBe('fxprop');
   });
 });

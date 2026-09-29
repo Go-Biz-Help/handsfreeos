@@ -6,7 +6,13 @@ import { Card } from '@/components/ui/card';
 import { safeNext } from '@/lib/utils';
 import { SignInForm } from './sign-in-form';
 
-export const metadata: Metadata = { title: 'Sign in' };
+// The canonical drops `?next=` and `?error=`, so search engines see one sign-in page, not one per link to it.
+export const metadata: Metadata = {
+  title: 'Sign in to your account',
+  description:
+    'Sign in to HandsFreeOS to pick up your calls, texts, jobs and invoices where you left off.',
+  alternates: { canonical: 'https://app.handsfreeos.com/sign-in' },
+};
 
 export default async function SignInPage({
   searchParams,
