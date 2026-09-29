@@ -628,6 +628,7 @@ describe('registry', () => {
       'onboarding.as_you_go',
       'onboarding.set_view',
       'onboarding.finish',
+      'onboarding.send_link',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',

@@ -324,6 +324,22 @@ export const ONBOARDING_WORDS = {
   /** The guide hidden. */
   hidden: 'Getting started is hidden. It’s under Get help whenever you want it.',
   finished: 'You’re set up.',
+  /** "Email me a link" for the phone app or its notifications, which are done on the phone itself. */
+  noLink: 'That one’s done on the phone itself, so there’s no link to send. Do it right here.',
+  /** Too many links asked for in a day. */
+  linkLimit: (count: number) =>
+    `You’ve asked for ${count} links today, which is as many as we send. Open HandsFreeOS on your computer instead, or try again tomorrow.`,
+} as const;
+
+/** "Email me a link": a step that's easier on a computer, sent to the person's email from the phone. */
+export const LINK_WORDS = {
+  action: 'Email me a link',
+  easier: 'Easier on a computer',
+  /** Under the next step on the phone, when it's one of those. */
+  easierDetail: 'This one’s easier on a computer. We’ll email you a link for later.',
+  sent: (email: string) => `Sent to ${email}. Open it on your computer.`,
+  alreadySent: (email: string) =>
+    `We sent it to ${email} a moment ago. Look for it in your email on your computer.`,
 } as const;
 
 /** The guide's own words on a screen, around the steps. */

@@ -47067,6 +47067,101 @@
         }
       }
     },
+    "/v1/commands/onboarding.send_link": {
+      "post": {
+        "operationId": "command_onboarding_send_link",
+        "summary": "Email yourself a link to a Getting started step that’s easier on a computer (\"Email me a link\" in the phone app). The same step again within 10 minutes isn’t sent twice.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires workspace.read. Emits onboarding.link_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "step": {
+                    "type": "string",
+                    "enum": [
+                      "number",
+                      "payments",
+                      "customers",
+                      "calendar",
+                      "ai",
+                      "team",
+                      "email_chat",
+                      "app",
+                      "sign_in",
+                      "notifications",
+                      "my_calendar"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "step"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "step": {
+                      "type": "string",
+                      "enum": [
+                        "number",
+                        "payments",
+                        "customers",
+                        "calendar",
+                        "ai",
+                        "team",
+                        "email_chat",
+                        "app",
+                        "sign_in",
+                        "notifications",
+                        "my_calendar"
+                      ]
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "sent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "step",
+                    "email",
+                    "sent"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",

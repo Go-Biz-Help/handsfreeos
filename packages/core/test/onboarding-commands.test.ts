@@ -6,6 +6,8 @@
  * - **Skipping** a business step needs workspace.update and is kept on the business; a step on a person's own list
  *   is kept on the person, per business.
  * - **Finishing** is refused while a step is open, names what's left, and holds once it's done.
+ * - **"Email me a link"** sends a step on the person's own list once, not twice in a row, and never a step done
+ *   on the phone itself.
  */
 import { randomUUID } from 'node:crypto';
 import { rows, sql } from '@hfos/db/client';
@@ -19,6 +21,7 @@ import {
   onboardingAsYouGo,
   onboardingFinish,
   onboardingSaveAnswers,
+  onboardingSendLink,
   onboardingSetView,
   onboardingSkip,
   onboardingStatus,
@@ -332,5 +335,49 @@ describe('finishing', () => {
       await run(onboardingSkip, { workspaceId: ws, step }, marco);
     const out = await run(onboardingFinish, { workspaceId: ws }, marco);
     expect(out.finishedAt).toBeTruthy();
+  });
+});
+
+describe('emailing a link', () => {
+  const requested = async (u: TestUser) =>
+    rows<{ payload: { step: string; path: string } }>(
+      admin(),
+      sql`select payload from app.events
+          where actor_id = ${u.id} and event_type = 'onboarding.link_requested' and workspace_id = ${ws}
+          order by created_at`,
+    );
+
+  it('sends the page for a step once, to the person’s own email, and not again straight away', async () => {
+    const first = await run(onboardingSendLink, { workspaceId: ws, step: 'customers' }, dale);
+    expect(first).toMatchObject({ step: 'customers', email: dale.email, sent: true });
+    const again = await run(onboardingSendLink, { workspaceId: ws, step: 'customers' }, dale);
+    expect(again.sent).toBe(false);
+    // Another step is its own link.
+    expect((await run(onboardingSendLink, { workspaceId: ws, step: 'team' }, dale)).sent).toBe(true);
+    expect((await requested(dale)).map((e) => e.payload)).toEqual([
+      { step: 'customers', path: `/onboarding/${ws}/setup/customers` },
+      { step: 'team', path: `/app/w/${ws}/members?invite=1` },
+    ]);
+  });
+
+  it('keeps to the person’s own list, and has nothing to send for the phone’s own steps', async () => {
+    await expectHfos(
+      () => run(onboardingSendLink, { workspaceId: ws, step: 'app' }, dale),
+      'rule_violation',
+      'onboarding_no_link',
+    );
+    await expectHfos(
+      () => run(onboardingSendLink, { workspaceId: ws, step: 'payments' }, marco),
+      'forbidden',
+      'onboarding_business_step',
+    );
+    await expectHfos(
+      () => run(onboardingSendLink, { workspaceId: ws, step: 'my_calendar' }, dale),
+      'rule_violation',
+      'onboarding_not_your_step',
+    );
+    expect(
+      await run(onboardingSendLink, { workspaceId: ws, step: 'my_calendar' }, marco),
+    ).toMatchObject({ email: marco.email, sent: true });
   });
 });

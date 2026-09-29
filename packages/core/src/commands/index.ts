@@ -334,6 +334,7 @@ import {
   onboardingAsYouGo,
   onboardingFinish,
   onboardingSaveAnswers,
+  onboardingSendLink,
   onboardingSetView,
   onboardingSkip,
 } from './onboarding';
@@ -885,6 +886,7 @@ export const commands: readonly CommandDef[] = [
   onboardingAsYouGo,
   onboardingSetView,
   onboardingFinish,
+  onboardingSendLink,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';

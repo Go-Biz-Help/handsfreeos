@@ -1,11 +1,13 @@
 /**
  * Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §5): the answers to the quick questions, skipping a
- * step, "Add them as you go", hiding the guide or finishing the tour, and finishing the guide for good.
+ * step, "Add them as you go", hiding the guide or finishing the tour, finishing the guide for good, and emailing
+ * yourself a link to a step from the phone.
  *
  * The business's part lives in `workspaces.settings.onboarding` and needs workspace.update; a person's own part
  * lives in their `users.settings.onboarding`, keyed by business, and anyone in the business may change their own.
  */
 import { eq } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
 import { users, workspaces } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -13,6 +15,7 @@ import { defineCommand } from '../kernel/define';
 import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
 import { loadOnboardingStatus } from '../onboarding/load';
+import { stepPath } from '../onboarding/paths';
 import {
   businessOnboardingOf,
   ONBOARDING_SETTINGS_KEY,
@@ -31,6 +34,8 @@ import {
   OnboardingFinishOutput,
   OnboardingSaveAnswersInput,
   OnboardingSaveAnswersOutput,
+  OnboardingSendLinkInput,
+  OnboardingSendLinkOutput,
   OnboardingSetViewInput,
   OnboardingSetViewOutput,
   OnboardingSkipInput,
@@ -328,5 +333,68 @@ export const onboardingFinish = defineCommand({
       payload: { audience: status.audience, done: status.done, skipped: status.skipped },
     });
     return { workspaceId: ws, finishedAt };
+  },
+});
+
+/** The same link, asked for again within this long, isn't sent twice: the first is still on its way. */
+const LINK_REPEAT_MINUTES = 10;
+/** As many links as one person is sent in a day. */
+export const LINKS_PER_DAY = 20;
+
+export const onboardingSendLink = defineCommand({
+  name: 'onboarding.send_link',
+  description:
+    'Email yourself a link to a Getting started step that’s easier on a computer ("Email me a link" in the phone app). The same step again within 10 minutes isn’t sent twice.',
+  risk: 0,
+  input: OnboardingSendLinkInput,
+  output: OnboardingSendLinkOutput,
+  permission: 'workspace.read',
+  scope: inWorkspace,
+  emits: ['onboarding.link_requested'],
+  async handler(ctx, input) {
+    const { userId } = requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const path = stepPath(ws, input.step);
+    if (!path) throw HfosError.rule('onboarding_no_link', 400, ONBOARDING_WORDS.noLink);
+    // Only a step on this person's list: the business's steps are for whoever sets the business up, and
+    // notifications and their calendar are a teammate's.
+    const sets = scopeCan(ctx.scope, 'workspace.update');
+    if (isBusinessStep(input.step) && !sets)
+      throw HfosError.forbidden(ONBOARDING_WORDS.businessStep, 'onboarding_business_step');
+    if (sets && (input.step === 'notifications' || input.step === 'my_calendar'))
+      throw HfosError.rule('onboarding_not_your_step', 400, ONBOARDING_WORDS.notYourStep);
+
+    const [me] = await ctx.tx
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId));
+    if (!me)
+      throw HfosError.notFound(
+        'We couldn’t find your account. Sign out, sign in again and try once more.',
+      );
+    const [asked] = await rows<{ today: number; again: number }>(
+      ctx.tx,
+      sql`select count(*)::int as today,
+            count(*) filter (where created_at > now() - make_interval(mins => ${LINK_REPEAT_MINUTES})
+                               and payload->>'step' = ${input.step})::int as again
+          from app.events
+          where actor_id = ${userId} and event_type = 'onboarding.link_requested'
+            and created_at > now() - interval '1 day'`,
+    );
+    const out = (sent: boolean) => ({ workspaceId: ws, step: input.step, email: me.email, sent });
+    if ((asked?.again ?? 0) > 0) return out(false);
+    if ((asked?.today ?? 0) >= LINKS_PER_DAY)
+      throw HfosError.rule(
+        'onboarding_link_limit',
+        429,
+        ONBOARDING_WORDS.linkLimit(asked!.today),
+      );
+    await ctx.emit({
+      type: 'onboarding.link_requested',
+      entityType: 'user',
+      entityId: userId,
+      payload: { step: input.step, path },
+    });
+    return out(true);
   },
 });

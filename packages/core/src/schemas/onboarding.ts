@@ -126,3 +126,17 @@ export const OnboardingFinishOutput = z.object({
   workspaceId: uuid,
   finishedAt: isoDateTime,
 });
+
+/** "Email me a link" on the phone: the page that does one step on this person's list, sent to their email. */
+export const OnboardingSendLinkInput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+});
+export const OnboardingSendLinkOutput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+  /** The address it went to. */
+  email: z.string(),
+  /** False when the same link went a moment ago: that one is still on its way. */
+  sent: z.boolean(),
+});

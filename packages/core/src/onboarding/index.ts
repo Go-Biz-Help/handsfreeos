@@ -6,3 +6,4 @@ export * from './steps';
 export * from './words';
 export * from './settings';
 export * from './app-links';
+export * from './paths';

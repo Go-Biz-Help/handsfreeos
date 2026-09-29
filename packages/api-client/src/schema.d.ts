@@ -4877,6 +4877,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/onboarding.send_link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email yourself a link to a Getting started step that’s easier on a computer ("Email me a link" in the phone app). The same step again within 10 minutes isn’t sent twice.
+         * @description Risk level 0. Requires workspace.read. Emits onboarding.link_requested.
+         */
+        post: operations["command_onboarding_send_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/onboarding.set_view": {
         parameters: {
             query?: never;
@@ -22163,6 +22183,42 @@ export interface operations {
                             teamSize: "solo" | "small" | "big";
                         };
                         website: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_send_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        email: string;
+                        sent: boolean;
+                        /** @enum {string} */
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
                         /** Format: uuid */
                         workspaceId: string;
                     };

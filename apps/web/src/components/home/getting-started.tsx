@@ -2,10 +2,10 @@
 import {
   canActOnStep,
   GUIDE_WORDS,
-  isWizardStep,
   ONBOARDING_WORDS,
   progressWords,
   stepTitle,
+  stepPath,
   stepWords,
   TOUR_WORDS,
 } from '@hfos/core';
@@ -20,7 +20,6 @@ import { Card } from '@/components/ui/card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { OnboardingStatus, OnboardingStep } from '@/lib/api/types';
 import { publicEnv } from '@/lib/env';
-import { setupHref } from '@/lib/setup';
 import { cn } from '@/lib/utils';
 import { useAssistant } from '@/components/assistant/assistant-provider';
 import { startTour } from '@/components/onboarding/tour';
@@ -245,28 +244,13 @@ function Steps({
 
 /**
  * Where a step's button goes: the setup wizard's screen for a business step that has one, else the page that does
- * it. The phone app and its notifications open the app's links instead.
+ * it (one copy, in core). The phone app and its notifications open the app's links instead.
  */
-function stepHref(workspaceId: string, step: OnboardingStep) {
-  const key = step.key;
-  if (isWizardStep(key)) return setupHref(workspaceId, key);
-  const base = `/app/w/${workspaceId}`;
-  switch (key) {
-    case 'team':
-      return `${base}/members?invite=1`;
-    case 'email_chat':
-      return step.note.phase === 'mailbox'
-        ? `${base}/settings/website-chat`
-        : `${base}/settings/email`;
-    case 'sign_in':
-      return `${base}/settings#${publicEnv.passkeysEnabled ? 'passkeys' : 'google'}`;
-    case 'my_calendar':
-      return `${base}/settings/my-calendar`;
-    case 'app':
-    case 'notifications':
-      return null;
-  }
-}
+const stepHref = (workspaceId: string, step: OnboardingStep) =>
+  stepPath(workspaceId, step.key, {
+    passkeys: publicEnv.passkeysEnabled,
+    phase: step.note.phase,
+  });
 
 /** On a phone every tap target is 44 px (the design system's size-control-lg). */
 const PHONE_BUTTON = 'max-md:h-11 max-md:px-4 max-md:text-[15px]';
