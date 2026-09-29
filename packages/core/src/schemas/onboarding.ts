@@ -199,3 +199,40 @@ export const OnboardingRemindOutput = z.object({
   /** Who it went to. */
   to: z.array(z.string()),
 });
+
+/**
+ * The admin side's Getting started page (plan §9): how many businesses start, skip each step and finish, counted
+ * from the onboarding events across every business. Counts only: no business, person or answer.
+ */
+export const OnboardingCountsInput = z.object({
+  /** How far back to count. */
+  days: z.number().int().min(1).max(365).default(30),
+});
+export const OnboardingCountsOutput = z.object({
+  since: isoDateTime,
+  /** Businesses that answered the quick questions. */
+  started: z.number().int(),
+  /** Businesses that answered the customers step with "Add them as you go". */
+  asYouGo: z.number().int(),
+  finished: z.object({
+    /** Businesses whose owner or admin finished the guide. */
+    businesses: z.number().int(),
+    /** Of those, the ones that skipped nothing. */
+    nothingSkipped: z.number().int(),
+    /** Teammates who finished their own list. */
+    teammates: z.number().int(),
+  }),
+  /** People who hid the guide from Home. */
+  hidden: z.number().int(),
+  /** Businesses that turned Getting started off. */
+  turnedOff: z.number().int(),
+  /** Every step, most skipped first. A business step counts businesses; a step on someone's own list, people. */
+  steps: z.array(
+    z.object({
+      key: onboardingStepKey,
+      for: z.enum(['business', 'person']),
+      skipped: z.number().int(),
+      broughtBack: z.number().int(),
+    }),
+  ),
+});

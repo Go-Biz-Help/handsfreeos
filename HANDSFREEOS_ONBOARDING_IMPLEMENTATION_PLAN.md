@@ -6,10 +6,9 @@ first customer arrives. This plan replaces it with a guide: four quick questions
 through the few things every business needs, a checklist on Home for the rest, and a short tour of the menu.
 Teammates get a short list of their own, and an agency sees where every client business has got to.
 
-> **Status: steps 1 to 3 of §11 are built**: the core (the catalogue, `onboarding.status`, the commands, the words
-> and their tests), Getting started on Home with skip, hide, the phone app's links and Get help, and the quick
-> questions after Create business. The screens are in `design/onboarding` (twelve boards, most clickable
-> in Play). Read them with this plan.
+> **Status: every step of §11 is built**: the core, Getting started on Home, the quick questions, the wizard, the
+> tour, the teammate list, the phone, the agency's Setup view, the `texting_rejected` card and the counts. The
+> screens are in `design/onboarding` (twelve boards, most clickable in Play). Read them with this plan.
 
 ---
 
@@ -131,8 +130,8 @@ Two details:
 
 ## 4. What's kept, and where
 
-No new tables. Everything fits the settings documents that already exist. (The one migration is for the new Home
-card, §6.)
+No new tables. Everything fits the settings documents that already exist. (The migrations are for the new Home
+card and the agency's "last signed in", §6, and the counts, §9.)
 
 **The business's answers and skips**, in `workspaces.settings.onboarding`, with its own command (added to
 `SETTINGS_WITH_THEIR_OWN_COMMAND`, so `workspace.update` refuses it):
@@ -353,7 +352,8 @@ Add-ons page's words live in `addons/words.ts`. The web and the phone import the
 
 No new tracking. The wizard's steps are their own pages, so Matomo's page views (web and phone) already give the
 funnel from `/onboarding` to each step. Skips, finishes and "Add them as you go" are commands, so their events are
-in `app.events` to count. The agency view is the other half: which step businesses get stuck on.
+in `app.events` to count. The agency view is the other half: which step businesses get stuck on. The count is the
+admin side's **Getting started** page (§11, step 10).
 
 ## 10. Open items
 
@@ -378,4 +378,10 @@ Each step ships alone and leaves the tree green.
 7. ✅ **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
 8. ✅ **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
 9. ✅ **The `texting_rejected` card**, with its migration applied to the hosted database first.
-10. **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.
+10. ✅ **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.
+    Built as `private.admin_onboarding_counts` (migration `20261013001500_counting_getting_started.sql`), read by
+    `platform.onboarding.counts` for the admin side's **Getting started** page (`/admin/getting-started`, staff who
+    read the directory): answered the quick questions, finished (and with nothing skipped), teammates finished,
+    "Add them as you go", hidden, turned off, and each step's skips and bring-backs, most skipped first. A business
+    counts once per step; a step on someone's own list counts people. The page links to Matomo's pages report for
+    the same days.

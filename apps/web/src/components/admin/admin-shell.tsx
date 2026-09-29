@@ -5,6 +5,7 @@ import {
   HeartPulse,
   Inbox,
   Lightbulb,
+  ListChecks,
   Menu,
   MessageSquareQuote,
   Tag,
@@ -43,6 +44,13 @@ const SECTIONS: readonly {
     href: '/admin/businesses',
     label: 'Businesses',
     icon: Building2,
+    needs: 'platform.businesses.read',
+  },
+  // How Getting started is going, everywhere: its skips and finishes, counted (the plan's §9).
+  {
+    href: '/admin/getting-started',
+    label: 'Getting started',
+    icon: ListChecks,
     needs: 'platform.businesses.read',
   },
   { href: '/admin/health', label: 'Health', icon: HeartPulse, needs: 'platform.health.read' },

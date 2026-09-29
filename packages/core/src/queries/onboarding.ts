@@ -2,12 +2,15 @@ import { rows, sql } from '@hfos/db/client';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { clientStanding } from '../onboarding/clients';
+import { shapeOnboardingCounts, type OnboardingCountRow } from '../onboarding/counts';
 import { loadBusinessSetup, loadOnboardingStatus } from '../onboarding/load';
 import type { z } from 'zod';
 import {
   type OnboardingClient,
   OnboardingClientsInput,
   OnboardingClientsOutput,
+  OnboardingCountsInput,
+  OnboardingCountsOutput,
   OnboardingStatusInput,
   OnboardingStatusOutput,
 } from '../schemas/onboarding';
@@ -102,5 +105,28 @@ export const onboardingClients = defineQuery({
         done: count('done'),
       },
     };
+  },
+});
+
+/**
+ * The admin side's Getting started page (plan §9): how many businesses start, which steps get skipped, and how many
+ * finish, counted from the onboarding events across every business. Counts only; the page views through the
+ * wizard are Matomo's.
+ */
+export const platformOnboardingCounts = defineQuery({
+  name: 'platform.onboarding.counts',
+  description:
+    'How Getting started is going across every business: how many answered the quick questions, which steps they skip and bring back, how many finish, and how many add customers as they go. Counts only.',
+  input: OnboardingCountsInput,
+  output: OnboardingCountsOutput,
+  permission: 'platform.businesses.read',
+  scope: () => ({ kind: 'platform' as const }),
+  async handler(ctx, input) {
+    const since = new Date(Date.now() - input.days * 24 * 60 * 60_000);
+    const counted = await rows<OnboardingCountRow>(
+      ctx.tx,
+      sql`select * from private.admin_onboarding_counts(${since.toISOString()}::timestamptz)`,
+    );
+    return shapeOnboardingCounts(counted, since);
   },
 });

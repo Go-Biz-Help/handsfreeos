@@ -10,7 +10,7 @@ import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
-import { onboardingClients, onboardingStatus } from './onboarding';
+import { onboardingClients, onboardingStatus, platformOnboardingCounts } from './onboarding';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -322,6 +322,7 @@ export const queries: readonly QueryDef[] = [
   // Getting started.
   onboardingStatus,
   onboardingClients,
+  platformOnboardingCounts,
 ] as unknown as readonly QueryDef[];
 
 export {

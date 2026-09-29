@@ -9203,6 +9203,7 @@ only for the address it was sent to, and only after they have a HandsFreeOS sign
 | Answer tickets, leave internal notes      | Yes   | Yes  | Yes   |
 | Look at a business, read-only             | Yes   | Yes  | Yes   |
 | See every business in the directory       | Yes   | Yes  | Yes   |
+| How Getting started is going (counts)     | Yes   | Yes  | Yes   |
 | Assign tickets, keep the saved replies    |       | Yes  | Yes   |
 | The health page                           |       | Yes  | Yes   |
 | Answer ideas, merge them, take them down  | Yes   | Yes  | Yes   |
@@ -9229,6 +9230,12 @@ the same way it refuses removing a business's last owner.
   from the next call and the next test call, with no redeploy, so try it on your own business first.
 - **Health** is what has failed lately across every business: jobs, webhooks, bounced email, failed texts,
   failed payments, and work still queued. Look here before a customer has to tell you.
+- **Getting started** counts how new businesses get on with setting up, over the last 7, 30 or 90 days: how
+  many answered the quick questions, which steps they skip (the most skipped first) and bring back, how many
+  finished, how many chose "Add them as you go", and how many hid the guide or turned it off. Counts only, from
+  the onboarding events; no business or person is named. How far people get through the wizard's pages is in
+  Matomo (site 5), and the page links to its pages report. Needs
+  `20261013001500_counting_getting_started.sql` (`private.admin_onboarding_counts`). See "Apply new migrations".
 
 ### Looking at a business
 

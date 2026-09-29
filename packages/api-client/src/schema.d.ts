@@ -10677,6 +10677,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.onboarding.counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How Getting started is going across every business: how many answered the quick questions, which steps they skip and bring back, how many finish, and how many add customers as they go. Counts only.
+         * @description Requires platform.businesses.read.
+         */
+        post: operations["query_platform_onboarding_counts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.rates": {
         parameters: {
             query?: never;
@@ -39003,6 +39023,53 @@ export interface operations {
                             /** Format: uuid */
                             userId: string;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_onboarding_counts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 30 */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asYouGo: number;
+                        finished: {
+                            businesses: number;
+                            nothingSkipped: number;
+                            teammates: number;
+                        };
+                        hidden: number;
+                        /** Format: date-time */
+                        since: string;
+                        started: number;
+                        steps: {
+                            broughtBack: number;
+                            /** @enum {string} */
+                            for: "business" | "person";
+                            /** @enum {string} */
+                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                            skipped: number;
+                        }[];
+                        turnedOff: number;
                     };
                 };
             };

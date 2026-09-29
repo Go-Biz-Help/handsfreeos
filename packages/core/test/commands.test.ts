@@ -801,6 +801,7 @@ describe('registry', () => {
       'addon_pick.overview',
       'onboarding.status',
       'onboarding.clients',
+      'platform.onboarding.counts',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });
