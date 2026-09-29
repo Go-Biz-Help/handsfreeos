@@ -2,8 +2,6 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AiTagging } from '@/components/settings/ai-tagging';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Tags' };
@@ -32,8 +30,6 @@ export default async function TagsSettingsPage({
   ]);
   return (
     <>
-      <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <AiTagging
         workspaceId={workspaceId}
         tags={tags}

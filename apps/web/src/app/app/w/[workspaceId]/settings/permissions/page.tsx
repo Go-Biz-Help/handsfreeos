@@ -2,8 +2,6 @@ import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PermissionsSettings } from '@/components/settings/permissions-page';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Permissions' };
@@ -23,8 +21,6 @@ export default async function PermissionsPage({
   );
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <PermissionsSettings
         workspaceId={workspaceId}
         roles={settings.roles}

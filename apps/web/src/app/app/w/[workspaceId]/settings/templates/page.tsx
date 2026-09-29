@@ -1,9 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { TemplatesEditor } from '@/components/settings/templates-editor';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Templates' };
@@ -22,8 +20,6 @@ export default async function TemplatesSettingsPage({
   );
   return (
     <>
-      <PageHeader title="Settings" description={`How ${got.workspace.name} is set up.`} />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <div className="mb-3">
         <h2 className="text-lg font-semibold tracking-tight">Templates</h2>
         <p className="text-[13px] text-text-2">

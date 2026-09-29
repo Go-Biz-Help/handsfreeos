@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BookingSiteForm } from '@/components/calendars/booking-site-form';
 import { CalendarsSubnav } from '@/components/calendars/subnav';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
@@ -26,8 +24,6 @@ export default async function BookingSiteSettingsPage({
   ]);
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <CalendarsSubnav workspaceId={workspaceId} />
       <BookingSiteForm
         workspaceId={workspaceId}

@@ -3,8 +3,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarsSubnav } from '@/components/calendars/subnav';
 import { TerritoriesPage } from '@/components/calendars/territories-page';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { assigneeOptions } from '@/lib/api/people';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
@@ -25,8 +23,6 @@ export default async function TerritoriesSettingsPage({
   ]);
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <CalendarsSubnav workspaceId={workspaceId} />
       <TerritoriesPage
         workspaceId={workspaceId}

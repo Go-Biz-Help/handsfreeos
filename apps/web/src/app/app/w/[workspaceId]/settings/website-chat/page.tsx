@@ -1,9 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { WebsiteChatPage } from '@/components/settings/website-chat-page';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
 
@@ -34,8 +32,6 @@ export default async function WebsiteChatSettingsPage({
     ?.channels;
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <WebsiteChatPage
         workspaceId={workspaceId}
         widget={widget}
