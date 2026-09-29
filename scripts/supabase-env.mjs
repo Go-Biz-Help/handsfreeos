@@ -135,6 +135,8 @@ write('apps/web/.env.local', [
   `NEXT_PUBLIC_SUPABASE_URL=${vals.API_URL}`,
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${vals.PUBLISHABLE_KEY}`,
   'NEXT_PUBLIC_PASSKEYS_ENABLED=true',
+  // The agency switch on Set up your business, which production hides. The browser tests sign agencies up with it.
+  'NEXT_PUBLIC_AGENCY_SIGNUP_ENABLED=true',
   // The matching always-pass test site key (public). The worker names it too; this is the pages' fallback.
   'NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA',
 ]);
