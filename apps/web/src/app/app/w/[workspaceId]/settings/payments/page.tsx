@@ -2,8 +2,6 @@ import { can, readMoneySettings } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PaymentsSettings } from '@/components/settings/payments-page';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import type { TeamMember } from '@/components/settings/payment-access-dialog';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 import type { Members } from '@/lib/api/types';
@@ -50,8 +48,6 @@ export default async function PaymentsSettingsPage({
   ]);
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <PaymentsSettings
         workspaceId={workspaceId}
         initial={readMoneySettings(settings.settings)}

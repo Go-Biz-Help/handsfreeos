@@ -2,8 +2,6 @@ import { attentionSettingsOf, automationSettingsOf, can, type NudgeCheckContext 
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { AutomationsSettings } from '@/components/settings/automations/automations-page';
-import { SettingsNav } from '@/components/settings/settings-nav';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Automations' };
@@ -95,8 +93,6 @@ export default async function AutomationsSettingsPage({
   };
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <AutomationsSettings
         workspaceId={workspaceId}
         initialAdjust={typeof adjust === 'string' ? adjust : null}

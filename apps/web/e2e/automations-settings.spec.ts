@@ -84,12 +84,12 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
     quietHours: { enabled: true, start: '20:00', end: '08:00' },
   });
 
-  // Last in the Settings nav, after the channels and the money pages Milestone 9 added.
+  // In the Settings menu with the rest of how the business runs, after Permissions.
   await page.goto(`/app/w/${owner.workspaceId}/settings`);
   const nav = page.getByRole('navigation', { name: 'Settings' });
   const tabs = await nav.getByRole('link').allTextContents();
-  expect(tabs.indexOf('Automations')).toBe(tabs.length - 1);
-  expect(tabs.indexOf('Automations')).toBeGreaterThan(tabs.indexOf('Website chat'));
+  expect(tabs.indexOf('Automations')).toBe(tabs.indexOf('Permissions') + 1);
+  await expect(nav.getByRole('group', { name: 'Business' })).toContainText('Automations');
   expect(tabs).not.toContain('Action Center');
   await nav.getByRole('link', { name: 'Automations' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/automations$`));

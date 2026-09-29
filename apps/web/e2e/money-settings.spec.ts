@@ -82,14 +82,16 @@ test('Settings → Payments: two accounts, the default, a disconnect, and every 
   test.setTimeout(180_000);
   const owner = await ownerWithSite(page, 'money-settings', 'Lone Star Money HVAC');
 
-  // In the Settings nav, after Website chat and before Automations.
+  // In the Settings menu under Bookings & payments, Products right after Payments; Usage & balance is apart.
   await page.goto(`/app/w/${owner.workspaceId}/settings`);
   const nav = page.getByRole('navigation', { name: 'Settings' });
   const tabs = await nav.getByRole('link').allTextContents();
   expect(tabs).toContain('Payments');
   expect(tabs).toContain('Products');
   expect(tabs.indexOf('Payments')).toBeGreaterThan(tabs.indexOf('Website chat'));
-  expect(tabs.indexOf('Products')).toBeLessThan(tabs.indexOf('Automations'));
+  expect(tabs.indexOf('Products')).toBe(tabs.indexOf('Payments') + 1);
+  await expect(nav.getByRole('group', { name: 'Bookings & payments' })).toContainText('Products');
+  await expect(nav.getByRole('group', { name: 'Business' })).toContainText('Usage & balance');
 
   await nav.getByRole('link', { name: 'Payments', exact: true }).click();
   await expect(page.getByTestId('pay-no-accounts')).toBeVisible();

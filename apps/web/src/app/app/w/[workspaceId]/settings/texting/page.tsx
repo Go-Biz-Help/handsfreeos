@@ -1,9 +1,7 @@
 import { can } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { TextingPage } from '@/components/settings/texting-page';
-import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, getMe, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Texting & calls' };
@@ -60,8 +58,6 @@ export default async function TextingSettingsPage({
   };
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={got.workspace.permissions} />
       <TextingPage
         workspaceId={workspaceId}
         businessName={got.workspace.name}

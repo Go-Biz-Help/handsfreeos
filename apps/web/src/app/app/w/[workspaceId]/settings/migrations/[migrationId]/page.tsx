@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { MigrationWizard } from '@/components/migrations/wizard';
-import { SettingsNav } from '@/components/settings/settings-nav';
 import { PageHeader } from '@/components/shell/page-header';
 import { loadMigration } from '@/lib/agency/migrations';
 import { apiServer, getMe } from '@/lib/api/server';
@@ -32,9 +31,8 @@ export default async function WorkspaceMigrationPage({
 
   return (
     <>
-      <PageHeader title="Settings" description="Your account, and how this workspace is set up." />
-      <SettingsNav workspaceId={workspaceId} permissions={current.permissions} />
       <PageHeader
+        section
         title={detail.migration.name}
         description={
           <>
