@@ -98,7 +98,7 @@ export function MobileShell({ me, current }: { me: Me; current: WorkspaceSummary
         <MobileAskButton />
         <button
           type="button"
-          aria-label={inInbox ? 'Search conversations' : 'Search customers'}
+          aria-label={inInbox ? 'Search conversations' : 'Search contacts'}
           onClick={() => setSearch(true)}
           className="flex h-11 w-11 items-center justify-center rounded-control text-text-2 hover:bg-card-2"
         >

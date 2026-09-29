@@ -12,7 +12,7 @@ export interface PickedCustomer {
   readonly detail?: string | null;
 }
 
-/** Search-as-you-type for a person in Customers (New appointment). */
+/** Search-as-you-type for a person in Contacts (New appointment). */
 export function CustomerPicker({
   workspaceId,
   value,

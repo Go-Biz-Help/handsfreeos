@@ -241,7 +241,7 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'list_unmatched_email',
     description:
-      'Email from people who aren’t in Customers, waiting to be filed under a customer or dismissed, newest first, with ids for sort_unmatched_email.',
+      'Email from people who aren’t in Contacts, waiting to be filed under a customer or dismissed, newest first, with ids for sort_unmatched_email.',
     input: z.object({}),
     autonomy: 'auto',
     permission: 'inbox.use',
@@ -249,7 +249,7 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'sort_unmatched_email',
     description:
-      'File an email from someone who isn’t in Customers under a customer (it joins their email conversation and timeline), or dismiss it. Ids from list_unmatched_email; the customer from search_customers, or add them first with create_customer.',
+      'File an email from someone who isn’t in Contacts under a customer (it joins their email conversation and timeline), or dismiss it. Ids from list_unmatched_email; the customer from search_customers, or add them first with create_customer.',
     input: z.object({
       action: z.enum(['file_under_customer', 'dismiss']),
       unmatchedId: uuid,

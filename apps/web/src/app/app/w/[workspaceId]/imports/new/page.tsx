@@ -6,7 +6,7 @@ import { ImportWizard } from '@/components/import/import-wizard';
 import { PageHeader } from '@/components/shell/page-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 
-export const metadata: Metadata = { title: 'Import customers' };
+export const metadata: Metadata = { title: 'Import contacts' };
 
 export default async function NewImportPage({
   params,
@@ -21,13 +21,13 @@ export default async function NewImportPage({
     <>
       <div className="mb-3.5 flex items-center gap-1.5 text-[13px]">
         <Link href={`/app/w/${workspaceId}/customers`} className="text-accent-text hover:underline">
-          Customers
+          Contacts
         </Link>
         <span className="text-text-3">/</span>
         <span className="text-text-2">Import</span>
       </div>
       <PageHeader
-        title="Import customers"
+        title="Import contacts"
         description="Bring in an existing list from a spreadsheet. Nothing is saved until you press Run."
       />
       <ImportWizard workspaceId={workspaceId} />

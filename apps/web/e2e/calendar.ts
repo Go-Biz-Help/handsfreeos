@@ -70,7 +70,7 @@ export async function createCalendar(
   return id;
 }
 
-/** Adds a person from Customers and returns their id. */
+/** Adds a person from Contacts and returns their id. */
 export async function addPerson(
   page: Page,
   workspaceId: string,

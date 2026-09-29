@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { companies, people } from '@hfos/db/schema';
+import { companyIsClient } from '../crm/clients';
 import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contact-points';
 import { addressOut, phoneOut, tagsByRecord, userRef } from '../crm/records';
 import { TEAM } from './person';
@@ -82,14 +83,16 @@ const base = (workspaceId: string) => sql`
   select c.*, lower(c.name) as sort_key, u.full_name as owner_name, u.email::text as owner_email,
     ${TEAM('c')} as team,
     (select count(*) from app.people p where p.company_id = c.id and p.archived_at is null)::int as people_count,
-    (select count(*) from app.leads l where l.company_id = c.id and l.status = 'open' and l.archived_at is null)::int as open_leads
+    (select count(*) from app.leads l where l.company_id = c.id and l.status = 'open' and l.archived_at is null)::int as open_leads,
+    ${companyIsClient('c')} as client
   from app.companies c
   left join app.users u on u.id = c.owner_user_id
   where c.workspace_id = ${workspaceId}`;
 
 export const companyList = defineQuery({
   name: 'company.list',
-  description: 'Companies in the workspace, searchable, with people and open-lead counts.',
+  description:
+    'Companies in the workspace, searchable, with people and open-lead counts; filter to leads or clients.',
   input: CompanyListInput,
   output: CompanyListOutput,
   permission: 'records.read',
@@ -97,13 +100,14 @@ export const companyList = defineQuery({
   async handler(ctx, input) {
     const cursor = decodeCursor(input.cursor);
     const q = input.q ? `%${input.q.toLowerCase()}%` : null;
-    const list = await rows<Row>(
+    const list = await rows<Row & { client: boolean }>(
       ctx.tx,
       sql`select * from (${base(input.workspaceId)}
           ${input.includeArchived ? sql`` : sql`and c.archived_at is null`}
           ${q ? sql`and c.search_text like ${q}` : sql``}
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'company' and rt.record_id = c.id and rt.tag_id = ${input.tagId})` : sql``}
           ${input.assignedUserId ? sql`and (c.owner_user_id = ${input.assignedUserId} or c.team_user_ids @> array[${input.assignedUserId}::uuid])` : sql``}
+          ${input.standing === 'client' ? sql`and ${companyIsClient('c')}` : input.standing === 'lead' ? sql`and not ${companyIsClient('c')}` : sql``}
         ) x
         ${cursor ? sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)` : sql``}
         order by x.sort_key, x.id
@@ -117,7 +121,7 @@ export const companyList = defineQuery({
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
     return {
-      items: result.items.map((r) => summary(r, tags.get(r.id) ?? [])),
+      items: result.items.map((r) => ({ ...summary(r, tags.get(r.id) ?? []), client: r.client })),
       nextCursor: result.nextCursor,
     };
   },

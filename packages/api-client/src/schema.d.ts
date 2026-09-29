@@ -8647,7 +8647,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Companies in the workspace, searchable, with people and open-lead counts.
+         * Companies in the workspace, searchable, with people and open-lead counts; filter to leads or clients.
          * @description Requires records.read.
          */
         post: operations["query_company_list"];
@@ -10127,7 +10127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * People in the workspace: search by name, phone, email or street, filter by tag, company or owner.
+         * People in the workspace: search by name, phone, email or street, filter by tag, company or owner, or to leads or clients.
          * @description Requires records.read.
          */
         post: operations["query_person_list"];
@@ -31826,6 +31826,8 @@ export interface operations {
                     /** @default 50 */
                     limit?: number;
                     q?: string;
+                    /** @enum {string} */
+                    standing?: "lead" | "client";
                     /** Format: uuid */
                     tagId?: string;
                     /** Format: uuid */
@@ -31851,6 +31853,7 @@ export interface operations {
                                 state: string | null;
                             };
                             archivedAt: string | null;
+                            client: boolean;
                             /** Format: date-time */
                             createdAt: string;
                             email: string | null;
@@ -37153,6 +37156,8 @@ export interface operations {
                      * @enum {string}
                      */
                     sort?: "name" | "recent";
+                    /** @enum {string} */
+                    standing?: "lead" | "client";
                     /** Format: uuid */
                     tagId?: string;
                     /** Format: uuid */
@@ -37180,6 +37185,7 @@ export interface operations {
                                 state: string | null;
                             };
                             archivedAt: string | null;
+                            client: boolean;
                             company: {
                                 archived: boolean;
                                 /** Format: uuid */

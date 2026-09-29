@@ -1,4 +1,5 @@
 import { rows, sql } from '@hfos/db/client';
+import { personIsClient } from '../crm/clients';
 import { otherAddressesOut, otherEmailsOut, otherPhonesOut } from '../crm/contact-points';
 import { addressOut, fullName, phoneOut, tagsByRecord } from '../crm/records';
 import { HfosError } from '../errors';
@@ -38,6 +39,7 @@ type Row = {
   company_name: string | null;
   company_archived: Date | null;
   open_leads: number;
+  client: boolean;
   last_activity_at: Date | null;
   archived_at: Date | null;
   created_at: Date;
@@ -100,6 +102,7 @@ const base = (workspaceId: string, sort: 'name' | 'recent') => sql`
     ${TEAM('p')} as team,
     p.company_id, c.name as company_name, c.archived_at as company_archived,
     (select count(*) from app.leads l where l.person_id = p.id and l.status = 'open' and l.archived_at is null)::int as open_leads,
+    ${personIsClient('p')} as client,
     -- workspace_id first so activities_person_idx serves it as one index probe, not a platform-wide scan
     (select max(a.occurred_at) from app.activities a where a.workspace_id = p.workspace_id and a.person_id = p.id) as last_activity_at,
     p.archived_at, p.created_at, p.updated_at,
@@ -112,7 +115,7 @@ const base = (workspaceId: string, sort: 'name' | 'recent') => sql`
 export const personList = defineQuery({
   name: 'person.list',
   description:
-    'People in the workspace: search by name, phone, email or street, filter by tag, company or owner.',
+    'People in the workspace: search by name, phone, email or street, filter by tag, company or owner, or to leads or clients.',
   input: PersonListInput,
   output: PersonListOutput,
   permission: 'records.read',
@@ -131,6 +134,7 @@ export const personList = defineQuery({
           ${input.assignedUserId ? sql`and (p.owner_user_id = ${input.assignedUserId} or p.team_user_ids @> array[${input.assignedUserId}::uuid])` : sql``}
           ${input.tagId ? sql`and exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.tagId})` : sql``}
           ${input.withoutTagId ? sql`and not exists (select 1 from app.record_tags rt where rt.record_type = 'person' and rt.record_id = p.id and rt.tag_id = ${input.withoutTagId})` : sql``}
+          ${input.standing === 'client' ? sql`and ${personIsClient('p')}` : input.standing === 'lead' ? sql`and not ${personIsClient('p')}` : sql``}
         ) x
         ${cursor ? (recent ? sql`where (x.updated_at, x.id) < (${cursor.sort}::timestamptz, ${cursor.id}::uuid)` : sql`where (x.sort_key, x.id) > (${cursor.sort}, ${cursor.id}::uuid)`) : sql``}
         order by ${recent ? sql`x.updated_at desc, x.id desc` : sql`x.sort_key, x.id`}
@@ -144,7 +148,7 @@ export const personList = defineQuery({
     );
     const result = page(list, input.limit, (r) => ({ sort: r.sort_key, id: r.id }));
     return {
-      items: result.items.map((r) => summary(r, tags.get(r.id) ?? [])),
+      items: result.items.map((r) => ({ ...summary(r, tags.get(r.id) ?? []), client: r.client })),
       nextCursor: result.nextCursor,
     };
   },

@@ -35,7 +35,7 @@ export function IncomingCallCard() {
           <div className="truncate text-xs text-text-3">Incoming call · {info.lineName}</div>
           <h3 className="truncate text-[15px] font-semibold">{party.name}</h3>
           <div className="truncate text-[13px] text-text-2">
-            {party.personId ? detail : `${detail ? `${detail} · ` : ''}Not in Customers yet`}
+            {party.personId ? detail : `${detail ? `${detail} · ` : ''}Not in Contacts yet`}
           </div>
         </div>
       </div>

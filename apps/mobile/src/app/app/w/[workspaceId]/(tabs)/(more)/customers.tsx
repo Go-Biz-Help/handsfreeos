@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { MORE_WORDS } from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import { FlatList, Pressable, View } from 'react-native';
 
@@ -20,7 +21,7 @@ import {
 } from '@/customers/use-customers';
 
 /**
- * Customers, reached from More: people and companies from the phone's copy, and a search across customers, companies
+ * Contacts, reached from More: people and companies from the phone's copy, and a search across customers, companies
  * and leads that works with no signal — by name, by number, and by a word someone wrote in a note.
  */
 export default function Customers() {
@@ -52,13 +53,13 @@ export default function Customers() {
   );
 
   return (
-    <Screen title="Customers" leading="back" testID="customers" scroll={false}>
+    <Screen title={MORE_WORDS.customers} leading="back" testID="customers" scroll={false}>
       <View className="gap-3 border-b border-border bg-card px-3.5 pb-3 pt-3">
         <Input
           value={typed}
           onChangeText={setTyped}
           placeholder="Search by name, number or a word in a note"
-          accessibilityLabel="Search customers"
+          accessibilityLabel="Search contacts"
           returnKeyType="search"
           autoCorrect={false}
           autoCapitalize="none"

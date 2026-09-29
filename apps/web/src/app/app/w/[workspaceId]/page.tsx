@@ -67,7 +67,7 @@ export default async function WorkspaceHomePage({
   const firstName = (me.user.fullName || me.user.email).split(/\s+/)[0];
   const canInvite = can(ws.permissions, 'members.invite');
   // The setup checklist is for a brand-new business only: no customers, and nothing needing attention. Someone
-  // texting a number nobody has added to Customers still belongs on the Action Center.
+  // texting a number nobody has added to Contacts still belongs on the Action Center.
   const brandNew =
     summary.people + summary.companies === 0 &&
     (list?.counts.total ?? 0) === 0 &&

@@ -35,7 +35,7 @@ export function chatLine(
 
 /**
  * The line under the customer's name: "(713) 555-0142 · Texts", "mike@example.com · Email", "Texts · not in
- * Customers yet". `short` leaves out "not in Customers yet" where the banner already says it (the web at phone width).
+ * Contacts yet". `short` leaves out "not in Contacts yet" where the banner already says it (the web at phone width).
  */
 export function threadChannelLine(
   c: {
@@ -49,7 +49,7 @@ export function threadChannelLine(
   if (c.channel === 'chat') return chatLine(opts.chat ?? null);
   if (c.channel === 'email') return `${c.counterpart} · Email`;
   if (person) return `${person.phone ?? c.counterpartDisplay} · Texts`;
-  return opts.short ? 'Texts' : 'Texts · not in Customers yet';
+  return opts.short ? 'Texts' : 'Texts · not in Contacts yet';
 }
 
 /**
@@ -75,7 +75,7 @@ export function notCustomerBanner(
       { strong: `${counterpartDisplay} isn’t a customer yet.` },
       ` Add them, or link the ${channel === 'chat' ? 'chat' : 'number'} to someone you already have.`,
     ],
-    short: 'Not in Customers yet.',
+    short: 'Not in Contacts yet.',
     action: 'Add person',
   };
 }
@@ -139,7 +139,7 @@ export const CONVERSATION_DONE = {
   heldCancelled: 'Cancelled. That text won’t go.',
   /** A failed text sent again in quiet hours, cancelled: it goes back as it was. */
   retryCancelled: 'Cancelled. It stays as not delivered, and you can send it again later.',
-  linked: 'Added to Customers and linked',
+  linked: 'Added to Contacts and linked',
 } as const;
 
 /** The actions on a conversation, as its menus and the phone's sheet name them. */
@@ -172,7 +172,7 @@ export const CONVERSATION_ACTIONS = {
   keepIt: 'Keep it',
 } as const;
 
-/** The details sheet's line under the name: "(713) 555-0142 · Customer since 2021", or "Not in Customers yet". */
+/** The details sheet's line under the name: "(713) 555-0142 · Customer since 2021", or "Not in Contacts yet". */
 export function customerSinceLine(
   person: { readonly phone: string | null; readonly customerSince: string } | null,
   c: {
@@ -181,7 +181,7 @@ export function customerSinceLine(
     readonly counterpartDisplay: string;
   },
 ): string {
-  if (!person) return 'Not in Customers yet';
+  if (!person) return 'Not in Contacts yet';
   const contact = c.channel === 'email' ? c.counterpart : (person.phone ?? c.counterpartDisplay);
   return `${contact} · Customer since ${new Date(person.customerSince).getFullYear()}`;
 }

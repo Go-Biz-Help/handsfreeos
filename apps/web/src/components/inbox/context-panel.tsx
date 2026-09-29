@@ -241,8 +241,8 @@ export function ContextPanel({
         </div>
         <p className="text-[13px] text-text-2">
           {c.channel === 'chat'
-            ? 'This visitor doesn’t match anyone in Customers. Once you add or link them, this chat shows on their timeline.'
-            : 'This number doesn’t match anyone in Customers. Once you add or link them, this conversation and any calls show on their timeline.'}
+            ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
+            : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
         </p>
         <AddPersonInline
           workspaceId={workspaceId}

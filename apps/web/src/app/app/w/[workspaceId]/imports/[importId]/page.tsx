@@ -26,7 +26,7 @@ export default async function ImportPage({
     <>
       <div className="mb-3.5 flex items-center gap-1.5 text-[13px]">
         <Link href={`/app/w/${workspaceId}/customers`} className="text-accent-text hover:underline">
-          Customers
+          Contacts
         </Link>
         <span className="text-text-3">/</span>
         <span className="text-text-2">Import</span>

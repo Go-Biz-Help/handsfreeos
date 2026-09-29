@@ -165,7 +165,7 @@ describe('a test call', () => {
     expect(screen.queryByTestId('test-console-input')).toBeNull();
   });
 
-  it('calls out only to someone in Customers, and says why it calls', async () => {
+  it('calls out only to someone in Contacts, and says why it calls', async () => {
     answer(() => [done('Hi Omar, this is Ava. I’m calling about your tune-up.')]);
     await render(<Harness />);
     await choose('test-channel-phone');

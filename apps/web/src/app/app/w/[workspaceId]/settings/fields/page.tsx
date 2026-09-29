@@ -27,11 +27,11 @@ export default async function FieldsSettingsPage({
   const { types: kinds } = unwrapPage(
     await api.POST('/v1/queries/custom_record_type.list', { body: { workspaceId } }),
   );
-  // Customers and companies, then each kind of record the business keeps (?for=<its id>).
+  // People and companies, then each kind of record the business keeps (?for=<its id>).
   const targets: FieldTarget[] = [
     {
       key: 'person',
-      label: 'Customers',
+      label: 'Contacts',
       one: 'customer',
       entity: 'person',
       recordTypeId: null,

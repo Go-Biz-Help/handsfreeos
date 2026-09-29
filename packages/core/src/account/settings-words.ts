@@ -42,7 +42,7 @@ export const MORE_WORDS = {
   title: 'More',
   switch: 'Switch',
   changes: 'Changes on this phone',
-  customers: 'Customers',
+  customers: 'Contacts',
   tasks: 'Tasks',
   money: 'Money',
   /** M17: forms a phone can fill in with no signal. */

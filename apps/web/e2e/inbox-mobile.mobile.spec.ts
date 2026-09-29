@@ -33,7 +33,7 @@ test('the phone inbox: bar badge, full-screen thread, quiet hours and a photo', 
 
   await textFromCustomer({ from: MARIA, to: business, body: 'Is the roof crew coming tomorrow?' });
 
-  // The bar: Home, Inbox, Customers, Pipeline, More; the Inbox badge shows the unread conversation.
+  // The bar: Home, Inbox, Contacts, Pipeline, More; the Inbox badge shows the unread conversation.
   const bar = page.getByRole('navigation', { name: 'Primary' });
   await expect(bar.getByRole('link', { name: /Inbox/ })).toBeVisible();
   await expect(bar.getByRole('link', { name: /Tasks/ })).toHaveCount(0);

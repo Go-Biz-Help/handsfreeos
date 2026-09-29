@@ -1368,7 +1368,7 @@ function checkEvent(verdict: ReplyCheck, rewritten: boolean): ConsoleEvent {
   };
 }
 
-/** Who they are, as the log's first line: someone in Customers, or someone it only knows from what they write. */
+/** Who they are, as the log's first line: someone in Contacts, or someone it only knows from what they write. */
 function whoLine(t: PreparedTest, rc: RunContext, at: string): ConsoleEvent {
   if (rc.unverifiedChat)
     return {
@@ -1394,13 +1394,13 @@ function whoLine(t: PreparedTest, rc: RunContext, at: string): ConsoleEvent {
     ? {
         type: 'context',
         title: 'An unknown caller',
-        detail: 'Nobody in Customers has their number: it only knows what they say.',
+        detail: 'Nobody in Contacts has their number: it only knows what they say.',
         at,
       }
     : {
         type: 'context',
         title: 'An unknown customer',
-        detail: 'Nobody in Customers: it only knows what they write.',
+        detail: 'Nobody in Contacts: it only knows what they write.',
         at,
       };
 }

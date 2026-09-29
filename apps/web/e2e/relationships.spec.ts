@@ -4,7 +4,7 @@ import { createBusiness, signUpAndConfirm } from './helpers';
 /**
  * Relationships (0101): a groomer sets up pets from a starter, adds a pet from a customer's page, gives the pet a
  * second owner from its own page, and both sides list each other. The pet has its own fields and notes, a tab
- * under Customers, and spouses stay one each.
+ * under Contacts, and spouses stay one each.
  */
 test('pets from a starter → added from a customer → a second owner → both sides → fields, notes, one spouse', async ({
   page,
@@ -66,7 +66,7 @@ test('pets from a starter → added from a customer → a second owner → both 
   await page.getByTestId('activity-save').click();
   await expect(page.getByTestId('timeline-note')).toContainText('Nervous with clippers.');
 
-  // Pets have their own tab under Customers.
+  // Pets have their own tab under Contacts.
   await page.goto(`/app/w/${workspaceId}/customers`);
   await page.getByTestId('customers-tab-pet').click();
   await expect(page.getByTestId('records-table')).toContainText('Max');

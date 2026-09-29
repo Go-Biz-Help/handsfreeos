@@ -624,7 +624,7 @@ describe('a conversation', () => {
     counterpartDisplay: '(713) 555-0168',
   };
   it('says who and how under the name, and what each banner says', () => {
-    expect(threadChannelLine(c, null)).toBe('Texts · not in Customers yet');
+    expect(threadChannelLine(c, null)).toBe('Texts · not in Contacts yet');
     expect(threadChannelLine(c, { phone: '(713) 555-0142' })).toBe('(713) 555-0142 · Texts');
     expect(
       threadChannelLine({ ...c, channel: 'email', counterpart: 'mike@example.com' }, null),

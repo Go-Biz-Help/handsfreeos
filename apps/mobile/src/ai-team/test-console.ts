@@ -97,7 +97,7 @@ export function newTurn(o: {
   readonly kind: TurnKind;
   readonly message: string;
   readonly channel: TestConsoleChannel;
-  /** Their first name, when they're someone in Customers. */
+  /** Their first name, when they're someone in Contacts. */
   readonly who: string | null;
   readonly name: string;
   readonly outbound: boolean;

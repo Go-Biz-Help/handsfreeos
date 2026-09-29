@@ -227,7 +227,7 @@ export function AuditLog({
           <option value="members">Members</option>
           <option value="invitations">Invitations</option>
           <option value="workspace">Workspace</option>
-          <option value="customers">Customers</option>
+          <option value="customers">Contacts</option>
           <option value="inbox">Inbox &amp; texting</option>
           <option value="calendar">Calendar</option>
           <option value="leads">Leads</option>

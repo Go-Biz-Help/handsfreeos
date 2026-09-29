@@ -959,7 +959,7 @@ const updateMyAlerts: SettingsConfirmTool = {
 const MENU_LABELS: Record<MenuKey, string> = {
   home: 'Home',
   inbox: 'Inbox',
-  customers: 'Customers',
+  customers: 'Contacts',
   pipeline: 'Pipeline',
   calendar: 'Calendar',
   money: 'Money',

@@ -190,7 +190,7 @@ export interface PermissionGroup {
  */
 export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
   {
-    title: 'Customers',
+    title: 'Contacts',
     permissions: [
       {
         permission: 'records.write',

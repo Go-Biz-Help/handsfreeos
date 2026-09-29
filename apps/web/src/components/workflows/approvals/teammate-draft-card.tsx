@@ -97,7 +97,7 @@ export function TeammateDraftCard({
   const [rejected, setRejected] = useState(false);
   const recent = useRecentMessages(workspaceId, d.conversationId, open);
   const name = d.teammate.name;
-  // "Mike" in the sentences; "them" for a number or visitor nobody has added to Customers.
+  // "Mike" in the sentences; "them" for a number or visitor nobody has added to Contacts.
   const first = d.person ? firstNameOf(d.person.fullName) : 'them';
   const goesToPerson = d.person ? firstNameOf(d.person.fullName) : 'the conversation';
   const message = d.preview.message;

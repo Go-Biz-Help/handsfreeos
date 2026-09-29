@@ -9,7 +9,7 @@
  *   Accept: text/event-stream
  *   Body (JSON), TestConsoleInput:
  *     workspaceId  string
- *     personId     string | null   who to be: someone in Customers, or null for an unknown visitor or caller
+ *     personId     string | null   who to be: someone in Contacts, or null for an unknown visitor or caller
  *     channel      'sms' | 'email' | 'chat' | 'phone'
  *     call         { direction, purpose, goal } | null
  *                  a phone test only: they call in ('inbound'), or the teammate calls them ('outbound') for one
@@ -77,7 +77,7 @@ export type TestCall = z.infer<typeof TestCall>;
 export const TestConsoleInput = z
   .object({
     workspaceId: z.uuid(),
-    /** Who to be: someone in Customers, or null for an unknown visitor. */
+    /** Who to be: someone in Contacts, or null for an unknown visitor. */
     personId: z.uuid().nullable().default(null),
     channel: z.enum(TEST_CONSOLE_CHANNELS),
     /** A phone test: which way the call goes. */

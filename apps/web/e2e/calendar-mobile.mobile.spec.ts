@@ -15,7 +15,7 @@ test('the phone bar has the calendar, and the agenda books, opens and cancels', 
   const bar = page.getByRole('navigation', { name: 'Primary' });
   await expect(bar.getByRole('link')).toHaveText(['Home', 'Inbox', 'Pipeline', 'Calendar']);
   await expect(bar.getByRole('button', { name: 'More' })).toBeVisible();
-  await expect(bar.getByRole('link', { name: 'Customers' })).toHaveCount(0);
+  await expect(bar.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
 
   // A Personal calendar, set up from the phone.
   await createCalendar(page, workspaceId, { name: 'Service calls' });
@@ -85,11 +85,11 @@ test('the phone bar has the calendar, and the agenda books, opens and cancels', 
   await expect(row).toHaveCount(0);
   await expect(agenda).toContainText('Nothing booked');
 
-  // Customers moved into More.
+  // Contacts moved into More.
   await bar.getByRole('button', { name: 'More' }).click();
   await page
     .getByRole('navigation', { name: 'Workspace' })
-    .getByRole('link', { name: 'Customers' })
+    .getByRole('link', { name: 'Contacts' })
     .click();
   await expect(page).toHaveURL(/\/customers$/);
 });
