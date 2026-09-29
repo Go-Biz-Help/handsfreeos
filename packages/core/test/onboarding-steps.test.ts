@@ -6,6 +6,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   businessOnboardingOf,
+  clientStanding,
+  isBusinessStep,
   GUIDE_WORDS,
   isWizardStep,
   laterOrder,
@@ -440,5 +442,72 @@ describe('the quick questions', () => {
     expect(Object.keys(QUESTION_WORDS.goals)).toEqual(['leads', 'booked', 'paid', 'organized']);
     expect(Object.keys(QUESTION_WORDS.sources)).toEqual(['sheet', 'ghl', 'crm', 'phone', 'none']);
     expect(Object.keys(QUESTION_WORDS.teams)).toEqual(['solo', 'small', 'big']);
+  });
+});
+
+describe('an agency’s view of a client', () => {
+  const now = new Date('2026-09-29T15:00:00Z');
+  const ago = (days: number) => new Date(now.getTime() - days * 24 * 3600 * 1000).toISOString();
+  const business = (
+    f: OnboardingFacts,
+    a: OnboardingAnswers | null = answers(),
+    skipped: OnboardingStepKey[] = [],
+  ) => owner(f, a, skipped).steps.filter((s) => s.group !== 'yours' && isBusinessStep(s.key));
+  const standing = (
+    steps: ReturnType<typeof business>,
+    lastSignInAt: string | null = ago(1),
+    enabled = true,
+  ) => clientStanding({ steps, enabled, lastSignInAt, now });
+
+  it('is stuck on a step that needs a fix, and says which', () => {
+    const steps = business(
+      facts({
+        number: { next: 'rejected', display: '(512) 555-0148', rejectionReason: 'Address' },
+      }),
+    );
+    expect(standing(steps)).toEqual({
+      group: 'stuck',
+      badge: 'Stuck',
+      note: 'Carriers turned down texting',
+    });
+  });
+
+  it('is stuck when the owners have been away 5 days with must-dos open, and not before', () => {
+    const steps = business(facts());
+    expect(standing(steps, ago(4))).toMatchObject({
+      group: 'setup',
+      note: 'Next: Business number & texting',
+    });
+    expect(standing(steps, ago(6))).toEqual({
+      group: 'stuck',
+      badge: 'Stuck',
+      note: 'Hasn’t signed in for 6 days',
+    });
+    // Unknown isn't away.
+    expect(standing(steps, null).group).toBe('setup');
+  });
+
+  it('is done once every step is done, waiting or skipped, or the guide is off', () => {
+    const set = facts({
+      number: { next: 'awaiting_approval', display: '(512) 555-0148', since: ago(2) },
+      customers: { count: 40 },
+      calendar: { calendars: 1, services: 3, bookingOn: true },
+      ai: { name: 'Ava', published: 9, profileFilled: 6 },
+      team: { members: 3 },
+    });
+    const steps = business(set, answers(), ['payments', 'email_chat']);
+    expect(standing(steps, ago(30))).toMatchObject({ group: 'done', badge: 'In review' });
+    expect(standing(business(facts()), ago(30), false)).toEqual({
+      group: 'done',
+      badge: 'Guide off',
+      note: 'Getting started is off for this business',
+    });
+    // Must-dos done and only the optional left: still setting up, not stuck however long they're away.
+    const optional = business(set);
+    expect(standing(optional, ago(30))).toEqual({
+      group: 'setup',
+      badge: 'Optional left',
+      note: 'Connect payments, Email & website chat',
+    });
   });
 });

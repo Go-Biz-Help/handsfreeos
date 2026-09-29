@@ -7,3 +7,4 @@ export * from './words';
 export * from './settings';
 export * from './app-links';
 export * from './paths';
+export * from './clients';
