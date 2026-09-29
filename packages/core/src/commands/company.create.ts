@@ -11,6 +11,9 @@ import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import { CompanyCreateInput, CompanyCreateOutput } from '../schemas/company';
 
+/** What a likely duplicate shares with the new company, in the refusal's words. */
+const MATCHED_ON_WORDS = { email: 'email', phone: 'phone number', name: 'name' } as const;
+
 export const companyCreate = defineCommand({
   name: 'company.create',
   description:
@@ -43,7 +46,7 @@ export const companyCreate = defineCommand({
         throw new HfosError(
           'conflict',
           409,
-          `A company like "${matches[0]!.name}" already exists.`,
+          `${matches[0]!.name} is already here with the same ${MATCHED_ON_WORDS[matches[0]!.matchedOn]}. Open that company instead, or add this one anyway.`,
           { matches },
           'duplicate',
         );

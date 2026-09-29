@@ -20,7 +20,10 @@ export const pipelineUpdate = defineCommand({
       .where(
         and(eq(pipelines.id, input.pipelineId), eq(pipelines.workspaceId, ctx.scope.workspaceId!)),
       );
-    if (!current) throw HfosError.notFound('Pipeline not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That pipeline isn’t there anymore. Refresh Settings → Pipelines and try again.',
+      );
     const patch: { name?: string; position?: number } = {};
     if (input.name !== undefined && input.name !== current.name) patch.name = input.name;
     if (input.position !== undefined && input.position !== current.position)

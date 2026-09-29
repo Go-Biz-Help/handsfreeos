@@ -26,7 +26,9 @@ export const intakeSubmit = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const source = await intakeSourceById(ctx.tx, ws, input.sourceId);
     if (!source || (source.kind !== 'website_form' && source.kind !== 'api'))
-      throw HfosError.notFound('That form or key isn’t here.');
+      throw HfosError.notFound(
+        'This form or key isn’t in use anymore, so nothing was sent. Contact the business another way.',
+      );
     const result = await submitIntake(ctx, {
       source,
       payload: input.payload,

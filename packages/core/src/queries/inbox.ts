@@ -576,7 +576,10 @@ export const conversationGet = defineQuery({
             ${SAME_AS(input.workspaceId)} as same_as
           from (${conversationSelect(input.workspaceId)} and c.id = ${input.conversationId}) x`,
     );
-    if (!row) throw HfosError.notFound('Conversation not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That conversation isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const m = await workspaceMessaging(ctx.tx, input.workspaceId);
     let person: {
       id: string;
@@ -842,7 +845,10 @@ export const conversationThread = defineQuery({
       ctx.tx,
       sql`select id from app.conversations where id = ${input.conversationId} and workspace_id = ${input.workspaceId}`,
     );
-    if (!exists) throw HfosError.notFound('Conversation not found.');
+    if (!exists)
+      throw HfosError.notFound(
+        'That conversation isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const cursor = decodeTimeCursor(input.cursor);
     // "All": every lane of this customer woven together, each item saying which line it was on (0089).
     const lanes = input.allLanes
@@ -906,7 +912,10 @@ export const messageGet = defineQuery({
           from (${messageBranch(input.workspaceId)} and m.id = ${input.messageId}) t
           join app.messages x on x.id = t.id`,
     );
-    if (!row) throw HfosError.notFound('Message not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That message isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     return {
       message: threadItem(row),
       conversationId: row.conversation_id,

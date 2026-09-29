@@ -37,14 +37,19 @@ export const registrationSubmit = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const number = await defaultNumber(ctx.tx, workspaceId);
-    if (!number) throw HfosError.rule('no_number', 409, 'Get a business number first.');
+    if (!number)
+      throw HfosError.rule(
+        'no_number',
+        409,
+        'This business doesn’t have a phone number yet, so there’s nothing to register. Get one under Get a business number in Settings → Texting & calls first.',
+      );
     if (familyFor(number.numberType) !== input.kind)
       throw HfosError.rule(
         'registration_kind_mismatch',
         400,
         number.numberType === 'toll_free'
-          ? 'Toll-free numbers use toll-free verification.'
-          : 'Local numbers use the 10DLC brand and campaign registration.',
+          ? `${formatPhone(number.e164)} is a toll-free number, so it needs toll-free verification instead. Refresh Settings → Texting & calls and start it there.`
+          : `${formatPhone(number.e164)} is a local number, so it needs the 10DLC brand and campaign registration instead. Refresh Settings → Texting & calls and start it there.`,
       );
     const kinds = FAMILY_KINDS[input.kind];
     const latest = latestByKind(
@@ -60,13 +65,13 @@ export const registrationSubmit = defineCommand({
       throw HfosError.rule(
         'registration_in_review',
         409,
-        'The carriers are reviewing this registration. Changes wait until they answer.',
+        'The carriers are still reviewing this registration, so it can’t change yet. Owners and admins get an email when they answer, and you can send changes then.',
       );
     if (chain.every((r) => r?.status === 'approved'))
       throw HfosError.rule(
         'registration_approved',
         409,
-        'Texting is already approved for this number.',
+        `Texting is already approved for ${formatPhone(number.e164)}, so there’s nothing more to send.`,
       );
 
     const submission = { ...input.business, forNumber: number.e164 };

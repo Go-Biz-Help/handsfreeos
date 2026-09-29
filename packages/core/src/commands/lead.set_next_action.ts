@@ -26,7 +26,10 @@ export const leadSetNextAction = defineCommand({
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, ctx.scope.workspaceId!)))
       .for('update');
-    if (!current) throw HfosError.notFound('Lead not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const nextAction = input.text;
     const nextActionAt = nextAction ? (input.dueAt ? new Date(input.dueAt) : null) : null;
     // The next action and its time go together: a later change to either keeps both as they are.

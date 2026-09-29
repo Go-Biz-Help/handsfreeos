@@ -37,7 +37,10 @@ export const emailComposeOptions = defineQuery({
             eq(conversations.workspaceId, workspaceId),
           ),
         );
-      if (!c) throw HfosError.notFound('Conversation not found.');
+      if (!c)
+        throw HfosError.notFound(
+          'That conversation isn’t there anymore. It may have been deleted. Refresh and try again.',
+        );
       if (c.channel === 'email') {
         to = c.counterpart;
         conversationId = c.id;

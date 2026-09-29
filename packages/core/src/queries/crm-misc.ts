@@ -123,7 +123,10 @@ export const importGet = defineQuery({
       .from(imports)
       .leftJoin(users, eq(users.id, imports.createdBy))
       .where(and(eq(imports.id, input.importId), eq(imports.workspaceId, input.workspaceId)));
-    if (!row) throw HfosError.notFound('Import not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That import isn’t there anymore. Refresh Settings → Imports and try again.',
+      );
     const errors = await ctx.tx
       .select()
       .from(importErrors)

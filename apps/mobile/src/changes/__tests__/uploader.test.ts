@@ -75,14 +75,16 @@ describe('one change', () => {
     const p = phone();
     p.api.script((r) =>
       r.name === 'activity.log'
-        ? refusal(409, 'final', 'Restore the lead before moving it.', { rule: 'lead_archived' })
+        ? refusal(409, 'final', 'This lead is archived. Restore it, then move it.', {
+            rule: 'lead_archived',
+          })
         : undefined,
     );
     const { id } = await note(p, 'On an archived lead');
     await p.sync();
     expect(p.row(id)).toMatchObject({
       state: 'refused',
-      reason: 'Restore the lead before moving it.',
+      reason: 'This lead is archived. Restore it, then move it.',
       disposition: 'final',
       rule: 'lead_archived',
     });
@@ -363,7 +365,9 @@ describe('changes that depend on others', () => {
       if (r.name !== 'lead.move_stage') return undefined;
       // The API ran the first try and kept its refusal against the id.
       server.receipts.set(r.commandId, { name: r.name, input: r.input, output: null });
-      return refusal(409, 'final', 'Restore the lead before moving it.', { rule: 'lead_archived' });
+      return refusal(409, 'final', 'This lead is archived. Restore it, then move it.', {
+        rule: 'lead_archived',
+      });
     });
     const move = await p.changes.change('lead.move_stage', {
       workspaceId: LONE_STAR,

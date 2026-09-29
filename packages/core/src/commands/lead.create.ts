@@ -45,6 +45,7 @@ export const leadCreate = defineCommand({
             path,
             message: 'The AI teammate doesn’t set this. Someone on the team can.',
           })),
+          'The AI teammate adds a lead without an owner, a value or tags. Leave those out, and someone on the team can set them later.',
         );
     }
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
@@ -66,7 +67,12 @@ export const leadCreate = defineCommand({
           .where(and(eq(pipelines.workspaceId, workspaceId), isNull(pipelines.archivedAt)))
           .orderBy(asc(pipelines.position), asc(pipelines.createdAt))
           .limit(1);
-    if (!pipeline) throw HfosError.notFound('Pipeline not found.');
+    if (!pipeline)
+      throw HfosError.notFound(
+        input.pipelineId
+          ? 'That pipeline isn’t there anymore. It may have been archived. Pick another pipeline and try again.'
+          : 'This business has no pipeline to add the lead to. Add one in Settings → Pipelines.',
+      );
     const [stage] = input.stageId
       ? await ctx.tx
           .select()
@@ -80,7 +86,12 @@ export const leadCreate = defineCommand({
           .where(and(eq(pipelineStages.pipelineId, pipeline.id), eq(pipelineStages.kind, 'open')))
           .orderBy(asc(pipelineStages.position))
           .limit(1);
-    if (!stage) throw HfosError.notFound('Stage not found.');
+    if (!stage)
+      throw HfosError.notFound(
+        input.stageId
+          ? `That stage isn’t in “${pipeline.name}” anymore. Pick another stage and try again.`
+          : `“${pipeline.name}” has no open stage to start a lead in. Add one in Settings → Pipelines.`,
+      );
     if (aiDirect && stage.kind !== 'open')
       throw HfosError.rule(
         'stage_not_open',

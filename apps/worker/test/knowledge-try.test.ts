@@ -284,7 +284,11 @@ describe('Try it', () => {
       const res = await tryIt(none, ownerToken, 'Do you offer financing?');
       expect(res.statusCode).toBe(503);
       expect(res.json()).toMatchObject({
-        error: { rule: 'ai_not_configured', message: 'The AI isn’t set up yet.' },
+        error: {
+          rule: 'ai_not_configured',
+          message:
+            'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.',
+        },
       });
     } finally {
       await none.close();

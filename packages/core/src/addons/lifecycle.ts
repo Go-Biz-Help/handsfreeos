@@ -75,20 +75,29 @@ export function moveFor(from: InstallationState | null, action: LifecycleAction)
       if (from === 'disabled') return move('enabled');
       if (from === 'enabled' || from === 'installing') return { kind: 'already' };
       if (from === null || from === 'uninstalled' || from === 'purged')
-        return refused('addon_not_installed', 'That add-on isn’t installed here.');
+        return refused(
+          'addon_not_installed',
+          'That add-on isn’t installed here. Install it from Settings → Add-ons first.',
+        );
       return busy;
     case 'disable':
       if (from === 'enabled' || from === 'installing') return move('disabled');
       if (from === 'disabled') return { kind: 'already' };
       if (from === null || from === 'uninstalled' || from === 'purged')
-        return refused('addon_not_installed', 'That add-on isn’t installed here.');
+        return refused(
+          'addon_not_installed',
+          'That add-on isn’t installed here, so it’s already off. Refresh Settings → Add-ons to see what’s installed.',
+        );
       return busy;
     case 'uninstall':
       if (from === 'installing' || from === 'enabled' || from === 'disabled')
         return move('uninstalling');
       if (from === 'uninstalling' || from === 'uninstalled') return { kind: 'already' };
       if (from === null || from === 'purged')
-        return refused('addon_not_installed', 'That add-on isn’t installed here.');
+        return refused(
+          'addon_not_installed',
+          'That add-on isn’t installed here, so there’s nothing to uninstall. Refresh Settings → Add-ons to see what’s installed.',
+        );
       return busy;
     case 'purge':
       if (from === 'uninstalled') return move('purging');

@@ -60,10 +60,15 @@ export const teammateLessonApply = defineCommand({
       .from(teammateLessons)
       .where(and(eq(teammateLessons.id, input.lessonId), eq(teammateLessons.workspaceId, ws)))
       .for('update');
-    if (!lesson) throw HfosError.notFound('That suggestion is gone.');
+    if (!lesson)
+      throw HfosError.notFound(
+        'That suggestion isn’t there anymore. It may have been dealt with already. Refresh to see what’s left.',
+      );
     if (lesson.status !== 'open')
       throw HfosError.conflict(
-        lesson.status === 'applied' ? 'It’s already been added.' : 'It was turned down.',
+        lesson.status === 'applied'
+          ? 'That’s already been added to what the AI knows, so there’s nothing more to do.'
+          : 'Someone already turned that suggestion down, so there’s nothing more to do.',
         'lesson_decided',
       );
     const conflict = lessonConflictOf(lesson.conflict);
@@ -129,7 +134,7 @@ export const teammateLessonApply = defineCommand({
       const policies = withLesson(profile.policies, line);
       if (policies === null)
         throw HfosError.conflict(
-          'Your policies are full. Make room in what the AI knows, then add it.',
+          'Your policies are full, so this can’t be added. Shorten them under Policies in Knowledge → Business profile, then add it again.',
           'policies_full',
         );
       if (policies !== profile.policies) {
@@ -139,7 +144,7 @@ export const teammateLessonApply = defineCommand({
     }
     if (!KnowledgeProfile.safeParse(profile).success)
       throw HfosError.conflict(
-        `${replaced?.where ?? 'What the AI knows'} would be too long with the new words. Change it on What the AI knows instead.`,
+        `${replaced?.where ?? 'What the AI knows'} would be too long with the new words. Change it yourself in Knowledge → Business profile instead.`,
         'lesson_too_long',
       );
     if (changed.size) {

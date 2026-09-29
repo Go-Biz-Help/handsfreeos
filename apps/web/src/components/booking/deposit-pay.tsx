@@ -276,7 +276,7 @@ export function DepositStep({
             ? 'That time has gone.'
             : hold.pay.reason === 'paid'
               ? 'This is already paid.'
-              : `We can’t take a payment right now. Please ${callPhrase(hold.business)}.`}
+              : `We can’t take payments online right now. To keep this time, ${callPhrase(hold.business)}.`}
         </p>
       )}
       {error ? (

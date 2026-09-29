@@ -28,12 +28,18 @@ export const maintenanceSetSchedule = defineCommand({
       .select({ id: people.id, first: people.firstName, last: people.lastName })
       .from(people)
       .where(and(eq(people.id, input.personId), eq(people.workspaceId, ws)));
-    if (!person) throw HfosError.notFound('Customer not found.');
+    if (!person)
+      throw HfosError.notFound(
+        'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const [service] = await ctx.tx
       .select({ id: services.id, name: services.name })
       .from(services)
       .where(and(eq(services.id, input.serviceId), eq(services.workspaceId, ws)));
-    if (!service) throw HfosError.notFound('Service not found.');
+    if (!service)
+      throw HfosError.notFound(
+        'That service isn’t there anymore. It may have been deleted. Refresh and pick another.',
+      );
     const where = and(
       eq(serviceSchedules.personId, person.id),
       eq(serviceSchedules.serviceId, service.id),

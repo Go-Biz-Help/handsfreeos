@@ -70,7 +70,10 @@ async function requireSubscription(
         where s.workspace_id = ${ctx.scope.workspaceId!} and s.id = ${subscriptionId}::uuid
         for no key update of s`,
   );
-  if (!row) throw HfosError.notFound('That plan isn’t there.');
+  if (!row)
+    throw HfosError.notFound(
+      'That plan isn’t there anymore. It may have been deleted. Refresh Money → Plans and try again.',
+    );
   return row;
 }
 
@@ -96,7 +99,7 @@ function assertManaged(row: SubscriptionLite, what: string): void {
     throw HfosError.rule(
       'subscription_unmanaged',
       409,
-      `This plan is still billing at the provider, but the account it bills through is disconnected. Reconnect it to ${what} here, or ${what} it at the provider.`,
+      `This plan is still billing at the provider, but the account it bills through is disconnected. Reconnect that account in Settings → Payments to ${what} it here, or ${what} it at the provider.`,
     );
 }
 
@@ -205,7 +208,9 @@ export const subscriptionPause = defineCommand({
       throw HfosError.rule(
         'subscription_not_active',
         409,
-        'Only a plan that is billing can be paused.',
+        before.status === 'cancelled'
+          ? `${before.plan_name} has ended, so there’s nothing to pause. Start a new plan if they want it again.`
+          : `${before.plan_name} isn’t billing yet, so there’s nothing to pause. It starts once the customer adds a card. To stop it, cancel it instead.`,
       );
     await ctx.tx
       .update(subscriptions)
@@ -239,7 +244,15 @@ export const subscriptionResume = defineCommand({
     if (before.status === 'active') return stateOut(before, false);
     assertManaged(before, 'resume');
     if (before.status !== 'paused')
-      throw HfosError.rule('subscription_not_paused', 409, 'Only a paused plan can be resumed.');
+      throw HfosError.rule(
+        'subscription_not_paused',
+        409,
+        before.status === 'cancelled'
+          ? `${before.plan_name} has ended, so it can’t start again. Start a new plan for them instead.`
+          : before.status === 'past_due'
+            ? `${before.plan_name} isn’t paused. It’s still running, but its last payment didn’t go through. Ask for a new card to fix that.`
+            : `${before.plan_name} isn’t paused. It starts billing on its own once the customer adds a card.`,
+      );
     await ctx.tx
       .update(subscriptions)
       .set({ status: 'active', pausedAt: null })
@@ -342,8 +355,13 @@ export const subscriptionRecordCard = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const before = await requireSubscription(ctx, input.subscriptionId);
+    // The customer reads this, on the plan's own page, when the plan ended while they were typing their card.
     if (before.status === 'cancelled')
-      throw HfosError.rule('subscription_cancelled', 409, 'That plan was cancelled.');
+      throw HfosError.rule(
+        'subscription_cancelled',
+        409,
+        'This plan has ended, so your card wasn’t added to it. Contact the business if you’d like to start it again.',
+      );
     await ctx.tx
       .update(subscriptions)
       .set({

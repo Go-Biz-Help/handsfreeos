@@ -46,12 +46,16 @@ export function maskContact(channel: 'sms' | 'email', to: string): string {
 async function chatOf(ctx: CommandContext, ai: AiEmployeeActor) {
   const conv = await requireAiConversation(ctx, ai);
   if (conv.channel !== 'chat')
-    throw HfosError.rule('not_a_chat', 409, 'Only a website chat is verified with a code.');
+    throw HfosError.rule(
+      'not_a_chat',
+      409,
+      'This conversation isn’t a website chat, so there’s no code to send. Carry on without one.',
+    );
   if (!conv.personId)
     throw HfosError.rule(
       'no_customer',
       409,
-      'This chat isn’t linked to a customer yet, so there’s nobody to send a code to.',
+      'This chat isn’t linked to a customer yet, so there’s nobody to send a code to. Hand off if they need to prove who they are.',
     );
   const [visitor] = await ctx.tx
     .select({ id: chatVisitors.id })
@@ -62,7 +66,10 @@ async function chatOf(ctx: CommandContext, ai: AiEmployeeActor) {
         eq(chatVisitors.workspaceId, ctx.scope.workspaceId!),
       ),
     );
-  if (!visitor) throw HfosError.notFound('That chat’s visitor isn’t there.');
+  if (!visitor)
+    throw HfosError.notFound(
+      'This chat has no website visitor to send a code to. Hand off if they need to prove who they are.',
+    );
   return { conv, personId: conv.personId, visitorId: visitor.id };
 }
 

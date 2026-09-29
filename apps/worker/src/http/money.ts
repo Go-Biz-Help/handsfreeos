@@ -144,7 +144,9 @@ function limitsFor(opts: MoneyHttpOptions): MoneyLimits {
 // ---- Errors the customer sees ----
 
 const linkNotFound = () =>
-  HfosError.notFound('This link doesn’t work. Check that it matches the one we sent you.');
+  HfosError.notFound(
+    'This link doesn’t work. Check that it matches the one we sent you, or contact the business.',
+  );
 
 const staleLink = (kind: MoneyDocumentKind, business: PublicBusiness) =>
   new HfosError(
@@ -163,7 +165,7 @@ const cannotTakePayment = () =>
   HfosError.rule(
     'payment_unavailable',
     409,
-    'We can’t take a payment on this invoice right now. Please call us and we’ll sort it out.',
+    'We can’t take payments online right now. Call us and we’ll sort it out another way.',
   );
 
 const providerRefused = () =>
@@ -183,7 +185,7 @@ const meta = (): RequestMeta => ({
 function refuseHoneypot(body: unknown): void {
   const website = (body as { website?: unknown } | null)?.website;
   if (typeof website === 'string' && website.trim() !== '')
-    throw HfosError.validation([], 'Please check the form and try again.');
+    throw HfosError.validation([], 'That didn’t go through. Refresh the page and try again.');
 }
 
 // ---- Request bodies ----
@@ -727,7 +729,11 @@ interface PayRepeat {
 
 function assertPayable(row: InvoiceRow): void {
   if (row.status === 'void')
-    throw HfosError.rule('invoice_voided', 409, 'This invoice was withdrawn. Please call us.');
+    throw HfosError.rule(
+      'invoice_voided',
+      409,
+      'This invoice was withdrawn, so it can’t be paid. Call us if you think you still owe something.',
+    );
   if (Number(row.balance_cents) <= 0)
     throw HfosError.rule('invoice_settled', 409, 'This invoice is already paid. Thank you!');
 }
@@ -986,7 +992,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             throw HfosError.rule(
               'subscription_cancelled',
               409,
-              'This plan has ended. Please call us if you would like to start it again.',
+              'This plan has ended, so it can’t take a card. Call us if you’d like to start it again.',
             );
           const account = await planAccount(deps, tx, scope.workspaceId, row);
           if (!account) throw cannotTakePayment();

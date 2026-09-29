@@ -226,7 +226,10 @@ export const reviewConnectionDisconnect = defineCommand({
         ),
       )
       .returning({ id: reviewConnections.id });
-    if (!c) throw HfosError.notFound('That connection is not here.');
+    if (!c)
+      throw HfosError.notFound(
+        'That place isn’t connected anymore. It may already have been disconnected. Refresh Reviews to see where it stands.',
+      );
     await ctx.emit({
       type: 'review_connection.disconnected',
       entityType: 'review_connection',
@@ -256,9 +259,16 @@ export const reviewConnectionSyncNow = defineCommand({
           eq(reviewConnections.workspaceId, ctx.scope.workspaceId!),
         ),
       );
-    if (!c) throw HfosError.notFound('That connection is not here.');
+    if (!c)
+      throw HfosError.notFound(
+        'That place isn’t there anymore. Refresh Reviews to see what’s connected.',
+      );
     if (c.status === 'disconnected')
-      throw HfosError.rule('review_connection_gone', 409, 'That place is not connected.');
+      throw HfosError.rule(
+        'review_connection_gone',
+        409,
+        'That place isn’t connected anymore, so there’s nothing to check. Connect it again on Reviews.',
+      );
     // The worker brings the read forward when it sees this: the queue is the worker's, not a browser's.
     await ctx.emit({
       type: 'review_connection.sync_requested',
@@ -290,7 +300,10 @@ export const reviewReply = defineCommand({
       .from(reviews)
       .leftJoin(reviewConnections, eq(reviewConnections.id, reviews.connectionId))
       .where(and(eq(reviews.id, input.reviewId), eq(reviews.workspaceId, workspaceId)));
-    if (!found) throw HfosError.notFound('That review is not here.');
+    if (!found)
+      throw HfosError.notFound(
+        'That review isn’t there anymore. It may have been taken down where it was posted. Refresh Reviews and try again.',
+      );
     if (found.provider !== 'google')
       throw HfosError.conflict(
         'Facebook doesn’t let apps answer reviews, so this one is answered on Facebook itself.',
@@ -298,7 +311,9 @@ export const reviewReply = defineCommand({
       );
     if (found.status !== 'connected' && found.status !== 'needs_attention')
       throw HfosError.conflict(
-        'Google needs signing in again (Reviews shows Sign in again) before an answer can go up.',
+        found.status === 'pending'
+          ? 'Google is still connecting, so this answer can’t go up yet. Finish signing in to Google on Reviews, then answer it.'
+          : 'Google isn’t connected anymore, so this answer can’t go up. Connect Google again on Reviews, then answer it.',
         'review_not_answerable',
       );
     const [row] = await ctx.tx
@@ -306,7 +321,10 @@ export const reviewReply = defineCommand({
       .set({ replyBody: input.body, replyPostedAt: new Date(), replyBy: requireHuman(ctx).userId })
       .where(and(eq(reviews.id, input.reviewId), eq(reviews.workspaceId, workspaceId)))
       .returning({ id: reviews.id, provider: reviews.provider });
-    if (!row) throw HfosError.notFound('That review is not here.');
+    if (!row)
+      throw HfosError.notFound(
+        'That review isn’t there anymore. It may have been taken down where it was posted. Refresh Reviews and try again.',
+      );
     // Kept here first and posted after: the worker takes it from this event.
     await ctx.emit({
       type: 'review.replied',

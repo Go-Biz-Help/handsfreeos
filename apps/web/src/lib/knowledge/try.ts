@@ -33,6 +33,7 @@ export function tryErrorMessage(e: unknown): string {
   if (e.status === 403) return 'Only owners and admins can try questions.';
   if (why === 'budget_reached')
     return 'That’s today’s AI limit for this business. It resets at midnight.';
-  if (why === 'ai_not_configured') return 'The AI isn’t set up yet.';
+  if (why === 'ai_not_configured')
+    return 'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
   return e.message;
 }

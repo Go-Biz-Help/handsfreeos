@@ -435,7 +435,9 @@ export function intakeName(input: {
   }
   if (input.phone) return [formatPhone(input.phone).slice(0, 80), ''];
   if (input.email) return [(input.email.split('@')[0] ?? input.email).slice(0, 80), ''];
-  throw HfosError.internal('intake without a way to name the customer');
+  throw HfosError.internal(
+    'This came in without a name, phone number or email, so there’s no one to save it under. Send it again with one of those.',
+  );
 }
 
 // ---- Forms and connected apps (slice B) ----
@@ -528,7 +530,7 @@ export async function submitIntake(
 ): Promise<IntakeSubmitResult> {
   const ws = ctx.scope.workspaceId!;
   const { source, payload, at } = input;
-  if (!source.id) throw HfosError.internal('a form or key without its row');
+  if (!source.id) throw HfosError.internal();
 
   const [earlier] = await ctx.tx
     .select()

@@ -43,8 +43,9 @@ const clip = (s: string | null | undefined, max = 140) =>
   !s ? '' : s.length > max ? `${s.slice(0, max - 1)}…` : s;
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const nothing = (why = 'Nothing would change.') => HfosError.validation([], why);
-const missing = (path: string, message: string) =>
-  HfosError.validation([{ path, message }], message);
+/** A refusal about one argument; `detail` is the field's own shorter line when the message says more. */
+const missing = (path: string, message: string, detail = message) =>
+  HfosError.validation([{ path, message: detail }], message);
 const recordHref = (ws: string, id: string) => `/app/w/${ws}/customers/records/${id}`;
 
 /**
@@ -57,7 +58,11 @@ function checkInput(ctx: ToolContext, name: string, input: Args): void {
     ?.input.safeParse({ ...input, workspaceId: ctx.workspaceId });
   if (!parsed || parsed.success) return;
   const issues = parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
-  throw HfosError.validation(issues, issues[0]?.message ?? 'Some fields need attention.');
+  throw HfosError.validation(
+    issues,
+    issues[0]?.message ??
+      'Some of those details can’t be saved as they are. Check each one and try again.',
+  );
 }
 
 const card = (
@@ -297,7 +302,11 @@ const manageConversation: SettingsConfirmTool = {
         const to = idOf(args['assigneeUserId']) ?? null;
         const name = to ? await teammateName(db, ctx, to) : null;
         if (to && !name)
-          throw missing('assigneeUserId', 'Pick someone on the team: list_team has them.');
+          throw missing(
+            'assigneeUserId',
+            'Nobody on the team has that user id. Look them up with list_team and use the id it gives.',
+            'Pick someone on the team: list_team has them.',
+          );
         if ((c.assignee?.id ?? null) === to)
           throw nothing(name ? `It’s assigned to ${name} already.` : 'It’s unassigned already.');
         return draft(
@@ -346,10 +355,25 @@ const manageConversation: SettingsConfirmTool = {
         );
       case 'snooze': {
         const until = str(args['until']);
-        if (!until) throw missing('until', 'Say when it should come back.');
+        if (!until)
+          throw missing(
+            'until',
+            'Say when it should come back: give until, a date and time.',
+            'Say when it should come back.',
+          );
         const t = Date.parse(until);
-        if (!(t > Date.now() + 60_000)) throw missing('until', 'Pick a time in the future.');
-        if (t > Date.now() + 90 * DAY_MS) throw missing('until', 'Snooze for 90 days at most.');
+        if (!(t > Date.now() + 60_000))
+          throw missing(
+            'until',
+            'That time has already passed. Give an until later than now.',
+            'Pick a time in the future.',
+          );
+        if (t > Date.now() + 90 * DAY_MS)
+          throw missing(
+            'until',
+            'That’s more than 90 days away. Snooze for 90 days at most.',
+            'Snooze for 90 days at most.',
+          );
         return draft(
           `Snooze the conversation with ${who}?`,
           [
@@ -519,7 +543,11 @@ const manageConversation: SettingsConfirmTool = {
           triedAgain: boolean;
         }>(db, ctx, 'message.get', { messageId });
         if (conversationId !== c.id)
-          throw missing('messageId', 'That message isn’t in this conversation.');
+          throw missing(
+            'messageId',
+            'That message is in another conversation, not this one. Use the conversationId unsent_messages gives with it.',
+            'That message isn’t in this conversation.',
+          );
         if (act === 'cancel_held_text') {
           if (m.errorCode === 'cancelled') throw nothing('That text is cancelled already.');
           if (didNotGo(m))
@@ -554,7 +582,7 @@ const manageConversation: SettingsConfirmTool = {
           throw HfosError.rule(
             'message_not_failed',
             409,
-            'Only a message that didn’t go out can be sent again.',
+            'That message didn’t fail, so there’s nothing to send again. Only a message that didn’t go out can be sent again.',
           );
         const email = m.channel === 'email';
         const fields: Field[] = [
@@ -650,7 +678,11 @@ const manageConversation: SettingsConfirmTool = {
           { messageId: args['messageId'] },
         );
         if (on !== conversationId)
-          throw missing('messageId', 'That message isn’t in this conversation.');
+          throw missing(
+            'messageId',
+            'That message is in another conversation, not this one, so nothing was done.',
+            'That message isn’t in this conversation.',
+          );
         const name = act === 'send_again' ? 'message.retry' : 'message.cancel_scheduled';
         const out = await command<{ scheduledFor?: string; stays?: boolean }>(db, ctx, name, {
           messageId: args['messageId'],
@@ -1230,7 +1262,12 @@ const manageCompany: SettingsConfirmTool = {
     const phone = typeof input['phone'] === 'string' ? normalizePhone(input['phone']) : null;
     if (act === 'create') {
       const name = str(args['name']);
-      if (!name) throw missing('name', 'Give the company a name.');
+      if (!name)
+        throw missing(
+          'name',
+          'A new company needs a name. Give it in name.',
+          'Give the company a name.',
+        );
       checkInput(ctx, 'company.create', input);
       const { matches } = await query<{ matches: { name: string; matchedOn: string }[] }>(
         db,
@@ -1313,7 +1350,8 @@ const manageCompany: SettingsConfirmTool = {
       null,
       (input['notes'] ?? null) === company.notes,
     );
-    if (!changes.length) throw nothing();
+    if (!changes.length)
+      throw nothing(`Nothing would change. ${company.name} already has those details.`);
     return card(
       toolCallId,
       'manage_company',
@@ -1370,7 +1408,12 @@ const assignCustomer: SettingsConfirmTool = {
           })),
       teammateName(db, ctx, userId),
     ]);
-    if (!user) throw missing('userId', 'Pick someone on the team: list_team has them.');
+    if (!user)
+      throw missing(
+        'userId',
+        'Nobody on the team has that user id. Look them up with list_team and use the id it gives.',
+        'Pick someone on the team: list_team has them.',
+      );
     const isMain = who.owner?.id === userId;
     const onIt = who.team.some((t) => t.id === userId);
     const others = (ids: { fullName: string }[]) =>
@@ -1922,6 +1965,7 @@ function newRecordSide(t: RelType, kind: RecordType): 'a' | 'b' {
   if (mine(t.a)) return 'a';
   throw missing(
     'relationshipTypeId',
+    `That relationship has no ${kind.singular.toLowerCase()} on either end. Pick one that does (find_records lists them), or leave relationshipTypeId out.`,
     `That relationship has no ${kind.singular.toLowerCase()} on either end.`,
   );
 }
@@ -1958,7 +2002,8 @@ const manageRecord: SettingsConfirmTool = {
         const typeId = idOf(args['typeId']);
         const name = str(args['name']);
         if (!typeId) throw missing('typeId', 'Say which kind of record: find_records lists them.');
-        if (!name) throw missing('name', 'Give it a name.');
+        if (!name)
+          throw missing('name', 'A new record needs a name. Give it in name.', 'Give it a name.');
         const [{ types }, fields] = await Promise.all([
           query<{ types: RecordType[] }>(db, ctx, 'custom_record_type.list'),
           fieldsOf(db, ctx, typeId),
@@ -1970,7 +2015,12 @@ const manageRecord: SettingsConfirmTool = {
         let related: Field[] = [];
         if (args['relationshipTypeId'] || args['relateToId']) {
           const relateToId = idOf(args['relateToId']);
-          if (!relateToId) throw missing('relateToId', 'Say what it’s related to.');
+          if (!relateToId)
+            throw missing(
+              'relateToId',
+              'Say what it’s related to: give the other record’s id in relateToId.',
+              'Say what it’s related to.',
+            );
           const t = await relTypeOf(db, ctx, args['relationshipTypeId']);
           const side = newRecordSide(t, kind);
           const other = side === 'a' ? t.b : t.a;
@@ -2008,7 +2058,8 @@ const manageRecord: SettingsConfirmTool = {
             : []),
           ...valueLines(fields, values, record.custom),
         ];
-        if (!lines.length) throw nothing();
+        if (!lines.length)
+          throw nothing(`Nothing would change. ${record.name} already has those details.`);
         return card(toolCallId, tool, `Change ${record.name}?`, lines, 'Save the change');
       }
       case 'relate': {
@@ -2037,7 +2088,10 @@ const manageRecord: SettingsConfirmTool = {
       case 'change_note': {
         const { pair, name } = await pairOn(db, ctx, args);
         const note = str(args['note']) ?? null;
-        if (note === (pair.note ?? null)) throw nothing();
+        if (note === (pair.note ?? null))
+          throw nothing(
+            `Nothing would change. The note on ${name} and ${pair.other.name} already says that.`,
+          );
         return card(
           toolCallId,
           tool,

@@ -52,7 +52,10 @@ export async function requireRecordType(
     .from(customRecordTypes)
     .where(and(eq(customRecordTypes.id, typeId), eq(customRecordTypes.workspaceId, workspaceId)));
   const [t] = opts.lock ? await query.for('update') : await query;
-  if (!t) throw HfosError.notFound('That kind of record wasn’t found.');
+  if (!t)
+    throw HfosError.notFound(
+      'That kind of record isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   if (opts.live && t.archivedAt)
     throw HfosError.rule(
       'record_type_archived',
@@ -74,7 +77,10 @@ export async function requireCustomRecord(
     .from(customRecords)
     .where(and(eq(customRecords.id, customRecordId), eq(customRecords.workspaceId, workspaceId)));
   const [r] = opts.lock ? await query.for('update') : await query;
-  if (!r) throw HfosError.notFound('Record not found.');
+  if (!r)
+    throw HfosError.notFound(
+      'That record isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return r;
 }
 
@@ -95,7 +101,10 @@ export async function requireRelationshipType(
       ),
     );
   const [t] = opts.lock ? await query.for('update') : await query;
-  if (!t) throw HfosError.notFound('That relationship type wasn’t found.');
+  if (!t)
+    throw HfosError.notFound(
+      'That relationship type isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return t;
 }
 

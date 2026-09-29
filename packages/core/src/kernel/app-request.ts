@@ -66,7 +66,10 @@ export function readAppRequest(headers: HeaderBag, now: Date): AppRequestDetails
   const sentAt = time(APP_HEADERS.sentAt);
   const confirmedAt = time(APP_HEADERS.confirmedAt);
   if (problems.length)
-    throw HfosError.validation(problems, 'The app sent this change with details it can’t use.');
+    throw HfosError.validation(
+      problems,
+      'The app sent this change with details HandsFreeOS can’t use. Update the app, then try it again.',
+    );
   return {
     channel: 'mobile',
     commandId: commandId?.toLowerCase() ?? null,
@@ -97,7 +100,7 @@ export function assertAppRequest(meta: RequestMeta): void {
         ...(meta.commandId ? [] : [{ path: APP_HEADERS.commandId, message: 'Required.' }]),
         ...(meta.occurredAt ? [] : [{ path: APP_HEADERS.occurredAt, message: 'Required.' }]),
       ],
-      'The app sent this change without saying which one it is and when it was done.',
+      'The app sent this change without saying which one it is and when it was done. Update the app, then try it again.',
     );
 }
 

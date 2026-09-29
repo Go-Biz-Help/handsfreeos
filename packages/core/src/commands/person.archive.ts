@@ -2,6 +2,7 @@ import { and, count, eq, isNull } from 'drizzle-orm';
 import { leads, people, tasks } from '@hfos/db/schema';
 import { logSystemActivity } from '../crm/activities';
 import { fullName, requirePerson } from '../crm/records';
+import { countOf } from '../calendar/format';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
@@ -32,14 +33,21 @@ export const personArchive = defineCommand({
       .from(tasks)
       .where(and(eq(tasks.personId, current.id), isNull(tasks.doneAt)));
     const open = Number(openLeads?.n ?? 0);
-    if ((open > 0 || Number(openTasks?.n ?? 0) > 0) && !input.force)
+    const openTaskCount = Number(openTasks?.n ?? 0);
+    if ((open > 0 || openTaskCount > 0) && !input.force) {
+      const who = fullName(current.firstName, current.lastName) || 'This customer';
+      const work = [
+        ...(open > 0 ? [countOf(open, 'open lead', 'open leads')] : []),
+        ...(openTaskCount > 0 ? [countOf(openTaskCount, 'open task', 'open tasks')] : []),
+      ].join(' and ');
       throw new HfosError(
         'conflict',
         409,
-        'This person still has open leads or tasks.',
-        { openLeads: open, openTasks: Number(openTasks?.n ?? 0) },
+        `${who} still has ${work}. Finish ${open + openTaskCount === 1 ? 'it' : 'them'} first, or archive anyway${open > 0 ? ' and their open leads are archived too' : ''}.`,
+        { openLeads: open, openTasks: openTaskCount },
         'has_open_work',
       );
+    }
     // Archived when the person did it (on a phone, perhaps before it had signal), and their open leads with them.
     const at = changeMoment(ctx.meta);
     let archivedLeads = 0;

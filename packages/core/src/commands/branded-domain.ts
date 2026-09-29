@@ -46,7 +46,10 @@ async function loadDomain(ctx: CommandContext, domainId: string): Promise<Domain
     .where(
       and(eq(brandedDomains.id, domainId), eq(brandedDomains.workspaceId, ctx.scope.workspaceId!)),
     );
-  if (!row) throw HfosError.notFound('No domain with that id.');
+  if (!row)
+    throw HfosError.notFound(
+      'That domain isn’t set up here anymore. It may have been removed. Refresh and try again.',
+    );
   return row;
 }
 
@@ -91,7 +94,7 @@ export const brandedDomainAdd = defineCommand({
       throw HfosError.rule(
         'branded_domain_exists',
         409,
-        `This business is already on ${existing.domain}. Remove that one first.`,
+        `This business is already on ${existing.domain}, and it can have one domain. To use ${input.domain} instead, remove ${existing.domain} under Your own web address in Settings → Workspace first.`,
       );
     }
 

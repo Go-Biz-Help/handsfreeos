@@ -83,6 +83,10 @@ function unusable(kind: MoneyDocumentKind, status: string): HfosError | null {
   return null;
 }
 
+/** Nothing of that kind by that id, for this person: gone since the screen loaded, or never theirs to see. */
+const gone = (kind: MoneyDocumentKind): HfosError =>
+  HfosError.notFound(`That ${kind} isn’t there anymore. Refresh the page and try again.`);
+
 export function registerMoneyLinkRoutes(app: FastifyInstance, deps: HttpDeps): void {
   app.post('/v1/money/link', async (req, reply) => {
     void reply.header('cache-control', 'no-store');
@@ -93,11 +97,11 @@ export function registerMoneyLinkRoutes(app: FastifyInstance, deps: HttpDeps): v
       const seen = await asUser(deps.httpDb, actor.claims, (tx) =>
         statusOf(tx, input.kind, input.workspaceId, input.id),
       );
-      if (!seen) throw HfosError.notFound(`That ${input.kind} isn’t there.`);
+      if (!seen) throw gone(input.kind);
     }
     const url = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, async (tx) => {
       const status = await statusOf(tx, input.kind, input.workspaceId, input.id);
-      if (!status) throw HfosError.notFound(`That ${input.kind} isn’t there.`);
+      if (!status) throw gone(input.kind);
       const refused = unusable(input.kind, status);
       if (refused) throw refused;
       return input.kind === 'estimate'
@@ -106,7 +110,7 @@ export function registerMoneyLinkRoutes(app: FastifyInstance, deps: HttpDeps): v
           ? invoiceUrlFor(tx, deps.moneyLinks, input.id)
           : planUrlFor(tx, deps.moneyLinks, input.id);
     });
-    if (!url) throw HfosError.notFound(`That ${input.kind} isn’t there.`);
+    if (!url) throw gone(input.kind);
     return { url };
   });
 }

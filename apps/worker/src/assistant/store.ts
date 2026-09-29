@@ -60,7 +60,7 @@ export async function startRun(
     );
     if (running.length)
       throw HfosError.conflict(
-        'The Assistant is still answering your last question.',
+        'The Assistant is still answering your last question, maybe in another tab. Wait for it to finish, then ask again.',
         'already_running',
       );
     const [run] = await rows<{ id: string }>(

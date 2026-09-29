@@ -116,8 +116,15 @@ async function loadTemplate(ctx: CommandContext, templateId: string, forUpdate =
       ),
     );
   const [t] = forUpdate ? await query.for('update') : await query;
-  if (!t) throw HfosError.notFound('Template not found.');
-  if (t.archivedAt) throw HfosError.conflict('This template is archived.', 'template_archived');
+  if (!t)
+    throw HfosError.notFound(
+      'That template isn’t there anymore. It may have been deleted. Refresh Templates and try again.',
+    );
+  if (t.archivedAt)
+    throw HfosError.conflict(
+      `“${t.name}” is archived, so it can’t be changed or pushed. Pick another template in Templates.`,
+      'template_archived',
+    );
   return t;
 }
 
@@ -144,7 +151,10 @@ export const workflowTemplateCreateFromWorkflow = defineCommand({
       .from(workflows)
       .innerJoin(workspaces, eq(workspaces.id, workflows.workspaceId))
       .where(and(eq(workflows.id, input.workflowId), eq(workspaces.organizationId, org)));
-    if (!wf) throw HfosError.notFound('Workflow not found.');
+    if (!wf)
+      throw HfosError.notFound(
+        'That workflow isn’t there anymore, or it’s in a business outside this agency. Refresh and pick another.',
+      );
     const def = parseStoredDefinition(wf.definition);
     const catalogs = await loadWorkflowCatalogs(ctx.tx, wf.workspaceId, {
       extraUserIds: refUserIds(def),
@@ -319,7 +329,10 @@ export const workflowTemplatePush = defineCommand({
     const me = requireHuman(ctx).userId;
     const t = await loadTemplate(ctx, input.templateId);
     if (!t.latestVersion)
-      throw HfosError.conflict('Publish the template before pushing it.', 'template_not_published');
+      throw HfosError.conflict(
+        `“${t.name}” isn’t published yet. Press Publish in the template’s editor, then push it.`,
+        'template_not_published',
+      );
     const targets = await orgWorkspaces(ctx, input.workspaceIds);
     const extra = Object.keys(input.mappings).filter((id) => !targets.some((w) => w.id === id));
     if (extra.length)
@@ -391,7 +404,10 @@ async function loadPack(ctx: CommandContext, packId: string, forUpdate = false) 
       ),
     );
   const [p] = forUpdate ? await query.for('update') : await query;
-  if (!p) throw HfosError.notFound('Pack not found.');
+  if (!p)
+    throw HfosError.notFound(
+      'That knowledge pack isn’t there anymore. It may have been deleted. Refresh Knowledge packs and try again.',
+    );
   return p;
 }
 
@@ -487,8 +503,16 @@ export const knowledgePackPush = defineCommand({
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const p = await loadPack(ctx, input.packId);
-    if (p.archivedAt) throw HfosError.conflict('This pack is archived.', 'pack_archived');
-    if (!p.items.length) throw HfosError.conflict('Add items to the pack first.', 'pack_empty');
+    if (p.archivedAt)
+      throw HfosError.conflict(
+        `“${p.name}” is archived. Restore it from Archived in Knowledge packs, then push it.`,
+        'pack_archived',
+      );
+    if (!p.items.length)
+      throw HfosError.conflict(
+        `“${p.name}” has nothing in it yet. Add items to it in Knowledge packs, then push it.`,
+        'pack_empty',
+      );
     const targets = await orgWorkspaces(ctx, input.workspaceIds);
     await ctx.emit({
       type: 'knowledge_pack.pushed',
@@ -756,10 +780,16 @@ export const workflowTemplateApplyUpdate = defineCommand({
     const plan = await planTemplateUpdate(ctx.tx, ws, input.workflowId, { forUpdate: true });
     const row = plan.workflow;
     if (row.status === 'archived')
-      throw HfosError.conflict('This workflow is archived.', 'workflow_archived');
+      throw HfosError.conflict(
+        `“${row.name}” is archived, so it can’t be updated.`,
+        'workflow_archived',
+      );
     if (row.revision !== input.baseRevision) throw workflowRevisionConflict(row.revision);
     if (!plan.updateAvailable)
-      throw HfosError.conflict('This workflow already has the newest version.', 'template_current');
+      throw HfosError.conflict(
+        `“${row.name}” already has the newest version of its template, so there’s nothing to update.`,
+        'template_current',
+      );
     const changed = !jsonEqual(plan.merged, plan.draft);
     const revision = changed ? row.revision + 1 : row.revision;
     // Exactly the new version (nothing of theirs kept) counts as freshly installed; otherwise it stays changed.

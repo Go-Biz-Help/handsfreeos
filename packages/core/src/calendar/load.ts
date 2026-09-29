@@ -143,7 +143,10 @@ export async function loadCalendar(
     .from(calendars)
     .innerJoin(workspaces, eq(workspaces.id, calendars.workspaceId))
     .where(and(eq(calendars.id, calendarId), eq(calendars.workspaceId, workspaceId)));
-  if (!row) throw HfosError.notFound('Calendar not found.');
+  if (!row)
+    throw HfosError.notFound(
+      'That calendar isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return toLoadedCalendar(row.c, row.zone);
 }
 
@@ -152,7 +155,10 @@ export async function workspaceZone(tx: Tx, workspaceId: string): Promise<string
     .select({ timezone: workspaces.timezone })
     .from(workspaces)
     .where(eq(workspaces.id, workspaceId));
-  if (!ws) throw HfosError.notFound('Workspace not found.');
+  if (!ws)
+    throw HfosError.notFound(
+      'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+    );
   return ws.timezone;
 }
 
@@ -788,19 +794,26 @@ export async function resolveService(
 ): Promise<CatalogService | null> {
   if (config.services.mode === 'none') {
     if (serviceId)
-      throw HfosError.validation([
-        { path: 'serviceId', message: 'This calendar doesn’t offer services.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'serviceId', message: 'This calendar doesn’t offer services. Leave it empty.' }],
+        `${calendar.name} doesn’t offer services. Book it without picking one.`,
+      );
     return null;
   }
   const id = serviceId ?? config.services.items[0]?.serviceId;
   if (!id) return null;
   if (!config.services.items.some((i) => i.serviceId === id))
-    throw HfosError.validation([
-      { path: 'serviceId', message: 'This calendar doesn’t offer that service.' },
-    ]);
+    throw HfosError.validation(
+      [
+        {
+          path: 'serviceId',
+          message: 'This calendar doesn’t offer that service. Pick one it offers.',
+        },
+      ],
+      `${calendar.name} doesn’t offer that service. Pick one of the services it offers.`,
+    );
   const service = await loadCatalogService(tx, calendar.workspaceId, id);
-  if (!service) throw HfosError.notFound('Service not found.');
+  if (!service) throw HfosError.notFound('That service isn’t offered anymore. Pick another one.');
   return service;
 }
 

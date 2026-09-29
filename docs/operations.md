@@ -832,7 +832,7 @@ The email sign-in rules are on **Authentication** → **Sign In / Providers** �
 Look for these two on the same **Sign In / Providers** page. If they are not there, search the dashboard for "manual linking" or "anonymous":
 
 - Manual identity linking is on.
-- Anonymous sign-ins are off. The app refuses anonymous sessions anyway, with `Anonymous sessions cannot use HandsFreeOS.`
+- Anonymous sign-ins are off. The app refuses anonymous sessions anyway, with `You’re signed in without an account, and HandsFreeOS needs one. Sign in with your email to continue.`
 
 Test passkeys once you have an account (see "Create your first account"):
 
@@ -4163,7 +4163,7 @@ While a registration is in review:
 
 - Calls already work. Texts are blocked in the app with "Texting turns on when the carriers approve your registration." An unverified toll-free number can't text US or Canadian phones at all (Twilio error 30032).
 - The worker asks Twilio for news every 15 minutes. The page says "We check every 15 minutes and email you when texting is on. Calls already work."
-- The client can't change anything: "The carriers are reviewing this registration. Changes wait until they answer."
+- The client can't change anything: "The carriers are still reviewing this registration, so it can’t change yet. Owners and admins get an email when they answer, and you can send changes then."
 
 When the carriers answer, the workspace's owners and admins get an email:
 
@@ -6750,7 +6750,7 @@ Cloudflare Turnstile checks that a booking comes from a person, usually without 
 - The site key is public. It goes on Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
 - The secret key goes on the worker as `TURNSTILE_SECRET_KEY`, and nowhere else. The API refuses to start with any name that starts with `TURNSTILE_`.
 
-The worker decides whether the page shows the check, and the page needs the site key to show it. So set the site key on Vercel first. With the secret on the worker and no site key in the web build, every online booking fails with "Please confirm you’re a person, then try again.", and every website chat message with "Please confirm you’re a person, then send again."
+The worker decides whether the page shows the check, and the page needs the site key to show it. So set the site key on Vercel first. With the secret on the worker and no site key in the web build, every online booking fails with "We couldn’t confirm you’re a person. Finish the check on this page, then try again.", and every website chat message with "We need to check you’re a person first. Finish the check in this chat, then send again."
 
 The same widget checks the website chat, whose chat window also runs on `app.handsfreeos.com`, inside the business's site. There it stays invisible unless Cloudflare needs the visitor to do something. Set Turnstile up before any business turns on its website chat ("The AI teammate and website chat").
 
@@ -7564,7 +7564,7 @@ Then, for each client: the teammate's name and disclosure, its qualifying questi
 - A change can take up to 5 minutes to reach the site.
 - The site builder shows the snippet as text instead of running it. Paste it into a footer or custom-code box, not a text block.
 
-#### "Please confirm you’re a person" keeps showing
+#### "We couldn’t confirm you’re a person" keeps showing
 
 The Turnstile site key on Vercel and the secret on the worker come from different widgets, or the widget doesn't list `app.handsfreeos.com`. Fix it with "Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking".
 
@@ -11381,14 +11381,19 @@ Delivery and bounce events rejected with a 403 are not sent again, so those emai
 
 **Likely cause and fix.** The composer names the reason:
 
-| Message                                                              | Cause                                                                            | Fix                                                                                                                                              |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "Get a business number to text customers."                           | No number, or the number is not active yet.                                      | Buy one in **Settings** → **Texting & calls**, or wait for "Setting up" to finish.                                                               |
-| "Texting turns on when the carriers approve your registration."      | The registration is still under review.                                          | Wait. Calls already work. **Settings** → **Texting & calls** shows the review. The worker checks every 15 minutes and emails when texting is on. |
-| "This customer texted STOP. They can text START to get texts again." | The customer opted out, by texting STOP or because Twilio reported error 21610.  | Only the customer can undo it, by texting `START`.                                                                                               |
-| "It’s <time> where the business is. Quiet hours end at <time>."      | Quiet hours, on by default from 8:00 PM to 8:00 AM in the workspace's time zone. | Click **Send now** to send anyway, or change the hours in **Settings** → **Texting & calls** → **Texting rules** → **Quiet hours**.              |
-| "Add a mobile number to text this customer."                         | The customer has no phone number.                                                | Add one on the customer's page.                                                                                                                  |
-| "Restore this customer before texting them."                         | The customer is archived.                                                        | Restore them first.                                                                                                                              |
+| Message                                                                                                                  | Cause                                                                            | Fix                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "This business has no number to text from yet. Get one in Settings → Texting & calls."                                   | No number, or it failed or was released.                                         | Buy one in **Settings** → **Texting & calls**.                                                                                                   |
+| "Your business number is still being set up. Try again in a few minutes."                                                | The number is not active yet.                                                    | Wait for "Setting up" to finish.                                                                                                                 |
+| "Your number is still moving over from its old carrier. Texting starts once it arrives."                                 | The number is being ported in.                                                   | Wait for the port to finish. Calls and texts start when it lands.                                                                                |
+| "This number is being released, so it can’t text anymore. Get another one in Settings → Texting & calls."                | The number is being released.                                                    | Buy another in **Settings** → **Texting & calls**.                                                                                               |
+| "Texting needs your business registered with the carriers first. Finish the registration in Settings → Texting & calls." | No registration was submitted.                                                   | Submit it in **Settings** → **Texting & calls**.                                                                                                 |
+| "The carriers turned down your texting registration. Fix it and send it again in Settings → Texting & calls."            | The carriers turned the registration down.                                       | Read "Their reason" and use **Fix and send again** (see below).                                                                                  |
+| "Texting turns on when the carriers approve your registration. Settings → Texting & calls shows where it is."            | The registration is still under review.                                          | Wait. Calls already work. **Settings** → **Texting & calls** shows the review. The worker checks every 15 minutes and emails when texting is on. |
+| "This customer texted STOP. They can text START to get texts again."                                                     | The customer opted out, by texting STOP or because Twilio reported error 21610.  | Only the customer can undo it, by texting `START`.                                                                                               |
+| "It’s <time> where the business is. Quiet hours end at <time>."                                                          | Quiet hours, on by default from 8:00 PM to 8:00 AM in the workspace's time zone. | Click **Send now** to send anyway, or change the hours in **Settings** → **Texting & calls** → **Texting rules** → **Quiet hours**.              |
+| "<Name> has no mobile number. Add one on their page to text them."                                                       | The customer has no phone number.                                                | Add one on the customer's page.                                                                                                                  |
+| "<Name> is archived. Restore them on their page, then text them."                                                        | The customer is archived.                                                        | Restore them first.                                                                                                                              |
 
 **Sending when quiet hours end.** In quiet hours, a person can choose to send a text when they end instead of now (the phone app's "Send at 8:00 AM", `message.send` with `sendAfterQuietHours`). The text shows in the conversation as scheduled, with its time, and can be cancelled until it goes. When quiet hours end, the worker sends it as that person, checking everything again first: if the customer texted STOP in the meantime, or texting stopped working, the text fails with that reason instead. If the quiet hours were changed, it waits for the new end. A cancelled text doesn't show in the conversation.
 
@@ -11411,10 +11416,10 @@ For a real carrier rejection, correct the details (often the opt-in wording on t
 - **The sidebar says "Microphone blocked. Allow it in the address bar."** Allow the microphone for `app.handsfreeos.com` in the browser's address bar, then reload.
 - **Callers hear "Sorry, this number is not in service."** The number is not active yet, or is being released.
 - **Callers hear "Sorry, nobody can take your call right now. Please try again later."** Voicemail is off. Turn it on in the **Voicemail** card.
-- **The sidebar has no Turn on calls in this browser button, and calling out shows "Get a business number first. Calls work as soon as you have one."** The workspace has no active number yet, so the button stays hidden. Wait until the **Business number** card shows in **Settings** → **Texting & calls**. The button then appears; reload the page if it does not.
+- **The sidebar has no Turn on calls in this browser button, and calling out shows "This business has no phone number yet, so calls can’t start. Get one in Settings → Texting & calls. Calls work as soon as you have one."** The workspace has no active number yet, so the button stays hidden. Wait until the **Business number** card shows in **Settings** → **Texting & calls**. The button then appears; reload the page if it does not.
 - **The sidebar says "Calls unavailable".** The app asks the worker for a calling token when it loads, and the worker did not give one. Hover over it to see why. "The phone service is not reachable right now. Try again in a minute." means the browser can't reach the worker (see "Number search says the phone service is not reachable"). "Calls are still being set up. Try again in a minute." means the number's call setup has not finished. Click it to try again. If it fails again, a message shows the reason. **Call** buttons stay visible, and clicking one shows the same reason.
 - **The customer hears "Sorry, this call could not be placed."** The worker log shows `refused a browser call that call.start did not record`. Start the call from the customer's **Call** button, not a stale dialer, and try again.
-- **The phone app says "Verify your cell phone first. HandsFreeOS rings it, then connects the customer."** The person hasn't confirmed a cell, or set a new number since. They confirm it in the app (see "How calls behave" in "The phone carrier: Twilio").
+- **The phone app says "Verify your cell phone first, under My cell phone in Settings. HandsFreeOS rings it, then connects the customer."** The person hasn't confirmed a cell, or set a new number since. They confirm it in the app (see "How calls behave" in "The phone carrier: Twilio").
 - **The verification call never comes.** The business has no active number (the worker logs `no business number to confirm a cell from`), or the carrier refused to call that number (`the carrier refused a verification call`). After 3 requests in an hour, or 6 in a day, the app says when to try again.
 - **A cell answers and hears "The call wasn’t placed. Goodbye."** Nobody pressed 1 in time, which is what happens when the cell's voicemail answers. The same words play when the call it answered is no longer one HandsFreeOS is placing: it was answered on a different phone, or more than 10 minutes later.
 - **Calling through a cell never rings the cell.** The worker logs `a call through someone’s cell was not placed`, and `why` says which: `stale` (it waited more than 2 minutes for the worker), `no_verified_cell`, `no_number`, or `carrier:` with Twilio's error code.

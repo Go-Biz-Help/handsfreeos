@@ -18,7 +18,10 @@ export const tagDelete = defineCommand({
       .select()
       .from(tags)
       .where(and(eq(tags.id, input.tagId), eq(tags.workspaceId, ctx.scope.workspaceId!)));
-    if (!current) throw HfosError.notFound('Tag not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That tag isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const [usage] = await ctx.tx
       .select({ n: count() })
       .from(recordTags)

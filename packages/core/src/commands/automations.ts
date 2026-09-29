@@ -42,7 +42,10 @@ export const automationsSaveSettings = defineCommand({
       .select({ name: workspaces.name, settings: workspaces.settings })
       .from(workspaces)
       .where(eq(workspaces.id, ws));
-    if (!w) throw HfosError.notFound('Workspace not found.');
+    if (!w)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const stored = (w.settings ?? {}) as Record<string, unknown>;
     const current = automationSettingsOf(stored);
     // "Looks good, turn on": the first review stands, on the server's clock.
@@ -59,7 +62,11 @@ export const automationsSaveSettings = defineCommand({
     if (!check.ok)
       throw HfosError.validation(
         check.problems.map((p) => ({ path: 'settings.reengage.template', message: p.message })),
-        'The re-engage message needs a change.',
+        check.problems[0]?.code === 'empty'
+          ? 'The re-engage message is empty. Write it, then save.'
+          : check.problems.length === 1
+            ? `The re-engage message needs a change. ${check.problems[0]!.message}`
+            : 'The re-engage message needs a few changes. Fix what’s marked under it, then save.',
       );
     const changed = JSON.stringify(stored['automations'] ?? null) !== JSON.stringify(next);
     if (!changed) return { workspaceId: ws, settings: next, changed: false };

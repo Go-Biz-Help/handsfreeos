@@ -67,7 +67,8 @@ async function ticketOr404(ctx: CommandContext, ticketId: string): Promise<Ticke
     })
     .from(tickets)
     .where(eq(tickets.id, ticketId));
-  if (!row) throw HfosError.notFound('No ticket with that id.');
+  if (!row)
+    throw HfosError.notFound('That ticket isn’t there anymore. Refresh Tickets and try again.');
   return row as TicketRow;
 }
 
@@ -105,7 +106,10 @@ export const supportRequestCreate = defineCommand({
       sql`select ticket_id, ticket_number from private.open_support_ticket(
         ${input.workspaceId}, ${input.subject}, ${input.body}, ${JSON.stringify(input.context)}::jsonb)`,
     );
-    if (!row) throw HfosError.notFound('Workspace not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it, so your message wasn’t sent. Pick a business from your list and send it again.',
+      );
     await ctx.emit({
       type: 'support_ticket.opened',
       entityType: 'support_ticket',
@@ -250,7 +254,10 @@ export const supportTicketAssign = defineCommand({
         .select({ userId: staff.userId })
         .from(staff)
         .where(and(eq(staff.userId, input.assigneeUserId), eq(staff.status, 'active')));
-      if (!who) throw HfosError.notFound('That person does not answer support.');
+      if (!who)
+        throw HfosError.notFound(
+          'That person doesn’t answer support anymore. Pick someone else to assign it to.',
+        );
     }
     await ctx.tx
       .update(tickets)
@@ -312,7 +319,10 @@ export const supportTicketLinkBusiness = defineCommand({
         .select({ organizationId: workspaces.organizationId })
         .from(workspaces)
         .where(eq(workspaces.id, input.workspaceId));
-      if (!ws) throw HfosError.notFound('No business with that id.');
+      if (!ws)
+        throw HfosError.notFound(
+          'That business isn’t there anymore. It may have been deleted. Pick another business to link.',
+        );
       organizationId = ws.organizationId;
     }
     await ctx.tx
@@ -434,7 +444,10 @@ export const supportCannedReplySave = defineCommand({
         .set({ title: input.title, bodyText: input.bodyText })
         .where(eq(cannedReplies.id, id))
         .returning({ id: cannedReplies.id });
-      if (!updated) throw HfosError.notFound('No saved reply with that id.');
+      if (!updated)
+        throw HfosError.notFound(
+          'That saved reply isn’t there anymore. Someone may have deleted it. Refresh Saved replies and try again.',
+        );
     } else {
       const [created] = await ctx.tx
         .insert(cannedReplies)
@@ -466,7 +479,10 @@ export const supportCannedReplyDelete = defineCommand({
       .delete(cannedReplies)
       .where(eq(cannedReplies.id, input.id))
       .returning({ id: cannedReplies.id, title: cannedReplies.title });
-    if (!gone) throw HfosError.notFound('No saved reply with that id.');
+    if (!gone)
+      throw HfosError.notFound(
+        'That saved reply isn’t there anymore. Someone may have deleted it. Refresh Saved replies and try again.',
+      );
     await ctx.emit({
       type: 'support_canned_reply.deleted',
       entityType: 'support_canned_reply',

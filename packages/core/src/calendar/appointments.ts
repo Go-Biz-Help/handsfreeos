@@ -31,7 +31,8 @@ export async function requireAppointment(
     .select()
     .from(appointments)
     .where(and(eq(appointments.id, appointmentId), eq(appointments.workspaceId, workspaceId)));
-  if (!row) throw HfosError.notFound('Appointment not found.');
+  if (!row)
+    throw HfosError.notFound('That appointment isn’t there anymore. Refresh and try again.');
   return row;
 }
 
@@ -41,8 +42,8 @@ export function requireScheduled(appt: AppointmentRow): void {
       'appointment_not_scheduled',
       409,
       appt.status === 'cancelled'
-        ? 'This appointment was cancelled.'
-        : 'This appointment already happened.',
+        ? 'This appointment was cancelled, so it can’t be changed. Book a new time instead.'
+        : 'This appointment has already happened, so it can’t be changed. Book a new one instead.',
     );
 }
 

@@ -25,7 +25,10 @@ export const invitationResend = defineCommand({
           isNull(invitations.revokedAt),
         ),
       );
-    if (!inv) throw HfosError.notFound('No pending invitation with that id.');
+    if (!inv)
+      throw HfosError.notFound(
+        'That invitation isn’t pending anymore, so there’s nothing to send again. It may have been accepted or revoked. Refresh to see where it stands.',
+      );
     await ctx.emit({
       type: 'invitation.resend_requested',
       entityType: 'invitation',

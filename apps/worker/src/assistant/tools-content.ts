@@ -43,7 +43,8 @@ const peopleOf = (n: number) => plural(n, 'person', 'people');
 const firstName = (full: string) => full.split(' ')[0] || full;
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 const action = (args: Args) => String(args['action'] ?? '');
-const nothingChanges = () => HfosError.validation([], 'Nothing would change.');
+/** "Nothing would change.", and why, so the model can tell the person what already matches. */
+const nothingChanges = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
 const need = (what: string) => HfosError.validation([], what);
 
 /** The pages the cards link to. */
@@ -396,7 +397,9 @@ const startCampaign: SettingsConfirmTool = {
     const tagIds = ids(args['tagIds']);
     const stageIds = ids(args['stageIds']);
     if (!tagIds.length && !stageIds.length)
-      throw need('Who gets it? Pick at least one tag or open pipeline stage.');
+      throw need(
+        'Who gets it? Give at least one tag in tagIds or one open pipeline stage in stageIds.',
+      );
     const [tags, pipelines, offers] = await Promise.all([
       tagsOf(db, ctx),
       pipelinesOf(db, ctx),
@@ -748,7 +751,8 @@ const editCampaign: SettingsConfirmTool = {
               (r.status === 'ready' || r.status === 'drafting'
                 ? null
                 : `${r.name} isn’t getting a text in this campaign (${r.status === 'removed' ? 'taken out' : skipWords(r.skipReason)}).`));
-        if (!blocked && words === r.draft) throw nothingChanges();
+        if (!blocked && words === r.draft)
+          throw nothingChanges(`That’s already what ${r.name}’s text says.`);
         return {
           card: card(toolCallId, 'edit_campaign', {
             title: `Change the text to ${r.name}?`,
@@ -763,14 +767,16 @@ const editCampaign: SettingsConfirmTool = {
       case 'change_email': {
         const subject = str(args['subject']);
         const body = str(args['body']);
-        if (!subject && !body) throw need('What should change: the subject, the words, or both?');
+        if (!subject && !body) throw need('Say what should change: pass subject, body or both.');
         const blocked = c.channel !== 'email' ? 'This campaign doesn’t send an email.' : shut;
         const nextSubject = subject ?? c.email?.subject ?? '';
         const nextBody = body ?? c.email?.body ?? '';
-        if (!blocked && !nextSubject.trim()) throw need('The email needs a subject too.');
-        if (!blocked && !nextBody.trim()) throw need('The email needs its words too.');
+        if (!blocked && !nextSubject.trim())
+          throw need('The email has no subject yet. Pass one in subject too.');
+        if (!blocked && !nextBody.trim())
+          throw need('The email has no words yet. Pass them in body too.');
         if (!blocked && nextSubject === c.email?.subject && nextBody === c.email.body)
-          throw nothingChanges();
+          throw nothingChanges('The email already says that.');
         return {
           card: card(toolCallId, 'edit_campaign', {
             title: `Change the email in “${c.name}”?`,
@@ -793,7 +799,8 @@ const editCampaign: SettingsConfirmTool = {
         const opening = str(args['opening']);
         if (!opening) throw need('What are the calls about? Pass it as opening.');
         const blocked = c.channel !== 'call' ? 'This campaign doesn’t make calls.' : shut;
-        if (!blocked && opening === c.call?.opening) throw nothingChanges();
+        if (!blocked && opening === c.call?.opening)
+          throw nothingChanges('That’s already how the calls open.');
         return {
           card: card(toolCallId, 'edit_campaign', {
             title: `Change how the calls in “${c.name}” open?`,
@@ -1021,7 +1028,9 @@ const answerReview: SettingsConfirmTool = {
     const { review: r } = await reviewOf(db, ctx, args['reviewId']);
     if (!r.canReply || r.replyBody)
       throw HfosError.conflict(
-        r.replyBody ? 'It already has an answer.' : 'This review is answered on Facebook.',
+        r.replyBody
+          ? 'This review already has an answer, so this one wasn’t posted.'
+          : `${PROVIDER[r.provider]} doesn’t let apps answer reviews, so answer this one on ${PROVIDER[r.provider]} itself.`,
         'review_not_answerable',
       );
     await command(db, ctx, 'review.reply', { reviewId: r.id, body: args['answer'] });
@@ -1141,7 +1150,7 @@ const manageForm: SettingsConfirmTool = {
       case 'rename': {
         const name = str(args['name']);
         if (!name) throw need('What should it be called? Pass name.');
-        if (!putAway && name === f.name) throw nothingChanges();
+        if (!putAway && name === f.name) throw nothingChanges(`It’s already called “${name}”.`);
         return {
           card: card(toolCallId, 'manage_form', {
             title: `Rename “${f.name}”?`,
@@ -1221,7 +1230,7 @@ const manageForm: SettingsConfirmTool = {
       case 'change_link': {
         const link = str(args['link']);
         if (!link) throw need('What should the link end in? Pass link, like fall-survey.');
-        if (!putAway && link === f.slug) throw nothingChanges();
+        if (!putAway && link === f.slug) throw nothingChanges(`Its link already ends in ${link}.`);
         const [{ items: all }, site] = await Promise.all([
           query<{ items: FormSummary[] }>(db, ctx, 'form.list', { includeArchived: true }),
           query<{ site: { slug: string } | null }>(db, ctx, 'booking_site.get', {}),
@@ -1257,7 +1266,9 @@ const manageForm: SettingsConfirmTool = {
           { responseId },
         );
         if (r.formId !== f.formId)
-          throw HfosError.notFound('That response isn’t one of this form’s.');
+          throw HfosError.notFound(
+            `That response is to another form, not “${f.name}”. Use a responseId that list_form_responses gives for this form.`,
+          );
         const who = r.personName ?? 'Someone who didn’t leave a name';
         return {
           card: card(toolCallId, 'manage_form', {
@@ -1400,7 +1411,8 @@ function checkedContent(content: Record<string, unknown>) {
   if (!parsed.success)
     throw HfosError.validation(
       parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
-      parsed.error.issues[0]?.message ?? 'That can’t be saved as it is.',
+      parsed.error.issues[0]?.message ??
+        'That can’t be saved as it is. Check the title, body and tags, then try again.',
     );
   return parsed.data;
 }
@@ -1462,16 +1474,18 @@ const manageKnowledgeItem: SettingsConfirmTool = {
         const kind: ItemKind =
           item.kind === 'document' ? 'document' : ((str(args['kind']) as ItemKind) ?? item.kind);
         if (item.kind === 'document' && str(args['kind']))
-          throw need('A document stays a document; only its title, text and tags change.');
+          throw need(
+            'A document can’t become another kind. Leave out kind, and change only its title, body or tags.',
+          );
         const title = str(args['title']) ?? item.title;
         const body = str(args['body']) ?? item.body;
         const tags = Array.isArray(args['tags']) ? (args['tags'] as string[]) : item.tags;
         if (!str(args['title']) && !str(args['body']) && !str(args['kind']) && !args['tags'])
-          throw need('What should change: the title, the text, the kind or the tags?');
+          throw need('Say what should change: pass title, body, kind or tags.');
         checkedContent(contentOf(kind, title, body, tags));
         const sameTags = tags.join('\u0000') === item.tags.join('\u0000');
         if (kind === item.kind && title === item.title && body === item.body && sameTags)
-          throw nothingChanges();
+          throw nothingChanges(`The ${noun} already has that title, text, kind and tags.`);
         const asQuestion = kind === 'faq';
         return {
           card: card(toolCallId, 'manage_knowledge_item', {
@@ -1882,7 +1896,9 @@ const manageOffer: SettingsConfirmTool = {
       const startsOn = dateOr(args, 'startsOn', null);
       const endsOn = dateOr(args, 'endsOn', null);
       if (startsOn && endsOn && endsOn < startsOn)
-        throw need('It has to end on or after its start.');
+        throw need(
+          `The offer would end (${endsOn}) before it starts (${startsOn}). Give an endsOn on or after startsOn.`,
+        );
       return {
         card: card(toolCallId, 'manage_offer', {
           title: `Add the offer “${name}”?`,
@@ -1922,9 +1938,12 @@ const manageOffer: SettingsConfirmTool = {
     const details = typeof args['details'] === 'string' ? args['details'].trim() : o.details;
     const startsOn = dateOr(args, 'startsOn', o.startsOn);
     const endsOn = dateOr(args, 'endsOn', o.endsOn);
-    if (startsOn && endsOn && endsOn < startsOn) throw need('It has to end on or after its start.');
+    if (startsOn && endsOn && endsOn < startsOn)
+      throw need(
+        `The offer would end (${endsOn}) before it starts (${startsOn}). Give an endsOn on or after startsOn.`,
+      );
     if (name === o.name && details === o.details && startsOn === o.startsOn && endsOn === o.endsOn)
-      throw nothingChanges();
+      throw nothingChanges(`“${o.name}” already has that name, details and dates.`);
     const datesChange = startsOn !== o.startsOn || endsOn !== o.endsOn;
     return {
       card: card(toolCallId, 'manage_offer', {
@@ -2149,12 +2168,12 @@ const manageWorkflow: SettingsConfirmTool = {
       const description =
         args['description'] === undefined ? undefined : (str(args['description']) ?? null);
       if (name === undefined && description === undefined)
-        throw need('What should change: the name, the description, or both?');
+        throw need('Say what should change: pass name, description or both.');
       if (
         (name ?? wf.name) === wf.name &&
         (description === undefined || description === wf.description)
       )
-        throw nothingChanges();
+        throw nothingChanges(`“${wf.name}” already has that name and description.`);
       return {
         card: card(toolCallId, 'manage_workflow', {
           title:
@@ -2297,7 +2316,10 @@ const manageWorkflowRun: SettingsConfirmTool = {
     }
     const { stuck } = await runState(db, ctx, runId);
     if (!stuck)
-      throw HfosError.conflict('Nothing is stuck on this run any more.', 'step_not_failed');
+      throw HfosError.conflict(
+        'Nothing is stuck on this run anymore, so there’s nothing to retry or skip. It may have moved on already.',
+        'step_not_failed',
+      );
     const name = act === 'retry_step' ? 'workflow.retry_step' : 'workflow.skip_step';
     await command(db, ctx, name, { runId, stepKey: stuck.stepKey });
     return {
@@ -2471,7 +2493,9 @@ const decideTeammateDraft: SettingsConfirmTool = {
     const approve = args['decision'] !== 'reject';
     const m = d.preview.message;
     if (approve && !m && (str(args['message']) || str(args['subject'])))
-      throw need('This draft has no message to change.');
+      throw need(
+        'This draft doesn’t send a message, so there are no words to change. Leave out message and subject.',
+      );
     const edits = editsOf(d, args);
     const name = d.teammate.name;
     const who = d.person?.fullName ?? 'a new customer';

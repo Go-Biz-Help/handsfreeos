@@ -86,7 +86,7 @@ export function refused(deps: Pick<HttpDeps, 'log'>, e: unknown, workspaceId: st
     return HfosError.rule(
       'wallet_card_unavailable',
       502,
-      'Adding a card isn’t working right now, so no card was added and nothing was charged. Please try again later.',
+      'Adding a card isn’t working on our side right now, so no card was added and nothing was charged. Try again later.',
     );
   }
   if (e instanceof PaymentError) {
@@ -127,7 +127,10 @@ export function registerWalletCardRoutes(app: FastifyInstance, deps: HttpDeps): 
               where ws.id = ${workspaceId}::uuid`,
         ),
       );
-      if (!row) throw HfosError.notFound('That business isn’t there.');
+      if (!row)
+        throw HfosError.notFound(
+          'That business isn’t there anymore. Refresh the page and try again.',
+        );
 
       // The provider's customer for this business: made once, found every time after, so a second card lands
       // beside the first rather than on a stranger.

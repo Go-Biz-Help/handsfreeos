@@ -52,9 +52,17 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 const unique = <T>(list: readonly T[]): T[] => [...new Set(list)];
-const nameTaken = (what: string) =>
-  HfosError.conflict(`There’s already a ${what} with that name.`, 'name_taken');
+const nameTaken = (what: string, name: string) =>
+  HfosError.conflict(
+    `There’s already a ${what} called “${name}”. Pick a different name.`,
+    'name_taken',
+  );
 const lengths = (list: readonly number[]) => list.map(formatDuration).join(', ');
+/** Something picked from Settings → Calendars that isn't there. */
+const gone = (what: 'service' | 'resource' | 'territory') =>
+  HfosError.notFound(
+    `That ${what} isn’t there anymore. It may have been deleted. Refresh and try again.`,
+  );
 
 /** A service's or resource's own hours: undefined leaves them, null removes the layer, a list replaces it. */
 async function setOwnerHours(
@@ -134,7 +142,7 @@ export const serviceCreate = defineCommand({
     const defaultDuration = input.defaultDuration ?? durations[0]!;
     if (!durations.includes(defaultDuration))
       throw HfosError.validation([
-        { path: 'defaultDuration', message: 'Pick one of the lengths.' },
+        { path: 'defaultDuration', message: `Pick one of its lengths: ${lengths(durations)}.` },
       ]);
     let row: { id: string } | undefined;
     try {
@@ -156,7 +164,7 @@ export const serviceCreate = defineCommand({
         })
         .returning({ id: services.id });
     } catch (e) {
-      if (isUniqueViolation(e)) throw nameTaken('service');
+      if (isUniqueViolation(e)) throw nameTaken('service', input.name);
       throw e;
     }
     if (!row) throw HfosError.forbidden();
@@ -198,7 +206,7 @@ export const serviceUpdate = defineCommand({
       .select()
       .from(services)
       .where(and(eq(services.id, input.serviceId), eq(services.workspaceId, ws)));
-    if (!current) throw HfosError.notFound('Service not found.');
+    if (!current) throw gone('service');
     const patch: Partial<typeof services.$inferInsert> = {};
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
@@ -223,7 +231,7 @@ export const serviceUpdate = defineCommand({
     if (!durations.includes(defaultDuration)) {
       if (input.defaultDuration !== undefined)
         throw HfosError.validation([
-          { path: 'defaultDuration', message: 'Pick one of the lengths.' },
+          { path: 'defaultDuration', message: `Pick one of its lengths: ${lengths(durations)}.` },
         ]);
       defaultDuration = durations[0]!;
     }
@@ -249,7 +257,7 @@ export const serviceUpdate = defineCommand({
       try {
         await ctx.tx.update(services).set(patch).where(eq(services.id, current.id));
       } catch (e) {
-        if (isUniqueViolation(e)) throw nameTaken('service');
+        if (isUniqueViolation(e)) throw nameTaken('service', input.name ?? current.name);
         throw e;
       }
     await writeServiceLinks(ctx.tx, ws, current.id, input.staffUserIds, input.resources);
@@ -284,7 +292,7 @@ export const serviceArchive = defineCommand({
       .select()
       .from(services)
       .where(and(eq(services.id, input.serviceId), eq(services.workspaceId, ws)));
-    if (!current) throw HfosError.notFound('Service not found.');
+    if (!current) throw gone('service');
     const using = await ctx.tx
       .select({ id: calendars.id, name: calendars.name })
       .from(calendarServices)
@@ -336,7 +344,7 @@ export const resourceCreate = defineCommand({
         })
         .returning({ id: resources.id });
     } catch (e) {
-      if (isUniqueViolation(e)) throw nameTaken('resource');
+      if (isUniqueViolation(e)) throw nameTaken('resource', input.name);
       throw e;
     }
     if (!row) throw HfosError.forbidden();
@@ -373,7 +381,7 @@ export const resourceUpdate = defineCommand({
       .select()
       .from(resources)
       .where(and(eq(resources.id, input.resourceId), eq(resources.workspaceId, ws)));
-    if (!current) throw HfosError.notFound('Resource not found.');
+    if (!current) throw gone('resource');
     const patch: Partial<typeof resources.$inferInsert> = {};
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
@@ -395,7 +403,7 @@ export const resourceUpdate = defineCommand({
       try {
         await ctx.tx.update(resources).set(patch).where(eq(resources.id, current.id));
       } catch (e) {
-        if (isUniqueViolation(e)) throw nameTaken('resource');
+        if (isUniqueViolation(e)) throw nameTaken('resource', input.name ?? current.name);
         throw e;
       }
     await setOwnerHours(ctx.tx, ws, 'resource', current.id, input.hours, me);
@@ -430,7 +438,7 @@ export const resourceArchive = defineCommand({
       .select()
       .from(resources)
       .where(and(eq(resources.id, input.resourceId), eq(resources.workspaceId, ws)));
-    if (!current) throw HfosError.notFound('Resource not found.');
+    if (!current) throw gone('resource');
     const using = await ctx.tx
       .select({ id: calendars.id, name: calendars.name })
       .from(calendarResources)
@@ -518,7 +526,7 @@ export const territoryCreate = defineCommand({
         })
         .returning({ id: territories.id });
     } catch (e) {
-      if (isUniqueViolation(e)) throw nameTaken('territory');
+      if (isUniqueViolation(e)) throw nameTaken('territory', input.name);
       throw e;
     }
     if (!row) throw HfosError.forbidden();
@@ -555,7 +563,7 @@ export const territoryUpdate = defineCommand({
       .select()
       .from(territories)
       .where(and(eq(territories.id, input.territoryId), eq(territories.workspaceId, ws)));
-    if (!current) throw HfosError.notFound('Territory not found.');
+    if (!current) throw gone('territory');
     const patch: Partial<typeof territories.$inferInsert> = {};
     if (input.name !== undefined && input.name !== current.name) patch.name = input.name;
     const postalCodes = input.postalCodes ? unique(input.postalCodes).sort() : undefined;
@@ -576,7 +584,7 @@ export const territoryUpdate = defineCommand({
       try {
         await ctx.tx.update(territories).set(patch).where(eq(territories.id, current.id));
       } catch (e) {
-        if (isUniqueViolation(e)) throw nameTaken('territory');
+        if (isUniqueViolation(e)) throw nameTaken('territory', input.name ?? current.name);
         throw e;
       }
     if (input.userIds !== undefined)
@@ -613,7 +621,7 @@ export const territoryDelete = defineCommand({
       .select()
       .from(territories)
       .where(and(eq(territories.id, input.territoryId), eq(territories.workspaceId, ws)));
-    if (!current) throw HfosError.notFound('Territory not found.');
+    if (!current) throw gone('territory');
     await ctx.tx.delete(territories).where(eq(territories.id, current.id));
     await ctx.emit({
       type: 'territory.deleted',
@@ -665,7 +673,10 @@ export const bookingSiteUpdate = defineCommand({
             .returning({ id: bookingSites.id });
     } catch (e) {
       if (isUniqueViolation(e))
-        throw HfosError.conflict('That link name is taken. Pick another.', 'slug_taken');
+        throw HfosError.conflict(
+          `The link name “${input.slug}” is taken. Pick another.`,
+          'slug_taken',
+        );
       throw e;
     }
     if (!row) throw HfosError.forbidden();

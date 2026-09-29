@@ -187,7 +187,8 @@ export const supportTicketGet = defineQuery({
       .leftJoin(assignee, eq(assignee.id, tickets.assigneeUserId))
       .leftJoin(requester, eq(requester.id, tickets.requesterUserId))
       .where(eq(tickets.id, input.ticketId));
-    if (!row) throw HfosError.notFound('No ticket with that id.');
+    if (!row)
+      throw HfosError.notFound('That ticket isn’t there anymore. Refresh the list and try again.');
     const ticket = summarize(row);
 
     const author = alias(users, 'author');

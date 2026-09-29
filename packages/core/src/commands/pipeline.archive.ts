@@ -19,25 +19,33 @@ export const pipelineArchive = defineCommand({
       .select()
       .from(pipelines)
       .where(and(eq(pipelines.id, input.pipelineId), eq(pipelines.workspaceId, workspaceId)));
-    if (!current) throw HfosError.notFound('Pipeline not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That pipeline isn’t there anymore. Refresh Settings → Pipelines and try again.',
+      );
     if (current.archivedAt) return { pipelineId: current.id };
     const [active] = await ctx.tx
       .select({ n: count() })
       .from(pipelines)
       .where(and(eq(pipelines.workspaceId, workspaceId), isNull(pipelines.archivedAt)));
     if (Number(active?.n ?? 0) <= 1)
-      throw HfosError.rule('last_pipeline', 409, 'A workspace keeps at least one pipeline.');
+      throw HfosError.rule(
+        'last_pipeline',
+        409,
+        `${current.name} is this business’s only pipeline, and every business keeps one. Add another pipeline first if you want to archive this one.`,
+      );
     const [open] = await ctx.tx
       .select({ n: count() })
       .from(leads)
       .where(
         and(eq(leads.pipelineId, current.id), eq(leads.status, 'open'), isNull(leads.archivedAt)),
       );
-    if (Number(open?.n ?? 0) > 0)
+    const openLeads = Number(open?.n ?? 0);
+    if (openLeads > 0)
       throw HfosError.rule(
         'pipeline_has_open_leads',
         409,
-        'This pipeline still has open leads. Move or close them first.',
+        `${current.name} still has ${openLeads === 1 ? 'an open lead' : `${openLeads} open leads`}. On the Pipeline board, move ${openLeads === 1 ? 'it' : 'them'} to a won or lost stage, or archive ${openLeads === 1 ? 'it' : 'them'}, then archive the pipeline.`,
       );
     await ctx.tx
       .update(pipelines)

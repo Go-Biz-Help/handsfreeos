@@ -97,7 +97,10 @@ export const twilioConnectionDisconnect = defineCommand({
         ),
       )
       .returning({ id: twilioConnections.id, accountSid: twilioConnections.accountSid });
-    if (!row) throw HfosError.notFound('That Twilio account is not connected here.');
+    if (!row)
+      throw HfosError.notFound(
+        'That Twilio account isn’t connected to this business anymore. Refresh the page to see what’s connected.',
+      );
     await ctx.emit({
       type: 'twilio_connection.disconnected',
       entityType: 'twilio_connection',
@@ -130,7 +133,10 @@ export const twilioConnectionFail = defineCommand({
         ),
       )
       .returning({ id: twilioConnections.id, accountSid: twilioConnections.accountSid });
-    if (!row) throw HfosError.notFound('That Twilio account is not connected here.');
+    if (!row)
+      throw HfosError.notFound(
+        'That Twilio account isn’t connected to this business anymore. Refresh the page to see what’s connected.',
+      );
     await ctx.emit({
       type: 'twilio_connection.broken',
       entityType: 'twilio_connection',

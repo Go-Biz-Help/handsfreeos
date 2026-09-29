@@ -215,7 +215,10 @@ export const attentionPreviewHandle = defineQuery({
   async handler(ctx, input) {
     const { list } = await loadView(ctx, eq(attentionItems.id, input.itemId));
     const row = list[0];
-    if (!row) throw HfosError.notFound('That item isn’t there anymore.');
+    if (!row)
+      throw HfosError.notFound(
+        'That item isn’t there anymore. It may have been handled already. Refresh to see what’s left.',
+      );
     const kind = row.kind as AttentionKind;
     const mode = letHandleModeOf(kind, chipsOf(row));
     const base = { itemId: row.id, kind, mode, auto: null, options: [], reason: null };
@@ -245,7 +248,10 @@ export const attentionSettingsGet = defineQuery({
       .select({ settings: workspaces.settings })
       .from(workspaces)
       .where(eq(workspaces.id, ws));
-    if (!w) throw HfosError.notFound('Workspace not found.');
+    if (!w)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const settings = attentionSettingsOf(w.settings as Record<string, unknown> | null);
     const median = await medianWonCents(ctx.tx, ws);
     return {

@@ -20,7 +20,9 @@ function toActor(payload: JWTPayload): HumanActor {
   const email = typeof payload['email'] === 'string' ? payload['email'] : '';
   if (payload['role'] !== 'authenticated') throw HfosError.unauthenticated();
   if (payload['is_anonymous'] === true)
-    throw HfosError.unauthenticated('Anonymous sessions cannot use HandsFreeOS.');
+    throw HfosError.unauthenticated(
+      'You’re signed in without an account, and HandsFreeOS needs one. Sign in with your email to continue.',
+    );
   if (!UUID.test(sub) || !email) throw HfosError.unauthenticated();
   // Audience was verified above; keep it a plain string so auth.jwt() sees what PostgREST would.
   return {

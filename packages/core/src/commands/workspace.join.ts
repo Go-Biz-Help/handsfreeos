@@ -31,7 +31,9 @@ export const workspaceJoin = defineCommand({
       sql`select private.add_workspace_owner(${input.workspaceId})`,
     );
     if (!joined?.add_workspace_owner)
-      throw HfosError.internal('add_workspace_owner returned no membership');
+      throw HfosError.internal(
+        'You couldn’t be added to that business just now. Try again in a minute.',
+      );
     await ctx.emit({
       type: 'membership.created',
       entityType: 'workspace_membership',

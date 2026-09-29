@@ -198,7 +198,10 @@ async function loadStart(tx: Tx, ws: string, input: z.output<typeof BuilderInput
   if (input.workflowId) {
     const { row, definition } = await loadWorkflow(tx, ws, input.workflowId);
     if (row.status === 'archived')
-      throw HfosError.conflict('This workflow is archived.', 'workflow_archived');
+      throw HfosError.conflict(
+        'This workflow is archived, so it can’t be changed. Start a new one from New workflow in Workflows.',
+        'workflow_archived',
+      );
     if (row.revision !== input.baseRevision) throw workflowRevisionConflict(row.revision);
     base = definition;
     name = row.name;
@@ -219,7 +222,8 @@ async function loadStart(tx: Tx, ws: string, input: z.output<typeof BuilderInput
       sql`select id, workflow_id, base_revision, prompt, ops, applied_at, expires_at
           from app.workflow_proposals where id = ${input.proposalId} and workspace_id = ${ws}`,
     );
-    if (!p) throw HfosError.notFound('Proposal not found.');
+    if (!p)
+      throw HfosError.notFound('That proposal isn’t there anymore. Describe the change again.');
     if (p.applied_at)
       throw HfosError.conflict(
         'That proposal was already applied. Describe the next change on its own.',
@@ -281,7 +285,11 @@ function providerFailure(e: unknown): HfosError {
   const known = e instanceof AiProviderError ? e : null;
   return known?.retryable
     ? HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE)
-    : HfosError.rule('ai_failed', 502, 'Something went wrong. Try again.');
+    : HfosError.rule(
+        'ai_failed',
+        502,
+        'The AI couldn’t draft that change just now. Try again, or make the change yourself.',
+      );
 }
 
 interface Drafted {
@@ -443,7 +451,11 @@ export async function draftProposal(
     preview = applyWorkflowOps(start.base, allOps).definition;
   } catch (e) {
     deps.log.error({ err: e, workflowId: input.workflowId }, 'AI builder ops didn’t apply');
-    throw HfosError.rule('ai_failed', 502, 'Something went wrong. Try again.');
+    throw HfosError.rule(
+      'ai_failed',
+      502,
+      'The AI’s change didn’t fit this workflow. Try asking a different way, or make the change yourself.',
+    );
   }
   const reply =
     done?.summary || said || (ops.length ? 'Here’s the change.' : 'Nothing needed changing.');

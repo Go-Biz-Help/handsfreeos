@@ -44,7 +44,7 @@ export const personMerge = defineCommand({
     if (input.personId === input.intoPersonId)
       throw HfosError.validation(
         [{ path: 'intoPersonId', message: 'Pick a different customer to merge with.' }],
-        'Pick a different customer to merge with.',
+        'That’s the same customer twice. Pick a different customer to merge with.',
       );
     // Both rows, locked in the same order whichever way round they come, so two merges of the same pair wait.
     const both = await ctx.tx
@@ -60,14 +60,21 @@ export const personMerge = defineCommand({
       .for('update');
     const dup = both.find((p) => p.id === input.personId);
     const keep = both.find((p) => p.id === input.intoPersonId);
-    if (!dup || !keep) throw HfosError.notFound('Person not found.');
+    if (!dup)
+      throw HfosError.notFound(
+        'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
+    if (!keep)
+      throw HfosError.notFound(
+        'The customer you picked to keep isn’t there anymore. It may have been deleted. Refresh and pick another.',
+      );
     const dupName = fullName(dup.firstName, dup.lastName);
     const keepName = fullName(keep.firstName, keep.lastName);
     if (dup.mergedIntoId)
       throw new HfosError(
         'rule_violation',
         409,
-        `${dupName} was already merged into another customer.`,
+        `${dupName} was already merged into another customer, so there’s nothing left to merge. Refresh to see the one kept.`,
         { mergedIntoId: dup.mergedIntoId },
         'person_already_merged',
       );
@@ -75,7 +82,9 @@ export const personMerge = defineCommand({
       throw new HfosError(
         'rule_violation',
         409,
-        `${keepName} is archived. Bring them back before merging into them.`,
+        keep.mergedIntoId
+          ? `${keepName} was merged into another customer. Merge into that customer instead.`
+          : `${keepName} is archived. Restore them first, then merge into them.`,
         undefined,
         'person_merge_into_archived',
       );

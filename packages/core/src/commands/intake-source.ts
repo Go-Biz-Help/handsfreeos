@@ -128,7 +128,11 @@ async function targetOrThrow(
     .limit(1);
   if (!first)
     throw HfosError.validation([
-      { path: 'pipelineId', message: 'That pipeline has no open stage to put a lead in.' },
+      {
+        path: 'pipelineId',
+        message:
+          'That pipeline has no open stage to put a lead in. Add one in Settings → Pipelines, or pick another pipeline.',
+      },
     ]);
   return { pipelineId, stageId: first.id };
 }
@@ -141,7 +145,10 @@ async function keyedOrThrow(ctx: CommandContext, sourceId: string) {
     .where(
       and(eq(intakeSources.id, sourceId), eq(intakeSources.workspaceId, ctx.scope.workspaceId!)),
     );
-  if (!row) throw HfosError.notFound('That form or key isn’t here.');
+  if (!row)
+    throw HfosError.notFound(
+      'That form or key isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   if (row.kind !== 'website_form' && row.kind !== 'api')
     throw HfosError.validation([
       { path: 'sourceId', message: 'That is a channel; name it with kind instead.' },
@@ -223,7 +230,12 @@ export const intakeSourceUpdate = defineCommand({
     const ws = ctx.scope.workspaceId!;
     if (!!input.kind === !!input.sourceId)
       throw HfosError.validation([
-        { path: 'kind', message: 'Name either a channel or a form or key, not both.' },
+        {
+          path: 'kind',
+          message: input.kind
+            ? 'Name either a channel or a form or key, not both.'
+            : 'Name the channel, or the form or key, to change.',
+        },
       ]);
     const keyed = input.sourceId ? await keyedOrThrow(ctx, input.sourceId) : null;
     const current: IntakeSource & { allowedOrigins: string[]; redirectUrl: string | null } = keyed

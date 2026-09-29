@@ -127,12 +127,19 @@ async function requireLead(tx: Tx, workspaceId: string, leadId: string): Promise
     .select({ id: leads.id })
     .from(leads)
     .where(and(eq(leads.id, leadId), eq(leads.workspaceId, workspaceId)));
-  if (!lead) throw HfosError.notFound('Lead not found.');
+  if (!lead)
+    throw HfosError.notFound(
+      'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
 }
 
 function assertOpen(calendar: LoadedCalendar): void {
   if (calendar.status === 'archived')
-    throw HfosError.rule('calendar_archived', 409, 'This calendar is archived.');
+    throw HfosError.rule(
+      'calendar_archived',
+      409,
+      `${calendar.name} is archived, so it can’t take new bookings. Book on another calendar, or bring it back as a draft from Settings → Calendars.`,
+    );
 }
 
 /** Emits appointment.booked with a display snapshot and writes the customers' timeline entries. */
@@ -328,7 +335,10 @@ export const appointmentUpdate = defineCommand({
       .from(appointments)
       .where(and(eq(appointments.id, input.appointmentId), eq(appointments.workspaceId, ws)))
       .for('update');
-    if (!appt) throw HfosError.notFound('Appointment not found.');
+    if (!appt)
+      throw HfosError.notFound(
+        'That appointment isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
     if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const seen: NonNullable<typeof input.base> = input.base ?? {};
@@ -479,7 +489,7 @@ export const appointmentReassign = defineCommand({
       throw HfosError.rule(
         'calendar_has_no_staff',
         409,
-        'This calendar books without staff, so there’s nobody to hand it to.',
+        `${calendar.name} books without staff, so there’s nobody to hand this to. To give its bookings to people, change Team & assignment in the calendar’s settings.`,
       );
     const userIds = [...new Set(input.userIds)];
     const was = await staffIdsOf(ctx.tx, appt.id);
@@ -504,7 +514,7 @@ export const appointmentReassign = defineCommand({
         throw HfosError.rule(
           'appointment_assign_managers_only',
           403,
-          'This booking has bills on it, so only owners and admins can add you to it.',
+          'This booking has bills on it, so only owners and admins can add you to it. Ask one of them.',
         );
     }
     const minutes = Math.round((appt.endsAt.getTime() - appt.startsAt.getTime()) / MIN);
@@ -576,7 +586,13 @@ export const appointmentSetStatus = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
     if (appt.status === 'cancelled')
-      throw HfosError.rule('appointment_not_scheduled', 409, 'This appointment was cancelled.');
+      throw HfosError.rule(
+        'appointment_not_scheduled',
+        409,
+        input.status === 'completed'
+          ? 'This appointment was cancelled, so it can’t be marked done. Book a new one if the visit still happened.'
+          : 'This appointment was cancelled, so it can’t be marked a no-show.',
+      );
     if (appt.status === input.status) return { appointmentId: appt.id, status: appt.status };
     const [updated] = await ctx.tx
       .update(appointments)
@@ -636,7 +652,7 @@ export const appointmentStillGoing = defineCommand({
         'appointment_not_scheduled',
         409,
         appt.status === 'cancelled'
-          ? 'This appointment was cancelled.'
+          ? 'This appointment was cancelled, so there’s nothing to check on.'
           : 'Someone already said how this one went.',
       );
     await ctx.emit({
@@ -729,7 +745,10 @@ export const appointmentRemoveAttendee = defineCommand({
           eq(appointmentAttendees.status, 'booked'),
         ),
       );
-    if (!att) throw HfosError.notFound('They aren’t booked on this.');
+    if (!att)
+      throw HfosError.notFound(
+        'That customer isn’t booked on this appointment anymore. Refresh to see who’s on it.',
+      );
     await ctx.tx
       .update(appointmentAttendees)
       .set({ status: 'cancelled', cancelledAt: new Date() })
@@ -778,7 +797,7 @@ export const sessionPublish = defineCommand({
       throw HfosError.rule(
         'not_sessions_mode',
         409,
-        'This calendar books open hours. Switch it to fixed sessions to publish dates.',
+        `${calendar.name} books open hours, not fixed sessions. To publish dates, switch it to Fixed sessions under Availability in the calendar’s settings.`,
       );
     const result = await bookAppointment(ctx, {
       calendar,
@@ -832,6 +851,20 @@ function skipReason(e: HfosError): string {
   return e.message;
 }
 
+/** Why a whole series was refused: how many dates, and the first one's reason. */
+function noFitWords(count: number, first: HfosError | undefined): string {
+  const head =
+    count === 1
+      ? 'That date doesn’t fit, so nothing was booked.'
+      : `None of the ${count} dates fit, so nothing was booked.`;
+  const why = first ? skipReason(first).trim() : '';
+  const sentence = why && !/[.!?]$/.test(why) ? `${why}.` : why;
+  // A warning says what's in the way but not what to do; a refusal already says both.
+  const fix =
+    !why || first?.rule === 'needs_confirmation' ? ' Try another time or first date.' : '';
+  return `${head}${sentence ? ` ${sentence}` : ''}${fix}`;
+}
+
 export const seriesCreate = defineCommand({
   name: 'series.create',
   description:
@@ -849,7 +882,11 @@ export const seriesCreate = defineCommand({
     assertOpen(calendar);
     const { config } = calendar;
     if (!config.recurring.staffSeries)
-      throw HfosError.rule('series_off', 409, 'Repeats are off for this calendar.');
+      throw HfosError.rule(
+        'series_off',
+        409,
+        `Repeats are off for ${calendar.name}. Turn on Staff can repeat visits under Repeats in the calendar’s settings.`,
+      );
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
     if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const sessions = config.schedule.mode === 'sessions';
@@ -858,7 +895,10 @@ export const seriesCreate = defineCommand({
       config.recurring.maxOccurrences,
     );
     if (!occurrences.length)
-      throw HfosError.validation([{ path: 'rule', message: 'No dates match this repeat.' }]);
+      throw HfosError.validation(
+        [{ path: 'rule', message: 'No dates match this repeat.' }],
+        'No dates match this repeat. Change the first date or how often it repeats, then try again.',
+      );
     const service = await resolveService(ctx.tx, calendar, input.serviceId);
     await lockBooking(
       ctx.tx,
@@ -881,6 +921,7 @@ export const seriesCreate = defineCommand({
     const created: string[] = [];
     const skipped: { occurrence: number; date: string; startsAt: string; reason: string }[] = [];
     let prefer: readonly string[] | undefined = input.userIds;
+    let firstSkip: HfosError | undefined;
     for (const occ of occurrences) {
       try {
         const r = await bookAppointment(ctx, {
@@ -910,6 +951,7 @@ export const seriesCreate = defineCommand({
         prefer ??= r.userIds;
       } catch (e) {
         if (!(e instanceof HfosError) || e.status !== 409) throw e;
+        firstSkip ??= e;
         skipped.push({
           occurrence: occ.index + 1,
           date: occ.date,
@@ -922,7 +964,7 @@ export const seriesCreate = defineCommand({
       throw new HfosError(
         'conflict',
         409,
-        'None of these dates fit.',
+        noFitWords(skipped.length, firstSkip),
         { skipped },
         'series_no_fit',
       );
@@ -966,9 +1008,10 @@ export const seriesCancel = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
     if (!appt.seriesId)
-      throw HfosError.validation([
-        { path: 'appointmentId', message: 'This appointment isn’t part of a series.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'appointmentId', message: 'This appointment isn’t part of a series.' }],
+        'This appointment isn’t part of a series, so there are no other visits to cancel. Cancel just this one instead.',
+      );
     const calendar = await loadCalendar(ctx.tx, ws, appt.calendarId);
     await lockBooking(ctx.tx, calendar.id);
     const now = await dbNow(ctx.tx);
@@ -1042,15 +1085,26 @@ export const waitlistAdd = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     if (!calendar.config.waitlist.enabled)
-      throw HfosError.rule('waitlist_off', 409, 'This calendar’s waitlist is off.');
+      throw HfosError.rule(
+        'waitlist_off',
+        409,
+        `${calendar.name}’s waitlist is off. Turn it on under Waitlist in the calendar’s settings.`,
+      );
     const now = await dbNow(ctx.tx);
     if (input.appointmentId) {
       const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
-      if (appt.calendarId !== calendar.id) throw HfosError.notFound('Appointment not found.');
+      if (appt.calendarId !== calendar.id)
+        throw HfosError.notFound(
+          `That session isn’t on ${calendar.name}. Refresh and pick one of its sessions.`,
+        );
       requireScheduled(appt);
       // A wait for a session ends when it starts (waitlist.expire), as the booking page says.
       if (appt.startsAt.getTime() <= now)
-        throw HfosError.rule('session_started', 409, 'This session has already started.');
+        throw HfosError.rule(
+          'session_started',
+          409,
+          'This session has already started, so it’s too late to wait for a seat. Pick a later session.',
+        );
       const [live] = await ctx.tx
         .select({ id: waitlistEntries.id, position: waitlistEntries.position })
         .from(waitlistEntries)
@@ -1119,6 +1173,9 @@ export const waitlistAdd = defineCommand({
   },
 });
 
+const waitlistGone = () =>
+  HfosError.notFound('That person isn’t on the waitlist anymore. Refresh to see who’s waiting.');
+
 export const waitlistRemove = defineCommand({
   name: 'waitlist.remove',
   description: 'Take someone off a waitlist.',
@@ -1135,12 +1192,12 @@ export const waitlistRemove = defineCommand({
       .select({ calendarId: waitlistEntries.calendarId })
       .from(waitlistEntries)
       .where(mine);
-    if (!found) throw HfosError.notFound('Waitlist entry not found.');
+    if (!found) throw waitlistGone();
     // The calendar's booking lock, then the entry's row, as taking an offer does (waitlist-offer.ts): a customer
     // taking their offer right now finishes first or waits for this, so their booking is never undone here.
     await lockBooking(ctx.tx, found.calendarId);
     const [entry] = await ctx.tx.select().from(waitlistEntries).where(mine).for('update');
-    if (!entry) throw HfosError.notFound('Waitlist entry not found.');
+    if (!entry) throw waitlistGone();
     if (entry.status === 'booked')
       throw HfosError.rule(
         'already_booked',

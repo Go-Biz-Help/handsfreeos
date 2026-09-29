@@ -34,7 +34,10 @@ async function visitOf(ctx: CommandContext, appointmentId: string) {
     .where(
       and(eq(appointments.id, appointmentId), eq(appointments.workspaceId, ctx.scope.workspaceId!)),
     );
-  if (!appt) throw HfosError.notFound('Appointment not found.');
+  if (!appt)
+    throw HfosError.notFound(
+      'That visit isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return appt;
 }
 
@@ -85,7 +88,11 @@ export const jobSetStatus = defineCommand({
   async handler(ctx, input) {
     const appt = await visitOf(ctx, input.appointmentId);
     if (appt.status === 'cancelled')
-      throw HfosError.rule('visit_cancelled', 409, 'That visit was cancelled.');
+      throw HfosError.rule(
+        'visit_cancelled',
+        409,
+        `“${appt.title}” was cancelled, so its job can’t move along. Book a new visit if the work is still going ahead.`,
+      );
     const job = await jobOf(ctx, appt);
     const noteChanged =
       input.customerNote !== undefined && (input.customerNote || null) !== job.customerNote;
@@ -148,14 +155,25 @@ export const jobAddVisit = defineCommand({
       .from(jobs)
       .where(and(eq(jobs.id, input.jobId), eq(jobs.workspaceId, ws)))
       .for('update');
-    if (!job) throw HfosError.notFound('Job not found.');
+    if (!job)
+      throw HfosError.notFound(
+        'That job isn’t there anymore. It may have been removed with its last visit. Refresh and try again.',
+      );
     const appt = await visitOf(ctx, input.appointmentId);
     if (appt.kind !== 'booking')
-      throw HfosError.rule('not_a_visit', 409, 'Only a visit for one customer can join a job.');
+      throw HfosError.rule(
+        'not_a_visit',
+        409,
+        `“${appt.title}” isn’t a visit for one customer, so it can’t join a job. Pick one of the customer’s booked visits.`,
+      );
     if (appt.jobId === job.id) return { jobId: job.id, appointmentId: appt.id };
     const person = await customerOf(ctx, appt.id);
     if (job.personId && person !== job.personId)
-      throw HfosError.rule('other_customer', 409, 'That visit is for a different customer.');
+      throw HfosError.rule(
+        'other_customer',
+        409,
+        `“${appt.title}” is for a different customer than “${job.title}”. Pick one of the same customer’s visits.`,
+      );
     const left = appt.jobId;
     await ctx.tx.update(appointments).set({ jobId: job.id }).where(eq(appointments.id, appt.id));
     if (left) {

@@ -20,7 +20,10 @@ export const workspaceGet = defineQuery({
       .from(workspaces)
       .innerJoin(organizations, eq(organizations.id, workspaces.organizationId))
       .where(eq(workspaces.id, input.workspaceId));
-    if (!row) throw HfosError.notFound('Workspace not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const [members] = await ctx.tx
       .select({ n: count() })
       .from(workspaceMemberships)

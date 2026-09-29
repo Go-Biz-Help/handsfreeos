@@ -78,7 +78,11 @@ function providerFailure(e: unknown): HfosError {
   const known = e instanceof AiProviderError ? e : null;
   return known?.retryable
     ? HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE)
-    : HfosError.rule('ai_failed', 502, 'The form builder couldn’t be reached. Try again.');
+    : HfosError.rule(
+        'ai_failed',
+        502,
+        'The AI couldn’t draft that form just now. Try again, or open the form in Forms and add the questions yourself.',
+      );
 }
 
 /**

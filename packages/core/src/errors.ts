@@ -66,7 +66,13 @@ export interface HfosErrorBody {
   };
 }
 
-/** The one error type the API returns to clients. Everything else is a 500 with no detail. */
+/**
+ * The one error type the API returns to clients. Everything else is a 500 with no detail.
+ *
+ * A person reads `message`, so it says what went wrong and, when something can be done about it, what to do and
+ * where ("Nobody on this calendar’s team does Duct cleaning. Tick someone under Who can do it in Settings →
+ * Calendars → Services."). Clients branch on `rule`, never on the words, so the words can always improve.
+ */
 export class HfosError extends Error {
   constructor(
     readonly code: HfosErrorCode,
@@ -98,17 +104,25 @@ export class HfosError extends Error {
   static unauthenticated(message = 'Sign in to continue.'): HfosError {
     return new HfosError('unauthenticated', 401, message);
   }
-  static forbidden(message = 'You do not have permission to do that.', rule?: string): HfosError {
+  static forbidden(
+    message = 'You don’t have permission to do that. An owner of this business can check your permissions in Settings → Permissions.',
+    rule?: string,
+  ): HfosError {
     return new HfosError('forbidden', 403, message, undefined, rule);
   }
-  static notFound(message = 'Not found.'): HfosError {
+  static notFound(
+    message = 'That isn’t there anymore. It may have been deleted. Refresh and try again.',
+  ): HfosError {
     return new HfosError('not_found', 404, message);
   }
   /** A path this build does not serve. Carries `NO_SUCH_ROUTE` so a client never reads it as a real 404. */
   static noSuchRoute(): HfosError {
     return new HfosError('not_found', 404, 'No such route.', undefined, NO_SUCH_ROUTE);
   }
-  static validation(details: unknown, message = 'Some fields need attention.'): HfosError {
+  static validation(
+    details: unknown,
+    message = 'Some fields need attention. Fix the ones marked and try again.',
+  ): HfosError {
     return new HfosError('validation', 400, message, details);
   }
   static conflict(message: string, rule?: string): HfosError {
@@ -140,7 +154,7 @@ export class HfosError extends Error {
       { minVersion },
     );
   }
-  static internal(message = 'Something went wrong on our side.'): HfosError {
+  static internal(message = 'Something went wrong on our side. Try again in a minute.'): HfosError {
     return new HfosError('internal', 500, message);
   }
 }

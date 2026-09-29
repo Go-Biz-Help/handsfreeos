@@ -226,7 +226,10 @@ export async function loadBooked(ctx: CommandContext, attendeeId: string, manage
     .select()
     .from(appointmentAttendees)
     .where(and(eq(appointmentAttendees.id, attendeeId), eq(appointmentAttendees.workspaceId, ws)));
-  if (!att) throw HfosError.notFound('Booking not found.');
+  if (!att)
+    throw HfosError.notFound(
+      'We can’t find that booking. Use the newest link we sent you, or give us a call.',
+    );
   if (manageVersion !== undefined && att.manageVersion !== manageVersion)
     throw HfosError.rule(
       'manage_link_stale',
@@ -234,7 +237,11 @@ export async function loadBooked(ctx: CommandContext, attendeeId: string, manage
       'This link is out of date. Use the newest one we sent you.',
     );
   if (att.status !== 'booked')
-    throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
+    throw HfosError.rule(
+      'booking_cancelled',
+      409,
+      'This booking was cancelled. Book a new time if you still need one.',
+    );
   const appt = await requireAppointment(ctx.tx, ws, att.appointmentId);
   requireScheduled(appt);
   const calendar = await loadCalendar(ctx.tx, ws, appt.calendarId);
@@ -245,12 +252,15 @@ export async function loadBooked(ctx: CommandContext, attendeeId: string, manage
 export type BookedAttendee = Awaited<ReturnType<typeof loadBooked>>;
 
 export function assertBookable(calendar: LoadedCalendar): void {
-  if (!calendar.config.public) throw HfosError.notFound('Calendar not found.');
+  if (!calendar.config.public)
+    throw HfosError.notFound(
+      'We can’t find that calendar. Check the link, or give us a call to book.',
+    );
   if (calendar.status !== 'active')
     throw HfosError.rule(
       'calendar_not_bookable',
       409,
-      'This calendar isn’t taking bookings right now.',
+      'This calendar isn’t taking bookings right now. Give us a call to book instead.',
     );
 }
 
@@ -262,7 +272,11 @@ function assertBefore(
   verb: string,
 ) {
   if (startsAt.getTime() <= now)
-    throw HfosError.rule(rule, 409, 'This appointment has already started.');
+    throw HfosError.rule(
+      rule,
+      409,
+      `This appointment has already started, so online ${verb} are closed. Give us a call instead.`,
+    );
   if (startsAt.getTime() - now < cutoffHours * HOUR)
     throw HfosError.rule(
       rule,
@@ -307,8 +321,12 @@ export const appointmentBookOnline = defineCommand({
       !config.locations.options.some((o) => o.kind === locationKind)
     )
       issues.push({ path: 'locationKind', message: 'Pick one of the places offered.' });
-    if (input.partySize > resolveTerms(config, service).maxPartySize)
-      issues.push({ path: 'partySize', message: 'That’s more people than one booking holds.' });
+    const maxParty = resolveTerms(config, service).maxPartySize;
+    if (input.partySize > maxParty)
+      issues.push({
+        path: 'partySize',
+        message: `One booking holds up to ${maxParty} ${maxParty === 1 ? 'person' : 'people'}.`,
+      });
     issues.push(...validateIntake(config.intake.questions, input.intake));
     if (issues.length) throw HfosError.validation(issues);
 

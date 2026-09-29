@@ -39,7 +39,8 @@ export class AiAskError extends Error {
 /** The Assistant's wording, for everything else that uses the AI. */
 export const AI_BUDGET_MESSAGE =
   'That’s today’s AI limit for this business. It resets at midnight.';
-export const AI_UNAVAILABLE_MESSAGE = 'The AI isn’t set up yet.';
+export const AI_UNAVAILABLE_MESSAGE =
+  'The AI isn’t set up for HandsFreeOS yet, so this can’t run. HandsFreeOS support can switch it on.';
 export const AI_BUSY_MESSAGE = 'The AI is busy right now. Try again in a minute.';
 
 export interface AskStructuredInput<S extends z.ZodType> {

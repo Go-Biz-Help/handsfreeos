@@ -24,6 +24,14 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 
+const tagWords = (name: string | undefined) => (name ? `the tag “${name}”` : 'that tag');
+
+const alreadyStopped = () =>
+  HfosError.conflict(
+    'The AI has already finished or stopped going through your customers, so there’s nothing to stop.',
+    'contact_ai_stopped',
+  );
+
 export const contactAiStartSweep = defineCommand({
   name: 'contact_ai.start_sweep',
   description:
@@ -44,7 +52,10 @@ export const contactAiStartSweep = defineCommand({
           .from(tags)
           .where(and(eq(tags.workspaceId, ws), inArray(tags.id, wanted)))
       : [];
-    if (found.length !== wanted.length) throw HfosError.notFound('One of those tags isn’t there.');
+    if (found.length !== wanted.length)
+      throw HfosError.notFound(
+        'One of the tags you picked isn’t there anymore. It may have been deleted. Refresh and pick your tags again.',
+      );
     const [any] = await ctx.tx
       .select({ id: tags.id })
       .from(tags)
@@ -52,7 +63,7 @@ export const contactAiStartSweep = defineCommand({
       .limit(1);
     if (!any)
       throw HfosError.conflict(
-        'There are no tags yet. Add the tags you want first, then the AI can put them on.',
+        'There are no tags yet. Add the tags you want in Settings → Tags first, then the AI can put them on.',
         'no_tags',
       );
     const [running] = await ctx.tx
@@ -65,7 +76,7 @@ export const contactAiStartSweep = defineCommand({
       .where(and(eq(contactAiSweeps.workspaceId, ws), eq(contactAiSweeps.status, 'running')));
     if (running)
       throw HfosError.conflict(
-        `The AI is already going through your customers (${running.reviewed} of ${running.total}). Stop it first to start another.`,
+        `The AI is already going through your customers (${running.reviewed} of ${running.total}). Wait for it to finish, or stop it in Settings → Tags to start another.`,
         'contact_ai_running',
       );
     const [count] = await rows<{ n: number }>(
@@ -82,7 +93,9 @@ export const contactAiStartSweep = defineCommand({
     const total = count?.n ?? 0;
     if (total === 0)
       throw HfosError.conflict(
-        input.onlyTagId ? 'Nobody has that tag.' : 'There are no customers yet.',
+        input.onlyTagId
+          ? `Nobody has ${tagWords(found.find((t) => t.id === input.onlyTagId)?.name)} yet, so there’s no one for the AI to go through. Pick another tag, or choose Everyone.`
+          : 'There are no customers yet, so there’s no one for the AI to go through. Add some in Customers first.',
         'contact_ai_empty',
       );
     const [row] = await ctx.tx
@@ -134,9 +147,11 @@ export const contactAiCancelSweep = defineCommand({
       .from(contactAiSweeps)
       .where(and(eq(contactAiSweeps.workspaceId, ws), eq(contactAiSweeps.id, input.sweepId)))
       .for('update');
-    if (!sweep) throw HfosError.notFound('That pass isn’t here.');
-    if (sweep.status !== 'running')
-      throw HfosError.conflict('It has already stopped.', 'contact_ai_stopped');
+    if (!sweep)
+      throw HfosError.notFound(
+        'That pass over your customers isn’t there anymore. Refresh and try again.',
+      );
+    if (sweep.status !== 'running') throw alreadyStopped();
     const [done] = await ctx.tx
       .update(contactAiSweeps)
       .set({
@@ -147,7 +162,7 @@ export const contactAiCancelSweep = defineCommand({
       })
       .where(and(eq(contactAiSweeps.id, sweep.id), isNull(contactAiSweeps.finishedAt)))
       .returning({ reviewed: contactAiSweeps.reviewed });
-    if (!done) throw HfosError.conflict('It has already stopped.', 'contact_ai_stopped');
+    if (!done) throw alreadyStopped();
     await ctx.emit({
       type: 'contact_ai.sweep_cancelled',
       entityType: 'contact_ai_sweep',

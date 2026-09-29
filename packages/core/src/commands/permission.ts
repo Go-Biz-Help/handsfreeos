@@ -57,7 +57,7 @@ async function assertSettable(ctx: CommandContext, permission: string): Promise<
   if (!row?.ok)
     throw HfosError.validation(
       [{ path: 'permission', message: 'That isn’t something you can set here.' }],
-      'That isn’t something you can set here.',
+      'That permission isn’t one this business can set. The add-on it came with may have been removed. Refresh Settings → Permissions and try again.',
     );
 }
 
@@ -108,12 +108,15 @@ async function requireSettablePerson(ctx: CommandContext, userId: string) {
             as name`,
   );
   if (!row?.role)
-    throw HfosError.validation([{ path: 'userId', message: 'Pick someone in this business.' }]);
+    throw HfosError.validation(
+      [{ path: 'userId', message: 'Pick someone in this business.' }],
+      `${row?.name ?? 'That person'} isn’t in this business anymore. Refresh Settings → Permissions and pick someone who is.`,
+    );
   if (row.role === 'owner')
     throw HfosError.rule(
       'permission_owner',
       409,
-      'Owners can always do everything. Change their role first to set what they may do.',
+      `Owners can always do everything, so there’s nothing to set for ${row.name ?? 'them'}. To set what they may do, change their role on the Members page first.`,
     );
   return { role: row.role, name: row.name ?? 'Someone' };
 }

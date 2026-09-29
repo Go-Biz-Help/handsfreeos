@@ -73,7 +73,10 @@ export async function requireTeammate(
   opts: { readonly forUpdate?: boolean } = {},
 ): Promise<TeammateRow> {
   const row = await loadTeammate(tx, workspaceId, { teammateId, forUpdate: opts.forUpdate });
-  if (!row) throw HfosError.notFound('AI teammate not found.');
+  if (!row)
+    throw HfosError.notFound(
+      'That AI teammate isn’t there anymore. It may have been removed. Refresh and try again.',
+    );
   return row;
 }
 
@@ -202,7 +205,10 @@ export async function loadTeammateCatalogs(
     })
     .from(workspaces)
     .where(eq(workspaces.id, workspaceId));
-  if (!ws) throw HfosError.notFound('Workspace not found.');
+  if (!ws)
+    throw HfosError.notFound(
+      'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+    );
   const messaging = await workspaceMessaging(tx, workspaceId);
   const number = await defaultNumber(tx, workspaceId);
   const regs = await loadRegistrations(tx, workspaceId);

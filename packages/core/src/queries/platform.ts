@@ -143,7 +143,10 @@ export const platformBusinessGet = defineQuery({
       .from(workspaces)
       .leftJoin(organizations, eq(organizations.id, workspaces.organizationId))
       .where(eq(workspaces.id, input.workspaceId));
-    if (!row) throw HfosError.notFound('No business with that id.');
+    if (!row)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Search for it again.',
+      );
     const [counts] = await rows<{
       people: string;
       leads: string;

@@ -40,7 +40,13 @@ export function errorHandler(error: FastifyError, req: FastifyRequest, reply: Fa
   if (error.statusCode === 413) {
     void reply
       .status(413)
-      .send(new HfosError('validation', 413, 'That’s too much to send at once.').toBody());
+      .send(
+        new HfosError(
+          'validation',
+          413,
+          'That’s too much to send at once. Make it shorter, or split it into smaller parts, and try again.',
+        ).toBody(),
+      );
     return;
   }
   if (error.statusCode === 415 || error.statusCode === 400) {

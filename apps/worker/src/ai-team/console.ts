@@ -189,7 +189,13 @@ function draftConfig(raw: unknown): TeammateConfig {
           path: ['config', ...i.path.map(String)].join('.'),
           message: i.message,
         }))
-      : [{ path: 'config', message: 'These settings can’t be read.' }],
+      : [
+          {
+            path: 'config',
+            message:
+              'These settings couldn’t be read. Refresh the page and make your changes again.',
+          },
+        ],
   );
 }
 
@@ -226,7 +232,8 @@ export async function prepareTest(
       sql`select organization_id, timezone, phone_model from app.workspaces where id = ${input.workspaceId}`,
     ),
   );
-  if (!ws) throw HfosError.notFound('Workspace not found.');
+  if (!ws)
+    throw HfosError.notFound('This workspace isn’t there anymore. Refresh the page and try again.');
   const scope: TenantScope = { workspaceId: input.workspaceId, organizationId: ws.organization_id };
   const timeZone = ws.timezone || 'UTC';
   const now = input.at ? Date.parse(input.at) : Date.now();
@@ -235,11 +242,16 @@ export async function prepareTest(
     throw HfosError.rule(
       'ai_not_configured',
       503,
-      'The AI isn’t set up yet, so the test console can’t answer.',
+      'The AI isn’t set up for HandsFreeOS yet, so the test console can’t answer. HandsFreeOS support can switch it on.',
     );
   const { teammate, config, outbound } = await asWorker(deps.db, scope, async (tx) => {
     const row = await loadTeammate(tx, scope.workspaceId);
-    if (!row) throw HfosError.rule('no_teammate', 409, 'Set up your AI teammate first.');
+    if (!row)
+      throw HfosError.rule(
+        'no_teammate',
+        409,
+        'There’s no AI teammate to test yet. Set one up on the AI teammate page first.',
+      );
     let firstName: string | null = null;
     if (input.personId) {
       const [p] = await rows<{ first_name: string | null }>(
@@ -247,7 +259,10 @@ export async function prepareTest(
         sql`select first_name from app.people where id = ${input.personId} and workspace_id = ${scope.workspaceId}
               and archived_at is null`,
       );
-      if (!p) throw HfosError.notFound('Customer not found.');
+      if (!p)
+        throw HfosError.notFound(
+          'That customer isn’t there anymore. They may have been archived. Pick someone else to test with.',
+        );
       firstName = p.first_name?.trim() || null;
     }
     const call = input.channel === 'phone' ? input.call : null;

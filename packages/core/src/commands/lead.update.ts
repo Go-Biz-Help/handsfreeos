@@ -53,6 +53,7 @@ export const leadUpdate = defineCommand({
             path,
             message: 'The AI teammate only changes a lead’s next action.',
           })),
+          'The AI teammate only changes a lead’s next action, and what it’s worth when it handles deals. Leave the other details out, and someone on the team can change them.',
         );
       await assertAiReach(ctx, { leadId: input.leadId });
     }
@@ -61,7 +62,10 @@ export const leadUpdate = defineCommand({
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)))
       .for('update');
-    if (!current) throw HfosError.notFound('Lead not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (input.personId) await requirePerson(ctx.tx, workspaceId, input.personId);
     if (input.companyId) await requireCompany(ctx.tx, workspaceId, input.companyId);
     const seen: NonNullable<typeof input.base> = input.base ?? {};
@@ -116,16 +120,17 @@ export const leadUpdate = defineCommand({
         throw HfosError.rule(
           'lead_assign_managers_only',
           403,
-          'Only owners and admins can put you on a lead.',
+          'Putting yourself on this lead would show you bills you can’t see now, so it takes the “Choose who’s on a customer” permission. Ask an owner or admin to put you on it.',
         );
     }
     const nextPerson = 'personId' in patch ? (patch.personId as string | null) : current.personId;
     const nextCompany =
       'companyId' in patch ? (patch.companyId as string | null) : current.companyId;
     if (!nextPerson && !nextCompany)
-      throw HfosError.validation([
-        { path: 'personId', message: 'A lead needs a person or a company.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'personId', message: 'A lead needs a person or a company.' }],
+        'A lead needs a person or a company. Pick one before taking the other off.',
+      );
     const notApplied = merged.notApplied.map((n) => n.key);
     await logNotApplied(
       ctx,

@@ -281,7 +281,14 @@ describe('command receipts', () => {
     expect(receipt).toMatchObject({
       outcome: 'refused',
       command: 'task.complete',
-      answer: { status: 404, error: { code: 'not_found', message: 'Task not found.' } },
+      answer: {
+        status: 404,
+        error: {
+          code: 'not_found',
+          message:
+            'That task isn’t there anymore. Someone may have deleted it. Refresh and try again.',
+        },
+      },
     });
     // The task turns up (made with that id), but the same command gets the same answer: it was refused.
     await web(taskCreate, { workspaceId: wsId, id: missingTask, title: 'Turned up' }, dale);
@@ -748,7 +755,7 @@ describe('records made on the phone', () => {
     expect(refused.toBody()).toEqual({
       error: {
         code: 'validation',
-        message: 'The app made an id for this that can’t be used.',
+        message: 'This couldn’t be saved the way the app made it. Discard it and add it again.',
         details: [{ path: 'id', message: 'That id can’t be used. Make a new one.' }],
         disposition: 'final',
       },

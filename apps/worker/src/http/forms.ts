@@ -43,7 +43,10 @@ interface FormRouteRow extends Record<string, unknown> {
   readonly embed_origins: string[] | null;
 }
 
-const pageNotFound = () => HfosError.notFound('There’s no form at that address.');
+const pageNotFound = () =>
+  HfosError.notFound(
+    'There’s no form at this address. Check the link, or contact the business if you still need it.',
+  );
 
 /**
  * What a robot is handed instead of a real answer sheet. It looks like a key, is accepted everywhere a key
@@ -230,7 +233,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
           throw HfosError.rule(
             'bot_check_failed',
             400,
-            'Please confirm you’re a person, then try again.',
+            'We couldn’t confirm you’re a person. Finish the check on this page, then try again.',
           );
         const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
         const { output } = await executeCommand(
@@ -284,7 +287,10 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
                   and (resume_expires_at is null or resume_expires_at > now())`,
           ),
         );
-        if (!found[0]) throw HfosError.notFound('That link has run out.');
+        if (!found[0])
+          throw HfosError.notFound(
+            'That link to finish the form has run out, or the form was already sent with it. Start the form again from the top.',
+          );
         return { responseId: found[0].id, answers: found[0].answers ?? {} };
       },
     );

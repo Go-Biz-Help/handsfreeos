@@ -57,11 +57,11 @@ const isStage = (v: unknown): v is WalletStage =>
 
 /** What a business is told, per kind. Never "insufficient funds": say what stopped and how to start it again. */
 export const WALLET_REFUSALS: Readonly<Record<SpendKind, string>> = {
-  text: 'Your balance has run out, so texts are paused. Top up and they start going again — the ones waiting will send themselves.',
-  call: 'Your balance has run out, so outgoing calls are paused. Top up and they start working again.',
-  ai: 'Your balance has run out, so the AI has paused. Top up and it picks up where it left off.',
+  text: 'Your balance has run out, so texts are paused. Top up in Settings → Usage & balance and they start going again — the ones waiting will send themselves.',
+  call: 'Your balance has run out, so outgoing calls are paused. Top up in Settings → Usage & balance and they start working again.',
+  ai: 'Your balance has run out, so the AI has paused. Top up in Settings → Usage & balance and it picks up where it left off.',
   number:
-    'There isn’t enough on your balance for a phone number’s first month. Top up and try again.',
+    'There isn’t enough on your balance for a phone number’s first month. Top up in Settings → Usage & balance, then try again.',
 };
 
 /**

@@ -71,7 +71,7 @@ export class FakeApi {
         return refusal(
           409,
           'final',
-          'The app already sent a different change with this id, so this one wasn’t done.',
+          'This change got mixed up with a different one the app sent earlier, so it wasn’t done. Make the change again.',
           {
             rule: 'command_id_reused',
           },

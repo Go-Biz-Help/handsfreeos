@@ -36,6 +36,7 @@ import {
   type BookingResult,
 } from '../calendar/booking';
 import { expandRecurrence, RecurrenceRule } from '../calendar/engine/recurrence';
+import { formatDuration } from '../calendar/format';
 import { localDateOf, zonedParts } from '../calendar/engine/zoned';
 import { loadCalendar, resolveService } from '../calendar/load';
 import { bookableDurations, defaultLocationKind, resolveTerms } from '../calendar/terms';
@@ -84,6 +85,19 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 
+/** A length the calendar doesn't offer, with the ones it does. */
+function lengthRefused(offered: readonly number[]): HfosError {
+  const words = offered.map(formatDuration);
+  const list =
+    words.length > 1 ? `${words.slice(0, -1).join(', ')} or ${words[words.length - 1]}` : words[0];
+  return HfosError.validation(
+    [{ path: 'durationMinutes', message: 'Pick one of the lengths offered.' }],
+    list
+      ? `That length isn’t offered. Book ${list}, or leave the length out for the usual one.`
+      : 'That length isn’t offered. Leave the length out for the usual one.',
+  );
+}
+
 function aiOf(ctx: CommandContext): AiEmployeeActor {
   const ai = aiEmployeeOf(ctx.actor);
   if (!ai) throw HfosError.forbidden('Only the AI teammate books this way.');
@@ -97,7 +111,7 @@ async function customerOf(ctx: CommandContext, ai: AiEmployeeActor) {
     throw HfosError.rule(
       'no_customer',
       409,
-      'Link this conversation to a customer before booking for them.',
+      'This conversation isn’t linked to a customer yet, so there’s nobody to book for. Hand off so someone on the team can link it and book.',
     );
   return { conv, person: await requirePerson(ctx.tx, ctx.scope.workspaceId!, conv.personId) };
 }
@@ -120,7 +134,11 @@ async function customerBooking(ctx: CommandContext, ai: AiEmployeeActor, appoint
       ),
     )
     .limit(1);
-  if (!att) throw HfosError.forbidden('That booking isn’t this customer’s.', 'not_this_customer');
+  if (!att)
+    throw HfosError.forbidden(
+      'That booking belongs to someone else, not the customer you’re talking to. Look up this customer’s own bookings and pick one of those.',
+      'not_this_customer',
+    );
   return loadBooked(ctx, att.id);
 }
 
@@ -192,9 +210,7 @@ export const appointmentBookForCustomer = defineCommand({
       input.durationMinutes !== undefined &&
       !bookableDurations(config, service).includes(input.durationMinutes)
     )
-      throw HfosError.validation([
-        { path: 'durationMinutes', message: 'Pick one of the lengths offered.' },
-      ]);
+      throw lengthRefused(bookableDurations(config, service));
     await enforceCaps(ctx.tx, ws, calendar.id, person.phoneE164, person.email);
     const attendee = await customerAttendee(ctx, conv, person);
     const smsOk = attendee.smsOk;
@@ -388,9 +404,7 @@ export const seriesBookForCustomer = defineCommand({
       input.durationMinutes !== undefined &&
       !bookableDurations(config, service).includes(input.durationMinutes)
     )
-      throw HfosError.validation([
-        { path: 'durationMinutes', message: 'Pick one of the lengths offered.' },
-      ]);
+      throw lengthRefused(bookableDurations(config, service));
     const tz = calendar.timeZone;
     const firstAt = Date.parse(input.startsAt);
     const rule = RecurrenceRule.parse({
@@ -401,9 +415,10 @@ export const seriesBookForCustomer = defineCommand({
     });
     const occurrences = expandRecurrence(rule, localDateOf(firstAt, tz), tz);
     if (occurrences[0]?.startsAt !== firstAt)
-      throw HfosError.validation([
-        { path: 'startsAt', message: 'Start the repeats at a time the calendar offers.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'startsAt', message: 'Start the repeats at a time the calendar offers.' }],
+        'The first visit has to be at a time the calendar offers. Check the open times again and start the repeats at one of them.',
+      );
     await enforceCaps(ctx.tx, ws, calendar.id, person.phoneE164, person.email);
     await lockBooking(
       ctx.tx,
@@ -539,16 +554,27 @@ export const waitlistJoinForCustomer = defineCommand({
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
     assertBookable(calendar);
     if (!calendar.config.waitlist.enabled)
-      throw HfosError.rule('waitlist_off', 409, `${calendar.name} doesn’t keep a waitlist.`);
+      throw HfosError.rule(
+        'waitlist_off',
+        409,
+        `${calendar.name} doesn’t keep a waitlist. Offer them another open time instead.`,
+      );
     let wantedFrom: Date | null = null;
     let wantedTo: Date | null = null;
     if (input.appointmentId) {
       const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
-      if (appt.calendarId !== calendar.id) throw HfosError.notFound('Appointment not found.');
+      if (appt.calendarId !== calendar.id)
+        throw HfosError.notFound(
+          `That session isn’t on ${calendar.name}. Check its sessions and pick one of those.`,
+        );
       requireScheduled(appt);
       // The same rules and words as the booking page and the team's own waitlist.add.
       if (appt.startsAt.getTime() <= Date.now())
-        throw HfosError.rule('session_started', 409, 'This session has already started.');
+        throw HfosError.rule(
+          'session_started',
+          409,
+          'That session has already started, so it’s too late to wait for a seat. Offer a later one instead.',
+        );
     } else {
       wantedFrom = new Date(input.wantedFrom!);
       wantedTo = new Date(input.wantedTo!);
@@ -657,7 +683,10 @@ export const appointmentAddForCustomer = defineCommand({
       .from(appointments)
       .where(eq(appointments.id, booked.appt.id))
       .for('update');
-    if (!appt) throw HfosError.notFound('Appointment not found.');
+    if (!appt)
+      throw HfosError.notFound(
+        'That visit isn’t there anymore. It may have been cancelled. Look up their bookings again.',
+      );
     if (appt.startsAt.getTime() <= Date.now())
       throw HfosError.rule(
         'visit_started',
@@ -683,9 +712,10 @@ export const appointmentAddForCustomer = defineCommand({
         );
       const service = await resolveService(ctx.tx, calendar, input.serviceId);
       if (!service || service.archived)
-        throw HfosError.validation([
-          { path: 'serviceId', message: 'That isn’t a service this calendar offers.' },
-        ]);
+        throw HfosError.validation(
+          [{ path: 'serviceId', message: 'That isn’t a service this calendar offers.' }],
+          `${calendar.name} doesn’t offer that service. Pick one of the services it lists.`,
+        );
       const [already] = await ctx.tx
         .select({ id: appointmentServices.id })
         .from(appointmentServices)
@@ -748,7 +778,7 @@ export const appointmentAddForCustomer = defineCommand({
           'no_seats',
           409,
           appt.capacity - appt.seatsTaken > 0
-            ? `That visit has room for ${appt.capacity - appt.seatsTaken} more, not ${input.guests}.`
+            ? `That visit has room for ${appt.capacity - appt.seatsTaken} more, not ${input.guests}. Add up to ${appt.capacity - appt.seatsTaken}, and book the rest their own time.`
             : 'That visit has no room for anyone else. Book them their own time, or hand off.',
         );
       seats = att!.seats + input.guests;

@@ -27,7 +27,10 @@ export const organizationAddOwner = defineCommand({
       ctx.tx,
       sql`select name from app.organizations where id = ${input.organizationId}`,
     );
-    if (!org) throw HfosError.notFound('Organization not found.');
+    if (!org)
+      throw HfosError.notFound(
+        'That agency isn’t there, or you’re no longer in it. Refresh and pick it again from your list.',
+      );
     if (input.userId === me)
       throw HfosError.rule('own_role', 400, `You’re an owner of ${org.name} already.`);
     const [person] = await rows<{
@@ -61,7 +64,9 @@ export const organizationAddOwner = defineCommand({
         ).length > 0
       : false;
     if (!person || !inOrganization)
-      throw HfosError.notFound(`That person isn’t part of ${org.name}.`);
+      throw HfosError.notFound(
+        `That person isn’t in any of ${org.name}’s businesses. Invite them to one from its Members page and make them an owner there first.`,
+      );
     const name = person.full_name.trim() || person.email;
     if (person.org_role === 'owner')
       return {

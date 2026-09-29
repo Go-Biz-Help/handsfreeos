@@ -32,14 +32,26 @@ export const companyArchive = defineCommand({
       .from(tasks)
       .where(and(eq(tasks.companyId, current.id), isNull(tasks.doneAt)));
     const open = Number(openLeads?.n ?? 0);
-    if ((open > 0 || Number(openTasks?.n ?? 0) > 0) && !input.force)
+    const openTaskCount = Number(openTasks?.n ?? 0);
+    if ((open > 0 || openTaskCount > 0) && !input.force) {
+      const counted = [
+        open > 0 ? `${open} open ${open === 1 ? 'lead' : 'leads'}` : null,
+        openTaskCount > 0
+          ? `${openTaskCount} open ${openTaskCount === 1 ? 'task' : 'tasks'}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' and ');
       throw new HfosError(
         'conflict',
         409,
-        'This company still has open leads or tasks.',
-        { openLeads: open, openTasks: Number(openTasks?.n ?? 0) },
+        open > 0
+          ? `${current.name} still has ${counted}. Archive it anyway to archive its open leads with it, or close them first.`
+          : `${current.name} still has ${counted}. Archive it anyway, or finish ${openTaskCount === 1 ? 'that task' : 'those tasks'} first.`,
+        { openLeads: open, openTasks: openTaskCount },
         'has_open_work',
       );
+    }
     // Archived when the person did it (on a phone, perhaps before it had signal), and its open leads with it.
     const at = changeMoment(ctx.meta);
     let archivedLeads = 0;

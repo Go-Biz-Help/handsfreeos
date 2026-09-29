@@ -94,7 +94,8 @@ async function loadItem(ctx: CommandContext, itemId: string): Promise<AttentionI
       and(eq(attentionItems.id, itemId), eq(attentionItems.workspaceId, ctx.scope.workspaceId!)),
     )
     .for('update');
-  if (!row) throw HfosError.notFound('That item isn’t there anymore.');
+  if (!row)
+    throw HfosError.notFound('That item isn’t there anymore. Refresh to see what still needs you.');
   return row;
 }
 
@@ -114,7 +115,7 @@ async function assertMay(ctx: CommandContext, row: AttentionItemRow, action: Att
   if (!mayAct({ userId: ctx.actor.userId, ...who, decidable }, row, action))
     throw row.kind === 'ai_approval' && !decidable.has(row.subjectId)
       ? HfosError.forbidden(
-          'Only the people who can decide this approval can act on it.',
+          'This approval is for someone else to decide. Only the people it was sent to can act on it.',
           'not_an_approver',
         )
       : HfosError.forbidden();
@@ -379,7 +380,7 @@ export const attentionRestore = defineCommand({
         409,
         row.state === 'resolved'
           ? 'This was already taken care of.'
-          : 'Only a snoozed or dismissed item can be brought back.',
+          : 'This was already handled, so there’s nothing to bring back.',
       );
     const out = await update(ctx, row, { state: 'open', ...CLEAR_SNOOZE, ...CLEAR_DISMISS });
     await emitItem(
@@ -415,7 +416,10 @@ export const attentionAssign = defineCommand({
     const to = input.assigneeUserId;
     if (to && !(await isWorkspaceUser(ctx.tx, ws, to)))
       throw HfosError.validation([
-        { path: 'assigneeUserId', message: 'Pick someone in this workspace.' },
+        {
+          path: 'assigneeUserId',
+          message: 'That person isn’t on this business’s team. Pick someone else.',
+        },
       ]);
     const kind = row.kind as AttentionKind;
     const passedTo = isLeadKind(kind)
@@ -590,7 +594,15 @@ export const attentionLetHandle = defineCommand({
               ? { personId: row.personId }
               : null;
         if (!to)
-          throw HfosError.rule('no_contact', 409, 'There’s no way to reach them on that channel.');
+          throw HfosError.rule(
+            'no_contact',
+            409,
+            channel === 'chat'
+              ? 'There’s no website chat with them to reply in. Reply by text or email instead.'
+              : conv
+                ? `There’s no customer on this item to reach by ${channel === 'email' ? 'email' : 'text'}. Reply by ${conv.channel === 'email' ? 'email' : conv.channel === 'chat' ? 'website chat' : 'text'} instead, where they wrote.`
+                : 'There’s no customer on this item to send a message to. Open it to see who it’s about.',
+          );
         const sent = await executeCommandWithin(ctx, messageSend, {
           workspaceId: ws,
           ...to,
@@ -605,7 +617,11 @@ export const attentionLetHandle = defineCommand({
       }
       case 'set_next_action': {
         if (!row.leadId)
-          throw HfosError.rule('no_lead', 409, 'There’s no lead to set the next action on.');
+          throw HfosError.rule(
+            'no_lead',
+            409,
+            'This item has no lead to set a next action on. Pick another way to handle it.',
+          );
         if (!input.text)
           throw HfosError.validation([{ path: 'text', message: 'Say what to do next.' }]);
         await executeCommandWithin(ctx, leadSetNextAction, {
@@ -665,7 +681,11 @@ export const attentionCancelAuto = defineCommand({
     if (row.autoState === 'cancelled')
       return { itemId: row.id, autoState: 'cancelled' as const, changed: false };
     if (row.autoState === 'sent')
-      throw HfosError.rule('auto_already_sent', 409, 'It already went out.');
+      throw HfosError.rule(
+        'auto_already_sent',
+        409,
+        'That message already went out, so it can’t be stopped.',
+      );
     if (row.autoState !== 'scheduled')
       throw HfosError.rule('auto_not_scheduled', 409, 'Nothing is waiting to go out for this.');
     const out = await update(ctx, row, {
@@ -742,7 +762,10 @@ export const attentionSaveSettings = defineCommand({
       .select({ name: workspaces.name, settings: workspaces.settings })
       .from(workspaces)
       .where(eq(workspaces.id, ws));
-    if (!w) throw HfosError.notFound('Workspace not found.');
+    if (!w)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const stored = (w.settings ?? {}) as Record<string, unknown>;
     const current = attentionSettingsOf(stored);
     // "Looks good, turn on": the first review stands, on the server's clock.
@@ -759,7 +782,11 @@ export const attentionSaveSettings = defineCommand({
     if (!check.ok)
       throw HfosError.validation(
         check.problems.map((p) => ({ path: 'settings.nudge.template', message: p.message })),
-        'The follow-up message needs a change.',
+        check.problems[0]?.code === 'empty'
+          ? 'The follow-up message is empty. Write it, then save.'
+          : check.problems.length === 1
+            ? `The follow-up message needs a change. ${check.problems[0]!.message}`
+            : 'The follow-up message needs a few changes. Fix what’s marked under it, then save.',
       );
     const changed = JSON.stringify(stored['attention'] ?? null) !== JSON.stringify(next);
     if (!changed) return { workspaceId: ws, settings: next, changed: false };

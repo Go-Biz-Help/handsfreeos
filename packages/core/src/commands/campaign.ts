@@ -51,9 +51,23 @@ const STATUS_WORDS: Readonly<Record<string, string>> = {
   done: 'finished',
   cancelled: 'cancelled',
 };
+/** What to do instead, for a campaign that can't be `what` while it's `status`. */
+function nextStep(status: string, what: string): string {
+  if (status === 'done' || status === 'cancelled')
+    return what === 'cancelled'
+      ? 'Nothing more will go out.'
+      : 'Start a new campaign to reach them again.';
+  if (status === 'drafting')
+    return what === 'approved'
+      ? 'Wait for the drafts to finish, then approve it.'
+      : 'It hasn’t started sending yet.';
+  if (status === 'review') return 'It hasn’t started sending yet. Approve it to start.';
+  if (what === 'approved') return status === 'paused' ? 'Resume it to keep sending.' : '';
+  return 'It was already approved, so what it sends is set. Cancel it and start a new one to change that.';
+}
 const wrongState = (status: string, what: string) =>
   HfosError.conflict(
-    `It’s ${STATUS_WORDS[status] ?? status}, so it can’t be ${what}.`,
+    `It’s ${STATUS_WORDS[status] ?? status}, so it can’t be ${what}. ${nextStep(status, what)}`.trim(),
     'campaign_state',
   );
 
@@ -64,7 +78,10 @@ async function lockCampaign(tx: Tx, ws: string, id: string): Promise<CampaignRow
     .from(campaigns)
     .where(and(eq(campaigns.workspaceId, ws), eq(campaigns.id, id)))
     .for('update');
-  if (!c) throw HfosError.notFound('That campaign isn’t here any more.');
+  if (!c)
+    throw HfosError.notFound(
+      'That campaign isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return c;
 }
 
@@ -86,7 +103,10 @@ export const campaignCreate = defineCommand({
         ctx.tx,
         sql`select 1 from app.offers where id = ${input.offerId} and workspace_id = ${ws} and archived_at is null`,
       );
-      if (!offer) throw HfosError.notFound('That offer isn’t running any more.');
+      if (!offer)
+        throw HfosError.notFound(
+          'That offer isn’t running anymore. Pick another offer, or leave it out.',
+        );
     }
     // The screen offers open stages only: a won or lost deal isn't someone to reach out to.
     if (input.audience.stageIds.length) {
@@ -118,12 +138,14 @@ export const campaignCreate = defineCommand({
     if (recipients === 0)
       throw HfosError.conflict(
         !people.length
-          ? 'Nobody has those tags or stages.'
-          : email
-            ? 'Everyone it picks is left out: no email, unsubscribed, bounced or emailed lately.'
-            : input.channel === 'call'
-              ? 'Everyone it picks is left out: no written consent to calls, called lately, mid-conversation or booked.'
-              : 'Everyone it picks is left out: no texting consent, texted lately, mid-conversation or booked.',
+          ? 'Nobody has those tags or is in those stages. Pick other tags or stages.'
+          : `${
+              email
+                ? 'Everyone it picks is left out: no email, unsubscribed, bounced or emailed lately.'
+                : input.channel === 'call'
+                  ? 'Everyone it picks is left out: no written consent to calls, called lately, mid-conversation or booked.'
+                  : 'Everyone it picks is left out: no texting consent, texted lately, mid-conversation or booked.'
+            } Pick more tags or stages to reach more people.`,
         'campaign_empty',
       );
     const [c] = await ctx.tx
@@ -210,7 +232,7 @@ export const campaignUpdateDraft = defineCommand({
       );
     if (r.status !== 'ready' && r.status !== 'drafting')
       throw HfosError.conflict(
-        'That person isn’t getting a text in this campaign.',
+        'That person is left out of this campaign, so there’s no text to change for them.',
         'recipient_state',
       );
     await ctx.tx
@@ -242,7 +264,12 @@ export const campaignUpdateEmail = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const c = await lockCampaign(ctx.tx, ws, input.campaignId);
     if (c.channel !== 'email')
-      throw HfosError.conflict('This campaign sends texts, not an email.', 'campaign_channel');
+      throw HfosError.conflict(
+        c.channel === 'call'
+          ? 'This campaign makes calls, not an email. Change what the calls are about instead.'
+          : 'This campaign sends texts, not an email. Change each person’s text instead.',
+        'campaign_channel',
+      );
     if (c.status !== 'review' && c.status !== 'drafting') throw wrongState(c.status, 'changed');
     await ctx.tx
       .update(campaigns)
@@ -274,7 +301,12 @@ export const campaignUpdateCall = defineCommand({
     const ws = ctx.scope.workspaceId!;
     const c = await lockCampaign(ctx.tx, ws, input.campaignId);
     if (c.channel !== 'call')
-      throw HfosError.conflict('This campaign doesn’t make calls.', 'campaign_channel');
+      throw HfosError.conflict(
+        c.channel === 'email'
+          ? 'This campaign sends an email, not calls. Change the email instead.'
+          : 'This campaign sends texts, not calls. Change each person’s text instead.',
+        'campaign_channel',
+      );
     if (c.status !== 'review' && c.status !== 'drafting') throw wrongState(c.status, 'changed');
     await ctx.tx
       .update(campaigns)
@@ -341,16 +373,27 @@ export const campaignApprove = defineCommand({
     if (c.status === 'sending') return { campaignId: c.id, status: 'sending' as const };
     if (c.status !== 'review') throw wrongState(c.status, 'approved');
     if (c.channel === 'email' && !(c.emailSubject?.trim() && c.emailBody?.trim()))
-      throw HfosError.conflict('Write the email first.', 'campaign_no_email');
+      throw HfosError.conflict(
+        c.emailSubject?.trim()
+          ? 'The email has no words yet. Write it, then approve.'
+          : 'The email has no subject yet. Add one, then approve.',
+        'campaign_no_email',
+      );
     if (c.channel === 'call' && !c.callOpening?.trim())
-      throw HfosError.conflict('Say what the calls are about first.', 'campaign_no_opening');
+      throw HfosError.conflict(
+        'Say what the calls are about, then approve. It finishes “I’m calling …”.',
+        'campaign_no_opening',
+      );
     const approved = await ctx.tx
       .update(campaignRecipients)
       .set({ status: 'approved' })
       .where(and(eq(campaignRecipients.campaignId, c.id), eq(campaignRecipients.status, 'ready')))
       .returning({ id: campaignRecipients.id });
     if (!approved.length)
-      throw HfosError.conflict('There’s nobody left to send to.', 'campaign_empty');
+      throw HfosError.conflict(
+        'Everyone was taken out or left out, so there’s nobody to send to. Cancel this campaign, or start a new one with other tags or stages.',
+        'campaign_empty',
+      );
     const now = new Date();
     await ctx.tx
       .update(campaigns)

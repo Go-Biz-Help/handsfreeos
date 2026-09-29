@@ -143,7 +143,7 @@ export async function claimReceipt<T>(
     throw HfosError.rule(
       'command_id_reused',
       409,
-      'The app already sent a different change with this id, so this one wasn’t done.',
+      'This change got mixed up with a different one the app sent earlier, so it wasn’t done. Make the change again.',
     );
   if (earlier.outcome === 'refused') {
     const stored = earlier.answer as RefusedAnswer;

@@ -12,6 +12,9 @@ import { defineCommand } from '../kernel/define';
 import { changeMoment } from '../kernel/moment';
 import { PersonCreateInput, PersonCreateOutput } from '../schemas/person';
 
+/** What a likely duplicate shares with the new person, in a sentence. */
+const MATCHED_ON_WORDS = { email: 'email', phone: 'phone number', name: 'name' } as const;
+
 export const personCreate = defineCommand({
   name: 'person.create',
   description:
@@ -53,7 +56,7 @@ export const personCreate = defineCommand({
         throw new HfosError(
           'conflict',
           409,
-          `Looks like ${matches[0]!.name} already exists with this ${matches[0]!.matchedOn}.`,
+          `Looks like ${matches[0]!.name} is already here with this ${MATCHED_ON_WORDS[matches[0]!.matchedOn]}. Use their record, or add this person anyway if they’re someone else.`,
           { matches },
           'duplicate',
         );

@@ -63,7 +63,7 @@ export function planTransition(
   const unknown: TransitionPlan = {
     kind: 'refused',
     rule: 'addon_unknown',
-    message: 'There is no such add-on.',
+    message: 'HandsFreeOS has no add-on by that name. Pick one from Settings → Add-ons.',
   };
   // One this version of HandsFreeOS no longer has the code for (retired) can still leave a business that has it:
   // uninstalled, and its data deleted. Nothing turns it on or off again, and it goes by its id.

@@ -619,7 +619,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       throw HfosError.rule(
         'no_number',
         409,
-        'Get a business number first. Calls work as soon as you have one.',
+        'This business has no phone number yet, so calls can’t start. Get one in Settings → Texting & calls. Calls work as soon as you have one.',
       );
     if (
       !account?.accountSid ||
@@ -645,7 +645,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: HttpDeps): void 
       throw HfosError.rule(
         'calls_unavailable',
         503,
-        'Calls can’t be set up right now: this business’s calling key can’t be read. Ask whoever runs HandsFreeOS to check the worker’s encryption key.',
+        'Calls can’t start right now, because this business’s calling key can’t be opened on our side. Ask HandsFreeOS support to look into it.',
       );
     }
     const identity = identityOf(actor.userId);

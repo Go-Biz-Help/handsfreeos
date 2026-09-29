@@ -58,7 +58,8 @@ async function organizationOf(deps: HttpDeps, workspaceId: string): Promise<stri
       sql`select private.workspace_organization(${workspaceId}::uuid) as organization_id`,
     ),
   );
-  if (!row?.organization_id) throw HfosError.notFound('Workspace not found.');
+  if (!row?.organization_id)
+    throw HfosError.notFound('This workspace isn’t there anymore. Refresh the page and try again.');
   return row.organization_id;
 }
 
@@ -239,7 +240,7 @@ export function registerNumberImportRoutes(app: FastifyInstance, deps: HttpDeps)
       throw HfosError.rule(
         'twilio_account_inactive',
         409,
-        `That Twilio account is ${account.status}. Numbers can only move out of an active account.`,
+        `That Twilio account is ${account.status}, and numbers can only move out of an active one. Reactivate it in your Twilio console, or connect a different account.`,
       );
 
     const scope = { workspaceId: input.workspaceId, organizationId };

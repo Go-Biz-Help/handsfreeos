@@ -3,9 +3,10 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { scopeCan } from '../kernel/execute';
-import { canActOnRole } from '../permissions';
+import { canActOnRole, missingPermissionMessage } from '../permissions';
 import { MembershipRemoveInput, MembershipRemoveOutput } from '../schemas/membership';
 import { requireHuman } from '../kernel/actor';
+import { aRole, whoCan } from './membership.change_role';
 
 export const membershipRemove = defineCommand({
   name: 'membership.remove',
@@ -27,15 +28,25 @@ export const membershipRemove = defineCommand({
           eq(workspaceMemberships.userId, input.userId),
         ),
       );
-    if (!target) throw HfosError.notFound('That person is not a member of this workspace.');
+    if (!target)
+      throw HfosError.notFound(
+        leaving
+          ? 'You’re not in this business anymore, so there’s nothing to leave.'
+          : 'That person isn’t in this business anymore. They may have left or been removed. Refresh the Members page.',
+      );
     if (!leaving) {
       // Removing someone else is `members.remove`, as the business has set it up (0106), and only at their own
       // level or below; anyone may leave.
       const role = ctx.scope.workspaceRole;
       const mayRemove = scopeCan(ctx.scope, 'members.remove');
-      if (!mayRemove || !canActOnRole(role, target.role))
+      if (!mayRemove)
         throw HfosError.forbidden(
-          'You can only remove people at your own level or below.',
+          missingPermissionMessage('members.remove', role),
+          'cannot_remove_role',
+        );
+      if (!canActOnRole(role, target.role))
+        throw HfosError.forbidden(
+          `Only ${whoCan(target.role)} can remove ${aRole(target.role)}. Ask one of them.`,
           'cannot_remove_role',
         );
     }

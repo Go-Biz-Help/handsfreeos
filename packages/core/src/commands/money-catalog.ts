@@ -69,7 +69,10 @@ async function requireProduct(ctx: CommandContext, productId: string) {
     .select()
     .from(products)
     .where(and(eq(products.id, productId), eq(products.workspaceId, ctx.scope.workspaceId!)));
-  if (!p) throw HfosError.notFound('That item isn’t in the catalogue.');
+  if (!p)
+    throw HfosError.notFound(
+      'That product isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return p;
 }
 
@@ -97,9 +100,10 @@ async function assertServiceFree(
     .from(services)
     .where(and(eq(services.id, serviceId), eq(services.workspaceId, ctx.scope.workspaceId!)));
   if (!s)
-    throw HfosError.validation([
-      { path: 'serviceId', message: 'Pick a service in this workspace.' },
-    ]);
+    throw HfosError.validation(
+      [{ path: 'serviceId', message: 'That service isn’t there anymore. Pick another one.' }],
+      'That service isn’t there anymore. It may have been deleted. Pick another one.',
+    );
   const [taken] = await ctx.tx
     .select({ id: products.id, name: products.name })
     .from(products)
@@ -115,7 +119,7 @@ async function assertServiceFree(
     throw HfosError.rule(
       'service_already_priced',
       409,
-      `${taken.name} is already the price of that service.`,
+      `${taken.name} is already the price of that service. Change that product’s price instead, or archive it first.`,
     );
 }
 
@@ -255,7 +259,10 @@ async function requirePlan(ctx: CommandContext, planId: string) {
     .select()
     .from(plans)
     .where(and(eq(plans.id, planId), eq(plans.workspaceId, ctx.scope.workspaceId!)));
-  if (!p) throw HfosError.notFound('That plan isn’t in the catalogue.');
+  if (!p)
+    throw HfosError.notFound(
+      'That plan isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return p;
 }
 
@@ -432,7 +439,10 @@ export const moneySaveSettings = defineCommand({
       .select({ settings: workspaces.settings })
       .from(workspaces)
       .where(eq(workspaces.id, ws));
-    if (!w) throw HfosError.notFound('Workspace not found.');
+    if (!w)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const stored = (w.settings ?? {}) as Record<string, unknown>;
     const current = await loadMoneySettings(ctx.tx, ws);
     const next: MoneySettings = parseMoneySettings(input.settings);
@@ -444,7 +454,7 @@ export const moneySaveSettings = defineCommand({
         issues
           .filter((i) => i.severity === 'error')
           .map((i) => ({ path: i.fields[0] ?? 'settings', message: i.message })),
-        'Those settings need a change.',
+        'Some of these settings don’t work together. Fix the ones marked, then save again.',
       );
 
     // The counter row is the authority, not the settings document: a number already read out loud never

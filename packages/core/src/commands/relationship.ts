@@ -56,6 +56,13 @@ const typeName = (t: { aLabel: string; bLabel: string; mutual: boolean }) =>
 
 const sameLabel = (x: string, y: string) => x.trim().toLowerCase() === y.trim().toLowerCase();
 
+/** A type set up twice, named: "Owner ↔ Pet is already set up…". */
+const typeTaken = (t: { aLabel: string; bLabel: string; mutual: boolean }) =>
+  HfosError.conflict(
+    `${typeName(t)} is already set up in Settings → Relationships. Use that one, or call the ends something else.`,
+    'relationship_type_taken',
+  );
+
 // ---- Relationship types ----
 
 /** The ends a type already set up has, either way round: a second "Parent ↔ Child" helps nobody. */
@@ -81,8 +88,8 @@ async function assertTypeFree(
     t.bEnd === y.end &&
     (t.bRecordTypeId ?? null) === y.recordTypeId &&
     sameLabel(t.bLabel, y.label);
-  if (live.some((t) => t.id !== exceptId && (matches(t, a, b) || matches(t, b, a))))
-    throw HfosError.conflict('That relationship is already set up.', 'relationship_type_taken');
+  const same = live.find((t) => t.id !== exceptId && (matches(t, a, b) || matches(t, b, a)));
+  if (same) throw typeTaken(same);
 }
 
 export const relationshipTypeCreate = defineCommand({
@@ -150,7 +157,7 @@ export const relationshipTypeCreate = defineCommand({
         .returning();
     } catch (e) {
       if (isUniqueViolation(e))
-        throw HfosError.conflict('That relationship is already set up.', 'relationship_type_taken');
+        throw typeTaken({ aLabel: a.label, bLabel: b.label, mutual: input.mutual });
       throw e;
     }
     if (!row) throw HfosError.forbidden();
@@ -236,8 +243,7 @@ export const relationshipTypeUpdate = defineCommand({
     try {
       await ctx.tx.update(relationshipTypes).set(patch).where(eq(relationshipTypes.id, current.id));
     } catch (e) {
-      if (isUniqueViolation(e))
-        throw HfosError.conflict('That relationship is already set up.', 'relationship_type_taken');
+      if (isUniqueViolation(e)) throw typeTaken({ ...current, ...patch });
       throw e;
     }
     await ctx.emit({
@@ -372,16 +378,15 @@ async function pairEnds(
     kindId: string | null,
   ): Promise<EndRecord> => {
     const r = found.get(id);
-    if (!r || r.kind !== end || (kindId && r.recordType?.id !== kindId))
+    if (!r || r.kind !== end || (kindId && r.recordType?.id !== kindId)) {
+      const kind = await kindWord(ctx, end, kindId);
       throw HfosError.validation(
-        [
-          {
-            path: `${side}Id`,
-            message: `That isn’t ${await kindWord(ctx, end, kindId).then(articled)}.`,
-          },
-        ],
-        'That record can’t go on that end of this relationship.',
+        [{ path: `${side}Id`, message: `That isn’t ${articled(kind)}.` }],
+        r
+          ? `${r.name} isn’t ${articled(kind)}, so it can’t go on that end of this relationship. Pick ${articled(kind)} instead.`
+          : `That ${kind.toLowerCase()} isn’t there anymore. It may have been deleted. Refresh and pick another.`,
       );
+    }
     if (r.archived)
       throw HfosError.rule(
         'record_archived',
@@ -514,7 +519,11 @@ export const relationshipCreate = defineCommand({
         'That relationship type is archived. Restore it in Settings → Relationships first.',
       );
     if (input.aId === input.bId)
-      throw HfosError.rule('relationship_to_itself', 400, 'A record can’t be related to itself.');
+      throw HfosError.rule(
+        'relationship_to_itself',
+        400,
+        'A record can’t be related to itself. Pick a different record for the other end.',
+      );
     let { a, b } = await pairEnds(ctx, type, input.aId, input.bId);
     // A pair with no direction is kept one way round (the database turns it too).
     if (type.mutual && b.id < a.id) [a, b] = [b, a];
@@ -595,7 +604,10 @@ async function loadPair(
     .from(relationships)
     .where(and(eq(relationships.id, relationshipId), eq(relationships.workspaceId, ws)));
   const [pair] = opts.lock ? await query.for('update') : await query;
-  if (!pair) throw HfosError.notFound('That relationship wasn’t found.');
+  if (!pair)
+    throw HfosError.notFound(
+      'That relationship isn’t there anymore. Someone may have removed it. Refresh and try again.',
+    );
   const type = await requireRelationshipType(ctx.tx, ws, pair.typeId);
   const kindOf = (person: string | null, company: string | null): RelationshipEndKind =>
     person ? 'person' : company ? 'company' : 'custom_record';

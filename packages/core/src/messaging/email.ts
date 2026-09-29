@@ -228,10 +228,19 @@ export async function resolveEmailConversation(
     (await preferredLane(ctx.tx, workspaceId, 'email', counterpart))?.emailAddressId ?? null;
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
+    const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'This customer';
     if (p.archivedAt)
-      throw HfosError.rule('person_archived', 409, 'Restore this customer before emailing them.');
+      throw HfosError.rule(
+        'person_archived',
+        409,
+        `${name} is archived. Use Restore customer in the menu on their page, then email them.`,
+      );
     if (!p.email)
-      throw HfosError.rule('no_email', 400, 'Add an email address to email this customer.');
+      throw HfosError.rule(
+        'no_email',
+        400,
+        `${name} has no email address. Add one on their page, then email them.`,
+      );
     const counterpart = p.email.toLowerCase();
     return findOrCreateConversation(ctx, {
       channel: 'email',
@@ -268,15 +277,19 @@ export async function emailAttachments(
         isNull(files.deletedAt),
       ),
     );
-  if (list.length !== unique.length || list.some((f) => f.status !== 'ready'))
-    throw HfosError.validation([
-      { path: 'attachmentFileIds', message: 'Attach files that finished uploading.' },
-    ]);
-  if (list.reduce((n, f) => n + (f.sizeBytes ?? 0), 0) > EMAIL_ATTACHMENTS_MAX_BYTES)
+  if (list.length !== unique.length || list.some((f) => f.status !== 'ready')) {
+    const say =
+      list.length !== unique.length
+        ? 'One of the attachments isn’t there anymore. Remove it and attach the file again.'
+        : 'An attachment hasn’t finished uploading. Wait for it to finish, then send.';
+    throw HfosError.validation([{ path: 'attachmentFileIds', message: say }], say);
+  }
+  const total = list.reduce((n, f) => n + (f.sizeBytes ?? 0), 0);
+  if (total > EMAIL_ATTACHMENTS_MAX_BYTES)
     throw HfosError.rule(
       'attachment_too_large',
       400,
-      'The attachments on one email must add up to 10 MB or less.',
+      `These attachments add up to ${(total / (1024 * 1024)).toFixed(1)} MB, and one email can carry 10 MB. Remove some, or send them over more than one email.`,
     );
   const byId = new Map(list.map((f) => [f.id, f]));
   return unique.map((id) => {

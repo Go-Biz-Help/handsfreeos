@@ -125,7 +125,7 @@ function asRefusal(err: unknown): never {
     throw HfosError.rule(
       'founding_claim_not_yours',
       403,
-      'Only an owner or an admin of this workspace can put a founding seat on it.',
+      'Only an owner or an admin of this business can put a founding seat on it. Ask one of them to open the link, or pick a business you own or run.',
     );
   if (detail === 'founding_claim_wrong_business')
     throw HfosError.rule(
@@ -166,7 +166,8 @@ type OfferRow = typeof foundingOffers.$inferSelect;
 
 async function offer(ctx: CommandContext, id: string): Promise<OfferRow> {
   const [found] = await ctx.tx.select().from(foundingOffers).where(eq(foundingOffers.id, id));
-  if (!found) throw HfosError.notFound('There is no offer by that name.');
+  if (!found)
+    throw HfosError.notFound('That founding offer isn’t there anymore. Refresh and try again.');
   return found;
 }
 
@@ -213,12 +214,13 @@ export const foundingApprove = defineCommand({
       .select()
       .from(foundingApplications)
       .where(eq(foundingApplications.id, input.applicationId));
-    if (!application) throw HfosError.notFound('There is no application by that id.');
+    if (!application)
+      throw HfosError.notFound('That application isn’t there anymore. Refresh and try again.');
     if (application.status !== 'pending' && application.status !== 'waitlisted')
       throw HfosError.rule(
         'founding_application_decided',
         409,
-        'That application has already been dealt with.',
+        `That application was already ${application.status}. Refresh to see where it stands.`,
       );
 
     const found = await offer(ctx, application.offerId);
@@ -294,7 +296,7 @@ const decide = (status: 'declined' | 'waitlisted') =>
       throw HfosError.rule(
         'founding_application_decided',
         409,
-        'That application has already been dealt with, or there is no such application.',
+        'That application has already been decided, or it isn’t there anymore. Refresh to see where it stands.',
       );
     await ctx.emit({
       type: `founding.${status}`,
@@ -553,9 +555,13 @@ export const foundingRevoke = defineCommand({
       .select()
       .from(foundingGrants)
       .where(eq(foundingGrants.id, input.grantId));
-    if (!grant) throw HfosError.notFound('There is no seat by that id.');
+    if (!grant) throw HfosError.notFound('That seat isn’t there anymore. Refresh and try again.');
     if (grant.status !== 'reserved' && grant.status !== 'active')
-      throw HfosError.rule('founding_grant_not_held', 409, 'That seat is not held by anybody.');
+      throw HfosError.rule(
+        'founding_grant_not_held',
+        409,
+        `Nobody holds that seat (it’s ${grant.status}), so there’s nothing to revoke. Refresh to see where it stands.`,
+      );
 
     const found = await offer(ctx, grant.offerId);
     const now = new Date();
@@ -638,9 +644,13 @@ export const foundingRestore = defineCommand({
       .select()
       .from(foundingGrants)
       .where(eq(foundingGrants.id, input.grantId));
-    if (!grant) throw HfosError.notFound('There is no seat by that id.');
+    if (!grant) throw HfosError.notFound('That seat isn’t there anymore. Refresh and try again.');
     if (grant.status !== 'revoked')
-      throw HfosError.rule('founding_grant_not_revoked', 409, 'That seat was not revoked.');
+      throw HfosError.rule(
+        'founding_grant_not_revoked',
+        409,
+        `That seat isn’t revoked (it’s ${grant.status}), so there’s nothing to restore. Refresh to see where it stands.`,
+      );
 
     const found = await offer(ctx, grant.offerId);
     /**

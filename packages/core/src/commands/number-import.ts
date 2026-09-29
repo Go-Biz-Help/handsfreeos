@@ -48,7 +48,10 @@ async function loadImport(ctx: CommandContext, importId: string): Promise<Import
     .where(
       and(eq(numberImports.id, importId), eq(numberImports.workspaceId, ctx.scope.workspaceId!)),
     );
-  if (!row) throw HfosError.notFound('No number on its way here with that id.');
+  if (!row)
+    throw HfosError.notFound(
+      'That number transfer isn’t there anymore. It may have been called off. Refresh Settings → Texting & calls to see where it is.',
+    );
   return row;
 }
 
@@ -115,7 +118,7 @@ export const numberImportStart = defineCommand({
       throw HfosError.rule(
         'number_port_open',
         409,
-        'There is already a carrier port started for this number. Call that off first, or let it finish.',
+        'There’s already a move from another carrier started for this number. Call it off in Settings → Texting & calls first, or let it finish.',
       );
 
     // The same ceiling and the same wallet check as buying one: a number that arrives costs what a bought one
@@ -130,7 +133,7 @@ export const numberImportStart = defineCommand({
       throw HfosError.rule(
         'number_limit',
         409,
-        `That is ${MAX_NUMBERS_PER_WORKSPACE} numbers, which is as many as one business can have. Release one you are not using first.`,
+        `This business already has ${MAX_NUMBERS_PER_WORKSPACE} numbers, counting any on their way, and that’s as many as one business can have. Release one you’re not using in Settings → Texting & calls first.`,
       );
     await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
 
@@ -147,7 +150,9 @@ export const numberImportStart = defineCommand({
         .from(twilioConnections)
         .where(eq(twilioConnections.id, input.connectionId));
       if (!c || c.organizationId !== ctx.scope.organizationId)
-        throw HfosError.notFound('That Twilio account is not connected here.');
+        throw HfosError.notFound(
+          'That Twilio account isn’t connected here anymore. Connect it again in Settings → Texting & calls, then bring the number over.',
+        );
       if (c.status !== 'active')
         throw HfosError.rule(
           'twilio_connection_inactive',
@@ -199,7 +204,7 @@ export const numberImportCancel = defineCommand({
       throw HfosError.rule(
         'number_import_complete',
         409,
-        'That number has already arrived. Release it from your numbers if you no longer want it.',
+        'That number has already arrived. Release it in Settings → Texting & calls if you no longer want it.',
       );
     await ctx.tx
       .update(numberImports)

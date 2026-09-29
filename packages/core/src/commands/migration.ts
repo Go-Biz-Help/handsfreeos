@@ -229,8 +229,22 @@ async function loadConnection(ctx: CommandContext, id: string): Promise<LoadedCo
         eq(migrationConnections.organizationId, ctx.scope.organizationId!),
       ),
     );
-  if (!c) throw HfosError.notFound('That source isn’t connected here.');
+  if (!c)
+    throw HfosError.notFound(
+      'That old system isn’t connected here anymore. Connect it again from the Migrations page.',
+    );
   return c as LoadedConnection;
+}
+
+/** Why a connection to the old system can't be used yet, and what to do, from its status. */
+function notConnectedMessage(name: string, status: string): string {
+  if (status === 'pending')
+    return `Signing in to ${name} hasn’t finished yet. Finish connecting it from the Migrations page, then try again.`;
+  if (status === 'reauth_required')
+    return `${name} needs you to sign in again. Reconnect it from the Migrations page, then try again.`;
+  if (status === 'error')
+    return `The connection to ${name} stopped working. Reconnect it from the Migrations page, then try again.`;
+  return `${name} was disconnected. Connect it again from the Migrations page first.`;
 }
 
 type LoadedMigration = typeof migrations.$inferSelect;
@@ -240,7 +254,7 @@ async function loadMigration(ctx: CommandContext, id: string): Promise<LoadedMig
     .select()
     .from(migrations)
     .where(and(eq(migrations.id, id), eq(migrations.organizationId, ctx.scope.organizationId!)));
-  if (!m) throw HfosError.notFound('That migration isn’t there.');
+  if (!m) throw HfosError.notFound(MIGRATION_NOT_YOURS);
   return m;
 }
 
@@ -337,7 +351,7 @@ export const migrationConnect = defineCommand({
       throw HfosError.rule(
         'migration_source_unavailable',
         409,
-        `${sourceLabel(input.source)} isn’t ready to migrate from yet.`,
+        `${sourceLabel(input.source)} isn’t ready to migrate from yet. Export your customers to a spreadsheet and bring them in from Settings → Imports instead.`,
       );
     const token = input.authKind === 'private_token';
     if (token && !PRIVATE_TOKEN_SOURCES.includes(input.source))
@@ -412,7 +426,7 @@ export const migrationConnectionRename = defineCommand({
       throw HfosError.rule(
         'migration_connection_disconnected',
         409,
-        'That source has been disconnected.',
+        `${c.displayName ?? sourceLabel(c.sourceSystem)} was disconnected, so it can’t be renamed. Connect it again if you still need it.`,
       );
     await ctx.tx
       .update(migrationConnections)
@@ -502,7 +516,11 @@ export const migrationCreate = defineCommand({
     requireAccess(ctx);
     const c = await loadConnection(ctx, input.connectionId);
     if (c.status !== 'active')
-      throw HfosError.rule('migration_connection_not_active', 409, 'Connect the old system first.');
+      throw HfosError.rule(
+        'migration_connection_not_active',
+        409,
+        notConnectedMessage(c.displayName ?? sourceLabel(c.sourceSystem), c.status),
+      );
     const [row] = await ctx.tx
       .insert(migrations)
       .values({
@@ -618,7 +636,10 @@ export const migrationMapScopes = defineCommand({
 
     for (const choice of input.scopes) {
       const scope = byId.get(choice.scopeId);
-      if (!scope) throw HfosError.notFound('That business from the old system isn’t in this scan.');
+      if (!scope)
+        throw HfosError.notFound(
+          'That business from the old system isn’t in this scan anymore. Refresh the page and choose again.',
+        );
       if (choice.skip) {
         await ctx.tx
           .update(migrationScopes)
@@ -665,7 +686,10 @@ export const migrationMapScopes = defineCommand({
           .where(
             and(eq(workspaces.id, workspaceId), eq(workspaces.organizationId, m.organizationId)),
           );
-        if (!ws) throw HfosError.notFound('That business isn’t in this organization.');
+        if (!ws)
+          throw HfosError.notFound(
+            'That business isn’t part of this agency anymore. Pick another one, or make a new one.',
+          );
       }
       await ctx.tx
         .update(migrationScopes)
@@ -892,7 +916,15 @@ export const migrationStart = defineCommand({
     requireStatus(
       m,
       ['connected', 'scanned', 'ready', 'paused', 'needs_attention'],
-      'This migration is already running.',
+      m.status === 'scanning'
+        ? 'The old system is still being looked at. Start once that has finished.'
+        : m.status === 'imported' || m.status === 'transition' || m.status === 'completed'
+          ? 'This migration has already brought the records across.'
+          : m.status === 'rolling_back' || m.status === 'rolled_back'
+            ? 'This migration was taken back. Delete it, then start a new one to bring the records across again.'
+            : m.status === 'importing' || m.status === 'verifying' || m.status === 'finalizing'
+              ? 'This migration is already running.'
+              : 'This migration can’t start from where it is now. Refresh the page to see what it needs.',
     );
 
     // Anything that blocks has to have been seen. Everything else is information, not a gate.
@@ -1037,7 +1069,11 @@ export const migrationStart = defineCommand({
       position += 1;
     }
     if (queued === 0 && !carryingOn)
-      throw HfosError.rule('migration_nothing_selected', 409, 'Choose something to bring first.');
+      throw HfosError.rule(
+        'migration_nothing_selected',
+        409,
+        'Nothing is chosen to bring across yet. Tick what to bring under What to bring, then start again.',
+      );
     // Everything chosen has been read already: what is missing is the checks, the same as carrying on from a
     // pause with nothing left to fetch.
     if (queued === 0 && !stillWorking)
@@ -1218,7 +1254,7 @@ export const migrationExtendTransition = defineCommand({
       throw HfosError.rule(
         'migration_no_transition',
         409,
-        'This migration brought the history once and stopped.',
+        'This migration brought the history across once and doesn’t keep catching up, so there’s nothing to extend.',
       );
     const from =
       m.transitionEndsAt && m.transitionEndsAt > new Date() ? m.transitionEndsAt : new Date();
@@ -1259,7 +1295,17 @@ export const migrationFinalize = defineCommand({
     requireStatus(
       m,
       ['imported', 'transition', 'needs_attention'],
-      'Bring the records across first.',
+      m.status === 'completed' || m.status === 'finalizing'
+        ? 'This migration is already finished or finishing.'
+        : m.status === 'importing' || m.status === 'verifying'
+          ? 'This migration is still bringing records across. Finish it once that’s done.'
+          : m.status === 'paused'
+            ? 'This migration is paused partway. Resume it, and finish it once everything is across.'
+            : m.status === 'rolling_back' || m.status === 'rolled_back'
+              ? 'This migration was taken back, so there’s nothing to finish.'
+              : ['draft', 'connected', 'scanning', 'scanned', 'ready'].includes(m.status)
+                ? 'Nothing has been brought across yet. Bring the records across first.'
+                : 'Bring the records across first.',
     );
     const [tasks] = await rows<{ open: number }>(
       ctx.tx,
@@ -1321,7 +1367,9 @@ export const migrationRollback = defineCommand({
     requireStatus(
       m,
       ['imported', 'transition', 'completed', 'needs_attention', 'failed', 'paused'],
-      'Pause the migration before taking it back.',
+      ['draft', 'connected', 'scanning', 'scanned', 'ready'].includes(m.status)
+        ? 'Nothing has been brought across yet, so there’s nothing to take back.'
+        : 'Pause the migration before taking it back.',
     );
     // Whatever was still queued stops; the rollback is the only work left.
     await ctx.tx
@@ -1379,7 +1427,10 @@ export const migrationResolveMerge = defineCommand({
           eq(migrationMergeCandidates.organizationId, ctx.scope.organizationId!),
         ),
       );
-    if (!c) throw HfosError.notFound('That one has already been decided.');
+    if (!c)
+      throw HfosError.notFound(
+        'That one has already been decided. Refresh to see who’s left to decide.',
+      );
     if (!mayActForWorkspace(access, c.workspaceId)) throw HfosError.notFound(MIGRATION_NOT_YOURS);
     if (c.resolution !== 'pending') return { candidateId: c.id, resolution: c.resolution };
     if (input.decision === 'remap' && !input.targetId)
@@ -1468,11 +1519,16 @@ export const migrationTaskDone = defineCommand({
           eq(migrationReconnectTasks.organizationId, ctx.scope.organizationId!),
         ),
       );
-    if (!t) throw HfosError.notFound('That setup step isn’t there.');
+    if (!t)
+      throw HfosError.notFound(
+        'That setup step isn’t there anymore. Refresh the page to see the current steps.',
+      );
     // A step with no business named belongs to the move as a whole — reconnecting the source itself, say —
     // so it stays the agency's to tick off. A business ticks off its own.
     if (access.onlyWorkspaceId && (!t.workspaceId || !mayActForWorkspace(access, t.workspaceId)))
-      throw HfosError.notFound('That setup step isn’t there.');
+      throw HfosError.notFound(
+        'That setup step isn’t there anymore. Refresh the page to see the current steps.',
+      );
     const state = input.done ? 'done' : 'todo';
     if (t.state === state) return { taskId: t.id, state };
     await ctx.tx
@@ -1559,7 +1615,7 @@ export const migrationDelete = defineCommand({
       if (input.confirmName === undefined || input.confirmName.trim() !== m.name.trim())
         throw HfosError.validation(
           [{ path: 'confirmName', message: `Type “${m.name}” exactly.` }],
-          'That is not the name of this move.',
+          `That isn’t the name of this move. Type “${m.name}” exactly to delete it.`,
         );
       if (m.status !== 'rolled_back')
         throw HfosError.rule(

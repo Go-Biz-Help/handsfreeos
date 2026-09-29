@@ -125,7 +125,10 @@ async function changeTags(
             .select({ id: leads.id, first: leads.title, last: dsql<string>`''` })
             .from(leads)
             .where(and(eq(leads.id, recordId), eq(leads.workspaceId, workspaceId)));
-  if (!record) throw HfosError.notFound('Record not found.');
+  if (!record)
+    throw HfosError.notFound(
+      `That ${recordType === 'person' ? 'customer' : recordType} isn’t there anymore. It may have been deleted. Refresh and try again.`,
+    );
   // Who the tags are on, so the audit log can say (the AI and many-at-once tag whole lists).
   const name = fullName(record.first, record.last);
   const before = await tagsOf(ctx.tx, workspaceId, recordType, recordId);
@@ -194,7 +197,10 @@ export const recordSetTags = defineCommand({
     // The AI teammate only adds tags, to its own customer or their lead.
     if (ctx.actor.type === 'ai_employee') {
       if (mode !== 'add')
-        throw HfosError.validation([{ path: 'mode', message: 'The AI teammate only adds tags.' }]);
+        throw HfosError.validation(
+          [{ path: 'mode', message: 'The AI teammate only adds tags.' }],
+          'The AI teammate can add tags but not take them off. Send mode “add”, or leave taking tags off to a person.',
+        );
       await assertAiReach(
         ctx,
         recordType === 'person'
@@ -226,7 +232,10 @@ export const recordAddTag = defineCommand({
       .select({ id: tags.id })
       .from(tags)
       .where(and(eq(tags.id, input.tagId), eq(tags.workspaceId, ctx.scope.workspaceId!)));
-    if (!tag) throw HfosError.notFound('That tag isn’t there anymore.');
+    if (!tag)
+      throw HfosError.notFound(
+        'That tag isn’t there anymore. It may have been deleted. Refresh and pick another tag.',
+      );
     return changeTags(ctx, { ...input, tagIds: [input.tagId], mode: 'add' });
   },
 });

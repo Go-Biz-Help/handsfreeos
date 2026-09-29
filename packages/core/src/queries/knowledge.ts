@@ -181,7 +181,10 @@ export const knowledgeItemGet = defineQuery({
           left join app.files f on f.id = i.file_id
           where i.workspace_id = ${input.workspaceId} and i.id = ${input.itemId}`,
     );
-    if (!row) throw HfosError.notFound('Item not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That knowledge item isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const [item] = await itemsOut(ctx, [row]);
     return {
       item: {
@@ -246,7 +249,8 @@ export const knowledgeScanGet = defineQuery({
           where s.workspace_id = ${ws} ${input.scanId ? sql`and s.id = ${input.scanId}` : sql``}
           order by s.created_at desc limit 1`,
     );
-    if (input.scanId && !scan) throw HfosError.notFound('Scan not found.');
+    if (input.scanId && !scan)
+      throw HfosError.notFound('That website scan isn’t there anymore. Refresh and try again.');
     const names = await userNames(ctx.tx, scan?.started_by ? [scan.started_by] : []);
     return {
       source: source

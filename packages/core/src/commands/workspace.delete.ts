@@ -32,7 +32,10 @@ export const workspaceDelete = defineCommand({
       })
       .from(workspaces)
       .where(eq(workspaces.id, input.workspaceId));
-    if (!ws) throw HfosError.notFound('Workspace not found.');
+    if (!ws)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     if (input.confirmName.trim().toLowerCase() !== ws.name.trim().toLowerCase())
       throw HfosError.validation([
         { path: 'confirmName', message: 'Type the business’s name exactly as it is shown.' },
@@ -52,7 +55,9 @@ export const workspaceDelete = defineCommand({
       sql`select private.request_workspace_deletion(${ws.id}) as requested_at`,
     );
     if (!marked?.requested_at)
-      throw HfosError.internal('request_workspace_deletion returned nothing');
+      throw HfosError.internal(
+        'The deletion couldn’t be started just now. Nothing was deleted. Try again in a minute.',
+      );
     return { workspaceId: ws.id, requestedAt: new Date(marked.requested_at).toISOString() };
   },
 });

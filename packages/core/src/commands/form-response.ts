@@ -104,6 +104,10 @@ interface OpenResponse {
   readonly form: typeof forms.$inferSelect;
 }
 
+/** A sheet somebody filling in the form can't reach: gone, or a link that has run out. */
+const SHEET_GONE =
+  'We couldn’t find these answers. The link may have run out. Open the form again to start over.';
+
 /** The response with the version it was given on — never the draft, which may have moved on since. */
 async function openResponse(
   ctx: CommandContext,
@@ -116,14 +120,20 @@ async function openResponse(
     .from(formResponses)
     .where(and(eq(formResponses.id, responseId), eq(formResponses.workspaceId, ws)));
   const [response] = opts.forUpdate ? await query.for('update') : await query;
-  if (!response) throw HfosError.notFound('That answer sheet isn’t there.');
+  if (!response) throw HfosError.notFound(SHEET_GONE);
   const [version] = await ctx.tx
     .select()
     .from(formVersions)
     .where(eq(formVersions.id, response.versionId));
-  if (!version) throw HfosError.internal('The version this was filled in on is missing.');
+  if (!version)
+    throw HfosError.internal(
+      'This form changed while it was being filled in. Refresh the page and try again.',
+    );
   const [form] = await ctx.tx.select().from(forms).where(eq(forms.id, response.formId));
-  if (!form) throw HfosError.notFound('Form not found.');
+  if (!form)
+    throw HfosError.notFound(
+      'This form isn’t available anymore. Contact the business if you still need it.',
+    );
   return { response, definition: parseStoredForm(version.definition), form };
 }
 
@@ -158,7 +168,7 @@ async function assertHolder(
     .where(eq(formResponses.id, response.id));
   const held = row?.held;
   if (!token || !held || !timingSafeEqual(Buffer.from(held), hashToken(token)))
-    throw HfosError.notFound('That answer sheet isn’t there.');
+    throw HfosError.notFound(SHEET_GONE);
 }
 
 // ---- Commands ----
@@ -178,7 +188,10 @@ export const formResponseStart = defineCommand({
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const { row, definition: draft } = await loadForm(ctx.tx, ws, input.formId);
-    if (!row.activeVersionId) throw HfosError.notFound('This form isn’t published.');
+    if (!row.activeVersionId)
+      throw HfosError.notFound(
+        'This form isn’t taking answers yet. Try again later, or contact the business.',
+      );
     const [version] = await ctx.tx
       .select()
       .from(formVersions)
@@ -206,7 +219,10 @@ export const formResponseStart = defineCommand({
         resumeExpiresAt: new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
       })
       .returning({ id: formResponses.id });
-    if (!response) throw HfosError.internal('The answer sheet could not be started.');
+    if (!response)
+      throw HfosError.internal(
+        'The form couldn’t be started just now. Refresh the page and try again.',
+      );
     await ctx.tx.execute(
       sql`insert into app.form_days (workspace_id, form_id, day, starts)
           values (${ws}, ${row.id}, current_date, 1)
@@ -240,7 +256,10 @@ export const formResponseSave = defineCommand({
     });
     await assertHolder(ctx, response, input.token);
     if (response.status === 'completed')
-      throw HfosError.conflict('This one has already been sent.', 'response_sent');
+      throw HfosError.conflict(
+        'These answers were already sent, so there’s nothing more to do.',
+        'response_sent',
+      );
     assertOpen(form, definition);
     const merged = { ...answersOf(response), ...(input.answers as AnswerSheet) };
     const state = formState(definition, merged);
@@ -322,7 +341,10 @@ export const formResponseSubmit = defineCommand({
     });
     await assertHolder(ctx, response, input.token);
     if (response.status === 'completed')
-      throw HfosError.conflict('This one has already been sent.', 'response_sent');
+      throw HfosError.conflict(
+        'These answers were already sent, so there’s nothing more to do.',
+        'response_sent',
+      );
     assertOpen(form, definition);
 
     // The page's answers and the ones already saved, pruned to what was actually showing.
@@ -334,7 +356,9 @@ export const formResponseSubmit = defineCommand({
       throw new HfosError(
         'validation',
         400,
-        'Some answers still need attention.',
+        problems.length === 1
+          ? 'One answer still needs attention. Fix the one marked and send again.'
+          : `${problems.length} answers still need attention. Fix the ones marked and send again.`,
         { problems },
         'form_answers_invalid',
       );
@@ -345,7 +369,7 @@ export const formResponseSubmit = defineCommand({
       throw HfosError.rule(
         'form_needs_identity',
         400,
-        'This form needs a phone number or an email address.',
+        'This form needs a phone number or an email address, so the business can reach you. Add one and send again.',
       );
 
     const { score, calculations, result } = outcome(definition, answers);
@@ -553,7 +577,11 @@ export const formResponseSubmit = defineCommand({
               and one_per_person limit 1`,
       );
       if (already)
-        throw HfosError.rule('already_answered', 409, 'You have already answered this form.');
+        throw HfosError.rule(
+          'already_answered',
+          409,
+          'You’ve already answered this form, and it takes one answer per person. Contact the business if something needs to change.',
+        );
     }
     await ctx.tx
       .update(formResponses)
@@ -656,7 +684,10 @@ export const formResponseDelete = defineCommand({
       })
       .from(formResponses)
       .where(and(eq(formResponses.id, input.responseId), eq(formResponses.workspaceId, ws)));
-    if (!response) throw HfosError.notFound('That answer sheet isn’t there.');
+    if (!response)
+      throw HfosError.notFound(
+        'That response isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     await ctx.tx.delete(formResponses).where(eq(formResponses.id, response.id));
     await ctx.emit({
       type: 'form.response_deleted',
@@ -725,7 +756,10 @@ export const formResponseRecord = defineCommand({
         .select()
         .from(formVersions)
         .where(eq(formVersions.id, earlier.versionId));
-      if (!version) throw HfosError.internal('The version this was filled in on is missing.');
+      if (!version)
+        throw HfosError.internal(
+          'This form changed while it was being filled in. Refresh the page and try again.',
+        );
       const definition = parseStoredForm(version.definition);
       const answers = answersOf(earlier);
       const { score, calculations } = outcome(definition, answers);
@@ -746,7 +780,10 @@ export const formResponseRecord = defineCommand({
     let responseId = earlier?.id ?? null;
     if (!responseId) {
       const { row, definition: draft } = await loadForm(ctx.tx, ws, input.formId);
-      if (!row.activeVersionId) throw HfosError.notFound('This form isn’t published.');
+      if (!row.activeVersionId)
+        throw HfosError.notFound(
+          `“${row.name}” hasn’t been published yet, so it can’t take answers. Publish it in Forms first.`,
+        );
       const [version] = await ctx.tx
         .select()
         .from(formVersions)
@@ -770,7 +807,10 @@ export const formResponseRecord = defineCommand({
           })
           .returning({ id: formResponses.id }),
       );
-      if (!made) throw HfosError.internal('The answer sheet could not be started.');
+      if (!made)
+        throw HfosError.internal(
+          'The form couldn’t be started just now. Refresh the page and try again.',
+        );
       responseId = made.id;
     }
     return formResponseSubmit.handler(ctx, {

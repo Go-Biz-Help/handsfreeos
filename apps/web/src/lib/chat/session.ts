@@ -504,7 +504,9 @@ export class VisitorChatSession extends ChatSession {
         this.set({
           humanCheck: { siteKey: this.state.humanCheck?.siteKey ?? null, required: true },
         });
-        return { form: 'Please confirm you’re a person, then send again.' };
+        return {
+          form: 'We need to check you’re a person first. Finish the check in this chat, then send again.',
+        };
       }
       if (ruleOf(e) === 'chat_not_found') await this.restart();
       const fields = fieldErrors(e);

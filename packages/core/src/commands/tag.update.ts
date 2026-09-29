@@ -18,7 +18,10 @@ export const tagUpdate = defineCommand({
       .select()
       .from(tags)
       .where(and(eq(tags.id, input.tagId), eq(tags.workspaceId, ctx.scope.workspaceId!)));
-    if (!current) throw HfosError.notFound('Tag not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That tag isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const patch: { name?: string; color?: string } = {};
     if (input.name !== undefined && input.name !== current.name) patch.name = input.name;
     if (input.color !== undefined && input.color !== current.color) patch.color = input.color;

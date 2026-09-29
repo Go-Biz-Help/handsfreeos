@@ -24,6 +24,7 @@ import {
   numberPorts,
   phoneNumbers,
 } from '@hfos/db/schema';
+import { joinAnd } from '../attention/home-words';
 import { formatPhone } from '../crm/phone';
 import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
@@ -58,14 +59,23 @@ async function loadPort(ctx: CommandContext, portId: string): Promise<PortRow> {
     .select()
     .from(numberPorts)
     .where(and(eq(numberPorts.id, portId), eq(numberPorts.workspaceId, ctx.scope.workspaceId!)));
-  if (!p) throw HfosError.notFound('No port with that id.');
+  if (!p)
+    throw HfosError.notFound(
+      'That number move isn’t there anymore. It may have been thrown away. Refresh Settings → Texting & calls and try again.',
+    );
   return p;
 }
 
-/** Everything the losing carrier asks for, filled in. */
-const detailsReady = (submission: Record<string, unknown>): boolean =>
-  ['accountNumber', 'pin', 'authorizedBy', 'serviceAddress'].every(
-    (k) => typeof submission[k] === 'string' && (submission[k] as string).trim().length > 0,
+/** Everything the losing carrier asks for, in the words the refusal names what is missing with. */
+const DETAIL_WORDS: Readonly<Record<string, string>> = {
+  accountNumber: 'account number',
+  pin: 'transfer PIN',
+  authorizedBy: 'name of who is authorising it',
+  serviceAddress: 'service address',
+};
+const missingDetails = (submission: Record<string, unknown>): string[] =>
+  Object.keys(DETAIL_WORDS).filter(
+    (k) => !(typeof submission[k] === 'string' && (submission[k] as string).trim().length > 0),
   );
 
 const refOf = (p: PortRow) => ({ portId: p.id, status: p.status });
@@ -76,7 +86,7 @@ function assertEditable(p: PortRow): void {
   throw HfosError.rule(
     'port_with_carrier',
     409,
-    'This number is already with the carrier, so it cannot be changed. Call it off first if something is wrong.',
+    `${formatPhone(p.e164)} is already with your old carrier, so its move can’t be changed now. If something is wrong, press Call it off next to it in Settings → Texting & calls and start again.`,
   );
 }
 
@@ -145,7 +155,7 @@ export const numberPortStart = defineCommand({
       throw HfosError.rule(
         'number_limit',
         409,
-        `That is ${MAX_NUMBERS_PER_WORKSPACE} numbers, which is as many as one business can have. Release one you are not using first.`,
+        `This business already has ${MAX_NUMBERS_PER_WORKSPACE} numbers, counting any on their way here, and that’s the most one business can have. Release one you don’t use in Settings → Texting & calls first.`,
       );
     await assertWalletHasRoom(ctx.tx, workspaceId, 'number');
 
@@ -174,7 +184,7 @@ export const numberPortStart = defineCommand({
       throw HfosError.rule(
         'number_import_open',
         409,
-        'This number is already on its way here from Twilio or HighLevel. Stop watching for it first if it needs a carrier port instead.',
+        `${formatPhone(input.e164)} is already on its way here from Twilio or HighLevel. If it has to move from a phone carrier instead, press Stop watching next to it in Settings → Texting & calls first.`,
       );
 
     const [made] = await ctx.tx
@@ -289,9 +299,15 @@ export const numberPortAttach = defineCommand({
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
     if (!f || f.deletedAt || f.recordType !== 'port' || f.recordId !== p.id)
-      throw HfosError.notFound('That file is not one of this port’s papers.');
+      throw HfosError.notFound(
+        'That file isn’t there anymore, or it belongs to something else. Attach it again.',
+      );
     if (f.status !== 'ready')
-      throw HfosError.rule('file_not_uploaded', 409, 'The file has not finished uploading.');
+      throw HfosError.rule(
+        'file_not_uploaded',
+        409,
+        'That file hasn’t finished uploading. Wait for it to finish, then try again.',
+      );
     // Which papers are in, and where. Never what they say.
     const documents = {
       ...(p.documents as Record<string, unknown>),
@@ -326,17 +342,18 @@ export const numberPortSubmit = defineCommand({
   async handler(ctx, input) {
     const p = await loadPort(ctx, input.portId);
     assertEditable(p);
-    if (!detailsReady(p.submission as Record<string, unknown>))
+    const missing = missingDetails(p.submission as Record<string, unknown>);
+    if (missing.length > 0)
       throw HfosError.rule(
         'port_details_missing',
         409,
-        'The old carrier needs the account number, the PIN, who is authorising it and the service address.',
+        `Your old carrier needs the ${joinAnd(missing.map((k) => DETAIL_WORDS[k]!))} for ${formatPhone(p.e164)}. Fill ${missing.length === 1 ? 'it' : 'them'} in, save the details, then send it again.`,
       );
     if (!(p.documents as Record<string, unknown>)['loa'])
       throw HfosError.rule(
         'port_loa_missing',
         409,
-        'Upload the signed authorisation before sending this. Carriers turn down a port without one.',
+        `Sign the letter for ${formatPhone(p.e164)}, or attach one signed on paper, before sending it. Carriers turn down a move without one.`,
       );
     // A number this business already has and is already using. The database refuses to demote it — taking an
     // `active` number to `porting` would drop it off routing and every call to it would reach nobody — but
@@ -356,7 +373,7 @@ export const numberPortSubmit = defineCommand({
       throw HfosError.rule(
         'number_already_yours',
         409,
-        'You already have this number, so there is nothing to move.',
+        `${formatPhone(p.e164)} is already one of this business’s numbers, so there’s nothing to move. Press Call it off next to it to clear the request.`,
       );
     // Claimed before it is sent, not after: between the two, another business could ask for the same number.
     // `claimNumber` writes `phone_number_id` itself, so this update is only what pressing Send means.
@@ -391,7 +408,11 @@ export const numberPortCancel = defineCommand({
   async handler(ctx, input) {
     const p = await loadPort(ctx, input.portId);
     if (p.status === 'complete')
-      throw HfosError.rule('port_complete', 409, 'That number has already moved.');
+      throw HfosError.rule(
+        'port_complete',
+        409,
+        `${formatPhone(p.e164)} has already moved here, so it’s too late to call it off. If you don’t want it, release it in Settings → Texting & calls.`,
+      );
     if (p.status === 'cancelled') return refOf(p);
     await releaseClaim(ctx, p);
     await ctx.tx.update(numberPorts).set({ status: 'cancelled' }).where(eq(numberPorts.id, p.id));

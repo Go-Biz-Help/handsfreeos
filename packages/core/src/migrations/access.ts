@@ -65,7 +65,8 @@ export function mayActForWorkspace(access: MigrationAccess, workspaceId: string)
  * The refusal, in words. Deliberately the same sentence whichever door was tried: telling somebody that a
  * migration exists but is not theirs is an answer they have no use for and a fact they should not have.
  */
-export const MIGRATION_NOT_YOURS = 'That migration isn’t there.';
+export const MIGRATION_NOT_YOURS =
+  'That migration isn’t there, or it isn’t one you can open from here. Pick one from the Migrations page.';
 
 /** What a business may do that an agency may also do, and what only an agency may do. */
 export const AGENCY_ONLY_ACTS = [

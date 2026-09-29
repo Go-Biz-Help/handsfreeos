@@ -41,7 +41,9 @@ async function resolveTags(db: Db, ctx: ToolContext, tagIds: string[], newNames:
   const byId = new Map(all.map((t) => [t.id, t]));
   const missing = tagIds.filter((id) => !byId.has(id));
   if (missing.length)
-    throw HfosError.notFound('One of those tags isn’t there. Read the tags again.');
+    throw HfosError.notFound(
+      'One of those tag ids isn’t a tag this business has. Read the tags again with get_settings and use the ids it gives.',
+    );
   const byName = new Map(all.map((t) => [t.name.toLowerCase(), t]));
   const existing = newNames.map((n) => byName.get(n.toLowerCase())).filter((t): t is Tag => !!t);
   const fresh = newNames.filter((n) => !byName.has(n.toLowerCase()));
@@ -216,14 +218,25 @@ const tagCustomers: SettingsConfirmTool = {
     const companies = ids(args['companyIds']);
     const leads = ids(args['leadIds']);
     const records = people.length + companies.length + leads.length;
-    if (!records) throw HfosError.validation([], 'Say which customers.');
+    if (!records)
+      throw HfosError.validation(
+        [],
+        'Say which customers: give personIds, companyIds or leadIds. list_customers gathers them.',
+      );
     const add = ids(args['addTagIds']);
     const remove = ids(args['removeTagIds']);
     const newNames = names(args['newTagNames']);
     if (!add.length && !remove.length && !newNames.length)
-      throw HfosError.validation([], 'Say which tags to put on or take off.');
+      throw HfosError.validation(
+        [],
+        'Say which tags to put on or take off: give addTagIds, removeTagIds or newTagNames.',
+      );
     const both = add.filter((id) => remove.includes(id));
-    if (both.length) throw HfosError.validation([], 'A tag can’t go both on and off.');
+    if (both.length)
+      throw HfosError.validation(
+        [],
+        `${both.length === 1 ? 'A tag is' : `${both.length} tags are`} in both addTagIds and removeTagIds. Keep each tag in only one of them.`,
+      );
     const [on, off] = await Promise.all([
       resolveTags(db, ctx, add, newNames),
       resolveTags(db, ctx, remove, []),
@@ -352,7 +365,7 @@ const aiTagCustomers: SettingsConfirmTool = {
       const { running } = await query<{ running: SweepOut | null }>(db, ctx, 'contact_ai.status');
       if (!running)
         throw HfosError.conflict(
-          'The AI isn’t going through your customers right now.',
+          'The AI isn’t going through your customers right now, so there’s nothing to stop.',
           'contact_ai_stopped',
         );
       return {
@@ -384,7 +397,7 @@ const aiTagCustomers: SettingsConfirmTool = {
     ]);
     if (!preview.tags.length && !resolved.fresh.length)
       throw HfosError.conflict(
-        'There are no tags yet. Say which tags you want, and the AI can put them on.',
+        'This business has no tags yet, so the AI has none to put on. Ask which tags they want and pass them in newTagNames.',
         'no_tags',
       );
     const only = onlyTagId ? preview.tags.find((t) => t.id === onlyTagId) : null;
@@ -449,7 +462,11 @@ const aiTagCustomers: SettingsConfirmTool = {
     const href = `/app/w/${ctx.workspaceId}/settings/tags`;
     if (args['action'] === 'stop') {
       const { running } = await query<{ running: SweepOut | null }>(db, ctx, 'contact_ai.status');
-      if (!running) throw HfosError.conflict('It has already stopped.', 'contact_ai_stopped');
+      if (!running)
+        throw HfosError.conflict(
+          'The AI already stopped going through your customers, so there’s nothing to stop.',
+          'contact_ai_stopped',
+        );
       const out = await command<{ reviewed: number }>(db, ctx, 'contact_ai.cancel_sweep', {
         sweepId: running.id,
       });
@@ -545,13 +562,20 @@ async function customerChange(db: Db, ctx: ToolContext, args: Args) {
   if (last !== undefined && last !== person.lastName) patch['lastName'] = last;
   if ('firstName' in patch || 'lastName' in patch) {
     const next = [first ?? person.firstName, last ?? person.lastName].filter(Boolean).join(' ');
-    if (!next) throw HfosError.validation([], 'They need a first or last name.');
+    if (!next)
+      throw HfosError.validation(
+        [],
+        'That would leave them with no name. Keep a first or a last name.',
+      );
     line('Name', person.fullName, next);
   }
   if (args['phone'] !== undefined) {
     const next = args['phone'] === null ? null : normalizePhone(String(args['phone']));
     if (args['phone'] !== null && !next)
-      throw HfosError.validation([], 'That isn’t a phone number.');
+      throw HfosError.validation(
+        [],
+        `“${String(args['phone'])}” isn’t a phone number. Give all 10 digits with the area code, or a + and the country code for a number outside the US.`,
+      );
     if (next !== person.phoneE164) {
       patch['phone'] = next;
       line('Phone', person.phone, args['phone']);
@@ -588,7 +612,11 @@ async function customerChange(db: Db, ctx: ToolContext, args: Args) {
     const kept = person.otherPhones.filter((p) => !dropPhones.has(p.phoneE164));
     const added = addPhones.map((p) => {
       const e164 = normalizePhone(p.phone);
-      if (!e164) throw HfosError.validation([], `${p.phone} isn’t a phone number.`);
+      if (!e164)
+        throw HfosError.validation(
+          [],
+          `“${p.phone}” isn’t a phone number. Give all 10 digits with the area code, or a + and the country code for a number outside the US.`,
+        );
       return { phone: e164, ...(str(p.label) ? { label: str(p.label) } : {}) };
     });
     const next = [
@@ -669,7 +697,7 @@ async function customerChange(db: Db, ctx: ToolContext, args: Args) {
       if (!field)
         throw HfosError.validation(
           [],
-          'One of those fields isn’t this business’s. Read the customer again.',
+          'One of those isn’t one of this business’s customer fields. It may have been deleted. Read the customer again with get_customer and use the field ids it gives.',
         );
       if (JSON.stringify(person.custom[id] ?? null) === JSON.stringify(value ?? null)) continue;
       values[id] = value;
@@ -682,7 +710,11 @@ async function customerChange(db: Db, ctx: ToolContext, args: Args) {
 const updateCustomer: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { person, patch, lines } = await customerChange(db, ctx, args);
-    if (!lines.length) throw HfosError.validation([], 'Nothing would change.');
+    if (!lines.length)
+      throw HfosError.validation(
+        [],
+        'Nothing would change. Everything given already matches their details, so pass only what’s different.',
+      );
     const first = person.fullName.split(' ')[0] || person.fullName;
     const reason = str(args['reason']);
     const shownLines =
@@ -712,7 +744,10 @@ const updateCustomer: SettingsConfirmTool = {
   async commit(db, ctx, args) {
     const { personId, patch, values, lines } = await customerChange(db, ctx, args);
     if (!lines.length)
-      throw HfosError.conflict('Nothing needs changing any more.', 'nothing_to_change');
+      throw HfosError.conflict(
+        'Nothing needs changing anymore: their details already match. Someone may have made the same change first.',
+        'nothing_to_change',
+      );
     const reason = str(args['reason']);
     if (Object.keys(patch).length)
       await command(db, ctx, 'person.update', { personId, ...patch }, reason);

@@ -4,6 +4,7 @@
  */
 import { and, eq, isNull } from 'drizzle-orm';
 import { offers } from '@hfos/db/schema';
+import { formatDateOnly } from '../crm/format';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -34,7 +35,10 @@ async function requireOffer(ctx: CommandContext, offerId: string) {
       ),
     )
     .for('update');
-  if (!row) throw HfosError.notFound('That offer isn’t there.');
+  if (!row)
+    throw HfosError.notFound(
+      'That offer isn’t there anymore. It may have been archived. Refresh and try again.',
+    );
   return row;
 }
 
@@ -99,7 +103,10 @@ export const offerUpdate = defineCommand({
     const startsOn = patch.startsOn !== undefined ? patch.startsOn : before.startsOn;
     const endsOn = patch.endsOn !== undefined ? patch.endsOn : before.endsOn;
     if (startsOn && endsOn && endsOn < startsOn)
-      throw HfosError.validation([{ path: 'endsOn', message: 'End on or after the start.' }]);
+      throw HfosError.validation(
+        [{ path: 'endsOn', message: 'End on or after the start.' }],
+        `This offer would end on ${formatDateOnly(endsOn)}, before it starts on ${formatDateOnly(startsOn)}. Pick an end date on or after the start.`,
+      );
     const updated = Object.keys(patch);
     if (!updated.length) return { offerId: before.id, updated };
     await ctx.tx.update(offers).set(patch).where(eq(offers.id, before.id));

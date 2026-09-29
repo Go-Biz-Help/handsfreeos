@@ -9,6 +9,7 @@ import {
   hasWorkspacePermission,
   isOrgPermission,
   isStaffPermission,
+  missingPermissionMessage,
   type OrgRole,
   type Permission,
   type StaffRole,
@@ -33,6 +34,18 @@ import type {
   ResolvedScope,
   ScopeRef,
 } from './types';
+
+/** A business the person can't see, or has left: the same answer as one that never existed. */
+const businessNotThere = (): HfosError =>
+  HfosError.notFound(
+    'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+  );
+
+/** The same for an agency (an organization with several businesses). */
+const agencyNotThere = (): HfosError =>
+  HfosError.notFound(
+    'That agency isn’t there, or you’re no longer part of it. Pick one from your list.',
+  );
 
 function parseInput<I extends z.ZodType>(schema: I, raw: unknown): z.output<I> {
   const parsed = schema.safeParse(raw);
@@ -60,8 +73,7 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
                    private.my_permissions(${ref.workspaceId}) as permissions`,
       );
       // A workspace the user cannot see does not exist for them (no 403 existence leak).
-      if (!row?.org || (!row.role && !row.view_as))
-        throw HfosError.notFound('Workspace not found.');
+      if (!row?.org || (!row.role && !row.view_as)) throw businessNotThere();
       return {
         workspaceId: ref.workspaceId,
         organizationId: row.org,
@@ -78,7 +90,7 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         tx,
         sql`select private.org_role(${ref.organizationId}) as role`,
       );
-      if (!row?.role) throw HfosError.notFound('Organization not found.');
+      if (!row?.role) throw agencyNotThere();
       return {
         organizationId: ref.organizationId,
         workspaceId: null,
@@ -92,7 +104,7 @@ async function resolveScope(tx: Tx, ref: ScopeRef): Promise<ResolvedScope> {
         sql`select private.staff_role() as role`,
       );
       // The support desk does not exist for anyone who does not work here.
-      if (!row?.role) throw HfosError.notFound('Not found.');
+      if (!row?.role) throw HfosError.notFound('There’s nothing here. Head back to your business.');
       return {
         organizationId: null,
         workspaceId: null,
@@ -116,7 +128,7 @@ function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope 
     case 'platform':
       throw HfosError.forbidden('The support desk is not open to the system.');
     case 'workspace':
-      if (ref.workspaceId !== actor.workspaceId) throw HfosError.notFound('Workspace not found.');
+      if (ref.workspaceId !== actor.workspaceId) throw businessNotThere();
       return {
         workspaceId: actor.workspaceId,
         organizationId: actor.organizationId,
@@ -124,8 +136,7 @@ function resolveMachineScope(actor: MachineActor, ref: ScopeRef): ResolvedScope 
         orgRole: null,
       };
     case 'organization':
-      if (ref.organizationId !== actor.organizationId)
-        throw HfosError.notFound('Organization not found.');
+      if (ref.organizationId !== actor.organizationId) throw agencyNotThere();
       return {
         workspaceId: null,
         organizationId: actor.organizationId,
@@ -157,7 +168,7 @@ function assertPermission(scope: ResolvedScope, permission: Permission): void {
     : isOrgPermission(permission)
       ? hasOrgPermission(scope.orgRole, permission)
       : scopeCan(scope, permission);
-  if (!ok) throw HfosError.forbidden();
+  if (!ok) throw HfosError.forbidden(missingPermissionMessage(permission, scope.workspaceRole));
 }
 
 /**
@@ -583,7 +594,7 @@ export async function executeCommandWithin<I extends z.ZodType, O extends z.ZodT
   const input = parseInput(cmd.input, rawInput);
   const ref = cmd.scope(input);
   if (ref.kind !== 'workspace' || ref.workspaceId !== ctx.scope.workspaceId)
-    throw HfosError.notFound('Workspace not found.');
+    throw businessNotThere();
   const actor = ctx.actor;
   const addon = addonOf(cmd, actor, ctx.addon ?? null);
   try {
@@ -638,8 +649,7 @@ export async function executeQuery<I extends z.ZodType, O extends z.ZodType>(
       if (scope.viewAs) {
         // Looking at a business, not working in it: no role to check a permission against, so the read
         // rules are the whole answer — except the Assistant, which is never part of looking.
-        if (query.permission && VIEW_AS_BLOCKED.has(query.permission))
-          throw HfosError.notFound('Workspace not found.');
+        if (query.permission && VIEW_AS_BLOCKED.has(query.permission)) throw businessNotThere();
       } else if (query.permission) {
         assertPermission(scope, query.permission);
       }

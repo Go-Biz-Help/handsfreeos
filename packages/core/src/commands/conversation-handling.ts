@@ -37,10 +37,21 @@ const CHANNEL_WORDS: Readonly<Record<string, string>> = {
   chat: 'website chat',
 };
 
+/** Each channel's switch under Channels on the AI teammate page. */
+const CHANNEL_SWITCHES: Readonly<Record<string, string>> = {
+  sms: 'Texts',
+  email: 'Email',
+  chat: 'Website chat',
+};
+
 /** The teammate is on and answers the conversation's channel; otherwise the refusal says what to change. */
 function assertAnswers(teammate: TeammateRow, conv: Conversation): void {
   if (teammate.status === 'off')
-    throw HfosError.rule('teammate_off', 409, `Turn ${teammate.name} on first.`);
+    throw HfosError.rule(
+      'teammate_off',
+      409,
+      `${teammate.name} is off, so it can’t answer this conversation. Set it to Training wheels or Automatic under Status on the AI teammate page first.`,
+    );
   const channels = teammateConfigOf(teammate).channels;
   if (
     !(conv.channel === 'sms' || conv.channel === 'email' || conv.channel === 'chat') ||
@@ -49,7 +60,9 @@ function assertAnswers(teammate: TeammateRow, conv: Conversation): void {
     throw HfosError.rule(
       'channel_off',
       409,
-      `${teammate.name} doesn’t answer ${CHANNEL_WORDS[conv.channel] ?? conv.channel}. Turn that on in its settings first.`,
+      CHANNEL_SWITCHES[conv.channel]
+        ? `${teammate.name} doesn’t answer ${CHANNEL_WORDS[conv.channel]}. Turn on ${CHANNEL_SWITCHES[conv.channel]} under Channels on the AI teammate page first.`
+        : `${teammate.name} can’t answer ${CHANNEL_WORDS[conv.channel] ?? conv.channel}, so someone on the team has to.`,
     );
 }
 
@@ -59,7 +72,14 @@ async function requireTeammate(ctx: CommandContext, teammateId?: string): Promis
     ctx.scope.workspaceId!,
     teammateId ? { teammateId } : {},
   );
-  if (!teammate) throw HfosError.rule('no_teammate', 409, 'Set up your AI teammate first.');
+  if (!teammate)
+    throw HfosError.rule(
+      'no_teammate',
+      409,
+      teammateId
+        ? 'That AI teammate isn’t in this business anymore. Set one up on the AI teammate page first.'
+        : 'This business doesn’t have an AI teammate yet. Set one up on the AI teammate page first.',
+    );
   return teammate;
 }
 

@@ -45,6 +45,8 @@ export const importCreate = defineCommand({
   },
 });
 
+const IMPORT_GONE = 'That import isn’t there anymore. Refresh Settings → Imports and try again.';
+
 export const importStart = defineCommand({
   name: 'import.start',
   description: 'Start a reserved import with the column mapping and how to treat matches.',
@@ -59,11 +61,17 @@ export const importStart = defineCommand({
       .select()
       .from(imports)
       .where(and(eq(imports.id, input.importId), eq(imports.workspaceId, ctx.scope.workspaceId!)));
-    if (!current) throw HfosError.notFound('Import not found.');
+    if (!current) throw HfosError.notFound(IMPORT_GONE);
     if (current.status !== 'pending')
-      throw HfosError.rule('import_not_ready', 409, 'This import was already started.');
+      throw HfosError.rule(
+        'import_not_ready',
+        409,
+        `The import of ${current.fileName} has already started. Refresh Settings → Imports to see how it’s going.`,
+      );
     if (current.createdBy !== requireHuman(ctx).userId)
-      throw HfosError.forbidden('Only the person who created the import can start it.');
+      throw HfosError.forbidden(
+        'Only the person who uploaded this spreadsheet can start its import. Ask them to start it, or upload it again yourself.',
+      );
     const allowed = new Set<string>([
       ...(current.kind === 'people' ? PERSON_FIELDS : COMPANY_FIELDS),
       SKIP,
@@ -71,7 +79,7 @@ export const importStart = defineCommand({
     for (const [column, field] of Object.entries(input.mapping)) {
       if (!allowed.has(field))
         throw HfosError.validation([
-          { path: `mapping.${column}`, message: `Unknown field ${field}.` },
+          { path: `mapping.${column}`, message: 'Pick a field from the list for this column.' },
         ]);
     }
     const mapped = new Set(Object.values(input.mapping).filter((f) => f !== SKIP));
@@ -89,7 +97,11 @@ export const importStart = defineCommand({
       sql`select size_bytes from private.storage_object_info('imports', ${current.objectPath})`,
     );
     if (!info)
-      throw HfosError.rule('import_not_ready', 409, 'Upload the CSV before starting the import.');
+      throw HfosError.rule(
+        'import_not_ready',
+        409,
+        `${current.fileName} didn’t finish uploading. Upload it again, then start the import.`,
+      );
     await ctx.tx
       .update(imports)
       .set({ mapping: input.mapping, options: input.options })
@@ -129,7 +141,7 @@ export const importCancel = defineCommand({
       .select()
       .from(imports)
       .where(and(eq(imports.id, input.importId), eq(imports.workspaceId, ctx.scope.workspaceId!)));
-    if (!current) throw HfosError.notFound('Import not found.');
+    if (!current) throw HfosError.notFound(IMPORT_GONE);
     if (current.status !== 'pending' && current.status !== 'running')
       return { importId: current.id, status: current.status };
     await ctx.tx

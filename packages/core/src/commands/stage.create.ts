@@ -19,7 +19,10 @@ export const stageCreate = defineCommand({
       .select({ id: pipelines.id, name: pipelines.name })
       .from(pipelines)
       .where(and(eq(pipelines.id, input.pipelineId), eq(pipelines.workspaceId, workspaceId)));
-    if (!pipeline) throw HfosError.notFound('Pipeline not found.');
+    if (!pipeline)
+      throw HfosError.notFound(
+        'That pipeline isn’t there anymore. Refresh Settings → Pipelines and try again.',
+      );
     let position: number;
     if (input.afterStageId) {
       const [after] = await ctx.tx
@@ -31,7 +34,10 @@ export const stageCreate = defineCommand({
             eq(pipelineStages.pipelineId, pipeline.id),
           ),
         );
-      if (!after) throw HfosError.notFound('Stage not found.');
+      if (!after)
+        throw HfosError.notFound(
+          'The stage to add this after isn’t there anymore. It may have been deleted. Refresh and try again.',
+        );
       await ctx.tx
         .update(pipelineStages)
         .set({ position: sql`${pipelineStages.position} + 1` })

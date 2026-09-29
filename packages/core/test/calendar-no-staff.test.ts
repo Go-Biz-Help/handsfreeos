@@ -128,7 +128,7 @@ describe('booking a bed', () => {
       'resource_full',
       409,
     );
-    expect(staff.message).toBe('No Red light bed is free then.');
+    expect(staff.message).toBe('No Red light bed is free then. Pick another time.');
     const details = staff.details as { resourceId: string; slots: SlotOut[] };
     expect(details.resourceId).toBe(bed);
     expect(startsOf(details.slots)).not.toContain(ten);
@@ -146,7 +146,7 @@ describe('booking a bed', () => {
     );
 
     const online = await expectHfos(() => bookOnline(t, beds.id, ten), 'resource_full', 409);
-    expect(online.message).toBe('No Red light bed is free then.');
+    expect(online.message).toBe('No Red light bed is free then. Pick another time.');
     expect((online.details as { slots: SlotOut[] }).slots.length).toBeGreaterThan(0);
 
     const open = await ask(

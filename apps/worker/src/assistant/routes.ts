@@ -62,7 +62,11 @@ export function registerAssistantRoutes(
   assistant: AssistantServices | null,
 ): void {
   const notConfigured = () =>
-    HfosError.rule('assistant_not_configured', 503, 'The Assistant isn’t set up yet.');
+    HfosError.rule(
+      'assistant_not_configured',
+      503,
+      'The Assistant hasn’t been set up for HandsFreeOS yet, so it can’t answer. Everything else works as usual.',
+    );
 
   app.post('/v1/assistant/messages', async (req, reply) => {
     const actor = await authenticate(deps, req);
@@ -119,7 +123,10 @@ export function registerAssistantRoutes(
       stream.send({
         type: 'error',
         code: busyElsewhere ? 'already_running' : 'failed',
-        message: e instanceof HfosError ? e.message : 'Something went wrong. Try again.',
+        message:
+          e instanceof HfosError
+            ? e.message
+            : 'Something went wrong on our side. Try again in a minute.',
       });
     } finally {
       if (runId) running.delete(runId);
@@ -149,7 +156,9 @@ export function registerAssistantRoutes(
         addonAiToolByName(assistant.addons ?? ADDON_SERVER_MODULES, call.tool))
       : undefined;
     if (!call || call.user_id !== actor.userId || !tool)
-      throw HfosError.notFound('That card is gone.');
+      throw HfosError.notFound(
+        'That card isn’t there anymore. Ask the Assistant again for a fresh one.',
+      );
     const ctx = await toolContext(actor, input.workspaceId);
     return { actor, input, scope, call, tool, ctx, executor: assistant.tools };
   }
@@ -204,7 +213,10 @@ export function registerAssistantRoutes(
       });
       return out(call.id, call.tool, 'confirmed', done.outcome, done.href, null);
     } catch (e) {
-      const message = e instanceof HfosError ? e.message : 'That didn’t work. Nothing was changed.';
+      const message =
+        e instanceof HfosError
+          ? e.message
+          : 'Something went wrong on our side, so nothing was changed. Try again in a minute.';
       if (!(e instanceof HfosError))
         deps.log.error({ err: e, toolCallId: call.id }, 'assistant confirm failed');
       await store.updateToolCall(deps.httpDb, scope, call.id, { status: 'failed', error: message });
@@ -216,7 +228,7 @@ export function registerAssistantRoutes(
     const { scope, call } = await ownCall(req);
     if (!(await store.claimToolCall(deps.httpDb, scope, call.id, 'cancelled')))
       throw HfosError.conflict(
-        'This card was already answered, or it expired.',
+        'This card was already answered, or it expired, so there’s nothing to cancel.',
         'already_answered',
       );
     return out(call.id, call.tool, 'cancelled', null, null, null);
@@ -227,7 +239,14 @@ export function registerAssistantRoutes(
     const { scope, call, tool, ctx, executor } = await ownCall(req);
     const record = call.result ?? {};
     if (call.status !== 'done' || call.autonomy !== 'auto' || record['undone'])
-      throw HfosError.conflict('There is nothing to undo here.', 'nothing_to_undo');
+      throw HfosError.conflict(
+        record['undone']
+          ? 'This was already undone.'
+          : call.autonomy !== 'auto'
+            ? 'Only what the Assistant did on its own can be undone here. Change this one from its own page instead.'
+            : 'This didn’t go through, so there’s nothing to undo.',
+        'nothing_to_undo',
+      );
     const outcome = await executor.undo(tool, record, ctx);
     await store.updateToolCall(deps.httpDb, scope, call.id, {
       status: 'done',

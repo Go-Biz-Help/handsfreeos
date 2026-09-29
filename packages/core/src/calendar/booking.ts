@@ -30,8 +30,9 @@ import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import type { CommandContext } from '../kernel/types';
 import type { AppointmentLocation, AppointmentWarning, SlotOut } from '../schemas/calendar';
-import type { CatalogService } from './catalogs';
+import { zip5, type CatalogService } from './catalogs';
 import type { CalendarConfig, LocationKind } from './config';
+import { formatDuration } from './format';
 import {
   containsInterval,
   normalize,
@@ -102,13 +103,11 @@ export async function openTimes(
   req: SlotRequest,
 ): Promise<{ service: CatalogService | null; durationMinutes: number; slots: SlotOut[] }> {
   const service = await resolveService(tx, calendar, req.serviceId);
-  if (
-    req.durationMinutes !== undefined &&
-    !resolveTerms(calendar.config, service).durations.includes(req.durationMinutes)
-  )
-    throw HfosError.validation([
-      { path: 'durationMinutes', message: 'Pick one of the calendar’s lengths.' },
-    ]);
+  const { durations } = resolveTerms(calendar.config, service);
+  if (req.durationMinutes !== undefined && !durations.includes(req.durationMinutes)) {
+    const say = `That length isn’t offered for this booking. Pick ${orList(durations.map(formatDuration))}.`;
+    throw HfosError.validation([{ path: 'durationMinutes', message: say }], say);
+  }
   const loaded = await loadSlotInput(
     tx,
     calendar,
@@ -172,8 +171,14 @@ export interface FullResource {
 
 const fullMessage = (r: FullResource): string =>
   r.quantity === 1
-    ? `No ${r.name} is free then.`
-    : `Fewer than ${r.quantity} of ${r.name} are free then.`;
+    ? `No ${r.name} is free then. Pick another time.`
+    : `This needs ${r.quantity} of ${r.name}, and fewer than that are free then. Pick another time.`;
+
+/** "30 minutes", "30 minutes or 1 hour", "30 minutes, 1 hour or 2 hours". */
+const orList = (items: readonly string[]): string =>
+  items.length > 1
+    ? `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`
+    : (items[0] ?? '');
 
 /**
  * 409 resource_full with nearby open times. A calendar without staff can't book past its resources: there
@@ -227,10 +232,13 @@ export function needsConfirmation(
   warnings: readonly AppointmentWarning[],
   userIds: readonly string[],
 ): HfosError {
+  // The warnings read as fragments ("Outside Priya’s hours"): said in full, the phone's "Book it anyway?" and the
+  // Assistant have the reasons in the message itself.
+  const reasons = warnings.map((w) => `${w.message}.`).join(' ');
   return new HfosError(
     'conflict',
     409,
-    'Check these before booking.',
+    `${reasons || 'This time needs a second look.'} Book it anyway, or pick another time.`,
     { warnings, userIds },
     'needs_confirmation',
   );
@@ -346,7 +354,7 @@ export function checkBooking(
         blocked: new HfosError(
           'conflict',
           409,
-          `${data.names.get(userId) ?? 'Someone'} already has an appointment then.`,
+          `${data.names.get(userId) ?? 'Someone'} already has an appointment then. Pick another time, or choose someone else.`,
           { userId },
           'slot_taken',
         ),
@@ -362,7 +370,9 @@ export function checkBooking(
         blocked: HfosError.rule(
           'resource_unavailable',
           409,
-          `${r?.name ?? 'A required resource'} is no longer available.`,
+          r
+            ? `${r.name} is archived, so nothing can be booked with it. Restore it in Settings → Calendars → Resources. Or stop requiring it, under Resources in the calendar’s settings or on the service in Settings → Calendars → Services.`
+            : 'A resource this booking needs isn’t there anymore. Stop requiring it, under Resources in the calendar’s settings or on the service in Settings → Calendars → Services.',
         ),
         warnings,
       };
@@ -391,7 +401,7 @@ export function checkBooking(
         blocked: new HfosError(
           'conflict',
           409,
-          `${r.name} is already booked then.`,
+          `${r.name} is already booked then. Pick another time.`,
           { resourceId: r.resourceId },
           'slot_taken',
         ),
@@ -695,21 +705,51 @@ async function bookAsCustomer(
   throw await unavailableError(ctx.tx, req.calendar, base, req.startsAt, service);
 }
 
+/**
+ * Why nobody on the calendar can take a booking, and where to fix it. `candidatePool` narrows the team by
+ * the service's people, then by territory, so the first of those that leaves nobody is the one to name.
+ */
+function noOneEligible(loaded: LoadedSlots): HfosError {
+  const say = (message: string) => HfosError.rule('no_one_eligible', 409, message);
+  const team = loaded.config.team.members.map((m) => m.userId);
+  if (!team.length)
+    return say(
+      'This calendar has nobody on its team. Add people under Team & assignment in the calendar’s settings.',
+    );
+  const eligible = loaded.terms.eligibleUserIds;
+  if (eligible && !team.some((u) => eligible.includes(u))) {
+    const service = loaded.service?.name ?? 'this service';
+    // The catalog's people are on the team, so it's this calendar's own narrowing that leaves nobody.
+    if (loaded.service?.eligibleUserIds.some((u) => team.includes(u)))
+      return say(
+        `This calendar lets only people who aren’t on its team do ${service}. Add them under Team & assignment in the calendar’s settings, or choose who it’s with yourself.`,
+      );
+    return say(
+      `Nobody on this calendar’s team does ${service}. Tick someone from the team under Who can do it in Settings → Calendars → Services, or choose who it’s with yourself.`,
+    );
+  }
+  const zip = zip5(loaded.input.postalCode);
+  const where = zip ? `ZIP code ${zip}` : 'that address';
+  return say(
+    `Nobody on this calendar’s team covers ${where}. Add it to a territory with someone from the team in Settings → Calendars → Territories, or choose who it’s with yourself.`,
+  );
+}
+
 /** People the strategy may pick from for a staff booking: free ones first, then ones with warnings. */
 function staffCandidates(loaded: LoadedSlots, data: CheckData, span: BookingSpan): string[] {
   const { config } = loaded;
   const pool = candidatePool(loaded.input, loaded.terms);
-  if (!pool.length)
-    throw HfosError.rule('no_one_eligible', 409, 'No one on this calendar can take this booking.');
+  if (!pool.length) throw noOneEligible(loaded);
   const checks = new Map(pool.map((u) => [u, checkPerson(data, u, span)]));
   const free = pool.filter((u) => !checks.get(u)!.overlap);
   const clean = free.filter((u) => checks.get(u)!.warnings.length === 0);
   const soft = free.filter((u) => checks.get(u)!.warnings.length > 0);
+  // The person every booking here has to have (a fixed host, or a required member of a collective team).
   const busy = (u: string) =>
     new HfosError(
       'conflict',
       409,
-      `${data.names.get(u) ?? 'Someone'} already has an appointment then.`,
+      `${data.names.get(u) ?? 'Someone'} already has an appointment then, and every booking on this calendar needs them. Pick another time.`,
       { userId: u },
       'slot_taken',
     );
@@ -726,8 +766,15 @@ function staffCandidates(loaded: LoadedSlots, data: CheckData, span: BookingSpan
   if (host && !free.includes(host)) throw busy(host);
   const ordered = clean.length >= k ? clean : [...clean, ...soft];
   const list = host ? [host, ...ordered.filter((u) => u !== host)] : ordered;
-  if (list.length < k)
-    throw HfosError.rule('not_enough_people', 409, 'Not enough people are free then.');
+  if (list.length < k) {
+    const free =
+      list.length === 0 ? 'nobody is' : list.length === 1 ? 'only 1 is' : `only ${list.length} are`;
+    throw HfosError.rule(
+      'not_enough_people',
+      409,
+      `This booking needs ${k} people and ${free} free then. Pick another time, or lower People per booking under Team & assignment in the calendar’s settings.`,
+    );
+  }
   return list;
 }
 
@@ -823,8 +870,10 @@ async function commit(
   const end = start + loaded.durationMinutes * MIN;
   const capacity = req.capacity ?? loaded.terms.seats;
   const party = req.attendee?.seats ?? 0;
-  if (party > capacity)
-    throw HfosError.validation([{ path: 'partySize', message: 'More people than seats.' }]);
+  if (party > capacity) {
+    const say = `This has room for ${capacity} ${capacity === 1 ? 'person' : 'people'}, and the booking is for ${party}. Make the group smaller, or split it into more than one booking.`;
+    throw HfosError.validation([{ path: 'partySize', message: say }], say);
+  }
   const title = req.title ?? loaded.service?.name ?? calendar.name;
   const location = locationFor(loaded.config, loaded.locationKind, req.location);
   const createdBy = userIdOf(ctx.actor);
@@ -965,9 +1014,23 @@ export async function joinSession(ctx: CommandContext, req: JoinRequest): Promis
           { slots: [] },
           'slot_taken',
         )
-      : HfosError.rule('session_full', 409, 'There aren’t enough seats left.');
+      : HfosError.rule(
+          'session_full',
+          409,
+          s && s.capacity - s.seatsTaken > 0
+            ? `Only ${s.capacity - s.seatsTaken} ${s.capacity - s.seatsTaken === 1 ? 'seat is' : 'seats are'} left on this session, and this needs ${attendee.seats}. Pick another session, or book fewer seats.`
+            : 'This session is full. Pick another session.',
+        );
   if (!s || s.status !== 'scheduled')
-    throw req.customer ? full() : HfosError.notFound('Appointment not found.');
+    throw req.customer
+      ? full()
+      : HfosError.notFound(
+          !s
+            ? 'That session isn’t there anymore. Refresh and pick another one.'
+            : s.status === 'cancelled'
+              ? 'That session was cancelled. Pick another one.'
+              : 'That session has already happened. Pick another one.',
+        );
   const [existing] = await ctx.tx
     .select()
     .from(appointmentAttendees)

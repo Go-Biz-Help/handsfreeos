@@ -74,8 +74,11 @@ async function enforceCaps(
     );
 }
 
-const tooMany = () =>
-  HfosError.validation([{ path: 'seats', message: 'That’s more people than one booking holds.' }]);
+const tooMany = (most: number) =>
+  HfosError.validation(
+    [{ path: 'seats', message: 'That’s more people than one booking holds.' }],
+    `One booking holds up to ${most} ${most === 1 ? 'person' : 'people'}. Pick fewer, or contact the business about a bigger group.`,
+  );
 
 /**
  * What's wrong with a window of time someone wants to wait for, in plain words, or null. It ends after it starts
@@ -105,30 +108,42 @@ export const waitlistJoinOnline = defineCommand({
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const calendar = await loadCalendar(ctx.tx, ws, input.calendarId);
-    if (!calendar.config.public) throw HfosError.notFound('Calendar not found.');
+    if (!calendar.config.public)
+      throw HfosError.notFound(
+        'This booking page isn’t available anymore. Contact the business to book.',
+      );
     if (calendar.status !== 'active')
       throw HfosError.rule(
         'calendar_not_bookable',
         409,
-        'This calendar isn’t taking bookings right now.',
+        'This calendar isn’t taking bookings right now. Contact the business to book.',
       );
     if (!calendar.config.waitlist.enabled)
-      throw HfosError.rule('waitlist_off', 409, 'This calendar’s waitlist is off.');
+      throw HfosError.rule(
+        'waitlist_off',
+        409,
+        'This calendar isn’t taking waitlist sign-ups right now. Pick a time that’s open, or contact the business.',
+      );
     await lockBooking(ctx.tx, calendar.id);
     const now = await dbNow(ctx.tx);
 
     let appointmentId: string | null = null;
     if (input.appointmentId) {
       const appt = await requireAppointment(ctx.tx, ws, input.appointmentId);
-      if (appt.calendarId !== calendar.id) throw HfosError.notFound('Session not found.');
+      if (appt.calendarId !== calendar.id)
+        throw HfosError.notFound(
+          'That session isn’t there anymore. It may have been moved or cancelled. Pick another time.',
+        );
       requireScheduled(appt);
       if (appt.startsAt.getTime() <= now)
-        throw HfosError.rule('session_started', 409, 'This session has already started.');
+        throw HfosError.rule(
+          'session_started',
+          409,
+          'This session has already started, so you can’t wait for a seat on it. Pick a later one.',
+        );
       const service = appt.serviceId ? await loadCatalogService(ctx.tx, ws, appt.serviceId) : null;
-      if (
-        input.seats > Math.min(resolveTerms(calendar.config, service).maxPartySize, appt.capacity)
-      )
-        throw tooMany();
+      const most = Math.min(resolveTerms(calendar.config, service).maxPartySize, appt.capacity);
+      if (input.seats > most) throw tooMany(most);
       if (appt.seatsTaken + input.seats <= appt.capacity)
         throw HfosError.rule(
           'seats_available',
@@ -143,7 +158,8 @@ export const waitlistJoinOnline = defineCommand({
         wantedWindowIssue(from, to, now) ??
         (to - from > 90 * DAY ? 'Pick 90 days or fewer.' : null);
       if (issue) throw HfosError.validation([{ path: 'wantedTo', message: issue }]);
-      if (input.seats > resolveTerms(calendar.config, null).maxPartySize) throw tooMany();
+      const most = resolveTerms(calendar.config, null).maxPartySize;
+      if (input.seats > most) throw tooMany(most);
     }
 
     const phone = input.customer.phone ?? null;

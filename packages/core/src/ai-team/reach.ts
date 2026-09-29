@@ -233,9 +233,14 @@ export async function assertTeammateCalendar(
   const row = await loadTeammate(tx, ai.workspaceId, { teammateId: ai.teammateId });
   if (!row) throw outsideItsConversation();
   const config = teammateConfigOf(row);
-  if (!config.book.enabled || !config.book.calendarIds.includes(calendarId))
+  if (!config.book.enabled)
     throw HfosError.forbidden(
-      'The AI teammate books only on the calendars its settings list.',
+      'Booking is turned off for the AI teammate, so it can’t book this. Hand it to someone on the team, or turn on Book on the AI teammate page.',
+      'calendar_not_allowed',
+    );
+  if (!config.book.calendarIds.includes(calendarId))
+    throw HfosError.forbidden(
+      'The AI teammate may book only on the calendars ticked under Book on the AI teammate page, and this isn’t one of them. Use one of those calendars, or hand this to someone on the team.',
       'calendar_not_allowed',
     );
   return config;

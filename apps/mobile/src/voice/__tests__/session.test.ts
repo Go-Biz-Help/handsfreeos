@@ -162,7 +162,7 @@ describe('speaking', () => {
 
   it('turns itself off, and says why, when the business’s balance has run out', async () => {
     const words =
-      'Your balance has run out, so the AI has paused. Top up and it picks up where it left off.';
+      'Your balance has run out, so the AI has paused. Top up in Settings → Usage & balance and it picks up where it left off.';
     mockSay.mockRejectedValue(new SpeechError(words, 'no_balance', 402));
     const s = newSession();
     await s.start();

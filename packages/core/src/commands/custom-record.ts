@@ -51,8 +51,11 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 
-const nameTaken = (singular: string) =>
-  HfosError.conflict(`There’s already a kind of record called “${singular}”.`, 'record_type_taken');
+const nameTaken = (singular: string, fix = 'Pick a different name.') =>
+  HfosError.conflict(
+    `There’s already a kind of record called “${singular}”. ${fix}`,
+    'record_type_taken',
+  );
 
 /** Its words on the timeline: "added this pet". */
 const kindMeta = (t: CustomRecordTypeRow) => ({ kind: t.singular, typeId: t.id });
@@ -273,7 +276,11 @@ export const customRecordTypeRestore = defineCommand({
           dsql`lower(btrim(${customRecordTypes.singular})) = lower(btrim(${current.singular}))`,
         ),
       );
-    if (clash) throw nameTaken(current.singular);
+    if (clash)
+      throw nameTaken(
+        current.singular,
+        'Rename that one in Settings → Relationships first, then restore this one.',
+      );
     await ctx.tx
       .update(customRecordTypes)
       .set({ archivedAt: null })

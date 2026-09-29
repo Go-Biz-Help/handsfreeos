@@ -102,6 +102,13 @@ function checkedColumns(cols: ItemColumns, prefix: string): ItemColumns {
 }
 const ZERO = '00000000-0000-4000-8000-000000000000';
 
+const SUGGESTION_GONE = 'That suggestion isn’t there anymore. Refresh and try again.';
+const suggestionDecided = () =>
+  HfosError.conflict(
+    'Someone already accepted or rejected this suggestion. Refresh to see what’s left.',
+    'suggestion_decided',
+  );
+
 const REASON_SOURCE = { scan: 'website_scan', gap: 'ai_suggestion', pack: 'agency_pack' } as const;
 
 async function loadItem(ctx: CommandContext, itemId: string) {
@@ -112,7 +119,10 @@ async function loadItem(ctx: CommandContext, itemId: string) {
       and(eq(knowledgeItems.id, itemId), eq(knowledgeItems.workspaceId, ctx.scope.workspaceId!)),
     )
     .for('update');
-  if (!item) throw HfosError.notFound('Item not found.');
+  if (!item)
+    throw HfosError.notFound(
+      'That knowledge item isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return item;
 }
 
@@ -231,7 +241,7 @@ export const knowledgeItemUpdate = defineCommand({
           message:
             item.kind === 'document'
               ? 'A document stays a document.'
-              : 'Documents come from uploaded files.',
+              : 'Documents come from uploaded files. Add one in Knowledge → Documents instead.',
         },
       ]);
     const cols = columnsOf(input.content);
@@ -276,7 +286,14 @@ async function setItemStatus(
   const item = await loadItem(ctx, itemId);
   if (item.status === to) return { itemId: item.id, status: to, updated: [] };
   if (to === 'published' && !item.body.trim())
-    throw HfosError.conflict('Add the text before publishing.', 'item_empty');
+    throw HfosError.conflict(
+      item.kind === 'faq'
+        ? `“${item.title.trim()}” has no answer yet. Add one before publishing.`
+        : item.title.trim()
+          ? `“${item.title.trim()}” has no text yet. Add it before publishing.`
+          : 'This item has no text yet. Add it before publishing.',
+      'item_empty',
+    );
   await ctx.tx
     .update(knowledgeItems)
     .set({ status: to, updatedBy: me })
@@ -470,9 +487,15 @@ export const knowledgeDocumentAdd = defineCommand({
       })
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ws)));
-    if (!f || f.deletedAt) throw HfosError.notFound('File not found.');
+    if (!f || f.deletedAt)
+      throw HfosError.notFound(
+        'That file isn’t there anymore. It may have been deleted. Upload it again.',
+      );
     if (f.status !== 'ready')
-      throw HfosError.conflict('The file hasn’t finished uploading.', 'file_not_uploaded');
+      throw HfosError.conflict(
+        `${f.name} hasn’t finished uploading. Wait for it to finish, or upload it again.`,
+        'file_not_uploaded',
+      );
     const type = (f.mimeType ?? '').toLowerCase();
     const pdf = type === 'application/pdf' || /\.pdf$/i.test(f.name);
     const text = type.startsWith('text/') || TEXT_FILE.test(f.name);
@@ -480,7 +503,7 @@ export const knowledgeDocumentAdd = defineCommand({
       throw new HfosError(
         'validation',
         400,
-        'Upload a PDF or a text file.',
+        `${f.name} isn’t a PDF or a text file, so the knowledge base can’t read it. Upload a PDF or a text file instead.`,
         [{ path: 'fileId', message: 'Upload a PDF or a text file.' }],
         'unsupported_file_type',
       );
@@ -489,7 +512,10 @@ export const knowledgeDocumentAdd = defineCommand({
       .from(knowledgeItems)
       .where(and(eq(knowledgeItems.fileId, f.id), ne(knowledgeItems.status, 'archived')));
     if (already)
-      throw HfosError.conflict('This file is already in the knowledge base.', 'document_exists');
+      throw HfosError.conflict(
+        `${f.name} is already in the knowledge base. Find it in Knowledge → Documents.`,
+        'document_exists',
+      );
     const title = input.title ?? (f.name.replace(/\.[a-z0-9]{1,8}$/i, '').trim() || f.name);
     await ctx.emit({
       type: 'knowledge_document.added',
@@ -668,8 +694,16 @@ export const knowledgeScanStart = defineCommand({
       .select({ id: knowledgeSources.id, url: knowledgeSources.url })
       .from(knowledgeSources)
       .where(eq(knowledgeSources.workspaceId, ws));
-    if (!source) throw HfosError.conflict('Add the website address first.', 'no_website');
-    const running = () => HfosError.conflict('A scan is already running.', 'scan_running');
+    if (!source)
+      throw HfosError.conflict(
+        'There’s no website address to scan yet. Add it in Knowledge → Website first.',
+        'no_website',
+      );
+    const running = () =>
+      HfosError.conflict(
+        `A scan of ${source.url} is already running. Wait for it to finish; what it finds shows in Knowledge → Suggestions.`,
+        'scan_running',
+      );
     const [live] = await ctx.tx
       .select({ id: knowledgeScans.id })
       .from(knowledgeScans)
@@ -739,9 +773,8 @@ export const knowledgeSuggestionAccept = defineCommand({
       );
     // Not locked: FOR UPDATE would also apply the update policy, which hides a decided suggestion. The claim
     // below matches only a pending row, and losing it rolls the whole accept back.
-    if (!s) throw HfosError.notFound('Suggestion not found.');
-    const decided = () =>
-      HfosError.conflict('This suggestion was already decided.', 'suggestion_decided');
+    if (!s) throw HfosError.notFound(SUGGESTION_GONE);
+    const decided = suggestionDecided;
     if (s.status !== 'pending') throw decided();
     const proposed = proposedOf(s);
     const edits = input.edits ?? {};
@@ -863,9 +896,8 @@ export const knowledgeSuggestionReject = defineCommand({
           eq(knowledgeSuggestions.workspaceId, ws),
         ),
       );
-    if (!s) throw HfosError.notFound('Suggestion not found.');
-    const decided = () =>
-      HfosError.conflict('This suggestion was already decided.', 'suggestion_decided');
+    if (!s) throw HfosError.notFound(SUGGESTION_GONE);
+    const decided = suggestionDecided;
     if (s.status !== 'pending') throw decided();
     const [claimed] = await ctx.tx
       .update(knowledgeSuggestions)

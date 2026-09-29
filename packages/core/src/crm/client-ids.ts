@@ -36,7 +36,7 @@ export async function madeBefore<N extends TableName>(
 export const idUnavailable = (): HfosError =>
   HfosError.validation(
     [{ path: 'id', message: 'That id can’t be used. Make a new one.' }],
-    'The app made an id for this that can’t be used.',
+    'This couldn’t be saved the way the app made it. Discard it and add it again.',
   );
 
 /** Runs the insert; an id already taken beyond this person's sight is refused as unusable. */

@@ -508,9 +508,17 @@ export const waitlistClaimOnline = defineCommand({
   actors: ['system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
-    const gone = () => HfosError.rule('offer_not_active', 409, 'This offer isn’t open anymore.');
+    const gone = () =>
+      HfosError.rule(
+        'offer_not_active',
+        409,
+        'This offer isn’t open anymore. You’re told when another time opens, or you can contact the business.',
+      );
     const e = await lockEntry(ctx.tx, ws, input.entryId);
-    if (!e) throw HfosError.notFound('This offer isn’t here anymore.');
+    if (!e)
+      throw HfosError.notFound(
+        'This offer isn’t there anymore. Contact the business to find another time.',
+      );
     const clientId = waitlistClientId(e.id);
     if (e.status === 'booked') {
       // Claimed already (a second tap, or a retry): the same booking.
@@ -543,7 +551,11 @@ export const waitlistClaimOnline = defineCommand({
     if (e.status !== 'offered' || !offer) throw gone();
     const until = e.offer_expires_at ? new Date(e.offer_expires_at).getTime() : 0;
     if (until <= (await dbNow(ctx.tx)))
-      throw HfosError.rule('offer_expired', 410, 'This offer ran out.');
+      throw HfosError.rule(
+        'offer_expired',
+        410,
+        'This offer ran out, so the time isn’t held for you anymore. Contact the business to find another time.',
+      );
     const person = await requirePerson(ctx.tx, ws, e.person_id);
     const booked = await appointmentBookOnline.handler(
       ctx,

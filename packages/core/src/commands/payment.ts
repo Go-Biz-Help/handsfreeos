@@ -57,7 +57,7 @@ async function requirePayment(ctx: CommandContext, paymentId: string): Promise<R
         -- edited), and the refund's own unique idempotency key is what stops a double-click.
         where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = ${paymentId}::uuid`,
   );
-  if (!row) throw HfosError.notFound('That payment isn’t there.');
+  if (!row) throw HfosError.notFound('That payment isn’t there anymore. Refresh and try again.');
   return row;
 }
 
@@ -86,7 +86,7 @@ async function connectionForRefund(
   throw HfosError.rule(
     'payment_connection_not_connected',
     409,
-    `That ${p.provider === 'square' ? 'Square' : 'Stripe'} account isn’t connected any more. Reconnect it and try again, or refund it at the provider.`,
+    `That ${p.provider === 'square' ? 'Square' : 'Stripe'} account isn’t connected anymore. Reconnect it in Settings → Payments and try again, or refund it at the provider.`,
   );
 }
 

@@ -68,7 +68,10 @@ export const assistantThreadGet = defineQuery({
           eq(assistantThreads.workspaceId, input.workspaceId),
         ),
       );
-    if (!thread) throw HfosError.notFound('Chat not found.');
+    if (!thread)
+      throw HfosError.notFound(
+        'That chat with the Assistant isn’t there anymore. It may have been deleted. Start a new one.',
+      );
     const messages = await ctx.tx
       .select({
         id: assistantMessages.id,

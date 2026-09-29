@@ -24,7 +24,10 @@ export const stageUpdate = defineCommand({
           eq(pipelineStages.workspaceId, ctx.scope.workspaceId!),
         ),
       );
-    if (!current) throw HfosError.notFound('Stage not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That stage isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const patch: { name?: string; kind?: 'open' | 'won' | 'lost' } = {};
     if (input.name !== undefined && input.name !== current.name) patch.name = input.name;
     if (input.kind !== undefined && input.kind !== current.kind) patch.kind = input.kind;

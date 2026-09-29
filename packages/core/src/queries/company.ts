@@ -139,7 +139,10 @@ export const companyGet = defineQuery({
       .select()
       .from(companies)
       .where(and(eq(companies.id, input.companyId), eq(companies.workspaceId, input.workspaceId)));
-    if (!c) throw HfosError.notFound('Company not found.');
+    if (!c)
+      throw HfosError.notFound(
+        'That company isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const [counts] = await rows<{ people_count: number; open_leads: number }>(
       ctx.tx,
       sql`select (select count(*) from app.people p where p.company_id = ${c.id} and p.archived_at is null)::int as people_count,

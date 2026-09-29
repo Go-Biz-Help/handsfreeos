@@ -22,7 +22,10 @@ export const stageDelete = defineCommand({
       .where(
         and(eq(pipelineStages.id, input.stageId), eq(pipelineStages.workspaceId, workspaceId)),
       );
-    if (!stage) throw HfosError.notFound('Stage not found.');
+    if (!stage)
+      throw HfosError.notFound(
+        'That stage isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const [inStage] = await ctx.tx
       .select({ n: count() })
       .from(leads)
@@ -31,7 +34,11 @@ export const stageDelete = defineCommand({
     let moved = 0;
     if (leadCount > 0) {
       if (!input.moveLeadsToStageId)
-        throw HfosError.rule('stage_has_leads', 409, 'Pick a stage to move the leads to first.');
+        throw HfosError.rule(
+          'stage_has_leads',
+          409,
+          `${stage.name} still has ${leadCount === 1 ? 'a lead' : `${leadCount} leads`} in it. Refresh, pick another ${stage.kind} stage under Move the leads to, and delete it again.`,
+        );
       const [target] = await ctx.tx
         .select()
         .from(pipelineStages)
@@ -41,7 +48,10 @@ export const stageDelete = defineCommand({
             eq(pipelineStages.pipelineId, stage.pipelineId),
           ),
         );
-      if (!target || target.id === stage.id) throw HfosError.notFound('Target stage not found.');
+      if (!target || target.id === stage.id)
+        throw HfosError.notFound(
+          'The stage you picked for the leads isn’t there anymore. Refresh and pick another stage.',
+        );
       if (target.kind !== stage.kind)
         throw HfosError.validation([
           {

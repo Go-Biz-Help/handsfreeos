@@ -83,7 +83,8 @@ const joinAnd = (items: readonly string[]) =>
 const straight = (s: string | undefined) => s?.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
 /** Somebody else's words, marked so the model reads them as what they wrote and nothing more. */
 const theirs = (text: string) => ({ someone_wrote: text });
-const nothingChanges = () => HfosError.validation([], 'Nothing would change.');
+/** "Nothing would change.", and why, so the model can tell the person what already matches. */
+const nothingChanges = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
 
 /** A settings document that doesn't pass its schema, as the field errors a person would see on the screen. */
 function invalid(e: unknown, message: string): unknown {
@@ -239,7 +240,7 @@ function whoHears(
       if (!userIds?.length)
         throw HfosError.validation(
           [{ path: `${what}UserIds`, message: 'Pick someone.' }],
-          'Say who: their ids from list_team.',
+          `Say who hears about it: give their user ids from list_team in ${what}UserIds.`,
         );
       return { kind: 'users', userIds };
   }
@@ -475,7 +476,7 @@ const updateAiTeammateRules: SettingsConfirmTool = {
     const { teammate, catalogs } = await requireTeammate(db, ctx);
     const next = nextRules(teammate.config, args, catalogs);
     const fields = ruleFields(teammate.config, next, catalogs);
-    if (!fields.length) throw nothingChanges();
+    if (!fields.length) throw nothingChanges(`${teammate.name}’s rules are already set that way.`);
     return {
       card: settingsCard(toolCallId, 'update_ai_teammate_rules', {
         title: `Change ${teammate.name}’s rules`,
@@ -635,7 +636,7 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
   if (both.length)
     throw HfosError.validation(
       both.map((id) => ({ path: 'turnOn', message: `${automationDef(id).label}: on or off?` })),
-      'Pick on or off for each automation, not both.',
+      `${joinAnd(both.map((id) => automationDef(id).label))} ${both.length === 1 ? 'is' : 'are'} in both turnOn and turnOff. Turn each automation on or off, not both.`,
     );
   let at = state.ctx;
   const stores = new Set<AutomationPatch['store']>();
@@ -685,16 +686,20 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
         continue;
       }
       if (def.binding.store === 'teammate' && !state.teammate) {
-        blocked.push(`${def.label} is the AI teammate’s, and there isn’t one yet.`);
+        blocked.push(
+          `${def.label} is the AI teammate’s, and there isn’t one yet. Set one up under AI teammate first.`,
+        );
         continue;
       }
       if (def.binding.store === 'teammate' && !state.canManageTeammate) {
-        blocked.push(`${def.label} is the AI teammate’s: only people who manage it can switch it.`);
+        blocked.push(
+          `${def.label} is the AI teammate’s: only people who can run the AI teammate can switch it. Ask an owner or admin.`,
+        );
         continue;
       }
       const patch = automationPatch(id, on, at);
       if (!patch) {
-        blocked.push(`${def.label} can’t be switched here.`);
+        blocked.push(`${def.label} can’t be switched here. Switch it in Settings → Automations.`);
         continue;
       }
       at = withPatch(at, patch);
@@ -794,12 +799,16 @@ function automationWarnings(plan: AutomationPlan, training: boolean): Warning[] 
   return out.slice(0, 3);
 }
 
+const REENGAGE_ON_SCREEN =
+  'Re-engaging dead leads turns on only from Settings → Automations, where its message is read first.';
+
 const updateAutomations: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const state = await automationState(db, ctx);
     const plan = planAutomations(state, args);
     const stopped = plan.reviewFirst || plan.blocked.length > 0;
-    if (!plan.fields.length && !stopped) throw nothingChanges();
+    if (!plan.fields.length && !stopped)
+      throw nothingChanges('Those automations are already set that way.');
     return {
       card: settingsCard(toolCallId, 'update_automations', {
         title: 'Change your automations',
@@ -810,14 +819,7 @@ const updateAutomations: SettingsConfirmTool = {
       result: stopped
         ? {
             blocked: true,
-            why: [
-              ...(plan.reviewFirst
-                ? [
-                    'Re-engaging dead leads turns on only from Settings → Automations, where its message is read first.',
-                  ]
-                : []),
-              ...plan.blocked,
-            ].join(' '),
+            why: [...(plan.reviewFirst ? [REENGAGE_ON_SCREEN] : []), ...plan.blocked].join(' '),
           }
         : { waiting: true, changes: plan.fields.map((f) => `${f.label}: ${f.value}`) },
     };
@@ -828,7 +830,7 @@ const updateAutomations: SettingsConfirmTool = {
     const plan = planAutomations(state, args);
     if (plan.reviewFirst || plan.blocked.length)
       throw HfosError.conflict(
-        'Part of this can only be done on Settings → Automations. Nothing was changed.',
+        `${[...(plan.reviewFirst ? [REENGAGE_ON_SCREEN] : []), ...plan.blocked].join(' ')} Nothing was changed.`,
         'automation_blocked',
       );
     const ran: string[] = [];
@@ -848,7 +850,7 @@ const updateAutomations: SettingsConfirmTool = {
       });
       ran.push('ai_teammate.save_config');
     }
-    if (!ran.length) throw nothingChanges();
+    if (!ran.length) throw nothingChanges('Those automations are already set that way.');
     return {
       outcome: 'Saved',
       href: `/app/w/${ctx.workspaceId}/settings/automations`,
@@ -880,7 +882,7 @@ function nextPush(now: PushSwitches, args: Args): PushSwitches {
   if (both.length)
     throw HfosError.validation(
       both.map((k) => ({ path: 'turnOn', message: `${PUSH_LABELS[k]}: on or off?` })),
-      'Pick on or off for each alert, not both.',
+      `${joinAnd(both.map((k) => PUSH_LABELS[k]))} ${both.length === 1 ? 'is' : 'are'} in both turnOn and turnOff. Turn each alert on or off, not both.`,
     );
   const next = { ...now };
   for (const k of on) next[k] = true;
@@ -905,7 +907,7 @@ const updateMyAlerts: SettingsConfirmTool = {
     const digestWas = notificationsOf(me.user.settings)['agencyDigest'] !== false;
     if (digest !== undefined && digest !== digestWas)
       fields.push({ label: 'Email: Daily agency digest', value: digest ? 'Yes' : 'No' });
-    if (!fields.length) throw nothingChanges();
+    if (!fields.length) throw nothingChanges('Your alerts are already set that way.');
     const warnings: Warning[] = [];
     if (pushChanged && Object.values(next).some(Boolean)) {
       const phones = await query<{ devices: unknown[] }>(db, ctx, 'push_device.list').catch(
@@ -945,7 +947,8 @@ const updateMyAlerts: SettingsConfirmTool = {
         ? {}
         : { notifications: { ...notificationsOf(me.user.settings), agencyDigest: digest } }),
     };
-    if (!Object.keys(settings).length) throw nothingChanges();
+    if (!Object.keys(settings).length)
+      throw nothingChanges('Your alerts are already set that way.');
     await command(db, ctx, 'user.update_profile', { settings });
     return {
       outcome: 'Saved',
@@ -984,7 +987,10 @@ function nextMenu(menu: Menu, args: Args): { next: Menu; refused: MenuKey[]; pla
   if (act === 'start_over') return { next: DEFAULT_MENU, refused: [], places: [] };
   const places = [...new Set(list<MenuKey>(args['places']) ?? [])];
   if (!places.length)
-    throw HfosError.validation([{ path: 'places', message: 'Say which places.' }]);
+    throw HfosError.validation(
+      [{ path: 'places', message: 'Say which places.' }],
+      `Say which places to ${act}: give them in places.`,
+    );
   let next = menu;
   const refused: MenuKey[] = [];
   for (const key of places) {
@@ -1002,7 +1008,8 @@ const arrangeMyMenu: SettingsConfirmTool = {
     const menu = menuOf(me.user.settings);
     const { next, refused, places } = nextMenu(menu, args);
     const act = action(args);
-    if (!refused.length && sameMenu(menu, next)) throw nothingChanges();
+    if (!refused.length && sameMenu(menu, next))
+      throw nothingChanges('Your side menu already looks like that.');
     const moved = places.filter((k) => !refused.includes(k));
     const more = SUGGESTED_MENU.entries.find((e) => e.kind === 'group');
     const fields: Field[] =
@@ -1062,7 +1069,7 @@ const arrangeMyMenu: SettingsConfirmTool = {
       const menu = menuOf(me.user.settings);
       const { next, refused } = nextMenu(menu, args);
       if (refused.length) throw HfosError.validation([], alwaysShown(refused));
-      if (sameMenu(menu, next)) throw nothingChanges();
+      if (sameMenu(menu, next)) throw nothingChanges('Your side menu already looks like that.');
       try {
         await command(db, ctx, 'user.update_profile', {
           settings: { menu: storedMenu(next) },
@@ -1201,7 +1208,7 @@ const manageIdea: SettingsConfirmTool = {
       if (!title)
         throw HfosError.validation(
           [{ path: 'title', message: IDEAS_WORDS.needsTitle }],
-          IDEAS_WORDS.needsTitle,
+          'The idea needs a title. Give a few words in title.',
         );
       const areaId = str(args['areaId']) ?? 'other';
       const [areas, similar] = await Promise.all([
@@ -1217,7 +1224,7 @@ const manageIdea: SettingsConfirmTool = {
       if (areas && !area)
         throw HfosError.validation(
           [{ path: 'areaId', message: IDEAS_WORDS.needsArea }],
-          `${IDEAS_WORDS.needsArea} Use one of the areas find_ideas gives.`,
+          `“${areaId}” isn’t one of the areas an idea can be about. Use one of the areas find_ideas gives.`,
         );
       const alike = (similar?.ideas ?? []).slice(0, 2);
       const details = str(args['details']);
@@ -1292,12 +1299,15 @@ const manageIdea: SettingsConfirmTool = {
         const stop = merged();
         if (stop) throw stop;
         if (!idea.votingOpen)
-          throw HfosError.conflict(IDEAS_WORDS.votingClosed, 'idea_voting_closed');
-        if (idea.voted) throw nothingChanges();
+          throw HfosError.conflict(
+            `Voting has closed on ${name}, so it can’t take a vote now.`,
+            'idea_voting_closed',
+          );
+        if (idea.voted) throw nothingChanges(`You’ve already voted for ${name}.`);
         return card(`Vote for ${name}?`, 'Vote for it', [votes], IDEAS_WORDS.followOn);
       }
       case 'unvote':
-        if (!idea.voted) throw nothingChanges();
+        if (!idea.voted) throw nothingChanges(`You haven’t voted for ${name}.`);
         return card(`Take back your vote for ${name}?`, 'Take it back', [votes]);
       case 'comment': {
         const stop = merged();
@@ -1306,7 +1316,7 @@ const manageIdea: SettingsConfirmTool = {
         if (!body)
           throw HfosError.validation(
             [{ path: 'comment', message: 'Write something first.' }],
-            'Write the comment first.',
+            'The comment is empty. Put its words in comment.',
           );
         return card(
           `Comment on ${name}?`,
@@ -1318,13 +1328,19 @@ const manageIdea: SettingsConfirmTool = {
       case 'follow':
       case 'unfollow': {
         const follow = act === 'follow';
-        if (idea.following === follow) throw nothingChanges();
+        if (idea.following === follow)
+          throw nothingChanges(
+            follow ? `You already follow ${name}.` : `You don’t follow ${name}.`,
+          );
         return follow
           ? card(`Email you updates about ${name}?`, 'Follow it', [], IDEAS_WORDS.followDetail)
           : card(`Stop the emails about ${name}?`, 'Stop them', []);
       }
       default:
-        throw HfosError.validation([{ path: 'action', message: 'Unknown action.' }]);
+        throw HfosError.validation(
+          [{ path: 'action', message: 'Unknown action.' }],
+          `manage_idea can’t ${act || 'do that'}. Use share, vote, unvote, comment, follow or unfollow as action.`,
+        );
     }
   },
 
@@ -1411,7 +1427,10 @@ const contactSupport: SettingsConfirmTool = {
 
   async commit(db, ctx, args) {
     if (hasSecret(args))
-      throw HfosError.validation([], 'Take out the password, card number or key first.');
+      throw HfosError.validation(
+        [],
+        'A support message can’t carry a password, card number or key. Take out the one in this message, then ask again.',
+      );
     const out = await command<{ ticketId: string; number: number }>(
       db,
       ctx,
@@ -1456,7 +1475,7 @@ const addBusiness: SettingsConfirmTool = {
     if (!isValidTimeZone(timezone))
       throw HfosError.validation(
         [{ path: 'timezone', message: 'Unknown time zone.' }],
-        'Unknown time zone. Use one like America/Chicago.',
+        `“${timezone}” isn’t a time zone. Use one like America/Chicago.`,
       );
     const mine = args['whoRunsIt'] === 'me';
     const twin = businesses.find((w) => w.name.toLowerCase() === name.toLowerCase());
@@ -1630,10 +1649,14 @@ const pushToClientBusinesses: SettingsConfirmTool = {
         );
       const got = await templateOf(db, ctx, args['templateId']);
       const t = got.template;
-      if (t.archivedAt) throw HfosError.conflict('This template is archived.', 'template_archived');
+      if (t.archivedAt)
+        throw HfosError.conflict(
+          `“${t.name}” is archived, so it can’t be pushed anymore. Pick another template from get_agency_area.`,
+          'template_archived',
+        );
       if (t.latestVersion === null)
         throw HfosError.conflict(
-          'Publish the template before pushing it: Agency area → Templates.',
+          `“${t.name}” hasn’t been published yet, so there’s nothing to push. Publish it in Agency area → Templates first.`,
           'template_not_published',
         );
       const installOf = (id: string) => got.installs.find((i) => i.workspaceId === id);
@@ -1684,9 +1707,18 @@ const pushToClientBusinesses: SettingsConfirmTool = {
       includeArchived: true,
     });
     const pack = items.find((p) => p.id === args['packId']);
-    if (!pack) throw HfosError.notFound('Pack not found. Its id comes from get_agency_area.');
-    if (pack.archivedAt) throw HfosError.conflict('This pack is archived.', 'pack_archived');
-    if (!pack.items.length) throw HfosError.conflict('Add items to the pack first.', 'pack_empty');
+    if (!pack)
+      throw HfosError.notFound('No knowledge pack has that id. Its id comes from get_agency_area.');
+    if (pack.archivedAt)
+      throw HfosError.conflict(
+        `“${pack.name}” is archived, so it can’t be pushed. Restore it in Agency area → Knowledge packs first.`,
+        'pack_archived',
+      );
+    if (!pack.items.length)
+      throw HfosError.conflict(
+        `“${pack.name}” has nothing in it yet, so there’s nothing to push. Add items to it in Agency area → Knowledge packs first.`,
+        'pack_empty',
+      );
     return {
       card: settingsCard(toolCallId, 'push_to_client_businesses', {
         title: title(pack.name),
