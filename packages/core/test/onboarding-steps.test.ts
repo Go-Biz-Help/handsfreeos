@@ -6,6 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   businessOnboardingOf,
+  laterOrder,
+  previewDetail,
+  QUESTION_WORDS,
   ONBOARDING_WORDS,
   onboardingProgress,
   personalOnboardingOf,
@@ -374,5 +377,28 @@ describe('what’s kept', () => {
       tourDoneAt: '2026-09-29T10:00:00.000Z',
       skipped: { sign_in: '2026-09-29T10:00:00.000Z' },
     });
+  });
+});
+
+describe('the quick questions', () => {
+  it('shows the order while it’s still being answered', () => {
+    expect(laterOrder({ teamSize: 'solo' })).toEqual(['payments', 'email_chat', 'app', 'sign_in']);
+    expect(laterOrder({ goal: 'paid' })).toEqual(['team', 'email_chat', 'app', 'sign_in']);
+    expect(laterOrder(null)).toEqual(['team', 'payments', 'email_chat', 'app', 'sign_in']);
+  });
+
+  it('says how the customers come in, from the answer', () => {
+    expect(previewDetail('customers', { customersIn: 'ghl' })).toBe(
+      'Move them from GoHighLevel; nothing there changes',
+    );
+    expect(previewDetail('customers', { customersIn: 'sheet' })).toBe('Import your spreadsheet');
+    expect(previewDetail('customers')).toBe('Add them as they come in');
+    expect(previewDetail('number')).toBe('Pick a number, and send your details to the carriers');
+  });
+
+  it('has a label for every answer', () => {
+    expect(Object.keys(QUESTION_WORDS.goals)).toEqual(['leads', 'booked', 'paid', 'organized']);
+    expect(Object.keys(QUESTION_WORDS.sources)).toEqual(['sheet', 'ghl', 'crm', 'phone', 'none']);
+    expect(Object.keys(QUESTION_WORDS.teams)).toEqual(['solo', 'small', 'big']);
   });
 });

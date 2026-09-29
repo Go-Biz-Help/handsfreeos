@@ -6,8 +6,9 @@ first customer arrives. This plan replaces it with a guide: four quick questions
 through the few things every business needs, a checklist on Home for the rest, and a short tour of the menu.
 Teammates get a short list of their own, and an agency sees where every client business has got to.
 
-> **Status: steps 1 and 2 of §11 are built**: the core (the catalogue, `onboarding.status`, the commands, the
-> words and their tests), and Getting started on Home with skip, hide, the phone app's links and Get help. The screens are in `design/onboarding` (twelve boards, most clickable
+> **Status: steps 1 to 3 of §11 are built**: the core (the catalogue, `onboarding.status`, the commands, the words
+> and their tests), Getting started on Home with skip, hide, the phone app's links and Get help, and the quick
+> questions after Create business. The screens are in `design/onboarding` (twelve boards, most clickable
 > in Play). Read them with this plan.
 
 ---
@@ -208,9 +209,14 @@ The boards in `design/onboarding` show each one.
 
 **Web**
 
-- **Create business** (board: none, unchanged apart from "Step 1 of 3").
-- **The quick questions** (board 1): `/onboarding/questions`, "Step 2 of 3". Chips, one website field, and a live
-  "Your setup, in this order" panel. Skip these questions keeps the default order.
+- **Create business** (board: none, unchanged apart from "Step 1 of 2"; "of 3" once the wizard follows the
+  questions).
+- **The quick questions** (board 1): `/onboarding/[workspaceId]/questions`, "Step 2 of 2", straight after Create
+  business. Chips, one website field (typed without the https://, or "We don't have one"), and a live "Your setup,
+  in this order" panel. Continue saves them with `onboarding.save_answers` and goes to Home (the wizard, once it
+  exists); Skip these questions goes to Home in the default order. A business that never answered them gets
+  "Answer 4 quick questions to put these in order" on its card, which opens the same page with `?from=guide`.
+  Someone without `workspace.update` is sent to Home.
 - **The wizard** (boards 2 to 5b): `/app/w/[workspaceId]/setup/[step]`. A rail of the must-dos in their order, with
   the optional steps listed underneath as "Later, from your checklist"; Back, Skip for now, and one primary button.
   Finish later goes to Home. Each step **mounts the existing component** rather than rebuilding it. Most need a
@@ -320,7 +326,7 @@ Each step ships alone and leaves the tree green.
 1. ✅ **Core**: the catalogue, `onboarding.status`, the commands, the words, and their tests. `pnpm openapi`.
 2. ✅ **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card,
    for new and existing businesses. The phone app links sheet. The e2e specs move with it.
-3. **The quick questions** after Create business, and the order they set.
+3. ✅ **The quick questions** after Create business, and the order they set.
 4. **The wizard**, one step at a time: `number` (with `NumberStep` exported), `ai`, `customers` (with the way back
    from a migration), `calendar`, then `payments` (with the worker's `returnTo`).
 5. **The tour.**

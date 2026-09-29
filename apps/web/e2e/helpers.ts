@@ -80,7 +80,7 @@ export async function signUpAndConfirm(
 
 export async function createBusiness(
   page: Page,
-  opts: { name: string; agencyName?: string },
+  opts: { name: string; agencyName?: string; answerQuestions?: boolean },
 ): Promise<string> {
   await expect(page).toHaveURL(/\/onboarding/);
   await page.getByLabel('Business name').fill(opts.name);
@@ -89,6 +89,10 @@ export async function createBusiness(
     await page.getByLabel('Agency name').fill(opts.agencyName);
   }
   await page.getByRole('button', { name: 'Create business' }).click();
+  // The quick questions come next (getting-started.spec.ts answers them); everything else skips them.
+  await expect(page).toHaveURL(/\/onboarding\/[0-9a-f-]{36}\/questions$/);
+  if (opts.answerQuestions) return /\/onboarding\/([0-9a-f-]{36})/.exec(page.url())![1]!;
+  await page.getByTestId('questions-skip').click();
   await expect(page).toHaveURL(/\/app\/w\/[0-9a-f-]{36}$/);
   return /\/app\/w\/([0-9a-f-]{36})/.exec(page.url())![1]!;
 }

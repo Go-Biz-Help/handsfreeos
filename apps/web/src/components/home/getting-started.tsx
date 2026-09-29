@@ -8,6 +8,7 @@ import {
   stepWords,
 } from '@hfos/core';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -164,6 +165,15 @@ function Steps({
       {business ? null : (
         <p className="mt-1 px-1 text-[13px] text-text-2">{GUIDE_WORDS.teammateIntro}</p>
       )}
+      {business && !status.answers ? (
+        <Link
+          href={`/onboarding/${workspaceId}/questions?from=guide`}
+          className="mt-1 inline-block px-1 text-[13px] font-medium text-accent-text hover:underline"
+          data-testid="getting-started-questions"
+        >
+          {GUIDE_WORDS.answerQuestions}
+        </Link>
+      ) : null}
       <div
         className="mx-1 mb-3 mt-3 h-1.5 overflow-hidden rounded-full bg-card-2"
         role="progressbar"

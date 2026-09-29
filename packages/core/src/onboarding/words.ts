@@ -358,4 +358,78 @@ export const GUIDE_WORDS = {
   appAndroidNote:
     'If Google Play says the app isn’t available, ask us to add your Google account to the testers.',
   appNotificationsNote: 'Notifications are turned on in the app itself, on your phone.',
+  /** On the card, for a business that never answered the quick questions. */
+  answerQuestions: 'Answer 4 quick questions to put these in order',
 } as const;
+
+/** The quick questions after Create business (board 1 in design/onboarding). */
+export const QUESTION_WORDS = {
+  title: 'A few quick questions',
+  intro: 'Your answers put your setup in the right order. You can change any of them later.',
+  goal: 'What do you want help with first?',
+  goals: {
+    leads: 'Answering leads fast',
+    booked: 'Getting booked',
+    paid: 'Getting paid',
+    organized: 'Getting organized',
+  },
+  customersIn: 'Where are your customers now?',
+  sources: {
+    sheet: 'A spreadsheet',
+    ghl: 'GoHighLevel',
+    crm: 'Another CRM',
+    phone: 'My phone’s contacts',
+    none: 'Nowhere yet',
+  },
+  website: 'What’s your website?',
+  websiteHint: 'Your AI teammate reads it to learn your services, prices and hours.',
+  noWebsite: 'We don’t have one',
+  noWebsiteHint: 'That’s fine. You can tell your AI teammate about the business yourself.',
+  teamSize: 'How many people work with you?',
+  teams: { solo: 'Just me', small: '2 to 5', big: '6 or more' },
+  preview: 'Your setup, in this order',
+  previewLater: 'Then, when you’re ready',
+  numberFirst:
+    'Your business number goes first because phone carriers take a few days to approve texting. You can do everything else while you wait.',
+  skip: 'Skip these questions',
+  continue: 'Continue',
+  unanswered:
+    'Pick an answer for each question with choices, or press Skip these questions to set up in the usual order.',
+} as const satisfies {
+  goals: Record<OnboardingAnswers['goal'], string>;
+  sources: Record<OnboardingAnswers['customersIn'], string>;
+  teams: Record<OnboardingAnswers['teamSize'], string>;
+  [key: string]: unknown;
+};
+
+/** One line under each must-do in the quick questions' preview, from the answers so far. */
+export function previewDetail(
+  key: OnboardingStepKey,
+  answers: Partial<OnboardingAnswers> | null = null,
+): string {
+  switch (key) {
+    case 'number':
+      return 'Pick a number, and send your details to the carriers';
+    case 'payments':
+      return 'Stripe or Square, for estimates, invoices and deposits';
+    case 'customers':
+      switch (answers?.customersIn) {
+        case 'ghl':
+          return 'Move them from GoHighLevel; nothing there changes';
+        case 'sheet':
+          return 'Import your spreadsheet';
+        case 'crm':
+          return 'Export a spreadsheet from your old CRM, then import it';
+        case 'phone':
+          return 'Add them one at a time, or a spreadsheet later';
+        default:
+          return 'Add them as they come in';
+      }
+    case 'calendar':
+      return 'Your services, hours and booking link';
+    case 'ai':
+      return 'It learns about your business from your website';
+    default:
+      return stepTitle(key);
+  }
+}

@@ -49,7 +49,8 @@ export function OnboardingForm() {
           },
         }),
       );
-      router.replace(`/app/w/${out.workspaceId}`);
+      // Then the quick questions, which put the business's setup in order.
+      router.replace(`/onboarding/${out.workspaceId}/questions`);
       router.refresh();
     } catch (err) {
       setBusy(false);

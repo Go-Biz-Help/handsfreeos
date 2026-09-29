@@ -210,9 +210,12 @@ export function mustDoOrder(goal: OnboardingGoal | null | undefined): readonly B
   }
 }
 
-/** "When you're ready", for someone who sets the business up. Just me hides Invite your team. */
+/**
+ * "When you're ready", for someone who sets the business up. Just me hides Invite your team. Takes answers still
+ * being given, so the quick questions can show the order as they're answered.
+ */
 export function laterOrder(
-  answers: OnboardingAnswers | null | undefined,
+  answers: Partial<OnboardingAnswers> | null | undefined,
 ): readonly OnboardingStepKey[] {
   const out: OnboardingStepKey[] = [];
   if (answers?.teamSize !== 'solo') out.push('team');
