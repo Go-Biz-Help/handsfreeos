@@ -286,6 +286,12 @@ The boards in `design/onboarding` show each one.
   sync streams: it's small, needs signal to act on anyway, and a change to `apps/sync/sync-config.yaml` makes every
   phone copy everything again.
 - The notifications row is answered on the phone itself, from the phone's own permission.
+- Built as `components/onboarding/getting-started-card.tsx` at the top of Home, with `onboarding/use-getting-started.ts`
+  asking only with signal and telling `onboarding.status` what only the phone knows (it's the app; notifications
+  allowed or not; a Google sign-in). The phone does two steps itself, the app and notifications; every other step's
+  button is "Email me a link", since the phone has no screen for it yet (passkeys wait on the native module). The
+  tour of the bottom bar is `components/onboarding/phone-tour.tsx`, offered from the card: Home, Inbox, Pipeline and
+  Calendar.
 
 **Texting turned down after the guide is gone**
 
@@ -348,7 +354,7 @@ Each step ships alone and leaves the tree green.
    from a migration), `calendar`, then `payments` (with the way back from a sign-in).
 5. ✅ **The tour.**
 6. ✅ **Teammates**: the personal list on the web.
-7. **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
+7. ✅ **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
 8. **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
 9. **The `texting_rejected` card**, with its migration applied to the hosted database first.
 10. **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.

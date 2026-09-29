@@ -30,6 +30,7 @@ import { greeting } from '@/lib/greeting';
 import { useNetwork } from '@/lib/network';
 import { useHomeActions, type HomeSheet } from '@/home/actions';
 import { HomeTestTools } from '@/home/test-tools';
+import { GettingStartedCard } from '@/components/onboarding/getting-started-card';
 import {
   useClearedToday,
   useHome,
@@ -257,6 +258,8 @@ export default function Home() {
                 scope={data.scope}
                 onScope={setScope}
               />
+              {/* Getting started, until it's finished or hidden: above the list, as on the web. */}
+              <GettingStartedCard className="mx-3" />
               {home.waiting.length || refusedElsewhere.length ? (
                 <View className="px-3">
                   <WaitingChanges

@@ -331,6 +331,18 @@ export const ONBOARDING_WORDS = {
     `You’ve asked for ${count} links today, which is as many as we send. Open HandsFreeOS on your computer instead, or try again tomorrow.`,
 } as const;
 
+/** Getting started in the phone app, besides the words it shares with the web (boards 9 and 10). */
+export const PHONE_GUIDE_WORDS = {
+  /** The phone app step, on the phone. */
+  appDone: 'You’re using it now.',
+  /** Notifications turned off in the phone's own settings, where only the phone can turn them back on. */
+  notificationsOff:
+    'Notifications are off for HandsFreeOS in your phone’s settings. Turn them on there, then come back.',
+  openSettings: 'Open Settings',
+  needsSignal: 'That needs signal. Try again when you’re back online.',
+  tour: 'Take the 1-minute tour',
+} as const;
+
 /** "Email me a link": a step that's easier on a computer, sent to the person's email from the phone. */
 export const LINK_WORDS = {
   action: 'Email me a link',
