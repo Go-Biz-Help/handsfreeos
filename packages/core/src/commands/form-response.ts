@@ -125,7 +125,10 @@ async function openResponse(
     .select()
     .from(formVersions)
     .where(eq(formVersions.id, response.versionId));
-  if (!version) throw HfosError.internal('The version this was filled in on is missing.');
+  if (!version)
+    throw HfosError.internal(
+      'This form changed while it was being filled in. Refresh the page and try again.',
+    );
   const [form] = await ctx.tx.select().from(forms).where(eq(forms.id, response.formId));
   if (!form)
     throw HfosError.notFound(
@@ -216,7 +219,10 @@ export const formResponseStart = defineCommand({
         resumeExpiresAt: new Date(Date.now() + (canResume ? RESUME_DAYS : 1) * 86_400_000),
       })
       .returning({ id: formResponses.id });
-    if (!response) throw HfosError.internal('The answer sheet could not be started.');
+    if (!response)
+      throw HfosError.internal(
+        'The form couldn’t be started just now. Refresh the page and try again.',
+      );
     await ctx.tx.execute(
       sql`insert into app.form_days (workspace_id, form_id, day, starts)
           values (${ws}, ${row.id}, current_date, 1)
@@ -750,7 +756,10 @@ export const formResponseRecord = defineCommand({
         .select()
         .from(formVersions)
         .where(eq(formVersions.id, earlier.versionId));
-      if (!version) throw HfosError.internal('The version this was filled in on is missing.');
+      if (!version)
+        throw HfosError.internal(
+          'This form changed while it was being filled in. Refresh the page and try again.',
+        );
       const definition = parseStoredForm(version.definition);
       const answers = answersOf(earlier);
       const { score, calculations } = outcome(definition, answers);
@@ -798,7 +807,10 @@ export const formResponseRecord = defineCommand({
           })
           .returning({ id: formResponses.id }),
       );
-      if (!made) throw HfosError.internal('The answer sheet could not be started.');
+      if (!made)
+        throw HfosError.internal(
+          'The form couldn’t be started just now. Refresh the page and try again.',
+        );
       responseId = made.id;
     }
     return formResponseSubmit.handler(ctx, {

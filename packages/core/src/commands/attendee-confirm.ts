@@ -266,10 +266,18 @@ export const attendeeConfirmByCall = defineCommand({
     const appt = await requireAppointment(ctx.tx, ws, seat.appointmentId);
     if (seat.confirmedAt) return confirmation(appt, seat, false);
     if (seat.status === 'cancelled')
-      throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
+      throw HfosError.rule(
+        'booking_cancelled',
+        409,
+        'This booking was cancelled, so there’s nothing to confirm. Offer them a new time if they still want one.',
+      );
     requireScheduled(appt);
     if (appt.startsAt.getTime() <= Date.now())
-      throw HfosError.rule('appointment_started', 409, 'This appointment has already started.');
+      throw HfosError.rule(
+        'appointment_started',
+        409,
+        'This appointment has already started, so it can’t be confirmed now.',
+      );
     const [row] = await ctx.tx
       .update(appointmentAttendees)
       .set({ confirmedAt: new Date(), confirmedVia: 'ai', confirmedBy: null })

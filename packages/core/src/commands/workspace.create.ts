@@ -29,7 +29,8 @@ export const workspaceCreate = defineCommand({
         createdBy: requireHuman(ctx).userId,
       })
       .returning({ id: workspaces.id });
-    if (!ws) throw HfosError.internal('workspace insert returned no row');
+    if (!ws)
+      throw HfosError.internal('Your business couldn’t be set up just now. Try again in a minute.');
     /*
      * A business you run yourself puts you on it; one you set up for a client does not, and while
      * nobody is on it the organization's owners and admins hear about it instead. Either way the
@@ -44,7 +45,9 @@ export const workspaceCreate = defineCommand({
         sql`select private.add_workspace_owner(${ws.id})`,
       );
       if (!owner?.add_workspace_owner)
-        throw HfosError.internal('add_workspace_owner returned no membership');
+        throw HfosError.internal(
+          'Your business was made, but you weren’t added to it. Try again in a minute, or ask HandsFreeOS support.',
+        );
     }
     await ctx.emit({
       type: 'workspace.created',

@@ -55,7 +55,9 @@ export const workspaceDelete = defineCommand({
       sql`select private.request_workspace_deletion(${ws.id}) as requested_at`,
     );
     if (!marked?.requested_at)
-      throw HfosError.internal('request_workspace_deletion returned nothing');
+      throw HfosError.internal(
+        'The deletion couldn’t be started just now. Nothing was deleted. Try again in a minute.',
+      );
     return { workspaceId: ws.id, requestedAt: new Date(marked.requested_at).toISOString() };
   },
 });

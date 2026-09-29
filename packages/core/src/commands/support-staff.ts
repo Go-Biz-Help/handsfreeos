@@ -188,7 +188,10 @@ export const supportStaffAccept = defineCommand({
       staff_role: StaffRole | null;
       reason: string | null;
     }>(ctx.tx, sql`select * from private.accept_staff_invitation(${hashStaffToken(input.token)})`);
-    if (!row) throw HfosError.internal('accept_staff_invitation returned no row');
+    if (!row)
+      throw HfosError.internal(
+        'The invitation couldn’t be accepted just now. Try again in a minute, or ask a support admin for a new one.',
+      );
     if (!row.accepted) return { accepted: false, role: null, reason: row.reason };
     await ctx.emit({
       type: 'support_staff.joined',

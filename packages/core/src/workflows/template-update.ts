@@ -136,7 +136,10 @@ export async function planTemplateUpdate(
       ),
     );
   const latestDef = await templateVersionDefinition(tx, t.id, t.latestVersion);
-  if (!latestDef) throw HfosError.internal('The newest version of this template can’t be found.');
+  if (!latestDef)
+    throw HfosError.internal(
+      'The newest version of this template can’t be found. Try again in a minute.',
+    );
   const installedVersion = row.templateVersion ?? install?.installedVersion ?? null;
   const installedDef = installedVersion
     ? await templateVersionDefinition(tx, t.id, installedVersion)
