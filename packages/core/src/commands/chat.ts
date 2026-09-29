@@ -80,7 +80,10 @@ async function requireWidget(ctx: CommandContext, widgetId: string) {
     .select({ id: chatWidgets.id, pausedAt: chatWidgets.pausedAt, dailyCap: chatWidgets.dailyCap })
     .from(chatWidgets)
     .where(and(eq(chatWidgets.id, widgetId), eq(chatWidgets.workspaceId, ctx.scope.workspaceId!)));
-  if (!w) throw HfosError.notFound('Chat widget not found.');
+  if (!w)
+    throw HfosError.notFound(
+      'This chat isn’t available anymore. Refresh the page, or contact the business another way.',
+    );
   return w;
 }
 
@@ -186,7 +189,7 @@ export const chatVisitorRotateToken = defineCommand({
           where id = ${input.visitorId} and workspace_id = ${ctx.scope.workspaceId!}
           returning prev_token_expires_at as expires_at`,
     );
-    if (!r) throw HfosError.notFound('Chat visitor not found.');
+    if (!r) throw HfosError.notFound('This chat has ended. Refresh the page to start a new one.');
     return { visitorId: input.visitorId, previousExpiresAt: isoOf(r.expires_at) };
   },
 });
@@ -212,7 +215,7 @@ export const chatVisitorRecordSeen = defineCommand({
           where id = ${input.visitorId} and workspace_id = ${ctx.scope.workspaceId!}
           returning id`,
     );
-    if (!r) throw HfosError.notFound('Chat visitor not found.');
+    if (!r) throw HfosError.notFound('This chat has ended. Refresh the page to start a new one.');
     return { visitorId: r.id };
   },
 });
@@ -240,7 +243,7 @@ async function assertUnderDailyCap(
     throw HfosError.rule(
       'daily_cap',
       429,
-      'This chat is very busy right now. Please try again later, or give us a call.',
+      'This chat is very busy today. Try again tomorrow, or call or email the business instead.',
     );
 }
 
@@ -282,7 +285,7 @@ export const chatReceive = defineCommand({
       throw HfosError.rule(
         'widget_paused',
         409,
-        'This chat is paused right now. Please try again later.',
+        'This chat is paused right now. Try again later, or contact the business another way.',
       );
     const m = await workspaceMessaging(ctx.tx, ws);
     if (!visitor.conversationId)
@@ -420,14 +423,16 @@ export const chatMarkRead = defineCommand({
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const visitor = await loadVisitor(ctx.tx, ws, input.visitorId);
-    if (!visitor.conversationId) throw HfosError.notFound('Message not found.');
+    if (!visitor.conversationId)
+      throw HfosError.notFound('That message isn’t in this chat. Refresh the page and try again.');
     // Only their own chat: a message anywhere else is as good as missing.
     const [through] = await rows<{ id: string }>(
       ctx.tx,
       sql`select id from app.messages
           where id = ${input.throughMessageId} and conversation_id = ${visitor.conversationId}`,
     );
-    if (!through) throw HfosError.notFound('Message not found.');
+    if (!through)
+      throw HfosError.notFound('That message isn’t in this chat. Refresh the page and try again.');
     const marked = await rows<{ id: string }>(
       ctx.tx,
       sql`update app.messages set status = 'delivered', sent_at = coalesce(sent_at, now()),

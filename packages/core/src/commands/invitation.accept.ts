@@ -25,7 +25,10 @@ export const invitationAccept = defineCommand({
       inv_role: 'owner' | 'admin' | 'member';
       inv_email: string;
     }>(ctx.tx, sql`select * from private.accept_invitation(${hashInvitationToken(input.token)})`);
-    if (!row) throw HfosError.internal('accept_invitation returned no row');
+    if (!row)
+      throw HfosError.internal(
+        'We couldn’t accept this invitation just now. Open the link again in a minute.',
+      );
     const ids = { organizationId: row.org_id, workspaceId: row.ws_id };
     await ctx.emit({
       type: 'invitation.accepted',

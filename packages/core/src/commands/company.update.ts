@@ -45,7 +45,10 @@ export const companyUpdate = defineCommand({
         and(eq(companies.id, input.companyId), eq(companies.workspaceId, ctx.scope.workspaceId!)),
       )
       .for('update');
-    if (!current) throw HfosError.notFound('Company not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That company isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const seen: NonNullable<typeof input.base> = input.base ?? {};
     const address: NonNullable<typeof input.address> = input.address ?? {};
     const seenAddress: NonNullable<typeof seen.address> = seen.address ?? {};

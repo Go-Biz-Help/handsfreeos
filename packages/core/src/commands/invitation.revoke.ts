@@ -27,7 +27,10 @@ export const invitationRevoke = defineCommand({
         ),
       )
       .returning({ id: invitations.id, email: invitations.email, role: invitations.role });
-    if (!inv) throw HfosError.notFound('No pending invitation with that id.');
+    if (!inv)
+      throw HfosError.notFound(
+        'That invitation isn’t pending anymore, so there’s nothing to revoke. It may have been accepted or revoked already. Refresh to see where it stands.',
+      );
     await ctx.emit({
       type: 'invitation.revoked',
       entityType: 'invitation',

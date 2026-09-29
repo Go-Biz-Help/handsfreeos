@@ -55,7 +55,10 @@ export const inboxSetVisibility = defineCommand({
       .select({ settings: workspaces.settings })
       .from(workspaces)
       .where(eq(workspaces.id, ws));
-    if (!w) throw HfosError.notFound('Workspace not found.');
+    if (!w)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const stored = (w.settings ?? {}) as Record<string, unknown>;
     const inbox = (stored['inbox'] ?? {}) as Record<string, unknown>;
     const was = inbox['perPerson'] === true;
@@ -72,7 +75,7 @@ export const inboxSetVisibility = defineCommand({
       throw HfosError.rule(
         'inbox_repaint_too_large',
         409,
-        `This business has ${conversations.toLocaleString()} conversations, which is too many to change in one go. Ask HandsFreeOS to run it for you.`,
+        `This business has ${conversations.toLocaleString()} conversations, which is too many to change in one go. Nothing was changed. Ask HandsFreeOS support to make the change for you, through Get help in the sidebar.`,
       );
 
     const [row] = await ctx.tx

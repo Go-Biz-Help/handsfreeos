@@ -105,7 +105,7 @@ const nameOf = (row: InvoiceRow) => row.number ?? row.title ?? 'Invoice';
 /** What a second go at the same thing is told; `invoiceMoveProblem` says nothing about standing still. */
 const ALREADY: Readonly<Record<InvoiceStatus, string>> = {
   draft: 'That invoice is already a draft.',
-  sent: 'That invoice has already gone out. Void it and reissue to send it again.',
+  sent: 'That invoice has already gone out, and the customer has its link. To send a changed one, void it and make a new invoice.',
   partly_paid: 'That invoice is already partly paid.',
   paid: 'That invoice is already paid.',
   overdue: 'That invoice is already overdue.',
@@ -365,7 +365,11 @@ export async function sendInvoice(ctx: CommandContext, input: z.infer<typeof Inv
   assertMove(before, 'sent');
   const lines = (await linesFor(ctx.tx, 'invoice', [before.id])).get(before.id) ?? [];
   if (!lines.length)
-    throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
+    throw HfosError.rule(
+      'money_document_empty',
+      409,
+      'This invoice has no lines yet. Add at least one line before sending it.',
+    );
   const settings = await loadMoneySettings(ctx.tx, ws);
   const tz = await workspaceTimezone(ctx.tx, ws);
   const { number } = await allocateDocumentNumber(ctx.tx, ws, 'invoice', settings);
@@ -494,11 +498,23 @@ export const invoiceVoid = defineCommand({
 /** An invoice money can be taken against: out, not void, and something still owed. */
 function assertPayable(row: InvoiceRow): void {
   if (row.status === 'void')
-    throw HfosError.rule('invoice_voided', 409, 'That invoice was voided.');
+    throw HfosError.rule(
+      'invoice_voided',
+      409,
+      'That invoice was voided, so it can’t take a payment. Record the payment on a new invoice instead.',
+    );
   if (row.status === 'draft')
-    throw HfosError.rule('invoice_not_sent', 409, 'Send the invoice before taking payment on it.');
+    throw HfosError.rule(
+      'invoice_not_sent',
+      409,
+      'This invoice is still a draft. Send it before recording a payment on it.',
+    );
   if (Number(row.balance_cents) <= 0)
-    throw HfosError.rule('invoice_settled', 409, 'That invoice is already paid.');
+    throw HfosError.rule(
+      'invoice_settled',
+      409,
+      'That invoice is already paid in full, so there’s nothing left to record.',
+    );
 }
 
 export const invoiceRecordCashPayment = defineCommand({
@@ -761,7 +777,10 @@ export const invoiceRecordView = defineCommand({
           set first_viewed_at = coalesce(first_viewed_at, now()), last_viewed_at = now()
           where id = ${before.id} returning first_viewed_at, last_viewed_at`,
     );
-    if (!row) throw HfosError.notFound('That invoice isn’t there.');
+    if (!row)
+      throw HfosError.notFound(
+        'This invoice isn’t available anymore. Ask the business for a new link.',
+      );
     if (first)
       await ctx.emit({
         type: 'invoice.viewed',

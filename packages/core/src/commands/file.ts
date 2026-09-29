@@ -20,6 +20,15 @@ import {
 } from '../schemas/file';
 import { scopeCan } from '../kernel/execute';
 
+const RECORD_WORDS = {
+  person: 'customer',
+  company: 'company',
+  lead: 'lead',
+  custom_record: 'record',
+} as const;
+
+const fileGone = 'That file isn’t there anymore. It may have been deleted. Refresh and try again.';
+
 async function requireRecord(
   ctx: CommandContext,
   recordType: 'person' | 'company' | 'lead' | 'custom_record',
@@ -37,7 +46,10 @@ async function requireRecord(
     .select({ id: table.id })
     .from(table)
     .where(and(eq(table.id, recordId), eq(table.workspaceId, ctx.scope.workspaceId!)));
-  if (!row) throw HfosError.notFound('Record not found.');
+  if (!row)
+    throw HfosError.notFound(
+      `That ${RECORD_WORDS[recordType]} isn’t there anymore. It may have been deleted. Refresh and try again.`,
+    );
 }
 
 /**
@@ -50,11 +62,13 @@ async function requireRecord(
 const BUSINESS_OWN = {
   knowledge: {
     permission: 'knowledge.manage',
-    refusal: 'Only owners and admins can change knowledge base files.',
+    refusal:
+      'Only owners and admins of this business can change knowledge base files. Ask one of them.',
   },
   port: {
     permission: 'channels.manage',
-    refusal: 'Only owners and admins can change the papers for moving a number.',
+    refusal:
+      'Only owners and admins of this business can change the papers for moving a number. Ask one of them.',
   },
 } as const;
 
@@ -84,7 +98,10 @@ export const fileBeginUpload = defineCommand({
     const earlier = await madeBefore(ctx.tx, 'files', input.id, workspaceId);
     if (earlier && !earlier.deletedAt && earlier.recordType !== 'knowledge')
       return { fileId: earlier.id, bucket: earlier.bucket, objectPath: earlier.objectPath };
-    if (earlier) throw HfosError.notFound('File not found.');
+    if (earlier)
+      throw HfosError.notFound(
+        'That file isn’t there anymore. It may have been removed. Pick the file again to add it.',
+      );
     await requireRecord(ctx, input.recordType, input.recordId);
     const fileId = input.id ?? randomUUID();
     const objectPath = `${workspaceId}/${input.recordType}/${input.recordId}/${fileId}/${safeFileName(input.name)}`;
@@ -127,7 +144,7 @@ export const fileConfirm = defineCommand({
       .select()
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
-    if (!current || current.deletedAt) throw HfosError.notFound('File not found.');
+    if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
     const ownFile = businessOwn(current.recordType);
     if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
     if (current.status === 'ready')
@@ -137,13 +154,19 @@ export const fileConfirm = defineCommand({
         mimeType: current.mimeType ?? 'application/octet-stream',
       };
     if (current.createdBy !== requireHuman(ctx).userId)
-      throw HfosError.forbidden('Only the uploader can confirm a file.');
+      throw HfosError.forbidden(
+        'Only the person who uploaded this file can finish adding it. Add the file again yourself if you need it here.',
+      );
     const [info] = await rows<{ size_bytes: number | null; mime_type: string | null }>(
       ctx.tx,
       sql`select size_bytes, mime_type from private.storage_object_info(${current.bucket}, ${current.objectPath})`,
     );
     if (!info)
-      throw HfosError.rule('file_not_uploaded', 409, 'The file has not finished uploading.');
+      throw HfosError.rule(
+        'file_not_uploaded',
+        409,
+        `${current.name} didn’t finish uploading. Check your connection and add it again.`,
+      );
     const sizeBytes = Number(info.size_bytes ?? current.sizeBytes ?? 0);
     const mimeType = info.mime_type ?? current.mimeType ?? 'application/octet-stream';
     await ctx.tx
@@ -190,7 +213,7 @@ export const fileDelete = defineCommand({
       .select()
       .from(files)
       .where(and(eq(files.id, input.fileId), eq(files.workspaceId, ctx.scope.workspaceId!)));
-    if (!current || current.deletedAt) throw HfosError.notFound('File not found.');
+    if (!current || current.deletedAt) throw HfosError.notFound(fileGone);
     const ownFile = businessOwn(current.recordType);
     if (ownFile) requireBusinessOwnManager(ctx, current.recordType as BusinessOwnType);
     await ctx.tx.update(files).set({ deletedAt: new Date() }).where(eq(files.id, current.id));

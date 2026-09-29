@@ -54,17 +54,22 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 const STATE_TTL_MS = 10 * 60_000;
 const sha256Hex = (value: string) => createHash('sha256').update(value).digest('hex');
 
-// The same words kernel/pg-errors uses when the database guard catches these first.
-const reserved = () =>
+// The same rules kernel/pg-errors raises when the database guard catches these first. Here they can name
+// the address or domain.
+const reserved = (localPart: string) =>
   HfosError.rule(
     'email_local_part_reserved',
     400,
-    'That name is reserved on the shared address. Pick another.',
+    `“${localPart}” is kept for HandsFreeOS itself on the shared address. Pick another name.`,
   );
-const unverified = () =>
-  HfosError.rule('email_domain_unverified', 409, 'Verify the domain before sending from it.');
-const addressTaken = () =>
-  HfosError.rule('email_address_taken', 409, 'That address is already taken. Pick another name.');
+const unverified = (domain: string) =>
+  HfosError.rule(
+    'email_domain_unverified',
+    409,
+    `${domain} isn’t verified yet. Add its DNS records, then click Check now under Use your own domain in Settings → Email.`,
+  );
+const addressTaken = (address: string) =>
+  HfosError.rule('email_address_taken', 409, `${address} is already taken. Pick another name.`);
 
 async function loadDomain(ctx: CommandContext, emailDomainId: string) {
   const [d] = await ctx.tx
@@ -73,7 +78,10 @@ async function loadDomain(ctx: CommandContext, emailDomainId: string) {
     .where(
       and(eq(emailDomains.id, emailDomainId), eq(emailDomains.workspaceId, ctx.scope.workspaceId!)),
     );
-  if (!d) throw HfosError.notFound('Domain not found.');
+  if (!d)
+    throw HfosError.notFound(
+      'That domain isn’t there anymore. It may have been removed. Refresh and try again.',
+    );
   return d;
 }
 
@@ -87,7 +95,10 @@ async function loadAddress(ctx: CommandContext, emailAddressId: string) {
         eq(emailAddresses.workspaceId, ctx.scope.workspaceId!),
       ),
     );
-  if (!a) throw HfosError.notFound('Address not found.');
+  if (!a)
+    throw HfosError.notFound(
+      'That sending address isn’t there anymore. It may have been removed. Refresh and try again.',
+    );
   return a;
 }
 
@@ -108,7 +119,10 @@ async function loadMailbox(ctx: CommandContext, connectionId: string) {
         eq(mailboxConnections.workspaceId, ctx.scope.workspaceId!),
       ),
     );
-  if (!m) throw HfosError.notFound('Mailbox not found.');
+  if (!m)
+    throw HfosError.notFound(
+      'That mailbox isn’t connected here anymore. Refresh Settings → Email to see your connected mailboxes.',
+    );
   return m;
 }
 
@@ -128,12 +142,19 @@ async function loadUnmatched(ctx: CommandContext, unmatchedId: string) {
         eq(emailInboundUnmatched.workspaceId, ctx.scope.workspaceId!),
       ),
     );
-  if (!u) throw HfosError.notFound('Email not found.');
+  if (!u)
+    throw HfosError.notFound(
+      'That email isn’t there anymore. It may have been filed or dismissed. Refresh and try again.',
+    );
   return u;
 }
 
 const alreadyHandled = () =>
-  HfosError.rule('unmatched_resolved', 409, 'This email was already filed or dismissed.');
+  HfosError.rule(
+    'unmatched_resolved',
+    409,
+    'Someone already filed or dismissed this email. Refresh to see where it went.',
+  );
 
 /** One default per workspace (a partial unique index), so the old one steps down before a new one is set. */
 async function clearDefault(ctx: CommandContext) {
@@ -175,7 +196,7 @@ export const emailDomainAdd = defineCommand({
       throw HfosError.rule(
         'email_domain_consumer',
         400,
-        'Use a domain your business owns, like lonestarhvac.com.',
+        `${domain} is a public email service, so it can’t send for your business. Use a domain your business owns, like lonestarhvac.com.`,
       );
     const [held] = await ctx.tx
       .select({ n: count() })
@@ -185,7 +206,7 @@ export const emailDomainAdd = defineCommand({
       throw HfosError.rule(
         'email_domain_limit',
         409,
-        `A workspace can have up to ${MAX_EMAIL_DOMAINS} domains. Remove one to add another.`,
+        `A business can have up to ${MAX_EMAIL_DOMAINS} domains. Remove one under Use your own domain in Settings → Email to add another.`,
       );
     const [row] = await ctx.tx
       .insert(emailDomains)
@@ -197,7 +218,7 @@ export const emailDomainAdd = defineCommand({
       throw HfosError.rule(
         'email_domain_taken',
         409,
-        'That domain is already set up in HandsFreeOS.',
+        `${domain} is already set up in HandsFreeOS. If it isn’t listed under Use your own domain here, it’s in another business: remove it there first, or ask HandsFreeOS support through Get help.`,
       );
     await ctx.emit({
       type: 'email_domain.added',
@@ -250,7 +271,11 @@ export const emailDomainRemove = defineCommand({
       .from(emailAddresses)
       .where(eq(emailAddresses.emailDomainId, d.id));
     if (onIt.some((a) => a.isDefault))
-      throw HfosError.rule('email_domain_in_use', 409, 'Make another address the default first.');
+      throw HfosError.rule(
+        'email_domain_in_use',
+        409,
+        `${onIt.find((a) => a.isDefault)!.address} is your default address, and it’s on ${d.domain}. Click Make default on an address on another domain first, then remove ${d.domain}.`,
+      );
     // Its addresses go with it (on delete cascade).
     const [gone] = await ctx.tx
       .delete(emailDomains)
@@ -338,8 +363,8 @@ export const emailAddressCreate = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const domain = input.emailDomainId ? await loadDomain(ctx, input.emailDomainId) : null;
-    if (!domain && isReservedLocalPart(input.localPart)) throw reserved();
-    if (domain && domain.status !== 'verified') throw unverified();
+    if (!domain && isReservedLocalPart(input.localPart)) throw reserved(input.localPart);
+    if (domain && domain.status !== 'verified') throw unverified(domain.domain);
     const previous = input.isDefault ? await clearDefault(ctx) : null;
     // The database fills in the address from the name and domain; this copy only satisfies the insert.
     const [row] = await ctx.tx
@@ -357,7 +382,7 @@ export const emailAddressCreate = defineCommand({
       })
       .onConflictDoNothing({ target: emailAddresses.address })
       .returning({ id: emailAddresses.id, address: emailAddresses.address });
-    if (!row) throw addressTaken();
+    if (!row) throw addressTaken(`${input.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`);
     await ctx.emit({
       type: 'email_address.created',
       entityType: 'email_address',
@@ -396,7 +421,7 @@ export const emailAddressUpdate = defineCommand({
     if (input.displayName !== undefined && input.displayName !== a.displayName)
       patch.displayName = input.displayName;
     if (input.localPart !== undefined && input.localPart !== a.localPart) {
-      if (!domain && isReservedLocalPart(input.localPart)) throw reserved();
+      if (!domain && isReservedLocalPart(input.localPart)) throw reserved(input.localPart);
       patch.localPart = input.localPart;
     }
     // The workspace always has a default; it moves by picking another one.
@@ -404,10 +429,10 @@ export const emailAddressUpdate = defineCommand({
       throw HfosError.rule(
         'email_default_required',
         409,
-        'Pick another address as the default instead.',
+        `${a.address} is your default address, and there always has to be one. Click Make default on another address instead.`,
       );
     if (input.isDefault === true && !a.isDefault) {
-      if (domain && domain.status !== 'verified') throw unverified();
+      if (domain && domain.status !== 'verified') throw unverified(domain.domain);
       patch.isDefault = true;
     }
     const updated = Object.keys(patch);
@@ -421,7 +446,10 @@ export const emailAddressUpdate = defineCommand({
         .where(eq(emailAddresses.id, a.id))
         .returning({ address: emailAddresses.address });
     } catch (e) {
-      if (isUniqueViolation(e, 'email_addresses_address_key')) throw addressTaken();
+      if (isUniqueViolation(e, 'email_addresses_address_key'))
+        throw addressTaken(
+          `${patch.localPart ?? a.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`,
+        );
       throw e; // an address that has sent mail keeps its name: the guard's rule, via pg-errors
     }
     if (!row) throw HfosError.forbidden();
@@ -551,7 +579,7 @@ export const mailboxResync = defineCommand({
       throw HfosError.rule(
         'mailbox_not_active',
         409,
-        'Only a connected mailbox can sync. Reconnect it first.',
+        `${m.accountEmail ?? 'This mailbox'} isn’t connected right now, so it can’t check for mail. Connect it again under Connected mailboxes in Settings → Email.`,
       );
     await ctx.emit({
       type: 'mailbox.resync_requested',
@@ -581,7 +609,11 @@ export const mailboxActivate = defineCommand({
     if (m.status === 'active' && m.accountEmail === input.accountEmail)
       return { connectionId: m.id, status: 'active' as const, changed: false };
     if (m.status !== 'pending')
-      throw HfosError.rule('mailbox_not_pending', 409, 'This mailbox is not waiting to connect.');
+      throw HfosError.rule(
+        'mailbox_not_pending',
+        409,
+        'This sign-in was already used or cancelled. Click Connect Gmail or Connect Outlook in Settings → Email to start again.',
+      );
     const now = new Date();
     // One live connection per account (a partial unique index): a reconnect retires the older one first.
     const replaced = await ctx.tx
@@ -702,7 +734,7 @@ export const emailClaimUnmatched = defineCommand({
       throw HfosError.rule(
         'person_archived',
         409,
-        'Restore this customer before filing mail under them.',
+        `${fullName(person.firstName, person.lastName) || 'This customer'} is archived. Restore them from their page first, then file this email under them.`,
       );
     // Still open when written: two people claiming at once cannot both win.
     const [row] = await ctx.tx
@@ -795,7 +827,7 @@ export const emailSuppressionAdd = defineCommand({
       throw HfosError.rule(
         'email_already_suppressed',
         409,
-        'Email to this address is already stopped.',
+        `Email to ${input.address} is already stopped. It’s listed under Blocked addresses in Settings → Email.`,
       );
     await ctx.emit({
       type: 'email_suppression.added',
@@ -834,7 +866,10 @@ export const emailSuppressionRelease = defineCommand({
           eq(emailSuppressions.workspaceId, ctx.scope.workspaceId!),
         ),
       );
-    if (!s) throw HfosError.notFound('Suppression not found.');
+    if (!s)
+      throw HfosError.notFound(
+        'That blocked address isn’t there anymore. Refresh Settings → Email and try again.',
+      );
     if (s.releasedAt) return { suppressionId: s.id };
     const [row] = await ctx.tx
       .update(emailSuppressions)

@@ -86,6 +86,11 @@ async function staffCan(ctx: CommandContext, permission: string): Promise<boolea
   return row?.ok === true;
 }
 
+const IDEA_GONE =
+  'That idea isn’t there anymore. It may have been taken down. Refresh and try again.';
+const WHATS_NEW_GONE =
+  'That What’s new entry isn’t there anymore. It may have been deleted. Refresh and try again.';
+
 /** The idea, or a plain "no such thing": one nobody here may see does not exist for them. */
 async function ideaOr404(ctx: CommandContext, ideaId: string): Promise<IdeaRow> {
   const [row] = await ctx.tx
@@ -102,7 +107,7 @@ async function ideaOr404(ctx: CommandContext, ideaId: string): Promise<IdeaRow> 
     })
     .from(ideas)
     .where(eq(ideas.id, ideaId));
-  if (!row) throw HfosError.notFound('No idea with that id.');
+  if (!row) throw HfosError.notFound(IDEA_GONE);
   return row;
 }
 
@@ -135,7 +140,10 @@ async function assertWorksIn(ctx: CommandContext, workspaceId: string | undefine
     ctx.tx,
     sql`select private.effective_workspace_role(${workspaceId})::text as role`,
   );
-  if (!row?.role) throw HfosError.notFound('Workspace not found.');
+  if (!row?.role)
+    throw HfosError.notFound(
+      'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+    );
 }
 
 /**
@@ -231,7 +239,7 @@ export const ideaEdit = defineCommand({
     if (!(await staffCan(ctx, 'platform.ideas.moderate'))) {
       if (idea.authorUserId !== me)
         throw HfosError.forbidden(
-          'Only the person who shared an idea, or the HandsFreeOS team, changes it.',
+          'Only the person who shared this idea, or the HandsFreeOS team, can change it. Add a comment instead.',
           'idea_protected',
         );
       if (idea.status !== 'under_review' || idea.mergedInto || idea.hiddenAt)
@@ -272,14 +280,19 @@ export const ideaVote = defineCommand({
     const me = requireHuman(ctx).userId;
     await assertTakesPart(ctx);
     const idea = await ideaOr404(ctx, input.ideaId);
-    if (idea.hiddenAt) throw HfosError.notFound('No idea with that id.');
+    if (idea.hiddenAt) throw HfosError.notFound(IDEA_GONE);
     if (idea.mergedInto)
       throw HfosError.conflict(
         `This idea was merged into ${await mergedWords(ctx, idea)}. Vote there instead.`,
         'idea_merged',
       );
     if (!OPEN_IDEA_STATUSES.includes(idea.status))
-      throw HfosError.conflict('Voting on this idea has closed.', 'idea_voting_closed');
+      throw HfosError.conflict(
+        idea.status === 'done'
+          ? 'Voting on this idea has closed because it’s done and in HandsFreeOS now.'
+          : 'Voting on this idea has closed because the team decided not to build it for now. Add a comment to say why it matters to you.',
+        'idea_voting_closed',
+      );
     await assertWorksIn(ctx, input.workspaceId);
     const cast = await rows<{ idea_id: string }>(
       ctx.tx,
@@ -411,7 +424,8 @@ export const ideaSetCommentHidden = defineCommand({
       ctx.tx,
       sql`select idea_id, hidden_at is not null as hidden from platform.idea_comments where id = ${input.commentId}`,
     );
-    if (!comment) throw HfosError.notFound('No comment with that id.');
+    if (!comment)
+      throw HfosError.notFound('That comment isn’t there anymore. Refresh and try again.');
     if (comment.hidden === input.hidden)
       return { commentId: input.commentId, hidden: input.hidden };
     // Who may is the database's to say (private.guard_idea_comment): the author takes their own down, the team
@@ -425,7 +439,9 @@ export const ideaSetCommentHidden = defineCommand({
     );
     if (!changed.length)
       throw HfosError.forbidden(
-        'Only the person who wrote a comment, or the HandsFreeOS team, takes it down.',
+        input.hidden
+          ? 'Only the person who wrote this comment, or the HandsFreeOS team, can take it down.'
+          : 'Only the HandsFreeOS team can put a comment back.',
         'idea_comment_protected',
       );
     await ctx.emit({
@@ -661,7 +677,12 @@ export const whatsNewSave = defineCommand({
         )})`,
       );
       if (found.length !== ideaIds.length)
-        throw HfosError.validation([{ path: 'ideaIds', message: 'One of those ideas is gone.' }]);
+        throw HfosError.validation([
+          {
+            path: 'ideaIds',
+            message: 'One of the ideas you picked isn’t there anymore. Take it off and try again.',
+          },
+        ]);
     }
     const values = {
       title: input.title,
@@ -677,7 +698,7 @@ export const whatsNewSave = defineCommand({
         .set(values)
         .where(eq(whatsNew.id, id))
         .returning({ id: whatsNew.id });
-      if (!changed.length) throw HfosError.notFound('No What’s new entry with that id.');
+      if (!changed.length) throw HfosError.notFound(WHATS_NEW_GONE);
     } else {
       const [row] = await ctx.tx
         .insert(whatsNew)
@@ -726,7 +747,7 @@ export const whatsNewPublish = defineCommand({
       ctx.tx,
       sql`select id, title, published_at from platform.whats_new where id = ${input.id} for update`,
     );
-    if (!entry) throw HfosError.notFound('No What’s new entry with that id.');
+    if (!entry) throw HfosError.notFound(WHATS_NEW_GONE);
     // Pressing Publish twice publishes once.
     if (entry.published_at)
       return {
@@ -806,7 +827,7 @@ export const whatsNewUnpublish = defineCommand({
       .set({ publishedAt: null })
       .where(eq(whatsNew.id, input.id))
       .returning({ id: whatsNew.id });
-    if (!changed.length) throw HfosError.notFound('No What’s new entry with that id.');
+    if (!changed.length) throw HfosError.notFound(WHATS_NEW_GONE);
     await ctx.emit({
       type: 'platform.whats_new_unpublished',
       entityType: 'whats_new',
@@ -831,7 +852,7 @@ export const whatsNewDelete = defineCommand({
       .select({ title: whatsNew.title, publishedAt: whatsNew.publishedAt })
       .from(whatsNew)
       .where(eq(whatsNew.id, input.id));
-    if (!entry) throw HfosError.notFound('No What’s new entry with that id.');
+    if (!entry) throw HfosError.notFound(WHATS_NEW_GONE);
     if (entry.publishedAt)
       throw HfosError.conflict(
         'This entry is published. Unpublish it first, so nobody loses it without meaning to.',

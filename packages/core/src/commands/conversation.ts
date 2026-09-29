@@ -59,12 +59,19 @@ async function withWhom(
   return (await personLabel(ctx, c.personId)) ?? withWho(c);
 }
 
+/** The customer's name for a refusal, or "this customer" when they have none yet. */
+const customerName = (p: { firstName: string; lastName: string }) =>
+  fullName(p.firstName, p.lastName) || 'this customer';
+const capitalized = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
+
 /**
  * The number or email `to` names, when the customer has it on file — main or other (0103) — as a thread's
  * counterpart; anything else is refused rather than texted.
  */
 function onFile(
   person: {
+    firstName: string;
+    lastName: string;
     phoneE164: string | null;
     email: string | null;
     otherPhones: readonly object[];
@@ -77,7 +84,11 @@ function onFile(
     const e164 = normalizePhone(to);
     const theirs = [person.phoneE164, ...otherPhonesOf(person.otherPhones).map((p) => p.phone)];
     if (e164 && theirs.includes(e164)) return e164;
-    throw HfosError.rule('not_their_number', 400, 'That number isn’t on this customer’s record.');
+    throw HfosError.rule(
+      'not_their_number',
+      400,
+      `That number isn’t on ${customerName(person)}’s record. Add it to their details first, or pick one of their numbers.`,
+    );
   }
   const email = to.trim().toLowerCase();
   const theirs = [
@@ -85,7 +96,11 @@ function onFile(
     ...otherEmailsOf(person.otherEmails).map((e) => e.email),
   ];
   if (theirs.includes(email)) return email;
-  throw HfosError.rule('not_their_email', 400, 'That email isn’t on this customer’s record.');
+  throw HfosError.rule(
+    'not_their_email',
+    400,
+    `That email address isn’t on ${customerName(person)}’s record. Add it to their details first, or pick one of their addresses.`,
+  );
 }
 
 export const conversationOpen = defineCommand({
@@ -108,8 +123,16 @@ export const conversationOpen = defineCommand({
         : (person.email?.toLowerCase() ?? null);
     if (!counterpart)
       throw input.channel === 'sms'
-        ? HfosError.rule('no_phone', 400, 'Add a mobile number to text this customer.')
-        : HfosError.rule('no_email', 400, 'Add an email address to email this customer.');
+        ? HfosError.rule(
+            'no_phone',
+            400,
+            `${capitalized(customerName(person))} has no mobile number yet. Add one to their details to text them.`,
+          )
+        : HfosError.rule(
+            'no_email',
+            400,
+            `${capitalized(customerName(person))} has no email address yet. Add one to their details to email them.`,
+          );
     // Opening a customer's thread means the one they are actually on (0089), not a fresh one on the
     // business's default line. Only a customer with no thread at all starts one, and a text starts on the
     // default number exactly as it did before lines existed.
@@ -222,7 +245,10 @@ export const conversationAssign = defineCommand({
     if (c.assigneeUserId === input.assigneeUserId) return { conversationId: c.id };
     if (input.assigneeUserId && !(await isWorkspaceUser(ctx.tx, workspaceId, input.assigneeUserId)))
       throw HfosError.validation([
-        { path: 'assigneeUserId', message: 'Pick someone in this workspace.' },
+        {
+          path: 'assigneeUserId',
+          message: 'That person isn’t in this business anymore. Pick someone else.',
+        },
       ]);
     await ctx.tx
       .update(conversations)
@@ -261,7 +287,10 @@ async function lockConversation(
       ),
     )
     .for('update');
-  if (!c) throw HfosError.notFound('Conversation not found.');
+  if (!c)
+    throw HfosError.notFound(
+      'That conversation isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return c;
 }
 
@@ -503,7 +532,11 @@ export const conversationLinkPerson = defineCommand({
     const c = await loadConversation(ctx, input.conversationId);
     const person = await requirePerson(ctx.tx, workspaceId, input.personId);
     if (person.archivedAt)
-      throw HfosError.rule('person_archived', 409, 'Restore this customer before linking.');
+      throw HfosError.rule(
+        'person_archived',
+        409,
+        `${capitalized(customerName(person))} is archived. Restore them from their page first, then link this conversation.`,
+      );
     if (c.personId === person.id)
       return { conversationId: c.id, personId: person.id, phoneAdded: false };
     let phoneAdded = false;

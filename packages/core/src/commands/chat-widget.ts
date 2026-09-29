@@ -49,7 +49,10 @@ async function assertOwnTeammate(ctx: CommandContext, teammateId: string | null 
   if (!teammateId) return;
   if (!(await loadTeammate(ctx.tx, ctx.scope.workspaceId!, { teammateId })))
     throw HfosError.validation([
-      { path: 'teammateId', message: 'Pick this business’s AI teammate.' },
+      {
+        path: 'teammateId',
+        message: 'That AI teammate isn’t in this business anymore. Pick another one.',
+      },
     ]);
 }
 
@@ -58,7 +61,10 @@ async function loadWidget(ctx: CommandContext, widgetId: string) {
     .select()
     .from(chatWidgets)
     .where(and(eq(chatWidgets.id, widgetId), eq(chatWidgets.workspaceId, ctx.scope.workspaceId!)));
-  if (!w) throw HfosError.notFound('Chat widget not found.');
+  if (!w)
+    throw HfosError.notFound(
+      'That chat widget isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return w;
 }
 

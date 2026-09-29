@@ -203,7 +203,9 @@ describe('email settings', () => {
       'rule_violation',
       'email_domain_consumer',
     );
-    expect(consumer.message).toBe('Use a domain your business owns, like lonestarhvac.com.');
+    expect(consumer.message).toBe(
+      'gmail.com is a public email service, so it can’t send for your business. Use a domain your business owns, like lonestarhvac.com.',
+    );
     await expectHfos(
       () => run(emailDomainAdd, { workspaceId: wsId, domain: 'not a domain' }, owner),
       'validation',

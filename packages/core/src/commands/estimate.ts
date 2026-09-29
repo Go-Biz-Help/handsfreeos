@@ -101,7 +101,7 @@ const nameOf = (row: EstimateRow) => row.number ?? row.title ?? 'Estimate';
 /** What a second go at the same thing is told. `estimateMoveProblem` says nothing about standing still. */
 const ALREADY: Readonly<Record<EstimateStatus, string>> = {
   draft: 'That estimate is already a draft.',
-  sent: 'That estimate has already gone out. Void it and reissue to send it again.',
+  sent: 'That estimate has already gone out, and the customer has its link. To send a changed one, void it and make a new estimate.',
   accepted: 'That estimate was already approved.',
   declined: 'That estimate was already declined.',
   expired: 'That estimate has already expired.',
@@ -280,7 +280,11 @@ export async function sendEstimate(ctx: CommandContext, input: z.infer<typeof Es
   assertMove(before, 'sent');
   const lines = (await linesFor(ctx.tx, 'estimate', [before.id])).get(before.id) ?? [];
   if (!lines.length)
-    throw HfosError.rule('money_document_empty', 409, 'Add a line before sending it.');
+    throw HfosError.rule(
+      'money_document_empty',
+      409,
+      'This estimate has no lines yet. Add at least one line before sending it.',
+    );
   const settings = await loadMoneySettings(ctx.tx, ws);
   const tz = await workspaceTimezone(ctx.tx, ws);
   // The counter row is locked and incremented here, so two people sending at once can't share a number.
@@ -675,7 +679,10 @@ export const estimateRecordView = defineCommand({
           set first_viewed_at = coalesce(first_viewed_at, now()), last_viewed_at = now()
           where id = ${before.id} returning first_viewed_at, last_viewed_at`,
     );
-    if (!row) throw HfosError.notFound('That estimate isn’t there.');
+    if (!row)
+      throw HfosError.notFound(
+        'This estimate isn’t available anymore. Ask the business for a new link.',
+      );
     // Only the first open is news: a customer refreshing their own page is not an event.
     if (first)
       await ctx.emit({

@@ -90,7 +90,10 @@ function applyOps(definition: FormDefinition, ops: readonly unknown[]): FormDefi
 
 function assertNotArchived(row: FormRow): void {
   if (row.status === 'archived')
-    throw HfosError.conflict('This form is archived.', 'form_archived');
+    throw HfosError.conflict(
+      `“${row.name}” is archived, so it can’t change. Restore it first, or make a new form.`,
+      'form_archived',
+    );
 }
 
 interface SaveArgs {
@@ -240,7 +243,10 @@ export const formRestoreVersion = defineCommand({
           eq(formVersions.version, input.version),
         ),
       );
-    if (!version) throw HfosError.notFound('That version isn’t there.');
+    if (!version)
+      throw HfosError.notFound(
+        `This form has no version ${input.version}. Pick one of the versions it has published.`,
+      );
     const current = await loadForm(ctx.tx, ws, input.formId, { forUpdate: true });
     assertNotArchived(current.row);
     if (current.row.revision !== input.baseRevision)
@@ -298,13 +304,19 @@ export const formPublish = defineCommand({
       throw formRevisionConflict(current.row.revision);
     const asked = allQuestions(current.definition).filter((q) => q.type !== 'content');
     if (!asked.length)
-      throw HfosError.rule('form_empty', 422, 'Add a question before you publish this.');
+      throw HfosError.rule(
+        'form_empty',
+        422,
+        'This form doesn’t ask anything yet. Add a question before you publish it.',
+      );
     const { issues } = await formIssues(ctx.tx, ws, current.definition);
     if (issues.length)
       throw new HfosError(
         'rule_violation',
         422,
-        'There are things to fix before this can go out.',
+        issues.length === 1
+          ? 'There’s 1 thing to fix before this form can go out. See “To fix before this can go out” in the form’s editor.'
+          : `There are ${issues.length} things to fix before this form can go out. See “To fix before this can go out” in the form’s editor.`,
         { issues },
         'form_issues',
       );
@@ -366,7 +378,11 @@ export const formSetStatus = defineCommand({
     const current = await loadForm(ctx.tx, ws, input.formId, { forUpdate: true });
     assertNotArchived(current.row);
     if (!current.row.activeVersionId)
-      throw HfosError.rule('form_unpublished', 409, 'Publish this form before you open it.');
+      throw HfosError.rule(
+        'form_unpublished',
+        409,
+        'This form hasn’t been published yet, so it can’t take answers. Publish it first.',
+      );
     if (current.row.status === input.status)
       return { formId: current.row.id, status: input.status };
     await ctx.tx.update(forms).set({ status: input.status }).where(eq(forms.id, current.row.id));
@@ -427,7 +443,10 @@ export const formSetSlug = defineCommand({
     if (current.row.slug === input.slug) return { formId: current.row.id, slug: input.slug };
     const free = await freeFormSlug(ctx.tx, ws, input.slug, current.row.id);
     if (free !== input.slug)
-      throw HfosError.conflict('Another form already uses that link.', 'form_slug_taken');
+      throw HfosError.conflict(
+        `Another form already uses the link “${input.slug}”. Pick a different one, like “${free}”.`,
+        'form_slug_taken',
+      );
     await ctx.tx.update(forms).set({ slug: input.slug }).where(eq(forms.id, current.row.id));
     await ctx.emit({
       type: 'form.slug_changed',

@@ -42,6 +42,10 @@ const inWorkspace = (i: { workspaceId: string }) => ({
   workspaceId: i.workspaceId,
 });
 
+/** Something the person opened or picked that isn't there any more. */
+const gone = (what: string) =>
+  `That ${what} isn’t there anymore. It may have been deleted. Refresh and try again.`;
+
 /**
  * A field's list of choices as it keeps them. A choice keeps the value it was given — that is what records hold —
  * and a new one gets a value made from its label, never one the field has used before, so a choice taken off the
@@ -90,7 +94,7 @@ async function assertLabelFree(
   );
   if (clash)
     throw HfosError.conflict(
-      `There’s already a field called “${clash.label}” here.`,
+      `There’s already a field called “${clash.label}” here. Give this one a different name, or use that field.`,
       'field_label_taken',
     );
 }
@@ -179,9 +183,13 @@ export const customFieldUpdate = defineCommand({
       .from(customFields)
       .where(and(eq(customFields.id, input.customFieldId), eq(customFields.workspaceId, ws)))
       .for('update');
-    if (!current) throw HfosError.notFound('Field not found.');
+    if (!current) throw HfosError.notFound(gone('field'));
     if (current.archivedAt)
-      throw HfosError.rule('field_archived', 409, 'That field was archived, so it can’t change.');
+      throw HfosError.rule(
+        'field_archived',
+        409,
+        `“${current.label}” was archived, so it can’t change. Add a new field if you still need one.`,
+      );
     const patch: Partial<typeof customFields.$inferInsert> = {};
     if (input.label !== undefined && input.label !== current.label) {
       await assertLabelFree(
@@ -243,7 +251,7 @@ export const customFieldArchive = defineCommand({
       .from(customFields)
       .where(and(eq(customFields.id, input.customFieldId), eq(customFields.workspaceId, ws)))
       .for('update');
-    if (!current) throw HfosError.notFound('Field not found.');
+    if (!current) throw HfosError.notFound(gone('field'));
     if (current.archivedAt) return { customFieldId: current.id };
     // The trigger takes the field's value off the records that hold it, in this statement.
     await ctx.tx
@@ -290,7 +298,7 @@ async function lockRecord(
         .from(people)
         .where(and(eq(people.id, recordId), eq(people.workspaceId, ws)))
         .for('update');
-      if (!p) throw HfosError.notFound('Person not found.');
+      if (!p) throw HfosError.notFound(gone('customer'));
       return { ...p, name: fullName(p.firstName, p.lastName), recordTypeId: null };
     }
     case 'company': {
@@ -299,7 +307,7 @@ async function lockRecord(
         .from(companies)
         .where(and(eq(companies.id, recordId), eq(companies.workspaceId, ws)))
         .for('update');
-      if (!c) throw HfosError.notFound('Company not found.');
+      if (!c) throw HfosError.notFound(gone('company'));
       return { ...c, recordTypeId: null };
     }
     case 'lead': {
@@ -308,7 +316,7 @@ async function lockRecord(
         .from(leads)
         .where(and(eq(leads.id, recordId), eq(leads.workspaceId, ws)))
         .for('update');
-      if (!l) throw HfosError.notFound('Lead not found.');
+      if (!l) throw HfosError.notFound(gone('lead'));
       return { ...l, name: l.title, recordTypeId: null };
     }
     case 'custom_record': {
@@ -317,7 +325,7 @@ async function lockRecord(
         .from(customRecords)
         .where(and(eq(customRecords.id, recordId), eq(customRecords.workspaceId, ws)))
         .for('update');
-      if (!r) throw HfosError.notFound('Record not found.');
+      if (!r) throw HfosError.notFound(gone('record'));
       return { ...r, recordTypeId: r.typeId };
     }
   }
@@ -337,7 +345,10 @@ export function checkedValues(
   for (const [id, raw] of Object.entries(values)) {
     const field = byId.get(id);
     if (!field) {
-      problems.push({ path: `values.${id}`, message: 'That field isn’t on this record.' });
+      problems.push({
+        path: `values.${id}`,
+        message: 'That field isn’t on this record anymore. Refresh and try again.',
+      });
       continue;
     }
     const checked = checkCustomValue(field, raw);
