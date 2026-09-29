@@ -18,6 +18,9 @@ HandsFreeOS business. Then the same thing opens to every business.
 | A person's own address (`chris@…`)    | **Private to that person.** Shared addresses (`office@…`) go to the team Inbox. The person can move a customer thread from their mailbox into the team Inbox.                                                    |
 | Rollout                               | **This plan, then HandsFreeOS's own business** on `handsfreeos.com`, then every business                                                                                                                         |
 | `handsfreeos.com`                     | HandsFreeOS's own business may send and receive on it. `support@` and `help@` stay with the support desk. This replaces "the two routes never meet" (the support desk, 0070) for every address except those two. |
+| Price                                 | **No extra cost.** Receiving comes with every plan.                                                                                                                                                              |
+| Postmark plan                         | **Platform, when Step 6 needs it.** Chris upgrades then. Until then the support server already covers `handsfreeos.com`.                                                                                         |
+| When a person leaves                  | **An owner decides**, address by address, since a person's address may really be a shared one like `support@`. Make it shared, give it to someone else, or remove it.                                            |
 
 Carried over, not re-asked:
 
@@ -102,6 +105,15 @@ Carried over, not re-asked:
 - **Share with the team** (`conversation.share`, the owner only) clears `private_to` on the thread
   and its messages. From then on it is a normal team thread.
 - Private threads have the same folders, so each person has their own Inbox, Other mail and Spam.
+- **When a person leaves**, each address they read waits for an owner (`email_address.reassign`,
+  owners only), and the Action Center asks. The owner can:
+  - **make it shared**: its mail, old and new, moves to the team Inbox;
+  - **give it to someone else**: its mail goes with it;
+  - **remove it**: its mail is deleted after 30 days.
+
+  Until an owner decides, new mail to the address goes to the team Inbox, so nothing is missed. The
+  old mail stays unread by anyone. While the person is still with the business, only they can share
+  their mail.
 
 ### HandsFreeOS's own business
 
@@ -159,8 +171,8 @@ database before its step reaches `main`.
 1. Migration: `email_addresses.owner_user_id`, `private_to` on conversations and messages, the
    policies, and the storage paths.
 2. Core: an owner on `email_address.create` and `email_address.update`, who may send from it,
-   `conversation.share`, and keeping private threads away from activities, summaries, the Action
-   Center and the AI teammate.
+   `conversation.share`, `email_address.reassign` for when a person leaves, and keeping private
+   threads away from activities, summaries, the Action Center and the AI teammate.
 3. Tests in `packages/db/test`: an owner, an admin and a member can't read someone else's mailbox, its
    messages or its attachments.
 
@@ -176,21 +188,11 @@ mailbox, then send and receive from outside. `docs/operations.md` gets a short s
 
 ### Step 6 — Every business
 
-1. The Postmark plan (below).
+1. Chris moves Postmark to the Platform plan, which has no limit on servers (Pro stops at 10).
 2. Worker: create and remove a Postmark server for each receiving domain, all posting to the one
    webhook address.
 3. `docs/operations.md`: turning it on, the MX change, moving back to another host, and trouble.
 4. Offer it: a business turns it on in Settings → Email.
-
-## Still to decide, before the step that needs it
-
-- **Postmark plan (Step 6).** Each receiving domain needs its own Postmark server. Pro stops at 10
-  servers, and at least two are in use. Platform has no limit. The other way is to receive through a
-  service that takes many domains at once, such as Amazon SES, and keep Postmark for sending.
-- **Price (Step 6).** Whether receiving comes with every plan or costs extra. Postmark counts every
-  inbound email, spam included.
-- **When a person leaves (Step 3).** What happens to their address and their private mail: it goes
-  to the team Inbox, it's handed to an owner, or it's deleted after a set time.
 
 ## Not in this milestone
 
