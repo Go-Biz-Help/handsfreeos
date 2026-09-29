@@ -7519,7 +7519,7 @@ Each person's email leaves out the businesses where they are an owner or admin t
 - It goes out at most once a day.
 - Each person can turn it off with **Daily agency digest** under **Notifications** in **Settings** → **Account**. Only organization owners and admins see that switch.
 
-**Client businesses** also has a **Setup** column: each business's Getting started count, **Stuck**, **Setting up** or **Done** and why, with filters and a side panel of its steps ("Do it for them", and **Email a reminder** to the business's own owners, once a day). When an owner last signed in comes from `private.owners_last_sign_in`, which needs `20261013001000_when_owners_last_signed_in.sql`. See "Apply new migrations".
+**Client businesses** also has a **Setup** column: each business's Getting started count, **Stuck**, **Setting up** or **Done** and why, with filters and a side panel of its steps ("Do it for them", and **Email a reminder** to the business's own owners, once a day). When an owner last signed in comes from `private.owners_last_sign_in`, which needs `20261013001300_when_owners_last_signed_in.sql`. See "Apply new migrations".
 
 ### Try workflows and the knowledge base locally
 
@@ -8161,7 +8161,7 @@ The promises found are kept in `app.promises`; dismissing the card is enough to 
 | **Questions the AI can't answer** | A card as soon as a question the AI couldn't answer has come up 3 times. **Answer** opens it in Knowledge → Suggestions, where the answer is typed once and saved                                                                                                                                                                                                                                                               | Yes              |
 | **Texting turned down**           | When the phone carriers turn down the business's texting details, an urgent card for the owners and admins quoting their reason. **Fix and send again** opens Settings → Texting & calls; it closes when the details are sent again or approved. Owners also get the email, as before                                                                                                                                           | Always           |
 
-The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons` (with what they go against in `conflict`), and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql` and `20261007000800_lessons_from_one_correction.sql`, and for **Texting turned down** `20261013001100_texting_turned_down_on_home.sql` (the `texting_rejected` card kind). See "Apply new migrations".
+The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons` (with what they go against in `conflict`), and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql` and `20261007000800_lessons_from_one_correction.sql`, and for **Texting turned down** `20261013001400_texting_turned_down_on_home.sql` (the `texting_rejected` card kind). See "Apply new migrations".
 
 ### Outreach campaigns
 

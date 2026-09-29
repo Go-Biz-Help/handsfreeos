@@ -285,7 +285,7 @@ The boards in `design/onboarding` show each one.
     standing worked out once in core (`onboarding/clients.ts`: `clientStanding`, `AGENCY_SETUP_WORDS`). A business's
     **own** owners are its owner memberships who aren't in the organization: the agency's people own every business
     through it, so they're never the owner shown, reminded or counted as away. When they last signed in is only in
-    `auth.users`, so `private.owners_last_sign_in(workspace)` (migration `20261013001000`) answers the organization's
+    `auth.users`, so `private.owners_last_sign_in(workspace)` (migration `20261013001300`) answers the organization's
     owners and admins, or the worker bound to the business. **It must be applied to the hosted database before
     `main` gets this.**
   - "Do it for them" is on every step still to do but two that only the owner can do: inviting their team, and
@@ -323,7 +323,7 @@ whose status is `failed`, not a refused registration. So a new Action Center kin
   registration row, and only the newest of its kind for the business's current number, as Settings → Texting &
   calls reads them, so a refusal left behind by a changed number opens nothing. Only people with `channels.manage`
   see it (`visibleTo`), and it stays out of a member's morning email. Sending again resolves it as `sent_again`,
-  which counts as handled today. Migration `20261013001100_texting_turned_down_on_home.sql`.
+  which counts as handled today. Migration `20261013001400_texting_turned_down_on_home.sql`.
 - Built by the checklist every new kind follows (`HANDSFREEOS_AUTOMATIONS_IMPLEMENTATION_PLAN.md`, "New Action
   Center kinds"): `attention/kinds.ts`, a `kindSwitches` default, a detector, its facts loader, the worker's
   subjects, the Home words, and a migration re-creating `attention_items_kind_check`. The hosted database gets that
