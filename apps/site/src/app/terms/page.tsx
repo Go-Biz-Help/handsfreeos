@@ -115,7 +115,7 @@ export default function TermsPage() {
           <li>
             <strong>You are the sender.</strong> Messages and calls that go out through HandsFreeOS
             go out as your business. You need the right consent from each person before you text or
-            call them for marketing, and you must honour STOP and do-not-call requests. HandsFreeOS
+            call them for marketing, and you must honor STOP and do-not-call requests. HandsFreeOS
             records consent and handles STOP automatically, but the obligation is yours.
           </li>
           <li>

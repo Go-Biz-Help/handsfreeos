@@ -18,7 +18,7 @@ import { company, urls } from '@/content/site';
 const LAST_UPDATED = 'September 29, 2026';
 
 export const metadata: Metadata = {
-  title: 'Privacy policy',
+  title: 'Privacy policy: what we collect and why',
   description:
     'What HandsFreeOS collects, why, who else sees it, how Google user data is handled under the Limited Use requirements, and how to get everything deleted.',
   alternates: { canonical: '/privacy' },
@@ -155,7 +155,7 @@ export default function PrivacyPage() {
         <p>
           Business texting in the United States is registered with the mobile carriers, and you
           register as the business that sends the messages. Your business is responsible for having
-          the right consent from every person you text, and for honouring STOP.
+          the right consent from every person you text, and for honoring STOP.
         </p>
         <p>
           <strong>
@@ -205,7 +205,7 @@ export default function PrivacyPage() {
             requires it.
           </li>
           <li>
-            We do not use Google data to train generalised artificial intelligence or machine
+            We do not use Google data to train generalized artificial intelligence or machine
             learning models. It is never used to train a model that serves anyone but you.
           </li>
           <li>
@@ -412,7 +412,7 @@ export default function PrivacyPage() {
           <strong>If you are in California:</strong> you have the right to know what we collect and
           why, to get a copy, to correct it, to delete it, and to opt out of the sale or sharing of
           personal information — which is easy here, because we do neither. You can ask through an
-          authorised agent.
+          authorized agent.
         </p>
         <p>
           <strong>If you are in Colorado, Connecticut, Utah, Virginia</strong> or another state with

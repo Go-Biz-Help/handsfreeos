@@ -219,7 +219,7 @@ export function MoneyVisual() {
         {[
           ['Diagnostic visit', '$189'],
           ['Capacitor', '$96'],
-          ['Labour, 2 hrs', '$240'],
+          ['Labor, 2 hrs', '$240'],
         ].map(([item, price]) => (
           <div key={item} className="flex items-center justify-between text-xs">
             <span className="text-text-2">{item}</span>

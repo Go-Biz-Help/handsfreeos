@@ -2,6 +2,7 @@
  * Answers to "What should your AI teammate do?". A preset only prefills skills: the result is an ordinary
  * settings document that can be changed in any way afterwards, and its labels follow the settings.
  */
+import { isHomeServices } from '../industries';
 import {
   applyTeammatePatch,
   emptyTeammateConfig,
@@ -117,9 +118,12 @@ const GENERAL: QualifyingQuestionInput[] = [
   { id: 'budget', question: 'Do you have a budget in mind?', kind: 'text', required: false },
 ];
 
-/** Starting questions for the workspace's industry (general ones when it has none). Nothing rules a lead out. */
+/**
+ * Starting questions for the workspace's industry: a home-services trade asks about the job and the home, anything else
+ * (or none) gets general ones. Nothing rules a lead out.
+ */
 export function suggestedQuestions(industry?: string | null): QualifyingQuestion[] {
-  const list = industry === 'home_services' ? HOME_SERVICES : GENERAL;
+  const list = isHomeServices(industry) ? HOME_SERVICES : GENERAL;
   return applyTeammatePatch(emptyTeammateConfig(), { qualify: { questions: list } }).qualify
     .questions;
 }
