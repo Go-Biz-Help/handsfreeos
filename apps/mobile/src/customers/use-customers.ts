@@ -13,7 +13,7 @@ import { useBusiness } from '@/components/shell/business-context';
 import { companySearchText, leadSearchText, matchesSearch, personSearchText } from '@/sync/compute';
 
 import { useNames } from './names';
-import { COMPANIES_SQL, LEADS_SQL, NOTES_SQL, PEOPLE_SQL } from './queries';
+import { CLIENT_MARKS_SQL, COMPANIES_SQL, LEADS_SQL, NOTES_SQL, PEOPLE_SQL } from './queries';
 
 /**
  * Customers, companies and leads from the phone's copy, and the search across all three.
@@ -26,17 +26,31 @@ import { COMPANIES_SQL, LEADS_SQL, NOTES_SQL, PEOPLE_SQL } from './queries';
 
 export type CustomerTab = 'people' | 'companies';
 
+/** Everyone, only the leads, or only the clients: the web's filter on Contacts. */
+export type Standing = 'all' | 'lead' | 'client';
+
 export interface PersonRow extends PersonSummary {
   readonly notes: string | null;
   /** The line under the name: their company, or where they live. */
   readonly detail: string;
   readonly openLeads: number;
+  /** Someone the business works or worked for, or was paid by (the database's mark); otherwise a lead. */
+  readonly client: boolean;
 }
 
 export interface CompanyRow extends SyncedCompany {
   readonly peopleCount: number;
   readonly openLeads: number;
   readonly detail: string;
+  readonly client: boolean;
+}
+
+/** The rows a standing keeps: everyone, or only the leads or the clients. */
+export function withStanding<T extends { readonly client: boolean }>(
+  rows: readonly T[],
+  standing: Standing,
+): readonly T[] {
+  return standing === 'all' ? rows : rows.filter((r) => r.client === (standing === 'client'));
 }
 
 export interface SearchHit {
@@ -61,9 +75,11 @@ export function useCustomers(opts: { readonly archived?: boolean } = {}) {
     business.id,
   ]);
   const { data: leadRows } = useQuery<Record<string, string | null>>(LEADS_SQL, [business.id]);
+  const { data: markRows } = useQuery<{ id: string }>(CLIENT_MARKS_SQL, [business.id]);
   const archived = opts.archived ?? false;
 
   return React.useMemo(() => {
+    const clients = new Set(markRows.map((m) => m.id));
     const openLeadsBy = new Map<string, number>();
     for (const l of leadRows) {
       if (l.status !== 'open' || l.archived_at) continue;
@@ -85,6 +101,7 @@ export function useCustomers(opts: { readonly archived?: boolean } = {}) {
           ...person,
           detail: person.company?.name || addressLine(person.address) || person.phone || '',
           openLeads: openLeadsBy.get(person.id) ?? 0,
+          client: clients.has(person.id),
         };
       })
       .sort(byName);
@@ -98,12 +115,13 @@ export function useCustomers(opts: { readonly archived?: boolean } = {}) {
           peopleCount: peopleBy.get(company.id) ?? 0,
           openLeads: openLeadsBy.get(company.id) ?? 0,
           detail: addressLine(company.address) || company.phone || company.email || '',
+          client: clients.has(company.id),
         };
       })
       .sort(byName);
 
     return { people, companies, loading: isLoading };
-  }, [peopleRows, companyRows, leadRows, names, archived, isLoading]);
+  }, [peopleRows, companyRows, leadRows, markRows, names, archived, isLoading]);
 }
 
 /**

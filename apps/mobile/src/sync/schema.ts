@@ -257,6 +257,16 @@ export const syncedTables = {
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
+  /** business_v1 */
+  client_marks: new Table(
+    {
+      workspace_id: column.text,
+      person_id: column.text,
+      company_id: column.text,
+      created_at: column.text,
+    },
+    { indexes: { workspace: ['workspace_id'] } },
+  ),
   /** me_v1 */
   command_receipts: new Table(
     {
@@ -1404,6 +1414,19 @@ export interface CallsRow {
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly updated_at: string | null;
+}
+
+/** A row of `client_marks` (business_v1). */
+export interface ClientMarksRow {
+  readonly id: string;
+  /** uuid */
+  readonly workspace_id: string | null;
+  /** uuid */
+  readonly person_id: string | null;
+  /** uuid */
+  readonly company_id: string | null;
+  /** timestamp with time zone: ISO 8601 text here */
+  readonly created_at: string | null;
 }
 
 /** A row of `command_receipts` (me_v1). */
@@ -2570,6 +2593,7 @@ export interface SyncedRows {
   calendar_services: CalendarServicesRow;
   calendars: CalendarsRow;
   calls: CallsRow;
+  client_marks: ClientMarksRow;
   command_receipts: CommandReceiptsRow;
   companies: CompaniesRow;
   conversations: ConversationsRow;

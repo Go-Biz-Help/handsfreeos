@@ -519,6 +519,22 @@ export const recordTagRemovals = app.table(
   (t) => [primaryKey({ columns: [t.tagId, t.recordType, t.recordId] })],
 );
 
+/**
+ * Who is a client (20261013000900): one row per person or company the business works or worked for, or was paid by.
+ * Kept by triggers from leads, jobs, visits, plans and bills; written by nobody else. `id` is the record's own id.
+ */
+export const clientMarks = app.table('client_marks', {
+  id: uuid('id').primaryKey(),
+  workspaceId: workspaceRef(),
+  personId: uuid('person_id')
+    .unique()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  companyId: uuid('company_id')
+    .unique()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
 export const leads = app.table('leads', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -6278,6 +6294,7 @@ export const tables = {
   people,
   tags,
   recordTags,
+  clientMarks,
   recordTagRemovals,
   leads,
   tasks,

@@ -1,8 +1,9 @@
 import { sql } from '@hfos/db/client';
 
 /**
- * Leads and clients, as the Contacts page filters them. A client is someone the business is working for, has worked
- * for, or has been paid by; everyone else is a lead it is still winning. Any one of these makes a person a client:
+ * Leads and clients, as Contacts filters them on the web and on the phone. A client is someone the business is
+ * working for, has worked for, or has been paid by; everyone else is a lead it is still winning. Any one of these
+ * makes a person a client:
  *
  *   - a lead of theirs marked won;
  *   - a job for them underway or done (a job that is only booked may still be a quote visit);
@@ -12,27 +13,12 @@ import { sql } from '@hfos/db/client';
  *
  * A company is a client when a lead of its own was won, or when one of its people is a client.
  *
- * Read with the viewer's own sight (row-level security): someone who can't see the business's bills is told only
- * what the rest says, and never learns from this that a bill was paid.
+ * The database keeps the answer (migration 20261013000900, `private.person_is_client`): one row in `app.client_marks`
+ * per client, kept by triggers, which the phone's copy carries too. So the rule is written once, there, and these
+ * only read it. Everyone who can open the business sees the same answer.
  */
-export const personIsClient = (alias: 'p' | 'cp') => {
-  const p = sql.raw(alias);
-  return sql`(
-    exists (select 1 from app.leads cl where cl.person_id = ${p}.id and cl.status = 'won' and cl.archived_at is null)
-    or exists (select 1 from app.jobs cj where cj.person_id = ${p}.id
-      and cj.status in ('on_the_way', 'in_progress', 'waiting_on_parts', 'done'))
-    or exists (select 1 from app.appointment_attendees ca join app.appointments cap on cap.id = ca.appointment_id
-      where ca.person_id = ${p}.id and (ca.status = 'attended' or (ca.status = 'booked' and cap.status = 'completed')))
-    or exists (select 1 from app.subscriptions cs where cs.person_id = ${p}.id
-      and cs.status in ('active', 'past_due', 'paused', 'unmanaged'))
-    or exists (select 1 from app.invoices ci where ci.person_id = ${p}.id and ci.status <> 'void' and ci.amount_paid_cents > 0)
-  )`;
-};
+export const personIsClient = (alias: 'p') =>
+  sql`exists (select 1 from app.client_marks cm where cm.id = ${sql.raw(alias)}.id)`;
 
-export const companyIsClient = (alias: 'c') => {
-  const c = sql.raw(alias);
-  return sql`(
-    exists (select 1 from app.leads cl where cl.company_id = ${c}.id and cl.status = 'won' and cl.archived_at is null)
-    or exists (select 1 from app.people cp where cp.company_id = ${c}.id and ${personIsClient('cp')})
-  )`;
-};
+export const companyIsClient = (alias: 'c') =>
+  sql`exists (select 1 from app.client_marks cm where cm.id = ${sql.raw(alias)}.id)`;

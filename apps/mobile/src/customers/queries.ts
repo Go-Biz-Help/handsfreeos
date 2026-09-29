@@ -26,6 +26,9 @@ export const COMPANY_SQL = `
   FROM companies c LEFT JOIN users o ON o.id = c.owner_user_id
   WHERE c.id = ?`;
 
+/** Who is a client: the database keeps the answer, since most of what decides it never reaches a phone. */
+export const CLIENT_MARKS_SQL = `SELECT id FROM client_marks WHERE workspace_id = ?`;
+
 /** The people linked to a company. */
 export const COMPANY_PEOPLE_SQL = `
   SELECT id, first_name, last_name, email, phone, archived_at FROM people

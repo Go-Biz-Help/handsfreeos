@@ -33,6 +33,7 @@ const PUBLISHED = [
   'calendar_services',
   'calendars',
   'calls',
+  'client_marks',
   'command_receipts',
   'companies',
   'conversations',
