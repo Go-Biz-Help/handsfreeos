@@ -33,6 +33,8 @@ export default async function QuestionsPage({
     .POST('/v1/queries/onboarding.status', { body: { workspaceId } })
     .then((r) => r.data ?? null)
     .catch(() => null);
+  // Turned off for the whole business: there's nothing for the answers to put in order.
+  if (status && !status.enabled) redirect(`/app/w/${workspaceId}`);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-4 py-10 sm:px-6 [background:radial-gradient(70%_45%_at_50%_0%,color-mix(in_oklab,var(--accent)_9%,transparent),transparent_75%)]">

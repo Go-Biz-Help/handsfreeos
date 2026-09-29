@@ -5,6 +5,8 @@
  *   commands (`workspace.update` refuses the key), because a second owner and the agency need to see them.
  * - One person's view lives in `users.settings.onboarding`, keyed by business: whether they hid the guide, when
  *   they finished it or the tour, and their own skips.
+ * - An owner or admin can turn the guide off for the whole business (`turnedOff`): then nobody there sees it, the
+ *   setup wizard or the tour, whatever their own view says.
  *
  * Both are read forgivingly: a part that doesn't parse is treated as never set, and the rest still counts.
  */
@@ -37,6 +39,8 @@ export interface BusinessOnboarding {
   readonly skipped: Partial<Record<BusinessStepKey, OnboardingMark>>;
   /** "Add them as you go" on the customers step. */
   readonly customersAsYouGo: OnboardingMark | null;
+  /** Turned off for everyone in the business, by an owner or admin. */
+  readonly turnedOff: OnboardingMark | null;
 }
 
 export interface PersonalOnboarding {
@@ -70,6 +74,7 @@ export function businessOnboardingOf(
     answers: parsed(OnboardingAnswersSchema.nullable(), raw['answers'] ?? null, null),
     skipped,
     customersAsYouGo: parsed(OnboardingMark.nullable(), raw['customersAsYouGo'] ?? null, null),
+    turnedOff: parsed(OnboardingMark.nullable(), raw['turnedOff'] ?? null, null),
   };
 }
 
@@ -117,5 +122,6 @@ export function storedBusinessOnboarding(next: BusinessOnboarding): Record<strin
     ...(next.answers ? { answers: next.answers } : {}),
     ...(Object.keys(next.skipped).length ? { skipped: next.skipped } : {}),
     ...(next.customersAsYouGo ? { customersAsYouGo: next.customersAsYouGo } : {}),
+    ...(next.turnedOff ? { turnedOff: next.turnedOff } : {}),
   };
 }

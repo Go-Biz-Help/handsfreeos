@@ -249,9 +249,11 @@ export async function loadOnboardingStatus(
     device,
   });
   const website = typeof settings['website'] === 'string' ? settings['website'] : null;
+  const enabled = !business.turnedOff;
   return {
     workspaceId,
     audience,
+    enabled,
     answers: business.answers,
     website: website || null,
     ...progress,
@@ -260,7 +262,7 @@ export async function loadOnboardingStatus(
       hidden: personal.hidden,
       tourDoneAt: personal.tourDoneAt,
       finishedAt: personal.finishedAt,
-      show: !personal.finishedAt && !personal.hidden,
+      show: enabled && !personal.finishedAt && !personal.hidden,
     },
   };
 }

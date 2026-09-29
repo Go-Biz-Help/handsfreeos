@@ -391,6 +391,7 @@ describe('what’s kept', () => {
       answers: null,
       skipped: {},
       customersAsYouGo: null,
+      turnedOff: null,
     });
   });
 

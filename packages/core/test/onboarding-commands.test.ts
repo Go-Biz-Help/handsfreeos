@@ -6,6 +6,8 @@
  * - **Skipping** a business step needs workspace.update and is kept on the business; a step on a person's own list
  *   is kept on the person, per business.
  * - **Finishing** is refused while a step is open, names what's left, and holds once it's done.
+ * - **Turning it off** for the whole business is an owner's or admin's, hides it from everyone, and keeps what
+ *   each person did for when it's back on.
  * - **"Email me a link"** sends a step on the person's own list once, not twice in a row, and never a step done
  *   on the phone itself.
  */
@@ -18,10 +20,12 @@ import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, RequestMeta } from '../src/kernel/types';
 import {
+  me as accountMe,
   onboardingAsYouGo,
   onboardingFinish,
   onboardingSaveAnswers,
   onboardingSendLink,
+  onboardingSetEnabled,
   onboardingSetView,
   onboardingSkip,
   onboardingStatus,
@@ -381,5 +385,34 @@ describe('emailing a link', () => {
     expect(
       await run(onboardingSendLink, { workspaceId: ws, step: 'my_calendar' }, marco),
     ).toMatchObject({ email: marco.email, sent: true });
+  });
+});
+
+describe('turning it off for the whole business', () => {
+  it('is an owner’s or admin’s, hides the guide from everyone, and comes back as it was', async () => {
+    await expectHfos(
+      () => run(onboardingSetEnabled, { workspaceId: ws, enabled: false }, marco),
+      'forbidden',
+    );
+    expect(await run(onboardingSetEnabled, { workspaceId: ws, enabled: false }, dale)).toEqual({
+      workspaceId: ws,
+      enabled: false,
+      changed: true,
+    });
+    for (const u of [dale, marco]) {
+      const s = await status(u, ws);
+      expect(s).toMatchObject({ enabled: false, view: { show: false } });
+    }
+    // The shell hears it too, for this business only.
+    const me = await executeQuery(api(), accountMe, {}, human(dale), meta());
+    expect(me.workspaces.find((w) => w.id === ws)?.gettingStarted).toBe(false);
+    expect(me.workspaces.find((w) => w.id === secondWs)?.gettingStarted).toBe(true);
+    // Off again changes nothing; on brings it back as it was.
+    expect(
+      (await run(onboardingSetEnabled, { workspaceId: ws, enabled: false }, dale)).changed,
+    ).toBe(false);
+    await run(onboardingSetEnabled, { workspaceId: ws, enabled: true }, dale);
+    expect((await status(marco, ws)).enabled).toBe(true);
+    expect((await status(dale, ws)).answers).not.toBeNull();
   });
 });

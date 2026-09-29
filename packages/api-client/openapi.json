@@ -47162,6 +47162,71 @@
         }
       }
     },
+    "/v1/commands/onboarding.set_enabled": {
+      "post": {
+        "operationId": "command_onboarding_set_enabled",
+        "summary": "Turn Getting started off for everyone in this business, or back on (Settings → Workspace). Off, nobody sees the guide on Home, the setup wizard or the tour; each person’s own progress is kept for when it’s turned on again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.update. Emits onboarding.enabled_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "enabled",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -52373,6 +52438,9 @@
                             "items": {
                               "type": "string"
                             }
+                          },
+                          "gettingStarted": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -52385,7 +52453,8 @@
                           "industry",
                           "role",
                           "permissions",
-                          "addons"
+                          "addons",
+                          "gettingStarted"
                         ],
                         "additionalProperties": false
                       }
@@ -52913,6 +52982,9 @@
                             "type": "string"
                           }
                         },
+                        "gettingStarted": {
+                          "type": "boolean"
+                        },
                         "settings": {
                           "type": "object",
                           "propertyNames": {
@@ -52946,6 +53018,7 @@
                         "role",
                         "permissions",
                         "addons",
+                        "gettingStarted",
                         "settings",
                         "inboxPerPerson",
                         "createdAt",
@@ -95964,6 +96037,9 @@
                         "personal"
                       ]
                     },
+                    "enabled": {
+                      "type": "boolean"
+                    },
                     "answers": {
                       "anyOf": [
                         {
@@ -96216,6 +96292,7 @@
                   "required": [
                     "workspaceId",
                     "audience",
+                    "enabled",
                     "answers",
                     "website",
                     "steps",

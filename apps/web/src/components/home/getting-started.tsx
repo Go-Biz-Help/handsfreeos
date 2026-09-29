@@ -47,6 +47,8 @@ export function GettingStarted({
   permissions: readonly string[];
   compact?: boolean;
 }) {
+  // Turned off for the whole business by an owner or admin: nothing, not even "You're set up".
+  if (!status.enabled) return null;
   if (status.complete && !status.view.finishedAt)
     return <SetUp workspaceId={workspaceId} status={status} />;
   if (!status.view.show) return null;

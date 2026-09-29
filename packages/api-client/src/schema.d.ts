@@ -4897,6 +4897,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/onboarding.set_enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn Getting started off for everyone in this business, or back on (Settings → Workspace). Off, nobody sees the guide on Home, the setup wizard or the tour; each person’s own progress is kept for when it’s turned on again.
+         * @description Risk level 1. Requires workspace.update. Emits onboarding.enabled_changed.
+         */
+        post: operations["command_onboarding_set_enabled"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/onboarding.set_view": {
         parameters: {
             query?: never;
@@ -22226,6 +22246,39 @@ export interface operations {
             };
         };
     };
+    command_onboarding_set_enabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        enabled: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     command_onboarding_set_view: {
         parameters: {
             query?: never;
@@ -29303,6 +29356,7 @@ export interface operations {
                         };
                         workspaces: {
                             addons: string[];
+                            gettingStarted: boolean;
                             /** Format: uuid */
                             id: string;
                             industry: string;
@@ -37732,6 +37786,7 @@ export interface operations {
                         audience: "business" | "personal";
                         complete: boolean;
                         done: number;
+                        enabled: boolean;
                         next: ("number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar") | null;
                         skipped: number;
                         steps: {
@@ -41489,6 +41544,7 @@ export interface operations {
                             capabilities: string[];
                             /** Format: date-time */
                             createdAt: string;
+                            gettingStarted: boolean;
                             /** Format: uuid */
                             id: string;
                             inboxPerPerson: boolean;

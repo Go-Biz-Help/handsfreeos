@@ -71,7 +71,8 @@ export default async function SetupStepPage({
   const status = unwrapPage(
     await api.POST('/v1/queries/onboarding.status', { body: { workspaceId } }),
   );
-  if (status.audience !== 'business') redirect(home);
+  // Only someone who sets the business up, and only while Getting started is on for it.
+  if (status.audience !== 'business' || !status.enabled) redirect(home);
 
   const query = await searchParams;
   const body = canActOnStep(step, ws.permissions) ? (

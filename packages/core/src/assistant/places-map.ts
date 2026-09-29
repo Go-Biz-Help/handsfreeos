@@ -45,6 +45,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Let HandsFreeOS deal with an item: press Let HandsFreeOS Handle on it',
       'Put off a setup step: Skip on its row in Getting started; Undo brings it back',
       'Bring Getting started back after hiding it: Get help at the foot of the menu, then Getting started',
+      'Turn Getting started off for everyone in the business (owners and admins): Settings → Workspace, Getting started guide; the same switch turns it back on',
       'Put an item off: its ⋯, then Snooze and a time (Pick a time… for an exact one)',
       'Give an item to someone: its ⋯, then Assign…',
       'Clear an item: its ⋯, then Dismiss…; the note that pops up has Undo',

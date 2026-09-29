@@ -190,6 +190,11 @@ export const WorkspaceSummary = z.object({
    * and the panels on core pages decide from; the server enforces the same on every request.
    */
   addons: z.array(z.string()),
+  /**
+   * Getting started is on here: an owner or admin can turn it off for everyone (Settings → Workspace). The shell
+   * reads it for Get help and the tour; `onboarding.status` says the same.
+   */
+  gettingStarted: z.boolean(),
 });
 export type WorkspaceSummary = z.infer<typeof WorkspaceSummary>;
 

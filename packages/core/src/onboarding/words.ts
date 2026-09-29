@@ -324,11 +324,22 @@ export const ONBOARDING_WORDS = {
   /** The guide hidden. */
   hidden: 'Getting started is hidden. It’s under Get help whenever you want it.',
   finished: 'You’re set up.',
+  /** Turned off, or back on, for the whole business. */
+  turnedOff: 'Getting started is off for everyone in this business.',
+  turnedOn: 'Getting started is back on. Everyone who hasn’t finished it sees it on Home again.',
   /** "Email me a link" for the phone app or its notifications, which are done on the phone itself. */
   noLink: 'That one’s done on the phone itself, so there’s no link to send. Do it right here.',
   /** Too many links asked for in a day. */
   linkLimit: (count: number) =>
     `You’ve asked for ${count} links today, which is as many as we send. Open HandsFreeOS on your computer instead, or try again tomorrow.`,
+} as const;
+
+/** The switch in Settings → Workspace that turns Getting started off, or on, for the whole business. */
+export const GUIDE_SWITCH_WORDS = {
+  title: 'Getting started guide',
+  on: 'Everyone in this business sees Getting started on Home until they finish it or hide it: the business’s setup steps for owners and admins, a short list of their own for everyone else.',
+  off: 'Off for everyone in this business. Nobody sees the guide, the setup steps or the tour. Turn it on again any time.',
+  label: 'Show Getting started',
 } as const;
 
 /** Getting started in the phone app, besides the words it shares with the web (boards 9 and 10). */

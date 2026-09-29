@@ -5,6 +5,7 @@ import { currentCapabilityIds } from '../addons/capabilities';
 import { loadActiveAddons } from '../addons/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
+import { businessOnboardingOf } from '../onboarding/settings';
 import { WorkspaceGetInput, WorkspaceGetOutput } from '../schemas/workspace';
 
 export const workspaceGet = defineQuery({
@@ -53,6 +54,8 @@ export const workspaceGet = defineQuery({
         permissions,
         addons,
         settings: row.ws.settings,
+        gettingStarted: !businessOnboardingOf(row.ws.settings as Record<string, unknown> | null)
+          .turnedOff,
         inboxPerPerson:
           (
             (row.ws.settings as Record<string, unknown> | null)?.['inbox'] as

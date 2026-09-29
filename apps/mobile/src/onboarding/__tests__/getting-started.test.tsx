@@ -57,6 +57,7 @@ const view = { hidden: false, tourDoneAt: null, finishedAt: null, show: true };
 const OWNER: OnboardingStatus = {
   workspaceId: LONE_STAR,
   audience: 'business',
+  enabled: true,
   answers: { goal: 'leads', customersIn: 'ghl', teamSize: 'small' },
   website: null,
   steps: [
@@ -226,6 +227,19 @@ it('says “You’re set up” once, and Done finishes it', async () => {
   expect(sent('/v1/commands/onboarding.finish')[0]![1]).toEqual({
     body: { workspaceId: LONE_STAR, device: { app: true, notifications: true } },
   });
+});
+
+it('shows nothing when an owner turned Getting started off for the business, even with it all done', async () => {
+  await show({
+    ...TEAMMATE,
+    enabled: false,
+    complete: true,
+    next: null,
+    view: { ...view, show: false },
+  });
+  await waitFor(() => expect(sent('/v1/queries/onboarding.status')).toHaveLength(1));
+  expect(screen.queryByTestId('getting-started')).toBeNull();
+  expect(screen.queryByTestId('getting-started-done')).toBeNull();
 });
 
 it('shows nothing when the guide is hidden, and asks nothing without signal', async () => {

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { BrandedDomainCard } from '@/components/settings/branded-domain-card';
 import { DeleteWorkspace } from '@/components/settings/delete-workspace';
+import { GettingStartedSwitch } from '@/components/settings/getting-started-switch';
 import { WorkspaceForm } from '@/components/settings/workspace-form';
 import { Card } from '@/components/ui/card';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -33,6 +34,8 @@ export default async function WorkspaceSettingsPage({
           </p>
           <WorkspaceForm workspace={got.workspace} />
         </Card>
+        {/* Getting started for everyone here: owners and admins can turn it off (workspace.update, as above). */}
+        <GettingStartedSwitch workspaceId={workspaceId} enabled={got.workspace.gettingStarted} />
         {/* Adding the domain is setting up where the business is reached (channels.manage), as email's is. */}
         <BrandedDomainCard
           workspaceId={workspaceId}

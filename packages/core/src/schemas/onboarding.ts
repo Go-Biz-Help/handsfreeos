@@ -47,6 +47,8 @@ export const OnboardingStatusOutput = z.object({
   workspaceId: uuid,
   /** `business` for someone who sets the business up; `personal` for a teammate, who sees only their own list. */
   audience: z.enum(['business', 'personal']),
+  /** False when an owner or admin turned Getting started off for the whole business: nobody there sees it. */
+  enabled: z.boolean(),
   answers: OnboardingAnswersSchema.nullable(),
   website: z.string().nullable(),
   steps: z.array(OnboardingStepOut),
@@ -59,7 +61,7 @@ export const OnboardingStatusOutput = z.object({
     hidden: z.boolean(),
     tourDoneAt: isoDateTime.nullable(),
     finishedAt: isoDateTime.nullable(),
-    /** Not finished and not hidden: the guide shows on Home. */
+    /** On for the business, and this person hasn't finished or hidden it: the guide shows on Home. */
     show: z.boolean(),
   }),
 });
@@ -139,4 +141,15 @@ export const OnboardingSendLinkOutput = z.object({
   email: z.string(),
   /** False when the same link went a moment ago: that one is still on its way. */
   sent: z.boolean(),
+});
+
+/** Getting started on or off for the whole business (Settings → Workspace). */
+export const OnboardingSetEnabledInput = z.object({
+  workspaceId: uuid,
+  enabled: z.boolean(),
+});
+export const OnboardingSetEnabledOutput = z.object({
+  workspaceId: uuid,
+  enabled: z.boolean(),
+  changed: z.boolean(),
 });

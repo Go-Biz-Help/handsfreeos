@@ -224,3 +224,34 @@ test('a sign-in started in the wizard comes back to it', async ({ page }) => {
   await page.getByTestId('tour-skip').click();
   await expect(page.getByTestId('tour')).toHaveCount(0);
 });
+
+test('an owner turns Getting started off for everyone, and back on', async ({ page }) => {
+  await signUpAndConfirm(page, 'guide-off');
+  const workspaceId = await createBusiness(page, { name: 'Guide Off Plumbing' });
+  await expect(page.getByTestId('getting-started')).toBeVisible();
+
+  await page.goto(`/app/w/${workspaceId}/settings/workspace`);
+  const toggle = page.getByTestId('getting-started-enabled');
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await toggle.click();
+  await expect(
+    page.getByText('Getting started is off for everyone in this business.'),
+  ).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+  // Home has no guide, Get help is only the form, and the setup wizard goes Home.
+  await page.goto(`/app/w/${workspaceId}`);
+  await expect(page.getByTestId('action-center-intro')).toBeVisible();
+  await expect(page.getByTestId('getting-started')).toHaveCount(0);
+  await page.getByTestId('get-help').click();
+  await expect(page.getByRole('dialog', { name: 'Ask us for help' })).toBeVisible();
+  await page.goto(`/onboarding/${workspaceId}/setup/number`);
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
+
+  // Back on, it's as it was.
+  await page.goto(`/app/w/${workspaceId}/settings/workspace`);
+  await page.getByTestId('getting-started-enabled').click();
+  await expect(page.getByTestId('getting-started-enabled')).toHaveAttribute('aria-checked', 'true');
+  await page.goto(`/app/w/${workspaceId}`);
+  await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
+});

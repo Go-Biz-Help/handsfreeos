@@ -1,7 +1,7 @@
 /**
  * Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §5): the answers to the quick questions, skipping a
- * step, "Add them as you go", hiding the guide or finishing the tour, finishing the guide for good, and emailing
- * yourself a link to a step from the phone.
+ * step, "Add them as you go", hiding the guide or finishing the tour, finishing the guide for good, emailing
+ * yourself a link to a step from the phone, and turning the guide off for the whole business.
  *
  * The business's part lives in `workspaces.settings.onboarding` and needs workspace.update; a person's own part
  * lives in their `users.settings.onboarding`, keyed by business, and anyone in the business may change their own.
@@ -36,6 +36,8 @@ import {
   OnboardingSaveAnswersOutput,
   OnboardingSendLinkInput,
   OnboardingSendLinkOutput,
+  OnboardingSetEnabledInput,
+  OnboardingSetEnabledOutput,
   OnboardingSetViewInput,
   OnboardingSetViewOutput,
   OnboardingSkipInput,
@@ -390,6 +392,38 @@ export const onboardingSendLink = defineCommand({
       entityType: 'user',
       entityId: userId,
       payload: { step: input.step, path },
+    });
+    return out(true);
+  },
+});
+
+export const onboardingSetEnabled = defineCommand({
+  name: 'onboarding.set_enabled',
+  description:
+    'Turn Getting started off for everyone in this business, or back on (Settings → Workspace). Off, nobody sees the guide on Home, the setup wizard or the tour; each person’s own progress is kept for when it’s turned on again.',
+  risk: 1,
+  input: OnboardingSetEnabledInput,
+  output: OnboardingSetEnabledOutput,
+  permission: 'workspace.update',
+  scope: inWorkspace,
+  emits: ['onboarding.enabled_changed'],
+  async handler(ctx, input) {
+    const { userId } = requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const { stored, current } = await lockBusiness(ctx);
+    const out = (changed: boolean) => ({ workspaceId: ws, enabled: input.enabled, changed });
+    if (!current.turnedOff === input.enabled) return out(false);
+    await saveBusiness(ctx, stored, {
+      ...current,
+      turnedOff: input.enabled ? null : { at: new Date().toISOString(), by: userId },
+    });
+    await ctx.emit({
+      type: 'onboarding.enabled_changed',
+      entityType: 'workspace',
+      entityId: ws,
+      payload: { enabled: input.enabled },
+      before: { gettingStarted: input.enabled ? 'off' : 'on' },
+      after: { gettingStarted: input.enabled ? 'on' : 'off' },
     });
     return out(true);
   },

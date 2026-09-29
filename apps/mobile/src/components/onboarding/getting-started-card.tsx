@@ -44,7 +44,8 @@ const FOLDED = 4;
 export function GettingStartedCard({ className }: { className?: string }) {
   const { business, userId } = useBusiness();
   const { status, device, reload } = useGettingStarted(business.id, userId);
-  if (!status) return null;
+  // Turned off for the whole business by an owner or admin: nothing, not even "You're set up".
+  if (!status || !status.enabled) return null;
   if (status.complete && !status.view.finishedAt)
     return <SetUp status={status} device={device} reload={reload} className={className} />;
   if (!status.view.show) return null;
