@@ -50,6 +50,15 @@ function recorded(routes: Route[]) {
   return { f, calls };
 }
 
+/** The error a call that should be refused threw. */
+const refusedWith = (p: Promise<unknown>): Promise<MailboxError> =>
+  p.then(
+    () => {
+      throw new Error('it should have been refused');
+    },
+    (e: unknown) => e as MailboxError,
+  );
+
 const tokens: TokenSet = {
   accessToken: 'access-example',
   refreshToken: 'refresh-example',
@@ -111,6 +120,15 @@ describe('Outlook (Microsoft Graph)', () => {
     expect(calls[0]!.body).toContain('grant_type=refresh_token');
     expect(calls[0]!.body).toContain('refresh_token=refresh-example');
     await expect(p.refresh(next)).rejects.toBeInstanceOf(MailboxAuthError);
+  });
+
+  it('names Graph’s error code when it refuses', async () => {
+    const { p } = graph([
+      () => json({ error: { code: 'ErrorAccessDenied', message: 'Access is denied.' } }, 403),
+    ]);
+    const e = await refusedWith(p.account('access-example'));
+    expect(e).toMatchObject({ status: 403, permanent: true });
+    expect(e.message).toBe('Outlook answered 403 (ErrorAccessDenied): Access is denied.');
   });
 
   it('a bad client secret is our problem, not a reconnect', async () => {
@@ -414,6 +432,38 @@ describe('Gmail', () => {
       'profile',
       'messages',
     ]);
+  });
+
+  it('a 403 says Google’s reason; its rate limit is waited out, a refusal is not', async () => {
+    const at = new Date(Date.now() + 10 * 60_000).toISOString();
+    const refusal = (reason: string, message: string) =>
+      json(
+        { error: { code: 403, message, errors: [{ reason }], status: 'PERMISSION_DENIED' } },
+        403,
+      );
+    const { p } = gmail([
+      (c) =>
+        c.url.includes('/messages?')
+          ? refusal('userRateLimitExceeded', `User-rate limit exceeded.  Retry after ${at}`)
+          : undefined,
+      (c) =>
+        c.url.endsWith('/profile')
+          ? refusal('insufficientPermissions', 'Request had insufficient authentication scopes.')
+          : undefined,
+    ]);
+    const slow = await refusedWith(
+      p.sync('access-example', { backfill: { startHistoryId: '1' } }, new Date()),
+    );
+    expect(slow).toBeInstanceOf(MailboxError);
+    expect(slow).toMatchObject({ status: 403, permanent: false });
+    expect(slow.message).toBe(
+      `Gmail answered 403 (userRateLimitExceeded): User-rate limit exceeded. Retry after ${at}`,
+    );
+    expect(slow.retryAfterMs).toBeGreaterThan(9 * 60_000);
+    expect(slow.retryAfterMs).toBeLessThanOrEqual(10 * 60_000);
+    const refused = await refusedWith(p.account('access-example'));
+    expect(refused).toMatchObject({ status: 403, permanent: true, retryAfterMs: null });
+    expect(refused.message).toContain('(insufficientPermissions)');
   });
 
   it('sends raw MIME in the thread with our Message-ID', async () => {
