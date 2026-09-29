@@ -35,6 +35,7 @@ import {
   territoryUpdate,
   timeOffAdd,
   timeOffRemove,
+  workspaceCreate,
 } from '../src/server';
 import {
   admin,
@@ -606,5 +607,24 @@ describe('hours and time off', () => {
     );
     await run(timeOffRemove, { workspaceId: t.wsId, exceptionId: off.exceptionId }, t.member);
     await run(scheduleSet, { workspaceId: t.wsId, weekly: WEEKDAYS }, t.member);
+  });
+
+  it('shows the organization’s owners, even in a business nobody has joined directly', async () => {
+    const span = { from: '2027-03-15T05:00:00.000Z', to: '2027-03-16T05:00:00.000Z' };
+    // Set up for a client: nobody is on it, and its owner reaches it through the organization. Their
+    // Google or Outlook busy times belong on its calendar all the same.
+    const client = await run(
+      workspaceCreate,
+      { organizationId: t.orgId, name: 'Calcmd Client' },
+      t.owner,
+    );
+    const theirs = await ask(scheduleTeam, { workspaceId: client.workspaceId, ...span }, t.owner);
+    expect(theirs.people.map((p) => p.userId)).toEqual([t.owner.id]);
+    // A direct member who also owns the organization shows once, in their place among the members.
+    const ours = (await ask(scheduleTeam, { workspaceId: t.wsId, ...span }, t.owner)).people.map(
+      (p) => p.userId,
+    );
+    expect(ours.filter((id) => id === t.owner.id)).toHaveLength(1);
+    expect(ours).toEqual(expect.arrayContaining([t.member.id, t.priya.id, t.marco.id]));
   });
 });
