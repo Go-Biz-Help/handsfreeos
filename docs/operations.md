@@ -9,7 +9,7 @@ Some sections are split into named parts. The rest of this guide refers to them 
 - Fly Part 1 to Fly Part 10: "Hosting: the API and the worker on Fly.io".
 - Sync Part 1 to Sync Part 9: "Sync service: PowerSync on Fly".
 - Twilio Step 1 to Twilio Step 4: "The phone carrier: Twilio".
-- Postmark Part A to Postmark Part J: "Email: Postmark".
+- Postmark Part A to Postmark Part M: "Email: Postmark".
 - Stage 0 to Stage 9 (the go-live checklist) and Check 1 to Check 9 (the end-to-end check): "Going live, and when something goes wrong".
 
 A plain "step 5" means step 5 of the list you are reading, or of the part named next to it.
@@ -5140,10 +5140,11 @@ the production server keeps doing all the sending — it only receives.
 
 Worth knowing:
 
-- **Every address on the bare domain now arrives here.** Mail to `hello@handsfreeos.com` or
-  `chris@handsfreeos.com` is accepted by Postmark and then dropped by the worker, because only the addresses
-  in `SUPPORT_ADDRESSES` open a ticket. To catch another one, add it there — for example
-  `SUPPORT_ADDRESSES=support,help,hello`.
+- **Every address on the bare domain now arrives here.** Until HandsFreeOS's own business receives there
+  ("Postmark Part M"), mail to `hello@handsfreeos.com` or `chris@handsfreeos.com` is accepted by Postmark and
+  then dropped by the worker, because only the addresses in `SUPPORT_ADDRESSES` open a ticket. To make another
+  one a ticket address, add it there — for example `SUPPORT_ADDRESSES=support,help,hello`. Once Part M is done,
+  every other address goes to HandsFreeOS's own business instead.
 - **Sending is unchanged.** Support replies go out through the production server, which already sends for
   `handsfreeos.com` (Postmark Part D). The support server has no sending to do.
 - **Out-of-office replies and mailer daemons are dropped**, the same way they are for a business's inbox.
@@ -5169,6 +5170,50 @@ Email campaigns (Campaigns → New campaign → **Send as: Email**) never go on 
 You should see the `broadcast` stream beside `outbound` and `inbound`. To test, make an email campaign to yourself (a tag with only your own customer record), approve it, and check the email shows your first name, the unsubscribe link and the business's address. Then press **Unsubscribe** in your mail app. The address should appear in the database's `app.email_unsubscribes`, and the next campaign should leave it out as "Unsubscribed from your emails".
 
 A campaign paused with "Email campaigns aren't set up on HandsFreeOS yet" means the worker has no `POSTMARK_BROADCAST_STREAM`. Set it, then press **Resume** on the campaign.
+
+### Postmark Part M: HandsFreeOS's own mail at handsfreeos.com
+
+HandsFreeOS's own business can use `handsfreeos.com` as its email (M19): `chris@handsfreeos.com` becomes
+Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in **Inbox → My mail**, and
+only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
+receives the whole domain and posts it to the worker, and the production server already sends for it.
+`support@` and `help@` (everything in `SUPPORT_ADDRESSES`) stay the support desk's.
+
+Do it once the M19 migrations are on the hosted database and M19 is on `main`:
+
+1. **Mark the business.** Sign in at `https://app.handsfreeos.com/admin` as a staff admin, open
+   **Businesses**, find HandsFreeOS's own business, and set **HandsFreeOS's own business** to **Yes**. Only one
+   business should carry it. Only staff with `platform.own_business.manage` (staff admins) can change it.
+2. **Add the domain.** Switch to that business and open **Settings → Email**. Under **Use your own domain**,
+   type `handsfreeos.com` and click **Add domain**. Postmark already has this domain, so the worker reuses it and
+   its records are already in DNS: click **Check now** and it should say **Verified** within a minute.
+3. **Add the addresses.** Under **Add an address on handsfreeos.com**:
+   - `chris`, with **Who reads it** set to **Only Chris**. Only Chris reads and sends from it.
+   - Any shared address, like `office` or `hello`, left as **The team**. It goes to the team's Inbox.
+   - `support`, `help`, `no-reply` and `alerts` are refused: they're the support desk's and the system's.
+
+   The first team address becomes the business's default, and mail to a name nobody has added goes there.
+
+4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
+   `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
+5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
+   - Within a minute it shows in **Inbox → My mail**, and Chris's phone buzzes.
+   - Nobody else in the business sees it.
+   - Reply from HandsFreeOS. The reply arrives from `chris@handsfreeos.com`, and answering it lands in the same
+     thread.
+   - Also write to `support@handsfreeos.com`. It should still open a ticket at `/admin/tickets`.
+
+If it goes wrong:
+
+- **"Receiving mail at your own domain isn't open to every business yet"** means step 1 wasn't done for this
+  business.
+- **"That domain is HandsFreeOS's own"** when adding the domain means the same thing.
+- **Nothing arrives in My mail.** In Postmark, open the **HandsFreeOS Support** server's inbound stream →
+  **Activity**. If the mail is there with a 200 answer, open the worker's logs (`fly logs --app
+handsfreeos-worker`). Check **Settings → Email** shows **Receiving**, and that the address is spelled as you
+  wrote to it.
+- **Chris leaves one day.** New mail to his address goes to the team's Inbox, and an owner decides in
+  **Settings → Email** whether the address and its mail go to the team or to someone else, or are removed.
 
 ### Where to look in Postmark
 

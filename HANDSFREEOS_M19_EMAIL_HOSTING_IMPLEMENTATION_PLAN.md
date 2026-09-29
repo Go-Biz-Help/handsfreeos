@@ -287,6 +287,18 @@ Settings → Email and the Inbox on the web, the phone's boxes, push for someone
 Set `is_platform` on the HandsFreeOS business, add `handsfreeos.com`, add `chris@` as Chris's
 mailbox, then send and receive from outside. `docs/operations.md` gets a short section on it.
 
+**As prepared (2026-09-29):**
+
+- No code is needed. The support server already receives all of `handsfreeos.com` and posts it to
+  the same webhook, where the worker routes every address but `support@` and `help@` to the
+  business that receives there. The production server already sends for the domain, and adding
+  `handsfreeos.com` reuses the domain Postmark has.
+- The steps are "Postmark Part M" in `docs/operations.md`: mark the business in `/admin`, add
+  the domain and `chris@` (Only Chris) in Settings → Email, click Receive mail here, and test from
+  outside.
+- Before them, Steps 1–3's migrations go on the hosted database and Steps 1–4 reach `main`
+  together, once CI and `sync.yml` are green on the branch.
+
 ### Step 6 — Every business
 
 1. Chris moves Postmark to the Platform plan, which has no limit on servers (Pro stops at 10).
