@@ -29,7 +29,7 @@ import { ROLE_PERMISSIONS, WORKSPACE_ROLES } from '../src/permissions';
 import { uid } from './attention-fixtures';
 
 describe('attention kinds', () => {
-  it('lists the thirty-two kinds in order', () => {
+  it('lists the thirty-three kinds in order', () => {
     expect(ATTENTION_KINDS).toEqual([
       'hot_lead',
       'unanswered_lead',
@@ -63,6 +63,7 @@ describe('attention kinds', () => {
       'website_changed',
       'faq_suggestions',
       'offer_lapsing',
+      'texting_rejected',
     ]);
   });
 
@@ -121,6 +122,8 @@ describe('attention kinds', () => {
       'faq_suggestions',
       // Extending an offer is a knowledge edit too.
       'offer_lapsing',
+      // Sending texting details again is setting up texting (channels.manage), which a member doesn't have.
+      'texting_rejected',
     ];
     for (const role of WORKSPACE_ROLES)
       for (const kind of ATTENTION_KINDS)
@@ -215,6 +218,7 @@ describe('attention kinds', () => {
       'quiet_after_price',
       'referral_mentioned',
       'revenue_moved',
+      'texting_rejected',
       'wallet_card_declined',
       'wallet_empty',
       'wallet_low',

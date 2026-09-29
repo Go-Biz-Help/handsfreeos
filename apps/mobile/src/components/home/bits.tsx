@@ -19,6 +19,7 @@ import {
   CircleQuestionMark,
   EyeOff,
   Globe,
+  MessageSquareOff,
   Tag,
   GraduationCap,
   Unplug,
@@ -106,6 +107,7 @@ const KIND_LOOK: Readonly<
   ai_corrections: { icon: GraduationCap, tone: 'ai' },
   website_changed: { icon: Globe, tone: 'accent' },
   offer_lapsing: { icon: Tag, tone: 'warning' },
+  texting_rejected: { icon: MessageSquareOff, tone: 'danger' },
   faq_suggestions: { icon: CircleQuestionMark, tone: 'ai' },
 };
 

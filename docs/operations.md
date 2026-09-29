@@ -7509,13 +7509,17 @@ Around 8 AM each day, the organization's owners and admins get one email about t
 - approvals waiting, and how long the oldest has waited;
 - paused workflows;
 - templates with **Update available**;
-- knowledge suggestions waiting, for a business that is already on the list.
+- knowledge suggestions waiting, for a business that is already on the list;
+- a business stuck on setup (Getting started), and why: a step needs a fix, or its own owners haven't signed in for
+  5 days with must-dos still open.
 
 Each person's email leaves out the businesses where they are an owner or admin themselves, because they get those emails as they happen. Someone with nothing left to list gets no email, so the owner of a single business never gets one.
 
 - The time is 8 AM in the time zone most of the organization's businesses use, or Central Time if it has none.
 - It goes out at most once a day.
 - Each person can turn it off with **Daily agency digest** under **Notifications** in **Settings** → **Account**. Only organization owners and admins see that switch.
+
+**Client businesses** also has a **Setup** column: each business's Getting started count, **Stuck**, **Setting up** or **Done** and why, with filters and a side panel of its steps ("Do it for them", and **Email a reminder** to the business's own owners, once a day). When an owner last signed in comes from `private.owners_last_sign_in`, which needs `20261013001000_when_owners_last_signed_in.sql`. See "Apply new migrations".
 
 ### Try workflows and the knowledge base locally
 
@@ -8155,8 +8159,9 @@ The promises found are kept in `app.promises`; dismissing the card is enough to 
 | **Learn from corrections**        | Each time someone edits or rejects one of the AI's replies, the AI reads it right away and, when it teaches something new, suggests one line. **Add to what the AI knows** puts it at the end of the policies. When the line goes against what the AI already knows (the profile or a knowledge item), the card shows the old words and asks which is right: **Use the new one** swaps them, and dismissing the card keeps them | Yes              |
 | **Website changed**               | Every Monday at 4 AM the website is read again (only once someone scanned it before). A card when it proposes updates, until they're accepted or turned down                                                                                                                                                                                                                                                                    | Yes              |
 | **Questions the AI can't answer** | A card as soon as a question the AI couldn't answer has come up 3 times. **Answer** opens it in Knowledge → Suggestions, where the answer is typed once and saved                                                                                                                                                                                                                                                               | Yes              |
+| **Texting turned down**           | When the phone carriers turn down the business's texting details, an urgent card for the owners and admins quoting their reason. **Fix and send again** opens Settings → Texting & calls; it closes when the details are sent again or approved. Owners also get the email, as before                                                                                                                                           | Always           |
 
-The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons` (with what they go against in `conflict`), and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql` and `20261007000800_lessons_from_one_correction.sql`. See "Apply new migrations".
+The push has its own switch, **A connection stops working** (`connections`), under Notifications. Lessons are kept in `app.teammate_lessons` (with what they go against in `conflict`), and the weekly re-read marks its scans `automatic`. Needs `20261004001200_health_and_quality.sql` and `20261007000800_lessons_from_one_correction.sql`, and for **Texting turned down** `20261013001100_texting_turned_down_on_home.sql` (the `texting_rejected` card kind). See "Apply new migrations".
 
 ### Outreach campaigns
 

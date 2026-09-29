@@ -48,6 +48,7 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   website_changed: ['scan', 'scans'],
   faq_suggestions: ['question', 'questions'],
   offer_lapsing: ['offer', 'offers'],
+  texting_rejected: ['registration', 'registrations'],
 };
 
 /** The settings page that checks a channel or fixes a connection, by the card's stored subject type. */
@@ -517,6 +518,8 @@ export function attentionTargetOf(
       return { href: `${base}/knowledge/suggestions?reason=gap`, label: 'Open the questions' };
     case 'offer_lapsing':
       return { href: `${base}/knowledge/offers`, label: 'Open the offers' };
+    case 'texting_rejected':
+      return { href: `${base}/settings/texting`, label: 'Open Texting & calls' };
   }
   if (item.personId)
     return { href: `${base}/customers/people/${item.personId}`, label: 'Open the customer' };
@@ -668,6 +671,8 @@ export function handleButtonOf(
       return { label: 'Answer', icon: 'message' };
     case 'offer_lapsing':
       return { label: 'Open the offer', icon: 'file-text' };
+    case 'texting_rejected':
+      return { label: 'Fix and send again', icon: 'message' };
   }
 }
 
@@ -699,6 +704,7 @@ export function letHandleOffReason(
   )
     return 'What the AI learns is yours to decide';
   if (item.kind === 'offer_lapsing') return 'Whether an offer runs longer is your call';
+  if (item.kind === 'texting_rejected') return 'Only you can fix the details they turned down';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

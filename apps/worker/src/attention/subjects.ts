@@ -154,6 +154,9 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'offer.created',
   'offer.updated',
   'offer.archived',
+  // Texting turned down: the carriers answered, or the details were sent again.
+  'registration.submitted',
+  'registration.status_changed',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -186,6 +189,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'scan',
   'suggestion',
   'offer',
+  'registration',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -340,6 +344,12 @@ export async function subjectsOf(
       break;
     case 'offer':
       add('offer', id);
+      break;
+    case 'registration':
+      add('registration', id);
+      // Sending again names the last row of the chain; the rest are in the payload.
+      if (Array.isArray(p['registrationIds']))
+        for (const r of p['registrationIds'].slice(0, 10)) add('registration', r);
       break;
     case 'knowledge_suggestion':
       add('suggestion', id);

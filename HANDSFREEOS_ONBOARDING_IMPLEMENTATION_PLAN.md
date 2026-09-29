@@ -319,6 +319,11 @@ whose status is `failed`, not a refused registration. So a new Action Center kin
 - Its words quote the carriers' `rejection_reason` and say what to do: fix the details in Settings → Texting & calls
   and send them again. The button opens that page.
 - It clears when a new registration is sent, or one is approved.
+- Built as `attention/detectors/texting-rejected.ts` with `loadTextingRegistrations` (load-health.ts): one card per
+  registration row, and only the newest of its kind for the business's current number, as Settings → Texting &
+  calls reads them, so a refusal left behind by a changed number opens nothing. Only people with `channels.manage`
+  see it (`visibleTo`), and it stays out of a member's morning email. Sending again resolves it as `sent_again`,
+  which counts as handled today. Migration `20261013001100_texting_turned_down_on_home.sql`.
 - Built by the checklist every new kind follows (`HANDSFREEOS_AUTOMATIONS_IMPLEMENTATION_PLAN.md`, "New Action
   Center kinds"): `attention/kinds.ts`, a `kindSwitches` default, a detector, its facts loader, the worker's
   subjects, the Home words, and a migration re-creating `attention_items_kind_check`. The hosted database gets that
@@ -372,5 +377,5 @@ Each step ships alone and leaves the tree green.
 6. ✅ **Teammates**: the personal list on the web.
 7. ✅ **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
 8. ✅ **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
-9. **The `texting_rejected` card**, with its migration applied to the hosted database first.
+9. ✅ **The `texting_rejected` card**, with its migration applied to the hosted database first.
 10. **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.

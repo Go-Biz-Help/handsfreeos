@@ -11,11 +11,13 @@ import {
   DETECTORS,
   gapWords,
   lessonKnowsOtherwise,
+  textingRejectedWords,
   type AiCorrectionsFacts,
   type AiUnreviewedFacts,
   type ChannelQuietFacts,
   type ConnectionFacts,
   type FaqSuggestionsFacts,
+  type TextingRejectedFacts,
   type WebsiteChangedFacts,
 } from '../src/attention/index';
 import { openDayMs } from '../src/attention/load-health';
@@ -116,6 +118,76 @@ describe('connection_error and connection_silent', () => {
   it('can’t be turned off: a broken connection always shows', () => {
     const off = defaultAttentionSettings();
     expect(off.kinds.connection_error).toBe(true);
+  });
+});
+
+describe('texting_rejected', () => {
+  const facts = (
+    over: Partial<TextingRejectedFacts['registration']> = {},
+  ): TextingRejectedFacts => ({
+    business,
+    registration: {
+      id: uid(3),
+      status: 'rejected',
+      rejectionReason: 'The business address doesn’t match the EIN record.',
+      submittedAt: ago(9 * DAY),
+      rejectedAt: ago(2 * HOUR),
+      current: true,
+      ...over,
+    },
+  });
+
+  it('is urgent from the moment the carriers turned it down', () => {
+    const found = DETECTORS.texting_rejected.detect(facts(), settings, NOW)!;
+    expect(found.urgentFrom).toBe(ago(2 * HOUR));
+    expect(found.reasons[0]).toMatchObject({
+      code: 'broken',
+      label: 'Turned down by the carriers',
+    });
+  });
+
+  it('goes once the details are sent again or approved, or it isn’t the business’s newest', () => {
+    for (const status of ['submitted', 'in_review', 'approved'])
+      expect(DETECTORS.texting_rejected.detect(facts({ status }), settings, NOW)).toBeNull();
+    expect(DETECTORS.texting_rejected.detect(facts({ current: false }), settings, NOW)).toBeNull();
+  });
+
+  it('comes back when new details are turned down too', () => {
+    const first = DETECTORS.texting_rejected.detect(facts(), settings, NOW)!;
+    const again = DETECTORS.texting_rejected.detect(
+      facts({ submittedAt: ago(DAY), rejectionReason: 'The website doesn’t mention texting.' }),
+      settings,
+      NOW,
+    )!;
+    expect(again.fingerprint).not.toBe(first.fingerprint);
+  });
+
+  it('quotes the carriers, and says what to do after', () => {
+    expect(
+      textingRejectedWords('The address doesn’t match the EIN record.', '(512) 555-0148'),
+    ).toEqual({
+      title: 'The carriers turned down texting for (512) 555-0148',
+      detail:
+        'Their reason: “The address doesn’t match the EIN record.” Fix your details in Settings → Texting & calls and send them again. Calls keep working meanwhile.',
+    });
+    expect(textingRejectedWords(null, null).detail).toMatch(/^They didn’t give a reason\. Fix/);
+    const long = textingRejectedWords('x'.repeat(500), null).detail;
+    expect(long).toMatch(/…” Fix your details/);
+    expect(long.length).toBeLessThanOrEqual(300);
+  });
+
+  it('can’t be turned off, and opens Texting & calls', () => {
+    expect(defaultAttentionSettings().kinds.texting_rejected).toBe(true);
+    const item = {
+      kind: 'texting_rejected' as const,
+      subject: { type: 'registration', id: uid(3) },
+      leadId: null,
+      conversationId: null,
+      appointmentId: null,
+      reasons: [],
+      personId: null,
+    };
+    expect(attentionTargetOf(item, uid(8)).href).toBe(`/app/w/${uid(8)}/settings/texting`);
   });
 });
 

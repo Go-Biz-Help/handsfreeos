@@ -47,6 +47,9 @@ export const ATTENTION_KINDS = [
   'faq_suggestions',
   // Promotions (Automations, after stage 5): an offer about to end.
   'offer_lapsing',
+  // Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §6): the carriers turned down texting, weeks
+  // after the guide counted the number step done.
+  'texting_rejected',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -86,6 +89,7 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   website_changed: 'Website changed',
   faq_suggestions: 'Question to answer',
   offer_lapsing: 'Offer ending',
+  texting_rejected: 'Texting turned down',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -123,6 +127,7 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   website_changed: 'Website changes',
   faq_suggestions: 'Questions to answer',
   offer_lapsing: 'Offers ending',
+  texting_rejected: 'Texting turned down',
 };
 
 /**
@@ -180,6 +185,7 @@ export const ATTENTION_SUBJECT_OF = {
   faq_suggestions: 'suggestion',
   // A row of app.offers whose end date is close.
   offer_lapsing: 'offer',
+  texting_rejected: 'registration',
 } as const satisfies Record<AttentionKind, string>;
 /** What a quiet channel's or a connection's card is stored as: the page that fixes it. */
 export const HEALTH_SUBJECT_TYPES = [
@@ -488,6 +494,15 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: [ITEM],
   },
+  // Sending the details again is setting up texting (channels.manage), as the first time was.
+  texting_rejected: {
+    handle: [ITEM, 'channels.manage'],
+    let_handle: null,
+    assign: null,
+    snooze: [ITEM],
+    // Never dismissed: the business can't text until the carriers say yes.
+    dismiss: null,
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -548,6 +563,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   website_changed: 'Review updates',
   faq_suggestions: 'Answer',
   offer_lapsing: 'Open the offer',
+  texting_rejected: 'Fix and send again',
 };
 
 // ---- What runs on its own ----
@@ -633,6 +649,7 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   website_changed: 'What the AI learns is yours to decide.',
   faq_suggestions: 'Only you know the answer.',
   offer_lapsing: 'Whether an offer runs longer is your call.',
+  texting_rejected: 'Only you can fix the details the carriers turned down.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

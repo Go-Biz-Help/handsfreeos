@@ -72,6 +72,7 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   faq_suggestions: { grows: 'since', start: 1, stepMs: 3 * DAY },
   // Climbs toward the end date: the last day is the last chance to extend it or send one more campaign.
   offer_lapsing: { grows: 'until_due', windowMs: 3 * DAY },
+  texting_rejected: { grows: 'since', start: 2, stepMs: DAY },
 };
 
 /**

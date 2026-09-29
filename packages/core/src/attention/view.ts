@@ -75,6 +75,8 @@ export const DONE_RESOLUTIONS = [
   // Automations' pipeline and jobs: a deal put on the right stage, a visit given its address.
   'moved',
   'address_added',
+  // Texting turned down: the details fixed and sent to the carriers again.
+  'sent_again',
 ] as const;
 const DONE: ReadonlySet<string> = new Set(DONE_RESOLUTIONS);
 
@@ -105,13 +107,16 @@ export function mayDecideApproval(who: Grants, userId: string, a: ApprovalDecide
 }
 
 /**
- * Whether the viewer sees this item at all: approval items only for the people who can decide them, and the
- * business's week of money only for the people who manage its money.
+ * Whether the viewer sees this item at all: approval items only for the people who can decide them, the business's
+ * week of money only for the people who manage its money, and texting turned down only for the people who set up
+ * its texting (its owners and admins).
  */
 export const visibleTo = (v: AttentionViewer, item: Pick<AttentionRow, 'kind' | 'subjectId'>) =>
   item.kind === 'ai_approval'
     ? v.decidable.has(item.subjectId)
-    : item.kind !== 'revenue_moved' || holds(v, 'money.manage');
+    : item.kind === 'revenue_moved'
+      ? holds(v, 'money.manage')
+      : item.kind !== 'texting_rejected' || holds(v, 'channels.manage');
 
 /** Whether the viewer may take an action on an item (its permissions, and deciding an approval). */
 export function mayAct(

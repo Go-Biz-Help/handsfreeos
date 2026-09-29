@@ -462,6 +462,19 @@ describe('carrier registration', () => {
     });
     await drain();
     await waitForMail(owner.email, `The carriers need a change before ${BUSINESS_NAME} can text`);
+    // And Home says so, quoting them, until it's sent again.
+    const card = () =>
+      rows<{ state: string; detail: string | null; resolution: string | null }>(
+        admin(),
+        sql`select state::text as state, detail, resolution from app.attention_items
+            where workspace_id = ${workspaceId} and kind = 'texting_rejected' and subject_id = ${turnedDown.id}`,
+      );
+    expect(await card()).toEqual([
+      expect.objectContaining({
+        state: 'open',
+        detail: expect.stringContaining('agree to receive texts'),
+      }),
+    ]);
 
     // Fix and send again: the corrected details reach the carrier as an edit of the same request.
     await executeCommand(
@@ -500,6 +513,7 @@ describe('carrier registration', () => {
     await drain();
     await waitForMail(owner.email, `Texting is on for ${BUSINESS_NAME}`);
     expect((await mailTo(member.email)).length).toBe(0);
+    expect(await card()).toEqual([expect.objectContaining({ state: 'resolved' })]);
   });
 });
 

@@ -26409,6 +26409,13 @@
                           "offer_lapsing": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "texting_rejected": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
                           }
                         }
                       },
@@ -26741,6 +26748,13 @@
                             "offer_lapsing": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "texting_rejected": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -26775,7 +26789,8 @@
                             "ai_corrections",
                             "website_changed",
                             "faq_suggestions",
-                            "offer_lapsing"
+                            "offer_lapsing",
+                            "texting_rejected"
                           ],
                           "additionalProperties": false
                         },
@@ -65303,7 +65318,8 @@
                                               "ai_corrections",
                                               "website_changed",
                                               "faq_suggestions",
-                                              "offer_lapsing"
+                                              "offer_lapsing",
+                                              "texting_rejected"
                                             ]
                                           },
                                           "chips": {
@@ -79331,7 +79347,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 32,
+                    "maxItems": 33,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -79367,7 +79383,8 @@
                         "ai_corrections",
                         "website_changed",
                         "faq_suggestions",
-                        "offer_lapsing"
+                        "offer_lapsing",
+                        "texting_rejected"
                       ]
                     }
                   },
@@ -79447,7 +79464,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "state": {
@@ -80004,7 +80022,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "state": {
@@ -80561,7 +80580,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "title": {
@@ -80861,7 +80881,8 @@
                               "ai_corrections",
                               "website_changed",
                               "faq_suggestions",
-                              "offer_lapsing"
+                              "offer_lapsing",
+                              "texting_rejected"
                             ]
                           },
                           "state": {
@@ -81467,7 +81488,8 @@
                         "ai_corrections",
                         "website_changed",
                         "faq_suggestions",
-                        "offer_lapsing"
+                        "offer_lapsing",
+                        "texting_rejected"
                       ]
                     },
                     "mode": {
@@ -81961,6 +81983,13 @@
                             "offer_lapsing": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "texting_rejected": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -81995,7 +82024,8 @@
                             "ai_corrections",
                             "website_changed",
                             "faq_suggestions",
-                            "offer_lapsing"
+                            "offer_lapsing",
+                            "texting_rejected"
                           ],
                           "additionalProperties": false
                         },

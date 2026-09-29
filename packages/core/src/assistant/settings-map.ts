@@ -656,7 +656,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/automations',
     permission: 'workspace.update',
     canChange: [
-      'turn any automation on or off, except Drafts awaiting review and Connection broke, which are always on',
+      'turn any automation on or off, except Drafts awaiting review, Connection broke and Texting turned down, which are always on',
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
       'what HandsFreeOS does on its own, and how it words it',
