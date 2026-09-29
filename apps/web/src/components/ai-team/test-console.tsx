@@ -328,7 +328,7 @@ function draftVoice(config: unknown): (typeof PHONE_VOICES)[number] | null {
 }
 
 /**
- * The test console: a manager writes as a customer (someone in Customers, or an unknown visitor) by text,
+ * The test console: a manager writes as a customer (someone in Contacts, or an unknown visitor) by text,
  * chat or email, or plays a phone call (they call in, or the teammate calls them to confirm a visit, ring back
  * a missed call, follow up a quote or for a campaign), at now or a time they pick. They see the reply stream in,
  * then what the teammate looked up, the knowledge it used, the checks the reply passed, and anything it would

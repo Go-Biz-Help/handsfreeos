@@ -80,7 +80,7 @@ function PanelContent({ phone, titleId }: { phone: boolean; titleId?: string }) 
       return;
     }
     if (card.conversationId) {
-      // A number that isn't in Customers: its conversation in the inbox takes the draft.
+      // A number that isn't in Contacts: its conversation in the inbox takes the draft.
       handDraft(card.conversationId, { text: card.body ?? '', subject, onSent: sentOwn });
       const href = `/app/w/${a.workspaceId}/inbox/${card.conversationId}`;
       a.closeIfCovering(href);

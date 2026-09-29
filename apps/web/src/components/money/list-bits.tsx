@@ -91,7 +91,7 @@ export function RowLink({
 
 /**
  * "Show more" for a cursor-paged list. Pages arrive in the browser and stack on what the server rendered, the
- * way Customers does it.
+ * way Contacts does it.
  */
 export function useMore<T>(key: string, initialCursor: string | null) {
   const [extra, setExtra] = useState<{ key: string; items: T[]; cursor: string | null }>({

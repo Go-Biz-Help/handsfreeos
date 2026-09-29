@@ -467,7 +467,7 @@ If you see `MaxClientsInSessionMode` or `max clients reached in session mode` in
    fly checks list --app handsfreeos-api
    ```
 
-   You should see the check as passing. Then open **Customers** at `https://app.handsfreeos.com`. You should see your customer list.
+   You should see the check as passing. Then open **Contacts** at `https://app.handsfreeos.com`. You should see your customer list.
 
 ### Change an app role password
 
@@ -536,7 +536,7 @@ Postgres keeps one password per role. So there is a short gap between changing t
     fly logs --app handsfreeos-worker
     ```
 
-    You should see `worker started` and no `password authentication failed` lines. When you change `hfos_api`, sign in at `https://app.handsfreeos.com` and open **Customers** instead; you should see your customer list.
+    You should see `worker started` and no `password authentication failed` lines. When you change `hfos_api`, sign in at `https://app.handsfreeos.com` and open **Contacts** instead; you should see your customer list.
 
     If it still fails after 2 minutes, compare the password in the string with the one in step 7. Then repeat steps 10 to 13 with the corrected string.
 
@@ -2077,7 +2077,7 @@ The web app finds the two Fly apps through two Vercel settings: `NEXT_PUBLIC_API
 
 After the redeploy:
 
-1. Sign in at `https://app.handsfreeos.com` with the account from "Create your first account" in "The database: Supabase (hosted)", and open **Customers**.
+1. Sign in at `https://app.handsfreeos.com` with the account from "Create your first account" in "The database: Supabase (hosted)", and open **Contacts**.
 
    You should see your customer list. That proves the web app reaches the API.
 
@@ -2147,7 +2147,7 @@ After every deploy:
 
    You should see `worker started` and no `worker pass crashed`.
 
-5. Sign in at `https://app.handsfreeos.com` with the account from "Create your first account" in "The database: Supabase (hosted)", and open **Customers**.
+5. Sign in at `https://app.handsfreeos.com` with the account from "Create your first account" in "The database: Supabase (hosted)", and open **Contacts**.
 
    You should see your customer list. That proves the API can reach the database.
 
@@ -3629,7 +3629,7 @@ Vercel still starts each skipped build and cancels it, and those count toward it
 
 **Do this one.** It is the only thing standing between a push and a few minutes of a half-deployed product.
 
-By default Vercel puts a new production build live as soon as it is ready. The API ships from the same push a few minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers "No such route", and a page built out of one of them shows an error. It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and on 23 September to Customers, and nothing was wrong with any of them.
+By default Vercel puts a new production build live as soon as it is ready. The API ships from the same push a few minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers "No such route", and a page built out of one of them shows an error. It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and on 23 September to Contacts, and nothing was wrong with any of them.
 
 Vercel's Deployment Checks hold the address back until a named check passes. One check covers it: the Deploy workflow reports **Vercel - handsfreeos-web: api** on the commit once the worker and the API are up, so the web app goes live in the minute **after** the API it calls, not before. It does not wait for CI, which takes up to 45 minutes; CI runs on the pull request before the merge.
 
@@ -4331,7 +4331,7 @@ fly logs --app handsfreeos-worker
 
 Add yourself as a customer:
 
-1. Open **Customers** and click **Add person**.
+1. Open **Contacts** and click **Add person**.
 2. Fill in **First name**, **Last name**, **Phone** (your cell) and **Email** (a personal address, not on `handsfreeos.com`).
 3. Click **Save person**.
 
@@ -4363,7 +4363,7 @@ Calls:
 18. Click **Answer**.
 19. When the browser asks to use the microphone, click **Allow**. You should hear each other both ways.
 20. Hang up.
-21. Open **Customers**, then your own customer page.
+21. Open **Contacts**, then your own customer page.
 22. Click **Call**. If there's no **Call** button, turn on calls in this browser first.
 23. Check that the dialog reads **Caller ID: <business name> · <business number>**.
 24. Click **Call**. You should see your cell ring, showing the business number.
@@ -5018,7 +5018,7 @@ After approval, test business email:
 
 1. Sign in at `https://app.handsfreeos.com` and open a workspace you can test in.
 2. Open **Settings** → **Email** and note the workspace's address under **Sending address**. The test email comes from it. It looks like `<business-name>-<6 letters and digits>@mail.handsfreeos.com`; copy it from the page rather than typing it.
-3. Click **Customers**.
+3. Click **Contacts**.
 4. Click **Add person**, or open the customer you added for the phone tests.
 5. Type a **First name**, and in **Email** type a personal address you can read, like a Gmail address.
 6. Click **Save person**.
@@ -5050,7 +5050,7 @@ You should see the reply in the same conversation in the HandsFreeOS inbox withi
 
 15. Optional: email the workspace address from another address that is not a customer.
 
-You should see it in **Settings** → **Email** under **Mail from people not in Customers**, with **Add or link** and **Dismiss**.
+You should see it in **Settings** → **Email** under **Mail from people not in Contacts**, with **Add or link** and **Dismiss**.
 
 Test platform mail:
 
@@ -5191,7 +5191,7 @@ fly logs --app handsfreeos-worker
 - **An email shows "Not sent: This address bounced or reported spam before, so the mail service won’t send to it."** Postmark has stopped that address on the `outbound` stream. HandsFreeOS adds it to the workspace's **Blocked addresses** as well. See "Emails bounce or are blocked" in "Going live, and when something goes wrong".
 - **An email stays at Sent and never shows Delivered.** The delivery events aren't arriving. Check the webhook on the **Default Transactional Stream**'s **Webhooks** tab, and look in the log for "rejected a mail event webhook without the right credentials".
 - **An email with attachments stays at Sending… and never goes out.** The worker reads attachments from Supabase Storage before it sends, so it needs `SUPABASE_SECRET_KEY`. Without it, the worker keeps retrying the send instead of showing why. Check the key with steps 5 to 7 of "Check the Postmark tokens and the Supabase key" in Fly Part 6 (the `"storage":true` field in the `worker started` line only shows that a key is set), and look in the log for "Storage is not configured".
-- **A reply never shows up.** Run the `dig` check for the MX record in Postmark Part D. Check **Inbound Domain** and **Webhook** on the inbound stream's **Settings** tab, and that SMTP is on for the server (Postmark Part B). Look in the log for "rejected an inbound mail webhook without the right credentials". The inbound stream's **Activity** tab shows whether the reply reached Postmark and what the worker answered. Replies to an email the business sent go into that conversation, whoever sends them. New mail sent straight to a workspace address by someone who isn't in Customers, and who has no conversation yet, waits in **Settings** → **Email** under **Mail from people not in Customers**.
+- **A reply never shows up.** Run the `dig` check for the MX record in Postmark Part D. Check **Inbound Domain** and **Webhook** on the inbound stream's **Settings** tab, and that SMTP is on for the server (Postmark Part B). Look in the log for "rejected an inbound mail webhook without the right credentials". The inbound stream's **Activity** tab shows whether the reply reached Postmark and what the worker answered. Replies to an email the business sent go into that conversation, whoever sends them. New mail sent straight to a workspace address by someone who isn't in Contacts, and who has no conversation yet, waits in **Settings** → **Email** under **Mail from people not in Contacts**.
 - **A reply with attachments keeps failing.** The worker saves attachments to Supabase Storage as the reply arrives, so it needs `SUPABASE_SECRET_KEY`. Without it the worker answers with an error, and Postmark retries for about 10 hours.
 - **Invitations or alerts don't arrive.** See "Invitations, reminders and notices do not arrive" in "Going live, and when something goes wrong". Before approval, they only reach addresses on `handsfreeos.com`.
 - **Password reset emails don't arrive.** See "Sign-in emails do not arrive" in "Going live, and when something goes wrong". Before approval, Postmark refuses them.
@@ -5214,7 +5214,7 @@ fly logs --app handsfreeos-worker
 
 ## Connected mailboxes: Outlook and Gmail
 
-A teammate can connect their Outlook or Gmail mailbox in **Settings** → **Email**. HandsFreeOS then brings in email between that mailbox and people in Customers (nothing else is stored), and replies written in the inbox can go out through it. Outlook works for every client once the Microsoft app exists and the worker has its values. Gmail stays switched off in the web app until Google finishes its security review.
+A teammate can connect their Outlook or Gmail mailbox in **Settings** → **Email**. HandsFreeOS then brings in email between that mailbox and people in Contacts (nothing else is stored), and replies written in the inbox can go out through it. Outlook works for every client once the Microsoft app exists and the worker has its values. Gmail stays switched off in the web app until Google finishes its security review.
 
 Words used below:
 
@@ -5418,14 +5418,14 @@ You should see `hello`.
 
 Test sign-in now, before branding and publisher verification. Use a personal Outlook.com account first; it needs no admin approval. You test a Microsoft 365 account after "Business clients: admin approval" below.
 
-1. In HandsFreeOS, open **Customers**.
+1. In HandsFreeOS, open **Contacts**.
 2. Open the **People** tab. It is the one that opens first.
 3. Click **Add person**.
 4. In **First name**, enter a name.
 5. In **Email**, enter an address you control outside the test mailbox (for example, a Gmail address).
 6. Click **Save person**.
 
-   You should see the person in the **People** list. HandsFreeOS only brings in mail with people in Customers. Mail with anyone else is skipped and not stored, and it doesn't appear under **Mail from people not in Customers** either.
+   You should see the person in the **People** list. HandsFreeOS only brings in mail with people in Contacts. Mail with anyone else is skipped and not stored, and it doesn't appear under **Mail from people not in Contacts** either.
 
 7. Open **Settings** → **Email**.
 8. Under **Connected mailboxes**, click **Connect Outlook**.
@@ -5436,7 +5436,7 @@ Test sign-in now, before branding and publisher verification. Use a personal Out
 
 11. From the customer's address, send an email to the test mailbox.
 
-    You should see it in the HandsFreeOS **Inbox** and on the person's page in **Customers** within about a minute, and at the latest with the five-minute check. The first sync also looks back 30 days.
+    You should see it in the HandsFreeOS **Inbox** and on the person's page in **Contacts** within about a minute, and at the latest with the five-minute check. The first sync also looks back 30 days.
 
 12. Open that conversation in the **Inbox**.
 13. Write a reply.
@@ -5753,7 +5753,7 @@ The worker doesn't check whether Google has approved the app, but the web app ke
 
 Then test with a test-user account:
 
-1. If you haven't already, add the customer in **Customers** as in the Outlook test.
+1. If you haven't already, add the customer in **Contacts** as in the Outlook test.
 2. Open **Settings** → **Email**.
 3. Click **Connect Gmail**.
 4. Sign in with a Gmail address you added as a test user.
@@ -5863,7 +5863,7 @@ To fix it, the person (who must be an owner or admin) opens **Settings** → **E
 
 Other problems look different:
 
-- **Not syncing.** Network errors, Microsoft or Google outages and throttling are retried, waiting longer each time (up to 30 minutes). After five failed checks in a row, the badge shows **Not syncing** with the last error. Nobody is emailed for this. The worker keeps trying, and the badge goes back to **Connected** after the next good check. While it shows **Not syncing**, the mailbox is also missing from the **From** choices.
+- **Not syncing.** Network errors, Microsoft or Google outages and throttling are retried, waiting longer each time (up to 30 minutes). Gmail throttles with a 403, and the error names its reason, such as "Gmail answered 403 (userRateLimitExceeded): User-rate limit exceeded." A check that stops partway keeps the mail it already brought in, and the next one carries on from there. A check that brought any in doesn't count as failed. After five failed checks in a row, the badge shows **Not syncing** with the last error. Nobody is emailed for this. The worker keeps trying, and the badge goes back to **Connected** after the next good check. While it shows **Not syncing**, the mailbox is also missing from the **From** choices. **Reconnect** doesn't help here: it starts the 30-day look-back over.
 - **An expired or wrong client secret.** Microsoft or Google answers `invalid_client`. HandsFreeOS treats that as a server problem, not a lost sign-in. After five failed checks, every mailbox of that provider shows **Not syncing** with "Microsoft refused the sign-in (invalid_client)." (or "Google refused the sign-in (<code>)"). Nobody is emailed, and **Reconnect** doesn't help. Setting a new secret on the worker fixes it (see "Rotating the client secrets"); the mailboxes recover on their next check, usually within about 30 minutes.
 - **A lost `WORKER_ENCRYPTION_KEY`.** The stored sign-ins are sealed with it, so without it every mailbox must be reconnected.
 
@@ -5954,7 +5954,7 @@ Google, whenever you rotate (a client can hold two secrets at once):
 ### Good to know
 
 - **Outlook pushes, Gmail is polled.** Outlook tells the worker about new mail within a minute; the worker also checks every five minutes in case a notification goes missing. Gmail is checked every two minutes.
-- **Only mail with customers is kept.** A mailbox's mail is stored only when the other party is a person in Customers or someone the workspace already has an email conversation with. Gmail's automatic mail (auto-replies and bulk mail) is skipped. Outlook doesn't give the worker the headers that mark automatic mail, so an automatic reply from a customer's address is kept. Everything else is never stored, not even attachments, and it doesn't wait under **Mail from people not in Customers** (that list is only for replies to the workspace address).
+- **Only mail with customers is kept.** A mailbox's mail is stored only when the other party is a person in Contacts or someone the workspace already has an email conversation with. Gmail's automatic mail (auto-replies and bulk mail) is skipped. Outlook doesn't give the worker the headers that mark automatic mail, so an automatic reply from a customer's address is kept. Everything else is never stored, not even attachments, and it doesn't wait under **Mail from people not in Contacts** (that list is only for replies to the workspace address).
 - **A new mailbox looks back 30 days.** Its first check brings in the last 30 days of mail with customers.
 - **Every mailbox is personal today.** The code can mark a mailbox as shared (such as `info@`), which would send the reconnect email to every owner and admin, but no screen sets that yet.
 - **There is no Sync now button yet.** The API has the command, but **Settings** → **Email** doesn't show it.
@@ -7428,7 +7428,7 @@ On a first setup, the key goes in with the worker's other secrets (Fly Part 6). 
 - **New leads.** With **Message new leads first** on (in **Respond**), it writes once to each new lead: by text when they agreed to texts (with STOP wording), otherwise by email, otherwise not at all. Imported leads and booking-page leads are skipped.
 - **Limits.** At most 12 replies to one customer a day and 6 look-ups per reply unless **Limits** says otherwise, and at most its share of the business's daily AI limit: 60% unless changed, so the Assistant and workflows always have room.
 - **Records.** Its messages show "Ava (AI)", or "Ava (AI) · approved by Dale". The timeline and the audit log name it too. **Activity** lists every run with what started it, what it looked up, the checks, and what it sent or drafted.
-- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Customers, and one to confirm a visit or follow up a quote needs that visit or open quote). **Call live** plays a call the way a caller has it: the teammate answers in real time on the same live call loop a real call runs, so the pauses, talking over it and the quiet timers are a real call's. When the business has a number and you may place calls, you pick how it goes: **Phone line** rings the business number from your browser (Twilio's browser calling), so you hear the phone line itself; **This browser** sends your microphone straight to the worker as phone-quality sound, without the phone line, and is the only way when there's no number yet (headphones keep it from hearing itself). Under each live reply, **Where the time went** starts from the moment you stopped talking and ends at the first sound of its answer. Or type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud and live calls need the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Under each call reply, **Where the time went** splits that wait into steps (see "How fast it answers on a call"). Like a real call, a test call reads the business once, when it's picked up: settings, knowledge or hours saved in the middle of a test call show from the next one. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
+- **The test console** in the rail tries the settings on screen, saved or not, by text, website chat, email or a phone call. A call can come in, or go out the way the teammate places one: to confirm a visit, ring back a missed call, follow up a quote, or for a campaign (an outgoing call needs someone in Contacts, and one to confirm a visit or follow up a quote needs that visit or open quote). **Call live** plays a call the way a caller has it: the teammate answers in real time on the same live call loop a real call runs, so the pauses, talking over it and the quiet timers are a real call's. When the business has a number and you may place calls, you pick how it goes: **Phone line** rings the business number from your browser (Twilio's browser calling), so you hear the phone line itself; **This browser** sends your microphone straight to the worker as phone-quality sound, without the phone line, and is the only way when there's no number yet (headphones keep it from hearing itself). Under each live reply, **Where the time went** starts from the moment you stopped talking and ends at the first sound of its answer. Or type what the caller says and read what it would say out loud, or turn on **Talk out loud** to say it into the microphone and hear each reply in the teammate's phone voice, after which it listens again; a goodbye or a hand-off ends the call. Talking out loud and live calls need the worker's `DEEPGRAM_API_KEY`. On a call, each reply's heading says when it would start talking ("talks at 0.8 s") and when it finished: a reply that changes nothing starts being said while the rest is still written, a checked sentence at a time, and one that books or changes something waits until that's done. **Talk out loud** does the same, so you hear the difference. Under each call reply, **Where the time went** splits that wait into steps (see "How fast it answers on a call"). Like a real call, a test call reads the business once, when it's picked up: settings, knowledge or hours saved in the middle of a test call show from the next one. Its look-ups are real, but it changes nothing, sends nothing and rings nobody. The phone app has the same console under **More → Test your AI teammate**, for people who manage the teammate; it tests the saved settings.
 
 ### What else it can do for a customer (M18)
 
@@ -9681,7 +9681,7 @@ The worker uses the fake carrier whenever `TELEPHONY_PROVIDER` is `fake` or not 
     http://127.0.0.1:4100/webhooks/postmark/inbound
   ```
 
-  You should see `{"ok":true}` and, a moment later, the email in Lone Star's inbox. Give each message a new `MessageID`: the worker keeps only the first message with a given id. A wrong login gets `403`, and mail for an address no business owns is accepted and dropped. Mail from someone who is not in **Customers** does not reach the inbox. It waits in **Settings** → **Email** under **Mail from people not in Customers**.
+  You should see `{"ok":true}` and, a moment later, the email in Lone Star's inbox. Give each message a new `MessageID`: the worker keeps only the first message with a given id. A wrong login gets `403`, and mail for an address no business owns is accepted and dropped. Mail from someone who is not in **Contacts** does not reach the inbox. It waits in **Settings** → **Email** under **Mail from people not in Contacts**.
 
 #### The mailbox stand-in (Outlook and Gmail)
 
@@ -9698,7 +9698,7 @@ While neither `MICROSOFT_OAUTH_CLIENT_ID` nor `GOOGLE_OAUTH_CLIENT_ID` is set in
 How the stand-in behaves:
 
 - Each stand-in mailbox lives in the worker's memory and is checked every 3 seconds. Email HandsFreeOS sends through it lands in that mailbox's Sent folder. A worker restart empties it.
-- To drop an email into a connected stand-in mailbox, post it to the worker. Set `account` to the address you used on the stand-in page. Send it from the address of someone in **Customers**: connected mailboxes only bring in email with people in Customers.
+- To drop an email into a connected stand-in mailbox, post it to the worker. Set `account` to the address you used on the stand-in page. Send it from the address of someone in **Contacts**: connected mailboxes only bring in email with people in Contacts.
 
   ```bash
   curl -H 'content-type: application/json' \
@@ -10352,12 +10352,12 @@ Every new run gives a new address, so repeat steps 2 to 5 and update each provid
 
     You should see **Calls ring in this browser**. Browsers allow the microphone on `http://localhost:3000` because they treat `localhost` as secure.
 
-11. In **Customers**, click **Add person**. Enter your name, put your cell number under **Phone**, and click **Save person**.
+11. In **Contacts**, click **Add person**. Enter your name, put your cell number under **Phone**, and click **Save person**.
 12. From your cell, call the business number.
 
     You should see the call ring in the browser.
 
-13. Open your own page in **Customers** and click **Call**, then **Call** again in the window that opens.
+13. Open your own page in **Contacts** and click **Call**, then **Call** again in the window that opens.
 
     Your phone should ring and show the business number.
 
@@ -10417,7 +10417,7 @@ A separate Postmark server for development keeps test mail and test webhooks awa
    You should see `email: "postmark"` in the `worker started` line.
 
 8. Sign in as `chris@gobizhelp.test` and open your test workspace. If you skipped the Twilio part, make one with **Create workspace**, as in steps 5 to 7 of the Twilio part.
-9. In **Customers**, click **Add person**, enter one of your own real email addresses under **Email**, and click **Save person**.
+9. In **Contacts**, click **Add person**, enter one of your own real email addresses under **Email**, and click **Save person**.
 10. Open that person, click **Email**, write a short message, and click **Send email**.
 
     You should see the email arrive in your real inbox from the business's `mail.handsfreeos.com` address. Shortly after, HandsFreeOS should show it as delivered, once Postmark's report comes back through the tunnel.
@@ -10451,7 +10451,7 @@ This needs the Entra app and client secret from "Microsoft (Outlook and Microsof
 
    You should land back on **Settings** → **Email** with the mailbox connected. A sign-in link lasts ten minutes.
 
-9. In **Customers**, click **Add person** and add yourself with an email address that is not the connected mailbox.
+9. In **Contacts**, click **Add person** and add yourself with an email address that is not the connected mailbox.
 10. From that address, send an email to the connected mailbox.
 
     You should see it in the inbox within about a minute, because Microsoft notifies the worker through the tunnel. If Microsoft cannot reach the worker, the log shows `no Outlook notifications for now`; the worker asks again about six hours later and still checks the mailbox every 5 minutes. A newly connected mailbox brings in the last 30 days.

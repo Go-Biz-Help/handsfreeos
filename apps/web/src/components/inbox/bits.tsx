@@ -96,7 +96,7 @@ export function ChannelIcon({
   );
 }
 
-/** A number that isn't in Customers yet. */
+/** A number that isn't in Contacts yet. */
 export function PhoneAvatar({
   size = 'md',
   chat = false,

@@ -10,8 +10,9 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Select } from '@/components/ui/input';
+import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import { lowerLabel } from '@hfos/core';
+import { CONTACTS_WORDS, lowerLabel } from '@hfos/core';
 import { CustomRecordDialog } from '@/components/relationships/custom-record-dialog';
 import { RecordIcon } from '@/components/relationships/record-icon';
 import type {
@@ -45,6 +46,8 @@ export interface CustomerFilters {
   tagId: string;
   /** Who they are assigned to: their owner, or anyone on their team. */
   assignedUserId: string;
+  /** Only the leads, or only the clients; '' for everyone. */
+  standing: '' | 'lead' | 'client';
   archived: boolean;
 }
 
@@ -95,6 +98,7 @@ export function CustomersList({
     if (merged.q.trim()) params.set('q', merged.q.trim());
     if (merged.tagId) params.set('tag', merged.tagId);
     if (merged.assignedUserId) params.set('assigned', merged.assignedUserId);
+    if (merged.standing) params.set('show', merged.standing === 'lead' ? 'leads' : 'clients');
     if (merged.archived) params.set('archived', '1');
     const qs = params.toString();
     startTransition(() => router.replace(`${pathname}${qs ? `?${qs}` : ''}`));
@@ -178,13 +182,33 @@ export function CustomersList({
               ? `Search ${lowerLabel(kind?.plural ?? 'records')} by name or any field`
               : 'Search by name, phone, email or street'
           }
-          aria-label="Search customers"
+          aria-label={CONTACTS_WORDS.search}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           data-testid="customers-search"
         />
         {tab === 'records' ? null : (
           <>
+            <Segmented
+              ariaLabel={CONTACTS_WORDS.standing}
+              value={filters.standing || 'all'}
+              onChange={(v) => navigate({ standing: v === 'all' ? '' : v })}
+              options={[
+                { value: 'all', label: CONTACTS_WORDS.all, testId: 'customers-standing-all' },
+                {
+                  value: 'lead',
+                  label: CONTACTS_WORDS.leads,
+                  title: CONTACTS_WORDS.clientRule,
+                  testId: 'customers-standing-lead',
+                },
+                {
+                  value: 'client',
+                  label: CONTACTS_WORDS.clients,
+                  title: CONTACTS_WORDS.clientRule,
+                  testId: 'customers-standing-client',
+                },
+              ]}
+            />
             <Select
               selectSize="sm"
               className="w-[150px]"
@@ -302,16 +326,22 @@ function useMore<T extends { id: string }>(key: string, initialCursor: string | 
 
 function emptyState(
   filters: CustomerFilters,
-  noun: string,
+  kind: 'people' | 'companies',
   onAdd: () => void,
   canImport: boolean,
   workspaceId: string,
 ) {
-  const filtered = filters.q || filters.tagId || filters.assignedUserId;
+  const searched = filters.q || filters.tagId || filters.assignedUserId;
+  const filtered = searched || filters.standing;
+  // "No clients yet" rather than "No people yet" when leads or clients is chosen.
+  const noun =
+    kind === 'people' && filters.standing
+      ? lowerLabel(filters.standing === 'lead' ? CONTACTS_WORDS.leads : CONTACTS_WORDS.clients)
+      : kind;
   return (
     <EmptyState
       title={
-        filtered ? `No ${noun} match` : filters.archived ? `No archived ${noun}` : `No ${noun} yet`
+        searched ? `No ${noun} match` : filters.archived ? `No archived ${noun}` : `No ${noun} yet`
       }
       actions={
         filtered ? undefined : (
@@ -322,13 +352,17 @@ function emptyState(
               </ButtonLink>
             ) : null}
             <Button size="sm" onClick={onAdd}>
-              Add {noun === 'people' ? 'a person' : 'a company'}
+              Add {kind === 'people' ? 'a person' : 'a company'}
             </Button>
           </>
         )
       }
     >
-      {filtered ? 'Try a different search, or add them.' : `Add one, or import a spreadsheet.`}
+      {searched
+        ? 'Try a different search, or add them.'
+        : filtered
+          ? CONTACTS_WORDS.clientRule
+          : `Add one, or import a spreadsheet.`}
     </EmptyState>
   );
 }
@@ -361,6 +395,7 @@ function PeopleTable({
             q: filters.q || undefined,
             tagId: filters.tagId || undefined,
             assignedUserId: filters.assignedUserId || undefined,
+            standing: filters.standing || undefined,
             includeArchived: filters.archived,
             cursor: more.cursor,
             limit: 50,
@@ -402,11 +437,14 @@ function PeopleTable({
                 >
                   <Avatar name={p.fullName} seed={p.id} />
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium">
-                      {p.fullName}
-                      {p.archivedAt ? (
-                        <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
-                      ) : null}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium">
+                        {p.fullName}
+                        {p.archivedAt ? (
+                          <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
+                        ) : null}
+                      </span>
+                      {p.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
                     </span>
                     <span className="truncate text-xs text-text-3">
                       {p.company?.name ?? addressLine(p.address) ?? ''}
@@ -455,6 +493,7 @@ function PeopleTable({
                   {p.company?.name ?? p.phone ?? p.email ?? addressLine(p.address)}
                 </span>
               </span>
+              {p.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
               {p.openLeads ? <Badge variant="accent">{p.openLeads} open</Badge> : null}
               <ChevronRight className="h-[18px] w-[18px] text-text-3" strokeWidth={1.5} />
             </Link>
@@ -500,6 +539,7 @@ function CompaniesTable({
             q: filters.q || undefined,
             tagId: filters.tagId || undefined,
             assignedUserId: filters.assignedUserId || undefined,
+            standing: filters.standing || undefined,
             includeArchived: filters.archived,
             cursor: more.cursor,
             limit: 50,
@@ -543,11 +583,14 @@ function CompaniesTable({
                     <Building2 className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium">
-                      {c.name}
-                      {c.archivedAt ? (
-                        <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
-                      ) : null}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium">
+                        {c.name}
+                        {c.archivedAt ? (
+                          <span className="ml-2 text-xs font-normal text-text-3">(archived)</span>
+                        ) : null}
+                      </span>
+                      {c.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
                     </span>
                     <span className="truncate text-xs text-text-3">{addressLine(c.address)}</span>
                   </span>
@@ -594,6 +637,7 @@ function CompaniesTable({
                   {c.phone ?? addressLine(c.address)}
                 </span>
               </span>
+              {c.client ? <Badge variant="ok">{CONTACTS_WORDS.client}</Badge> : null}
               {c.openLeads ? <Badge variant="accent">{c.openLeads} open</Badge> : null}
               <ChevronRight className="h-[18px] w-[18px] text-text-3" strokeWidth={1.5} />
             </Link>

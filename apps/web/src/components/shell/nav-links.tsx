@@ -82,8 +82,9 @@ const PLACES: Record<MenuKey, Place> = {
   inbox: { path: '/inbox', label: 'Inbox', icon: Inbox, primary: true },
   // The call log sits next to the inbox rather than inside it: a thread shows a call where it happened, which
   // is no use when the question is "who rang this morning". A drawer item on phones, so the bar stays at five.
-  // Customers moved to the drawer on phones when the calendar joined the bottom bar (search still finds them).
-  customers: { path: '/customers', label: 'Customers', icon: Users },
+  // Contacts moved to the drawer on phones when the calendar joined the bottom bar (search still finds them).
+  // Its address and key are still `customers`, so saved menus and links keep working.
+  customers: { path: '/customers', label: 'Contacts', icon: Users },
   pipeline: { path: '/pipeline', label: 'Pipeline', icon: KanbanSquare, primary: true },
   calendar: { path: '/calendar', label: 'Calendar', icon: CalendarDays, primary: true },
   // Money is a drawer item on phones too, so the bottom bar stays at five.

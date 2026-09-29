@@ -125,7 +125,7 @@ export const MIGRATION_CATEGORIES: readonly MigrationCategory[] = [
   }),
   c({
     id: 'contacts',
-    label: 'Customers',
+    label: 'Contacts',
     blurb: 'Names, numbers, addresses, who owns them, and whether they agreed to texts.',
     pass: MIGRATION_PASSES.contacts,
     dependsOn: ['locations'],

@@ -178,7 +178,7 @@ export const TRIGGER_EVENT_GROUPS: readonly {
       'ai_teammate.handed_off',
     ],
   },
-  { label: 'Customers', events: ['person.created', 'person.updated', 'record.tags_changed'] },
+  { label: 'Contacts', events: ['person.created', 'person.updated', 'record.tags_changed'] },
   {
     label: 'Money',
     events: [

@@ -187,6 +187,25 @@ export async function oauthFailure(provider: string, res: Response): Promise<nev
   );
 }
 
+/** Google says "slow down" with a 403 and one of these reasons; like a 429, it passes on its own. */
+const SLOW_DOWN = new Set([
+  'rateLimitExceeded',
+  'userRateLimitExceeded',
+  'dailyLimitExceeded',
+  'quotaExceeded',
+]);
+
+interface ProviderErrorBody {
+  error?:
+    | string
+    | {
+        code?: string | number;
+        message?: string;
+        status?: string;
+        errors?: { reason?: string }[];
+      };
+}
+
 /** Reads a provider API response, or throws a MailboxError that says whether to retry. */
 export async function providerJson<T>(provider: string, res: Response): Promise<T> {
   if (res.ok) {
@@ -195,19 +214,37 @@ export async function providerJson<T>(provider: string, res: Response): Promise<
     return (text ? JSON.parse(text) : undefined) as T;
   }
   let detail = '';
+  let said = '';
   try {
-    const body = (await res.json()) as { error?: { code?: string; message?: string } | string };
-    detail = typeof body.error === 'string' ? body.error : (body.error?.code ?? '');
+    const { error } = (await res.json()) as ProviderErrorBody;
+    if (typeof error === 'string') detail = error;
+    else if (error) {
+      // Graph names the error in `code`; Google puts the status number there and the reason in `errors`.
+      detail =
+        (typeof error.code === 'string' ? error.code : null) ??
+        error.errors?.[0]?.reason ??
+        error.status ??
+        (error.code === undefined ? '' : String(error.code));
+      said = (error.message ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+    }
   } catch {
     // Not JSON.
   }
   const seconds = Number(res.headers.get('retry-after'));
-  const transient = [401, 408, 409, 423, 429].includes(res.status) || res.status >= 500;
+  // Gmail says when to come back in the message instead: "User-rate limit exceeded. Retry after <time>".
+  const until = Date.parse(/retry after (\d{4}-\d\d-\d\dT[\d:.]+Z)/i.exec(said)?.[1] ?? '');
+  const transient =
+    [401, 408, 409, 423, 429].includes(res.status) || res.status >= 500 || SLOW_DOWN.has(detail);
+  const answered = `${provider} answered ${res.status}${detail ? ` (${detail})` : ''}`;
   throw new MailboxError(
-    `${provider} answered ${res.status}${detail ? ` (${detail})` : ''}.`,
+    said ? `${answered}: ${said}` : `${answered}.`,
     res.status,
     !transient,
-    Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null,
+    Number.isFinite(seconds) && seconds > 0
+      ? seconds * 1000
+      : Number.isFinite(until) && until > Date.now()
+        ? until - Date.now()
+        : null,
   );
 }
 

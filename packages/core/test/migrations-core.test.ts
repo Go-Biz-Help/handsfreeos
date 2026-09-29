@@ -76,7 +76,7 @@ describe('choosing what to bring', () => {
     const added = r.added.find((a) => a.category === 'conversations');
     expect(added?.requiredBy).toEqual(['messages']);
     expect(dependencyReason('contacts', ['conversations'])).toBe(
-      'Conversations need their customers, so customers were added to this migration.',
+      'Conversations need their contacts, so contacts were added to this migration.',
     );
   });
 

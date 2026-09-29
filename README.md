@@ -198,7 +198,7 @@ A business can keep its own kinds of records — pets, vehicles, properties, uni
 
 - **Nothing is one-to-one unless a business says so.** Every type starts many to many; a business picks "one" for a side only when there can never be more, and the database holds it to that (`private.check_relationship`, with a lock per record so two people can't both slip one past).
 - **Both directions, one row.** A customer's page lists their vehicles, and each vehicle's page lists all its owners, from the same pair. Adding or removing one writes on both timelines.
-- **A record is a full record.** Each pet, vehicle or property has its own page under **Customers**, with its fields, notes, timeline, tasks, appointments and files, and the conversations of the people it's connected to.
+- **A record is a full record.** Each pet, vehicle or property has its own page under **Contacts**, with its fields, notes, timeline, tasks, appointments and files, and the conversations of the people it's connected to.
 
 `docs/relationships.md` covers the tables, the rules and what isn't done yet.
 

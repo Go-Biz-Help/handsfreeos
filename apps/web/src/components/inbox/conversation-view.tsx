@@ -189,7 +189,7 @@ export function ConversationView({
   const phone = useMediaQuery('(max-width: 767px)') === true;
   // With the Assistant docked beside the inbox, the customer pane folds away (Customer details opens it).
   const assistantDocked = useAssistant().docked;
-  // Edit on an Assistant text or email card for a number that isn't in Customers lands here.
+  // Edit on an Assistant text or email card for a number that isn't in Contacts lands here.
   const handedDraft = useComposerDraft(c.id);
   const t = useThread(workspaceId, c.id, thread, allLanes);
   // The customer's own notes, shown in the thread as the phone shows them (M10 step 15).
@@ -261,7 +261,7 @@ export function ConversationView({
   const calls = useCalls();
   const email = c.channel === 'email';
   // Calls go to a text conversation's number, known customer or not. An email thread or a website chat uses
-  // the customer's phone, so a chat visitor not in Customers has no Call (the chat's counterpart isn't a
+  // the customer's phone, so a chat visitor not in Contacts has no Call (the chat's counterpart isn't a
   // number). Customers see the business number.
   const byNumber = !email && !chat;
   const callPhone = byNumber ? c.counterpart : (person?.phoneE164 ?? null);

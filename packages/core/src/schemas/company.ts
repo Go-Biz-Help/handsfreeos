@@ -19,6 +19,7 @@ import {
   seenList,
   seenText,
   source,
+  Standing,
   tagIds,
   TagRef,
   TeamRef,
@@ -126,10 +127,13 @@ export const CompanyListInput = ListInput.extend({
   tagId: uuid.optional(),
   /** The companies assigned to this person: the ones they own and the ones they are on (0104). */
   assignedUserId: uuid.optional(),
+  /** Only the leads, or only the clients (crm/clients.ts says who is which). */
+  standing: Standing.optional(),
   includeArchived: z.boolean().default(false),
 });
 export const CompanyListOutput = z.object({
-  items: z.array(CompanySummary),
+  /** `client`: a company the business works or worked for, or one whose people are clients; otherwise a lead. */
+  items: z.array(CompanySummary.extend({ client: z.boolean() })),
   nextCursor: z.string().nullable(),
 });
 

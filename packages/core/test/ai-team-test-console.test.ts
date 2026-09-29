@@ -44,7 +44,7 @@ describe('what a test asks for', () => {
     ]);
   });
 
-  it('an outgoing call is to someone in Customers, for a reason; a campaign says what about', () => {
+  it('an outgoing call is to someone in Contacts, for a reason; a campaign says what about', () => {
     expect(
       issues({ workspaceId: WS, channel: 'phone', call: { direction: 'outbound' }, messages: [] }),
     ).toEqual(['call.purpose: Pick why it calls.', 'personId: Pick a customer for it to call.']);

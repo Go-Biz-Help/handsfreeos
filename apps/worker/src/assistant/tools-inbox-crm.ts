@@ -771,8 +771,8 @@ async function subjectOf(db: Db, ctx: ToolContext, what: Archivable, id: string)
         archived: !!person.archivedAt,
         openLeads: person.openLeads,
         openTasks: person.archivedAt ? 0 : await openTasks(db, ctx, { personId: id }),
-        away: 'They leave Customers and searches but keep their history. Bring them back any time: Customers, Show archived.',
-        back: 'They come back to Customers and searches, and can go on new leads again.',
+        away: 'They leave Contacts and searches but keep their history. Bring them back any time: Contacts, Show archived.',
+        back: 'They come back to Contacts and searches, and can go on new leads again.',
         ...(person.mergedInto
           ? {
               cantRestore: `They were merged into ${person.mergedInto.fullName}, who has everything of theirs now.`,
@@ -789,8 +789,8 @@ async function subjectOf(db: Db, ctx: ToolContext, what: Archivable, id: string)
         archived: !!company.archivedAt,
         openLeads: company.openLeads,
         openTasks: company.archivedAt ? 0 : await openTasks(db, ctx, { companyId: id }),
-        away: 'It leaves Customers and searches but keeps its history. Bring it back any time: Customers → Companies, Show archived.',
-        back: 'It comes back to Customers and searches.',
+        away: 'It leaves Contacts and searches but keeps its history. Bring it back any time: Contacts → Companies, Show archived.',
+        back: 'It comes back to Contacts and searches.',
         href: p.company(id),
       };
     }
@@ -1333,7 +1333,7 @@ const manageCompany: SettingsConfirmTool = {
         ignoreDuplicates: true,
       });
       return {
-        outcome: `Added ${String(input['name'])} to Customers`,
+        outcome: `Added ${String(input['name'])} to Contacts`,
         href: paths(ctx.workspaceId).company(companyId),
         command: 'company.create',
       };

@@ -193,7 +193,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Permissions'],
     onScreen: [
       'Who can do what',
-      'A card for each of Customers, Inbox and calls, Calendar, Money, Automations and AI, and Business and team, with an Admins and a Members column',
+      'A card for each of Contacts, Inbox and calls, Calendar, Money, Automations and AI, and Business and team, with an Admins and a Members column',
       'Back to the defaults: Reset admins, Reset members',
       'People with their own settings (one person’s own are changed in Members: ⋯ beside them, then Permissions)',
     ],
@@ -241,7 +241,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the business’s own fields on customers, companies and its own kinds of records',
     where: ['Settings', 'Fields'],
     onScreen: [
-      'Fields for: Customers, Companies, or one of your own kinds of records',
+      'Fields for: Contacts, Companies, or one of your own kinds of records',
       'Fields: the list, and Add field (Name, What it holds, Choices, Help)',
     ],
     path: '/settings/fields',
@@ -457,7 +457,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Use your own domain: Add domain, Check now',
       'Connected mailboxes: Connect Gmail, Connect Outlook',
       'Blocked addresses',
-      'Mail from people not in Customers',
+      'Mail from people not in Contacts',
     ],
     path: '/settings/email',
     permission: 'channels.manage',
@@ -466,7 +466,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'add or remove your own sending domain, and check it',
       'unblock an address',
       'block an address',
-      'file mail from someone not in Customers under a customer, or dismiss it',
+      'file mail from someone not in Contacts under a customer, or dismiss it',
     ],
     handovers: [
       {
@@ -833,7 +833,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'bringing customers in from a spreadsheet',
     where: ['Settings', 'Imports'],
     onScreen: [
-      'Import a spreadsheet, at the top (Customers has the same Import button)',
+      'Import a spreadsheet, at the top (Contacts has the same Import button)',
       'Every import so far, with how it went',
     ],
     path: '/settings/imports',

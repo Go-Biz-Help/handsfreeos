@@ -41,11 +41,15 @@ export interface FakeMailboxes {
   sent(account: string): readonly StoredEmail[];
   /** The account's next refresh fails the way a revoked sign-in does. */
   revoke(account: string): void;
+  /** The account's sync fails once with this error, after that many pages went through. */
+  failSync(account: string, error: Error, afterPages?: number): void;
 }
 
 const enc = (s: string) => Buffer.from(s).toString('base64url');
 const dec = (s: string) => Buffer.from(s, 'base64url').toString('utf8');
 const HOUR = 3_600_000;
+/** Small, so a sync with a few emails takes more than one page. */
+const PAGE = 2;
 const SCOPES: Record<MailboxProviderName, string[]> = {
   microsoft: ['offline_access', 'User.Read', 'Mail.Read', 'Mail.ReadWrite', 'Mail.Send'],
   google: ['gmail.readonly', 'gmail.send'],
@@ -54,6 +58,7 @@ const SCOPES: Record<MailboxProviderName, string[]> = {
 export function createFakeMailboxes(opts: { publicUrl: string }): FakeMailboxes {
   const boxes = new Map<string, StoredEmail[]>();
   const revoked = new Set<string>();
+  const failing = new Map<string, { error: Error; afterPages: number }>();
   let seq = 0;
   const box = (account: string) => {
     const key = account.toLowerCase();
@@ -104,13 +109,20 @@ export function createFakeMailboxes(opts: { publicUrl: string }): FakeMailboxes 
     },
     missingScopes: () => [],
     async sync(accessToken, cursor) {
+      const account = emailOf(accessToken).toLowerCase();
+      const fail = failing.get(account);
+      if (fail && fail.afterPages-- <= 0) {
+        failing.delete(account);
+        throw fail.error;
+      }
       const from = Number(cursor['seq'] ?? 0);
-      const list = box(emailOf(accessToken)).filter((e) => e.seq > from);
+      const waiting = box(account).filter((e) => e.seq > from);
+      const list = waiting.slice(0, PAGE);
       const last = list.reduce((n, e) => Math.max(n, e.seq), from);
       return {
         emails: list.map(({ files, ...e }) => ({ ...e, attachments: async () => files })),
         cursor: { seq: last },
-        more: false,
+        more: waiting.length > list.length,
       };
     },
     async send(accessToken, email) {
@@ -192,6 +204,9 @@ export function createFakeMailboxes(opts: { publicUrl: string }): FakeMailboxes 
     sent: (account) => box(account).filter((e) => e.direction === 'outbound'),
     revoke(account) {
       revoked.add(account.toLowerCase());
+    },
+    failSync(account, error, afterPages = 0) {
+      failing.set(account.toLowerCase(), { error, afterPages });
     },
   };
 }

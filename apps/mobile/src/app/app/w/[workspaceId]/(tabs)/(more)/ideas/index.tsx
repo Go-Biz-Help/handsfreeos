@@ -50,7 +50,7 @@ export default function Ideas() {
   const areas = useIdeaAreas();
   const board = useIdeaBoard(filters);
 
-  // The search runs a moment after the typing stops, as Customers' does.
+  // The search runs a moment after the typing stops, as Contacts' does.
   React.useEffect(() => {
     const timer = setTimeout(
       () => setFilters((f) => (f.search === typed.trim() ? f : { ...f, search: typed.trim() })),

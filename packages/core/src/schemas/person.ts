@@ -20,6 +20,7 @@ import {
   seenList,
   seenText,
   source,
+  Standing,
   tagIds,
   TagRef,
   TeamRef,
@@ -171,11 +172,14 @@ export const PersonListInput = ListInput.extend({
   ownerUserId: uuid.optional(),
   /** The customers assigned to this person: the ones they own and the ones they are on (0104). */
   assignedUserId: uuid.optional(),
+  /** Only the leads, or only the clients (crm/clients.ts says who is which). */
+  standing: Standing.optional(),
   includeArchived: z.boolean().default(false),
   sort: z.enum(['name', 'recent']).default('name'),
 });
 export const PersonListOutput = z.object({
-  items: z.array(PersonSummary),
+  /** `client`: someone the business works or worked for, or who has paid it; otherwise a lead. */
+  items: z.array(PersonSummary.extend({ client: z.boolean() })),
   nextCursor: z.string().nullable(),
 });
 

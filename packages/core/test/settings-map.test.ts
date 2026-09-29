@@ -50,7 +50,7 @@ const MENUS: Readonly<Record<string, ReadonlySet<string>>> = {
   Workflows: labelsIn('components/workflows/subnav.tsx'),
   'AI teammate': labelsIn('components/ai-team/header.tsx'),
   Money: new Set(Object.values(MONEY_TAB_LABELS)),
-  Customers: labelsIn('components/crm/customers-list.tsx'),
+  Contacts: labelsIn('components/crm/customers-list.tsx'),
   Ideas: new Set(Object.values(IDEAS_WORDS.tabs)),
 };
 

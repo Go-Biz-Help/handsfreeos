@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * The page area: padded for ordinary pages, edge to edge for the inbox's panes, and nearly edge to edge for
- * the calendar (its grid scrolls inside itself). Customers keeps the ordinary padding but, on a desktop,
+ * the calendar (its grid scrolls inside itself). Contacts keeps the ordinary padding but, on a desktop,
  * fills the viewport so its table scrolls inside itself and the column names stay put.
  */
 export function WorkspaceMain({

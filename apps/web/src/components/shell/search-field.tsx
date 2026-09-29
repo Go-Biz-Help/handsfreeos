@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { cn } from '@/lib/utils';
 
-/** The shell search: opens the customers list with the query. */
+/** The shell search: opens Contacts with the query. */
 export function SearchField({
   workspaceId,
   className,
@@ -37,8 +37,8 @@ export function SearchField({
       />
       <input
         type="search"
-        aria-label="Search customers"
-        placeholder="Search customers"
+        aria-label="Search contacts"
+        placeholder="Search contacts"
         value={q}
         autoFocus={autoFocus}
         onChange={(e) => setQ(e.target.value)}

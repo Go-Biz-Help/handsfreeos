@@ -39,7 +39,7 @@ env:
     timeout: 20000
 - tapOn:
     id: 'tab-more'
-- assertVisible: 'Customers'
+- assertVisible: 'Contacts'
 # The last row: on a short screen it is under the tab bar until More scrolls.
 - scrollUntilVisible:
     element:

@@ -1,5 +1,5 @@
 /**
- * The side menu, as each person arranges it. One list of places (Home, Inbox, Customers…), which a person can
+ * The side menu, as each person arranges it. One list of places (Home, Inbox, Contacts…), which a person can
  * reorder, fold into groups of their own ("More", "Back office"), or hide — kept with the account under
  * `users.settings.menu`, so a desk and a laptop show the same menu.
  *

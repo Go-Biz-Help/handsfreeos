@@ -955,7 +955,7 @@ export const assistantTools = [
   define({
     name: 'create_customer',
     description:
-      'Add a person to Customers. If the phone or email already belongs to someone, the card says so.',
+      'Add a person to Contacts. If the phone or email already belongs to someone, the card says so.',
     input: z.object({
       firstName: z.string().trim().max(80).default(''),
       lastName: z.string().trim().max(80).default(''),
