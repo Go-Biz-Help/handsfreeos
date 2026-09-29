@@ -622,6 +622,11 @@ describe('registry', () => {
       'addon.unvote',
       'addon.mark_news_seen',
       'addon_pick.choose',
+      'onboarding.save_answers',
+      'onboarding.skip',
+      'onboarding.as_you_go',
+      'onboarding.set_view',
+      'onboarding.finish',
     ]);
     expect(registry.queries.filter((q) => !q.addon).map((q) => q.name)).toEqual([
       'migration.list',
@@ -789,6 +794,7 @@ describe('registry', () => {
       'addon.roadmap',
       'addon.news',
       'addon_pick.overview',
+      'onboarding.status',
     ]);
     expect(registry.command('membership.invite')?.risk).toBe(2);
   });

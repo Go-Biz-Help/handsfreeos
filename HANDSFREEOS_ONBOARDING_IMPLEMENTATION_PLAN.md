@@ -6,8 +6,9 @@ first customer arrives. This plan replaces it with a guide: four quick questions
 through the few things every business needs, a checklist on Home for the rest, and a short tour of the menu.
 Teammates get a short list of their own, and an agency sees where every client business has got to.
 
-> **Status: planned, nothing built.** The screens are in `design/onboarding` (twelve boards, most clickable in
-> Play). Read them with this plan.
+> **Status: step 1 of §11 is built** (the core: the catalogue, `onboarding.status`, the commands, the words and
+> their tests). Nothing shows on a screen yet. The screens are in `design/onboarding` (twelve boards, most clickable
+> in Play). Read them with this plan.
 
 ---
 
@@ -80,28 +81,33 @@ Choices the decisions didn't spell out, made on the boards and open to change:
 One catalogue in `packages/core/src/onboarding/`, so the web, the phone and the agency view agree on what each step
 is, when it's done and what it says.
 
-| Step         | Who sees it (permission)                | Must-do?                   | Done when                                                                                                                  | Waiting, or needs a fix                                                                          |
-| ------------ | --------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `number`     | `channels.manage`                       | Yes, always first          | `phone.setup_status.nextStep` is `awaiting_approval` or `ready`: a number is bought and the registration sent              | Waiting while `awaiting_approval` (day count shown); needs a fix when `rejected`                 |
-| `payments`   | `money.manage`                          | Only when the goal is paid | A `payment_connection.list` item is `active`                                                                               | Waiting while `pending` or `capabilities.needsInfo`; needs a fix on `reauth_required` or `error` |
-| `customers`  | `records.import` or `migrations.manage` | Yes                        | `crm.summary` people + companies > 0, **or** "Add them as you go" chosen                                                   | Waiting while an import or migration is counting or running                                      |
-| `calendar`   | `calendars.manage`                      | Yes                        | A calendar with at least one service, and the booking page on (`calendar.list`, `service.list`, `booking_site.get`)        | —                                                                                                |
-| `ai`         | `ai_team.manage` and `knowledge.manage` | Yes                        | The teammate exists and its knowledge isn't thin (`ai_teammate.get`; thin is under 5 items or the profile under half full) | Waiting while the website scan has suggestions nobody has kept (`knowledge_scan.get`)            |
-| `team`       | `members.invite`                        | No. Hidden for "Just me"   | More than one member, or an invitation that hasn't expired                                                                 | —                                                                                                |
-| `email_chat` | `channels.manage`                       | No                         | A mailbox `active` **and** the chat widget seen on the site (`email.setup_status`, `chat_widget.list` `install.seen`)      | Shows "1 of 2" when one is done                                                                  |
+| Step         | Who sees it (permission)                | Must-do?                   | Done when                                                                                                                  | Waiting, or needs a fix                                                                                                                                                    |
+| ------------ | --------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `number`     | `channels.manage`                       | Yes, always first          | `phone.setup_status.nextStep` is `awaiting_approval` or `ready`: a number is bought and the registration sent              | Waiting while `awaiting_approval` (day count shown); needs a fix when `rejected`                                                                                           |
+| `payments`   | `money.manage`                          | Only when the goal is paid | A `payment_connection.list` item is `active`                                                                               | Waiting while the provider is still checking it (no capability on yet, as Settings → Payments says); needs a fix on `capabilities.needsInfo`, `reauth_required` or `error` |
+| `customers`  | `records.import` or `migrations.manage` | Yes                        | `crm.summary` people + companies > 0, **or** "Add them as you go" chosen                                                   | Waiting while an import or migration is counting or running                                                                                                                |
+| `calendar`   | `calendars.manage`                      | Yes                        | An active calendar with at least one service, and the booking page on with a public calendar on it                         | —                                                                                                                                                                          |
+| `ai`         | `ai_team.manage` and `knowledge.manage` | Yes                        | The teammate exists and its knowledge isn't thin (`ai_teammate.get`; thin is under 5 items or the profile under half full) | Still to do, saying "Keep what's right", while the website scan has suggestions nobody has kept                                                                            |
+| `team`       | `members.invite`                        | No. Hidden for "Just me"   | More than one member, or an invitation that hasn't expired                                                                 | —                                                                                                                                                                          |
+| `email_chat` | `channels.manage`                       | No                         | A mailbox `active` **and** the chat widget seen on the site (`email.setup_status`, `chat_widget.list` `install.seen`)      | Shows "1 of 2" when one is done                                                                                                                                            |
 
 Those seven are the **business steps**: shared by everyone who manages the business, and what the agency view
 counts. The **personal steps** belong to one person:
 
 | Step            | Who       | Done when                                                                       |
 | --------------- | --------- | ------------------------------------------------------------------------------- |
-| `app`           | Everyone  | This person has a phone registered (`push_device.list`)                         |
+| `app`           | Everyone  | This person has a phone registered (`push_device.list`), or the phone says so   |
 | `sign_in`       | Everyone  | They have a passkey or Google sign-in (read in the browser, as today)           |
-| `notifications` | Teammates | That phone has push allowed                                                     |
+| `notifications` | Teammates | That phone has push allowed (a phone registers only once it is)                 |
 | `my_calendar`   | Teammates | They have an `active` Google or Outlook connection (`calendar_connection.list`) |
 
 An owner or admin sees the business steps plus `app` and `sign_in` under "When you're ready" (9 rows, "3 of 9
 done" on the boards). A teammate, anyone without `workspace.update`, sees only the four personal steps.
+
+What only the device knows comes in with the request (`device: { signIn, app, notifications }` on
+`onboarding.status` and `onboarding.finish`): the browser reads the person's passkeys and Google sign-in, and the
+phone knows it is the app and whether notifications are allowed. A step `waiting` on someone else (the carriers, a
+provider checking an account, an import running) counts as done: the person's part is.
 
 **The phone app links.** Until the app is in the stores, "Get the phone app" opens a small sheet with one link
 for iPhone and one for Android, each with a QR code to scan from a computer:
@@ -135,9 +141,8 @@ card, §6.)
   answers?: { goal: 'leads' | 'booked' | 'paid' | 'organized';
               customersIn: 'sheet' | 'ghl' | 'crm' | 'phone' | 'none';
               teamSize: 'solo' | 'small' | 'big' };
-  skipped?: Partial<Record<StepKey, { at: string; by: string }>>;
+  skipped?: Partial<Record<BusinessStepKey, { at: string; by: string }>>;
   customersAsYouGo?: { at: string; by: string };
-  finishedAt?: string;   // set once, the first time every step is done or skipped
 }
 ```
 
@@ -150,11 +155,13 @@ business):
 
 ```ts
 { [workspaceId: string]: { hidden?: boolean; tourDoneAt?: string;
+                           finishedAt?: string;   // set once, the first time every step on their list was done or skipped
                            skipped?: Partial<Record<PersonalStepKey, string>> } }
 ```
 
-`user.update_profile` replaces a top-level key whole, so the client sends the whole `onboarding` object with
-`expectedSettings`. Its schema and reader sit beside the others (`account/menu.ts`, `assistant/consent.ts`).
+The onboarding commands write it, not `user.update_profile`, so a client never has to send every business's entry
+back to change one. `finishedAt` is kept per person because each person's list is different: an owner's includes
+their own phone and sign-in, and a teammate's is only theirs.
 
 Both documents already sync to the phone (`apps/sync/sync-config.yaml`), so nothing in the sync config changes.
 
@@ -171,19 +178,21 @@ anything.
 All through the kernel, with events, outbox and audit rows as usual. Refusals follow CLAUDE.md's error rules: say
 what's wrong, then what to do, and clients branch on `rule`.
 
-| Name                      | Kind    | Permission             | What it does                                                                                                                                                                                            |
-| ------------------------- | ------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `onboarding.save_answers` | command | `workspace.update`     | Saves the four answers; writes the website to `settings.website`                                                                                                                                        |
-| `onboarding.skip`         | command | `workspace.update`     | `{ step, skipped: boolean }`: skips a business step, or brings it back                                                                                                                                  |
-| `onboarding.as_you_go`    | command | `workspace.update`     | Records "Add them as you go"                                                                                                                                                                            |
-| `onboarding.finish`       | command | `workspace.update`     | Sets `finishedAt` once `onboarding.status` says every step is done or skipped. Refused otherwise, with the steps still open                                                                             |
-| `onboarding.send_link`    | command | `workspace.read`       | Emails this person a link to one step ("Email me a link" on the phone). The worker sends it from the event                                                                                              |
-| `onboarding.status`       | query   | `workspace.read`       | The business steps in order, each `todo`, `waiting`, `needs_fix`, `done` or `skipped`, with its facts; counts; `complete`; `finishedAt`; this person's `hidden` and `tourDoneAt`; and the personal list |
-| `onboarding.clients`      | query   | `org.templates.manage` | For each business in the organization: done count, total, the step that's stuck and why, and when the owner last signed in                                                                              |
-| `onboarding.remind`       | command | `org.templates.manage` | Emails a business's owners a reminder with their next step. Once a day per business at most                                                                                                             |
+| Name                      | Kind    | Permission             | What it does                                                                                                                                                                                                                      |
+| ------------------------- | ------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onboarding.save_answers` | command | `workspace.update`     | Saves the four answers; writes the website, typed as people type it ("lonestarhvac.com"), to `settings.website` as a link                                                                                                         |
+| `onboarding.skip`         | command | `workspace.read`       | `{ step, skipped: boolean }`: skips a step, or brings it back. A business step needs `workspace.update` (`onboarding_business_step`); a personal one is the person's own (`onboarding_not_your_step` when it isn't on their list) |
+| `onboarding.as_you_go`    | command | `workspace.update`     | Records "Add them as you go", or takes it back                                                                                                                                                                                    |
+| `onboarding.set_view`     | command | `workspace.read`       | Hides the guide or shows it again, and records the tour finished; this person's own view                                                                                                                                          |
+| `onboarding.finish`       | command | `workspace.read`       | Sets this person's `finishedAt` once every step on their list is done, waiting or skipped. Refused otherwise (`onboarding_not_finished`), naming the steps still open. Says the same after                                        |
+| `onboarding.send_link`    | command | `workspace.read`       | Emails this person a link to one step ("Email me a link" on the phone). The worker sends it from the event                                                                                                                        |
+| `onboarding.status`       | query   | `workspace.read`       | The business steps in order, each `todo`, `waiting`, `needs_fix`, `done` or `skipped`, with its facts; counts; `complete`; `finishedAt`; this person's `hidden` and `tourDoneAt`; and the personal list                           |
+| `onboarding.clients`      | query   | `org.templates.manage` | For each business in the organization: done count, total, the step that's stuck and why, and when the owner last signed in                                                                                                        |
+| `onboarding.remind`       | command | `org.templates.manage` | Emails a business's owners a reminder with their next step. Once a day per business at most                                                                                                                                       |
 
-- `onboarding.status` reads the same tables the owning queries read, through shared functions in core, so a step
-  can never disagree with its own settings page. Hidden and personal skips go through `user.update_profile`.
+- `onboarding.status` reads the same tables, by the same rules, as the screens that own them
+  (`onboarding/load.ts`: the texting readiness from `messaging/store.ts`, the AI's "enough knowledge" from its own
+  warning), so a step can never disagree with its own settings page.
 - `onboarding.clients` and `onboarding.remind` use the organization scope, like `workflow_template.list`.
   `org.templates.manage` is what organization owners and admins hold, the same people who see the agency area. An
   organization owner or admin already has a role in every business of the organization, so the query reads each
@@ -302,7 +311,7 @@ None. The five from the first draft were settled on 2026-09-29 and are in §1. O
 
 Each step ships alone and leaves the tree green.
 
-1. **Core**: the catalogue, `onboarding.status`, the commands, the words, and their tests. `pnpm openapi`.
+1. ✅ **Core**: the catalogue, `onboarding.status`, the commands, the words, and their tests. `pnpm openapi`.
 2. **Home**: `GettingStarted` replaces `SetupChecklist`, with skip, hide, the Get help entry and the finish card,
    for new and existing businesses. The phone app links sheet. The e2e specs move with it.
 3. **The quick questions** after Create business, and the order they set.

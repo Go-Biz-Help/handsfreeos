@@ -4797,6 +4797,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/onboarding.as_you_go": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer the customers step with "Add them as you go": new leads add themselves, so the step counts as done. False takes the answer back.
+         * @description Risk level 1. Requires workspace.update. Emits onboarding.customers_as_you_go.
+         */
+        post: operations["command_onboarding_as_you_go"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish your Getting started guide for good, once every step on your list is done, waiting on someone else, or skipped. It doesn’t come back after, even if something is disconnected later. Refused while a step is still to do.
+         * @description Risk level 0. Requires workspace.read. Emits onboarding.finished.
+         */
+        post: operations["command_onboarding_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.save_answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save the four quick questions after Create business: what the business wants help with first, where its customers are now, its website, and how many people work there. They put the setup steps in order.
+         * @description Risk level 1. Requires workspace.update. Emits onboarding.answers_saved.
+         */
+        post: operations["command_onboarding_save_answers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.set_view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide your Getting started guide from Home, or show it again from Get help; or record that you finished or skipped the tour. Your own view only.
+         * @description Risk level 0. Requires workspace.read. Emits onboarding.view_changed.
+         */
+        post: operations["command_onboarding_set_view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/onboarding.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a Getting started step for now, or bring a skipped one back. A step for the whole business needs workspace.update; a step on your own list (the phone app, signing in faster, notifications, your calendar) is yours to skip.
+         * @description Risk level 1. Requires workspace.read. Emits onboarding.step_skipped.
+         */
+        post: operations["command_onboarding_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/organization.add_owner": {
         parameters: {
             query?: never;
@@ -10171,6 +10271,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_offer_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/onboarding.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where your Getting started guide stands in this business: each step in order, done, waiting on someone else, needing a fix, to do or skipped, with the counts, the next step and whether the guide shows on Home. Owners and admins get the business’s steps; teammates get their own short list. `device` adds what only the browser or the phone knows.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_onboarding_status"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21855,6 +21975,195 @@ export interface operations {
                         /** Format: uuid */
                         offerId: string;
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_as_you_go: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    asYouGo?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asYouGo: boolean;
+                        changed: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    device?: {
+                        app?: boolean;
+                        notifications?: boolean;
+                        signIn?: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        finishedAt: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_save_answers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                    /** @enum {string} */
+                    goal: "leads" | "booked" | "paid" | "organized";
+                    /** @enum {string} */
+                    teamSize: "solo" | "small" | "big";
+                    website?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @enum {string} */
+                            customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                            /** @enum {string} */
+                            goal: "leads" | "booked" | "paid" | "organized";
+                            /** @enum {string} */
+                            teamSize: "solo" | "small" | "big";
+                        };
+                        website: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_set_view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hidden?: boolean;
+                    tourDone?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hidden: boolean;
+                        tourDoneAt: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    skipped?: boolean;
+                    /** @enum {string} */
+                    step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        skipped: boolean;
+                        /** @enum {string} */
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -37249,6 +37558,83 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_onboarding_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    device?: {
+                        app?: boolean;
+                        notifications?: boolean;
+                        signIn?: boolean;
+                    };
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @enum {string} */
+                            customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
+                            /** @enum {string} */
+                            goal: "leads" | "booked" | "paid" | "organized";
+                            /** @enum {string} */
+                            teamSize: "solo" | "small" | "big";
+                        } | null;
+                        /** @enum {string} */
+                        audience: "business" | "personal";
+                        complete: boolean;
+                        done: number;
+                        next: ("number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar") | null;
+                        skipped: number;
+                        steps: {
+                            /** @enum {string} */
+                            group: "basics" | "later" | "yours";
+                            /** @enum {string} */
+                            key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                            mustDo: boolean;
+                            note: {
+                                count?: number;
+                                name?: string | null;
+                                number?: string | null;
+                                partsDone?: number;
+                                partsTotal?: number;
+                                phase?: string;
+                                provider?: string | null;
+                                reason?: string | null;
+                            };
+                            since: string | null;
+                            /** @enum {string} */
+                            state: "todo" | "waiting" | "needs_fix" | "done" | "skipped";
+                        }[];
+                        total: number;
+                        view: {
+                            finishedAt: string | null;
+                            hidden: boolean;
+                            show: boolean;
+                            tourDoneAt: string | null;
+                        };
+                        website: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };

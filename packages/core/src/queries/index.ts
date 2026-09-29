@@ -10,6 +10,7 @@ import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
+import { onboardingStatus } from './onboarding';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -318,6 +319,8 @@ export const queries: readonly QueryDef[] = [
   addonRoadmap,
   addonNews,
   addonPickOverview,
+  // Getting started.
+  onboardingStatus,
 ] as unknown as readonly QueryDef[];
 
 export {
@@ -380,4 +383,5 @@ export * from './branded-domain';
 export * from './founding';
 export * from './offer';
 export * from './relationship';
+export * from './onboarding';
 export * from './ideas';

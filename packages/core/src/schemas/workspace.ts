@@ -78,6 +78,8 @@ export const SETTINGS_WITH_THEIR_OWN_COMMAND = {
   // Which add-ons a business has, and their settings, live in app.addon_installations behind addons.manage
   // (0108), never in these settings, which any admin with workspace.update may write and every member reads.
   addons: 'addon.install',
+  // Getting started's answers and skips: the quick questions set the order the business's steps come in.
+  onboarding: 'onboarding.save_answers',
 } as const;
 
 export const WorkspaceUpdateInput = z
@@ -147,7 +149,7 @@ export const WorkspaceUpdateInput = z
   });
 
 /** A link customers open from a text: http or https, at most 500 characters. Empty or null clears it. */
-function linkProblem(v: unknown): string | null {
+export function linkProblem(v: unknown): string | null {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v !== 'string') return 'Enter a web address.';
   if (v.length > 500) return 'Keep it under 500 characters.';

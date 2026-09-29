@@ -329,6 +329,13 @@ import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
+import {
+  onboardingAsYouGo,
+  onboardingFinish,
+  onboardingSaveAnswers,
+  onboardingSetView,
+  onboardingSkip,
+} from './onboarding';
 import { migrationCommands } from './migration';
 
 import { addonLifecycleCommands } from './addon';
@@ -869,6 +876,12 @@ export const commands: readonly CommandDef[] = [
   addonUnvote,
   addonMarkNewsSeen,
   addonPickChoose,
+  // Getting started.
+  onboardingSaveAnswers,
+  onboardingSkip,
+  onboardingAsYouGo,
+  onboardingSetView,
+  onboardingFinish,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';
@@ -898,6 +911,7 @@ export * from './conversation-handling';
 export { leadRecordAnswers } from './lead.record_answers';
 export * from './chat-widget';
 export * from './intake-source';
+export * from './onboarding';
 export * from './intake';
 export * from './chat';
 export * from './attention';
