@@ -1,5 +1,6 @@
 import {
   ATTENTION_KIND_LABELS,
+  industryLabel,
   LABEL_NAMES,
   type CalendarLabel,
   type RequestChannel,
@@ -66,8 +67,11 @@ function describeAction(e: AuditEntry): string {
         industry: 'the industry',
         settings: 'workspace settings',
       };
-      if (keys.length === 1 && keys[0] !== 'settings')
-        return `changed ${label[keys[0]!] ?? keys[0]} from ${s(e.before?.[keys[0]!])} to ${s(e.after?.[keys[0]!])}`;
+      if (keys.length === 1 && keys[0] !== 'settings') {
+        const key = keys[0]!;
+        const shown = (v: unknown) => (key === 'industry' ? industryLabel(s(v)) : s(v));
+        return `changed ${label[key] ?? key} from ${shown(e.before?.[key])} to ${shown(e.after?.[key])}`;
+      }
       return `updated ${keys.map((k) => label[k] ?? k).join(', ')}`;
     }
     // The one line a deleted business leaves, in its organization's log (the worker writes it once it's gone).

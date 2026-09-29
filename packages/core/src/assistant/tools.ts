@@ -465,7 +465,9 @@ export const assistantTools = [
     input: z.object({
       name: text(120).optional(),
       timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
-      industry: text(80).optional(),
+      industry: text(80)
+        .optional()
+        .describe('The kind of business, in a word or two: Plumbing, HVAC, Dog grooming, Dental'),
       website: z.url().max(500).optional(),
       reviewLink: z.url().max(500).optional().describe('Where customers leave a review'),
       openHours: WeeklyHoursInput.nullable()

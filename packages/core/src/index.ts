@@ -5,6 +5,7 @@
 export * from './permissions';
 export * from './errors';
 export * from './intl/index';
+export * from './industries';
 export * from './mobile';
 export * from './push';
 export * from './schemas/index';

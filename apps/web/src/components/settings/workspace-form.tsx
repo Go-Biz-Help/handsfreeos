@@ -1,9 +1,10 @@
 'use client';
-import { openHoursOf, type WeeklyHours } from '@hfos/core';
+import { openHoursOf, type IndustryId, type WeeklyHours } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { hoursProblem, WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
+import { IndustryPicker } from '@/components/settings/industry-picker';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
@@ -12,17 +13,11 @@ import { fieldErrors } from '@/lib/api/field-errors';
 import type { WorkspaceGet } from '@/lib/api/types';
 import { TIMEZONES } from '@/app/onboarding/onboarding-form';
 
-type Industry = 'home_services' | 'other';
-const INDUSTRIES: [Industry, string][] = [
-  ['home_services', 'Home services'],
-  ['other', 'Other'],
-];
-
 export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspace'] }) {
   const router = useRouter();
   const [name, setName] = useState(workspace.name);
   const [timezone, setTimezone] = useState(workspace.timezone);
-  const [industry, setIndustry] = useState<Industry>(workspace.industry as Industry);
+  const [industry, setIndustry] = useState(workspace.industry);
   // Workflows put these in customers' texts as {{business.website}} and {{links.review}}.
   const settings = (workspace.settings ?? {}) as Record<string, unknown>;
   const links = (
@@ -54,12 +49,12 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
       const patch: {
         name?: string;
         timezone?: string;
-        industry?: Industry;
+        industry?: IndustryId;
         settings?: Record<string, unknown>;
       } = {};
       if (name.trim() !== workspace.name) patch.name = name.trim();
       if (timezone !== workspace.timezone) patch.timezone = timezone;
-      if (industry !== workspace.industry) patch.industry = industry;
+      if (industry !== workspace.industry) patch.industry = industry as IndustryId;
       const linksChanged = website.trim() !== savedWebsite || review.trim() !== savedReview;
       const hoursChanged = JSON.stringify(hours) !== JSON.stringify(savedHours);
       if (linksChanged || hoursChanged)
@@ -116,18 +111,13 @@ export function WorkspaceForm({ workspace }: { workspace: WorkspaceGet['workspac
           )}
         </Select>
       </Field>
-      <Field label="Industry" htmlFor="ws-industry">
-        <Select
-          id="ws-industry"
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value as Industry)}
-        >
-          {INDUSTRIES.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </Select>
+      <Field
+        label="Industry"
+        htmlFor="ws-industry"
+        hint="Suggested add-ons and the AI teammate’s starting questions for leads follow this."
+        error={errors.industry}
+      >
+        <IndustryPicker id="ws-industry" value={industry} onChange={setIndustry} />
       </Field>
       <Field
         label="Website"
