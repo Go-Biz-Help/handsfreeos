@@ -75,9 +75,18 @@ const IGNORED = new Set([
 
 const KEY_RE = /^ik_[A-Za-z0-9]{20}$/;
 const notFound = () =>
-  new HfosError('not_found', 404, 'This form isn’t available.', undefined, 'intake_not_found');
+  new HfosError(
+    'not_found',
+    404,
+    'This form isn’t taking answers anymore, so nothing was sent. Contact the business by phone or email instead.',
+    undefined,
+    'intake_not_found',
+  );
 const originRefused = () =>
-  HfosError.forbidden('This form isn’t set up for this website.', 'origin_not_allowed');
+  HfosError.forbidden(
+    'This form isn’t set up to send from this website, so nothing was sent. Contact the business by phone or email instead.',
+    'origin_not_allowed',
+  );
 
 interface FormRoute extends Record<string, unknown> {
   readonly source_id: string;
@@ -183,10 +192,11 @@ export async function registerIntakeRoutes(app: FastifyInstance, deps: HttpDeps)
     const r = limiter.take(hits);
     if (r.ok) return;
     void reply.header('retry-after', String(Math.max(1, Math.ceil(r.retryAfterMs / 1000))));
+    const minutes = Math.max(1, Math.ceil(r.retryAfterMs / 60_000));
     throw HfosError.rule(
       'rate_limited',
       429,
-      'Too many forms sent from here. Wait a little and try again.',
+      `Too many forms were sent from here, so this one wasn’t. Try again in ${minutes === 1 ? 'a minute' : `${minutes} minutes`}.`,
     );
   };
   const botCheck = deps.intake?.botCheck ?? null;
@@ -267,9 +277,15 @@ export async function registerIntakeRoutes(app: FastifyInstance, deps: HttpDeps)
       { config: { rateLimit: limits.api } },
       async (req) => {
         const secret = bearerToken(header(req, 'authorization'));
-        if (!secret) throw HfosError.unauthenticated();
+        if (!secret)
+          throw HfosError.unauthenticated(
+            'This needs your secret key. Settings → Lead intake shows how to send it, under How an app sends one.',
+          );
         const route = await keyRoute(secret);
-        if (!route) throw HfosError.unauthenticated();
+        if (!route)
+          throw HfosError.unauthenticated(
+            'That secret key doesn’t match any connected app. Check that you copied all of it, or connect the app again in Settings → Lead intake to get a new one.',
+          );
         const body = (req.body ?? {}) as Record<string, unknown>;
         const { payload } = readPayload(body);
         const out = await submit(route, body, payload);

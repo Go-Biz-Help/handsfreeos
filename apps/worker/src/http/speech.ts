@@ -60,13 +60,19 @@ const tooMuch = () =>
 const CLIP_TIMEOUT_MS = 30_000;
 
 const notConfigured = () =>
-  HfosError.rule('speech_not_configured', 503, 'Talking out loud isn’t set up yet.');
+  HfosError.rule(
+    'speech_not_configured',
+    503,
+    'Talking out loud isn’t set up for HandsFreeOS yet. Type instead.',
+  );
 
 /** Voice mode is for the Assistant and for testing the AI teammate: either permission lets someone talk. */
 async function requireVoice(deps: HttpDeps, userId: string, workspaceId: string): Promise<void> {
   if (await hasPermission(deps, userId, workspaceId, 'assistant.use')) return;
   if (await hasPermission(deps, userId, workspaceId, 'ai_team.manage')) return;
-  throw HfosError.forbidden();
+  throw HfosError.forbidden(
+    'Talking out loud needs “Use Ask HandsFreeOS” or “Run the AI teammate”. An owner of this business can give you either in Settings → Permissions.',
+  );
 }
 
 /** A business's organization never changes, so it's looked up once per machine. */
@@ -82,7 +88,10 @@ async function scopeOf(deps: HttpDeps, workspaceId: string): Promise<TenantScope
         sql`select organization_id from app.workspaces where id = ${workspaceId}`,
       ),
     );
-    if (!ws) throw HfosError.notFound('Workspace not found.');
+    if (!ws)
+      throw HfosError.notFound(
+        'This workspace isn’t there anymore. Refresh the page and try again.',
+      );
     organizationId = ws.organization_id;
     if (organizations.size > 5000) organizations.clear();
     organizations.set(workspaceId, organizationId);
@@ -141,7 +150,12 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
             ? req.body
             : Buffer.alloc(0);
       if (!audio.length)
-        throw HfosError.validation([{ path: 'body', message: 'Nothing was recorded.' }]);
+        throw HfosError.validation([
+          {
+            path: 'body',
+            message: 'Nothing was recorded. Check that your microphone is on, then try again.',
+          },
+        ]);
       let heard;
       try {
         heard = await speech.transcribe(audio, {
@@ -150,7 +164,11 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
         });
       } catch (e) {
         deps.log.warn({ err: e, contentType, bytes: audio.length }, 'couldn’t hear a recording');
-        throw HfosError.rule('speech_failed', 502, 'Couldn’t hear that. Try again.');
+        throw HfosError.rule(
+          'speech_failed',
+          502,
+          'We couldn’t hear that just now. Try again, or type instead.',
+        );
       }
       await noteSpeech({ db: deps.httpDb, log: deps.log }, scope, [
         { key: 'speech.recording.minute', quantity: speechMinutes(heard.seconds), source: 'talk' },
@@ -180,7 +198,11 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
         return reply.header('cache-control', 'no-store').type(clip.contentType).send(clip.audio);
       } catch (e) {
         deps.log.warn({ err: e, voice }, 'couldn’t say a clip');
-        throw HfosError.rule('speech_failed', 502, 'Couldn’t say that out loud. Try again.');
+        throw HfosError.rule(
+          'speech_failed',
+          502,
+          'We couldn’t say that out loud just now. Try again, or read the reply on screen.',
+        );
       }
     });
   });

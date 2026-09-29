@@ -137,25 +137,38 @@ export type ChatStreamEvent =
 // ---- Refusals ----
 
 const widgetNotFound = () =>
-  new HfosError('not_found', 404, 'This chat isn’t available.', undefined, 'widget_not_found');
+  new HfosError(
+    'not_found',
+    404,
+    'This chat isn’t available anymore. Contact the business by phone or email instead.',
+    undefined,
+    'widget_not_found',
+  );
 const chatNotFound = () =>
-  HfosError.rule('chat_not_found', 404, 'This chat has ended. Start a new one.');
+  HfosError.rule('chat_not_found', 404, 'This chat has ended. Start a new one to keep talking.');
 const chatNotStarted = () =>
   HfosError.rule('chat_not_started', 409, 'Send a message to start the chat.');
 const widgetPaused = () =>
-  HfosError.rule('widget_paused', 409, 'This chat is paused right now. Please try again later.');
+  HfosError.rule(
+    'widget_paused',
+    409,
+    'This chat is paused right now. Try again later, or contact the business by phone or email.',
+  );
 const blocked = (why: 'visitor' | 'network') =>
   HfosError.forbidden(
-    'This chat isn’t available right now.',
+    'This chat isn’t available right now. Contact the business by phone or email instead.',
     why === 'visitor' ? 'visitor_blocked' : 'network_blocked',
   );
 const originRefused = () =>
-  HfosError.forbidden('This chat isn’t set up for this website.', 'origin_not_allowed');
+  HfosError.forbidden(
+    'This chat isn’t set up for this website. Contact the business by phone or email instead.',
+    'origin_not_allowed',
+  );
 const networkFlood = () =>
   HfosError.rule(
     'network_flood',
     429,
-    'Lots of chats are starting from this network. Please try again later.',
+    'Lots of chats are starting from this network. Try again a little later, or contact the business by phone or email.',
   );
 const repeated = () =>
   HfosError.rule(
@@ -164,15 +177,23 @@ const repeated = () =>
     'You’ve sent that already. We’ll reply as soon as we can.',
   );
 const checkRequired = () =>
-  HfosError.rule('bot_check_required', 400, 'Please confirm you’re a person, then send again.');
+  HfosError.rule(
+    'bot_check_required',
+    400,
+    'We need to check you’re a person first. Finish the check in this chat, then send again.',
+  );
 const checkFailed = () =>
-  HfosError.rule('bot_check_failed', 400, 'Please confirm you’re a person, then try again.');
+  HfosError.rule(
+    'bot_check_failed',
+    400,
+    'We couldn’t confirm you’re a person. Finish the check in this chat, then try again.',
+  );
 
 /** A filled honeypot is a bot: a plain 400, nothing saved. */
 function refuseHoneypot(body: unknown): void {
   const honeypot = (body as { honeypot?: unknown } | null)?.honeypot;
   if (typeof honeypot === 'string' && honeypot.trim() !== '')
-    throw HfosError.validation([], 'Please check the message and try again.');
+    throw HfosError.validation([], 'That didn’t go through. Refresh the page and try again.');
 }
 
 /** The page, without its query or fragment (they can carry what people typed into forms). */

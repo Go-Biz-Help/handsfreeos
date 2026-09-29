@@ -207,7 +207,8 @@ export async function webhookWork(
       kind: 'refused',
       input,
       error: {
-        message: 'This webhook’s data is over 64 KB.',
+        message:
+          'This webhook’s data is over 64 KB, so it wasn’t sent. Tick fewer boxes under Include in the Send a webhook step.',
         rule: 'webhook_too_large',
         code: 'rule_violation',
       },
@@ -264,7 +265,7 @@ export async function deliverWebhook(
   return {
     ok: false,
     error: {
-      message: `The address refused the webhook (${res.status}).`,
+      message: `The address refused the webhook (it answered ${res.status}). Check the address under Send to in the Send a webhook step, or ask whoever runs that app.`,
       rule: 'webhook_rejected',
       code: 'rule_violation',
       details: { status: res.status, response: res.body.slice(0, 500) },
@@ -420,14 +421,20 @@ export async function registerWorkflowRoutes(
         sql`select organization_id from app.workspaces where id = ${input.workspaceId}`,
       ),
     );
-    if (!ws) throw HfosError.notFound('Workspace not found.');
+    if (!ws)
+      throw HfosError.notFound(
+        'This workspace isn’t there anymore. Refresh the page and try again.',
+      );
     const scope = { workspaceId: input.workspaceId, organizationId: ws.organization_id };
     return asWorker(deps.httpDb, scope, async (tx) => {
       const [wf] = await rows<{ id: string; name: string }>(
         tx,
         sql`select id, name from app.workflows where id = ${input.workflowId} and workspace_id = ${scope.workspaceId}`,
       );
-      if (!wf) throw HfosError.notFound('Workflow not found.');
+      if (!wf)
+        throw HfosError.notFound(
+          'That workflow isn’t there anymore. Refresh the page and try again.',
+        );
       const hook = await ensureWebhook(tx, deps.sealer, scope, wf.id, actor.userId);
       const secret = input.rotate ? await rotateSecret(tx, deps.sealer, hook.id) : hook.secret;
       await recordEngineEvent(tx, {

@@ -63,7 +63,7 @@ export const cannotTakePayment = (): HfosError =>
   HfosError.rule(
     'payment_unavailable',
     409,
-    'We can’t take a payment right now. Please give us a call and we’ll book you in.',
+    'We can’t take the deposit online right now, so this time can’t be booked here. Give us a call and we’ll book you in.',
   );
 
 const providerRefused = (): HfosError =>

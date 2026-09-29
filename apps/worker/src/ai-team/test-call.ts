@@ -58,7 +58,8 @@ const START_WITHIN_MS = 10_000;
 /** Test calls one person may start, per machine. */
 const STARTS = { max: 12, timeWindow: 10 * 60_000 };
 
-const NOT_SET_UP = 'Talking out loud isn’t set up yet, so a live test call can’t start.';
+const NOT_SET_UP =
+  'Talking out loud isn’t set up for HandsFreeOS yet, so a live test call can’t start. Type what the caller says instead.';
 const STOPPED = 'The test call stopped. Try again.';
 const NO_ANSWER = 'The call didn’t come through. Try again, or use This browser.';
 

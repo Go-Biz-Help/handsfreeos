@@ -174,11 +174,20 @@ const instant = z.iso.datetime({
 });
 const zip5 = (v: string | null | undefined): string => (v ?? '').replace(/\D/g, '').slice(0, 5);
 
-const pageNotFound = () => HfosError.notFound('We couldn’t find that booking page.');
+const pageNotFound = () =>
+  HfosError.notFound(
+    'There’s no booking page at this address. Check the link, or contact the business for the right one.',
+  );
 const notBookable = () =>
-  HfosError.rule('calendar_not_bookable', 409, 'This calendar isn’t taking bookings right now.');
+  HfosError.rule(
+    'calendar_not_bookable',
+    409,
+    'This calendar isn’t taking bookings online right now. Contact the business to book another way.',
+  );
 const linkNotFound = () =>
-  HfosError.notFound('This link doesn’t work. Check that it matches the one we sent you.');
+  HfosError.notFound(
+    'This link doesn’t work. Check that it matches the one we sent you, or contact the business.',
+  );
 
 const meta = (): RequestMeta => ({
   correlationId: randomUUID(),
@@ -246,7 +255,7 @@ function publicPaths(e: unknown): never {
 function refuseHoneypot(body: unknown): void {
   const website = (body as { website?: unknown } | null)?.website;
   if (typeof website === 'string' && website.trim() !== '')
-    throw HfosError.validation([], 'Please check the form and try again.');
+    throw HfosError.validation([], 'That didn’t go through. Refresh the page and try again.');
 }
 
 const LOCATION_LABEL: Record<string, string> = {
@@ -1217,7 +1226,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           throw HfosError.rule(
             'bot_check_failed',
             400,
-            'Please confirm you’re a person, then try again.',
+            'We couldn’t confirm you’re a person. Finish the check on this page, then try again.',
           );
         const { scope, calendar } = await openCalendar(req.params.site, req.params.calendar);
         /**
@@ -1303,7 +1312,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           throw HfosError.rule(
             'bot_check_failed',
             400,
-            'Please confirm you’re a person, then try again.',
+            'We couldn’t confirm you’re a person. Finish the check on this page, then try again.',
           );
         const { scope, calendar } = await openCalendar(req.params.site, req.params.calendar);
         const { output } = await executeCommand(
@@ -1362,7 +1371,10 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           if (!b) throw linkNotFound();
           const calendar = await loadCalendar(tx, scope.workspaceId, b.p.calendarId);
           const invoice = await invoiceForHold(tx, scope.workspaceId, m.attendeeId);
-          if (!invoice) throw HfosError.notFound('There’s nothing to pay for this booking.');
+          if (!invoice)
+            throw HfosError.notFound(
+              'There’s nothing to pay for this booking. Contact the business if that doesn’t look right.',
+            );
           const plan = await depositPlan(deps, tx, scope.workspaceId, calendar.config, {
             serviceId: b.p.serviceId,
             calendarName: calendar.name,
@@ -1599,7 +1611,11 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           const b = await loadBooked(tx, m.attendeeId);
           if (!b) throw linkNotFound();
           if (b.a.status !== 'booked' || b.p.status !== 'scheduled')
-            throw HfosError.rule('booking_cancelled', 409, 'This booking was cancelled.');
+            throw HfosError.rule(
+              'booking_cancelled',
+              409,
+              'This booking was cancelled, so it can’t be moved. Contact the business to book a new time.',
+            );
           const calendar = await loadCalendar(tx, ws, b.p.calendarId);
           if (calendar.status !== 'active' || !calendar.config.public) throw notBookable();
           const minutes = Math.round((b.p.endsAt.getTime() - b.p.startsAt.getTime()) / MIN);
@@ -1724,7 +1740,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
           throw HfosError.rule(
             'confirmation_not_needed',
             409,
-            'This booking doesn’t need confirming.',
+            'This booking doesn’t need confirming. You’re already booked in.',
           );
         const { output } = await executeCommand(
           deps.httpDb,

@@ -385,7 +385,7 @@ export function registerMigrationRoutes(
       throw HfosError.rule(
         'migration_token_unavailable',
         501,
-        'A pasted token is not a way in to that system here.',
+        'That system can’t be connected with a pasted token here. Start again from Migrations and choose to sign in to it instead.',
       );
 
     let connection;

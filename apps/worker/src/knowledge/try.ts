@@ -92,6 +92,8 @@ const promptItem = (m: KnowledgeMatch) => ({
   sourceUrl: m.sourceUrl,
 });
 
+const TRY_FAILED = 'The AI couldn’t answer that just now. Try again, or ask it a different way.';
+
 function tryError(e: unknown): unknown {
   if (!(e instanceof AiAskError)) return e;
   switch (e.code) {
@@ -104,9 +106,9 @@ function tryError(e: unknown): unknown {
     case 'provider_error':
       return e.retryable
         ? HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE)
-        : HfosError.rule('ai_failed', 502, 'Something went wrong. Try again.');
+        : HfosError.rule('ai_failed', 502, TRY_FAILED);
     case 'bad_output':
-      return HfosError.rule('ai_failed', 502, 'Something went wrong. Try again.');
+      return HfosError.rule('ai_failed', 502, TRY_FAILED);
   }
 }
 

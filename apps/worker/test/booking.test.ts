@@ -308,7 +308,7 @@ describe('the booking page', () => {
     const body = bookingBody(slots[0]!.startsAt, { website: 'https://cheap-pills.example' });
     const res = await post(`/public/book/${site}/${cal.slug}/bookings`, body);
     expect(res.statusCode).toBe(400);
-    expect(errorOf(res).message).toBe('Please check the form and try again.');
+    expect(errorOf(res).message).toBe('That didn’t go through. Refresh the page and try again.');
     const saved = await rows(
       admin(),
       sql`select 1 from app.people where workspace_id = ${workspaceId} and phone_e164 = ${body.phone}
