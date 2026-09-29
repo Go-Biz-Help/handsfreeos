@@ -54,7 +54,12 @@ import {
   inboxSummary,
   messageGet,
 } from './inbox';
-import { emailSetupStatus, emailSuppressionList, emailUnmatchedList } from './email';
+import {
+  emailSenderRuleList,
+  emailSetupStatus,
+  emailSuppressionList,
+  emailUnmatchedList,
+} from './email';
 import { emailComposeOptions } from './email-compose';
 import { invitationPreview } from './invitation.preview';
 import { intakeList } from './intake';
@@ -126,6 +131,7 @@ export {
   emailSetupStatus,
   emailSuppressionList,
   emailUnmatchedList,
+  emailSenderRuleList,
   intakeList,
   phoneSetupStatus,
   numberPortList,
@@ -242,6 +248,7 @@ export const queries: readonly QueryDef[] = [
   emailSetupStatus,
   emailSuppressionList,
   emailUnmatchedList,
+  emailSenderRuleList,
   emailComposeOptions,
   assistantThreadList,
   assistantThreadGet,

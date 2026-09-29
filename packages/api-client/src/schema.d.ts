@@ -9197,6 +9197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/email_sender_rule.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where new mail from each sender goes, as people chose when they moved one of that sender’s threads: the Inbox, Other mail or Spam.
+         * @description Requires inbox.use.
+         */
+        post: operations["query_email_sender_rule_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/email_suppression.list": {
         parameters: {
             query?: never;
@@ -33077,6 +33097,8 @@ export interface operations {
                             /** Format: date-time */
                             createdAt: string;
                             /** @enum {string} */
+                            folder: "inbox" | "other" | "spam";
+                            /** @enum {string} */
                             handledBy: "none" | "ai" | "person";
                             handoffNote: string | null;
                             handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
@@ -33128,6 +33150,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            private: boolean;
                             sameAs: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -33686,6 +33709,46 @@ export interface operations {
             };
         };
     };
+    query_email_sender_rule_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            address: string;
+                            /** Format: date-time */
+                            createdAt: string;
+                            createdBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            /** @enum {string} */
+                            folder: "inbox" | "other" | "spam";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_email_suppression_list: {
         parameters: {
             query?: never;
@@ -33836,6 +33899,9 @@ export interface operations {
                             id: string;
                             isDefault: boolean;
                             localPart: string;
+                            ownerLeft?: boolean;
+                            ownerName?: string | null;
+                            ownerUserId?: string | null;
                             usable: boolean;
                         }[];
                         counts: {
@@ -33853,12 +33919,17 @@ export interface operations {
                             id: string;
                             lastCheckedAt: string | null;
                             lastError: string | null;
+                            mxCheckedAt?: string | null;
+                            mxVerifiedAt?: string | null;
+                            /** @enum {string} */
+                            receiving?: "off" | "pending" | "on" | "lapsed";
                             returnPathHost: string | null;
                             returnPathValue: string | null;
                             returnPathVerifiedAt: string | null;
                             /** @enum {string} */
                             status: "pending" | "verified" | "failed";
                         }[];
+                        inboundMxHost?: string;
                         mailboxes: {
                             accountEmail: string | null;
                             connectedAt: string | null;
@@ -33875,6 +33946,7 @@ export interface operations {
                             userId: string | null;
                             userName: string | null;
                         }[];
+                        receivingOpen?: boolean;
                         sharedDomain: string;
                     };
                 };
@@ -35418,6 +35490,8 @@ export interface operations {
                             /** Format: date-time */
                             createdAt: string;
                             /** @enum {string} */
+                            folder: "inbox" | "other" | "spam";
+                            /** @enum {string} */
                             handledBy: "none" | "ai" | "person";
                             handoffNote: string | null;
                             handoffReason: ("asked_for_person" | "frustrated" | "cant_answer" | "sensitive" | "emergency" | "legal" | "complaint" | "refund" | "cancellation" | "limit" | "budget" | "wallet" | "error" | "draft_expired" | "loop" | "other") | null;
@@ -35469,6 +35543,7 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            private: boolean;
                             sameAs: {
                                 fullName: string;
                                 /** Format: uuid */
@@ -35520,6 +35595,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         ai: number;
+                        mail: {
+                            mine: number;
+                            other: number;
+                            spam: number;
+                        };
                         needsPerson: number;
                         open: {
                             all: number;
@@ -38447,6 +38527,7 @@ export interface operations {
                             leads: number;
                             people: number;
                         };
+                        isPlatform: boolean;
                         people: {
                             email: string;
                             fullName: string;

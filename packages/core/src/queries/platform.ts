@@ -197,6 +197,7 @@ export const platformBusinessGet = defineQuery({
       .limit(20);
     return {
       phoneModel: PHONE_MODELS.find((m) => m === row.w.phoneModel) ?? null,
+      isPlatform: row.w.isPlatform,
       business: {
         workspaceId: row.w.id,
         name: row.w.name,

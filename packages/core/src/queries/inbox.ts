@@ -56,6 +56,9 @@ const SORT_KEY = (column: ReturnType<typeof sql>) =>
 
 type ConversationRow = {
   id: string;
+  /** M19: the Inbox, Other mail or Spam, and whether it is the viewer's own mail. */
+  folder: 'inbox' | 'other' | 'spam';
+  private: boolean;
   channel: 'sms' | 'email' | 'chat';
   /** A website chat's visitor's name, as they typed it. */
   visitor_name: string | null;
@@ -233,6 +236,7 @@ const conversationSelect = (
     c.handled_by::text as handled_by, c.ai_teammate_id, tm.name as teammate_name, c.needs_person_since,
     c.handoff_reason, c.handoff_note, c.taken_over_by,
     coalesce(nullif(tu.full_name, ''), tu.email::text) as taken_over_name,
+    c.folder::text as folder, c.private_to is not null as private,
     ${SORT_KEY(sortBy === 'needs_person' ? sql`c.needs_person_since` : sql`coalesce(c.last_message_at, c.created_at)`)} as sort_key,
     ${GROUP_KEY} as group_key
   from app.conversations c
@@ -298,6 +302,8 @@ function summary(r: ConversationRow): ConversationSummary {
       ? lanes.reduce((n, l) => n + l.unreadCount, 0)
       : Number(r.unread_count),
     sameAs: r.same_as?.id ? { id: r.same_as.id, fullName: r.same_as.fullName || 'Unnamed' } : null,
+    folder: r.folder,
+    private: !!r.private,
   };
 }
 
@@ -561,7 +567,20 @@ export const inboxSummary = defineQuery({
             and c.archived_at is null and c.folder = 'inbox' and c.private_to is null`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
+    // Beside the team's Inbox (M19): the viewer's own mailbox, and the team's Other mail and Spam.
+    const [mail] = await rows<{ mine: number; other: number; spam: number }>(
+      ctx.tx,
+      sql`select
+            count(*) filter (where c.private_to = ${me} and c.folder = 'inbox' and c.unread_count > 0)::int as mine,
+            count(*) filter (where c.private_to is null and c.folder = 'other' and c.unread_count > 0)::int as other,
+            count(*) filter (where c.private_to is null and c.folder = 'spam')::int as spam
+          from app.conversations c
+          where c.workspace_id = ${input.workspaceId} and c.channel = 'email' and c.status = 'open'
+            and c.archived_at is null and c.last_message_at is not null
+            and (c.folder <> 'inbox' or c.private_to is not null)`,
+    );
     return {
+      mail: { mine: mail?.mine ?? 0, other: mail?.other ?? 0, spam: mail?.spam ?? 0 },
       unread: { mine: n('unread_mine'), unassigned: n('unread_unassigned'), all: n('unread_all') },
       open: { mine: n('open_mine'), unassigned: n('open_unassigned'), all: n('open_all') },
       waiting: n('waiting'),

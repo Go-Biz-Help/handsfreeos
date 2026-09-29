@@ -298,6 +298,8 @@ export const BusinessGetOutput = z.object({
   business: BusinessRow,
   /** The model its calls think with, when support picked one; null is the worker's VOICE_MODEL. */
   phoneModel: PhoneModelValue.nullable(),
+  /** HandsFreeOS's own business (M19), which may use handsfreeos.com for its email. */
+  isPlatform: z.boolean(),
   people: z.array(
     z.object({
       userId: uuid,

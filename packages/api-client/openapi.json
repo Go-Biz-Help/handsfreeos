@@ -49961,6 +49961,9 @@
                         }
                       ]
                     },
+                    "isPlatform": {
+                      "type": "boolean"
+                    },
                     "people": {
                       "type": "array",
                       "items": {
@@ -50117,6 +50120,7 @@
                   "required": [
                     "business",
                     "phoneModel",
+                    "isPlatform",
                     "people",
                     "counts",
                     "tickets",
@@ -60843,6 +60847,17 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "folder": {
+                            "type": "string",
+                            "enum": [
+                              "inbox",
+                              "other",
+                              "spam"
+                            ]
+                          },
+                          "private": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -60872,7 +60887,9 @@
                           "onSiteNow",
                           "lanes",
                           "unreadTotal",
-                          "sameAs"
+                          "sameAs",
+                          "folder",
+                          "private"
                         ],
                         "additionalProperties": false
                       }
@@ -61003,6 +61020,32 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "mail": {
+                      "type": "object",
+                      "properties": {
+                        "mine": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "other": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "spam": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "mine",
+                        "other",
+                        "spam"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -61011,7 +61054,8 @@
                     "waiting",
                     "waitingThresholdMinutes",
                     "needsPerson",
-                    "ai"
+                    "ai",
+                    "mail"
                   ],
                   "additionalProperties": false
                 }
@@ -61539,6 +61583,17 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "folder": {
+                          "type": "string",
+                          "enum": [
+                            "inbox",
+                            "other",
+                            "spam"
+                          ]
+                        },
+                        "private": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -61568,7 +61623,9 @@
                         "onSiteNow",
                         "lanes",
                         "unreadTotal",
-                        "sameAs"
+                        "sameAs",
+                        "folder",
+                        "private"
                       ],
                       "additionalProperties": false
                     },
@@ -63501,6 +63558,12 @@
                     "sharedDomain": {
                       "type": "string"
                     },
+                    "receivingOpen": {
+                      "type": "boolean"
+                    },
+                    "inboundMxHost": {
+                      "type": "string"
+                    },
                     "addresses": {
                       "type": "array",
                       "items": {
@@ -63542,6 +63605,27 @@
                             ]
                           },
                           "usable": {
+                            "type": "boolean"
+                          },
+                          "ownerUserId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "ownerName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "ownerLeft": {
                             "type": "boolean"
                           }
                         },
@@ -63649,6 +63733,39 @@
                             "type": "string",
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "receiving": {
+                            "type": "string",
+                            "enum": [
+                              "off",
+                              "pending",
+                              "on",
+                              "lapsed"
+                            ]
+                          },
+                          "mxVerifiedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "mxCheckedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -64099,6 +64216,110 @@
                   "required": [
                     "items",
                     "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/email_sender_rule.list": {
+      "post": {
+        "operationId": "query_email_sender_rule_list",
+        "summary": "Where new mail from each sender goes, as people chose when they moved one of that sender’s threads: the Inbox, Other mail or Spam.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires inbox.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "folder": {
+                            "type": "string",
+                            "enum": [
+                              "inbox",
+                              "other",
+                              "spam"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "createdBy": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "fullName": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "address",
+                          "folder",
+                          "createdAt",
+                          "createdBy"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
                   ],
                   "additionalProperties": false
                 }

@@ -699,6 +699,7 @@ describe('registry', () => {
       'email.setup_status',
       'email_suppression.list',
       'email.unmatched_list',
+      'email_sender_rule.list',
       'email.compose_options',
       'assistant_thread.list',
       'assistant_thread.get',

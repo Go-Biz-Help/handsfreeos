@@ -109,6 +109,10 @@ export const ConversationSummary = z.object({
   unreadTotal: z.number().int(),
   /** A customer this unlinked thread looks like, offered as "Same as …?" rather than merged on its own. */
   sameAs: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  /** Where it lives (M19): the Inbox, Other mail or Spam. */
+  folder: conversationFolder,
+  /** The viewer's own mail (M19): only they see it, until they share it with the team. */
+  private: z.boolean(),
 });
 export type ConversationSummary = z.infer<typeof ConversationSummary>;
 
@@ -147,6 +151,11 @@ export const InboxSummaryOutput = z.object({
   needsPerson: z.number().int(),
   /** Open conversations the AI teammate is answering. */
   ai: z.number().int(),
+  /**
+   * Beside the team's Inbox (M19): unread in the viewer's own mailbox, unread in the team's Other mail, and open
+   * threads in the team's Spam.
+   */
+  mail: z.object({ mine: z.number().int(), other: z.number().int(), spam: z.number().int() }),
 });
 
 export const canTextReason = z.enum([

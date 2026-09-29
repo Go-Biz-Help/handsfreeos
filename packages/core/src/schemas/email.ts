@@ -265,6 +265,11 @@ export const EmailAddressOut = z.object({
   domain: z.string().nullable(),
   /** Mail can go out from it now: the shared subdomain, or a verified domain. */
   usable: z.boolean(),
+  /** The person whose own address it is (M19); null is the team's. */
+  ownerUserId: uuid.nullable().optional(),
+  ownerName: z.string().nullable().optional(),
+  /** Its person no longer works here: an owner decides what becomes of it (email_address.reassign). */
+  ownerLeft: z.boolean().optional(),
 });
 export const EmailDomainOut = z.object({
   id: uuid,
@@ -279,6 +284,10 @@ export const EmailDomainOut = z.object({
   lastCheckedAt: isoDateTime.nullable(),
   lastError: z.string().nullable(),
   createdAt: isoDateTime,
+  /** Whether its mail arrives here (M19), and when the worker last found and looked for its MX. */
+  receiving: emailReceivingStatus.optional(),
+  mxVerifiedAt: isoDateTime.nullable().optional(),
+  mxCheckedAt: isoDateTime.nullable().optional(),
 });
 export const MailboxOut = z.object({
   id: uuid,
@@ -296,6 +305,10 @@ export const MailboxOut = z.object({
 export const EmailSetupStatusInput = z.object({ workspaceId: uuid });
 export const EmailSetupStatusOutput = z.object({
   sharedDomain: z.string(),
+  /** Whether this business can turn receiving on yet (M19: HandsFreeOS's own until every business can). */
+  receivingOpen: z.boolean().optional(),
+  /** Where a domain's MX points for its mail to arrive here. */
+  inboundMxHost: z.string().optional(),
   addresses: z.array(EmailAddressOut),
   domains: z.array(EmailDomainOut),
   mailboxes: z.array(MailboxOut),
@@ -305,6 +318,19 @@ export const EmailSetupStatusOutput = z.object({
     /** Mail from unknown senders waiting to be claimed or dismissed. */
     unmatched: z.number().int(),
   }),
+});
+
+/** Where new mail from each sender goes, as people chose (M19). */
+export const EmailSenderRuleListInput = z.object({ workspaceId: uuid });
+export const EmailSenderRuleListOutput = z.object({
+  items: z.array(
+    z.object({
+      address: z.string(),
+      folder: z.enum(['inbox', 'other', 'spam']),
+      createdAt: isoDateTime,
+      createdBy: UserRef,
+    }),
+  ),
 });
 
 export const EmailSuppressionListInput = ListInput.extend({
