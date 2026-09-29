@@ -44,12 +44,14 @@ export function SiteFooter() {
             <Link href="/" className="flex items-center gap-2.5 font-bold">
               <Image
                 src="/handsfreeos-mark.png"
-                alt=""
+                alt="HandsFreeOS"
                 width={28}
                 height={28}
                 className="rounded-md"
               />
-              <span className="tracking-tight">HandsFreeOS</span>
+              <span aria-hidden className="tracking-tight">
+                HandsFreeOS
+              </span>
             </Link>
             <p className="text-text-2 mt-4 max-w-xs text-base">
               One place for the calls, texts, email, calendar and money of a small service business
