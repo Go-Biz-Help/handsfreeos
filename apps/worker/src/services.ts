@@ -4,6 +4,7 @@ import type { RequestMeta, SystemActor } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { AuthAdmin } from './account/auth-admin';
+import type { AiSwitchboard } from './ai/switch';
 import type { BookingLinks } from './booking/links';
 import type { CalendarServices } from './calendar/index';
 import type { Sealer } from './crypto';
@@ -110,6 +111,11 @@ export interface WorkerServices {
    * daily token limit per workspace they share with the Assistant (ai/ask.ts, ai/budget.ts).
    */
   readonly ai: { readonly provider: AiProvider | null; readonly dailyTokens: number };
+  /**
+   * Which AI answers, Claude or OpenAI while Claude is in trouble (ai/switch.ts): what the 5-minute check works
+   * on. Missing without OPENAI_API_KEY, and then there is no backup.
+   */
+  readonly aiSwitch?: AiSwitchboard | null;
   /** Push notifications to the phone app: Expo's service, or the stand-in locally and in tests (push/index.ts). */
   readonly push: PushServices;
   /**

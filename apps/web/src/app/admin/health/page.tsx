@@ -1,5 +1,6 @@
+import { AiProviderBlock } from '@/components/admin/ai-provider-block';
 import { whenWords } from '@/components/admin/ticket-bits';
-import { apiServer, unwrapPage } from '@/lib/api/server';
+import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
 
 /** What has gone wrong lately, everywhere. The point is to find it before a customer does. */
 export default async function HealthPage({
@@ -10,9 +11,12 @@ export default async function HealthPage({
   const { hours } = await searchParams;
   const window = Math.min(168, Math.max(1, Number(hours ?? 24) || 24));
   const { api } = await apiServer();
-  const health = unwrapPage(
-    await api.POST('/v1/queries/platform.health.summary', { body: { hours: window } }),
-  );
+  const [health, ai, me] = await Promise.all([
+    api.POST('/v1/queries/platform.health.summary', { body: { hours: window } }).then(unwrapPage),
+    // Which AI answers gets its own section: when it can't be read, the rest of the page still can.
+    api.POST('/v1/queries/platform.ai_provider.get', { body: {} }).then((r) => r.data ?? null),
+    api.POST('/v1/queries/platform.me', { body: {} }).then(unwrap),
+  ]);
   const cards = [
     { label: 'Background jobs that failed', value: health.failedJobs.count },
     { label: 'Webhooks that failed', value: health.failedDeliveries.count },
@@ -59,6 +63,11 @@ export default async function HealthPage({
           </div>
         ))}
       </dl>
+
+      <AiProviderBlock
+        ai={ai}
+        canChange={me.staff?.permissions.includes('platform.ai.manage') ?? false}
+      />
 
       <section className="mt-6 rounded-card border border-border bg-card p-4">
         <h2 className="text-sm font-semibold">The last few</h2>
