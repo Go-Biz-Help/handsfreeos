@@ -433,3 +433,70 @@ export function previewDetail(
       return stepTitle(key);
   }
 }
+
+/** The setup wizard's own words, around each step (boards 2 to 5b in design/onboarding). */
+export const WIZARD_WORDS = {
+  settingUp: (business: string) => `Setting up ${business}`,
+  finishLater: 'Finish later',
+  railTitle: 'The basics',
+  railIntro: 'About 20 minutes. Skip anything and come back to it from Home.',
+  railLater: 'Later, from your checklist',
+  position: (n: number, of: number) => `${n} of ${of}`,
+  back: 'Back',
+  skip: 'Skip for now',
+  next: 'Continue',
+  finish: 'Finish and see Home',
+  /** A step already done, when someone opens it again. */
+  alreadyDone: 'This one’s done. Change anything below, or carry on.',
+  titles: {
+    number: 'Get your business number',
+    payments: 'Connect how you get paid',
+    customers: 'Bring in your customers',
+    calendar: 'Set up your calendar and booking page',
+    ai: 'Teach your AI teammate about your business',
+  },
+  intros: {
+    number:
+      'Customers call and text this number, and your AI teammate answers on it too. Calls work as soon as you pick one. Texting needs the phone carriers’ OK first.',
+    payments:
+      'Connect Stripe or Square and customers pay on their own link. The money goes straight to your account; HandsFreeOS never holds it.',
+    customers: 'Bring them in once, and everything they do from now on lands in one place.',
+    calendar:
+      'Customers book themselves on your booking page, and your AI teammate books into the same calendar.',
+    ai: 'Your AI teammate answers texts, email and website chat, and books visits. Nothing it learns is used until you keep it.',
+  },
+} as const satisfies {
+  titles: Record<'number' | 'payments' | 'customers' | 'calendar' | 'ai', string>;
+  intros: Record<'number' | 'payments' | 'customers' | 'calendar' | 'ai', string>;
+  [key: string]: unknown;
+};
+
+/** One short line under a step in the wizard's rail: where it stands, or what it asks for. */
+export function railLine(
+  step: OnboardingStep,
+  answers: Partial<OnboardingAnswers> | null = null,
+): string {
+  if (step.state === 'skipped') return 'Skipped for now';
+  if (step.state === 'needs_fix') return 'Needs a fix';
+  const n = step.note;
+  if (step.state === 'waiting')
+    return step.key === 'number' && n.number
+      ? `${n.number} · texting in review`
+      : (stepWords(step).badge ?? 'Waiting');
+  if (step.state === 'done')
+    switch (step.key) {
+      case 'number':
+        return `${n.number ?? 'Your number'} · texting on`;
+      case 'ai':
+        return `${aiName(n.name) ?? 'Your AI teammate'} knows your business`;
+      case 'customers':
+        return n.phase === 'as_you_go' ? 'Adding them as you go' : `${n.count ?? 0} in`;
+      case 'calendar':
+        return 'Booking page on';
+      case 'payments':
+        return `${PROVIDERS[n.provider ?? ''] ?? 'Payments'} connected`;
+      default:
+        return 'Done';
+    }
+  return previewDetail(step.key, answers);
+}
