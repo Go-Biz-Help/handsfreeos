@@ -4761,6 +4761,26 @@ export const addonNewsSeen = platform.table(
   (t) => [primaryKey({ columns: [t.userId, t.addonId, t.kind] })],
 );
 
+/**
+ * Which AI answers (20261013000900): Claude, or OpenAI while Claude is in trouble. One row, written by the worker's
+ * checks and by support's switch in /admin (`private.set_ai_provider_mode`).
+ */
+export const aiProvider = platform.table('ai_provider', {
+  id: boolean('id').primaryKey().default(true),
+  /** auto, claude or openai. */
+  mode: text('mode').notNull().default('auto'),
+  /** claude or openai: who answers while the mode is auto. */
+  active: text('active').notNull().default('claude'),
+  /** status or errors, while on OpenAI. */
+  reason: text('reason'),
+  claudeStatus: text('claude_status'),
+  goodChecks: integer('good_checks').notNull().default(0),
+  checkedAt: ts('checked_at'),
+  switchedAt: ts('switched_at'),
+  modeSetBy: userRef('mode_set_by'),
+  modeSetAt: ts('mode_set_at'),
+});
+
 export const staff = platform.table('staff', {
   userId: uuid('user_id')
     .primaryKey()
@@ -6308,4 +6328,5 @@ export const tables = {
   addonPicks,
   addonPickDeliveries,
   addonNewsSeen,
+  aiProvider,
 } as const;

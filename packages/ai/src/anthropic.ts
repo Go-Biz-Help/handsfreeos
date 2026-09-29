@@ -224,9 +224,22 @@ function messagesOf(messages: readonly AiMessage[]): Anthropic.MessageParam[] {
   return out;
 }
 
+/** Claude's own kinds of block that go back unchanged; another provider's (the backup's tool search) are left out. */
+const PASSTHROUGH = new Set([
+  'thinking',
+  'redacted_thinking',
+  'server_tool_use',
+  'tool_search_tool_result',
+]);
+
 function toAnthropic(m: AiMessage): Anthropic.MessageParam {
   if (typeof m.content === 'string') return { role: m.role, content: m.content };
-  return { role: m.role, content: m.content.map(toBlock) };
+  return {
+    role: m.role,
+    content: m.content
+      .filter((c) => c.type !== 'passthrough' || PASSTHROUGH.has(String(c.block.type)))
+      .map(toBlock),
+  };
 }
 
 const CACHEABLE = new Set(['text', 'image', 'tool_use', 'tool_result']);
@@ -298,12 +311,7 @@ function fromAnthropic(message: Anthropic.Message): AiTurn {
       };
       toolCalls.push(call);
       content.push({ type: 'tool_call', ...call });
-    } else if (
-      block.type === 'thinking' ||
-      block.type === 'redacted_thinking' ||
-      block.type === 'server_tool_use' ||
-      block.type === 'tool_search_tool_result'
-    )
+    } else if (PASSTHROUGH.has(block.type))
       content.push({ type: 'passthrough', block: { ...block } });
   }
   return {

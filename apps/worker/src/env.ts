@@ -211,6 +211,19 @@ export interface WorkerEnv {
   readonly assistantToolSearch: boolean;
   /** Tokens one workspace's Assistant may use per day, cache reads and writes included. */
   readonly assistantDailyTokens: number;
+  /**
+   * OpenAI, the backup for every AI feature while Claude is in trouble (ai/switch.ts). Unset: no backup, Claude
+   * alone as before. Only with the Anthropic provider: the scripted stand-in needs none.
+   */
+  readonly openAiApiKey: string | null;
+  /** The backup for AI_MODEL. */
+  readonly openAiModel: string;
+  /** The backup for ASSISTANT_MODEL. */
+  readonly openAiAssistantModel: string;
+  /** The backup on calls, whatever model they use on Claude: a fast one keeps the pauses short. */
+  readonly openAiVoiceModel: string;
+  /** Who is emailed when the AI moves to OpenAI and back (AI_ALERT_EMAILS, else PLATFORM_OWNER_EMAILS). */
+  readonly aiAlertEmails: readonly string[];
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
   readonly turnstileSecretKey: string | null;
   /**
@@ -455,6 +468,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const assistantDailyTokens = Number(env.ASSISTANT_DAILY_TOKENS ?? 2_000_000);
   if (!Number.isInteger(assistantDailyTokens) || assistantDailyTokens < 1)
     throw new Error('ASSISTANT_DAILY_TOKENS must be a whole number above zero');
+  const openAiApiKey = env.OPENAI_API_KEY?.trim() || null;
+  const emails = (value: string | undefined) =>
+    (value || '')
+      .split(',')
+      .map((a) => a.trim().toLowerCase())
+      .filter((a) => a.includes('@'));
+  const aiAlertEmails = emails(env.AI_ALERT_EMAILS);
 
   const turnstileSecretKey = env.TURNSTILE_SECRET_KEY || null;
   // Cloudflare's always-pass test secret (booking/bot-check.ts) would let any bot book.
@@ -583,10 +603,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
       .map((a) => a.trim().toLowerCase())
       .filter(Boolean),
     supportFromName: env.SUPPORT_FROM_NAME || 'HandsFreeOS Support',
-    platformOwnerEmails: (env.PLATFORM_OWNER_EMAILS || '')
-      .split(',')
-      .map((a) => a.trim().toLowerCase())
-      .filter((a) => a.includes('@')),
+    platformOwnerEmails: emails(env.PLATFORM_OWNER_EMAILS),
     mailboxProvider,
     microsoftClientId,
     microsoftClientSecret,
@@ -623,6 +640,11 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     aiModel: env.AI_MODEL || 'claude-sonnet-5',
     assistantToolSearch: assistantToolSearch === 'on',
     assistantDailyTokens,
+    openAiApiKey,
+    openAiModel: env.OPENAI_MODEL?.trim() || 'gpt-6-sol',
+    openAiAssistantModel: env.OPENAI_ASSISTANT_MODEL?.trim() || 'gpt-6-sol',
+    openAiVoiceModel: env.OPENAI_VOICE_MODEL?.trim() || 'gpt-6-luna',
+    aiAlertEmails: aiAlertEmails.length ? aiAlertEmails : emails(env.PLATFORM_OWNER_EMAILS),
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,
     chatIpKey,

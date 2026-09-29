@@ -116,11 +116,15 @@ export async function askStructured<S extends z.ZodType>(
   // The tokens were spent whether or not the answer is usable.
   await recordAndChargeAi(ctx, scope, {
     ...input.usage,
-    model: provider.model,
+    model: turn.model ?? provider.model,
     usage: turn.usage,
   });
   try {
-    return { value: parseStructured(turn, input.zod), usage: turn.usage, model: provider.model };
+    return {
+      value: parseStructured(turn, input.zod),
+      usage: turn.usage,
+      model: turn.model ?? provider.model,
+    };
   } catch (e) {
     if (!(e instanceof AiOutputError)) throw e;
     ctx.log.warn(

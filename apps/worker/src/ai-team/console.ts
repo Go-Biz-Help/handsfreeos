@@ -18,7 +18,13 @@
  *   still written (voice-agent/early-speech.ts) says so, with how long the first words took, and streams each of
  *   those sentences as it's ready (`say`), so talking out loud starts early too.
  */
-import type { AiMessage, AiProvider, AiToolCall, AiUsage } from '@hfos/ai';
+import {
+  totalTokens,
+  type AiMessage,
+  type AiProvider,
+  type AiToolCall,
+  type AiUsage,
+} from '@hfos/ai';
 import type { Geocoder } from '../geo/geocoder';
 import { ADDRESS_NOT_FOUND, serviceAreaAnswer, whereabouts } from './areas';
 import {
@@ -563,6 +569,8 @@ async function warmTestCall(deps: ConsoleDeps, t: PreparedTest, brief: CallBrief
       tools: phoneTools(t).map((x) => streamSpoken(toolDefinition(x))),
       messages: [],
     });
+    // Nothing read, nothing to record: the backup AI fills its own cache.
+    if (totalTokens(usage) === 0) return;
     await recordAndChargeAi(deps, t.scope, {
       source: 'teammate',
       teammateId: t.teammate.id,

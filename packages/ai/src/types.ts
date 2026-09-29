@@ -127,6 +127,8 @@ export interface AiTurn {
   readonly content?: readonly AiContent[];
   readonly stopReason: AiStopReason;
   readonly usage: AiUsage;
+  /** The model that answered, when the provider says: the backup's, when Claude was down. */
+  readonly model?: string;
 }
 
 /** A tool call as the model writes it. */
