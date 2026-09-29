@@ -5,6 +5,7 @@ import { defineCommand } from '../kernel/define';
 import { canActOnRole } from '../permissions';
 import { MembershipInviteInput, MembershipInviteOutput } from '../schemas/membership';
 import { requireHuman } from '../kernel/actor';
+import { aRole, whoCan } from './membership.change_role';
 import { assertMayGrantRole } from './role-grant';
 
 export const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -22,7 +23,7 @@ export const membershipInvite = defineCommand({
   async handler(ctx, input) {
     if (!canActOnRole(ctx.scope.workspaceRole, input.role)) {
       throw HfosError.forbidden(
-        'You can only invite people at your own role or below.',
+        `Only ${whoCan(input.role)} can invite someone as ${aRole(input.role)}. Invite them at your role or below, or ask one of them.`,
         'cannot_grant_role',
       );
     }
@@ -36,7 +37,7 @@ export const membershipInvite = defineCommand({
       );
     if (member)
       throw HfosError.conflict(
-        'That person is already a member of this workspace.',
+        `${input.email} is already in this business. To give them more access, change their role on the Members page.`,
         'already_member',
       );
     const [pending] = await ctx.tx
@@ -52,7 +53,7 @@ export const membershipInvite = defineCommand({
       );
     if (pending)
       throw HfosError.conflict(
-        'An invitation is already pending for this address.',
+        `${input.email} already has an invitation waiting. Resend it under Pending invitations on the Members page.`,
         'invitation_pending',
       );
 

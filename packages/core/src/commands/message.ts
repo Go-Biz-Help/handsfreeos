@@ -23,6 +23,7 @@ import { requireAppointment } from '../calendar/appointments';
 import { workspaceZone } from '../calendar/load';
 import { logChannelActivity } from '../crm/activities';
 import { intakeFromChannel, isOwnNumber, notALead, type IntakeResult } from '../crm/intake';
+import { formatBytes } from '../crm/format';
 import { formatPhone } from '../crm/phone';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -147,7 +148,7 @@ async function resolveSmsConversation(
       throw HfosError.rule(
         'channel_mismatch',
         400,
-        'This conversation is email. Open the customer’s texts to send a text.',
+        `This conversation is ${c.channel === 'chat' ? 'a website chat' : 'an email thread'}. Open the customer’s texts to send a text.`,
       );
     return { conversation: c, created: false };
   }
@@ -161,10 +162,19 @@ async function resolveSmsConversation(
     null;
   if (input.personId) {
     const p = await requirePerson(ctx.tx, workspaceId, input.personId);
+    const who = fullName(p.firstName, p.lastName) || 'This customer';
     if (p.archivedAt)
-      throw HfosError.rule('person_archived', 409, 'Restore this customer before texting them.');
+      throw HfosError.rule(
+        'person_archived',
+        409,
+        `${who} is archived. Restore them on their page, then text them.`,
+      );
     if (!p.phoneE164)
-      throw HfosError.rule('no_phone', 400, 'Add a mobile number to text this customer.');
+      throw HfosError.rule(
+        'no_phone',
+        400,
+        `${who} has no mobile number. Add one on their page to text them.`,
+      );
     return findOrCreateConversation(ctx, {
       channel: 'sms',
       counterpart: p.phoneE164,
@@ -216,12 +226,17 @@ async function assertCanText(
   // whose number was released, falls back to the default rather than failing.
   const number = await conversationNumber(ctx.tx, workspaceId, conv.phoneNumberId);
   if (!number || number.status !== 'active')
-    throw HfosError.rule('no_number', 409, 'Get a business number to text customers.');
-  if (!readiness(number, await loadRegistrations(ctx.tx, workspaceId)).messagingReady)
+    throw HfosError.rule('no_number', 409, noNumberMessage(number?.status ?? null));
+  const ready = readiness(number, await loadRegistrations(ctx.tx, workspaceId));
+  if (!ready.messagingReady)
     throw HfosError.rule(
       'messaging_not_ready',
       409,
-      'Texting turns on when the carriers approve your registration.',
+      ready.nextStep === 'submit_registration'
+        ? 'Texting needs your business registered with the carriers first. Finish the registration in Settings → Texting & calls.'
+        : ready.nextStep === 'rejected'
+          ? 'The carriers turned down your texting registration. Fix it and send it again in Settings → Texting & calls.'
+          : 'Texting turns on when the carriers approve your registration. Settings → Texting & calls shows where it is.',
     );
   /**
    * After the number and carrier checks, before opt-out. Order matters both ways: a business with no number
@@ -257,6 +272,17 @@ async function assertCanText(
       );
   }
   return { number, quietHours, holdUntil };
+}
+
+/** Why a conversation's number can't text, and what to do, from the number's status (none when there isn't one). */
+function noNumberMessage(status: string | null): string {
+  if (status === 'provisioning')
+    return 'Your business number is still being set up. Try again in a few minutes.';
+  if (status === 'porting')
+    return 'Your number is still moving over from its old carrier. Texting starts once it arrives.';
+  if (status === 'releasing')
+    return 'This number is being released, so it can’t text anymore. Get another one in Settings → Texting & calls.';
+  return 'This business has no number to text from yet. Get one in Settings → Texting & calls.';
 }
 
 /**
@@ -441,16 +467,23 @@ async function attachmentMedia(
       ),
     );
   if (list.length !== unique.length || list.some((f) => f.status !== 'ready'))
-    throw HfosError.validation([
-      { path: 'attachmentFileIds', message: 'Attach photos that finished uploading.' },
-    ]);
-  if (list.some((f) => !MMS_TYPES.has(f.mimeType ?? '')))
-    throw HfosError.rule('attachment_type', 400, 'Texts can carry JPG, PNG or GIF photos.');
-  if (list.reduce((n, f) => n + (f.sizeBytes ?? 0), 0) > MMS_MAX_BYTES)
+    throw HfosError.validation(
+      [{ path: 'attachmentFileIds', message: 'Attach photos that finished uploading.' }],
+      'A photo on this text hasn’t finished uploading, or was removed. Wait for it to finish, or attach it again.',
+    );
+  const notAPhoto = list.find((f) => !MMS_TYPES.has(f.mimeType ?? ''));
+  if (notAPhoto)
+    throw HfosError.rule(
+      'attachment_type',
+      400,
+      `“${notAPhoto.name}” can’t go in a text. Texts carry JPG, PNG or GIF photos, so attach one of those, or send the file by email.`,
+    );
+  const total = list.reduce((n, f) => n + (f.sizeBytes ?? 0), 0);
+  if (total > MMS_MAX_BYTES)
     throw HfosError.rule(
       'attachment_too_large',
       400,
-      'The photos in one text must add up to 5 MB or less.',
+      `These photos add up to ${formatBytes(total)}, and one text carries 5 MB at most. Take one off, or send smaller photos.`,
     );
   const byId = new Map(list.map((f) => [f.id, f]));
   return unique.map((id) => {
@@ -487,10 +520,20 @@ async function cardPictures(ctx: CommandContext, fileIds: readonly string[]): Pr
     throw HfosError.validation([
       { path: 'rich.cards', message: 'Add a picture to every card, and wait for it to upload.' },
     ]);
-  if (list.some((f) => !MMS_TYPES.has(f.mimeType ?? '')))
-    throw HfosError.rule('attachment_type', 400, 'Cards can carry JPG, PNG or GIF pictures.');
-  if (list.some((f) => (f.sizeBytes ?? 0) > MMS_MAX_BYTES))
-    throw HfosError.rule('attachment_too_large', 400, 'Each card’s picture must be 5 MB or less.');
+  const notAPicture = list.find((f) => !MMS_TYPES.has(f.mimeType ?? ''));
+  if (notAPicture)
+    throw HfosError.rule(
+      'attachment_type',
+      400,
+      `“${notAPicture.name}” can’t go on a card. Cards carry JPG, PNG or GIF pictures, so pick one of those.`,
+    );
+  const tooBig = list.find((f) => (f.sizeBytes ?? 0) > MMS_MAX_BYTES);
+  if (tooBig)
+    throw HfosError.rule(
+      'attachment_too_large',
+      400,
+      `“${tooBig.name}” is ${formatBytes(tooBig.sizeBytes)}, and a card’s picture can be 5 MB at most. Pick a smaller one.`,
+    );
   const byId = new Map(list.map((f) => [f.id, f]));
   return fileIds.map((id) => {
     const f = byId.get(id)!;
@@ -520,9 +563,10 @@ async function richFor(
   let rich: RichText;
   if (input.kind === 'carousel') {
     if (media.length)
-      throw HfosError.validation([
-        { path: 'attachmentFileIds', message: 'A carousel carries its pictures on its cards.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'attachmentFileIds', message: 'A carousel carries its pictures on its cards.' }],
+        'A carousel carries its pictures on its cards. Take the photo off the message and put it on a card.',
+      );
     const pictures = await cardPictures(
       ctx,
       input.cards.map((c) => c.mediaFileId),
@@ -533,9 +577,10 @@ async function richFor(
     });
   } else {
     if (media.length > 1)
-      throw HfosError.validation([
-        { path: 'attachmentFileIds', message: 'A message with buttons carries one photo.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'attachmentFileIds', message: 'A message with buttons carries one photo.' }],
+        `A message with buttons carries one photo, and this one has ${media.length}. Take the others off.`,
+      );
     if (media.length === 1 && input.buttons.length > RCS_LIMITS.cardButtons)
       throw HfosError.validation([
         {
@@ -646,9 +691,10 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     throw HfosError.rule('recipient_suppressed', 409, suppressionMessage(stopped.reason));
   for (const address of input.cc)
     if (await activeSuppression(ctx.tx, workspaceId, address))
-      throw HfosError.validation([
-        { path: 'cc', message: `Email to ${address} is stopped. Take it out of Cc.` },
-      ]);
+      throw HfosError.validation(
+        [{ path: 'cc', message: `Email to ${address} is stopped. Take it out of Cc.` }],
+        `Email to ${address} is stopped. Take it out of Cc, or unblock it under Blocked addresses in Settings → Email.`,
+      );
 
   const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
   let from: {
@@ -666,7 +712,7 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       throw HfosError.rule(
         'mailbox_not_active',
         409,
-        'Reconnect this mailbox in Settings → Email to send from it.',
+        'This mailbox isn’t connected anymore. Reconnect it under Connected mailboxes in Settings → Email to send from it.',
       );
     // A workflow or the AI teammate works for the business, so it sends from shared mailboxes only, never
     // from someone's own.
@@ -674,7 +720,9 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       throw HfosError.rule(
         'mailbox_not_shared',
         403,
-        'Only the person who connected this mailbox can send from it.',
+        me
+          ? `${mailbox.accountEmail} is someone else’s own mailbox, so only they can send from it. Send from a shared mailbox or a business address instead.`
+          : `${mailbox.accountEmail} is someone’s own mailbox, and workflows and the AI teammate send only from shared ones. Pick a shared mailbox or a business address.`,
       );
     from = {
       address: mailbox.accountEmail,
@@ -687,12 +735,15 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
     const list = await workspaceAddresses(ctx.tx, workspaceId);
     if (input.emailAddressId) {
       const wanted = list.find((a) => a.id === input.emailAddressId);
-      if (!wanted) throw HfosError.notFound('Address not found.');
+      if (!wanted)
+        throw HfosError.notFound(
+          'That sending address isn’t there anymore. It may have been removed. Pick another address.',
+        );
       if (!wanted.usable)
         throw HfosError.rule(
           'email_domain_unverified',
           409,
-          'That address’s domain isn’t verified yet. Send from another address.',
+          `${wanted.domain} isn’t verified yet, so ${wanted.address} can’t send. Finish verifying it in Settings → Email, or send from another address.`,
         );
     }
     const a = pickFromAddress(list, [input.emailAddressId, conv.emailAddressId]);
@@ -700,7 +751,7 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
       throw HfosError.rule(
         'no_email_address',
         409,
-        'This workspace has no address to send from yet.',
+        'This business has no email address to send from yet. Set one up in Settings → Email.',
       );
     from = {
       address: a.address,
@@ -713,7 +764,11 @@ async function sendEmail(ctx: CommandContext, input: z.infer<typeof MessageSendI
 
   const thread = await threadHeaders(ctx.tx, conv.id);
   const subject = input.subject?.trim() || replySubject(thread.subject);
-  if (!subject) throw HfosError.validation([{ path: 'subject', message: 'Add a subject.' }]);
+  if (!subject)
+    throw HfosError.validation(
+      [{ path: 'subject', message: 'Add a subject.' }],
+      'This email has no subject. Add one, then send it.',
+    );
   const media = await emailAttachments(ctx, input.attachmentFileIds);
   const messageId = randomUUID();
   const now = new Date();
@@ -813,7 +868,11 @@ async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendIn
   const workspaceId = ctx.scope.workspaceId!;
   const conv = await loadConversation(ctx, input.conversationId!);
   if (conv.channel !== 'chat')
-    throw HfosError.rule('channel_mismatch', 400, 'This conversation isn’t a website chat.');
+    throw HfosError.rule(
+      'channel_mismatch',
+      400,
+      `This conversation is ${conv.channel === 'sms' ? 'a text thread' : 'an email thread'}, not a website chat. Reply by ${conv.channel === 'sms' ? 'text' : 'email'} instead.`,
+    );
   if (input.clientId) {
     const [dup] = await ctx.tx
       .select({ id: messages.id, status: messages.status })
@@ -825,9 +884,10 @@ async function sendChat(ctx: CommandContext, input: z.infer<typeof MessageSendIn
   const ai = aiEmployeeOf(ctx.actor);
   if (ai) await assertAiMaySend(ctx, ai, conv, false);
   if (input.attachmentFileIds.length)
-    throw HfosError.validation([
-      { path: 'attachmentFileIds', message: 'Website chat doesn’t carry attachments yet.' },
-    ]);
+    throw HfosError.validation(
+      [{ path: 'attachmentFileIds', message: 'Website chat doesn’t carry attachments yet.' }],
+      'Website chat doesn’t carry attachments yet. Take the attachment off, or send it by text or email.',
+    );
   const messageId = randomUUID();
   const now = new Date();
   const status = ctx.actor.type === 'human' ? ('queued' as const) : ('sent' as const);
@@ -949,7 +1009,11 @@ export const messageSend = defineCommand({
           ? [{ path: 'rich', message: 'The AI teammate doesn’t send buttons or cards.' }]
           : []),
       ];
-      if (refused.length) throw HfosError.validation(refused);
+      if (refused.length)
+        throw HfosError.validation(
+          refused,
+          `${refused.map((r) => r.message).join(' ')} Send the message without ${refused.length === 1 ? 'it' : 'them'}.`,
+        );
     }
     if (input.channel === 'email') return sendEmail(ctx, input);
     if (input.channel === 'chat') return sendChat(ctx, input);
@@ -1189,12 +1253,21 @@ export const messageRetry = defineCommand({
       .where(
         and(eq(messages.id, input.messageId), eq(messages.workspaceId, ctx.scope.workspaceId!)),
       );
-    if (!m) throw HfosError.notFound('Message not found.');
+    if (!m)
+      throw HfosError.notFound(
+        'That message isn’t there anymore. Refresh the conversation and try again.',
+      );
     if (m.direction !== 'outbound' || (m.status !== 'failed' && m.status !== 'undelivered'))
       throw HfosError.rule(
         'message_not_failed',
         409,
-        'Only a message that did not go out can be sent again.',
+        m.direction !== 'outbound'
+          ? 'That message came from the customer, so there’s nothing to send again.'
+          : m.status === 'queued' || m.status === 'sending'
+            ? 'This message is still on its way, so there’s nothing to send again yet.'
+            : m.status === 'bounced'
+              ? 'This email bounced, so sending it again won’t reach them. Check the address with the customer, then send a new email.'
+              : 'This message already went out, so there’s nothing to send again.',
       );
     const conv = await loadConversation(ctx, m.conversationId);
     let holdUntil: Date | null = null;
@@ -1296,7 +1369,10 @@ export const messageCancelScheduled = defineCommand({
         and(eq(messages.id, input.messageId), eq(messages.workspaceId, ctx.scope.workspaceId!)),
       )
       .for('update');
-    if (!m) throw HfosError.notFound('Message not found.');
+    if (!m)
+      throw HfosError.notFound(
+        'That text isn’t there anymore. Refresh the conversation and try again.',
+      );
     if (m.errorCode === CANCELLED_TEXT && m.direction === 'outbound')
       return { messageId: m.id, changed: false, stays: false };
     // It didn't go and isn't going: a retry cancelled already, or refused when quiet hours ended.

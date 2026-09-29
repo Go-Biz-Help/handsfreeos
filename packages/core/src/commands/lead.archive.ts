@@ -21,7 +21,10 @@ export const leadArchive = defineCommand({
       .select()
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, ctx.scope.workspaceId!)));
-    if (!current) throw HfosError.notFound('Lead not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (current.archivedAt) return { leadId: current.id };
     await ctx.tx
       .update(leads)
@@ -62,7 +65,10 @@ export const leadRestore = defineCommand({
       .select()
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, ctx.scope.workspaceId!)));
-    if (!current) throw HfosError.notFound('Lead not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (!current.archivedAt) return { leadId: current.id };
     await ctx.tx.update(leads).set({ archivedAt: null }).where(eq(leads.id, current.id));
     const eventId = await ctx.emit({

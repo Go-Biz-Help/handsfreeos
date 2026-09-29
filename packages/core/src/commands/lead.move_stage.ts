@@ -29,9 +29,16 @@ export const leadMoveStage = defineCommand({
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)))
       .for('update');
-    if (!current) throw HfosError.notFound('Lead not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (current.archivedAt)
-      throw HfosError.rule('lead_archived', 409, 'Restore the lead before moving it.');
+      throw HfosError.rule(
+        'lead_archived',
+        409,
+        'This lead is archived. Restore it, then move it.',
+      );
     const [from] = await ctx.tx
       .select()
       .from(pipelineStages)
@@ -45,16 +52,25 @@ export const leadMoveStage = defineCommand({
           eq(pipelineStages.pipelineId, current.pipelineId),
         ),
       );
-    if (!from || !to) throw HfosError.notFound('Stage not found.');
+    if (!from || !to)
+      throw HfosError.notFound(
+        'That stage isn’t in this lead’s pipeline anymore. It may have been deleted. Refresh and pick another stage.',
+      );
     // The AI teammate moves its customer's open lead between open stages. Winning or losing it is a person's call,
     // unless the teammate's settings let it handle deals (M18); reopening one always is.
     const ai = aiEmployeeOf(ctx.actor);
     if (ai) {
-      if (current.status !== 'open' || (to.kind !== 'open' && !(await teammateDealsOn(ctx.tx, ai))))
+      if (current.status !== 'open')
         throw HfosError.rule(
           'stage_not_open',
           409,
-          'The AI teammate only moves an open lead between open stages.',
+          `This lead is already ${current.status}, and the AI teammate only moves open leads. Someone on the team can reopen it.`,
+        );
+      if (to.kind !== 'open' && !(await teammateDealsOn(ctx.tx, ai)))
+        throw HfosError.rule(
+          'stage_not_open',
+          409,
+          `Marking a lead ${to.kind} is up to someone on the team. To let the AI teammate do it, turn on “opens and closes deals” under Qualify on the AI teammate page.`,
         );
       await assertAiReach(ctx, { leadId: current.id });
       await refuseCustomersLeadInChat(ctx, current);

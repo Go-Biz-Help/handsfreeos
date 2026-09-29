@@ -344,7 +344,7 @@ describe('a refused change', () => {
     expect(JSON.parse(refused.answer!)).toMatchObject({
       error: { rule: 'lead_archived', disposition: 'final' },
     });
-    expect(refused.reason).toBe('Restore the lead before moving it.');
+    expect(refused.reason).toBe('This lead is archived. Restore it, then move it.');
     const back = await eventually(
       'the lead back as the server has it, the optimistic entry gone',
       async () => {

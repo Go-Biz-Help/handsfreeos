@@ -23,7 +23,8 @@ export const organizationCreate = defineCommand({
       ctx.tx,
       sql`select * from private.create_organization(${orgName}, ${orgSlug}, ${input.businessName}, ${wsSlug}, ${input.timezone}, ${input.industry})`,
     );
-    if (!row) throw HfosError.internal('create_organization returned no row');
+    if (!row)
+      throw HfosError.internal('Your business couldn’t be set up just now. Try again in a minute.');
     await ctx.emit({
       type: 'organization.created',
       entityType: 'organization',

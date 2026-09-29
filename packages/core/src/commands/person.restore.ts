@@ -24,7 +24,7 @@ export const personRestore = defineCommand({
       throw new HfosError(
         'rule_violation',
         409,
-        'This customer was merged into another one and can’t be brought back.',
+        'This customer was merged into another one, so they can’t be restored. Their history is on the customer they were merged into.',
         { mergedIntoId: current.mergedIntoId },
         'person_merged',
       );

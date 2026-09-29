@@ -51,7 +51,10 @@ async function loadNumber(ctx: CommandContext, phoneNumberId: string) {
     .where(
       and(eq(phoneNumbers.id, phoneNumberId), eq(phoneNumbers.workspaceId, ctx.scope.workspaceId!)),
     );
-  if (!n) throw HfosError.notFound('Number not found.');
+  if (!n)
+    throw HfosError.notFound(
+      'That number isn’t there anymore. It may have been released. Refresh Settings → Texting & calls and try again.',
+    );
   return n;
 }
 
@@ -77,7 +80,7 @@ export const phoneNumberBuy = defineCommand({
       throw HfosError.rule(
         'number_limit',
         409,
-        `That is ${MAX_NUMBERS_PER_WORKSPACE} numbers, which is as many as one business can have. Release one you are not using first.`,
+        `This business already has ${MAX_NUMBERS_PER_WORKSPACE} numbers, and that’s as many as one business can have. Release one you’re not using in Settings → Texting & calls first.`,
       );
     // A number is charged a month up front, so it needs the whole month there. Nobody should be able to buy
     // one at zero and be billed for it later.
@@ -128,7 +131,9 @@ export const phoneNumberRelease = defineCommand({
         409,
         n.status === 'releasing'
           ? 'This number is already being given back.'
-          : 'This number is no longer in use.',
+          : n.status === 'porting'
+            ? 'This number is still moving over from its old carrier, so it can’t be released yet. Call off the move in Settings → Texting & calls instead.'
+            : 'This number is already gone, so there’s nothing to release.',
       );
     if (n.e164 !== input.confirmE164)
       throw HfosError.validation([
@@ -161,7 +166,13 @@ export const phoneNumberSetRouting = defineCommand({
   async handler(ctx, input) {
     const n = await loadNumber(ctx, input.phoneNumberId);
     if (n.status === 'released' || n.status === 'failed')
-      throw HfosError.rule('number_not_active', 409, 'This number is no longer in use.');
+      throw HfosError.rule(
+        'number_not_active',
+        409,
+        n.status === 'released'
+          ? 'This number was released, so its settings can’t change anymore.'
+          : 'This number never finished setting up, so its settings can’t change. Get another one in Settings → Texting & calls.',
+      );
     const seen = new Set<string>();
     const issues: { path: string; message: string }[] = [];
     input.routing.forwarding.forEach((f, i) => {
@@ -217,7 +228,13 @@ export const phoneNumberSetCallerId = defineCommand({
   async handler(ctx, input) {
     const n = await loadNumber(ctx, input.phoneNumberId);
     if (n.status === 'released' || n.status === 'failed')
-      throw HfosError.rule('number_not_active', 409, 'This number is no longer in use.');
+      throw HfosError.rule(
+        'number_not_active',
+        409,
+        n.status === 'released'
+          ? 'This number was released, so its settings can’t change anymore.'
+          : 'This number never finished setting up, so its settings can’t change. Get another one in Settings → Texting & calls.',
+      );
     const was = n.routing.forwardedCallerId ?? 'customer';
     if (was === input.forwardedCallerId)
       return { phoneNumberId: n.id, forwardedCallerId: input.forwardedCallerId };
@@ -265,7 +282,9 @@ export const phoneNumberSetDefault = defineCommand({
       throw HfosError.rule(
         'number_not_live',
         409,
-        'That number is not in use, so nothing can be sent from it.',
+        n.status === 'porting'
+          ? `${formatPhone(n.e164)} is still moving over from its old carrier, so it can’t be the default yet. Make it the default once it arrives.`
+          : `${formatPhone(n.e164)} isn’t in use anymore, so it can’t be the default. Pick one of your active numbers.`,
       );
     if (n.isDefault) return { phoneNumberId: n.id };
     const was = await defaultNumber(ctx.tx, ctx.scope.workspaceId!);
@@ -354,7 +373,11 @@ export const phoneNumberSetMembers = defineCommand({
 
     for (const userId of wanted) {
       if (!(await isWorkspaceUser(ctx.tx, workspaceId, userId)))
-        throw HfosError.rule('not_in_workspace', 409, 'That person is not in this business.');
+        throw HfosError.rule(
+          'not_in_workspace',
+          409,
+          'That person isn’t in this business anymore. Refresh and pick someone who is.',
+        );
       // Asked of someone who sets the numbers up, about their own business only (0110).
       const [ok] = await rows<{ can: boolean }>(
         ctx.tx,
@@ -364,7 +387,7 @@ export const phoneNumberSetMembers = defineCommand({
         throw HfosError.rule(
           'no_inbox',
           409,
-          'That person does not work the inbox, so a number cannot ring them.',
+          'That person can’t use the inbox, so a number can’t ring them. An owner can give them the “Use the inbox” permission in Settings → Permissions.',
         );
     }
 

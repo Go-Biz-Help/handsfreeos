@@ -29,7 +29,12 @@ export const leadCatchUp = defineCommand({
     requireHuman(ctx);
     const ws = ctx.scope.workspaceId!;
     const [deal] = await dealFacts(ctx.tx, ws, { leadIds: [input.leadId] });
-    if (!deal) throw HfosError.rule('lead_not_open', 409, 'This deal is closed or archived.');
+    if (!deal)
+      throw HfosError.rule(
+        'lead_not_open',
+        409,
+        'This deal isn’t open anymore: it was won, lost or archived. Refresh to see where it is now.',
+      );
     const [w] = await ctx.tx
       .select({ settings: workspaces.settings })
       .from(workspaces)

@@ -292,7 +292,7 @@ test('workflow runs: test, publish, a real run, pause, retry and skip, add to wo
   await expect(detail).toHaveAttribute('data-status', 'failed');
   await expect(page.getByTestId('run-failed')).toContainText('Stopped at “Move the lead to ');
   await expect(page.getByTestId('run-failed-reason')).toContainText(
-    'Restore the lead before moving it.',
+    'This lead is archived. Restore it, then move it.',
   );
   await call('commands', 'lead.restore', { leadId });
   await page.getByTestId('run-retry').click();

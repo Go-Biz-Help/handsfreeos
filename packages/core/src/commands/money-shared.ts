@@ -874,7 +874,10 @@ export async function requireEstimate(ctx: CommandContext, id: string): Promise<
     sql`${estimateSelect} where e.workspace_id = ${ctx.scope.workspaceId!} and e.id = ${id}::uuid
         for no key update of e`,
   );
-  if (!row) throw HfosError.notFound('That estimate isn’t there.');
+  if (!row)
+    throw HfosError.notFound(
+      'That estimate isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return row;
 }
 
@@ -884,7 +887,10 @@ export async function requireInvoice(ctx: CommandContext, id: string): Promise<I
     sql`${invoiceSelect} where i.workspace_id = ${ctx.scope.workspaceId!} and i.id = ${id}::uuid
         for no key update of i`,
   );
-  if (!row) throw HfosError.notFound('That invoice isn’t there.');
+  if (!row)
+    throw HfosError.notFound(
+      'That invoice isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return row;
 }
 

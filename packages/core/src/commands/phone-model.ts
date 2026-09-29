@@ -29,7 +29,10 @@ export const phoneModelSet = defineCommand({
       ctx.tx,
       sql`select * from private.set_phone_model(${input.workspaceId}::uuid, ${input.model})`,
     );
-    if (!row) throw HfosError.notFound('No business with that id.');
+    if (!row)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Refresh the list and pick another.',
+      );
     const was = PHONE_MODELS.find((m) => m === row.was) ?? null;
     if (row.changed)
       await ctx.emit({

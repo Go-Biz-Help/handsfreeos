@@ -38,16 +38,23 @@ export const leadRecordAnswers = defineCommand({
       .select()
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, ws)));
-    if (!lead) throw HfosError.notFound('Lead not found.');
+    if (!lead)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (lead.archivedAt)
-      throw HfosError.rule('lead_archived', 409, 'Restore the lead before recording answers.');
+      throw HfosError.rule(
+        'lead_archived',
+        409,
+        'This lead is archived. Restore it, then record the answers.',
+      );
     await refuseCustomersLeadInChat(ctx, lead);
     const teammate = await loadTeammate(ctx.tx, ws);
     if (!teammate)
       throw HfosError.rule(
         'no_teammate',
         409,
-        'Qualifying questions live in the AI teammate’s settings. Set it up first.',
+        'This business has no AI teammate yet, and the qualifying questions live in its settings. Set one up on the AI teammate page first.',
       );
     const questions = teammateConfigOf(teammate).qualify.questions;
     const byId = new Map(questions.map((q) => [q.id, q]));
@@ -58,6 +65,9 @@ export const leadRecordAnswers = defineCommand({
           path: 'answers',
           message: `There’s no question “${a.questionId}”.`,
         })),
+        unknown.length === 1
+          ? 'One of those questions isn’t in the AI teammate’s qualifying questions anymore. Refresh to see the current ones, then answer again.'
+          : `${unknown.length} of those questions aren’t in the AI teammate’s qualifying questions anymore. Refresh to see the current ones, then answer again.`,
       );
     const stored = LeadQualification.safeParse(lead.qualification);
     const before = stored.success ? stored.data : LeadQualification.parse({});

@@ -87,7 +87,10 @@ export async function loadPaymentConnection(
         eq(paymentConnections.workspaceId, ctx.scope.workspaceId!),
       ),
     );
-  if (!c) throw HfosError.notFound('That payment account isn’t there.');
+  if (!c)
+    throw HfosError.notFound(
+      'That payment account isn’t there anymore. It may have been removed. Refresh Settings → Payments and try again.',
+    );
   return c as LoadedPaymentConnection;
 }
 
@@ -317,7 +320,7 @@ export const paymentConnectionSetLabel = defineCommand({
       throw HfosError.rule(
         'payment_connection_not_active',
         409,
-        'Only a connected account can be renamed.',
+        'This account isn’t connected, so it can’t be renamed. Reconnect it in Settings → Payments first.',
       );
     await ctx.tx.update(paymentConnections).set({ label }).where(eq(paymentConnections.id, c.id));
     await ctx.emit({
@@ -356,7 +359,7 @@ export const paymentConnectionSetAccess = defineCommand({
       throw HfosError.rule(
         'payment_connection_not_active',
         409,
-        'Only a connected account can be given to people. Reconnect it first.',
+        'This account isn’t connected, so it can’t be given to people. Reconnect it in Settings → Payments first.',
       );
     // Somebody newly chosen belongs to the business; somebody already on it who has since left stays until they
     // are taken off, as the database's own guard has it.
@@ -370,7 +373,15 @@ export const paymentConnectionSetAccess = defineCommand({
           )}]) as u where u is not null`,
     );
     if (!ok?.ok)
-      throw HfosError.validation([{ path: 'userIds', message: 'Pick people on the team.' }]);
+      throw HfosError.validation(
+        [
+          {
+            path: 'userIds',
+            message: 'Someone you picked isn’t on the team anymore. Pick people who are.',
+          },
+        ],
+        'Someone you picked isn’t on the team anymore. Refresh and pick people who are.',
+      );
     await ctx.tx
       .update(paymentConnections)
       .set({ usedBy: input.usedBy, userIds })
@@ -423,7 +434,7 @@ export const paymentConnectionSetDefault = defineCommand({
       throw HfosError.rule(
         'payment_connection_not_active',
         409,
-        'Only a connected account can be the default.',
+        'This account isn’t connected, so it can’t be the default. Reconnect it in Settings → Payments, or pick a connected one.',
       );
     await clearDefault(ctx, c.environment, c.id);
     await ctx.tx
@@ -544,7 +555,7 @@ export const paymentConnectionActivate = defineCommand({
       throw HfosError.rule(
         'payment_connection_not_pending',
         409,
-        'This account isn’t waiting to connect.',
+        'This sign-in was already finished or called off. Start connecting again from Settings → Payments.',
       );
     // Webhooks find their business by the account alone, so an account lives in one business at a time.
     const [elsewhere] = await rows<{ held: boolean }>(
@@ -556,7 +567,7 @@ export const paymentConnectionActivate = defineCommand({
       throw HfosError.rule(
         'payment_account_connected_elsewhere',
         409,
-        'That account is already connected to another business on HandsFreeOS.',
+        'That account is already connected to another business on HandsFreeOS. Disconnect it there first, or connect a different account.',
       );
     const now = new Date();
     // One live row per account: the earlier one steps down, keeping the unique index happy.

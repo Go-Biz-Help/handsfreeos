@@ -82,7 +82,7 @@ async function approvedFor(ctx: CommandContext): Promise<Approved> {
   );
   if (!approver?.ok)
     throw HfosError.forbidden(
-      'Whoever approved this no longer manages money here, so it didn’t go out.',
+      'Whoever approved this no longer manages money here, so it didn’t go out. Ask someone who manages money to approve it again.',
       'money_needs_approval',
     );
   if (!ai.conversationId) throw outsideItsConversation();
@@ -113,7 +113,7 @@ const notAllowed = (what: string) =>
   HfosError.rule(
     'money_not_allowed',
     409,
-    `The AI teammate’s settings don’t let it ${what}. Someone on the team can.`,
+    `The AI teammate’s settings don’t let it ${what}. Someone on the team can do it, or turn it on under Bills, quotes and plans on the AI teammate page.`,
   );
 
 const notTheirs = (what: string) =>
@@ -139,9 +139,10 @@ async function catalogueLines(tx: Tx, workspaceId: string, lines: readonly Catal
   return lines.map((l, i) => {
     const p = byId.get(l.productId);
     if (!p)
-      throw HfosError.validation([
-        { path: `lines.${i}.productId`, message: 'That isn’t on the price list.' },
-      ]);
+      throw HfosError.validation(
+        [{ path: `lines.${i}.productId`, message: 'That isn’t on the price list.' }],
+        `Line ${i + 1} names a product that isn’t on the price list, or was archived. Use products from the price list.`,
+      );
     return {
       productId: p.id,
       name: p.name,
@@ -293,7 +294,10 @@ export const subscriptionStartForCustomer = defineCommand({
         ),
       );
     if (!plan)
-      throw HfosError.validation([{ path: 'planId', message: 'That isn’t one of your plans.' }]);
+      throw HfosError.validation(
+        [{ path: 'planId', message: 'That isn’t one of your plans.' }],
+        'That plan isn’t one of this business’s plans, or it was archived. Pick one of its current plans.',
+      );
     const started = await startSubscription(
       ctx,
       { workspaceId: input.workspaceId, personId: a.personId, planId: plan.id, leadId: a.leadId },

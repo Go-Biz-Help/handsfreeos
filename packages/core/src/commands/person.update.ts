@@ -47,7 +47,10 @@ export const personUpdate = defineCommand({
       .from(people)
       .where(and(eq(people.id, input.personId), eq(people.workspaceId, workspaceId)))
       .for('update');
-    if (!current) throw HfosError.notFound('Person not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     // The AI teammate fills in its own customer's blank names and contact details; what's on file stays.
     const blankOnly = ctx.actor.type === 'ai_employee';
     if (blankOnly) {
@@ -69,6 +72,7 @@ export const personUpdate = defineCommand({
             path,
             message: 'The AI teammate only fills in names and contact details.',
           })),
+          'The AI teammate only fills in a customer’s blank names and contact details. Leave the other details out, and someone on the team can change them.',
         );
       await assertAiReach(ctx, { personId: current.id });
       // Anyone can type someone else's number into a website chat, so a chat never changes the customer.
@@ -267,7 +271,10 @@ export const personUpdate = defineCommand({
     const nextFirst = (patch.firstName as string | undefined) ?? current.firstName;
     const nextLast = (patch.lastName as string | undefined) ?? current.lastName;
     if (!(nextFirst + nextLast).trim())
-      throw HfosError.validation([{ path: 'firstName', message: 'Enter a first or last name.' }]);
+      throw HfosError.validation(
+        [{ path: 'firstName', message: 'Enter a first or last name.' }],
+        'A customer needs a first or last name. Enter at least one.',
+      );
     const notApplied = merged.notApplied.map((n) => n.key);
     await logNotApplied(
       ctx,
