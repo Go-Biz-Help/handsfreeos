@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup: calendar and booking page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rs:focus-visible,.switch:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-gray{background:var(--card-2);color:var(--text-2)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{width:300px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:28px 18px 20px;display:flex;flex-direction:column;gap:4px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rn.done{border-color:var(--success);background:var(--success);color:#fff}
+.rn.skip{border-style:dashed;color:var(--text-3)}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.later{display:flex;align-items:center;gap:10px;padding:6px 10px;color:var(--text-2);font-size:13px}
+.later .icon{color:var(--text-3)}
+.pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;overflow:hidden;padding:36px 56px 24px;display:flex;flex-direction:column;gap:22px;max-width:920px}
+.foot{flex:none;height:72px;display:flex;align-items:center;gap:8px;padding:0 56px;background:var(--card);border-top:1px solid var(--border)}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px}
+.svc{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border)}
+.svc input{width:16px;height:16px;margin:0;accent-color:var(--accent);flex:none}
+.dur{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--card);font:inherit;font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;cursor:pointer}
+.linkbox{display:flex;align-items:center;gap:8px;height:40px;padding:0 6px 0 12px;border-radius:10px;border:1px solid var(--border);background:var(--card-2)}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:12.5px}
+.switch{width:36px;height:20px;border-radius:999px;background:var(--border-strong);position:relative;flex:none;border:0;padding:0;cursor:pointer}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch.on{background:var(--accent)}.switch.on::after{left:18px}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 832px; position: relative; overflow: hidden; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Setting up Lone Star HVAC &amp; Roofing</span>
+<a class="btn btn-ghost" href="HomeChecklist.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Step 3 of 3 · The basics</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 20 minutes. Skip anything and come back to it from Home.</p>
+<a class="rs" href="WizardNumber.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Business number &amp; texting</span><span class="rd tnum">(512) 555-0148 · texting in review</span></span></a>
+<a class="rs" href="WizardAI.dc.html"><span class="rn done"><svg style="width: 14px; height: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack"><span class="rt">Teach Ava</span><span class="rd">Kept 14 things from your website</span></span></a>
+<a class="rs" href="WizardCustomers.dc.html"><span class="rn skip">3</span><span class="stack"><span class="rt">Bring in your customers</span><span class="rd">Skipped for now</span></span></a>
+<a class="rs cur" href="WizardCalendar.dc.html" aria-current="step"><span class="rn">4</span><span class="stack"><span class="rt">Calendar &amp; booking page</span><span class="rd">Services, hours and your booking link</span></span></a>
+<div style="height: 1px; background: var(--border); margin: 14px 10px;"></div>
+<div class="overline" style="padding: 0 10px 4px;">Later, from your checklist</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M19 8v6M22 11h-6"></path></svg>Invite your team</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Connect payments</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>Email &amp; website chat</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M12 18h.01"></path></svg>Get the phone app</div>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">4 of 4</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Set up your calendar and booking page</h1>
+<p class="muted" style="max-width: 640px;">Customers book themselves on your booking page, and Ava books into the same calendar.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start;">
+<div class="panel">
+<div class="ph">
+<span class="stack" style="gap: 1px;"><span style="font-weight: 600;">Services</span><span class="xs faint">Found on lonestarhvac.com. Untick any you don’t book online.</span></span>
+</div>
+<div class="svc"><input type="checkbox" defaultChecked="{{ yes }}" aria-label="AC repair"><span style="flex: 1; font-weight: 500;">AC repair</span><button class="dur">1 hr 30 min</button></div>
+<div class="svc"><input type="checkbox" defaultChecked="{{ yes }}" aria-label="Furnace tune-up"><span style="flex: 1; font-weight: 500;">Furnace tune-up</span><button class="dur">1 hr</button></div>
+<div class="svc"><input type="checkbox" defaultChecked="{{ yes }}" aria-label="AC tune-up"><span style="flex: 1; font-weight: 500;">AC tune-up</span><button class="dur">1 hr</button></div>
+<div class="svc"><input type="checkbox" defaultChecked="{{ yes }}" aria-label="Roof inspection"><span style="flex: 1; font-weight: 500;">Roof inspection</span><button class="dur">1 hr</button></div>
+<div class="svc"><input type="checkbox" aria-label="Roof replacement estimate"><span style="flex: 1; font-weight: 500;">Roof replacement estimate</span><button class="dur">45 min</button></div>
+<div class="svc"><button class="btn btn-ghost btn-sm" style="margin-left: -10px;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"></path></svg>Add a service</button></div>
+</div>
+
+<div class="stack" style="gap: 16px;">
+<div class="panel">
+<div class="ph">
+<span class="stack" style="gap: 1px;"><span style="font-weight: 600;">Hours</span><span class="small tnum">Mon–Fri · 7:00 AM – 6:00 PM</span><span class="xs faint">From your website</span></span>
+<button class="btn btn-ghost btn-sm">Edit</button>
+</div>
+</div>
+<div class="panel" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+<span class="stack" style="gap: 1px;"><span style="font-weight: 600;">Your busy times</span><span class="small muted">So nobody books you while you’re already out on a job.</span></span>
+<div class="row" style="gap: 8px;"><button class="btn btn-secondary btn-sm" style="flex: 1;">Connect Google</button><button class="btn btn-secondary btn-sm" style="flex: 1;">Connect Outlook</button></div>
+</div>
+<div class="panel" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+<div class="row" style="justify-content: space-between;"><span style="font-weight: 600;">Booking page</span><button class="{{ switchCls }}" onClick="{{ toggle }}" role="switch" aria-checked="{{ on }}" aria-label="Booking page on"></button></div>
+<div class="linkbox"><span class="mono" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">app.handsfreeos.com/book/lone-star-hvac</span><button class="btn btn-ghost btn-sm" aria-label="Copy link"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="14" height="14" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg></button></div>
+<span class="xs faint">{{ bookingNote }}</span>
+</div>
+</div>
+</div>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="WizardCustomers.dc.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Back</a>
+<div style="flex: 1;"></div>
+<a class="btn btn-ghost" href="HomeChecklist.dc.html">Skip for now</a>
+<a class="btn btn-primary btn-lg" href="HomeTour.dc.html">Finish and see Home</a>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { on: true };
+  }
+  renderVals() {
+    const on = this.state.on;
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      yes: true,
+      on,
+      switchCls: 'switch' + (on ? ' on' : ''),
+      toggle: () => this.setState({ on: !on }),
+      bookingNote: on ? 'Customers pick a service and a time. Put the link on your website and Google profile.' : 'Off. Only you and Ava can book visits.'
+    };
+  }
+}
+</script>
+</body>
+</html>

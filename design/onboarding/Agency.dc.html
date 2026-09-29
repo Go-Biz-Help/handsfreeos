@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agency: client setup</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-3:0 24px 60px rgba(25,29,37,.22),0 4px 12px rgba(25,29,37,.08);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726;--scrim:rgba(25,29,37,.45)}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-3:0 24px 60px rgba(0,0,0,.65);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3;--scrim:rgba(0,0,0,.6)}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.chip:focus-visible,.trow:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}.badge-bad{background:var(--danger-soft);color:var(--danger-text)}
+.avatar{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;background:var(--accent);flex:none}
+.shell{display:flex;height:844px}
+.sidebar{width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text)}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;font-size:14px}
+.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.main{flex:1;min-width:0;padding:28px 32px;overflow:hidden;display:flex;flex-direction:column;gap:18px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);font:inherit;font-size:13px;font-weight:500;color:var(--text-2);white-space:nowrap;cursor:pointer}
+.chip.on{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+.thead,.trow{display:grid;grid-template-columns:minmax(0,1.5fr) 150px minmax(0,1.6fr);gap:16px;align-items:center;padding:0 16px}
+.thead{height:40px;font-size:12px;font-weight:600;color:var(--text-3);border-bottom:1px solid var(--border)}
+.trow{min-height:60px;border:0;border-bottom:1px solid var(--border);width:100%;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.trow:hover{background:var(--card-2)}
+.trow:last-child{border-bottom:0}
+.trow.sel{background:var(--accent-soft)}
+.mini{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden;width:72px}
+.mini i{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:2}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:480px;background:var(--card);box-shadow:var(--shadow-3);z-index:3;display:flex;flex-direction:column}
+.step{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+.st{width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.st.done{background:var(--success);border-color:var(--success)}
+.st.bad{background:var(--danger-soft);border-color:var(--danger);color:var(--danger-text)}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 844px; position: relative; overflow: hidden;">
+<div class="shell">
+<aside class="sidebar">
+<div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<div class="switcher"><span class="avatar" style="width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">GB</span><span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px;">Go Biz Help</span><span class="xs faint">Agency · 12 businesses</span></span></div>
+<nav class="stack" style="gap: 2px; margin-top: 12px;">
+<div class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"></path></svg><span>Client businesses</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg><span>Templates</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"></path><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5M12 22V12"></path></svg><span>Knowledge packs</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg><span>Migrations</span></div>
+</nav>
+</aside>
+
+<main class="main">
+<div class="row" style="justify-content: space-between; align-items: flex-start;">
+<div class="stack" style="gap: 4px;">
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Client businesses</h1>
+<p class="muted">12 businesses · 2 stuck on setup · 4 still setting up</p>
+</div>
+<button class="btn btn-primary">Add a business</button>
+</div>
+
+<div class="row" style="gap: 8px;">
+<sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+<button class="{{ f.cls }}" onClick="{{ f.pick }}" aria-pressed="{{ f.on }}">{{ f.label }}</button>
+</sc-for>
+</div>
+
+<div class="card" style="overflow: hidden;">
+<div class="thead"><span>Business</span><span>Setup</span><span>Waiting on</span></div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+<button class="{{ r.cls }}" onClick="{{ r.open }}">
+<span class="row" style="gap: 10px; min-width: 0;"><span class="avatar" style="background: {{ r.color }};">{{ r.initials }}</span><span class="stack" style="min-width: 0;"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.name }}</span><span class="xs faint">{{ r.owner }}</span></span></span>
+<span class="row" style="gap: 8px;"><span class="mini"><i style="width: {{ r.pct }}%;"></i></span><span class="small tnum muted">{{ r.done }} of 8</span></span>
+<span class="row" style="gap: 8px; min-width: 0;"><span class="{{ r.badgeCls }}">{{ r.badge }}</span><span class="small muted" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.note }}</span></span>
+</button>
+</sc-for>
+</div>
+</main>
+</div>
+
+<sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+<div class="scrim"></div>
+<aside class="sheet" role="dialog" aria-label="Northstar Electric setup">
+<div class="row" style="justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border);">
+<div class="stack" style="gap: 2px;"><h2 style="font-size: 18px; font-weight: 600;">Northstar Electric</h2><span class="small muted">Riley Chen · 1 of 8 done · last signed in 2 days ago</span></div>
+<button class="btn btn-ghost" aria-label="Close" onClick="{{ close }}" style="width: 36px; padding: 0;"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+<div style="flex: 1; overflow: hidden; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+<div style="background: var(--danger-soft); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+<span class="stack" style="gap: 2px;"><span style="font-weight: 600; color: var(--danger-text);">Carriers turned down texting</span><span class="small" style="color: var(--danger-text);">The business address doesn’t match the one on the EIN record. Fix the address and send it again.</span></span>
+<span><button class="btn btn-primary btn-sm">Fix and send again</button></span>
+</div>
+
+<div>
+<div class="overline" style="margin-bottom: 4px;">The basics</div>
+<div class="step"><span class="st bad"><svg style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16h.01"></path></svg></span><span class="stack" style="flex: 1;"><span style="font-weight: 500;">Business number &amp; texting</span><span class="xs faint">Needs a fix, above</span></span></div>
+<div class="step"><span class="st"></span><span class="stack" style="flex: 1;"><span style="font-weight: 500;">Teach the AI teammate</span><span class="xs faint">northstarelectric.com hasn’t been scanned</span></span><button class="btn btn-secondary btn-sm">Do it for them</button></div>
+<div class="step"><span class="st"></span><span class="stack" style="flex: 1;"><span style="font-weight: 500;">Bring in customers</span><span class="xs faint">They said: a spreadsheet</span></span><button class="btn btn-secondary btn-sm">Do it for them</button></div>
+<div class="step"><span class="st done"><svg style="width: 12px; height: 12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span><span class="stack" style="flex: 1;"><span style="font-weight: 500; color: var(--text-2); text-decoration: line-through;">Calendar &amp; booking page</span><span class="xs faint">3 services</span></span></div>
+</div>
+
+<div>
+<div class="overline" style="margin-bottom: 4px;">When they’re ready</div>
+<div class="step"><span class="st"></span><span style="flex: 1; font-weight: 500;">Invite their team</span><span class="xs faint">Owner’s call</span></div>
+<div class="step"><span class="st"></span><span style="flex: 1; font-weight: 500;">Connect payments</span><span class="xs faint">Owner signs in to Stripe or Square</span></div>
+<div class="step"><span class="st" style="border-style: dashed;"></span><span style="flex: 1; font-weight: 500; color: var(--text-3);">Email &amp; website chat</span><span class="badge badge-gray">Skipped</span></div>
+<div class="step"><span class="st"></span><span style="flex: 1; font-weight: 500;">Get the phone app</span><span class="xs faint">Owner’s phone</span></div>
+</div>
+</div>
+<div class="row" style="padding: 14px 24px; border-top: 1px solid var(--border); justify-content: space-between;">
+<button class="btn btn-secondary">Email Riley a reminder</button>
+<button class="btn btn-ghost">Open their workspace</button>
+</div>
+</aside>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":844}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { filter: 'all', open: true };
+  }
+  renderVals() {
+    const f = this.state.filter;
+    const open = this.state.open;
+    const all = [
+      { name: 'Northstar Electric', owner: 'Riley Chen', initials: 'NE', color: '#c43335', done: 1, group: 'stuck', badge: 'Stuck', badgeCls: 'badge badge-bad', note: 'Carriers turned down texting', sel: true },
+      { name: 'Riverbend Roofing', owner: 'Tomás Ortega', initials: 'RR', color: '#996300', done: 2, group: 'stuck', badge: 'Stuck', badgeCls: 'badge badge-bad', note: 'Hasn’t signed in for 6 days' },
+      { name: 'Lone Star HVAC & Roofing', owner: 'Dale Ramsey', initials: 'LS', color: '#2d69d8', done: 3, group: 'setup', badge: 'In review', badgeCls: 'badge badge-wait', note: 'Texting in review · customers skipped' },
+      { name: 'Bluebonnet Plumbing', owner: 'Ana Ruiz', initials: 'BP', color: '#1950b5', done: 5, group: 'setup', badge: 'Needs a look', badgeCls: 'badge badge-wait', note: 'Website scan waiting for review' },
+      { name: 'Cedar Park Pools', owner: 'Jordan Blake', initials: 'CP', color: '#008743', done: 6, group: 'setup', badge: 'Optional left', badgeCls: 'badge badge-gray', note: 'Payments and phone app' },
+      { name: 'Hill Country Pest Control', owner: 'Marcus Webb', initials: 'HC', color: '#5b616a', done: 8, group: 'done', badge: 'Done', badgeCls: 'badge badge-ok', note: 'Finished Sep 22' }
+    ];
+    const counts = { all: 12, stuck: 2, setup: 4, done: 6 };
+    const filters = [['all', 'All'], ['stuck', 'Stuck'], ['setup', 'Setting up'], ['done', 'Done']];
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      filters: filters.map(([id, label]) => ({ label: label + ' · ' + counts[id], on: f === id, cls: 'chip' + (f === id ? ' on' : ''), pick: () => this.setState({ filter: id }) })),
+      open,
+      close: () => this.setState({ open: false }),
+      rows: all.filter((r) => f === 'all' || r.group === f).map((r) => ({ ...r, pct: Math.round((r.done / 8) * 100), cls: 'trow' + (r.sel && open ? ' sel' : ''), open: () => this.setState({ open: true }) }))
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guide hidden</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--success:#008743;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger-soft:#ffebe9;--danger-text:#862726;--toast-bg:#191d25;--toast-text:#f2f4f8}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--success:#3ccf7a;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger-soft:#301816;--danger-text:#ffaaa3;--toast-bg:#f2f4f8;--toast-text:#191d25}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.mi:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:18px;height:18px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-accent{background:var(--accent-soft);color:var(--accent-text)}
+.avatar{width:32px;height:32px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;background:var(--accent);flex:none}
+.shell{display:flex;height:900px}
+.sidebar{width:240px;flex:none;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 12px 12px;gap:4px}
+.switcher{display:flex;align-items:center;gap:10px;width:100%;height:52px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text)}
+.search{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-3);font-size:13px}
+.ask{display:flex;align-items:center;gap:9px;width:100%;height:36px;padding:0 8px 0 9px;border-radius:8px;border:1px solid var(--border);background:var(--card);font-size:13.5px;font-weight:500;color:var(--text-2)}
+.ask img{width:18px;height:18px;flex:none;display:block}
+.kbd{margin-left:auto;display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:6px;border:1px solid var(--border-strong);background:var(--card-2);font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:11px;font-weight:500;color:var(--text-3)}
+.nav-item{display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:8px;color:var(--text-2);font-weight:500;font-size:14px}
+.nav-item.active{background:var(--accent-soft);color:var(--accent-text)}
+.nav-item.open{background:var(--card-2);color:var(--text)}
+.main{flex:1;min-width:0;padding:28px 36px;overflow:hidden;display:flex;flex-direction:column;gap:22px;position:relative}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.kind{display:flex;align-items:center;gap:8px;font-size:13px}
+.kt{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none;background:var(--card);color:var(--accent-text)}
+.menu{position:absolute;left:252px;bottom:64px;width:300px;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-2);padding:6px;z-index:3}
+.mi{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+.mi:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.mi .icon{width:16px;height:16px;color:var(--text-2)}
+.mi.hi{background:var(--accent-soft)}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:28px;display:flex;align-items:center;gap:14px;height:44px;padding:0 8px 0 16px;border-radius:10px;background:var(--toast-bg);color:var(--toast-text);box-shadow:var(--shadow-2);font-size:14px;white-space:nowrap}
+.toast a{color:var(--toast-text);font-weight:600;padding:0 8px;height:30px;display:inline-flex;align-items:center;border-radius:6px}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 900px; position: relative; overflow: hidden;">
+<div class="shell">
+<aside class="sidebar">
+<div class="brand" style="padding: 4px 10px 14px;"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<div class="switcher"><span class="avatar" style="border-radius: 8px; background: var(--accent-soft-2); color: var(--accent-text);">LS</span><span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Lone Star HVAC &amp; Roofing</span><span class="xs faint">Go Biz Help</span></span></div>
+<div class="search" style="margin-top: 10px;"><svg class="icon" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Search customers</div>
+<div class="ask" style="margin-top: 6px;"><img src="handsfreeos-icon.png" alt=""><span>Ask HandsFreeOS</span><span class="kbd">⌘J</span></div>
+<nav class="stack" style="gap: 2px; margin-top: 8px;">
+<div class="nav-item active"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg><span>Home</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h5l2 3h4l2-3h5"></path><path d="M5 5h14l2 8v6H3v-6z"></path></svg><span>Inbox</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M17.5 14a6 6 0 0 1 4 5.5"></path></svg><span>Contacts</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="10" rx="1"></rect><rect x="17" y="4" width="4" height="13" rx="1"></rect></svg><span>Pipeline</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><span>Calendar</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg><span>Money</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path></svg><span>Tasks</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg><span>Campaigns</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg><span>More</span></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h8M18 6h2M4 12h2M10 12h10M4 18h12"></path><circle cx="14" cy="6" r="2"></circle><circle cx="8" cy="12" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg><span>Settings</span></div>
+</nav>
+<div style="flex: 1;"></div>
+<div class="nav-item"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6M10 22h4"></path></svg><span>Ideas</span></div>
+<div class="nav-item open"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg><span>Get help</span><span style="margin-left: auto; width: 8px; height: 8px; border-radius: 999px; background: var(--accent);" aria-label="Setup not finished"></span></div>
+<div class="row" style="padding: 12px 6px 4px; border-top: 1px solid var(--border); margin-top: 6px;"><span class="avatar">DR</span><span class="stack" style="min-width: 0; flex: 1;"><span style="font-weight: 500; font-size: 13.5px;">Dale Ramsey</span><span class="xs faint">Owner</span></span></div>
+</aside>
+
+<main class="main">
+<div class="stack" style="gap: 4px;">
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Welcome, Dale</h1>
+<p class="muted">Lone Star HVAC &amp; Roofing · Home services · Central time</p>
+</div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start;">
+<section class="card" style="padding: 20px 22px; background: var(--accent-soft); border-color: transparent; box-shadow: none;">
+<div class="row" style="gap: 10px;"><img src="handsfreeos-icon.png" alt="" style="width: 24px; height: 24px;"><h3 style="font-size: 15px; font-weight: 600; color: var(--accent-text);">This page becomes your Action Center</h3></div>
+<p class="small muted" style="margin-top: 6px;">Add your first customer, or import a spreadsheet, and HandsFreeOS lists what needs you here, most important first:</p>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-top: 12px;">
+<div class="kind"><span class="kt" style="background: var(--danger-soft); color: var(--danger-text);"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14 0-5.5 3-7.5.5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg></span>Hot leads</div>
+<div class="kind"><span class="kt" style="background: var(--warning-soft); color: var(--warning-text);"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>New leads nobody has answered</div>
+<div class="kind"><span class="kt"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>Customers waiting for a reply</div>
+<div class="kind"><span class="kt"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span>Leads that went quiet</div>
+<div class="kind"><span class="kt"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>Visits not confirmed</div>
+<div class="kind"><span class="kt"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path></svg></span>Overdue tasks</div>
+</div>
+<div class="row" style="gap: 8px; margin-top: 14px;"><span class="btn btn-primary btn-sm">Add a person</span><span class="btn btn-secondary btn-sm">Import a spreadsheet</span></div>
+</section>
+<section class="card" style="padding: 18px;">
+<h3 style="font-size: 15px; font-weight: 600;">Workspace</h3>
+<dl class="stack small" style="gap: 10px; margin: 12px 0 0;">
+<div class="row" style="justify-content: space-between;"><dt class="muted">Business</dt><dd style="margin: 0; font-weight: 500;">Lone Star HVAC &amp; Roofing</dd></div>
+<div class="row" style="justify-content: space-between;"><dt class="muted">Number</dt><dd class="tnum" style="margin: 0; font-weight: 500;">(512) 555-0148</dd></div>
+<div class="row" style="justify-content: space-between;"><dt class="muted">People</dt><dd style="margin: 0; font-weight: 500;">1 member</dd></div>
+</dl>
+</section>
+</div>
+
+<div class="toast" role="status">Getting started is hidden. It’s under Get help whenever you want it.<a href="HomeChecklist.dc.html">Undo</a></div>
+</main>
+</div>
+
+<div class="menu" role="menu" aria-label="Get help">
+<a class="mi hi" href="HomeChecklist.dc.html" role="menuitem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 3 3 5-6"></path><path d="M13 7h8M13 12h8M13 17h8"></path></svg><span class="stack" style="flex: 1; gap: 1px;"><span style="font-weight: 500;">Getting started</span><span class="xs faint">Show the guide on Home again</span></span><span class="badge badge-accent tnum">3 of 8</span></a>
+<a class="mi" href="HomeTour.dc.html" role="menuitem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z"></path></svg>Take the tour</a>
+<div style="height: 1px; background: var(--border); margin: 6px 4px;"></div>
+<a class="mi" href="#" role="menuitem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>Message Go Biz Help</a>
+<a class="mi" href="#" role="menuitem"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>Ask HandsFreeOS support</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light'
+    };
+  }
+}
+</script>
+</body>
+</html>

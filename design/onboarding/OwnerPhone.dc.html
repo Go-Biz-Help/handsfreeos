@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Owner’s phone: getting started</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--success:#008743;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--shadow-1:0 1px 2px rgba(0,0,0,.45);--success:#3ccf7a;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a}
+a{color:var(--accent-text);text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border-radius:10px;border:1px solid transparent;font:inherit;font-weight:500;font-size:15px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);color:var(--text)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-1)}
+.progress{height:6px;border-radius:999px;background:var(--card-2);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:999px}
+.task{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 0;border-top:1px solid var(--border)}
+.st{width:22px;height:22px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;flex:none;color:#fff}
+.st.done{background:var(--success);border-color:var(--success)}
+.st.wait{background:var(--warning-soft);border-color:var(--warning);color:var(--warning-text)}
+.st.skip{border-style:dashed}
+.tt{font-weight:500;font-size:15px}.tt.done{color:var(--text-2);text-decoration:line-through}
+.bb{position:absolute;left:0;right:0;bottom:0;height:84px;padding-bottom:20px;background:var(--card);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
+.bi{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:500;color:var(--text-3)}
+.bi.on{color:var(--accent-text)}
+.bi svg{width:22px;height:22px}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 390px; height: 844px; position: relative; overflow: hidden;">
+<header class="row" style="height: 56px; padding: 0 16px; background: var(--card); border-bottom: 1px solid var(--border); justify-content: space-between;">
+<div class="row" style="gap: 10px;"><img src="handsfreeos-icon.png" alt="" style="width: 24px; height: 24px;"><span style="font-weight: 600; font-size: 16px;">Home</span></div>
+<span style="width: 32px; height: 32px; border-radius: 999px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">DR</span>
+</header>
+
+<div style="padding: 20px 16px 110px; display: flex; flex-direction: column; gap: 16px;">
+<div class="stack" style="gap: 2px;">
+<h1 style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">Welcome, Dale</h1>
+<p class="muted small">Lone Star HVAC &amp; Roofing</p>
+</div>
+
+<section class="card" style="padding: 16px;">
+<div class="row" style="justify-content: space-between;"><h2 style="font-size: 17px; font-weight: 600;">Getting started</h2><span class="badge badge-gray tnum">4 of 8 done</span></div>
+<div class="progress" style="margin: 12px 0 14px;"><i style="width: 50%;"></i></div>
+
+<div style="background: var(--accent-soft); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+<span class="overline" style="color: var(--accent-text);">Next up</span>
+<span class="stack" style="gap: 2px;"><span class="tt">Bring in your customers</span><span class="small muted">Moving from GoHighLevel is easier on a computer. We’ll send you a link for later.</span></span>
+<button class="btn btn-primary" style="width: 100%;">Email me a link</button>
+</div>
+
+<div class="task" style="border-top: 0; margin-top: 6px;">
+<span class="st wait"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+<span class="stack" style="flex: 1;"><span class="tt">Business number &amp; texting</span><span class="xs faint">Carriers are reviewing texting</span></span>
+<span class="badge badge-wait">Day 2</span>
+</div>
+<div class="task">
+<span class="st done"><svg style="width: 13px; height: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+<span class="stack" style="flex: 1;"><span class="tt done">Get the phone app</span><span class="xs faint">Done when you signed in here</span></span>
+</div>
+<div class="task">
+<span class="st"></span>
+<span class="stack" style="flex: 1;"><span class="tt">Invite your team</span><span class="xs faint">You said 2 to 5 people</span></span>
+<button class="btn btn-secondary" style="height: 36px; font-size: 14px; padding: 0 12px;">Invite</button>
+</div>
+<div class="task">
+<span class="st"></span>
+<span class="stack" style="flex: 1;"><span class="tt">Connect payments</span><span class="xs faint">Easier on a computer</span></span>
+<button class="btn" style="height: 36px; font-size: 14px; padding: 0 10px; color: var(--text-2);">Skip</button>
+</div>
+<a href="#" class="row" style="justify-content: center; height: 44px; margin-top: 4px; font-weight: 500; border-top: 1px solid var(--border);">See all 8 steps</a>
+</section>
+
+<p class="small faint" style="text-align: center; padding: 0 12px;">Once customers are in, this page lists what needs you, most important first.</p>
+</div>
+
+<nav class="bb" aria-label="Main">
+<div class="bi on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>Home</div>
+<div class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h5l2 3h4l2-3h5"></path><path d="M5 5h14l2 8v6H3v-6z"></path></svg>Inbox</div>
+<div class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="10" rx="1"></rect><rect x="17" y="4" width="4" height="13" rx="1"></rect></svg>Pipeline</div>
+<div class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>Calendar</div>
+<div class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>More</div>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#2d69d8', theme: this.props.theme ?? 'light' };
+  }
+}
+</script>
+</body>
+</html>

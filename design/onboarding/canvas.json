@@ -1,0 +1,133 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "1 · Quick questions",
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 832
+    },
+    {
+      "file": "WizardNumber.dc.html",
+      "title": "2 · Must-do: business number & texting",
+      "x": 1360,
+      "y": 0,
+      "w": 1280,
+      "h": 832
+    },
+    {
+      "file": "WizardAI.dc.html",
+      "title": "3 · Must-do: teach Ava",
+      "x": 2720,
+      "y": 0,
+      "w": 1280,
+      "h": 832
+    },
+    {
+      "file": "WizardCustomers.dc.html",
+      "title": "4 · Must-do: bring in customers",
+      "x": 4080,
+      "y": 0,
+      "w": 1280,
+      "h": 832
+    },
+    {
+      "file": "WizardCalendar.dc.html",
+      "title": "5 · Must-do: calendar & booking page",
+      "x": 5440,
+      "y": 0,
+      "w": 1280,
+      "h": 832
+    },
+    {
+      "file": "WizardPayments.dc.html",
+      "title": "5b · Must-do when they pick “Getting paid”: payments",
+      "x": 6800,
+      "y": 0,
+      "w": 1280,
+      "h": 832
+    },
+    {
+      "file": "HomeChecklist.dc.html",
+      "title": "6 · Home: the checklist",
+      "x": 0,
+      "y": 1232,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "HomeTour.dc.html",
+      "title": "7 · The tour",
+      "x": 1360,
+      "y": 1232,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "GetHelp.dc.html",
+      "title": "8 · Guide hidden, back from Get help",
+      "x": 2720,
+      "y": 1232,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "OwnerPhone.dc.html",
+      "title": "9 · Owner on the phone",
+      "x": 0,
+      "y": 2532,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "TeammatePhone.dc.html",
+      "title": "10 · Teammate’s short guide",
+      "x": 470,
+      "y": 2532,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "Agency.dc.html",
+      "title": "11 · Agency: every client’s setup",
+      "x": 940,
+      "y": 2532,
+      "w": 1280,
+      "h": 844
+    }
+  ],
+  "annotations": [
+    {
+      "id": "direction",
+      "x": 0,
+      "y": -720,
+      "w": 1000,
+      "text": "HandsFreeOS getting started: the guide a new business follows from Create business to a working setup. The plan is HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md at the root.\nTwelve boards in three rows: the owner’s first run (quick questions, then one wizard screen per must-do), Home afterwards (the checklist, the tour, the guide hidden), and the phone, a teammate and an agency.\nThe boards use the web app’s own colours, type and radii. Most are clickable in Play: the chips, the skips, the tour’s Next and the agency filters work, and the wizard’s buttons move between boards."
+    },
+    {
+      "id": "sample-data",
+      "x": 1100,
+      "y": -720,
+      "w": 1000,
+      "text": "Sample data only: Lone Star HVAC & Roofing, the same fictional business as the milestone boards, set up by Dale (owner) under Go Biz Help. Marisol is a teammate Dale added. The AI teammate is Ava. Bluebonnet Plumbing is a second business that picked “Getting paid”, on the payments board. The agency board’s other businesses and owners are invented.\nNumbers use 555 exchanges. The 14 things found on lonestarhvac.com, its prices and hours, the services and their lengths, “day 2” of carrier review and Northstar Electric’s refusal reason are placeholders."
+    },
+    {
+      "id": "decisions",
+      "x": 2200,
+      "y": -720,
+      "w": 1000,
+      "text": "Decided by Chris on Tue, Sep 29, 2026:\n1. Flow: Create business → 4 quick questions → a wizard through the must-dos → Home with a checklist → a 5-stop tour.\n2. Must-dos: business number & texting, teach the AI teammate, bring in customers, calendar & booking page. Picking “Getting paid” makes connect payments a fifth.\n3. Easy to skip: invite your team, connect payments, email & website chat, get the phone app.\n4. Every step has Skip for now; the whole guide can be hidden and brought back from Get help.\n5. The guide goes away for good once every step is done or skipped.\n6. Owners and admins get the full guide; teammates get a short list of their own and the tour.\n7. An agency sees every client’s setup and can do steps for them."
+    },
+    {
+      "id": "assumptions",
+      "x": 3300,
+      "y": -720,
+      "w": 1000,
+      "text": "Choices I made that the decisions didn’t spell out:\n• The business number always goes first, whatever the answers, because carrier review takes days to weeks.\n• The number step asks about an EIN first, because a business without one has to take a toll-free number before buying.\n• “Add them as you go” on the customers step counts as done.\n• The quick questions’ website answer feeds Ava’s website scan and the calendar’s services.\n• The teammate list adds Turn on notifications to the three steps agreed, and marks Get the phone app done on the phone itself.\n• Steps that need a computer show “Email me a link” on the phone.\n• The agency’s “Stuck” means a step needs a fix or the owner hasn’t signed in for 5 days with must-dos open."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

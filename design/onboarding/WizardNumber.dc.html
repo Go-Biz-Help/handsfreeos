@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Setup: business number</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:transparent}
+.hf{font-family:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+.hf h1,.hf h2,.hf h3,.hf p{margin:0}.hf h1,.hf h2,.hf h3{text-wrap:pretty}
+.theme-light{--bg:#f9fafd;--card:#ffffff;--card-2:#f2f4f8;--card-3:#e4e8ee;--border:#e4e8ee;--border-strong:#d2d6dd;--text:#191d25;--text-2:#5b616a;--text-3:#676c75;--placeholder:#a0a5ae;--accent-text:var(--accent);--accent-soft:color-mix(in oklab,var(--accent) 10%,#ffffff);--accent-soft-2:color-mix(in oklab,var(--accent) 18%,#ffffff);--accent-hover:color-mix(in oklab,var(--accent) 86%,#000000);--ring:color-mix(in oklab,var(--accent) 28%,transparent);--shadow-1:0 1px 2px rgba(25,29,37,.06),0 1px 3px rgba(25,29,37,.04);--shadow-2:0 8px 24px rgba(25,29,37,.10),0 2px 6px rgba(25,29,37,.06);--success:#008743;--success-soft:#e0f7e5;--success-text:#005d2d;--warning:#996300;--warning-soft:#ffedd8;--warning-text:#6b4300;--danger:#c43335;--danger-soft:#ffebe9;--danger-text:#862726}
+.theme-dark{--bg:#0f131a;--card:#191d25;--card-2:#20252e;--card-3:#2c3139;--border:#2c3139;--border-strong:#3a4049;--text:#f2f4f8;--text-2:#a0a5ae;--text-3:#8a909a;--placeholder:#5b616a;--accent-text:color-mix(in oklab,var(--accent) 62%,#ffffff);--accent-soft:color-mix(in oklab,var(--accent) 22%,#191d25);--accent-soft-2:color-mix(in oklab,var(--accent) 34%,#191d25);--accent-hover:color-mix(in oklab,var(--accent) 84%,#ffffff);--ring:color-mix(in oklab,var(--accent) 45%,transparent);--shadow-1:0 1px 2px rgba(0,0,0,.45);--shadow-2:0 8px 24px rgba(0,0,0,.55);--success:#3ccf7a;--success-soft:#10291b;--success-text:#7fe0a5;--warning:#f0a93b;--warning-soft:#2d2210;--warning-text:#f5c97a;--danger:#ff7b73;--danger-soft:#301816;--danger-text:#ffaaa3}
+a{color:var(--accent-text);text-decoration:none}a:hover{color:var(--accent-hover);text-decoration:underline}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid transparent;font:inherit;font-weight:500;font-size:14px;color:var(--text);background:transparent;cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn:focus-visible,.rc:focus-visible,.rs:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover);color:#fff}
+.btn-secondary{background:var(--card);border-color:var(--border-strong);box-shadow:var(--shadow-1);color:var(--text)}.btn-secondary:hover{background:var(--card-2);color:var(--text)}
+.btn-ghost{color:var(--text-2)}.btn-ghost:hover{background:var(--card-2);color:var(--text)}
+.btn-lg{height:44px;padding:0 18px;font-size:15px;border-radius:10px}
+.input{width:100%;height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card);color:var(--text);font:inherit;font-size:15px}
+.input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.label{display:block;font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px}
+.overline{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3)}
+.muted{color:var(--text-2)}.faint{color:var(--text-3)}.small{font-size:13px}.xs{font-size:12px}
+.row{display:flex;align-items:center;gap:12px}.stack{display:flex;flex-direction:column}
+.icon{width:16px;height:16px;flex:none}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;letter-spacing:-.01em;color:var(--text)}
+.mark{width:28px;height:28px;display:block;flex:none;object-fit:contain}.brand .os{color:var(--accent-text)}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.badge-gray{background:var(--card-2);color:var(--text-2)}.badge-ok{background:var(--success-soft);color:var(--success-text)}.badge-wait{background:var(--warning-soft);color:var(--warning-text)}
+.top{height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border)}
+.rail{width:300px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:28px 18px 20px;display:flex;flex-direction:column;gap:4px}
+.rs{display:flex;gap:12px;align-items:flex-start;padding:10px;border-radius:10px;color:var(--text);text-decoration:none}
+.rs:hover{background:var(--card-2);color:var(--text);text-decoration:none}
+.rs.cur{background:var(--accent-soft)}
+.rn{width:24px;height:24px;border-radius:999px;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-2);flex:none;margin-top:1px;background:var(--card)}
+.rs.cur .rn{border-color:var(--accent);background:var(--accent);color:#fff}
+.rn.done{border-color:var(--success);background:var(--success);color:#fff}
+.rt{font-weight:500}.rs.cur .rt{color:var(--accent-text)}
+.rd{font-size:12.5px;color:var(--text-3)}
+.later{display:flex;align-items:center;gap:10px;padding:6px 10px;color:var(--text-2);font-size:13px}
+.later .icon{color:var(--text-3)}
+.pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.body{flex:1;overflow:hidden;padding:36px 56px 24px;display:flex;flex-direction:column;gap:22px;max-width:860px}
+.foot{flex:none;height:72px;display:flex;align-items:center;gap:8px;padding:0 56px;background:var(--card);border-top:1px solid var(--border)}
+.rc{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--border-strong);border-radius:10px;background:var(--card);cursor:pointer;text-align:left;font:inherit;color:var(--text);width:100%}
+.rc:hover{background:var(--card-2)}
+.rc.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.dot{width:18px;height:18px;border-radius:999px;border:1.5px solid var(--border-strong);flex:none;margin-top:1px;background:var(--card)}
+.rc.on .dot{border:5px solid var(--accent)}
+.callout{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;background:var(--accent-soft)}
+.callout .icon{color:var(--accent-text);margin-top:2px}
+.tnum{font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="hf theme-{{ theme }}" style="--accent: {{ accent }}; width: 1280px; height: 832px; position: relative; overflow: hidden; display: flex; flex-direction: column;">
+<header class="top">
+<div class="brand"><img class="mark" src="handsfreeos-icon.png" alt=""><span>HandsFree<span class="os">OS</span></span></div>
+<span class="small muted">Setting up Lone Star HVAC &amp; Roofing</span>
+<a class="btn btn-ghost" href="HomeChecklist.dc.html">Finish later</a>
+</header>
+<div style="flex: 1; display: flex; min-height: 0;">
+<aside class="rail">
+<div class="overline" style="padding: 0 10px 4px;">Step 3 of 3 · The basics</div>
+<p class="small faint" style="padding: 0 10px 12px;">About 20 minutes. Skip anything and come back to it from Home.</p>
+<a class="rs cur" href="WizardNumber.dc.html" aria-current="step"><span class="rn">1</span><span class="stack"><span class="rt">Business number &amp; texting</span><span class="rd">Pick a number, then send your details to the carriers</span></span></a>
+<a class="rs" href="WizardAI.dc.html"><span class="rn">2</span><span class="stack"><span class="rt">Teach Ava</span><span class="rd">Your AI teammate learns from your website</span></span></a>
+<a class="rs" href="WizardCustomers.dc.html"><span class="rn">3</span><span class="stack"><span class="rt">Bring in your customers</span><span class="rd">Move from GoHighLevel</span></span></a>
+<a class="rs" href="WizardCalendar.dc.html"><span class="rn">4</span><span class="stack"><span class="rt">Calendar &amp; booking page</span><span class="rd">Services, hours and your booking link</span></span></a>
+<div style="height: 1px; background: var(--border); margin: 14px 10px;"></div>
+<div class="overline" style="padding: 0 10px 4px;">Later, from your checklist</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M19 8v6M22 11h-6"></path></svg>Invite your team</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>Connect payments</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>Email &amp; website chat</div>
+<div class="later"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M12 18h.01"></path></svg>Get the phone app</div>
+</aside>
+
+<main class="pane">
+<div class="body">
+<div class="stack" style="gap: 6px;">
+<div class="overline">1 of 4</div>
+<h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.01em;">Get your business number</h1>
+<p class="muted" style="max-width: 640px;">Customers call and text this number, and Ava answers on it too. Calls work as soon as you pick one. Texting needs the phone carriers’ OK first.</p>
+</div>
+
+<div>
+<span class="label">Does your business have an EIN?</span>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+<button class="{{ einYesCls }}" onClick="{{ pickYes }}" aria-pressed="{{ einYes }}"><span class="dot"></span><span class="stack" style="gap: 2px;"><span style="font-weight: 500;">Yes</span><span class="small muted">You get a local number. Carriers approve texting in 1 to 3 weeks.</span></span></button>
+<button class="{{ einNoCls }}" onClick="{{ pickNo }}" aria-pressed="{{ einNo }}"><span class="dot"></span><span class="stack" style="gap: 2px;"><span style="font-weight: 500;">No, or I’m a sole proprietor</span><span class="small muted">You get a toll-free number. Approved in a few business days.</span></span></button>
+</div>
+</div>
+
+<div>
+<div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+<span class="label" style="margin: 0;">Pick a number</span>
+<sc-if value="{{ einYes }}" hint-placeholder-val="{{ true }}">
+<div class="row" style="gap: 8px;"><span class="small faint">Area code</span><input class="input tnum" value="512" aria-label="Area code" style="width: 72px; height: 32px; font-size: 14px; padding: 0 10px;"><button class="btn btn-secondary" style="height: 32px;">Search</button></div>
+</sc-if>
+</div>
+<div class="stack" style="gap: 8px;">
+<sc-for list="{{ numbers }}" as="n" hint-placeholder-count="3">
+<button class="{{ n.cls }}" onClick="{{ n.pick }}" aria-pressed="{{ n.on }}" style="align-items: center; padding: 12px 16px;"><span class="dot" style="margin: 0;"></span><span class="tnum" style="font-weight: 600; font-size: 15px; width: 150px;">{{ n.number }}</span><span class="small muted" style="flex: 1;">{{ n.place }}</span></button>
+</sc-for>
+</div>
+<p class="small faint" style="margin-top: 10px;">Already have a number customers know? <a href="#">Keep it instead</a>. You can move it from GoHighLevel or Twilio, or from your phone carrier (that takes a few weeks).</p>
+</div>
+
+<div class="callout">
+<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+<div class="stack" style="gap: 2px;">
+<span style="font-weight: 500;">Next: your details for the carriers</span>
+<span class="small muted">We fill in what we know about Lone Star HVAC &amp; Roofing. You check it and send it, which takes about 5 minutes. Keep setting up while they review it; we’ll email you when texting is on.</span>
+</div>
+</div>
+</div>
+<footer class="foot">
+<a class="btn btn-ghost" href="Main.dc.html"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Back</a>
+<div style="flex: 1;"></div>
+<a class="btn btn-ghost" href="WizardAI.dc.html">Skip for now</a>
+<a class="btn btn-primary btn-lg" href="WizardAI.dc.html">Get {{ chosen }}</a>
+</footer>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2d69d8","options":["#2d69d8","#1950b5","#6199fd","#008743"],"section":"Theme"},"theme":{"editor":"enum","default":"light","options":["light","dark"],"section":"Theme"},"$preview":{"width":1280,"height":832}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.state = { ein: true, pick: 0 };
+  }
+  renderVals() {
+    const st = this.state;
+    const local = [['(512) 555-0148', 'Austin, TX · local'], ['(512) 555-0193', 'Austin, TX · local'], ['(737) 555-0112', 'Austin, TX · local']];
+    const tollFree = [['(833) 555-0126', 'Toll-free'], ['(844) 555-0171', 'Toll-free'], ['(888) 555-0139', 'Toll-free']];
+    const list = st.ein ? local : tollFree;
+    const rc = (on) => 'rc' + (on ? ' on' : '');
+    return {
+      accent: this.props.accent ?? '#2d69d8',
+      theme: this.props.theme ?? 'light',
+      einYes: st.ein,
+      einNo: !st.ein,
+      einYesCls: rc(st.ein),
+      einNoCls: rc(!st.ein),
+      pickYes: () => this.setState({ ein: true, pick: 0 }),
+      pickNo: () => this.setState({ ein: false, pick: 0 }),
+      numbers: list.map(([number, place], i) => ({ number, place, on: st.pick === i, cls: rc(st.pick === i), pick: () => this.setState({ pick: i }) })),
+      chosen: list[st.pick][0]
+    };
+  }
+}
+</script>
+</body>
+</html>
