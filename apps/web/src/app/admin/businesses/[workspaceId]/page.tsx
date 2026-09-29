@@ -3,7 +3,6 @@ import { ViewAsButton } from '@/components/admin/view-as';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
 import { WalletBlock } from '@/components/admin/wallet-block';
 import { STATUS_WORD, sinceWords, whenWords } from '@/components/admin/ticket-bits';
-import { CopyField } from '@/components/ui/copy-field';
 import { apiServer, unwrap, unwrapPage } from '@/lib/api/server';
 
 const SETUP_WORDS: Record<string, string> = {
@@ -44,16 +43,6 @@ export default async function BusinessPage({
               : 'never'}{' '}
             ago
           </p>
-          {/* What Admin → Founding asks for when approving a seat: a seat is the business's, not a workspace's. */}
-          <div className="mt-2 flex max-w-sm items-center gap-2 text-[13px] text-text-3">
-            <span className="shrink-0">Business id</span>
-            <CopyField
-              className="flex-1"
-              value={b.organizationId}
-              label="Copy the business id"
-              copied="Copied the business id"
-            />
-          </div>
         </div>
         {me.staff?.permissions.includes('platform.view_as') ? (
           <ViewAsButton workspaceId={b.workspaceId} businessName={b.name} />

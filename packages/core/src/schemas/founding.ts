@@ -303,6 +303,19 @@ export const FoundingQueueOutput = z.strictObject({
       decisionNote: z.string(),
       createdAt: z.iso.datetime(),
       reviewedAt: z.iso.datetime().nullable(),
+      /**
+       * The workspaces an owner or admin runs who signed up with the email this application was made with:
+       * what Approve offers first, and the people who can take the seat up (founding.claim asks for as much).
+       */
+      theirBusinesses: z.array(
+        z.strictObject({
+          workspaceId: uuid,
+          workspaceName: z.string(),
+          organizationId: uuid,
+          organizationName: z.string(),
+          role: z.enum(['owner', 'admin']),
+        }),
+      ),
     }),
   ),
   grants: z.array(

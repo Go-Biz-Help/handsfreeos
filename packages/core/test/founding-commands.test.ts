@@ -23,6 +23,7 @@ import {
   foundingRecordCheckoutPaid,
   foundingStartCheckout,
   organizationCreate,
+  platformFounding,
 } from '../src/server';
 
 const api = () => testDbs().api.db;
@@ -264,11 +265,11 @@ describe('a paid seat', () => {
 });
 
 describe('approving', () => {
-  const apply = async (offer: string): Promise<string> => {
+  const apply = async (offer: string, email = `${randomUUID()}@hfos.test`): Promise<string> => {
     const [row] = await rows<{ id: string }>(
       admin(),
       sql`insert into platform.founding_applications (offer_id, business_name, contact_name, email)
-          values (${offer}, 'Founding Plumbing', 'Dana', ${`${randomUUID()}@hfos.test`}) returning id`,
+          values (${offer}, 'Founding Plumbing', 'Dana', ${email}) returning id`,
     );
     return row!.id;
   };
@@ -278,11 +279,30 @@ describe('approving', () => {
       sql`select id from platform.founding_grants where offer_id = ${offer}`,
     );
 
-  it('holds a seat for the business whose id was pasted', async () => {
+  it('holds a seat for the business picked', async () => {
     const applicationId = await apply(FREE);
     const out = await run(foundingApprove, { applicationId, organizationId: orgId }, staff);
     expect(out).toMatchObject({ offerId: FREE, remaining: 4 });
     expect(out.claimToken).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('offers the business its owner applied from, matched on their email', async () => {
+    const byOwner = await apply(FREE, owner.email.toUpperCase());
+    const byMember = await apply(FREE, member.email);
+    const { applications } = await executeQuery(
+      api(),
+      platformFounding,
+      { offerId: FREE },
+      human(staff),
+      meta(),
+    );
+    const theirs = (id: string) =>
+      applications.find((a) => a.applicationId === id)?.theirBusinesses;
+    expect(theirs(byOwner)).toEqual([
+      expect.objectContaining({ workspaceId: wsId, organizationId: orgId, role: 'owner' }),
+    ]);
+    // A plain member cannot take a seat up, so their business is not offered.
+    expect(theirs(byMember)).toEqual([]);
   });
 
   it('refuses a workspace id in words that name its business, and holds nothing', async () => {

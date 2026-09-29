@@ -17,7 +17,7 @@
  * switch happens in the database, in the same transaction as the approval that crossed the line.
  */
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CopyField } from '@/components/ui/copy-field';
@@ -418,6 +418,15 @@ function OfferCard({
   );
 }
 
+/** Where a seat can go: a workspace, standing for the business it belongs to. A seat is the business's. */
+type Pickable = { workspaceId: string; organizationId: string; label: string };
+
+/** "Search for another business" in the dropdown: for somebody who signed up with a different email. */
+const ANOTHER = 'another';
+
+const businessLabel = (workspace: string, business: string): string =>
+  business && business !== workspace ? `${workspace} · in ${business}` : workspace;
+
 function ApproveDialog({
   application,
   busy,
@@ -429,8 +438,59 @@ function ApproveDialog({
   onClose: () => void;
   onApprove: (organizationId: string, note: string) => void;
 }) {
-  const [organizationId, setOrganizationId] = useState('');
+  // Matched on the email they applied with, owners and admins only: the people who can take the seat up.
+  const theirs: Pickable[] = application.theirBusinesses.map((b) => ({
+    workspaceId: b.workspaceId,
+    organizationId: b.organizationId,
+    label: `${businessLabel(b.workspaceName, b.organizationName)} · ${b.role}`,
+  }));
+  // A founder with one business is the usual case, so that one is picked for you.
+  const [choice, setChoice] = useState(
+    theirs.length === 1 ? (theirs[0]?.workspaceId ?? '') : theirs.length ? '' : ANOTHER,
+  );
+  const [term, setTerm] = useState('');
+  const [found, setFound] = useState<Pickable[] | null>(null);
+  const [foundChoice, setFoundChoice] = useState('');
   const [note, setNote] = useState('');
+
+  useEffect(() => {
+    const search = term.trim();
+    if (choice !== ANOTHER || search.length < 2) {
+      setFound(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/queries/platform.business.list', {
+            body: { search, sort: 'name', limit: 20 },
+          }),
+        );
+        if (cancelled) return;
+        setFound(
+          out.businesses.map((b) => ({
+            workspaceId: b.workspaceId,
+            organizationId: b.organizationId,
+            label: businessLabel(b.name, b.organizationName),
+          })),
+        );
+        setFoundChoice('');
+      } catch {
+        if (!cancelled) setFound([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [choice, term]);
+
+  const picked =
+    choice === ANOTHER
+      ? found?.find((b) => b.workspaceId === foundChoice)
+      : theirs.find((b) => b.workspaceId === choice);
+
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent
@@ -439,17 +499,75 @@ function ApproveDialog({
       >
         <div className="mt-4 flex flex-col gap-3">
           <Field
-            label="Their business id"
-            htmlFor="founding-approve-org"
-            hint="On their business’s page in Admin → Businesses, under its name. Not a workspace id. They must have signed up first."
+            label="Their business"
+            htmlFor="founding-approve-business"
+            hint={
+              theirs.length
+                ? `The businesses ${application.email} runs here.`
+                : `Nobody who signed up with ${application.email} runs a business here yet. Ask them to sign up with that email, or search for their business.`
+            }
           >
-            <Input
-              id="founding-approve-org"
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
-            />
+            <select
+              id="founding-approve-business"
+              value={choice}
+              onChange={(e) => setChoice(e.target.value)}
+              className="h-10 rounded-control border border-border bg-card px-2.5 text-sm"
+            >
+              {theirs.length > 1 ? (
+                <option value="" disabled>
+                  Pick one
+                </option>
+              ) : null}
+              {theirs.map((b) => (
+                <option key={b.workspaceId} value={b.workspaceId}>
+                  {b.label}
+                </option>
+              ))}
+              <option value={ANOTHER}>Search for another business…</option>
+            </select>
           </Field>
+          {choice === ANOTHER ? (
+            <>
+              <Field label="Search businesses" htmlFor="founding-approve-search">
+                <Input
+                  id="founding-approve-search"
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  placeholder="Type a business or workspace name"
+                  autoComplete="off"
+                />
+              </Field>
+              {found === null ? null : found.length === 0 ? (
+                <p className="text-[13px] text-text-3">No business has that name.</p>
+              ) : (
+                <Field
+                  label="Business"
+                  htmlFor="founding-approve-found"
+                  hint={
+                    theirs.some((b) => b.workspaceId === foundChoice)
+                      ? undefined
+                      : `Nobody there signed up with ${application.email}, so make sure it’s theirs.`
+                  }
+                >
+                  <select
+                    id="founding-approve-found"
+                    value={foundChoice}
+                    onChange={(e) => setFoundChoice(e.target.value)}
+                    className="h-10 rounded-control border border-border bg-card px-2.5 text-sm"
+                  >
+                    <option value="" disabled>
+                      Pick one
+                    </option>
+                    {found.map((b) => (
+                      <option key={b.workspaceId} value={b.workspaceId}>
+                        {b.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </>
+          ) : null}
           <Field label="Why them" htmlFor="founding-approve-note" hint="Only we ever see this.">
             <Textarea
               id="founding-approve-note"
@@ -464,8 +582,8 @@ function ApproveDialog({
             Cancel
           </Button>
           <Button
-            disabled={busy || organizationId.trim() === ''}
-            onClick={() => onApprove(organizationId.trim(), note)}
+            disabled={busy || !picked}
+            onClick={() => picked && onApprove(picked.organizationId, note)}
           >
             {busy ? 'Taking a seat…' : 'Approve and hold a seat'}
           </Button>

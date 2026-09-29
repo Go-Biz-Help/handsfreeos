@@ -204,14 +204,13 @@ const offerOut = (o: OfferRow, claimed: number) => ({
   openedAt: o.openedAt?.toISOString() ?? null,
 });
 
-const COPY_THE_BUSINESS_ID =
-  'Open their business in Admin → Businesses and copy the business id under its name.';
+const PICK_THEIRS = 'Pick their business from the list in Approve.';
 
 /**
- * The id pasted into Approve is a business's. Staff reach a business through Admin → Businesses, whose pages
- * are its workspaces, so a workspace's id is the easy one to paste. Resolving it to its business quietly would
- * hold the seat for whichever business that workspace sits in, which need not be the applicant's (an agency's
- * workspace named after a client, say), so this names both and asks instead.
+ * The id is a business's, not a workspace's. Approve's list sends the right one; this is for anything else that
+ * calls the command. A workspace's id is not resolved to its business quietly: that would hold the seat for
+ * whichever business the workspace sits in, which need not be the applicant's (an agency's workspace named
+ * after a client, say), so this names both and asks instead.
  */
 async function aBusiness(ctx: CommandContext, id: string): Promise<void> {
   const [org] = await ctx.tx
@@ -228,12 +227,12 @@ async function aBusiness(ctx: CommandContext, id: string): Promise<void> {
     throw HfosError.rule(
       'founding_not_a_business',
       422,
-      `That’s the id of the workspace “${ws.name}”${ws.business ? `, in the business “${ws.business}”` : ''}, not a business id. ${COPY_THE_BUSINESS_ID}`,
+      `That’s the id of the workspace “${ws.name}”${ws.business ? `, in the business “${ws.business}”` : ''}, not a business id. ${PICK_THEIRS}`,
     );
   throw HfosError.rule(
     'founding_business_missing',
     404,
-    `No business has that id. Check they’ve signed up with the email they applied with. ${COPY_THE_BUSINESS_ID}`,
+    `No business has that id. Check they’ve signed up with the email they applied with. ${PICK_THEIRS}`,
   );
 }
 
