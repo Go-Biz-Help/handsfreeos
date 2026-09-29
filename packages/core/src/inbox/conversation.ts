@@ -140,6 +140,21 @@ export const CONVERSATION_DONE = {
   /** A failed text sent again in quiet hours, cancelled: it goes back as it was. */
   retryCancelled: 'Cancelled. It stays as not delivered, and you can send it again later.',
   linked: 'Added to Contacts and linked',
+  /** conversation.move (M19): where it went, and whether the sender's next mail follows. */
+  moved: (folder: 'inbox' | 'other' | 'spam', remembered: boolean) =>
+    `${folder === 'inbox' ? 'Moved to the Inbox' : folder === 'other' ? 'Moved to Other mail' : 'Moved to Spam'}.${
+      remembered
+        ? folder === 'inbox'
+          ? ' Their next email lands in the Inbox too.'
+          : folder === 'other'
+            ? ' Their next email lands in Other mail too.'
+            : ' Their next email lands in Spam too.'
+        : ''
+    }`,
+  /** Nothing moved: it was there already. */
+  alreadyThere: 'It’s already there.',
+  /** conversation.share (M19): out of the person's own mail and into the team's Inbox. */
+  shared: 'Shared with the team. It’s in the team’s Inbox now.',
 } as const;
 
 /** The actions on a conversation, as its menus and the phone's sheet name them. */
@@ -170,6 +185,29 @@ export const CONVERSATION_ACTIONS = {
   handBack: 'Hand back',
   handBackTo: (name: string) => `Hand back to ${name}`,
   keepIt: 'Keep it',
+  /** Email threads between the Inbox, Other mail and Spam (M19). */
+  moveToInbox: 'Move to Inbox',
+  moveToOther: 'Move to Other mail',
+  moveToSpam: 'Move to Spam',
+  notSpam: 'Not spam',
+  /** Remembered for the sender, so their next new thread goes to the same place. */
+  moveSenderToInbox: 'Always put their mail in the Inbox',
+  moveSenderToOther: 'Always put their mail in Other mail',
+  moveSenderToSpam: 'Always put their mail in Spam',
+  /** Someone's own mail (M19): only they see it until they share it. */
+  share: 'Share with the team',
+} as const;
+
+/** What a thread in someone's own mail says about itself (M19). */
+export const PRIVATE_THREAD_WORDS = {
+  badge: 'Only you',
+  banner: 'Only you can see this. Share it with the team to hand it to them.',
+  /** Beside My mail in the inbox. */
+  onlyYou: 'only you see it',
+  back: 'Team inbox',
+  /** Where a customer's details would be. */
+  panel:
+    'Mail to your own address stays out of Contacts while it’s yours. Share it with the team to add them as a customer.',
 } as const;
 
 /** The details sheet's line under the name: "(713) 555-0142 · Customer since 2021", or "Not in Contacts yet". */
@@ -193,3 +231,50 @@ export const NO_NUMBER_WORDS = {
   setUp: 'Set up texting',
   askAdmin: 'Ask an owner or admin to set up texting.',
 } as const;
+
+/** One way to move an email thread from where it is (M19), as `mailMoves` lists them. */
+export interface MailMove {
+  readonly folder: 'inbox' | 'other' | 'spam';
+  /** Remembered for the sender, so their next new thread goes to the same place. */
+  readonly remember: boolean;
+  readonly label: string;
+}
+
+/**
+ * Where an email thread can go from the folder it's in (M19), as a thread's menu and the phone's sheet list them: the
+ * other two folders once, then, for the team's threads only, the same with the sender remembered. Out of Spam, "Not
+ * spam" puts it in Other mail, and Move to Inbox goes a step further. Someone's own mail moves one thread at a time,
+ * since where a sender's mail goes is the team's to say.
+ */
+export function mailMoves(folder: 'inbox' | 'other' | 'spam', ownMail: boolean): MailMove[] {
+  const to =
+    folder === 'inbox'
+      ? (['other', 'spam'] as const)
+      : folder === 'other'
+        ? (['inbox', 'spam'] as const)
+        : (['other', 'inbox'] as const);
+  const once = to.map((f) => ({
+    folder: f,
+    remember: false,
+    label:
+      f === 'inbox'
+        ? CONVERSATION_ACTIONS.moveToInbox
+        : f === 'other'
+          ? folder === 'spam'
+            ? CONVERSATION_ACTIONS.notSpam
+            : CONVERSATION_ACTIONS.moveToOther
+          : CONVERSATION_ACTIONS.moveToSpam,
+  }));
+  if (ownMail) return once;
+  const always = to.map((f) => ({
+    folder: f,
+    remember: true,
+    label:
+      f === 'inbox'
+        ? CONVERSATION_ACTIONS.moveSenderToInbox
+        : f === 'other'
+          ? CONVERSATION_ACTIONS.moveSenderToOther
+          : CONVERSATION_ACTIONS.moveSenderToSpam,
+  }));
+  return [...once, ...always];
+}

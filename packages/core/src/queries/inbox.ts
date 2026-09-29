@@ -423,12 +423,14 @@ export const inboxList = defineQuery({
                 ? sql`and ${c}.handled_by = 'ai'`
                 : sql``;
       // The email folders (M19): Other mail and Spam are boxes of their own, and every other box is the Inbox's.
-      // A customer's record lists all of their threads, wherever they are.
-      const folder = input.personId
-        ? sql``
-        : input.box === 'other' || input.box === 'spam'
-          ? sql`and ${c}.folder = ${input.box}::app.conversation_folder`
-          : sql`and ${c}.folder = 'inbox'`;
+      // A customer's record lists all of their threads, wherever they are, and so does Archived: a thread put away
+      // from Other mail or Spam has nowhere else to be found.
+      const folder =
+        input.personId || input.box === 'archived'
+          ? sql``
+          : input.box === 'other' || input.box === 'spam'
+            ? sql`and ${c}.folder = ${input.box}::app.conversation_folder`
+            : sql`and ${c}.folder = 'inbox'`;
       // The team's threads, or the person's own mailbox (M19). The policies already keep anyone else's out.
       const mailbox =
         input.mailbox === 'mine'
@@ -568,19 +570,28 @@ export const inboxSummary = defineQuery({
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     // Beside the team's Inbox (M19): the viewer's own mailbox, and the team's Other mail and Spam.
-    const [mail] = await rows<{ mine: number; other: number; spam: number }>(
+    const [mail] = await rows<{ mine: number; other: number; spam: number; own: boolean }>(
       ctx.tx,
       sql`select
             count(*) filter (where c.private_to = ${me} and c.folder = 'inbox' and c.unread_count > 0)::int as mine,
             count(*) filter (where c.private_to is null and c.folder = 'other' and c.unread_count > 0)::int as other,
-            count(*) filter (where c.private_to is null and c.folder = 'spam')::int as spam
+            count(*) filter (where c.private_to is null and c.folder = 'spam')::int as spam,
+            (exists (select 1 from app.email_addresses a
+                      where a.workspace_id = ${input.workspaceId} and a.owner_user_id = ${me})
+              or exists (select 1 from app.conversations o
+                      where o.workspace_id = ${input.workspaceId} and o.private_to = ${me})) as own
           from app.conversations c
           where c.workspace_id = ${input.workspaceId} and c.channel = 'email' and c.status = 'open'
             and c.archived_at is null and c.last_message_at is not null
             and (c.folder <> 'inbox' or c.private_to is not null)`,
     );
     return {
-      mail: { mine: mail?.mine ?? 0, other: mail?.other ?? 0, spam: mail?.spam ?? 0 },
+      mail: {
+        mine: mail?.mine ?? 0,
+        other: mail?.other ?? 0,
+        spam: mail?.spam ?? 0,
+        own: mail?.own ?? false,
+      },
       unread: { mine: n('unread_mine'), unassigned: n('unread_unassigned'), all: n('unread_all') },
       open: { mine: n('open_mine'), unassigned: n('open_unassigned'), all: n('open_all') },
       waiting: n('waiting'),

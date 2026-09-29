@@ -242,13 +242,45 @@ database before its step reaches `main`.
 - Sender rules can't be saved from someone's own mailbox, because they are the team's.
 - Removing a departed person's address deletes its mail at once, and a job removes the files. This
   replaces the 30 days first planned, since nothing could bring the mail back meanwhile.
-- **Push for someone's own mail comes with Step 4.** Until then their new mail shows up in their own
-  mailbox with no alert.
+- Push for someone's own mail came with Step 4.
 
-### Step 4 — Screens
+### Step 4 — Screens (built, 2026-09-29)
 
 Settings → Email and the Inbox on the web, the phone's boxes, push for someone's own mail, and
 `pnpm openapi`. (The sync change was made in Step 3.)
+
+**As built:**
+
+- **Inbox, web and phone.** Beside Mine, Unassigned and All: **Other mail** and **Spam**, and **My
+  mail** for whoever has an address of their own (`inbox.summary`'s `mail.own`). My mail has its own
+  Inbox, Other mail and Spam, and a way back to the team's inbox. The web keeps it in the address
+  (`?mail=mine`, `?box=other`); the default view adds nothing. The badges: unread in My mail and
+  Other mail, and everything in Spam. Archived lists threads put away from any folder.
+- **In a thread.** Email threads move between the folders from the More menu (the phone's sheet):
+  from the Inbox to Other mail or Spam, from Other mail to the Inbox or Spam, and from Spam, **Not
+  spam** (to Other mail) or the Inbox. The team's threads also offer "Always put their mail in …",
+  which saves the sender rule. The list is `mailMoves` in core, shared by both.
+- **Adding or linking the customer is the claim.** `conversation.link_person` puts an email thread
+  in the Inbox, so a stranger's thread in Other mail becomes a customer's in one step. It never
+  links the linker's own thread from the same address, which the database would refuse.
+- **Someone's own thread** says "Only you" and offers **Share with the team**. It has no Assign,
+  no Hand to the AI and no Add person, and its sender rules aren't saved.
+- **Settings → Email.** Every domain shows (up to three), with "Another domain" to add one.
+  - Each address on a domain says who reads it. The team's can be given to one person, which asks
+    first, since only an owner can move it again, and only once they've left.
+  - Once its person has left, the address offers the owner's three choices.
+  - A new address becomes the default only while no domain address is.
+  - **Receive mail here too** shows where receiving is open (HandsFreeOS's own business until
+    Step 6), with the MX record, the plan's warning, and Stop.
+  - **Where senders' mail goes** lists the sender rules, each with Remove.
+  - **Mail from people not in Contacts** shows only while old rows remain.
+- **The composer** labels someone's own address "(yours)". The phone's From address never picks
+  an address someone owns for a team thread.
+- **Admin.** A business's page in `/admin` sets "HandsFreeOS's own business" (staff with
+  `platform.own_business.manage`).
+- **Push.** New mail in someone's own Inbox buzzes their phones alone (`onOwnMailPush`, on
+  `email.filed`). It uses the customer-message switch and category, whose Reply and Call work on
+  it and which every app build knows. Other mail and Spam push nobody.
 
 ### Step 5 — HandsFreeOS's own business
 

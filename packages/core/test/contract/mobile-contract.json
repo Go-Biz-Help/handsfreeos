@@ -1828,6 +1828,31 @@
         "required": ["workspaceId", "conversationId"]
       }
     },
+    "conversation.move": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "folder": {
+            "type": "string",
+            "enum": ["inbox", "other", "spam"]
+          },
+          "remember": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "conversationId", "folder"]
+      }
+    },
     "conversation.open": {
       "offline": "anytime",
       "input": {
@@ -1874,6 +1899,23 @@
     },
     "conversation.restore": {
       "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "conversationId"]
+      }
+    },
+    "conversation.share": {
+      "offline": "online",
       "input": {
         "type": "object",
         "properties": {

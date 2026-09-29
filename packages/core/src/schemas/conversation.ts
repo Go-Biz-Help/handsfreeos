@@ -153,9 +153,15 @@ export const InboxSummaryOutput = z.object({
   ai: z.number().int(),
   /**
    * Beside the team's Inbox (M19): unread in the viewer's own mailbox, unread in the team's Other mail, and open
-   * threads in the team's Spam.
+   * threads in the team's Spam; and whether the viewer has mail of their own at all (an address that is theirs, or
+   * threads from one), so My mail shows only for them.
    */
-  mail: z.object({ mine: z.number().int(), other: z.number().int(), spam: z.number().int() }),
+  mail: z.object({
+    mine: z.number().int(),
+    other: z.number().int(),
+    spam: z.number().int(),
+    own: z.boolean(),
+  }),
 });
 
 export const canTextReason = z.enum([

@@ -61038,12 +61038,16 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "own": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "mine",
                         "other",
-                        "spam"
+                        "spam",
+                        "own"
                       ],
                       "additionalProperties": false
                     }

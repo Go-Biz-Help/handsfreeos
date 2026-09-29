@@ -20,7 +20,7 @@ export default async function EmailSettingsPage({
   const { api } = await apiServer();
   const got = unwrapPage(await api.POST('/v1/queries/workspace.get', { body: { workspaceId } }));
   if (!can(got.workspace.permissions, 'channels.manage')) notFound();
-  const [status, blocked, unmatched, tags] = await Promise.all([
+  const [status, blocked, unmatched, senderRules, members, tags] = await Promise.all([
     api.POST('/v1/queries/email.setup_status', { body: { workspaceId } }).then(unwrapPage),
     api
       .POST('/v1/queries/email_suppression.list', { body: { workspaceId, limit: 50 } })
@@ -28,8 +28,14 @@ export default async function EmailSettingsPage({
     api
       .POST('/v1/queries/email.unmatched_list', { body: { workspaceId, limit: 50 } })
       .then(unwrapPage),
+    api.POST('/v1/queries/email_sender_rule.list', { body: { workspaceId } }).then(unwrapPage),
+    api.POST('/v1/queries/workspace.members', { body: { workspaceId } }).then(unwrapPage),
     api.POST('/v1/queries/tag.list', { body: { workspaceId } }).then(unwrapPage),
   ]);
+  // Everyone who works the inbox can be given an address of their own (M19).
+  const people = members.members
+    .filter((m) => can(m.permissions, 'inbox.use'))
+    .map((m) => ({ userId: m.userId, name: m.fullName.trim() || m.email }));
   return (
     <>
       <EmailPage
@@ -38,6 +44,8 @@ export default async function EmailSettingsPage({
         status={status}
         blocked={blocked.items}
         unmatched={unmatched.items}
+        senderRules={senderRules.items}
+        people={people}
         tags={tags.tags}
         mailboxResult={typeof mailbox === 'string' ? mailbox : null}
       />

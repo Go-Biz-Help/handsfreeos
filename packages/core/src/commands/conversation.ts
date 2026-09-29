@@ -610,16 +610,21 @@ export const conversationLinkPerson = defineCommand({
      *
      * The lane that was clicked moves whoever it was linked to before, because re-linking a thread put on the
      * wrong customer is exactly what this command is for. A *sibling* already linked to somebody else is left
-     * alone: that was a separate decision and this click did not overrule it.
+     * alone: that was a separate decision and this click did not overrule it. So is the linker's own mail from the
+     * same address (M19): it stays theirs, and off the customer, until they share it.
+     *
+     * Email from someone now a customer is the Inbox's (M19): linking is how a thread in Other mail or Spam is
+     * claimed, so it moves there, and their next mail wakes the teammate, workflows and push as a customer's does.
      */
     await ctx.tx
       .update(conversations)
-      .set({ personId: person.id })
+      .set({ personId: person.id, ...(c.channel === 'email' ? { folder: 'inbox' as const } : {}) })
       .where(
         and(
           eq(conversations.workspaceId, workspaceId),
           eq(conversations.channel, c.channel),
           eq(conversations.counterpart, c.counterpart),
+          isNull(conversations.privateTo),
           or(eq(conversations.id, c.id), isNull(conversations.personId)),
         ),
       );
@@ -631,7 +636,12 @@ export const conversationLinkPerson = defineCommand({
       entityId: c.id,
       payload: { personId: person.id, previousPersonId: c.personId, phoneAdded },
       before: { person: previous },
-      after: { person: name, with: withWho(c), contactAdded: phoneAdded },
+      after: {
+        person: name,
+        with: withWho(c),
+        contactAdded: phoneAdded,
+        ...(c.channel === 'email' && c.folder !== 'inbox' ? { folder: 'the Inbox' } : {}),
+      },
     });
     return { conversationId: c.id, personId: person.id, phoneAdded };
   },

@@ -7,6 +7,7 @@ import {
   type ThreadItemShape,
 } from '@hfos/core';
 
+import { change } from '@/changes';
 import { FakePowerSync } from '@/changes/__tests__/fake-powersync';
 import type { ChangeOptions } from '@/changes/controller';
 import type { OutboxRow } from '@/changes/outbox';
@@ -15,8 +16,17 @@ import { toast } from '@/components/ui/toast';
 
 import { conversationActions } from '../actions';
 import { CALL_REQUEST_KEPT_MS, callRequests, startCall } from '../calls';
-import { cancelledHere, pendingReplies, replyStage, withOwnChanges } from '../outbox';
-import { MESSAGES_SQL } from '../queries';
+import {
+  cancelledHere,
+  forgetMovedHere,
+  markMovedHere,
+  pendingReplies,
+  replyStage,
+  withMovedHere,
+  withOwnChanges,
+} from '../outbox';
+import { CONVERSATIONS_SQL, MESSAGES_SQL, OWN_ADDRESS_SQL } from '../queries';
+import { FROM_ADDRESS_SQL } from '../use-email';
 import { noteOf, threadEntries } from '../thread-entries';
 
 // A change made here writes its optimistic rows to the phone's copy (real SQLite) and waits for signal.
@@ -32,7 +42,8 @@ jest.mock('@/changes', () => ({
 
 /**
  * The inbox on the phone: a conversation as this phone's own changes leave it, the replies written here that the thread
- * shows until HandsFreeOS sends them back, the thread's order with its day dividers, and Call asked for from anywhere.
+ * shows until HandsFreeOS sends them back, the thread's order with its day dividers, Call asked for from anywhere, and
+ * email's folders and someone's own mail (M19): what the list reads, the From address, moving and sharing.
  */
 
 const WS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -444,5 +455,168 @@ describe('Call, asked for from anywhere', () => {
     expect(callRequests.current()!.seq).toBe(first!.seq + 1);
     expect(callRequests.take(WS, Date.now() + CALL_REQUEST_KEPT_MS + 1)).toBeNull();
     expect(callRequests.current()).toBeNull();
+  });
+});
+
+describe('email’s folders and someone’s own mail (M19)', () => {
+  const ME = DALE.id;
+  const thread = (
+    id: string,
+    over: { folder?: string | null; privateTo?: string | null; address?: string | null } = {},
+  ) =>
+    mockCopy.execute(
+      `INSERT INTO conversations (id, workspace_id, channel, counterpart, status, unread_count, last_message_at,
+         created_at, folder, private_to, email_address_id)
+       VALUES (?, ?, 'email', ?, 'open', 1, '2026-09-17T12:30:00.000Z', '2026-09-17T12:00:00.000Z', ?, ?, ?)`,
+      [
+        id,
+        WS,
+        `${id}@example.com`,
+        over.folder === undefined ? 'inbox' : over.folder,
+        over.privateTo ?? null,
+        over.address ?? null,
+      ],
+    );
+  const address = (id: string, owner: string | null, isDefault = false) =>
+    mockCopy.execute(
+      `INSERT INTO email_addresses (id, workspace_id, address, is_default, owner_user_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, WS, `${id}@lonestarhvac.com`, isDefault ? 1 : 0, owner, '2026-09-01T12:00:00.000Z'],
+    );
+
+  beforeEach(() => {
+    mockCopy = new FakePowerSync();
+    forgetMovedHere();
+  });
+
+  it('lists the team’s threads and the person’s own, in their folders, and never anyone else’s', async () => {
+    await thread('team');
+    await thread('before-folders', { folder: null });
+    await thread('deals', { folder: 'other' });
+    await thread('prize', { folder: 'spam' });
+    await thread('mine', { privateTo: ME });
+    await thread('marcos', { privateTo: MARCO });
+    const rows = await mockCopy.getAll<ConversationListRow>(CONVERSATIONS_SQL, [WS, ME]);
+    expect(
+      rows
+        .map(conversationOf)
+        .map((c) => [c.id, c.folder, c.privateTo, c.private])
+        .sort(),
+    ).toEqual([
+      ['before-folders', 'inbox', null, false],
+      ['deals', 'other', null, false],
+      ['mine', 'inbox', ME, true],
+      ['prize', 'spam', null, false],
+      ['team', 'inbox', null, false],
+    ]);
+    // My mail shows for someone with an address of their own, before any mail has come to it.
+    await address('dale', ME);
+    expect(await mockCopy.getAll(OWN_ADDRESS_SQL, [WS, ME])).toEqual([{ own: 1 }]);
+    expect(await mockCopy.getAll(OWN_ADDRESS_SQL, [WS, MARCO])).toEqual([{ own: 0 }]);
+  });
+
+  it('answers someone’s own mail from its own address, and the team’s only from the team’s', async () => {
+    await address('office', null, true);
+    await address('sales', null);
+    await address('dale', ME);
+    await address('marco', MARCO);
+    await thread('own', { privateTo: ME, address: 'dale' });
+    await thread('sales-thread', { address: 'sales' });
+    // Shared with the team from someone's own mail: the team answers from a team address, even its owner.
+    await thread('shared-by-dale', { address: 'dale' });
+    await thread('shared-by-marco', { address: 'marco' });
+    const from = async (conversationId: string) =>
+      mockCopy.getAll<{ id: string; own: number }>(FROM_ADDRESS_SQL, [conversationId, WS]);
+    expect(await from('own')).toMatchObject([{ id: 'dale', own: 1 }]);
+    expect(await from('sales-thread')).toMatchObject([{ id: 'sales', own: 0 }]);
+    expect(await from('shared-by-dale')).toMatchObject([{ id: 'office', own: 0 }]);
+    expect(await from('shared-by-marco')).toMatchObject([{ id: 'office', own: 0 }]);
+    // Writing to a customer from a text thread, or a thread not on this phone: the business's default.
+    expect(await from('not-here')).toMatchObject([{ id: 'office', own: 0 }]);
+  });
+
+  it('moves a thread online, shows it moved at once, and says so', async () => {
+    const show = jest.spyOn(toast, 'show').mockImplementation(() => 1);
+    const error = jest.spyOn(toast, 'error').mockImplementation(() => 1);
+    const actions = conversationActions({ workspaceId: WS, conversationId: CONV, myUserId: ME });
+    const mail = conversationOf({ ...base, channel: 'email', counterpart: 'mike@example.com' });
+
+    jest.mocked(change).mockResolvedValueOnce({
+      id: 'x',
+      queued: false,
+      output: { conversationId: CONV, folder: 'spam', changed: true },
+    } as never);
+    expect(await actions.move('spam')).toBe(true);
+    expect(change).toHaveBeenLastCalledWith('conversation.move', {
+      workspaceId: WS,
+      conversationId: CONV,
+      folder: 'spam',
+      remember: false,
+    });
+    expect(show).toHaveBeenLastCalledWith('Moved to Spam.');
+    // Until the synced row arrives, and not a moment longer.
+    expect(withMovedHere(mail).folder).toBe('spam');
+    expect(withMovedHere({ ...mail, folder: 'spam' }).folder).toBe('spam');
+    expect(withMovedHere(mail).folder).toBe('inbox');
+
+    jest.mocked(change).mockResolvedValueOnce({
+      id: 'x',
+      queued: false,
+      output: { conversationId: CONV, folder: 'other', changed: false },
+    } as never);
+    expect(await actions.move('other')).toBe(false);
+    expect(show).toHaveBeenLastCalledWith(CONVERSATION_DONE.alreadyThere);
+
+    jest.mocked(change).mockResolvedValueOnce({
+      id: 'x',
+      queued: false,
+      output: { conversationId: CONV, folder: 'inbox', changed: true },
+    } as never);
+    expect(await actions.move('inbox', true)).toBe(true);
+    expect(show).toHaveBeenLastCalledWith(
+      'Moved to the Inbox. Their next email lands in the Inbox too.',
+    );
+
+    // Refused, or no signal: the words say why, and nothing moves.
+    jest
+      .mocked(change)
+      .mockRejectedValueOnce(
+        new Error(
+          'Where a sender’s mail goes is the team’s to remember, so it can’t be saved from your own mailbox.',
+        ),
+      );
+    expect(await actions.move('spam', true)).toBe(false);
+    expect(error).toHaveBeenLastCalledWith(
+      'Where a sender’s mail goes is the team’s to remember, so it can’t be saved from your own mailbox.',
+    );
+    show.mockRestore();
+    error.mockRestore();
+  });
+
+  it('shares someone’s own mail with the team, out of My mail at once', async () => {
+    const show = jest.spyOn(toast, 'show').mockImplementation(() => 1);
+    const actions = conversationActions({ workspaceId: WS, conversationId: CONV, myUserId: ME });
+    jest.mocked(change).mockResolvedValueOnce({
+      id: 'x',
+      queued: false,
+      output: { conversationId: CONV, personId: null },
+    } as never);
+    expect(await actions.share()).toBe(true);
+    expect(change).toHaveBeenLastCalledWith('conversation.share', {
+      workspaceId: WS,
+      conversationId: CONV,
+    });
+    expect(show).toHaveBeenLastCalledWith(CONVERSATION_DONE.shared);
+    const own = conversationOf({
+      ...base,
+      channel: 'email',
+      person_id: null,
+      private_to: ME,
+    });
+    expect(withMovedHere(own)).toMatchObject({ privateTo: null, private: false });
+    // A move made here stands a minute at most, since someone may have moved it again since.
+    markMovedHere(OTHER, { folder: 'other' }, Date.now() - 61_000);
+    expect(withMovedHere({ ...own, id: OTHER }).folder).toBe('inbox');
+    show.mockRestore();
   });
 });

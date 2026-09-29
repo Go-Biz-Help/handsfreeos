@@ -17,6 +17,8 @@ import type {
   SystemActor,
 } from '../src/kernel/types';
 import {
+  conversationArchive,
+  conversationLinkPerson,
   conversationMove,
   emailAddressCreate,
   emailReceive,
@@ -288,8 +290,51 @@ describe('the inbox’s boxes', () => {
 
     const before = await ask(inboxSummary, { workspaceId: wsId }, owner);
     await receive({ from: { address: stranger() } });
-    expect((await ask(inboxSummary, { workspaceId: wsId }, owner)).unread.all).toBe(
-      before.unread.all,
+    const after = await ask(inboxSummary, { workspaceId: wsId }, owner);
+    expect(after.unread.all).toBe(before.unread.all);
+    // Counted beside the Inbox instead: unread in Other mail, and everything in Spam.
+    expect(after.mail.other).toBe(before.mail.other + 1);
+    expect(after.mail.spam).toBeGreaterThanOrEqual(1);
+    // Nobody here has an address of their own, so there's no My mail to show.
+    expect(after.mail).toMatchObject({ mine: 0, own: false });
+  });
+});
+
+describe('archiving', () => {
+  it('finds a thread put away from Other mail in Archived', async () => {
+    const got = await receive({ from: { address: stranger() }, subject: 'Put me away' });
+    await run(
+      conversationArchive,
+      { workspaceId: wsId, conversationId: got.conversationId },
+      owner,
     );
+    const ids = async (box: string) =>
+      (await ask(inboxList, { workspaceId: wsId, box, limit: 100 }, owner)).items.map((i) => i.id);
+    expect(await ids('archived')).toContain(got.conversationId);
+    expect(await ids('other')).not.toContain(got.conversationId);
+  });
+});
+
+describe('adding the customer', () => {
+  it('claims a stranger’s thread from Other mail or Spam into the Inbox', async () => {
+    const address = stranger();
+    const got = await receive({ from: { address }, subject: 'Heat pump quote?' });
+    expect((await thread(got.conversationId!)).folder).toBe('other');
+    const karen = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: 'Karen', lastName: 'Liu', email: address },
+      member,
+    );
+    await run(
+      conversationLinkPerson,
+      { workspaceId: wsId, conversationId: got.conversationId, personId: karen.personId },
+      member,
+    );
+    expect(await thread(got.conversationId!)).toMatchObject({
+      folder: 'inbox',
+      person_id: karen.personId,
+    });
+    const listed = await ask(inboxList, { workspaceId: wsId, box: 'all', limit: 100 }, owner);
+    expect(listed.items.map((i) => i.id)).toContain(got.conversationId);
   });
 });

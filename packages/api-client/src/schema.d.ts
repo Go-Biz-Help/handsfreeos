@@ -35598,6 +35598,7 @@ export interface operations {
                         mail: {
                             mine: number;
                             other: number;
+                            own: boolean;
                             spam: number;
                         };
                         needsPerson: number;

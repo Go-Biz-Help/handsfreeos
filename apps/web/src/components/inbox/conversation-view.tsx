@@ -11,9 +11,11 @@ import {
   DRAFT_AFTER,
   handlingView,
   handoverNote,
+  mailMoves,
   memberLabel,
   NO_NUMBER_WORDS,
   notCustomerBanner,
+  PRIVATE_THREAD_WORDS,
   quietStrip,
   rowName,
   SENT_WORDS,
@@ -33,11 +35,15 @@ import {
   ChevronDown,
   CircleCheck,
   Copy,
+  Inbox,
   Info,
   Loader2,
+  Lock,
   Mail,
   MoreHorizontal,
   Phone,
+  Share2,
+  ShieldAlert,
   Sparkles,
   Undo2,
   UserPlus,
@@ -260,6 +266,13 @@ export function ConversationView({
   });
   const calls = useCalls();
   const email = c.channel === 'email';
+  // Someone's own mail (M19): theirs alone, so nobody to assign it to and no customer to make of it.
+  const priv = c.private;
+  const moves = (email && !allLanes ? mailMoves(c.folder, priv) : []).map((m) => ({
+    ...m,
+    icon: FOLDER_ICON[m.folder],
+    testId: `thread-${m.remember ? 'always' : 'move'}-${m.folder}`,
+  }));
   // Calls go to a text conversation's number, known customer or not. An email thread or a website chat uses
   // the customer's phone, so a chat visitor not in Contacts has no Call (the chat's counterpart isn't a
   // number). Customers see the business number.
@@ -477,7 +490,12 @@ export function ConversationView({
   const notCustomer = notCustomerBanner(c.counterpartDisplay, c.channel);
   // Handing a conversation to the teammate: back from a person, or one nobody is handling yet.
   const canHandToAi =
-    !!tm && tm.status !== 'off' && view !== 'ai' && view !== 'needs_person' && view !== 'person';
+    !priv &&
+    !!tm &&
+    tm.status !== 'off' &&
+    view !== 'ai' &&
+    view !== 'needs_person' &&
+    view !== 'person';
 
   // After the newest message: the draft waiting for an OK, or what became of the last one.
   const latest = drafts.latest;
@@ -582,50 +600,61 @@ export function ConversationView({
             <AttentionWaitingChip item={onHome} now={now} href={`/app/w/${workspaceId}`} />
           ) : null}
           {chat && data.chat?.onSiteNow ? <SiteTag /> : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                title="Assign this conversation"
-                data-testid="assign-menu"
-              >
-                {c.assignee ? (
-                  <Avatar
-                    name={c.assignee.fullName}
-                    seed={c.assignee.id}
-                    size="sm"
-                    className="h-5 w-5 text-[9px]"
-                  />
-                ) : (
-                  <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                )}
-                {assigneeName ?? CONVERSATION_ACTIONS.assign}
-                <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="min-w-[220px]">
-              <DropdownMenuLabel>{CONVERSATION_ACTIONS.assignTo}</DropdownMenuLabel>
-              {members.map((m) => (
-                <DropdownMenuItem
-                  key={m.id}
-                  onSelect={() => void assign(m.id, m.fullName)}
-                  data-testid={`assign-to-${m.id}`}
+          {priv ? (
+            <span
+              className="inline-flex h-7 items-center gap-1 rounded-full bg-card-2 px-2.5 text-xs font-medium text-text-2"
+              data-testid="thread-private"
+            >
+              <Lock className="h-3 w-3" strokeWidth={1.5} />
+              {PRIVATE_THREAD_WORDS.badge}
+            </span>
+          ) : null}
+          {priv ? null : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  title="Assign this conversation"
+                  data-testid="assign-menu"
                 >
-                  <Avatar name={m.fullName} seed={m.id} size="sm" />
-                  <span className="flex-1 truncate">{memberLabel(m, myUserId)}</span>
-                  {c.assignee?.id === m.id ? (
-                    <Check className="h-3.5 w-3.5 text-accent-text" strokeWidth={2} />
-                  ) : null}
+                  {c.assignee ? (
+                    <Avatar
+                      name={c.assignee.fullName}
+                      seed={c.assignee.id}
+                      size="sm"
+                      className="h-5 w-5 text-[9px]"
+                    />
+                  ) : (
+                    <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  )}
+                  {assigneeName ?? CONVERSATION_ACTIONS.assign}
+                  <ChevronDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="min-w-[220px]">
+                <DropdownMenuLabel>{CONVERSATION_ACTIONS.assignTo}</DropdownMenuLabel>
+                {members.map((m) => (
+                  <DropdownMenuItem
+                    key={m.id}
+                    onSelect={() => void assign(m.id, m.fullName)}
+                    data-testid={`assign-to-${m.id}`}
+                  >
+                    <Avatar name={m.fullName} seed={m.id} size="sm" />
+                    <span className="flex-1 truncate">{memberLabel(m, myUserId)}</span>
+                    {c.assignee?.id === m.id ? (
+                      <Check className="h-3.5 w-3.5 text-accent-text" strokeWidth={2} />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator className="my-1.5" />
+                <DropdownMenuItem onSelect={() => void assign(null)} data-testid="assign-nobody">
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {CONVERSATION_ACTIONS.nobody}
                 </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator className="my-1.5" />
-              <DropdownMenuItem onSelect={() => void assign(null)} data-testid="assign-nobody">
-                <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                {CONVERSATION_ACTIONS.nobody}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {c.status === 'open' ? (
             <>
               <DropdownMenu>
@@ -702,6 +731,11 @@ export function ConversationView({
                   <UserRound className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {CONVERSATION_ACTIONS.openCustomer}
                 </DropdownMenuItem>
+              ) : priv ? (
+                <DropdownMenuItem onSelect={() => void actions.share()} data-testid="thread-share">
+                  <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {CONVERSATION_ACTIONS.share}
+                </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem onSelect={() => setAddPerson(true)}>
                   <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -739,6 +773,21 @@ export function ConversationView({
                   {email ? CONVERSATION_ACTIONS.copyEmail : CONVERSATION_ACTIONS.copyPhone}
                 </DropdownMenuItem>
               )}
+              {moves.length ? (
+                <>
+                  <DropdownMenuSeparator />
+                  {moves.map((m) => (
+                    <DropdownMenuItem
+                      key={m.testId}
+                      onSelect={() => void actions.move(m.folder, m.remember)}
+                      data-testid={m.testId}
+                    >
+                      <m.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      {m.label}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              ) : null}
               {canArchive ? (
                 <>
                   <DropdownMenuSeparator />
@@ -827,7 +876,26 @@ export function ConversationView({
           </button>
         </header>
 
-        {person ? null : (
+        {person ? null : priv ? (
+          <Callout
+            tone="info"
+            icon={Lock}
+            className={bannerClass}
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                className="max-md:min-h-11"
+                onClick={() => void actions.share()}
+                data-testid="banner-share"
+              >
+                {CONVERSATION_ACTIONS.share}
+              </Button>
+            }
+          >
+            {PRIVATE_THREAD_WORDS.banner}
+          </Callout>
+        ) : (
           <Callout
             tone="info"
             icon={UserPlus}
@@ -999,6 +1067,17 @@ export function ConversationView({
               <SheetAction icon={UserRound} onClick={() => router.push(customerHref)}>
                 {CONVERSATION_ACTIONS.openCustomer}
               </SheetAction>
+            ) : priv ? (
+              <SheetAction
+                icon={Share2}
+                testId="sheet-share"
+                onClick={() => {
+                  setDetails(false);
+                  void actions.share();
+                }}
+              >
+                {CONVERSATION_ACTIONS.share}
+              </SheetAction>
             ) : (
               <SheetAction
                 icon={UserPlus}
@@ -1010,17 +1089,32 @@ export function ConversationView({
                 {CONVERSATION_ACTIONS.addPerson}
               </SheetAction>
             )}
-            <SheetAction
-              icon={Users}
-              detail={assigneeName ?? CONVERSATION_ACTIONS.nobody}
-              testId="sheet-assign"
-              onClick={() => {
-                setDetails(false);
-                setAssignSheet(true);
-              }}
-            >
-              {CONVERSATION_ACTIONS.assign}
-            </SheetAction>
+            {priv ? null : (
+              <SheetAction
+                icon={Users}
+                detail={assigneeName ?? CONVERSATION_ACTIONS.nobody}
+                testId="sheet-assign"
+                onClick={() => {
+                  setDetails(false);
+                  setAssignSheet(true);
+                }}
+              >
+                {CONVERSATION_ACTIONS.assign}
+              </SheetAction>
+            )}
+            {moves.map((m) => (
+              <SheetAction
+                key={m.testId}
+                icon={m.icon}
+                testId={`sheet-${m.testId.slice('thread-'.length)}`}
+                onClick={() => {
+                  setDetails(false);
+                  void actions.move(m.folder, m.remember).then((ok) => ok && router.push(listHref));
+                }}
+              >
+                {m.label}
+              </SheetAction>
+            ))}
             {canHandToAi ? (
               <SheetAction
                 icon={Sparkles}
@@ -1113,7 +1207,8 @@ export function ConversationView({
         tags={tags}
         open={addPerson}
         onOpenChange={setAddPerson}
-        defaultPhone={c.counterpartDisplay}
+        defaultPhone={email ? undefined : c.counterpartDisplay}
+        defaultEmail={email ? c.counterpart : undefined}
         onSaved={(personId) => void linkNewPerson(personId)}
       />
       <LinkPersonDialog
@@ -1149,3 +1244,10 @@ export function ConversationView({
     </div>
   );
 }
+
+/** How each email folder looks in a thread's menu (M19). */
+const FOLDER_ICON: Record<'inbox' | 'other' | 'spam', LucideIcon> = {
+  inbox: Undo2,
+  other: Inbox,
+  spam: ShieldAlert,
+};

@@ -39,7 +39,7 @@ import { standIns } from '../booking/team-email';
 import { conversationContact } from '../chat/store';
 import { handlersFor, type EventHandler, type HandlerMap } from '../handlers/types';
 import type { TenantScope } from '../services';
-import { onCustomerMessagePush } from './arrival';
+import { onCustomerMessagePush, onOwnMailPush } from './arrival';
 import {
   isRecord,
   managerIds,
@@ -645,6 +645,8 @@ export const onMissedCallPush = pushMoment('missedCall', async (ctx, scope) => {
 /** Event type → the push it may bring. */
 const PUSH_HANDLERS: Readonly<Record<string, EventHandler>> = {
   'message.received': onCustomerMessagePush,
+  // Someone's own mail (M19), to them alone; the team's Other mail and Spam push nobody.
+  'email.filed': onOwnMailPush,
   'call.missed': onMissedCallPush,
   'call.voicemail_left': onMissedCallPush,
   'workflow.approval_requested': onApprovalPush,

@@ -1,5 +1,5 @@
 'use client';
-import { CONVERSATION_DONE, type InboxBoxKey, type NoteEntry } from '@hfos/core';
+import { CONVERSATION_DONE, type InboxBoxKey, type InboxMailbox, type NoteEntry } from '@hfos/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -15,6 +15,8 @@ import { useUnread } from '@/lib/realtime/unread-provider';
 export interface InboxFilters {
   /** Mine, unassigned or everyone's, or the AI teammate's boxes: "Needs a person" and its own. */
   readonly box: InboxBoxKey;
+  /** The team's threads (the default), or the person's own mail (M19). */
+  readonly mailbox?: InboxMailbox;
   readonly status: ConversationStatus;
   readonly channel?: 'sms' | 'email' | 'chat';
   readonly q?: string;
@@ -34,7 +36,8 @@ export function useInboxList(workspaceId: string, filters: InboxFilters) {
     ['conversation', 'message', 'call', 'person', 'ai_teammate_draft'],
     300,
   );
-  const key = `${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}|${filters.unread ? 'unread' : ''}`;
+  const mailbox = filters.mailbox ?? 'team';
+  const key = `${mailbox}|${filters.box}|${filters.status}|${filters.channel ?? ''}|${filters.q ?? ''}|${filters.unread ? 'unread' : ''}`;
   const [state, setState] = useState<{
     key: string;
     items: ConversationSummary[];
@@ -50,12 +53,13 @@ export function useInboxList(workspaceId: string, filters: InboxFilters) {
     () => ({
       workspaceId,
       box: filters.box,
+      ...(mailbox === 'mine' ? { mailbox } : {}),
       status: filters.status,
       ...(filters.channel ? { channel: filters.channel } : {}),
       ...(filters.q ? { q: filters.q } : {}),
       ...(filters.unread ? { unread: true } : {}),
     }),
-    [workspaceId, filters.box, filters.status, filters.channel, filters.q, filters.unread],
+    [workspaceId, filters.box, mailbox, filters.status, filters.channel, filters.q, filters.unread],
   );
 
   useEffect(() => {
@@ -414,6 +418,34 @@ export function useConversationActions(
         return false;
       }
     },
+    /** An email thread to the Inbox, Other mail or Spam (M19); with remember, the sender's next thread too. */
+    move: async (folder: 'inbox' | 'other' | 'spam', remember = false): Promise<boolean> => {
+      try {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/commands/conversation.move', {
+            body: { ...ref, folder, remember },
+          }),
+        );
+        toast.success(
+          out.changed || remember
+            ? CONVERSATION_DONE.moved(folder, remember)
+            : CONVERSATION_DONE.alreadyThere,
+        );
+        refreshUnread();
+        after();
+        return true;
+      } catch (e) {
+        toast.error(errorMessage(e));
+        return false;
+      }
+    },
+    /** Out of the person's own mail and into the team's Inbox (M19). */
+    share: () =>
+      attempt(
+        async () =>
+          unwrap(await apiBrowser().POST('/v1/commands/conversation.share', { body: ref })),
+        CONVERSATION_DONE.shared,
+      ),
     archive: () =>
       attempt(
         async () =>

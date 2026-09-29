@@ -26,6 +26,7 @@ import {
   emailComposeOptions,
   emailReceive,
   inboxList,
+  inboxSummary,
   messageSend,
   organizationCreate,
   personCreate,
@@ -368,6 +369,55 @@ describe('sharing with the team', () => {
     });
     const events = (await eventsOf(got.conversationId!)).map((e) => e.event_type);
     expect(events).toEqual(expect.arrayContaining(['conversation.shared', 'conversation.linked']));
+  });
+});
+
+describe('linking the team’s thread to a customer', () => {
+  it('leaves the linker’s own thread with the same sender theirs, and off the customer', async () => {
+    const pal = `pal-${token()}@example.com`;
+    const own = await receive(pal, chrisAddress, { subject: 'Lunch?' });
+    const teamMail = await receive(pal, team.id, { subject: 'A quote, please' });
+    // Lead intake made a customer of the team's mail; Chris puts it on the right one.
+    const p = await run(
+      personCreate,
+      {
+        workspaceId: wsId,
+        firstName: 'Pal',
+        lastName: 'Jones',
+        email: `pj-${token()}@example.com`,
+      },
+      owner,
+    );
+    // Chris can see both threads; linking the team's must not reach into his own.
+    await run(
+      conversationLinkPerson,
+      { workspaceId: wsId, conversationId: teamMail.conversationId, personId: p.personId },
+      chris,
+    );
+    expect(await thread(teamMail.conversationId!)).toMatchObject({
+      private_to: null,
+      person_id: p.personId,
+    });
+    expect(await thread(own.conversationId!)).toMatchObject({
+      private_to: chris.id,
+      person_id: null,
+    });
+  });
+});
+
+describe('the inbox badge', () => {
+  it('counts someone’s own unread mail for them alone, and shows My mail only to who has any', async () => {
+    const before = await ask(inboxSummary, { workspaceId: wsId }, chris);
+    expect(before.mail.own).toBe(true);
+    await receive(`buddy-${token()}@example.com`, chrisAddress);
+    const after = await ask(inboxSummary, { workspaceId: wsId }, chris);
+    expect(after.mail.mine).toBe(before.mail.mine + 1);
+    // Their own mail isn't the team's, so the team's badge doesn't move.
+    expect(after.unread.all).toBe(before.unread.all);
+    expect((await ask(inboxSummary, { workspaceId: wsId }, member)).mail).toMatchObject({
+      mine: 0,
+      own: false,
+    });
   });
 });
 
