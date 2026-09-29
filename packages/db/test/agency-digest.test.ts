@@ -74,3 +74,39 @@ describe('the agency digest’s organizations', () => {
     expect(asPerson.code).toBe('42501');
   });
 });
+
+describe('when a business’s own owners last signed in', () => {
+  it('answers the agency’s owners and the worker bound to the business, and nobody else', async () => {
+    const agency = await createTestUser('signin-agency');
+    const client = await createTestUser('signin-client');
+    const stranger = await createTestUser('signin-stranger');
+    const { orgId, wsId } = await bootstrapOrganization(
+      agency,
+      'Sign-in Agency',
+      'Sign-in Plumbing',
+    );
+    await rows(
+      dbs.admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${wsId}, ${client.id}, 'owner')`,
+    );
+    await rows(
+      dbs.admin.db,
+      sql`update auth.users set last_sign_in_at = now() - interval '6 days' where id = ${client.id}`,
+    );
+    await rows(
+      dbs.admin.db,
+      sql`update auth.users set last_sign_in_at = now() where id = ${agency.id}`,
+    );
+    const ask = (run: ReturnType<typeof as>) =>
+      run((tx) =>
+        rows<{ at: Date | null }>(tx, sql`select private.owners_last_sign_in(${wsId}) as at`),
+      ).then((r) => r[0]?.at ?? null);
+    // The client's own owner, six days ago; not the agency's owner, who signed in just now.
+    const seen = await ask(as(agency));
+    expect(seen).not.toBeNull();
+    expect(Date.now() - new Date(seen!).getTime()).toBeGreaterThan(5 * 24 * 3600 * 1000);
+    expect(await ask(asService({ workspaceId: wsId, organizationId: orgId }))).not.toBeNull();
+    expect(await ask(as(client))).toBeNull();
+    expect(await ask(as(stranger))).toBeNull();
+  });
+});

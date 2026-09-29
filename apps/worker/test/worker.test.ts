@@ -8,6 +8,7 @@ import {
   invitationAccept,
   invitationResend,
   membershipInvite,
+  onboardingRemind,
   onboardingSendLink,
   organizationCreate,
   personCreate,
@@ -36,6 +37,7 @@ const meta = () => ({ correlationId: randomUUID(), channel: 'test' as const });
 
 let owner: TestUser;
 let workspaceId: string;
+let organizationId: string;
 let deps: OutboxDeps;
 
 /**
@@ -87,6 +89,7 @@ beforeAll(async () => {
     meta(),
   );
   workspaceId = output.workspaceId;
+  organizationId = output.organizationId;
   deps = {
     ...testServices(),
     handlers,
@@ -161,6 +164,38 @@ describe('Getting started: “Email me a link”', () => {
     const body = await mailpitBody(mine[0]!.ID);
     expect(body).toContain('Lone Star HVAC & Roofing');
     expect(body).toContain(`http://localhost:3000/onboarding/${workspaceId}/setup/customers`);
+  });
+});
+
+describe('Getting started: an agency’s reminder', () => {
+  it('emails the business’s own owners their next step, and nobody from the agency', async () => {
+    const client = await createTestUser('worker-client', { fullName: 'Riley Chen' });
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${client.id}, 'owner')`,
+    );
+    const { output, eventIds } = await executeCommand(
+      testDbs().api.db,
+      onboardingRemind,
+      { organizationId, workspaceId },
+      actor(owner),
+      meta(),
+    );
+    expect(output).toEqual({ workspaceId, step: 'number', to: [client.email] });
+    await reserveForTests(eventIds);
+    await processReserved(deps);
+    const mine = await mailpitSearch(client.email);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.Subject).toBe(
+      'Your next step for Lone Star HVAC & Roofing: Business number & texting',
+    );
+    const body = await mailpitBody(mine[0]!.ID);
+    expect(body).toContain('Go Biz Help asked us to remind you');
+    expect(body).toContain(`http://localhost:3000/onboarding/${workspaceId}/setup/number`);
+    expect(
+      (await mailpitSearch(owner.email)).filter((m) => m.Subject.startsWith('Your next step')),
+    ).toHaveLength(0);
   });
 });
 
