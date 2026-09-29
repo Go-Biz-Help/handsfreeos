@@ -177,7 +177,7 @@ describe('error bodies', () => {
     expect(broken.json()).toEqual({
       error: {
         code: 'internal',
-        message: 'Something went wrong on our side.',
+        message: 'Something went wrong on our side. Try again in a minute.',
         disposition: 'retry',
       },
     });
