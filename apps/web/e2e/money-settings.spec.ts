@@ -90,8 +90,8 @@ test('Settings → Payments: two accounts, the default, a disconnect, and every 
   expect(tabs).toContain('Products');
   expect(tabs.indexOf('Payments')).toBeGreaterThan(tabs.indexOf('Website chat'));
   expect(tabs.indexOf('Products')).toBe(tabs.indexOf('Payments') + 1);
-  await expect(nav.getByRole('group', { name: 'Bookings & payments' })).toContainText('Products');
-  await expect(nav.getByRole('group', { name: 'Business' })).toContainText('Usage & balance');
+  await expect(nav.getByTestId('settings-group-bookings-payments')).toContainText('Products');
+  await expect(nav.getByTestId('settings-group-business')).toContainText('Usage & balance');
 
   await nav.getByRole('link', { name: 'Payments', exact: true }).click();
   await expect(page.getByTestId('pay-no-accounts')).toBeVisible();

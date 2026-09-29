@@ -206,13 +206,13 @@ function SettingsNav({ groups }: { groups: readonly Group[] }) {
       >
         <nav aria-label="Settings" className="flex flex-col gap-2">
           {groups.map((g) => {
-            const id = `settings-group-${g.label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+            // The group's name is plain text, as in a calendar's own menu: labelling the group (or making the name
+            // a heading) would give every settings page a "Messages" or "Customers" that a field's own label, or
+            // the page's own heading, gets mistaken for.
+            const slug = g.label.toLowerCase().replace(/[^a-z]+/g, '-');
             return (
-              <div key={g.label} role="group" aria-labelledby={id}>
-                <div
-                  id={id}
-                  className="px-2.5 pb-1 pt-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3"
-                >
+              <div key={g.label} data-testid={`settings-group-${slug}`}>
+                <div className="px-2.5 pb-1 pt-2 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
                   {g.label}
                 </div>
                 <div className="flex flex-col gap-0.5">

@@ -89,7 +89,7 @@ test('Automations: switches, the Adjust sheets, the wording’s preview and prob
   const nav = page.getByRole('navigation', { name: 'Settings' });
   const tabs = await nav.getByRole('link').allTextContents();
   expect(tabs.indexOf('Automations')).toBe(tabs.indexOf('Permissions') + 1);
-  await expect(nav.getByRole('group', { name: 'Business' })).toContainText('Automations');
+  await expect(nav.getByTestId('settings-group-business')).toContainText('Automations');
   expect(tabs).not.toContain('Action Center');
   await nav.getByRole('link', { name: 'Automations' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${owner.workspaceId}/settings/automations$`));
