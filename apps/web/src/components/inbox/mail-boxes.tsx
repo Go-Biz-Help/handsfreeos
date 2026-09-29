@@ -32,7 +32,7 @@ export function MailBoxes({
     <div
       className={cn('grid gap-1.5', items.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}
       role="group"
-      aria-label="Email"
+      aria-label="Email boxes"
     >
       {items.map((b) => {
         const pressed = on === b.key;
