@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'HandsFreeOS',
     url: urls.site,
-    title: 'The CRM that doesn’t want you to use it',
+    title: 'HandsFreeOS · The CRM that doesn’t want you to use it',
     description:
       'It spots the lead, answers it, books the job, updates the record and brings you in when it matters. The less you use it, the better it’s working.',
     locale: 'en_US',
