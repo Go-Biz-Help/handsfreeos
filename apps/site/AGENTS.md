@@ -16,6 +16,9 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   - `/privacy#messaging` — the opt-in paragraph the carriers and Twilio's A2P review read.
   - `/terms` and `/support` — Microsoft's publisher verification and Apple's support URL.
     `docs/operations.md` points reviewers at these; change one and check that guide still matches.
+- **The home page's `<title>`, `<h1>` and share title all start with `HandsFreeOS`**, written
+  exactly so, unlike every other page's title. Google's OAuth review checks them against the
+  consent screen's app name, and flagged a mismatch while the name came last.
 - **The footer must name the legal company** (`company.legalName`). Twilio checks for it.
 - **Pictures carry this site, not paragraphs.** The little product mock-ups in
   `src/components/visuals.tsx` are drawn in the app's own tokens, so they theme with the page, stay

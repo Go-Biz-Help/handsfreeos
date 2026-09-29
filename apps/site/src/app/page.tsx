@@ -65,12 +65,15 @@ function Hero() {
         <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
           <div>
             {/*
-             * The product name leads the page. Google's OAuth review checks that the name on the
-             * consent screen is the name a visitor sees here, and a wordmark in the nav bar is not
-             * what it reads. Keep this string identical to the consent screen's app name.
+             * The product name leads the page, inside the <h1> and in its own capitals. Google's
+             * OAuth review checks that the name on the consent screen is the name a visitor sees
+             * here, and a wordmark in the nav bar, or a label set in all capitals, is not what it
+             * reads. Keep this string identical to the consent screen's app name.
              */}
-            <Eyebrow>HandsFreeOS</Eyebrow>
             <h1 className="text-[2.5rem] leading-[1.06] font-bold sm:text-6xl">
+              <span className="text-accent-text mb-4 block text-xs leading-4 font-semibold tracking-[0.14em]">
+                HandsFreeOS
+              </span>{' '}
               The CRM that doesn&rsquo;t want you to use it.
             </h1>
             <p className="text-text-2 mt-6 max-w-xl text-lg sm:text-xl">

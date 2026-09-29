@@ -19,7 +19,9 @@ export const metadata: Metadata = {
   title: {
     // Titles lead with what somebody would actually search for, and end with the name. The
     // headline on the page itself is still the human one; these are for the result list.
-    default: 'AI receptionist and CRM for service businesses · HandsFreeOS',
+    // The home page is the exception and leads with the name: Google's OAuth review checks it
+    // against the consent screen's app name, and flagged a mismatch while the name came last.
+    default: 'HandsFreeOS · AI receptionist and CRM for service businesses',
     template: '%s · HandsFreeOS',
   },
   // No price: what is on sale changes by itself (0092), and a search result keeps this for weeks.
@@ -31,7 +33,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'HandsFreeOS',
     url: urls.site,
-    title: 'The CRM that doesn’t want you to use it',
+    title: 'HandsFreeOS · The CRM that doesn’t want you to use it',
     description:
       'It spots the lead, answers it, books the job, updates the record and brings you in when it matters. The less you use it, the better it’s working.',
     locale: 'en_US',
