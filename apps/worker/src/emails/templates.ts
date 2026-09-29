@@ -753,6 +753,29 @@ export function calendarReconnectEmail(input: {
   return { subject, text, html };
 }
 
+/**
+ * "Email me a link" in the phone app: the page that does one Getting started step, to open on a computer. Only ever
+ * sent to the person who asked, from their own phone.
+ */
+export function onboardingLinkEmail(input: {
+  /** The step's title, like "Bring in your customers". */
+  step: string;
+  business: string;
+  link: string;
+}): EmailContent {
+  const subject = `Your link: ${input.step}`;
+  const lead = (business: string) =>
+    `Here’s the link you asked for in the HandsFreeOS app, to do this for ${business} on your computer.`;
+  const after = 'You asked for this from the app. If that wasn’t you, ignore it: nothing changes.';
+  const text = `${lead(input.business)}\n\n${input.step}: ${input.link}\n\n${after}`;
+  const html = shell(
+    para(lead(`<strong>${escapeHtml(input.business)}</strong>`)) +
+      button(input.link, input.step) +
+      small(after),
+  );
+  return { subject, text, html };
+}
+
 /** One business in the daily agency digest: what needs a look there, each with where to look. */
 export interface DigestBusiness {
   readonly name: string;

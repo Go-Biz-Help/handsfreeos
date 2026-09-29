@@ -8,6 +8,7 @@ import {
   invitationAccept,
   invitationResend,
   membershipInvite,
+  onboardingSendLink,
   organizationCreate,
   personCreate,
   type HumanActor,
@@ -138,6 +139,28 @@ describe('env', () => {
     expect(() => readEnv(production)).toThrow(/TURNSTILE_SECRET_KEY is required/);
     expect(readEnv({ ...production, ALLOW_NO_BOT_CHECK: '1' }).turnstileSecretKey).toBeNull();
     expect(readEnv({ ...production, TURNSTILE_SECRET_KEY: 't' }).turnstileSecretKey).toBe('t');
+  });
+});
+
+describe('Getting started: “Email me a link”', () => {
+  it('emails the person who asked the page for their step, on the app’s own address', async () => {
+    const { eventIds } = await executeCommand(
+      testDbs().api.db,
+      onboardingSendLink,
+      { workspaceId, step: 'customers' },
+      actor(owner),
+      meta(),
+    );
+    await reserveForTests(eventIds);
+    await processReserved(deps);
+    const mine = (await mailpitSearch(owner.email)).filter((m) =>
+      m.Subject.startsWith('Your link:'),
+    );
+    expect(mine).toHaveLength(1);
+    expect(mine[0]!.Subject).toBe('Your link: Bring in your customers');
+    const body = await mailpitBody(mine[0]!.ID);
+    expect(body).toContain('Lone Star HVAC & Roofing');
+    expect(body).toContain(`http://localhost:3000/onboarding/${workspaceId}/setup/customers`);
   });
 });
 
