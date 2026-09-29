@@ -391,6 +391,45 @@ export async function preferredLane(
 }
 
 /**
+ * The thread `findOrCreateConversation` would file into, without starting or adopting one (M19): mail that has to
+ * know which folder it lands in before it decides anything else asks this first. The same rules, read-only.
+ */
+export async function findConversation(
+  ctx: CommandContext,
+  input: {
+    channel: 'sms' | 'email';
+    counterpart: string;
+    phoneNumberId: string | null;
+    emailAddressId?: string | null;
+  },
+): Promise<typeof conversations.$inferSelect | null> {
+  const workspaceId = ctx.scope.workspaceId!;
+  const mail = input.channel === 'email';
+  const column = mail ? conversations.emailAddressId : conversations.phoneNumberId;
+  const lineId = (mail ? input.emailAddressId : input.phoneNumberId) ?? null;
+  if (!lineId)
+    return (
+      (await latestConversation(ctx.tx, workspaceId, input.channel, input.counterpart)) ?? null
+    );
+  const sameCustomer = and(
+    eq(conversations.workspaceId, workspaceId),
+    eq(conversations.channel, input.channel),
+    eq(conversations.counterpart, input.counterpart),
+  );
+  const [exact] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(and(sameCustomer, eq(column, lineId)));
+  if (exact) return exact;
+  const [lineless] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(and(sameCustomer, isNull(column)))
+    .limit(1);
+  return lineless ?? null;
+}
+
+/**
  * One conversation per customer per line of the business (0089): returns the existing one or starts it.
  *
  * The line is the business's own end of the thread — the number a text came in on, the address a mail was
@@ -413,6 +452,8 @@ export async function findOrCreateConversation(
     personId: string | null;
     phoneNumberId: string | null;
     emailAddressId?: string | null;
+    /** Where a new thread lives (M19); a thread that exists keeps its own. */
+    folder?: 'inbox' | 'other' | 'spam';
   },
 ) {
   const workspaceId = ctx.scope.workspaceId!;
@@ -470,6 +511,7 @@ export async function findOrCreateConversation(
       phoneNumberId: mail ? null : lineId,
       emailAddressId: mail ? lineId : null,
       createdBy: ctx.actor.type === 'human' ? ctx.actor.userId : null,
+      ...(input.folder ? { folder: input.folder } : {}),
     })
     .onConflictDoNothing()
     .returning();

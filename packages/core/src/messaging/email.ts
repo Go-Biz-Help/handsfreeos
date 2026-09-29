@@ -21,6 +21,11 @@ import { findOrCreateConversation, loadConversation, preferredLane } from './sto
 
 /** Mirrors private.shared_mail_domain(). */
 export const SHARED_MAIL_DOMAIN = 'mail.handsfreeos.com';
+/**
+ * A stranger's mail the spam filter scores at this or more goes to Spam (M19). SpamAssassin's own line: 5 is where
+ * it calls a message spam.
+ */
+export const SPAM_SCORE = 5;
 /** Postmark takes 10 MB per message, attachments included. */
 const EMAIL_ATTACHMENTS_MAX_BYTES = 10 * 1024 * 1024;
 

@@ -10682,6 +10682,152 @@
         }
       }
     },
+    "/v1/commands/conversation.move": {
+      "post": {
+        "operationId": "command_conversation_move",
+        "summary": "Move an email thread to the Inbox, Other mail or Spam. With remember, the sender’s next new thread goes there too.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits conversation.moved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "folder": {
+                    "type": "string",
+                    "enum": [
+                      "inbox",
+                      "other",
+                      "spam"
+                    ]
+                  },
+                  "remember": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "conversationId",
+                  "folder"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conversationId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "folder": {
+                      "type": "string",
+                      "enum": [
+                        "inbox",
+                        "other",
+                        "spam"
+                      ]
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "conversationId",
+                    "folder",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/email_sender_rule.remove": {
+      "post": {
+        "operationId": "command_email_sender_rule_remove",
+        "summary": "Forget where new mail from a sender goes. Their next new thread is sorted like anyone else’s.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires inbox.use. Emits email_sender_rule.removed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "address": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 320
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "address"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": {
+                      "type": "string"
+                    },
+                    "removed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "address",
+                    "removed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/assistant_thread.rename": {
       "post": {
         "operationId": "command_assistant_thread_rename",
@@ -59941,7 +60087,7 @@
     "/v1/queries/inbox.list": {
       "post": {
         "operationId": "query_inbox_list",
-        "summary": "Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s; open, snoozed or closed; texts or email; with search.",
+        "summary": "Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.",
         "tags": [
           "queries"
         ],
@@ -59977,7 +60123,9 @@
                       "all",
                       "needs_person",
                       "ai",
-                      "archived"
+                      "archived",
+                      "other",
+                      "spam"
                     ]
                   },
                   "status": {

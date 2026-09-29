@@ -332,6 +332,7 @@ import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
 import { ownBusinessCommands } from './own-business';
+import { mailFolderCommands } from './mail-folder';
 import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import { migrationCommands } from './migration';
@@ -663,6 +664,8 @@ export const commands: readonly CommandDef[] = [
   emailDismissUnmatched,
   emailSuppressionAdd,
   emailSuppressionRelease,
+  // Moving email threads between the Inbox, Other mail and Spam (M19).
+  ...mailFolderCommands,
   emailReceive,
   emailSuppressionRecord,
   assistantThreadRename,
@@ -943,6 +946,7 @@ export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
 export * from './own-business';
+export * from './mail-folder';
 export * from './ai-provider';
 export * from './job';
 export * from './custom-field';

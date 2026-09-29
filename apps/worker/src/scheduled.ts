@@ -393,6 +393,45 @@ export const checkEmailReceivingJob: JobHandler = async (ctx) => {
     return { rescheduleAt: new Date(Date.now() + RECEIVING_WAIT_MS) };
 };
 
+/** The daily sweep that deletes old spam (M19). */
+export const SPAM_SWEEP_JOB = 'email.spam_sweep';
+/** How long Spam keeps a thread after its last message. */
+const SPAM_KEEP_MS = 30 * DAY;
+/** Threads deleted at a time; a full batch comes back in ten minutes for the rest. */
+const SPAM_BATCH = 200;
+
+/**
+ * Spam is kept 30 days (M19): after that the thread and its messages are deleted, and the files they carried are
+ * removed from storage. Moving a thread out of Spam is how to keep it.
+ */
+export const sweepSpam: JobHandler = async (ctx) => {
+  const before = new Date(Date.now() - SPAM_KEEP_MS);
+  const gone = await asWorker(ctx.db, {}, (tx) =>
+    rows<{
+      conversation_id: string;
+      workspace_id: string;
+      media: { bucket?: string; objectPath?: string }[];
+    }>(
+      tx,
+      sql`select conversation_id, workspace_id, media
+          from private.delete_old_spam(${before.toISOString()}::timestamptz, ${SPAM_BATCH})`,
+    ),
+  );
+  for (const g of gone)
+    for (const m of g.media)
+      // Only what inbound mail stored for that business, in its own folder.
+      if (m.bucket && m.objectPath?.startsWith(`${g.workspace_id}/email/`))
+        await ctx.store.remove(m.bucket, m.objectPath).catch((e: unknown) => {
+          ctx.log.warn(
+            { err: String(e), objectPath: m.objectPath },
+            'a spam attachment could not be removed from storage',
+          );
+        });
+  return {
+    rescheduleAt: new Date(Date.now() + (gone.length === SPAM_BATCH ? PURGE_AGAIN_MS : DAY)),
+  };
+};
+
 /** One domain, bound to its business. */
 export const checkEmailDomainJob: JobHandler = async (ctx) => {
   const emailDomainId = String(ctx.job.payload['emailDomainId'] ?? '');
@@ -424,6 +463,7 @@ export const jobs: JobMap = {
   'email_domains.check': checkEmailDomains,
   [EMAIL_DOMAIN_CHECK_JOB]: checkEmailDomainJob,
   [EMAIL_RECEIVING_CHECK_JOB]: checkEmailReceivingJob,
+  [SPAM_SWEEP_JOB]: sweepSpam,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
   // What customers said in public: each connected place asked on a timer, and an answer posted back.
@@ -524,6 +564,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: 'email_domains.check',
       dedupeKey: 'check:email_domains',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Spam older than 30 days goes, daily (M19).
+    await scheduleJob(tx, {
+      kind: SPAM_SWEEP_JOB,
+      dedupeKey: 'sweep:spam',
       runAt,
       payload: {},
       workspaceId: null,

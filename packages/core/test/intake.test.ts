@@ -340,7 +340,7 @@ describe('an email from someone nobody knows', () => {
     expect(await conversationOf(got.conversationId!)).toMatchObject({ person_id: found!.person });
   });
 
-  it('leaves machines aside: a no-reply sender waits in the unmatched list', async () => {
+  it('leaves machines aside: a no-reply sender goes to Other mail, and nobody is made of it', async () => {
     const got = await sys(emailReceive, {
       workspaceId: wsId,
       provider: 'fake',
@@ -351,7 +351,7 @@ describe('an email from someone nobody knows', () => {
       subject: 'This week in roofing',
       bodyText: 'Your newsletter is here.',
     });
-    expect(got.outcome).toBe('unmatched');
+    expect(got).toMatchObject({ outcome: 'filed', folder: 'other' });
     expect(await personByEmail('no-reply@news.example.com')).toBeNull();
   });
 });

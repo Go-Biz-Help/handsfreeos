@@ -11,8 +11,23 @@ export type MessageChannel = z.infer<typeof messageChannel>;
 export const conversationChannel = z.enum(['sms', 'email', 'chat']);
 export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
-/** needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. */
-export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai', 'archived']);
+/**
+ * needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. other and
+ * spam are the email folders beside the Inbox (M19); every other box is the Inbox's.
+ */
+export const inboxBox = z.enum([
+  'mine',
+  'unassigned',
+  'all',
+  'needs_person',
+  'ai',
+  'archived',
+  'other',
+  'spam',
+]);
+/** Where a thread lives (M19): only Inbox threads wake the AI teammate, workflows, push and the timeline. */
+export const conversationFolder = z.enum(['inbox', 'other', 'spam']);
+export type ConversationFolderValue = z.infer<typeof conversationFolder>;
 export const messageDirection = z.enum(['inbound', 'outbound']);
 export const smsConsent = z.enum(['unknown', 'opted_in', 'opted_out']);
 
@@ -249,6 +264,24 @@ export const ConversationAssignInput = z.object({
 });
 export const ConversationSnoozeInput = z.object({ ...conversationRef, until: isoDateTime });
 export const ConversationLinkPersonInput = z.object({ ...conversationRef, personId: uuid });
+/** Moving an email thread between the Inbox, Other mail and Spam (M19). */
+export const ConversationMoveInput = z.object({
+  ...conversationRef,
+  folder: conversationFolder,
+  /** Send the sender's next new thread to the same folder. */
+  remember: z.boolean().default(false),
+});
+export const ConversationMoveOutput = z.object({
+  conversationId: uuid,
+  folder: conversationFolder,
+  /** False when it was already there, so a double-click is visibly a no-op. */
+  changed: z.boolean(),
+});
+export const EmailSenderRuleRemoveInput = z.object({
+  workspaceId: uuid,
+  address: z.string().trim().toLowerCase().min(3).max(320),
+});
+export const EmailSenderRuleRemoveOutput = z.object({ address: z.string(), removed: z.boolean() });
 export const ConversationLinkPersonOutput = z.object({
   conversationId: uuid,
   personId: uuid,

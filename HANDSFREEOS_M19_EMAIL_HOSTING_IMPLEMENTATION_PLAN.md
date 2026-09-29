@@ -175,13 +175,35 @@ database before its step reaches `main`.
 - The MX check lives on the mail service (`receives(domain)`). The local stand-in says yes except
   for `nomx-…` domains, and `lapsed-…` domains say yes once, then no.
 
-### Step 2 — Other mail and Spam
+### Step 2 — Other mail and Spam (built, 2026-09-29)
 
 1. Migration: `conversations.folder`, `app.email_sender_rules`, and folding in the unmatched mail.
 2. Core: filing in `email.receive`, `email.filed`, `conversation.move`, sender rules, and the new
    `inbox.list` boxes.
 3. Worker: keep automatic mail, read `X-Spam-Score`, and delete spam after 30 days.
 4. Tests: nothing that reacts to `message.received` fires for Other mail or Spam.
+
+**As built:**
+
+- **Steps 2 to 4 reach `main` together.** The phone syncs a fixed list of thread columns and has no
+  folder yet, so until Step 4's sync change it would show Other mail and Spam in its Inbox. The web
+  already keeps them apart: `inbox.list` has `other` and `spam` boxes, and every other box and the
+  badge counts are the Inbox's.
+- A new thread's folder, in order: a sender rule; a customer's mail (a contact, or an address with
+  an Inbox thread) in the Inbox; a stranger's mail at `SPAM_SCORE` (5) or more in Spam; a stranger
+  already set aside, a machine or an address that bounced in Other mail; then lead intake, which
+  puts a stranger it takes in the Inbox and one it doesn't in Other mail.
+- A customer's automatic mail (an out-of-office) is still not filed, as before, so it never opens
+  or wakes their thread. A stranger's is kept in Other mail.
+- Other mail and Spam emit `email.filed`, write no timeline activity, and count as unread, but set
+  no "waiting for a reply" and schedule no reminder.
+- **Mail from people not in Contacts** keeps the rows it already has, which can still be claimed
+  or dismissed; no new mail goes there. The list leaves Settings → Email in Step 4 once it's empty,
+  rather than by a data migration.
+- `conversation.move` is for email threads only. `email_sender_rule.remove` forgets a rule; the
+  list of rules comes with the screens in Step 4.
+- Spam goes in a daily sweep (`email.spam_sweep`) through `private.delete_old_spam`, 200 threads at
+  a time, and their attachments are removed from storage.
 
 ### Step 3 — Private mailboxes
 

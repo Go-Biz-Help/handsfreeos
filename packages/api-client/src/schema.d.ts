@@ -1857,6 +1857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/conversation.move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an email thread to the Inbox, Other mail or Spam. With remember, the sender’s next new thread goes there too.
+         * @description Risk level 1. Requires inbox.use. Emits conversation.moved.
+         */
+        post: operations["command_conversation_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.open": {
         parameters: {
             query?: never;
@@ -2311,6 +2331,26 @@ export interface paths {
          * @description Risk level 1. Requires channels.manage. Emits email_domain.verify_requested.
          */
         post: operations["command_email_domain_verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_sender_rule.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget where new mail from a sender goes. Their next new thread is sorted like anyone else’s.
+         * @description Risk level 1. Requires inbox.use. Emits email_sender_rule.removed.
+         */
+        post: operations["command_email_sender_rule_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9687,7 +9727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s; open, snoozed or closed; texts or email; with search.
+         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_list"];
@@ -15785,6 +15825,45 @@ export interface operations {
             };
         };
     };
+    command_conversation_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    conversationId: string;
+                    /** @enum {string} */
+                    folder: "inbox" | "other" | "spam";
+                    /** @default false */
+                    remember?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        conversationId: string;
+                        /** @enum {string} */
+                        folder: "inbox" | "other" | "spam";
+                    };
+                };
+            };
+        };
+    };
     command_conversation_open: {
         parameters: {
             query?: never;
@@ -16631,6 +16710,37 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         emailDomainId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_email_sender_rule_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        address: string;
+                        removed: boolean;
                     };
                 };
             };
@@ -35145,7 +35255,7 @@ export interface operations {
                      * @default all
                      * @enum {string}
                      */
-                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived";
+                    box?: "mine" | "unassigned" | "all" | "needs_person" | "ai" | "archived" | "other" | "spam";
                     /** @enum {string} */
                     channel?: "sms" | "email" | "chat";
                     cursor?: string;

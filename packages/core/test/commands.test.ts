@@ -232,6 +232,8 @@ describe('registry', () => {
       'email.dismiss_unmatched',
       'email_suppression.add',
       'email_suppression.release',
+      'conversation.move',
+      'email_sender_rule.remove',
       'email.receive',
       'email_suppression.record',
       'assistant_thread.rename',

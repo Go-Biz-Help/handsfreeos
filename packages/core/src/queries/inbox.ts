@@ -390,7 +390,7 @@ async function chatOf(
 export const inboxList = defineQuery({
   name: 'inbox.list',
   description:
-    'Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s; open, snoozed or closed; texts or email; with search.',
+    'Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.',
   input: InboxListInput,
   output: InboxListOutput,
   permission: 'inbox.use',
@@ -416,6 +416,13 @@ export const inboxList = defineQuery({
               : input.box === 'ai'
                 ? sql`and ${c}.handled_by = 'ai'`
                 : sql``;
+      // The email folders (M19): Other mail and Spam are boxes of their own, and every other box is the Inbox's.
+      // A customer's record lists all of their threads, wherever they are.
+      const folder = input.personId
+        ? sql``
+        : input.box === 'other' || input.box === 'spam'
+          ? sql`and ${c}.folder = ${input.box}::app.conversation_folder`
+          : sql`and ${c}.folder = 'inbox'`;
       // Archived threads are out of the inbox: only their own box shows them, and only it hides the live ones.
       const archived =
         input.box === 'archived'
@@ -438,6 +445,7 @@ export const inboxList = defineQuery({
                   : sql`and ${c}.status = ${input.status}::app.conversation_status and ${c}.last_message_at is not null`
             }
             ${box}
+            ${folder}
             ${archived}
             ${input.channel ? sql`and ${c}.channel = ${input.channel}::app.channel` : sql``}
             ${input.unread ? sql`and ${c}.unread_count > 0` : sql``}
@@ -544,7 +552,7 @@ export const inboxSummary = defineQuery({
             count(distinct ${GROUP_KEY}) filter (where c.status = 'open' and c.handled_by = 'ai')::int as ai
           from app.conversations c
           where c.workspace_id = ${input.workspaceId} and c.last_message_at is not null
-            and c.archived_at is null`,
+            and c.archived_at is null and c.folder = 'inbox'`,
     );
     const n = (k: string) => Number(s?.[k] ?? 0);
     return {

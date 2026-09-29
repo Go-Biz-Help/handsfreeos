@@ -1103,6 +1103,10 @@ export const rcsSenders = app.table('rcs_senders', {
 export const conversationHandler = app.enum('conversation_handler', ['none', 'ai', 'person']);
 export type ConversationHandler = (typeof conversationHandler.enumValues)[number];
 
+/** M19: where a thread lives. Only Inbox threads wake the AI teammate, workflows, push and the timeline. */
+export const conversationFolder = app.enum('conversation_folder', ['inbox', 'other', 'spam']);
+export type ConversationFolder = (typeof conversationFolder.enumValues)[number];
+
 export const conversations = app.table('conversations', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -1160,6 +1164,19 @@ export const conversations = app.table('conversations', {
   // Milestone 18
   /** The language the customer writes in, as the AI teammate last said ("es"); null until it knows. */
   language: text('language'),
+  /** M19: the Inbox, Other mail or Spam. Set when the thread starts; only people move it. */
+  folder: conversationFolder('folder').notNull().default('inbox'),
+});
+
+/** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */
+export const emailSenderRules = app.table('email_sender_rules', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** One rule per sender in a business (email_sender_rules_one_per_sender). */
+  address: text('address').notNull(),
+  folder: conversationFolder('folder').notNull(),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
 });
 
 export const messages = app.table('messages', {
