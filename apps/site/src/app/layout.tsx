@@ -19,7 +19,9 @@ export const metadata: Metadata = {
   title: {
     // Titles lead with what somebody would actually search for, and end with the name. The
     // headline on the page itself is still the human one; these are for the result list.
-    default: 'AI receptionist and CRM for service businesses · HandsFreeOS',
+    // The home page is the exception and leads with the name: Google's OAuth review checks it
+    // against the consent screen's app name, and flagged a mismatch while the name came last.
+    default: 'HandsFreeOS · AI receptionist and CRM for service businesses',
     template: '%s · HandsFreeOS',
   },
   // No price: what is on sale changes by itself (0092), and a search result keeps this for weeks.
