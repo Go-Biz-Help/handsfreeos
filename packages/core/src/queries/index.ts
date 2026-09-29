@@ -10,7 +10,7 @@ import { platformQueries } from './platform';
 import { foundingQueries } from './founding';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
-import { onboardingStatus } from './onboarding';
+import { onboardingClients, onboardingStatus } from './onboarding';
 import { accountDeletionCheck, pushDeviceList, userPhoneGet } from './account';
 import { aiTeammateActivity, aiTeammateDraftList, aiTeammateGet } from './ai-team';
 import {
@@ -321,6 +321,7 @@ export const queries: readonly QueryDef[] = [
   addonPickOverview,
   // Getting started.
   onboardingStatus,
+  onboardingClients,
 ] as unknown as readonly QueryDef[];
 
 export {

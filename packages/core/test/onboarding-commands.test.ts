@@ -8,6 +8,7 @@
  * - **Finishing** is refused while a step is open, names what's left, and holds once it's done.
  * - **Turning it off** for the whole business is an owner's or admin's, hides it from everyone, and keeps what
  *   each person did for when it's back on.
+ * - **An agency** sees each client business's setup and why it's stuck, and reminds its own owners once a day.
  * - **"Email me a link"** sends a step on the person's own list once, not twice in a row, and never a step done
  *   on the phone itself.
  */
@@ -22,7 +23,9 @@ import type { CommandDef, HumanActor, RequestMeta } from '../src/kernel/types';
 import {
   me as accountMe,
   onboardingAsYouGo,
+  onboardingClients,
   onboardingFinish,
+  onboardingRemind,
   onboardingSaveAnswers,
   onboardingSendLink,
   onboardingSetEnabled,
@@ -31,6 +34,7 @@ import {
   onboardingStatus,
   organizationCreate,
   personCreate,
+  workspaceCreate,
   workspaceGet,
   workspaceUpdate,
 } from '../src/server';
@@ -414,5 +418,77 @@ describe('turning it off for the whole business', () => {
     await run(onboardingSetEnabled, { workspaceId: ws, enabled: true }, dale);
     expect((await status(marco, ws)).enabled).toBe(true);
     expect((await status(dale, ws)).answers).not.toBeNull();
+  });
+});
+
+describe('an agency’s clients', () => {
+  let bayou: string;
+  let riley: TestUser;
+
+  beforeAll(async () => {
+    bayou = (await run(workspaceCreate, { organizationId: orgId, name: 'Bayou Plumbing' }, dale))
+      .workspaceId;
+    riley = await createTestUser('onb-client', { fullName: 'Riley Chen' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${bayou}, ${riley.id}, 'owner')`,
+    );
+    await rows(
+      admin(),
+      sql`update auth.users set last_sign_in_at = now() - interval '6 days' where id = ${riley.id}`,
+    );
+  });
+
+  const clients = (u: TestUser) =>
+    executeQuery(api(), onboardingClients, { organizationId: orgId }, human(u), meta());
+
+  it('shows each business’s own owner, when they last signed in, and why it’s stuck', async () => {
+    const got = await clients(dale);
+    const b = got.businesses.find((x) => x.workspaceId === bayou)!;
+    expect(b).toMatchObject({
+      name: 'Bayou Plumbing',
+      owner: { name: 'Riley Chen', email: riley.email },
+      enabled: true,
+      group: 'stuck',
+      badge: 'Stuck',
+      note: 'Hasn’t signed in for 6 days',
+      remindedAt: null,
+    });
+    expect(b.lastSignInAt).not.toBeNull();
+    // Only the business's steps, never anyone's own list.
+    expect(b.steps.map((s) => s.key)).not.toContain('app');
+    expect(b.total).toBe(b.steps.filter((s) => s.state !== 'skipped').length);
+    // The agency's own people aren't a business's owner.
+    expect(got.businesses.find((x) => x.workspaceId === ws)?.owner).toBeNull();
+    expect(got.counts.all).toBe(got.businesses.length);
+  });
+
+  it('is only for the agency’s owners and admins', async () => {
+    await expectHfos(() => clients(marco), 'not_found');
+    await expectHfos(() => clients(riley), 'not_found');
+  });
+
+  it('reminds a business’s own owners of their next step, once a day', async () => {
+    const out = await run(onboardingRemind, { organizationId: orgId, workspaceId: bayou }, dale);
+    expect(out).toEqual({ workspaceId: bayou, step: 'number', to: [riley.email] });
+    await expectHfos(
+      () => run(onboardingRemind, { organizationId: orgId, workspaceId: bayou }, dale),
+      'rule_violation',
+      'onboarding_reminded_today',
+    );
+    expect(
+      (await clients(dale)).businesses.find((x) => x.workspaceId === bayou)?.remindedAt,
+    ).not.toBeNull();
+    // A business with nobody but the agency has nobody to remind.
+    await expectHfos(
+      () => run(onboardingRemind, { organizationId: orgId, workspaceId: ws }, dale),
+      'rule_violation',
+      'onboarding_no_owner',
+    );
+    // And one outside the agency isn't there.
+    await expectHfos(
+      () => run(onboardingRemind, { organizationId: orgId, workspaceId: secondWs }, dale),
+      'not_found',
+    );
   });
 });

@@ -1,5 +1,6 @@
 /** Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md): the status query and the commands. */
 import { z } from 'zod';
+import { CLIENT_GROUPS } from '../onboarding/clients';
 import { OnboardingAnswersSchema } from '../onboarding/settings';
 import {
   BUSINESS_STEPS,
@@ -152,4 +153,49 @@ export const OnboardingSetEnabledOutput = z.object({
   workspaceId: uuid,
   enabled: z.boolean(),
   changed: z.boolean(),
+});
+
+/** An agency's client businesses and how far each has got setting up (Client businesses → Setup). */
+export const OnboardingClientsInput = z.object({ organizationId: uuid });
+export const OnboardingClient = z.object({
+  workspaceId: uuid,
+  name: z.string(),
+  /**
+   * The business's own owner, the first to join; never the agency's people, who own every business through the
+   * organization. Null when it has none yet.
+   */
+  owner: z.object({ name: z.string(), email: z.string() }).nullable(),
+  /** When any of its own owners last signed in; null when none has. */
+  lastSignInAt: isoDateTime.nullable(),
+  /** Getting started is on for it. */
+  enabled: z.boolean(),
+  done: z.number().int(),
+  total: z.number().int(),
+  skipped: z.number().int(),
+  group: z.enum(CLIENT_GROUPS),
+  badge: z.string(),
+  note: z.string(),
+  /** Its business steps in order; never anyone's own list. */
+  steps: z.array(OnboardingStepOut),
+  /** A reminder went in the last 24 hours. */
+  remindedAt: isoDateTime.nullable(),
+});
+export const OnboardingClientsOutput = z.object({
+  organizationId: uuid,
+  businesses: z.array(OnboardingClient),
+  counts: z.object({
+    all: z.number().int(),
+    stuck: z.number().int(),
+    setup: z.number().int(),
+    done: z.number().int(),
+  }),
+});
+
+/** "Email a reminder": the business's owners get their next step. Once a day at most. */
+export const OnboardingRemindInput = z.object({ organizationId: uuid, workspaceId: uuid });
+export const OnboardingRemindOutput = z.object({
+  workspaceId: uuid,
+  step: onboardingStepKey,
+  /** Who it went to. */
+  to: z.array(z.string()),
 });

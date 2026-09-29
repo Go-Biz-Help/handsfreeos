@@ -4857,6 +4857,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/onboarding.remind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For an agency: email a client business’s owners a reminder with their next Getting started step. One a day per business, whoever in the agency asks.
+         * @description Risk level 1. Requires org.templates.manage. Emits onboarding.remind_requested.
+         */
+        post: operations["command_onboarding_remind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/onboarding.save_answers": {
         parameters: {
             query?: never;
@@ -10331,6 +10351,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_offer_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/onboarding.clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For an agency: each client business and how far it has got setting up (Getting started’s business steps): the count, stuck, setting up or done and why, its steps, its owner and when they last signed in, and whether a reminder went today.
+         * @description Requires org.templates.manage.
+         */
+        post: operations["query_onboarding_clients"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22157,6 +22197,41 @@ export interface operations {
                     "application/json": {
                         /** Format: date-time */
                         finishedAt: string;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_onboarding_remind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        step: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                        to: string[];
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -37741,6 +37816,81 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_onboarding_clients: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    organizationId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        businesses: {
+                            badge: string;
+                            done: number;
+                            enabled: boolean;
+                            /** @enum {string} */
+                            group: "stuck" | "setup" | "done";
+                            lastSignInAt: string | null;
+                            name: string;
+                            note: string;
+                            owner: {
+                                email: string;
+                                name: string;
+                            } | null;
+                            remindedAt: string | null;
+                            skipped: number;
+                            steps: {
+                                /** @enum {string} */
+                                group: "basics" | "later" | "yours";
+                                /** @enum {string} */
+                                key: "number" | "payments" | "customers" | "calendar" | "ai" | "team" | "email_chat" | "app" | "sign_in" | "notifications" | "my_calendar";
+                                mustDo: boolean;
+                                note: {
+                                    count?: number;
+                                    name?: string | null;
+                                    number?: string | null;
+                                    partsDone?: number;
+                                    partsTotal?: number;
+                                    phase?: string;
+                                    provider?: string | null;
+                                    reason?: string | null;
+                                };
+                                since: string | null;
+                                /** @enum {string} */
+                                state: "todo" | "waiting" | "needs_fix" | "done" | "skipped";
+                            }[];
+                            total: number;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
+                        counts: {
+                            all: number;
+                            done: number;
+                            setup: number;
+                            stuck: number;
+                        };
+                        /** Format: uuid */
+                        organizationId: string;
                     };
                 };
             };

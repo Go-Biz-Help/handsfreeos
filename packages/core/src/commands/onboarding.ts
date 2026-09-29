@@ -1,7 +1,8 @@
 /**
  * Getting started (HANDSFREEOS_ONBOARDING_IMPLEMENTATION_PLAN.md §5): the answers to the quick questions, skipping a
  * step, "Add them as you go", hiding the guide or finishing the tour, finishing the guide for good, emailing
- * yourself a link to a step from the phone, and turning the guide off for the whole business.
+ * yourself a link to a step from the phone, turning the guide off for the whole business, and an agency's reminder
+ * to a client business.
  *
  * The business's part lives in `workspaces.settings.onboarding` and needs workspace.update; a person's own part
  * lives in their `users.settings.onboarding`, keyed by business, and anyone in the business may change their own.
@@ -14,7 +15,8 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
 import { scopeCan } from '../kernel/execute';
 import type { CommandContext } from '../kernel/types';
-import { loadOnboardingStatus } from '../onboarding/load';
+import { AGENCY_SETUP_WORDS } from '../onboarding/clients';
+import { loadBusinessSetup, loadOnboardingStatus } from '../onboarding/load';
 import { stepPath } from '../onboarding/paths';
 import {
   businessOnboardingOf,
@@ -33,6 +35,8 @@ import {
   OnboardingFinishInput,
   OnboardingFinishOutput,
   OnboardingSaveAnswersInput,
+  OnboardingRemindInput,
+  OnboardingRemindOutput,
   OnboardingSaveAnswersOutput,
   OnboardingSendLinkInput,
   OnboardingSendLinkOutput,
@@ -426,5 +430,69 @@ export const onboardingSetEnabled = defineCommand({
       after: { gettingStarted: input.enabled ? 'on' : 'off' },
     });
     return out(true);
+  },
+});
+
+export const onboardingRemind = defineCommand({
+  name: 'onboarding.remind',
+  description:
+    'For an agency: email a client business’s owners a reminder with their next Getting started step. One a day per business, whoever in the agency asks.',
+  risk: 1,
+  input: OnboardingRemindInput,
+  output: OnboardingRemindOutput,
+  permission: 'org.templates.manage',
+  scope: (i) => ({ kind: 'organization', organizationId: i.organizationId }),
+  emits: ['onboarding.remind_requested'],
+  async handler(ctx, input) {
+    const { userId } = requireHuman(ctx);
+    const [b] = await rows<{ id: string; name: string }>(
+      ctx.tx,
+      sql`select w.id, w.name from app.workspaces w
+          where w.id = ${input.workspaceId} and w.organization_id = ${input.organizationId}
+            and private.effective_workspace_role(w.id) is not null`,
+    );
+    if (!b) throw HfosError.notFound(NOT_THERE);
+    // Two people in the agency pressing at once send one.
+    await rows(
+      ctx.tx,
+      sql`select pg_advisory_xact_lock(hashtextextended(${`onboarding-remind:${b.id}`}, 0))`,
+    );
+    const [recent] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from app.events
+          where workspace_id = ${b.id} and event_type = 'onboarding.remind_requested'
+            and created_at > now() - interval '1 day'`,
+    );
+    if ((recent?.n ?? 0) > 0)
+      throw HfosError.rule('onboarding_reminded_today', 429, AGENCY_SETUP_WORDS.remindedToday);
+    const setup = await loadBusinessSetup(ctx.tx, b.id, userId);
+    if (!setup) throw HfosError.notFound(NOT_THERE);
+    if (!setup.enabled)
+      throw HfosError.rule('onboarding_guide_off', 409, AGENCY_SETUP_WORDS.remindOff);
+    const owners = await rows<{ email: string }>(
+      ctx.tx,
+      sql`select u.email::text as email from app.workspace_memberships m
+          join app.users u on u.id = m.user_id
+          where m.workspace_id = ${b.id} and m.role = 'owner'
+            and not exists (select 1 from app.organization_memberships om
+                            where om.organization_id = ${input.organizationId} and om.user_id = m.user_id)
+          order by m.created_at`,
+    );
+    if (!owners.length)
+      throw HfosError.rule('onboarding_no_owner', 409, AGENCY_SETUP_WORDS.noOwner(b.name));
+    const next =
+      setup.steps.find((s) => s.mustDo && (s.state === 'todo' || s.state === 'needs_fix')) ??
+      setup.steps.find((s) => s.state === 'todo' || s.state === 'needs_fix');
+    if (!next)
+      throw HfosError.rule('onboarding_nothing_to_remind', 409, AGENCY_SETUP_WORDS.remindDone);
+    await ctx.emit({
+      type: 'onboarding.remind_requested',
+      entityType: 'workspace',
+      entityId: b.id,
+      workspaceId: b.id,
+      payload: { step: next.key, path: stepPath(b.id, next.key) },
+      after: { step: next.key, to: owners.length },
+    });
+    return { workspaceId: b.id, step: next.key, to: owners.map((o) => o.email) };
   },
 });

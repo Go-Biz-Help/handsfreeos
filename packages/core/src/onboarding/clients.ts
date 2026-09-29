@@ -68,6 +68,8 @@ export const AGENCY_SETUP_WORDS = {
   remindOff:
     'Getting started is off for this business, so there’s nothing to remind them about. Its owners can turn it on in Settings → Workspace.',
   remindDone: 'This business is set up, so there’s nothing to remind them about.',
+  noOwner: (business: string) =>
+    `Nobody owns ${business} yet apart from your agency, so there’s nobody to remind. Invite its owner from its Members page first.`,
   /** One line in the daily agency digest, per stuck business. */
   digest: (business: string, note: string) => `${business} is stuck on setup: ${note}.`,
 } as const;

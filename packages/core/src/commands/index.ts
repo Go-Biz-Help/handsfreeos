@@ -333,6 +333,7 @@ import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import {
   onboardingAsYouGo,
   onboardingFinish,
+  onboardingRemind,
   onboardingSaveAnswers,
   onboardingSendLink,
   onboardingSetEnabled,
@@ -889,6 +890,7 @@ export const commands: readonly CommandDef[] = [
   onboardingFinish,
   onboardingSendLink,
   onboardingSetEnabled,
+  onboardingRemind,
 ] as unknown as readonly CommandDef[];
 export { callPreview } from './call';
 export { VERIFY_CALLS_PER_DAY, VERIFY_CALLS_PER_HOUR } from './user-phone';

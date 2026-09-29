@@ -16,8 +16,9 @@ import { scopeCan } from '../kernel/execute';
 import type { QueryContext } from '../kernel/types';
 import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
 import { currentNumber, latestByKind, loadRegistrations, readiness } from '../messaging/store';
-import { businessOnboardingOf, personalOnboardingOf } from './settings';
+import { businessOnboardingOf, personalOnboardingOf, type BusinessOnboarding } from './settings';
 import {
+  isBusinessStep,
   onboardingProgress,
   type DeviceFacts,
   type OnboardingAudience,
@@ -226,17 +227,10 @@ export async function loadOnboardingStatus(
   const settings = (ws.settings ?? {}) as Record<string, unknown>;
   const business = businessOnboardingOf(settings);
   const personal = personalOnboardingOf(me?.settings, workspaceId);
-  const facts = await loadOnboardingFacts(ctx.tx, workspaceId, userId, audience);
-  const withChoices: OnboardingFacts =
-    facts.business && business.customersAsYouGo
-      ? {
-          ...facts,
-          business: {
-            ...facts.business,
-            customers: { ...facts.business.customers, asYouGo: true },
-          },
-        }
-      : facts;
+  const withChoices = withBusinessChoices(
+    await loadOnboardingFacts(ctx.tx, workspaceId, userId, audience),
+    business,
+  );
   const skipped = new Set<OnboardingStepKey>([
     ...(audience === 'business' ? (Object.keys(business.skipped) as OnboardingStepKey[]) : []),
     ...(Object.keys(personal.skipped) as OnboardingStepKey[]),
@@ -264,5 +258,59 @@ export async function loadOnboardingStatus(
       finishedAt: personal.finishedAt,
       show: enabled && !personal.finishedAt && !personal.hidden,
     },
+  };
+}
+
+/** The facts with what the business chose on its guide: "Add them as you go" counts customers as done. */
+function withBusinessChoices(
+  facts: OnboardingFacts,
+  business: BusinessOnboarding,
+): OnboardingFacts {
+  return facts.business && business.customersAsYouGo
+    ? {
+        ...facts,
+        business: { ...facts.business, customers: { ...facts.business.customers, asYouGo: true } },
+      }
+    : facts;
+}
+
+/**
+ * One business's own setup, for its agency (`onboarding.clients`, `onboarding.remind`, the daily digest): its
+ * business steps in order, never anyone's own list; the count over them; whether the guide is on; and when its own
+ * owners last signed in. Read under whatever the transaction may see: the agency's owners and admins, or the worker
+ * bound to the business. `askerId` only fills the personal facts nobody reads here.
+ */
+export async function loadBusinessSetup(tx: Tx, workspaceId: string, askerId: string) {
+  const [ws] = await tx
+    .select({ settings: workspaces.settings })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  if (!ws) return null;
+  const business = businessOnboardingOf((ws.settings ?? {}) as Record<string, unknown>);
+  const facts = withBusinessChoices(
+    await loadOnboardingFacts(tx, workspaceId, askerId, 'business'),
+    business,
+  );
+  const progress = onboardingProgress({
+    audience: 'business',
+    answers: business.answers,
+    facts,
+    skipped: new Set(Object.keys(business.skipped) as OnboardingStepKey[]),
+    device: {},
+  });
+  const steps = progress.steps.filter((s) => isBusinessStep(s.key));
+  const counted = steps.filter((s) => s.state !== 'skipped');
+  const [signIn] = await rows<{ at: Date | string | null }>(
+    tx,
+    sql`select private.owners_last_sign_in(${workspaceId}) as at`,
+  );
+  return {
+    enabled: !business.turnedOff,
+    answers: business.answers,
+    steps,
+    done: counted.filter((s) => s.state === 'done' || s.state === 'waiting').length,
+    total: counted.length,
+    skipped: steps.length - counted.length,
+    lastSignInAt: signIn?.at ? new Date(signIn.at).toISOString() : null,
   };
 }
