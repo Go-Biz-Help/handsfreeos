@@ -60,7 +60,11 @@ export const supportStaffInvite = defineCommand({
       .from(staff)
       .innerJoin(users, eq(users.id, staff.userId))
       .where(and(eq(users.email, input.email), eq(staff.status, 'active')));
-    if (existing) throw HfosError.conflict('They already answer support.', 'already_staff');
+    if (existing)
+      throw HfosError.conflict(
+        `${input.email} already answers support. Change their role under Support people instead.`,
+        'already_staff',
+      );
     const [pending] = await ctx.tx
       .select({ id: staffInvitations.id })
       .from(staffInvitations)
@@ -73,7 +77,7 @@ export const supportStaffInvite = defineCommand({
       );
     if (pending)
       throw HfosError.conflict(
-        'An invitation is already waiting for that address.',
+        `An invitation is already waiting for ${input.email}. Resend it from Waiting to accept under Support people instead.`,
         'invitation_pending',
       );
     const [inv] = await ctx.tx
@@ -117,7 +121,10 @@ export const supportStaffInvitationResend = defineCommand({
         ),
       )
       .returning({ id: staffInvitations.id, email: staffInvitations.email });
-    if (!inv) throw HfosError.notFound('No invitation waiting with that id.');
+    if (!inv)
+      throw HfosError.notFound(
+        'That invitation isn’t waiting anymore. It may have been accepted or cancelled. Refresh Support people to see where it stands.',
+      );
     await ctx.emit({
       type: 'support_staff.invitation_resent',
       entityType: 'support_staff_invitation',
@@ -149,7 +156,10 @@ export const supportStaffInvitationRevoke = defineCommand({
         ),
       )
       .returning({ id: staffInvitations.id, email: staffInvitations.email });
-    if (!inv) throw HfosError.notFound('No invitation waiting with that id.');
+    if (!inv)
+      throw HfosError.notFound(
+        'That invitation isn’t waiting anymore. It may have been accepted or cancelled. Refresh Support people to see where it stands.',
+      );
     await ctx.emit({
       type: 'support_staff.invitation_revoked',
       entityType: 'support_staff_invitation',
@@ -207,7 +217,10 @@ export const supportStaffSetRole = defineCommand({
       .select({ role: staff.role, status: staff.status })
       .from(staff)
       .where(eq(staff.userId, input.userId));
-    if (!before) throw HfosError.notFound('They do not answer support.');
+    if (!before)
+      throw HfosError.notFound(
+        'That person doesn’t answer support anymore. They may have been removed. Refresh Support people and try again.',
+      );
     const [updated] = await ctx.tx
       .update(staff)
       .set({
@@ -216,7 +229,10 @@ export const supportStaffSetRole = defineCommand({
       })
       .where(eq(staff.userId, input.userId))
       .returning({ userId: staff.userId, role: staff.role, status: staff.status });
-    if (!updated) throw HfosError.notFound('They do not answer support.');
+    if (!updated)
+      throw HfosError.notFound(
+        'That person doesn’t answer support anymore. They may have been removed. Refresh Support people and try again.',
+      );
     await ctx.emit({
       type: 'support_staff.role_changed',
       entityType: 'support_staff',
@@ -243,7 +259,10 @@ export const supportStaffRemove = defineCommand({
       .delete(staff)
       .where(eq(staff.userId, input.userId))
       .returning({ userId: staff.userId, role: staff.role });
-    if (!gone) throw HfosError.notFound('They do not answer support.');
+    if (!gone)
+      throw HfosError.notFound(
+        'That person doesn’t answer support anymore. They may have been removed. Refresh Support people and try again.',
+      );
     // Their open tickets go back to the queue rather than sitting with someone who has left.
     await ctx.tx
       .update(tickets)
@@ -276,7 +295,10 @@ export const supportStaffSaveProfile = defineCommand({
       .set({ displayName: input.displayName, signature: input.signature })
       .where(eq(staff.userId, me))
       .returning({ userId: staff.userId });
-    if (!updated) throw HfosError.notFound('You do not answer support.');
+    if (!updated)
+      throw HfosError.notFound(
+        'You don’t answer support anymore, so there’s no sign-off to save. Ask whoever runs support at HandsFreeOS if that’s wrong.',
+      );
     await ctx.emit({
       type: 'support_staff.profile_saved',
       entityType: 'support_staff',
@@ -309,7 +331,10 @@ export const platformViewAsStart = defineCommand({
       })
       .from(workspaces)
       .where(eq(workspaces.id, input.workspaceId));
-    if (!ws) throw HfosError.notFound('No business with that id.');
+    if (!ws)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Refresh Businesses and pick it again.',
+      );
     // One at a time: a look that was left open is closed by opening the next one.
     await ctx.tx
       .update(viewAsSessions)

@@ -19,7 +19,10 @@ export const stageReorder = defineCommand({
       .select({ id: pipelines.id, name: pipelines.name })
       .from(pipelines)
       .where(and(eq(pipelines.id, input.pipelineId), eq(pipelines.workspaceId, workspaceId)));
-    if (!pipeline) throw HfosError.notFound('Pipeline not found.');
+    if (!pipeline)
+      throw HfosError.notFound(
+        'That pipeline isn’t there anymore. Refresh Settings → Pipelines and try again.',
+      );
     const current = await ctx.tx
       .select({
         id: pipelineStages.id,

@@ -37,7 +37,10 @@ async function lockCustomer(ctx: CommandContext, kind: Kind, id: string): Promis
       .from(people)
       .where(and(eq(people.id, id), eq(people.workspaceId, ws)))
       .for('update');
-    if (!p) throw HfosError.notFound('That customer isn’t there anymore.');
+    if (!p)
+      throw HfosError.notFound(
+        'That customer isn’t there anymore. They may have been merged into another customer or deleted. Refresh and try again.',
+      );
     return {
       id: p.id,
       name: fullName(p.firstName, p.lastName),
@@ -50,7 +53,10 @@ async function lockCustomer(ctx: CommandContext, kind: Kind, id: string): Promis
     .from(companies)
     .where(and(eq(companies.id, id), eq(companies.workspaceId, ws)))
     .for('update');
-  if (!c) throw HfosError.notFound('That company isn’t there anymore.');
+  if (!c)
+    throw HfosError.notFound(
+      'That company isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return { id: c.id, name: c.name, ownerUserId: c.ownerUserId, teamUserIds: c.teamUserIds };
 }
 
@@ -148,7 +154,7 @@ export function requireAssigner(ctx: CommandContext): void {
     throw HfosError.rule(
       'customer_team_managers_only',
       403,
-      'Only owners and admins change who a customer is assigned to.',
+      'This business doesn’t let you change who’s on a customer. Ask an owner or admin to do it. An owner can let you in Settings → Permissions, under “Choose who’s on a customer”.',
     );
 }
 
@@ -162,7 +168,12 @@ async function requireTeammate(ctx: CommandContext, userId: string): Promise<voi
     sql`select private.workspace_has_user(${ctx.scope.workspaceId!}::uuid, ${userId}::uuid) as ok`,
   );
   if (!ok?.ok)
-    throw HfosError.validation([{ path: 'userId', message: 'Pick someone on the team.' }]);
+    throw HfosError.validation([
+      {
+        path: 'userId',
+        message: 'That person isn’t on this business’s team. Pick someone who is.',
+      },
+    ]);
 }
 
 export const recordAssign = defineCommand({
@@ -202,7 +213,7 @@ export const recordAssign = defineCommand({
       throw HfosError.rule(
         'customer_team_full',
         409,
-        `A customer can have up to ${MAX_TEAM} people on it besides the main one. Take someone off first.`,
+        `${before.name} already has ${MAX_TEAM} people on it besides the main one, which is the most it can have. Take someone off first.`,
       );
     return answer(ctx, await save(ctx, input.recordType, before, next), true);
   },

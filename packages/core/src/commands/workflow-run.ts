@@ -57,7 +57,10 @@ async function loadRun(ctx: CommandContext, runId: string, forUpdate = false) {
     .from(workflowRuns)
     .where(and(eq(workflowRuns.id, runId), eq(workflowRuns.workspaceId, ctx.scope.workspaceId!)));
   const [run] = forUpdate ? await query.for('update') : await query;
-  if (!run) throw HfosError.notFound('Run not found.');
+  if (!run)
+    throw HfosError.notFound(
+      'That run isn’t there anymore. Refresh Workflows → Runs and try again.',
+    );
   return run;
 }
 
@@ -78,10 +81,10 @@ export const workflowEnrol = defineCommand({
     if (row.status !== 'active' || !row.activeVersionId)
       throw HfosError.conflict(
         row.status === 'paused'
-          ? 'This workflow is paused. Resume it to add people.'
+          ? `“${row.name}” is paused. Resume it in its editor, then add people.`
           : row.status === 'draft'
-            ? 'Publish this workflow first.'
-            : 'This workflow is archived.',
+            ? `“${row.name}” isn’t published yet. Test it and press Publish in its editor, then add people.`
+            : `“${row.name}” is archived, so nobody new can join it. Pick another workflow.`,
         'workflow_not_active',
       );
     const person = await requirePerson(ctx.tx, ws, input.personId);
@@ -225,16 +228,26 @@ export const workflowDecideApproval = defineCommand({
           eq(workflowApprovals.workspaceId, ctx.scope.workspaceId!),
         ),
       );
-    if (!a) throw HfosError.notFound('Approval not found.');
+    if (!a)
+      throw HfosError.notFound(
+        'That approval isn’t there anymore. Refresh Workflows → Approvals and try again.',
+      );
     if (!managesWorkflows(ctx) && !a.approvers.includes(me))
       throw HfosError.forbidden(
-        'Only the people this approval names, or owners and admins, can decide it.',
+        'Only the people this approval names, or owners and admins, can decide it. Ask one of them.',
         'not_an_approver',
       );
-    const decided = () => HfosError.conflict('This was already decided.', 'approval_decided');
+    const decided = () =>
+      HfosError.conflict(
+        'Someone already decided this approval, so there’s nothing more to do. Refresh Workflows → Approvals to see what’s left.',
+        'approval_decided',
+      );
     if (a.status !== 'pending') throw decided();
     if (a.expiresAt && a.expiresAt.getTime() <= Date.now())
-      throw HfosError.conflict('This approval has expired.', 'approval_expired');
+      throw HfosError.conflict(
+        'This approval ran out of time, so it can’t be decided now. The workflow goes on as its approval step says.',
+        'approval_expired',
+      );
     const status = input.decision === 'approve' ? ('approved' as const) : ('rejected' as const);
     const edits =
       input.decision === 'approve' && input.edits && Object.keys(input.edits).length
@@ -295,14 +308,23 @@ async function stepRequest(
   const me = requireHuman(ctx).userId;
   const run = await loadRun(ctx, input.runId);
   if (run.status === 'completed' || run.status === 'stopped')
-    throw HfosError.conflict('This run has ended.', 'run_ended');
+    throw HfosError.conflict(
+      `This run has already ended, so there’s nothing to ${kind}.`,
+      'run_ended',
+    );
   const [step] = await ctx.tx
     .select({ status: workflowRunSteps.status })
     .from(workflowRunSteps)
     .where(and(eq(workflowRunSteps.runId, run.id), eq(workflowRunSteps.stepKey, input.stepKey)));
-  if (!step) throw HfosError.notFound('That step hasn’t run.');
+  if (!step)
+    throw HfosError.notFound(
+      `That step hasn’t run yet in this run, so there’s nothing to ${kind}. Refresh the run to see where it stands.`,
+    );
   if (step.status !== 'failed' && step.status !== 'dead')
-    throw HfosError.conflict('Only a failed step can be retried or skipped.', 'step_not_failed');
+    throw HfosError.conflict(
+      `That step didn’t fail, so there’s nothing to ${kind}. Only a failed step can be retried or skipped.`,
+      'step_not_failed',
+    );
   await ctx.emit({
     type: kind === 'retry' ? 'workflow.step_retry_requested' : 'workflow.step_skip_requested',
     entityType: 'workflow_run',

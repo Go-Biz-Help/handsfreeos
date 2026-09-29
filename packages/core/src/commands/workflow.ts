@@ -99,7 +99,10 @@ function applyOps(def: WorkflowDefinition, ops: readonly unknown[]): WorkflowDef
 
 function assertNotArchived(row: WorkflowRow): void {
   if (row.status === 'archived')
-    throw HfosError.conflict('This workflow is archived.', 'workflow_archived');
+    throw HfosError.conflict(
+      `“${row.name}” is archived, so it can’t be changed. Start a new one from New workflow in Workflows.`,
+      'workflow_archived',
+    );
 }
 
 interface SaveArgs {
@@ -176,11 +179,20 @@ async function openProposal(ctx: CommandContext, proposalId: string): Promise<Pr
       ),
     )
     .for('update');
-  if (!row) throw HfosError.notFound('Proposal not found.');
+  if (!row)
+    throw HfosError.notFound(
+      'Those suggested changes aren’t there anymore. Describe what you want again.',
+    );
   if (row.appliedAt)
-    throw HfosError.conflict('This proposal was already applied.', 'proposal_applied');
+    throw HfosError.conflict(
+      'These suggested changes were already applied, so there’s nothing more to do.',
+      'proposal_applied',
+    );
   if (row.expiresAt.getTime() < Date.now())
-    throw HfosError.conflict('This proposal has expired. Ask again.', 'proposal_expired');
+    throw HfosError.conflict(
+      'These suggested changes ran out. Describe what you want again for a fresh suggestion.',
+      'proposal_expired',
+    );
   return row;
 }
 
@@ -392,8 +404,15 @@ export const workflowPublish = defineCommand({
     assertNotArchived(row);
     if (row.revision !== input.baseRevision) throw workflowRevisionConflict(row.revision);
     const { issues, catalogs } = await workflowIssues(ctx.tx, ws, draft);
-    if (hasBlockingWorkflowIssues(issues))
-      throw workflowIssuesError(issues, 'Fix the problems in this workflow before publishing it.');
+    if (hasBlockingWorkflowIssues(issues)) {
+      const errors = issues.filter((i) => i.severity === 'error');
+      throw workflowIssuesError(
+        issues,
+        errors.length === 1
+          ? `${errors[0]!.message.replace(/\.$/, '')}. Fix that, then publish.`
+          : `This workflow has ${errors.length} problems to fix before it can be published. The editor marks each one.`,
+      );
+    }
     if (row.testedRevision !== row.revision)
       throw HfosError.conflict(
         'Run a test first. Publishing needs a passing test of the draft as it is now.',
@@ -491,12 +510,16 @@ async function changeStatus(ctx: CommandContext, workflowId: string, change: Sta
   if (row.status === to) return same;
   if (change === 'pause' && row.status !== 'active')
     throw HfosError.conflict(
-      row.status === 'draft' ? 'Publish this workflow first.' : 'This workflow is archived.',
+      row.status === 'draft'
+        ? `“${row.name}” isn’t published yet, so there’s nothing to pause.`
+        : `“${row.name}” is archived, so it can’t be paused.`,
       'workflow_not_active',
     );
   if (change === 'resume' && row.status !== 'paused')
     throw HfosError.conflict(
-      row.status === 'draft' ? 'Publish this workflow first.' : 'This workflow is archived.',
+      row.status === 'draft'
+        ? `“${row.name}” isn’t published yet. Test it and press Publish in its editor.`
+        : `“${row.name}” is archived, so it can’t be resumed. Start a new one from New workflow in Workflows.`,
       'workflow_not_paused',
     );
   await ctx.tx.update(workflows).set({ status: to }).where(eq(workflows.id, row.id));
@@ -603,7 +626,10 @@ export const workflowRestoreVersion = defineCommand({
           eq(workflowVersions.version, input.version),
         ),
       );
-    if (!ver) throw HfosError.notFound('Version not found.');
+    if (!ver)
+      throw HfosError.notFound(
+        `Version ${input.version} of this workflow isn’t there. Refresh its history and pick another version.`,
+      );
     // Same revision means same draft, so ops diffed from this read apply to the locked row in saveDraft.
     const current = await loadWorkflow(ctx.tx, ws, input.workflowId);
     if (current.row.revision !== input.baseRevision)
@@ -685,7 +711,7 @@ export const workflowProposalCreate = defineCommand({
       assertNotArchived(current.row);
       if (current.row.revision !== input.baseRevision)
         throw HfosError.conflict(
-          'The workflow changed since this was drafted. Ask again.',
+          'The workflow was changed while this was being drafted. Describe what you want again.',
           'proposal_stale',
         );
       base = current.definition;
@@ -755,7 +781,7 @@ export const workflowProposalApply = defineCommand({
       ]);
     if (proposal.baseRevision !== input.baseRevision)
       throw HfosError.conflict(
-        'The workflow changed since this was proposed. Ask again.',
+        'Someone changed this workflow after these changes were suggested, so they can’t be applied. Describe what you want again.',
         'proposal_stale',
       );
     const out = await saveDraft(ctx, {
@@ -793,7 +819,10 @@ export const workflowProposalMarkApplied = defineCommand({
       .from(workflowProposals)
       .where(and(eq(workflowProposals.id, input.proposalId), eq(workflowProposals.workspaceId, ws)))
       .for('update');
-    if (!proposal) throw HfosError.notFound('Proposal not found.');
+    if (!proposal)
+      throw HfosError.notFound(
+        'Those suggested changes aren’t there anymore. Describe what you want again.',
+      );
     if (proposal.appliedAt)
       return {
         proposalId: proposal.id,
@@ -807,7 +836,10 @@ export const workflowProposalMarkApplied = defineCommand({
       );
     const { row } = await loadWorkflow(ctx.tx, ws, proposal.workflowId);
     if (row.revision <= proposal.baseRevision)
-      throw HfosError.conflict('Save the change to the draft first.', 'proposal_not_saved');
+      throw HfosError.conflict(
+        'These changes aren’t saved to the draft yet. Save the draft first, then try again.',
+        'proposal_not_saved',
+      );
     const [marked] = await ctx.tx
       .update(workflowProposals)
       .set({ appliedAt: dsql`now()` })

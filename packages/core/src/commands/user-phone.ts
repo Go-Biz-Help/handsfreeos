@@ -9,6 +9,7 @@
 import { and, eq, inArray, isNotNull, ne } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { phoneNumbers, userPhones } from '@hfos/db/schema';
+import { formatPhone } from '../crm/phone';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { waitInWords } from '../kernel/app-request';
@@ -53,7 +54,9 @@ export const userPhoneStartVerification = defineCommand({
       throw HfosError.rule(
         'no_number',
         409,
-        'This business needs a number before HandsFreeOS can call your cell.',
+        number
+          ? `HandsFreeOS calls your cell from the business’s number, and ${formatPhone(number.e164)} isn’t ready yet. Try again once it’s working.`
+          : 'HandsFreeOS calls your cell from the business’s number, and this business doesn’t have one yet. Ask an owner or admin to get one in Settings → Texting & calls.',
       );
     const [business] = await ctx.tx
       .select({ id: phoneNumbers.id })

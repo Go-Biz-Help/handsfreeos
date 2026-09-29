@@ -48,7 +48,10 @@ async function checkRelated(
       .select({ id: leads.id })
       .from(leads)
       .where(and(eq(leads.id, input.leadId), eq(leads.workspaceId, workspaceId)));
-    if (!lead) throw HfosError.notFound('Lead not found.');
+    if (!lead)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
   }
   if (input.customRecordId) await requireCustomRecord(ctx.tx, workspaceId, input.customRecordId);
 }
@@ -60,7 +63,10 @@ async function loadTask(ctx: CommandContext, taskId: string, opts: { lock?: bool
     .from(tasks)
     .where(and(eq(tasks.id, taskId), eq(tasks.workspaceId, ctx.scope.workspaceId!)));
   const [task] = opts.lock ? await query.for('update') : await query;
-  if (!task) throw HfosError.notFound('Task not found.');
+  if (!task)
+    throw HfosError.notFound(
+      'That task isn’t there anymore. Someone may have deleted it. Refresh and try again.',
+    );
   return task;
 }
 
@@ -354,7 +360,7 @@ export const taskDelete = defineCommand({
       .returning({ id: tasks.id });
     if (deleted.length === 0)
       throw HfosError.forbidden(
-        'Only the person who created this task, or someone who can archive records, can delete it.',
+        'Only whoever made this task, or someone allowed to archive customers, can delete it. Ask one of them, or mark it done instead.',
       );
     await ctx.emit({
       type: 'task.deleted',

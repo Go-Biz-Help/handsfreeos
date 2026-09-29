@@ -21,8 +21,16 @@ import {
 } from '../schemas/template';
 
 /** A name already in use, said as a conflict rather than as a database error. */
-const nameTaken = (name: string) =>
-  new HfosError('conflict', 409, `You already have a template called "${name}".`, {}, 'duplicate');
+const nameTaken = (name: string, restoring = false) =>
+  new HfosError(
+    'conflict',
+    409,
+    restoring
+      ? `You already have a template called “${name}”, so this one can’t come back under the same name. Rename that one in Settings → Templates first.`
+      : `You already have a template called “${name}”. Pick another name, or change that one in Settings → Templates.`,
+    {},
+    'duplicate',
+  );
 
 export const templateCreate = defineCommand({
   name: 'template.create',
@@ -97,7 +105,10 @@ export const templateUpdate = defineCommand({
           eq(messageTemplates.workspaceId, workspaceId),
         ),
       );
-    if (!current) throw HfosError.notFound('That template is not here.');
+    if (!current)
+      throw HfosError.notFound(
+        'That template isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (input.name && input.name.toLowerCase() !== current.name.toLowerCase()) {
       const [taken] = await ctx.tx
         .select({ id: messageTemplates.id })
@@ -155,7 +166,10 @@ export const templateArchive = defineCommand({
           eq(messageTemplates.workspaceId, workspaceId),
         ),
       );
-    if (!current) throw HfosError.notFound('That template is not here.');
+    if (!current)
+      throw HfosError.notFound(
+        'That template isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     if (input.restore) {
       const [taken] = await ctx.tx
         .select({ id: messageTemplates.id })
@@ -167,7 +181,7 @@ export const templateArchive = defineCommand({
             sql`${messageTemplates.archivedAt} is null`,
           ),
         );
-      if (taken) throw nameTaken(current.name);
+      if (taken) throw nameTaken(current.name, true);
     }
     await ctx.tx
       .update(messageTemplates)
@@ -210,7 +224,9 @@ export const templateUsed = defineCommand({
     );
     const [row] = Array.from(result as unknown as Iterable<{ used_count: number | null }>);
     if (row?.used_count === null || row?.used_count === undefined)
-      throw HfosError.notFound('That template is not here.');
+      throw HfosError.notFound(
+        'That template isn’t there anymore. It may have been deleted. Refresh and pick another.',
+      );
     return { templateId: input.templateId, usedCount: Number(row.used_count) };
   },
 });

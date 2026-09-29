@@ -24,7 +24,10 @@ export const userUpdateProfile = defineCommand({
       .from(users)
       .where(eq(users.id, requireHuman(ctx).userId))
       .for('update');
-    if (!current) throw HfosError.notFound('Profile not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'We couldn’t find your account. Sign out, sign in again and try once more.',
+      );
     for (const [key, expected] of Object.entries(input.expectedSettings ?? {}))
       if (canonicalJson(current.settings[key] ?? null) !== canonicalJson(expected ?? null))
         throw HfosError.conflict(

@@ -32,7 +32,10 @@ export const workspaceDelete = defineCommand({
       })
       .from(workspaces)
       .where(eq(workspaces.id, input.workspaceId));
-    if (!ws) throw HfosError.notFound('Workspace not found.');
+    if (!ws)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     if (input.confirmName.trim().toLowerCase() !== ws.name.trim().toLowerCase())
       throw HfosError.validation([
         { path: 'confirmName', message: 'Type the business’s name exactly as it is shown.' },

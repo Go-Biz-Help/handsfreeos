@@ -7,7 +7,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../errors';
 import type { CommandContext } from '../kernel/types';
-import { permissionsBeyond, type WorkspaceRole } from '../permissions';
+import { CUSTOMIZABLE_PERMISSIONS, permissionsBeyond, type WorkspaceRole } from '../permissions';
 
 export async function assertMayGrantRole(
   ctx: CommandContext,
@@ -38,9 +38,16 @@ export async function assertMayGrantRole(
     granted,
     current[0]?.permissions ?? [],
   );
-  if (beyond.length > 0)
+  if (beyond.length > 0) {
+    // Named as the Permissions screen names them, when it does (an add-on's own permissions have no words here).
+    const named = beyond
+      .map((p) => CUSTOMIZABLE_PERMISSIONS.find((c) => c.permission === p)?.label)
+      .filter((l): l is string => Boolean(l))
+      .slice(0, 2);
+    const including = named.length ? `, including “${named.join('” and “')}”` : '';
     throw HfosError.forbidden(
-      'That role can do things you can’t here, so only someone who can may give it.',
+      `Here, the ${role} role can do things you can’t${including}, so you can’t give it. Ask an owner of this business to do it, or pick a role with less access.`,
       'cannot_grant_role',
     );
+  }
 }

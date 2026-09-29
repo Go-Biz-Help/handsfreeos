@@ -132,7 +132,7 @@ export const walletSetAutoTopup = defineCommand({
       throw HfosError.rule(
         'wallet_no_card',
         409,
-        'There is no card on this wallet yet. Add one, and automatic top-up will start working.',
+        'There’s no card on your balance yet, so automatic top-up would have nothing to charge. Add one under Card on file in Settings → Usage & balance, then turn it on.',
       );
     await ctx.tx
       .update(usageWallets)
@@ -233,7 +233,7 @@ export const walletTopUp = defineCommand({
       throw HfosError.rule(
         'wallet_no_card',
         409,
-        'There is no card on this wallet to charge. Add one first.',
+        'There’s no card on your balance to charge. Add one under Card on file in Settings → Usage & balance first.',
       );
     const amount = input.amountCents ?? w.topupCents;
     const id = crypto.randomUUID();
@@ -667,7 +667,10 @@ export const walletSetStage = defineCommand({
       sql`select * from private.set_wallet_stage(${input.workspaceId}::uuid,
             ${input.stage}::app.wallet_stage)`,
     );
-    if (!row) throw HfosError.notFound('No business with that id.');
+    if (!row)
+      throw HfosError.notFound(
+        'That business isn’t there anymore. It may have been deleted. Refresh Businesses and pick it again.',
+      );
     const was = WalletStageValue.options.find((st) => st === row.was) ?? 'off';
     if (row.changed)
       await ctx.emit({

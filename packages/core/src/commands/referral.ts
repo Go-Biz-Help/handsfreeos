@@ -51,7 +51,10 @@ export const referralCreateLead = defineCommand({
       .from(referrals)
       .where(and(eq(referrals.workspaceId, ws), eq(referrals.id, input.referralId)))
       .for('update');
-    if (!r) throw HfosError.notFound('That referral isn’t here any more.');
+    if (!r)
+      throw HfosError.notFound(
+        'That referral isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     // Pressed twice, or on two devices: the lead it already made.
     if (r.status === 'lead_created' && r.leadId && r.personId)
       return { referralId: r.id, personId: r.personId, leadId: r.leadId, existingPerson: false };

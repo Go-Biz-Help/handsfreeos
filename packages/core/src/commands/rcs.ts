@@ -39,7 +39,10 @@ const refOf = (s: Pick<SenderRow, 'id' | 'status'>) => ({ rcsSenderId: s.id, sta
 /** The business's sender, or a plain refusal saying there isn't one. */
 async function requireSender(ctx: CommandContext): Promise<SenderRow> {
   const s = await currentRcsSender(ctx.tx, ctx.scope.workspaceId!);
-  if (!s) throw HfosError.notFound('This business has no RCS sender connected.');
+  if (!s)
+    throw HfosError.notFound(
+      'This business has no RCS sender connected. Connect one under RCS messaging in Settings → Texting & calls.',
+    );
   return s;
 }
 
@@ -55,7 +58,10 @@ async function assertLine(ctx: CommandContext, phoneNumberId: string): Promise<v
         inArray(phoneNumbers.status, [...SENDABLE_STATUSES]),
       ),
     );
-  if (!n) throw HfosError.notFound('Pick one of this business’s numbers.');
+  if (!n)
+    throw HfosError.notFound(
+      'That number isn’t one this business can send from anymore. It may have been released. Refresh and pick another of its numbers.',
+    );
 }
 
 export const rcsSenderConnect = defineCommand({
@@ -86,7 +92,7 @@ export const rcsSenderConnect = defineCommand({
       throw HfosError.rule(
         'no_number',
         409,
-        'Get a business number first. Phones that can’t show RCS get your messages as texts from it.',
+        'RCS needs a business number, and this business doesn’t have one yet. Phones that can’t show RCS get your messages as texts from it. Get one under Get a business number in Settings → Texting & calls first.',
       );
     if (input.phoneNumberId) await assertLine(ctx, input.phoneNumberId);
 
@@ -97,7 +103,7 @@ export const rcsSenderConnect = defineCommand({
       throw HfosError.rule(
         'rcs_sender_exists',
         409,
-        'This business already has an RCS sender. Disconnect it before connecting another.',
+        'This business already has an RCS sender. Disconnect it under RCS messaging in Settings → Texting & calls before connecting another.',
       );
     }
 
@@ -153,7 +159,11 @@ export const rcsSenderUpdate = defineCommand({
   async handler(ctx, input) {
     const s = await requireSender(ctx);
     if (s.status === 'disconnecting')
-      throw HfosError.rule('rcs_sender_leaving', 409, 'This RCS sender is being disconnected.');
+      throw HfosError.rule(
+        'rcs_sender_leaving',
+        409,
+        'This RCS sender is being disconnected, so it can’t be changed now. Once that finishes, you can connect a sender again under RCS messaging in Settings → Texting & calls.',
+      );
     if (input.phoneNumberId) await assertLine(ctx, input.phoneNumberId);
     const patch: Partial<typeof rcsSenders.$inferInsert> = {};
     if (input.enabled !== undefined && input.enabled !== s.enabled) patch.enabled = input.enabled;
@@ -196,8 +206,8 @@ export const rcsSenderRefresh = defineCommand({
         'rcs_sender_not_connected',
         409,
         s.status === 'failed'
-          ? 'This RCS sender isn’t connected. Connect it again.'
-          : 'This RCS sender is being disconnected.',
+          ? 'This RCS sender didn’t connect, so there’s nothing to check. Connect it again with Connect RCS sender under RCS messaging in Settings → Texting & calls.'
+          : 'This RCS sender is being disconnected, so there’s nothing to check. Once that finishes, you can connect a sender again under RCS messaging in Settings → Texting & calls.',
       );
     await ctx.emit({
       type: 'rcs_sender.refresh_requested',

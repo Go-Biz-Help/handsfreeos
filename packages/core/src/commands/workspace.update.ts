@@ -18,7 +18,10 @@ export const workspaceUpdate = defineCommand({
       .select()
       .from(workspaces)
       .where(eq(workspaces.id, input.workspaceId));
-    if (!current) throw HfosError.notFound('Workspace not found.');
+    if (!current)
+      throw HfosError.notFound(
+        'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+      );
     const patch: Partial<typeof current> = {};
     if (input.name !== undefined && input.name !== current.name) patch.name = input.name;
     if (input.timezone !== undefined && input.timezone !== current.timezone)
