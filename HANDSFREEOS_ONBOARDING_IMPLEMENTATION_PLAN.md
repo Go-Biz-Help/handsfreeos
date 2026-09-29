@@ -281,6 +281,17 @@ The boards in `design/onboarding` show each one.
   business opens a side sheet with its steps. "Do it for them" opens the client's workspace at that wizard step;
   "Email a reminder" runs `onboarding.remind`. Stuck means a step needs a fix, or the owner hasn't signed in for 5
   days with must-dos open. The daily agency digest gets one line per stuck business.
+  - Built as `components/agency/businesses.tsx` (the filters and the Setup cell) and `setup-sheet.tsx`, with the
+    standing worked out once in core (`onboarding/clients.ts`: `clientStanding`, `AGENCY_SETUP_WORDS`). A business's
+    **own** owners are its owner memberships who aren't in the organization: the agency's people own every business
+    through it, so they're never the owner shown, reminded or counted as away. When they last signed in is only in
+    `auth.users`, so `private.owners_last_sign_in(workspace)` (migration `20261013001000`) answers the organization's
+    owners and admins, or the worker bound to the business. **It must be applied to the hosted database before
+    `main` gets this.**
+  - "Do it for them" is on every step still to do but two that only the owner can do: inviting their team, and
+    signing in to Stripe or Square. It's hidden while Getting started is off for the business (its wizard goes Home
+    then). A reminder needs an own owner; one a day per business, whoever in the agency asks.
+  - The digest's line reads "Stuck on setup: …" under the business and links to Client businesses.
 
 **Phone** (boards 9 and 10)
 
@@ -360,6 +371,6 @@ Each step ships alone and leaves the tree green.
 5. ✅ **The tour.**
 6. ✅ **Teammates**: the personal list on the web.
 7. ✅ **Phone**: the owner's card, the teammate list, and "Email me a link" (the worker's email).
-8. **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
+8. ✅ **Agency**: `onboarding.clients`, the Setup column and sheet, and `onboarding.remind`.
 9. **The `texting_rejected` card**, with its migration applied to the hosted database first.
 10. **Measuring**: a saved count over `app.events` for skips and finishes, beside the Matomo page-view funnel.

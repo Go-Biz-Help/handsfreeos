@@ -257,7 +257,7 @@ const stepHref = (workspaceId: string, step: OnboardingStep) =>
 /** On a phone every tap target is 44 px (the design system's size-control-lg). */
 const PHONE_BUTTON = 'max-md:h-11 max-md:px-4 max-md:text-[15px]';
 
-function StateMark({ state }: { state: OnboardingStep['state'] }) {
+export function StateMark({ state }: { state: OnboardingStep['state'] }) {
   const base =
     'flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full border-[1.5px]';
   switch (state) {
