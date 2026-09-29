@@ -31,7 +31,12 @@ export const leadBoard = defineQuery({
       .where(and(eq(pipelines.workspaceId, input.workspaceId), isNull(pipelines.archivedAt)))
       .orderBy(asc(pipelines.position), asc(pipelines.createdAt));
     const pipeline = input.pipelineId ? active.find((p) => p.id === input.pipelineId) : active[0];
-    if (!pipeline) throw HfosError.notFound('Pipeline not found.');
+    if (!pipeline)
+      throw HfosError.notFound(
+        input.pipelineId
+          ? 'That pipeline isn’t there anymore. It may have been archived. Pick another pipeline.'
+          : 'This business has no pipelines yet. Add one in Settings → Pipelines.',
+      );
     const stages = await ctx.tx
       .select()
       .from(pipelineStages)
@@ -135,7 +140,10 @@ export const leadGet = defineQuery({
       [asc(leads.id)],
       1,
     );
-    if (!card) throw HfosError.notFound('Lead not found.');
+    if (!card)
+      throw HfosError.notFound(
+        'That lead isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const stages = await ctx.tx
       .select({
         id: pipelineStages.id,

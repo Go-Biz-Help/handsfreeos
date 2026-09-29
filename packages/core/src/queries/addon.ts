@@ -136,7 +136,9 @@ export function addonQueries(catalog: Catalog) {
         !findAddon(catalog, input.addonId) &&
         !installations.some((i) => i.addonId === input.addonId)
       )
-        throw HfosError.notFound('There is no such add-on.');
+        throw HfosError.notFound(
+          'That add-on isn’t offered anymore. See the ones you can use in Settings → Add-ons.',
+        );
       const cctx = capabilityContextOf(
         catalog,
         installations,
@@ -207,7 +209,10 @@ export function addonQueries(catalog: Catalog) {
     scope,
     async handler(ctx, input) {
       const m = findAddon(catalog, input.addonId);
-      if (!m) throw HfosError.notFound('There is no such add-on.');
+      if (!m)
+        throw HfosError.notFound(
+          'That add-on isn’t offered anymore. See the ones you can use in Settings → Add-ons.',
+        );
       const installations = await loadInstallations(ctx.tx, input.workspaceId);
       const mine = installations.find((i) => i.addonId === m.id);
       // Hidden until it's back on (the owner's decision, 2026-09-28).
@@ -285,7 +290,10 @@ export function addonQueries(catalog: Catalog) {
             ),
           ),
       ]);
-      if (!business) throw HfosError.notFound();
+      if (!business)
+        throw HfosError.notFound(
+          'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+        );
       const found = suggestAddon(
         capabilityContextOf(catalog, installations, overrides, permissions),
         {

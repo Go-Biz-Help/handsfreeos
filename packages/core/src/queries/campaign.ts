@@ -132,7 +132,10 @@ export const campaignGet = defineQuery({
   scope: inWorkspace,
   async handler(ctx, input) {
     const [found] = await summaries(ctx.tx, input.workspaceId, input.campaignId);
-    if (!found) throw HfosError.notFound('That campaign isn’t here any more.');
+    if (!found)
+      throw HfosError.notFound(
+        'That campaign isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const { nextSendAt, email, ...rest } = found;
     const campaign = {
       ...rest,

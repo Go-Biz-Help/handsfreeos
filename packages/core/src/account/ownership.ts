@@ -210,7 +210,7 @@ export function onlyOwnerRefusal(places: OnlyOwnerPlaces): HfosError {
   const names = [...businesses.map((b) => b.name), ...agencies.map((a) => `the agency ${a.name}`)];
   let message: string;
   if (names.length > 1)
-    message = `You’re the only owner of ${joinNames(names)}. Make someone else an owner of each first, on the web, so none of them is left without one.`;
+    message = `You’re the only owner of ${joinNames(names)}. Make someone else an owner of each first, in its Members page on the web, so none of them is left without one.`;
   else if (agencies[0])
     message = `You’re the only owner of the agency ${agencies[0].name}. Make someone who owns one of its businesses an owner of the agency first, from Delete my account on the web, so it isn’t left without one.`;
   else

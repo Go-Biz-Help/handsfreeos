@@ -20,7 +20,10 @@ export const me = defineQuery({
       .select()
       .from(users)
       .where(eq(users.id, requireHuman(ctx).userId));
-    if (!user) throw HfosError.notFound('Profile not found.');
+    if (!user)
+      throw HfosError.notFound(
+        'Your account’s profile is missing. Sign out and sign back in to set it up again.',
+      );
     const orgs = await ctx.tx
       .select({
         id: organizations.id,

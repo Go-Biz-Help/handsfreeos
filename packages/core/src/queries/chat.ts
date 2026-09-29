@@ -97,7 +97,10 @@ export const chatWidgetGet = defineQuery({
   actors: ['human', 'system'],
   async handler(ctx, input) {
     const [widget] = await widgets(ctx, input.workspaceId, input.widgetId);
-    if (!widget) throw HfosError.notFound('Chat widget not found.');
+    if (!widget)
+      throw HfosError.notFound(
+        'That website chat isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     return {
       widget,
       canManage: scopeCan(ctx.scope, 'channels.manage'),

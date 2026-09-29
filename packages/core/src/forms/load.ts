@@ -51,7 +51,10 @@ export interface LoadedForm {
  */
 export function parseStoredForm(raw: unknown): FormDefinition {
   const parsed = FormDefinition.safeParse(withSafeResultLinks(raw));
-  if (!parsed.success) throw HfosError.internal('This form’s saved questions can’t be read.');
+  if (!parsed.success)
+    throw HfosError.internal(
+      'This form’s saved questions can’t be read right now. Try again in a minute.',
+    );
   return parsed.data;
 }
 
@@ -67,7 +70,10 @@ export async function loadForm(
     .from(forms)
     .where(and(eq(forms.id, formId), eq(forms.workspaceId, workspaceId)));
   const [row] = opts.forUpdate ? await query.for('update') : await query;
-  if (!row) throw HfosError.notFound('Form not found.');
+  if (!row)
+    throw HfosError.notFound(
+      'That form isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return { row, definition: parseStoredForm(row.definition) };
 }
 

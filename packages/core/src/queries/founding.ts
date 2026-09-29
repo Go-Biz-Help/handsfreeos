@@ -294,7 +294,10 @@ export const foundingClaimPreview = defineQuery({
       checkout_id: string | null;
       checkout_workspace_id: string | null;
     }>(ctx.tx, sql`select * from private.founding_seat_by_token(${hashClaimToken(input.token)})`);
-    if (!seat) throw HfosError.notFound('That link is not valid. Ask us for a new one.');
+    if (!seat)
+      throw HfosError.notFound(
+        'That link doesn’t work. It may have been copied wrong or replaced. Ask us for a new one.',
+      );
     return {
       state: seat.state,
       offerId: seat.offer_id,
@@ -334,7 +337,10 @@ export const foundingCheckoutStatus = defineQuery({
       seat_active: boolean;
       problem: string;
     }>(ctx.tx, sql`select * from private.founding_checkout_view(${input.checkoutId}::uuid)`);
-    if (!c) throw HfosError.notFound('There is no checkout by that id.');
+    if (!c)
+      throw HfosError.notFound(
+        'We can’t find that payment. Sign in with the account that started it, or ask us for a new link.',
+      );
     return {
       checkoutId: c.checkout_id,
       workspaceId: c.workspace_id,

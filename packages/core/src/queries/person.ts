@@ -162,7 +162,10 @@ export const personGet = defineQuery({
       ctx.tx,
       sql`${base(input.workspaceId, 'name')} and p.id = ${input.personId}`,
     );
-    if (!row) throw HfosError.notFound('Person not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const tags = await tagsByRecord(ctx.tx, input.workspaceId, 'person', [row.id]);
     // The fields this business invented, only here: a list of fifty customers needn't carry them.
     const [values] = await rows<{

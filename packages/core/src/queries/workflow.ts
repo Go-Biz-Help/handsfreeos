@@ -366,7 +366,10 @@ export const workflowVersionGet = defineQuery({
           eq(workflowVersions.version, input.version),
         ),
       );
-    if (!v) throw HfosError.notFound('Version not found.');
+    if (!v)
+      throw HfosError.notFound(
+        'That version of the workflow isn’t there anymore. Refresh and try again.',
+      );
     const names = await userNames(ctx.tx, v.publishedBy ? [v.publishedBy] : []);
     return {
       version: {
@@ -657,7 +660,8 @@ export const workflowRunGet = defineQuery({
           ${runJoins}
           where r.workspace_id = ${input.workspaceId} and r.id = ${input.runId}`,
     );
-    if (!run) throw HfosError.notFound('Run not found.');
+    if (!run)
+      throw HfosError.notFound('That workflow run isn’t there anymore. Refresh and try again.');
     const steps = await rows<{
       id: string;
       step_key: string;
@@ -755,7 +759,10 @@ export const workflowProposalGet = defineQuery({
       .where(
         and(eq(workflowProposals.id, input.proposalId), eq(workflowProposals.workspaceId, ws)),
       );
-    if (!p) throw HfosError.notFound('Proposal not found.');
+    if (!p)
+      throw HfosError.notFound(
+        'That suggested change isn’t there anymore. Describe the change again to get a fresh one.',
+      );
     const current = p.workflowId ? await loadWorkflow(ctx.tx, ws, p.workflowId) : null;
     const catalogs = await loadWorkflowCatalogs(ctx.tx, ws);
     const names = await userNames(ctx.tx, p.createdBy ? [p.createdBy] : []);
@@ -886,7 +893,10 @@ export const workflowTemplateGet = defineQuery({
           eq(workflowTemplates.organizationId, input.organizationId),
         ),
       );
-    if (!t) throw HfosError.notFound('Template not found.');
+    if (!t)
+      throw HfosError.notFound(
+        'That template isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const def = parseStoredDefinition(t.definition);
     const versions = await ctx.tx
       .select()

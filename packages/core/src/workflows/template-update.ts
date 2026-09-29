@@ -106,7 +106,7 @@ export async function planTemplateUpdate(
   const { row, definition: draft } = await loadWorkflow(tx, workspaceId, workflowId, opts);
   if (!row.templateId)
     throw HfosError.conflict(
-      'This workflow didn’t come from an agency template.',
+      'This workflow didn’t come from an agency template, so there’s no newer version to update it to.',
       'not_from_template',
     );
   const [t] = await tx
@@ -119,7 +119,7 @@ export async function planTemplateUpdate(
     .where(eq(workflowTemplates.id, row.templateId));
   if (!t?.latestVersion)
     throw HfosError.conflict(
-      'There’s no published version of this template to update to.',
+      'There’s no published version of this template to update to. Ask your agency to publish one.',
       'template_not_published',
     );
   const [install] = await tx

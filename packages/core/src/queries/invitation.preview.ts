@@ -23,7 +23,10 @@ export const invitationPreview = defineQuery({
       expires_at: Date;
       email_matches: boolean;
     }>(ctx.tx, sql`select * from private.invitation_preview(${hashInvitationToken(input.token)})`);
-    if (!row) throw HfosError.notFound('Invitation not found.');
+    if (!row)
+      throw HfosError.notFound(
+        'That invitation link doesn’t work. Ask whoever invited you to send a new one.',
+      );
     return {
       status: row.status,
       workspaceName: row.workspace_name,

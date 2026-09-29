@@ -198,7 +198,10 @@ export const formVersionGet = defineQuery({
       .where(
         and(eq(formVersions.id, input.versionId), eq(formVersions.workspaceId, input.workspaceId)),
       );
-    if (!version) throw HfosError.notFound('That version isn’t there.');
+    if (!version)
+      throw HfosError.notFound(
+        'That version of the form isn’t there anymore. Refresh and try again.',
+      );
     return {
       versionId: version.id,
       formId: version.formId,
@@ -337,7 +340,10 @@ export const formResponseGet = defineQuery({
           eq(formResponses.workspaceId, input.workspaceId),
         ),
       );
-    if (!response) throw HfosError.notFound('That answer sheet isn’t there.');
+    if (!response)
+      throw HfosError.notFound(
+        'That response isn’t there anymore. It may have been deleted. Refresh and try again.',
+      );
     const answers = await rows<{
       question_id: string;
       question_title: string;

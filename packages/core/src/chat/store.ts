@@ -38,7 +38,8 @@ export async function loadVisitor(tx: Tx, workspaceId: string, visitorId: string
     .select(VISITOR_COLUMNS)
     .from(chatVisitors)
     .where(and(eq(chatVisitors.id, visitorId), eq(chatVisitors.workspaceId, workspaceId)));
-  if (!v) throw HfosError.notFound('Chat visitor not found.');
+  if (!v)
+    throw HfosError.notFound('That website visitor isn’t there anymore. Refresh and try again.');
   return v;
 }
 
@@ -59,7 +60,8 @@ export async function blockOf(
                     and o.network_blocked_until > now()) as network
         from app.chat_visitors v where v.id = ${visitorId} and v.workspace_id = ${workspaceId}`,
   );
-  if (!r) throw HfosError.notFound('Chat visitor not found.');
+  if (!r)
+    throw HfosError.notFound('That website visitor isn’t there anymore. Refresh and try again.');
   return r.blocked ? 'visitor' : r.network ? 'network' : null;
 }
 
@@ -82,7 +84,7 @@ export async function networkBlocked(
 /** The refusal for a blocked visitor (or network), in words the chat window can show. */
 export function blockedError(why: 'visitor' | 'network'): HfosError {
   return HfosError.forbidden(
-    'This chat isn’t available right now.',
+    'This chat isn’t available right now. Contact the business by phone or email instead.',
     why === 'visitor' ? 'visitor_blocked' : 'network_blocked',
   );
 }

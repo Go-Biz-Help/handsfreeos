@@ -272,7 +272,10 @@ export async function workspaceMessaging(tx: Tx, workspaceId: string): Promise<W
     })
     .from(workspaces)
     .where(eq(workspaces.id, workspaceId));
-  if (!ws) throw HfosError.notFound('Workspace not found.');
+  if (!ws)
+    throw HfosError.notFound(
+      'That business isn’t there, or you’re no longer in it. Pick a business from your list.',
+    );
   const raw = (ws.settings ?? {}) as Record<string, unknown>;
   const parsed = TelephonySettings.partial().safeParse(raw['telephony'] ?? {});
   const stored = parsed.success ? parsed.data : {};
@@ -327,7 +330,10 @@ export async function loadConversation(ctx: CommandContext, conversationId: stri
         eq(conversations.workspaceId, ctx.scope.workspaceId!),
       ),
     );
-  if (!c) throw HfosError.notFound('Conversation not found.');
+  if (!c)
+    throw HfosError.notFound(
+      'That conversation isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return c;
 }
 

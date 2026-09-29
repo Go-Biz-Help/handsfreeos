@@ -581,7 +581,8 @@ export const appointmentGet = defineQuery({
     const [card] = await appointmentCards(ctx.tx, input.workspaceId, [
       eq(appointments.id, input.appointmentId),
     ]);
-    if (!card) throw HfosError.notFound('Appointment not found.');
+    if (!card)
+      throw HfosError.notFound('That appointment isn’t there anymore. Refresh and try again.');
     const [row] = await ctx.tx
       .select({
         calendarRevision: appointments.calendarRevision,

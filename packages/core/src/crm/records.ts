@@ -72,7 +72,10 @@ export async function requirePerson(tx: Tx, workspaceId: string, personId: strin
     .select()
     .from(people)
     .where(and(eq(people.id, personId), eq(people.workspaceId, workspaceId)));
-  if (!p) throw HfosError.notFound('Person not found.');
+  if (!p)
+    throw HfosError.notFound(
+      'That customer isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return p;
 }
 export async function requireCompany(tx: Tx, workspaceId: string, companyId: string) {
@@ -80,7 +83,10 @@ export async function requireCompany(tx: Tx, workspaceId: string, companyId: str
     .select()
     .from(companies)
     .where(and(eq(companies.id, companyId), eq(companies.workspaceId, workspaceId)));
-  if (!c) throw HfosError.notFound('Company not found.');
+  if (!c)
+    throw HfosError.notFound(
+      'That company isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return c;
 }
 

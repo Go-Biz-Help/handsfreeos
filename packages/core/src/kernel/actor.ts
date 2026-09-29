@@ -22,7 +22,9 @@ export function userIdOf(actor: Actor): string | null {
 /** For handlers that only make sense for a signed-in person (human-only commands and every query). */
 export function requireHuman(ctx: { readonly actor: Actor }): HumanActor {
   if (ctx.actor.type !== 'human')
-    throw HfosError.forbidden('This action needs a signed-in person.');
+    throw HfosError.forbidden(
+      'Only a person signed in to HandsFreeOS can do this. Ask someone on the team to do it.',
+    );
   return ctx.actor;
 }
 

@@ -30,8 +30,15 @@ export function decodeCursor(value: string | undefined): Cursor | null {
   } catch {
     /* fall through */
   }
-  throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
+  throw listMovedOn();
 }
+
+/** A cursor that can't be read: the list starts again from the top. */
+export const listMovedOn = (): HfosError =>
+  HfosError.validation(
+    [{ path: 'cursor', message: 'Start the list again from the top.' }],
+    'This list can’t carry on from where it was. Refresh to start it again from the top.',
+  );
 
 const ISO_TIMESTAMP =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,6})?(Z|[+-](\d{2})(?::?(\d{2}))?)$/;
@@ -71,8 +78,7 @@ function isTimestamp(sort: string): boolean {
  */
 export function decodeTimeCursor(value: string | undefined): Cursor | null {
   const cursor = decodeCursor(value);
-  if (cursor && (!isTimestamp(cursor.sort) || !UUID.test(cursor.id)))
-    throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
+  if (cursor && (!isTimestamp(cursor.sort) || !UUID.test(cursor.id))) throw listMovedOn();
   return cursor;
 }
 

@@ -18,7 +18,7 @@ export { APP_CLIENT, APP_HEADERS };
 /**
  * Every command from the app has to say which command it is and when it was done, or the API refuses it before it
  * even looks at the body — `assertAppRequest` in packages/core/src/kernel/app-request.ts, answering 400 with
- * "The app sent this change without saying which one it is and when it was done."
+ * "The app sent this change without saying which one it is and when it was done. Update the app, then try it again."
  *
  * The queue of changes says so for itself: each change it saved has its own id and the moment the person made it
  * (`src/changes/send.ts`). Everything else the app sends straight through this client — the Assistant's OK, a chat

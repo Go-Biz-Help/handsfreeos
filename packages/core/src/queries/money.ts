@@ -854,5 +854,7 @@ export const moneySettingsGet = defineQuery({
 
 /** A document a member may not see does not exist for them: never a 403 that admits it is there. */
 function notThere(what: 'estimate' | 'invoice' | 'plan'): HfosError {
-  return HfosError.notFound(`That ${what} isn’t there.`);
+  return HfosError.notFound(
+    `That ${what} isn’t there anymore, or it isn’t one you can see. Refresh and try again.`,
+  );
 }

@@ -520,7 +520,8 @@ describe('series, sessions and waitlists', () => {
       expect.objectContaining({
         occurrence: 2,
         date: addDays(first, 7),
-        reason: 'Priya Tech already has an appointment then.',
+        reason:
+          'Priya Tech already has an appointment then, and every booking on this calendar needs them. Pick another time.',
       }),
     ]);
     const cancelled = await run(

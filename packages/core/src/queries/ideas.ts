@@ -56,7 +56,10 @@ const WHATS_NEW_FIRST_LOOK_DAYS = 30;
 function offsetOf(cursor: string | undefined): number {
   if (!cursor) return 0;
   if (!/^\d{1,6}$/.test(cursor))
-    throw HfosError.validation([{ path: 'cursor', message: 'Invalid cursor.' }]);
+    throw HfosError.validation(
+      [{ path: 'cursor', message: 'Start the list again from the top.' }],
+      'This list can’t carry on from where it was. Refresh to start it again from the top.',
+    );
   return Number(cursor);
 }
 
@@ -233,7 +236,8 @@ export const ideaGet = defineQuery({
           left join platform.ideas m on m.id = i.merged_into
           where i.id = ${input.ideaId}`,
     );
-    if (!idea) throw HfosError.notFound('No idea with that id.');
+    if (!idea)
+      throw HfosError.notFound('That idea isn’t on the board anymore. Refresh and try again.');
     const moderator = await isModerator(ctx.tx);
     const [comments, updates, shipped] = await Promise.all([
       rows<{
@@ -726,7 +730,8 @@ export const ideaTeamView = defineQuery({
           left join app.workspaces w on w.id = i.workspace_id
           where i.id = ${input.ideaId}`,
     );
-    if (!idea) throw HfosError.notFound('No idea with that id.');
+    if (!idea)
+      throw HfosError.notFound('That idea isn’t on the board anymore. Refresh and try again.');
     const [voters, [tally]] = await Promise.all([
       rows<{
         user_id: string;

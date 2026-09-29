@@ -136,7 +136,9 @@ export function parseStoredDefinition(raw: unknown): WorkflowDefinition {
   try {
     return parseDefinition(raw);
   } catch {
-    throw HfosError.internal('This workflow’s saved steps can’t be read.');
+    throw HfosError.internal(
+      'This workflow’s saved steps can’t be read. Try again in a minute, and if it keeps happening, use Get help at the bottom of the menu.',
+    );
   }
 }
 
@@ -152,7 +154,10 @@ export async function loadWorkflow(
     .from(workflows)
     .where(and(eq(workflows.id, workflowId), eq(workflows.workspaceId, workspaceId)));
   const [row] = opts.forUpdate ? await query.for('update') : await query;
-  if (!row) throw HfosError.notFound('Workflow not found.');
+  if (!row)
+    throw HfosError.notFound(
+      'That workflow isn’t there anymore. It may have been deleted. Refresh and try again.',
+    );
   return { row, definition: parseStoredDefinition(row.definition) };
 }
 
