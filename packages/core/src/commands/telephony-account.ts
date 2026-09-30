@@ -5,7 +5,8 @@
  * carrier key. **On** makes it now rather than with the first number, so a business moving a number here has
  * the Account SID to hand HighLevel or Twilio before it has any number. **Off** closes it for good — Twilio
  * cannot reopen a closed account, and closing releases every number in it — so it is refused while anything is
- * in the account (`phoneAccountBlockers`), and the worker asks again the moment before it closes.
+ * in the account (`phoneAccountBlockers`), and the worker asks again the moment before it closes — of our records
+ * and of Twilio itself, since a number moved in without anybody asking here has no record to find.
  */
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';

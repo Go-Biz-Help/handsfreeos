@@ -9,7 +9,9 @@
  * on the business's behalf. Turning it back on later makes a fresh subaccount with a new Account SID.
  *
  * Asked twice: by `telephony.disable` when a person presses it, and again by the worker the moment before it
- * closes the account, because a number can be bought or a transfer started in between.
+ * closes the account, because a number can be bought or a transfer started in between. This only knows what
+ * HandsFreeOS has written down; the worker also lists the account in Twilio before closing it
+ * (apps/worker/src/telephony/account-switch.ts), for a number moved in without anybody asking here.
  */
 import { and, eq, inArray, ne, notInArray } from 'drizzle-orm';
 import type { Tx } from '@hfos/db/client';

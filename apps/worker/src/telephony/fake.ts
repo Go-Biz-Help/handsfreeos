@@ -178,9 +178,6 @@ export interface FakeOptions {
    * account) arrives in the account watching for it this long after the first look, as if its owner had sent
    * the transfer request. Unset, a number only ever arrives through `transferIn`. A number ending 0002 never
    * does — its owner never sent the request — so the waiting screen can be seen as it stays.
-   *
-   * Set, it also puts one number in each business's own account the first time its numbers are listed, as if it
-   * had been moved there without anybody asking here first, so Settings has something to find.
    */
   readonly autoTransferMs?: number | null;
 }
@@ -328,9 +325,6 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     });
     return sid;
   }
-
-  /** Subaccounts that have been given their local-run stand-in number, so it is placed once. */
-  const strayPlaced = new Set<string>();
 
   /** The stand-in senders of an account, as they stand now: the one in review comes online with time. */
   const standIns = (accountSid: string): FakeRcsSender[] =>
@@ -580,20 +574,6 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
       });
     },
     async listOwnedNumbers(account, { limit }) {
-      // Local runs: a business's account has a number in it that nobody here asked for, still pointed at
-      // HighLevel, as if its owner had it moved straight through HighLevel's support. So "Find numbers"
-      // has something to find.
-      if (opts.autoTransferMs != null && !strayPlaced.has(account.sid)) {
-        strayPlaced.add(account.sid);
-        const sid = fakeSid('PN');
-        owned.set(sid, {
-          sid,
-          e164: `+1256${String(200 + Math.floor(Math.random() * 799))}${String(1000 + Math.floor(Math.random() * 8999))}`,
-          accountSid: account.sid,
-          smsUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/inbound-sms',
-          voiceUrl: 'https://services.leadconnectorhq.com/phone-system/twilio/voice',
-        });
-      }
       return [...owned.values()]
         .filter((n) => n.accountSid === account.sid)
         .slice(0, limit)
