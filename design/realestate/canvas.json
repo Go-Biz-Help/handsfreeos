@@ -2,7 +2,7 @@
   "artboards": [
     {
       "file": "DealsHome.dc.html",
-      "title": "1 · Deals",
+      "title": "1 \u00b7 Deals",
       "x": 0,
       "y": 0,
       "w": 1280,
@@ -10,7 +10,7 @@
     },
     {
       "file": "StartDeal.dc.html",
-      "title": "2 · Start a buyer deal from a customer",
+      "title": "2 \u00b7 Start a buyer deal from a customer",
       "x": 1360,
       "y": 0,
       "w": 1280,
@@ -18,7 +18,7 @@
     },
     {
       "file": "DealPage.dc.html",
-      "title": "3 · A deal: health, duties, dates, people, commission",
+      "title": "3 \u00b7 A deal: health, duties, dates, people, commission",
       "x": 2720,
       "y": 0,
       "w": 1280,
@@ -26,7 +26,7 @@
     },
     {
       "file": "KeyDates.dc.html",
-      "title": "4 · Key dates and terms, with a conflict",
+      "title": "4 \u00b7 Key dates and terms, with a conflict",
       "x": 4080,
       "y": 0,
       "w": 1280,
@@ -34,7 +34,7 @@
     },
     {
       "file": "DutyDrawer.dc.html",
-      "title": "5 · A duty: proof, exception, history",
+      "title": "5 \u00b7 A duty: proof, exception, history",
       "x": 0,
       "y": 1000,
       "w": 1280,
@@ -42,7 +42,7 @@
     },
     {
       "file": "Documents.dc.html",
-      "title": "6 · Documents: versions and signed files kept",
+      "title": "6 \u00b7 Documents: versions and signed files kept",
       "x": 1360,
       "y": 1000,
       "w": 1280,
@@ -50,7 +50,7 @@
     },
     {
       "file": "ClientUpdate.dc.html",
-      "title": "7 · Client update with a fair-housing flag",
+      "title": "7 \u00b7 Client update with a fair-housing flag",
       "x": 2720,
       "y": 1000,
       "w": 1280,
@@ -58,7 +58,7 @@
     },
     {
       "file": "DutyEditor.dc.html",
-      "title": "8 · Settings: the duty editor",
+      "title": "8 \u00b7 Settings: the duty editor",
       "x": 4080,
       "y": 1000,
       "w": 1280,
@@ -66,7 +66,7 @@
     },
     {
       "file": "AlertSettings.dc.html",
-      "title": "9 · Settings: alerts, business days, client updates",
+      "title": "9 \u00b7 Settings: alerts, business days, client updates",
       "x": 0,
       "y": 2000,
       "w": 1280,
@@ -74,7 +74,7 @@
     },
     {
       "file": "Panels.dc.html",
-      "title": "10 · Panels on a customer and a lead",
+      "title": "10 \u00b7 Panels on a customer and a lead",
       "x": 1360,
       "y": 2000,
       "w": 1280,
@@ -82,7 +82,7 @@
     },
     {
       "file": "HomeAlerts.dc.html",
-      "title": "11 · Home cards and phone push",
+      "title": "11 \u00b7 Home cards and phone push",
       "x": 2720,
       "y": 2000,
       "w": 1280,
@@ -90,11 +90,163 @@
     },
     {
       "file": "SupportAccess.dc.html",
-      "title": "12 · Settings: support access",
+      "title": "12 \u00b7 Settings: support access",
       "x": 4080,
       "y": 2000,
       "w": 1280,
       "h": 900
+    },
+    {
+      "file": "BuyerWorkspace.dc.html",
+      "title": "13 \u00b7 A buyer deal: the buyer\u2019s side",
+      "x": 0,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "AddHome.dc.html",
+      "title": "14 \u00b7 Add a home: paste the listing, confirm the facts",
+      "x": 1360,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Homes.dc.html",
+      "title": "15 \u00b7 Homes: fit, the client\u2019s answers, where each came from",
+      "x": 2720,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "BuyerMemory.dc.html",
+      "title": "16 \u00b7 Buyer memory: suggestions with their words, confirmed by the agent",
+      "x": 4080,
+      "y": 3100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PlanTour.dc.html",
+      "title": "17 \u00b7 Plan a tour: refused without an agreement, an owner lets it through",
+      "x": 0,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "CalendarBusy.dc.html",
+      "title": "18 \u00b7 The calendar: a private deal\u2019s tour shows only as busy",
+      "x": 1360,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Cma.dc.html",
+      "title": "19 \u00b7 A CMA: comps, the range, the AI\u2019s summary",
+      "x": 2720,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Offers.dc.html",
+      "title": "20 \u00b7 An offer: versions, counters and the response clock",
+      "x": 4080,
+      "y": 4100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "OfferSummary.dc.html",
+      "title": "21 \u00b7 The client\u2019s one-page offer summary",
+      "x": 0,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Financing.dc.html",
+      "title": "22 \u00b7 The financing tracker",
+      "x": 1360,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "Inspections.dc.html",
+      "title": "23 \u00b7 Inspections: findings and the repair request",
+      "x": 2720,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "ClientTasks.dc.html",
+      "title": "24 \u00b7 The client\u2019s to-do, and inviting them to the portal",
+      "x": 4080,
+      "y": 5100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "InboxPortalThread.dc.html",
+      "title": "25 \u00b7 A portal message in the Inbox",
+      "x": 0,
+      "y": 6100,
+      "w": 1280,
+      "h": 900
+    },
+    {
+      "file": "PortalSignIn.dc.html",
+      "title": "26 \u00b7 Portal: the emailed code on a new device",
+      "x": 0,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalHome.dc.html",
+      "title": "27 \u00b7 Portal: home",
+      "x": 470,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalDeal.dc.html",
+      "title": "28 \u00b7 Portal: where the deal stands",
+      "x": 940,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalHomes.dc.html",
+      "title": "29 \u00b7 Portal: homes to save or pass on",
+      "x": 1410,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalTour.dc.html",
+      "title": "30 \u00b7 Portal: feedback after a tour",
+      "x": 1880,
+      "y": 7100,
+      "w": 390,
+      "h": 844
+    },
+    {
+      "file": "PortalMessages.dc.html",
+      "title": "31 \u00b7 Portal: messages with the agent",
+      "x": 2350,
+      "y": 7100,
+      "w": 390,
+      "h": 844
     }
   ]
 }

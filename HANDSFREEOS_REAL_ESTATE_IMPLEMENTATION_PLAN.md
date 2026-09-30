@@ -16,9 +16,11 @@ phone, signed files that can't be deleted, and a way for staff to hand an unfini
 The buyer and listing workspaces (search, tours, comparisons, offers back and forth, marketing), reading
 contracts, the MLS and other connectors, a client portal and phone screens come in later rounds.
 
-**Where it stands (2026-09-30):** every step is built, and the add-on is in `beta`: HandsFreeOS staff hand it to test
-businesses. `docs/realestate.md` is the guide for working on it. Before `main`, migrations `20261013002200` to
-`20261013003000` go on the hosted database (docs/operations.md, "Apply new migrations").
+**Where it stands (2026-09-30):** round one is built, and the add-on is in `beta`: HandsFreeOS staff hand it to test
+businesses. `docs/realestate.md` is the guide for working on it. Its migrations, `20261013002200` to
+`20261013003000`, are on the hosted database. Round two (the buyer's side and the client portal) is being built on
+the same branch; Chris wants the whole add-on done before it goes to `main` in one pull request (see "Round two"
+below).
 
 ## Decisions (Chris, 2026-09-30)
 
@@ -750,3 +752,71 @@ test add-on in `docs/operations.md`, and a row in CLAUDE.md.
 - State rules, a brokerage rule engine beyond the duty editor, retention and legal holds, and exporting a whole
   transaction.
 - Prices for add-ons.
+
+# Round two: Buyer core
+
+The spec's **Buyer core** release (§23): the buyer's agreement, financing, finding homes and what the buyer wants,
+tours, the CMA and offers, inspections and closing, and a portal for the client. Chris decided every question below
+on 2026-09-30, after watching round one's walkthrough. The later rounds follow in the same branch: Listing core,
+Coordinator and risk, Ecosystem (the connectors), then the phone and the finish.
+
+## Decisions (Chris, 2026-09-30)
+
+| Question                            | Answer                                                                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Homes before the MLS                | **The agent and the client add them.** The agent pastes an address or a listing's text; the AI fills in the facts and the agent confirms them. The client adds homes from the portal. The MLS fills them in once it's connected.                 |
+| A pasted listing link               | **Kept, never read.** Listing sites forbid automated reading. The agent pastes the listing's text.                                                                                                                                               |
+| Tours                               | **On the calendar.** One appointment per tour on the agent's calendar, with the homes in order; the client is invited and reminded. Someone off a private deal sees the tour only as busy.                                                       |
+| A tour without a signed agreement   | **Refused**, unless an owner or admin (Approve exceptions) lets it through with a reason, which is kept.                                                                                                                                         |
+| Offers                              | **Terms here, the contract elsewhere.** Every version and counter is kept, the response deadline is watched, and the client gets a one-page summary. The state contract is filled in the agent's forms software and uploaded.                    |
+| Buyer memory                        | **The AI suggests, the agent confirms.** Wants and must-haves from the client's messages and call notes, each with the words it came from. Nothing counts until the agent confirms it. Anything about who lives there is never kept.             |
+| The financing tracker               | **The agent and coordinator mark each step**, with proof: preapproval, application, rate lock, appraisal, conditional approval, clear to close, the Closing Disclosure, funding. The lender connector comes later.                               |
+| The CMA                             | **The agent adds comps**; HandsFreeOS works out a price range and the AI drafts the summary for the agent to check. The MLS fills in comps later.                                                                                                |
+| How a client gets into the portal   | **A private link and an emailed code.** On a new device the client types a 6-digit code sent to the email on file. No password.                                                                                                                  |
+| The portal and the planned add-on   | **Shared sign-in, own portal.** Core builds what every portal needs (the link and code, client uploads, portal messages); Real Estate's portal shows only the client's deals; the planned Customer Portal add-on comes later on the same pieces. |
+| What the client can do              | **See where things stand** and the key dates, **do their own tasks** (upload a preapproval or ID, sign off), **save or pass on homes** and leave feedback after a tour, and **message the agent**.                                               |
+| Who sees a client's portal messages | **The people on that client's deals**, and owners, admins and anyone with See every deal.                                                                                                                                                        |
+| The "your agent replied" email      | **A link only.** The words stay in the portal.                                                                                                                                                                                                   |
+| Phone screens                       | **Coded as if they exist.** Links to a deal's pages open the phone's own screen once it has one, the web until then (the manifest's `ui.phone`).                                                                                                 |
+
+Chosen for Chris, open to change:
+
+- A device stays signed in to the portal for 30 days after it was last used, and 90 at most.
+- Two clients on one deal each get their own link and sign-in, and each one's save or pass is their own.
+- A private deal's appointments show to others as busy: round one decided it, but made no appointments, so core
+  builds it now (step 1).
+
+## How it works
+
+- **Core first.** Five pieces any add-on (and the later Customer Portal) can use: private records' appointments shown
+  as busy; the portal's sign-in (a link per client, a code by email, a session per device); a customer who is signed
+  in (a new kind of actor, allowed only operations that say so, reading under row security); client uploads through
+  the worker; and portal messages in the Inbox (a new channel, `portal`).
+- **The buyer's side** keeps its own records in `addon_realestate`, each following its deal's privacy: the buyer's
+  profile and memory, homes and the client's reactions, tours and their stops and feedback, CMAs and comps, offers and
+  their versions, financing steps, inspections, findings and repair requests, and the client's tasks. Each one adds
+  proof to the catalog duties it answers; none finishes a duty on its own.
+- **The AI** fills a home's facts from pasted text, suggests buyer memory from what the client said, and drafts the
+  CMA's summary. Every fact and every quote must appear in the words it read; the agent confirms each one; the fair
+  housing checks read every summary and every suggestion.
+
+## Build order (round two)
+
+Round two's migrations start at `20261014000100`, leaving room for work on `main` above the hosted database's
+`20261013003000`. Screens wait for Chris to approve the boards; the server steps go ahead meanwhile.
+
+- **Step 0:** this part, and the boards in `design/realestate` (numbers 13 to 31).
+- **Steps 1–5 (core):** busy-only appointments on private records; the portal's sign-in; the customer actor and
+  add-ons' portal pages; client uploads; portal messages in the Inbox.
+- **Steps 6–13 (Real Estate):** homes and the buyer's profile; buyer memory; tours and the agreement rule; the CMA;
+  offers and counters; financing, inspections and closing; client tasks and the portal's operations; duty hooks.
+- **Step 14:** the staff screens. **Step 15:** the portal's screens, the Assistant's tools, the docs, the browser
+  test and a short video.
+
+## Not in round two
+
+- The MLS, e-sign, forms, lender, title, insurance and showing connectors (round five), so no automatic search,
+  showing requests or contract filling yet.
+- Route planning and drive times between a tour's homes, and lockbox details.
+- The listing side (round three) and contract reading (round four).
+- Phone screens (round six); their links are ready.
