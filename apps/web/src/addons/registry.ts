@@ -20,6 +20,7 @@
  */
 import type { AddonSlotName } from '@hfos/core';
 import type { ComponentType } from 'react';
+import { House as realestateAddonIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -31,6 +32,7 @@ type EverySlot<T extends Record<AddonSlotName, object>> = T;
 export type SlotEntities = EverySlot<{
   'person.panels': { readonly personId: string };
   'company.panels': { readonly companyId: string };
+  'lead.panels': { readonly leadId: string; readonly personId: string | null };
   /** A record of one of the business's own kinds; `recordTypeKey` says which (`pm_property` for an add-on's). */
   'record.panels': {
     readonly recordId: string;
@@ -88,4 +90,6 @@ export interface AddonUi {
 }
 
 /** Every add-on's UI, by add-on id. None yet: the first add-on adds the first line. */
-export const ADDON_UI: Readonly<Record<string, AddonUi>> = {};
+export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
+  realestate: { icon: realestateAddonIcon },
+};

@@ -72,6 +72,12 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   when it needs them, live in `addon_<id>`, each with every tenant rule from `private.addon_table_policies()`.
   A kind can be kept to the people on each record (`keptToTeam`, Real Estate step 4): see docs/relationships.md;
   a table about such records passes the record column to `addon_table_policies` and follows them.
+- **Its own timeline lines and AI use** (Real Estate step 6): a command writes on a record's, a customer's, a
+  company's or a lead's timeline with `addonTimelineLine(ctx, manifest, { words, body, tone, … })` (subtype
+  `addon_line`: who did it, or the add-on's name when it did it itself, and its words); deleting the add-on's data
+  keeps each line's who and when and drops its words. AI it uses is counted under `app.ai_usage` source `addon`
+  with its id, and charged like any other.
+- **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), or Home.
 - **Alerts** (Real Estate step 5): what an add-on needs someone to see. Its worker calls `raiseAddonAlert(ctx, …)`
   (apps/worker/src/addons/alerts.ts) with its own key, a severity (`info`, `attention`, `at_risk`, `critical`), the
   words, one of its own pages (`/a/<id>/…`), one of its own permissions, and optionally a record, an audience, a due

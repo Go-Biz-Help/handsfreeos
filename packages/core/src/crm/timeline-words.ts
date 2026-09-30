@@ -67,6 +67,9 @@ export function timelineActor(e: TimelineEntry, subjectName?: string): string {
     const name = str(obj(e.meta.workflow).name);
     return name ? `Workflow: ${name}` : 'Workflow';
   }
+  // An add-on writing on its own (Real Estate step 6): named after the add-on.
+  if (e.subtype === 'addon_line' && e.actorType === 'system')
+    return str(obj(e.meta.addon).name) || 'An add-on';
   if (e.actorType === 'system') return e.meta.onBehalfOf ? 'Import' : 'HandsFreeOS';
   return e.actor?.fullName ?? 'Former member';
 }
@@ -180,6 +183,9 @@ export function describeTimeline(
       return 'uploaded a file';
     case 'file_locked':
       return 'locked a file as signed and kept';
+    // An add-on's own line, in its words ("confirmed the inspection deadline").
+    case 'addon_line':
+      return str(e.meta.words) || 'made a change';
     case 'team_changed':
       return teamChangedWords(e.meta);
     case 'lead_qualified':
@@ -300,6 +306,7 @@ export function timelineBody(e: TimelineEntry): string | null {
     case 'file_added':
     case 'file_locked':
     case 'next_action':
+    case 'addon_line':
       return e.body;
     case 'lost':
       return e.body?.replace(/^Lost:\s*/, '') || null;
@@ -316,11 +323,21 @@ export function timelineBody(e: TimelineEntry): string | null {
  */
 export type TimelineTone = 'ai' | 'accent' | 'success' | 'warning' | 'danger' | 'muted';
 
+/** The tones an add-on's own line may wear: every one but the AI teammate's. */
+export const ADDON_LINE_TONES = ['accent', 'success', 'warning', 'danger', 'muted'] as const;
+export type AddonLineTone = (typeof ADDON_LINE_TONES)[number];
+
 export function timelineTone(e: TimelineEntry): TimelineTone {
   if (e.kind === 'sms' && str(e.meta.keyword) === 'stop') return 'muted';
   // The AI teammate's entries wear its violet (an undelivered message still shows red).
   if (aiTeammateOf(e) && !undelivered(e)) return 'ai';
   if (e.subtype === 'lead_qualified') return 'success';
+  if (e.subtype === 'addon_line') {
+    const tone = str(e.meta.tone);
+    return (ADDON_LINE_TONES as readonly string[]).includes(tone)
+      ? (tone as AddonLineTone)
+      : 'accent';
+  }
   if (e.kind === 'sms' || e.kind === 'email' || e.kind === 'chat')
     return undelivered(e) ? 'danger' : 'accent';
   if (e.kind === 'note') return 'accent';

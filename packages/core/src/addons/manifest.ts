@@ -161,6 +161,8 @@ export interface AddonRelationshipType {
 export const ADDON_SLOTS = [
   'person.panels',
   'company.panels',
+  // A Pipeline lead (Real Estate step 6: "Start a buyer deal" from the lead the client came in as).
+  'lead.panels',
   'record.panels',
   'conversation.panels',
   'home.cards',

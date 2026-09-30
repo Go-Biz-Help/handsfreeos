@@ -28,6 +28,7 @@ import { UploadZone } from '@/components/files/upload-zone';
 import { TaskList } from '@/components/tasks/task-list';
 import { LogActivitySheet, type LoggableKind } from '@/components/timeline/log-activity-sheet';
 import { Timeline } from '@/components/timeline/timeline';
+import { AddonSlot } from '@/components/addons/slot';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -628,6 +629,16 @@ export function LeadDetail({
           onOpen={setOpenAppt}
         />
       ) : null}
+
+      {/* Panels the add-ons running here put on a lead (Real Estate step 6); none until one does. */}
+      {compact ? null : (
+        <AddonSlot
+          name="lead.panels"
+          workspaceId={workspaceId}
+          leadId={leadId}
+          personId={lead.person?.id ?? null}
+        />
+      )}
 
       {lead.person && !compact ? (
         <ContactWorkflowsCard

@@ -8,8 +8,10 @@
  * all reach an add-on's business logic the one way they reach core's: through the kernel.
  */
 import type { z } from 'zod';
+import { logSystemActivity } from '../crm/activities';
+import type { AddonLineTone } from '../crm/timeline-words';
 import { defineCommand, defineQuery } from '../kernel/define';
-import type { AddonRef, CommandDef, OfflineClass, QueryDef } from '../kernel/types';
+import type { AddonRef, CommandContext, CommandDef, OfflineClass, QueryDef } from '../kernel/types';
 import { ROLE_PERMISSIONS, type Permission } from '../permissions';
 import type { AddonManifest } from './manifest';
 
@@ -121,4 +123,48 @@ export function composeOperations(
     commands: [...core.commands, ...modules.flatMap((m) => m.commands ?? [])],
     queries: [...core.queries, ...modules.flatMap((m) => m.queries ?? [])],
   };
+}
+
+/** A line an add-on writes on a timeline: a record's (a deal), a customer's, a company's or a lead's. */
+export interface AddonTimelineLine {
+  readonly customRecordId?: string | null;
+  readonly personId?: string | null;
+  readonly companyId?: string | null;
+  readonly leadId?: string | null;
+  /** What was done, as it reads after who did it: "confirmed the inspection deadline". */
+  readonly words: string;
+  /** Anything more, in the quiet well under it. */
+  readonly body?: string | null;
+  readonly tone?: AddonLineTone;
+  /** The event it mirrors. */
+  readonly eventId?: string | null;
+}
+
+/**
+ * Writes an add-on's own line on a timeline (Real Estate step 6), inside its command: the person who did it (or the
+ * add-on itself, for its worker) and the add-on's words. A line on a private record is sealed with it (step 4), and
+ * the add-on's name stays on the line after its data is deleted.
+ */
+export async function addonTimelineLine(
+  ctx: CommandContext,
+  addon: AddonManifest,
+  line: AddonTimelineLine,
+): Promise<string> {
+  const words = line.words.replace(/\s+/g, ' ').trim();
+  if (!words || words.length > 300)
+    throw new Error(`${addon.id}: a timeline line says 1 to 300 characters`);
+  return logSystemActivity(ctx, {
+    subtype: 'addon_line',
+    customRecordId: line.customRecordId ?? null,
+    personId: line.personId ?? null,
+    companyId: line.companyId ?? null,
+    leadId: line.leadId ?? null,
+    body: line.body?.trim() || null,
+    eventId: line.eventId ?? null,
+    meta: {
+      addon: { id: addon.id, name: addon.name },
+      words,
+      ...(line.tone ? { tone: line.tone } : {}),
+    },
+  });
 }

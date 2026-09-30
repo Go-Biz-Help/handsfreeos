@@ -11157,6 +11157,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What Real Estate Agent is, and which version runs here.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/relationship_type.list": {
         parameters: {
             query?: never;
@@ -40416,6 +40436,36 @@ export interface operations {
                             /** @enum {string} */
                             platform: "ios" | "android";
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        name: string;
+                        version: string;
                     };
                 };
             };

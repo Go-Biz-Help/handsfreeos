@@ -2321,6 +2321,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'knowledge',
   'teammate',
   'automations',
+  // An add-on's own AI use (Real Estate step 6), with the add-on in addon_id.
+  'addon',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -2656,6 +2658,8 @@ export const aiUsage = app.table('ai_usage', {
   teammateRunId: uuid('teammate_run_id').references((): AnyPgColumn => aiTeammateRuns.id, {
     onDelete: 'set null',
   }),
+  /** The add-on it was for, when source is addon (Real Estate step 6). */
+  addonId: text('addon_id'),
 });
 
 /** A business's profile for the AI (core's KnowledgeProfile), one per workspace. */
@@ -6479,6 +6483,7 @@ export const tables = {
   addonSuggestionDismissals,
   addonResources,
   addonUsageEvents,
+  addonAlerts,
   addonOverrides,
   addonGrants,
   addonVotes,

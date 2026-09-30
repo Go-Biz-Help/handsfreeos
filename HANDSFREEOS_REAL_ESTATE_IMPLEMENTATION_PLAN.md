@@ -383,12 +383,30 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
 - Turning an add-on off clears its alerts and resolves their cards (`addon_off`) in `private.addon_cancel_work`;
   `addon_verify` checks `no_alerts_showing`, and after a purge `no_alerts_left`.
 
-### Step 6 — The add-on's shell
+### Step 6 — The add-on's shell (built, 2026-09-30)
 
 1. `pnpm addon:new realestate` and its manifest: permissions, kinds, relationship types, events, jobs, settings,
    menu places and panels.
 2. The deal tables: `deals`, `deal_roles`, `deal_links`, `deal_history`.
 3. Core glue: the lead page's panel place, add-on timeline lines, AI use counted under an add-on.
+
+**As built:**
+
+- The manifest (`packages/core/src/addons/realestate/manifest.ts`), still `development`: permissions
+  `realestate.use` (admins and members), `.all_deals`, `.except` and `.manage` (admins); `.manage` also sets the
+  final commission. Kinds `realestate_deal` (kept to its people, seen whole with `.all_deals`) and
+  `realestate_property` (shared). Relationship types: deal → property (each deal one property), and client, loan
+  officer, other side's agent, title or escrow contact, inspector, vendor and attorney (people), lender, title or
+  escrow company and other side's brokerage (companies), each labelled "Deal (…)" from the other end. One menu
+  place, **Deals**. Events, jobs, settings and panels arrive with the steps that use them.
+- `20261013002600`: its four permissions, and its tables in `addon_realestate`, each following its deal's privacy
+  (`addon_table_policies` with the record column). `deals` is keyed by the deal's record (and must be one of its
+  deal records); `deal_roles` (agent, coordinator, assistant) only for someone on the deal; `deal_links` a row each
+  way, never across businesses (composite keys); `deal_history` append-only. Mirrored in
+  `packages/core/src/addons/realestate/tables.ts`, held to the live columns by its own test.
+- `20261013002700` (core): `addon_line` timeline lines (`addonTimelineLine`), redacted by the purge and checked by
+  `addon_verify`; `app.ai_usage` source `addon` with `addon_id`. The lead page has a panel place, `lead.panels`.
+- Choices made for Chris (labels can change any time): the "Deal (…)" labels, and the three deal roles.
 
 ### Step 7 — The catalog and the dates
 
