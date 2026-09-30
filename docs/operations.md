@@ -9523,6 +9523,34 @@ worker starts), the worker writes it down and emails its voters that they can ad
   the pick are told, once each. Check its vote in `platform.addon_votes` and its deliveries in
   `platform.addon_pick_deliveries`.
 
+### Hand an add-on to a test business
+
+An add-on that's still being built (`development`, `beta` or `built` in the catalogue) is offered to nobody. To let
+one business try it, a staff admin (anyone with `platform.addons.manage`) hands it to them. Real Estate Agent is
+handed out this way (docs/realestate.md). Nothing needs setting up besides its migrations (see "Apply new
+migrations"): Real Estate Agent's are `20261013002200` to `20261013003000`.
+
+1. Open **/admin/businesses** and search for the business. Open it.
+2. Under **Add-ons in testing**, press **Let them try it** beside the add-on. It now says "they can add it".
+3. Tell the business's owner. They open **Add-ons** (at the foot of the side menu), find it under **Available to
+   add** marked **Testing**, and press **Install**. It says **Setting up** for a moment, then **On**.
+4. Its places join the side menu for everyone who may use it. For Real Estate Agent: **Deals**, **My duties**, and
+   **Deal settings** for owners and admins.
+
+You should see the grant on the business's page, and the add-on **On** on their Add-ons page. Every grant is in
+the platform audit log.
+
+- **Taking it back.** Press **Take back** on the same page. New installs stop; a business that already added it keeps
+  it until one of its owners uninstalls it.
+- **It isn't under Available to add.** Check the grant is there, that the person is an owner or admin, and that
+  HandsFreeOS hasn't switched the add-on off everywhere (**/admin/add-ons**).
+- **It stays on Setting up.** The worker finishes the install. Check the worker's logs for `addon.reconcile` and the
+  add-on's id; a failing check is shown on the Add-ons page in its own words.
+- **Private deals and support.** Support can't see a business's private deals. When you need to, ask from the
+  business's admin page (**Private records**: say what you need to check, then **Ask to see them**); the deal's
+  agent or an admin lets you in for 24 hours from **Deal settings → Support access**, or from the email they're
+  sent.
+
 ## Push notifications: Expo
 
 The phone app gets notifications people can act on from the lock screen: a customer waiting on a reply, urgent Action Center items, approvals, bookings and changes on their appointments, things assigned to them, and, for those who turn it on, a customer paying. They go through **Expo's push service**, which is free and hands each one to Apple or Google. Push is a second channel beside the emails, and the emails don't change.

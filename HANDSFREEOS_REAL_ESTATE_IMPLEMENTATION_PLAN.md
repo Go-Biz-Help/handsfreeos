@@ -16,6 +16,10 @@ phone, signed files that can't be deleted, and a way for staff to hand an unfini
 The buyer and listing workspaces (search, tours, comparisons, offers back and forth, marketing), reading
 contracts, the MLS and other connectors, a client portal and phone screens come in later rounds.
 
+**Where it stands (2026-09-30):** every step is built, and the add-on is in `beta`: HandsFreeOS staff hand it to test
+businesses. `docs/realestate.md` is the guide for working on it. Before `main`, migrations `20261013002200` to
+`20261013003000` go on the hosted database (docs/operations.md, "Apply new migrations").
+
 ## Decisions (Chris, 2026-09-30)
 
 | Question                               | Answer                                                                                                                                                                                                                         |
@@ -717,10 +721,21 @@ The Assistant's tools, client update drafts, the fair-housing check, and sending
 - A draft for a milestone comes once; asking again makes a new one.
 - When the model can't be reached, the update can still go after the fixed list's check.
 
-### Step 14 — Beta
+### Step 14 — Beta (built, 2026-09-30)
 
 `beta`, `docs/realestate.md` with its rules, the add-on architecture doc brought up to date, how staff hand out a
 test add-on in `docs/operations.md`, and a row in CLAUDE.md.
+
+**As built:**
+
+- The manifest's status is `beta`: offered to nobody on its own, and Coming soon for everyone else as before.
+- `docs/realestate.md`: where everything is, the screens, the rules worth knowing, handing it to a test business,
+  working on it, and what's not built yet. `docs/addon-architecture.md` now covers grants and locked files, points to
+  it, and says a beta add-on is offered only where staff handed it out. `docs/operations.md` has "Hand an add-on to
+  a test business" under Add-on votes. CLAUDE.md's Read first table has a row for it.
+- The browser test (`apps/web/e2e/realestate.spec.ts`): staff hand it to a business (a worker test route,
+  `/test/staff/make-admin`, makes the test's owner staff), the owner installs it, starts a buyer deal at Touring, a
+  duty that needs a note is refused and then finished with one, and a member off the deal never sees it.
 
 ## Not in this round
 

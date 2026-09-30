@@ -282,8 +282,12 @@ function DutyBody({
       ) : null}
 
       <section>
-        <h3 className="mb-1.5 font-medium">What finishes it</h3>
-        <p className="text-text-2">{proof.needs || 'Saying it’s done. No proof needed.'}</p>
+        <h3 className="mb-1.5 font-medium">Proof</h3>
+        <p className="text-text-2">
+          {proof.needs
+            ? `It’s done with ${proof.needs}.`
+            : 'Saying it’s done is enough. No proof needed.'}
+        </p>
         {open && proof.missing ? (
           <p className="mt-1 text-[12.5px] text-warning-text" data-testid="duty-proof-missing">
             Still missing: {proof.missing}

@@ -18,6 +18,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Working on                                   | Read                                                                                                              |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Add-ons                                      | `docs/addon-architecture.md`, then "Add-ons" below; `docs/addon-readiness-audit.md` is the audit behind it        |
+| The Real Estate Agent add-on                 | `docs/realestate.md`, then `HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md`                                       |
 | A business's own kinds of records, and links | `docs/relationships.md`                                                                                           |
 | Forms, surveys and quizzes                   | `docs/forms.md`                                                                                                   |
 | What the phone keeps offline                 | `apps/sync/README.md`                                                                                             |
@@ -26,7 +27,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | The public website                           | `apps/site/AGENTS.md`                                                                                             |
 | The phone app's store listings and releases  | `apps/mobile/store/README.md` and `release-checklist.md` beside it                                                |
 | A milestone's decisions and build order      | the matching `HANDSFREEOS_*_PLAN.md` at the root                                                                  |
-| Screen designs                               | `design/m1` to `design/m10`; the brand mark is in `design/brand`                                                  |
+| Screen designs                               | `design/m1` to `design/m10`, and `design/realestate`; the brand mark is in `design/brand`                         |
 | Hosting, providers, going live, and trouble  | `docs/operations.md`, over 11,000 lines, so jump to a section from its Contents                                   |
 | Connecting Google and Outlook calendars      | `docs/calendar-setup.md`                                                                                          |
 

@@ -31,6 +31,7 @@ Three rules shape the design:
 | Web: registry, gate, slots, menu places | `apps/web/src/addons/`, `components/addons/`, `app/app/w/[workspaceId]/a/`; `packages/core/src/account/menu.ts`                                                                                                                          |
 | Database                                | migrations `20261013000100` to `20261013000800` (the vote is `20261013000800`)                                                                                                                                                           |
 | Starting one                            | `pnpm addon:new <id>` (`scripts/addon-new.mjs`, templates in `addons/_template/`)                                                                                                                                                        |
+| The first real one                      | Real Estate Agent (`realestate`, in beta): docs/realestate.md                                                                                                                                                                            |
 | Tests                                   | `packages/core/test/addons/`, `addon-lifecycle.test.ts`, `addon-votes.test.ts`; `packages/db/test/addons-rls.test.ts`, `addon-votes-rls.test.ts`; `apps/worker/test/addons.test.ts`, `addon-roadmap.test.ts`, `assistant-addons.test.ts` |
 
 An add-on's own code sits in the layer it belongs to, under its id:
@@ -78,6 +79,14 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   keeps each line's who and when and drops its words. AI it uses is counted under `app.ai_usage` source `addon`
   with its id, and charged like any other.
 - **Panels** go on a customer, a company, a record, a conversation, a **lead** (`lead.panels`, step 6), or Home.
+- **Handing one out to try** (Real Estate step 2): HandsFreeOS staff with `platform.addons.manage` give one business
+  an add-on in `development`, `beta` or `built` (or a paid `available` one) from **/admin/businesses/<id>**
+  (`addon_grant.give`, kept in `platform.addon_grants`). It's then installable there, listed under Available to add
+  with a Testing badge, and never suggested. Taking it back (`addon_grant.take_back`) stops new installs and
+  uninstalls nothing.
+- **Locked files** (Real Estate step 3): an add-on keeps a file for good with core's `file.lock` (a signed document).
+  A locked file can't be deleted, renamed or unlocked by anyone (`file_locked`), stays locked if the add-on's data is
+  deleted, and goes only with the whole business. The worker records every file's SHA-256 as it arrives.
 - **Alerts** (Real Estate step 5): what an add-on needs someone to see. Its worker calls `raiseAddonAlert(ctx, …)`
   (apps/worker/src/addons/alerts.ts) with its own key, a severity (`info`, `attention`, `at_risk`, `critical`), the
   words, one of its own pages (`/a/<id>/…`), one of its own permissions, and optionally a record, an audience, a due
@@ -129,7 +138,8 @@ the phone app, is for owners and admins (`addons.manage`); nobody else sees it. 
 moved it (2026-09-28); the old address, `/settings/add-ons`, still leads to it. It has four parts: what the business has (every installation, whatever its state), what it could add
 (what HandsFreeOS says is installable here, and paid add-ons, which say HandsFreeOS support can turn them on),
 Coming soon (what the vote picked, until it can be added), and Vote on what's next (every planned add-on still up
-for a vote; see below). A beta add-on is never offered: only support turns one on.
+for a vote; see below). A beta or built add-on is offered only to a business HandsFreeOS staff handed it to (a
+grant), marked Testing.
 
 - **Both apps say the same thing.** Every word on the page, and the moves each state offers (`addonMovesFor`), come
   from `packages/core/src/addons/words.ts`.
@@ -262,6 +272,7 @@ What's decided but not built, with the owner's decisions (2026-09-28) that shape
   and the worker's HTTP server has no route for an add-on's provider.
 - **The AI teammate.** It doesn't use add-on tools yet. It will look things up in add-ons on its own and take their
   actions only with a person's OK. A multi-step plan isn't confirmed as a whole either.
-- **The first real add-on, next:** a Real Estate Agent add-on (MLS and property data, showings, lockbox details,
-  comparative reports, listing activity, buyer and seller workflows). It's Coming soon, and is built under its
-  planned id, `realestate`.
+- **Real Estate Agent's later rounds.** Its first round (deals, duties, dates, proof, documents, alerts, the duty
+  editor, client updates) is built and in beta (docs/realestate.md); MLS and property data, showings, lockbox
+  details, comparative reports and the buyer and listing workspaces wait for an add-on's own credentials and webhook
+  routes above. Everyone else still sees it as Coming soon.

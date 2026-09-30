@@ -16,6 +16,9 @@
  * and a browser run's worker would otherwise spend minutes on them before reaching the specs' own. Playwright's
  * global setup calls it with the run's start time, so the run's own events are never touched.
  *
+ * POST /test/staff/make-admin { email } makes a signed-up test person a HandsFreeOS support admin, as
+ * PLATFORM_OWNER_EMAILS does at start, so a browser test can hand an add-on in testing to its business.
+ *
  * POST /test/scheduled-jobs/skip-stale { before } does the same for the jobs those suites leave behind (reminders,
  * pushes, rechecks, sweeps and the plans that fan out over every test business, often thousands): a pending job
  * written before `before` that is due by two hours after it is cancelled with the same note, so a spec's own jobs (a
@@ -53,6 +56,8 @@ const RunDue = z.object({
 
 const SkipStale = z.object({ before: z.iso.datetime({ offset: true }) });
 
+const MakeStaff = z.object({ email: z.email().max(320) });
+
 /** What an outbox row skipped by /test/outbox/skip-stale says. */
 export const STALE_SKIP_NOTE = 'skipped: left by another suite before this browser run';
 
@@ -68,6 +73,19 @@ export function registerTestRoutes(app: FastifyInstance, deps: HttpDeps, test: T
   registerMoneyTestRoutes(app, deps, test.jobs);
   // Push's: what the stand-in was handed for a business, and its push jobs run now (push/test-routes.ts).
   registerPushTestRoutes(app, deps, test.jobs);
+
+  // A signed-up test person made a HandsFreeOS support admin, the way PLATFORM_OWNER_EMAILS makes one at start
+  // (support/owners.ts): so a browser test can hand an add-on in testing to its business (Real Estate step 11).
+  app.post('/test/staff/make-admin', async (req) => {
+    const body = parseBody(MakeStaff, req.body ?? {});
+    const [row] = await asWorker(deps.db, {}, (tx) =>
+      rows<{ made: number }>(
+        tx,
+        sql`select private.confirm_platform_owners(array[${body.email}]::text[]) as made`,
+      ),
+    );
+    return { made: Number(row?.made ?? 0) };
+  });
 
   app.post('/test/scheduled-jobs/run-due', async (req) => {
     const body = parseBody(RunDue, req.body ?? {});

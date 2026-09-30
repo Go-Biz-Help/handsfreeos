@@ -11,8 +11,8 @@
  * - **The people on a deal from outside** are the business's own contacts, tied to it by the relationship types
  *   below: the client, the loan officer, the other side's agent, and the rest.
  *
- * It starts in `development`: offered nowhere. HandsFreeOS staff hand it to a test business (step 2's grants), then
- * it moves to `beta` (step 14).
+ * It's in `beta`: offered nowhere on its own. HandsFreeOS staff hand it to a test business (step 2's grants), whose
+ * owners and admins add it from their Add-ons page.
  */
 import { defineAddon, type AddonRelationshipType } from '../manifest';
 import { RealestateSettingsSchema } from './settings';
@@ -47,7 +47,8 @@ export const realestateAddon = defineAddon({
   // (apps/worker/src/addons/realestate/index.ts, `dataMigrations`).
   dataVersion: 1,
   catalog: {
-    status: 'development',
+    // Beta (step 14): still offered to nobody on its own; HandsFreeOS staff hand it to a test business.
+    status: 'beta',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
     keywords: [
       'real estate',
