@@ -1,4 +1,4 @@
-import { richSummary, type ConversationShape } from '@hfos/core';
+import { richSummary, type ConversationFolderValue, type ConversationShape } from '@hfos/core';
 
 import type { OutboxRow, SqlRunner } from '@/changes/outbox';
 import { isStale } from '@/changes/rules';
@@ -110,6 +110,65 @@ export function withOwnChanges(
     }
   }
   return out;
+}
+
+/**
+ * Email threads moved between the Inbox, Other mail and Spam, or shared with the team, on this phone (M19). Both are
+ * online commands, so no change waits in the outbox to stand in for the server's row, and a thread just moved to Spam
+ * would stay in the Inbox for the moment the synced row takes to arrive. Each stands until the synced row agrees, or
+ * for a minute at most, since someone may have moved it again since.
+ */
+interface MovedHere {
+  readonly folder?: ConversationFolderValue;
+  readonly shared?: boolean;
+  readonly at: number;
+}
+const movedHere = new Map<string, MovedHere>();
+const movedListeners = new Set<() => void>();
+let movedVersion = 0;
+const MOVED_STANDS_MS = 60_000;
+
+/** A thread moved or shared here: the list and the thread show it so at once. */
+export function markMovedHere(
+  conversationId: string,
+  moved: { readonly folder?: ConversationFolderValue; readonly shared?: boolean },
+  now = Date.now(),
+): void {
+  movedHere.set(conversationId, { ...movedHere.get(conversationId), ...moved, at: now });
+  movedVersion += 1;
+  for (const listener of movedListeners) listener();
+}
+
+/** For `useSyncExternalStore`: hears of each move or share made here. */
+export function subscribeMovedHere(listener: () => void): () => void {
+  movedListeners.add(listener);
+  return () => movedListeners.delete(listener);
+}
+
+/** Changes whenever a thread is moved or shared here; only ever compared. */
+export const movedHereVersion = (): number => movedVersion;
+
+/** Tests: start again with nothing moved. */
+export function forgetMovedHere(): void {
+  movedHere.clear();
+  movedVersion += 1;
+}
+
+/** A conversation as a move or share made here leaves it, until the synced row says the same. */
+export function withMovedHere(c: ConversationShape, now = Date.now()): ConversationShape {
+  const moved = movedHere.get(c.id);
+  if (!moved) return c;
+  const agrees =
+    (!moved.folder || c.folder === moved.folder) && (!moved.shared || c.privateTo === null);
+  if (agrees || now - moved.at > MOVED_STANDS_MS) {
+    movedHere.delete(c.id);
+    return c;
+  }
+  return {
+    ...c,
+    ...(moved.folder ? { folder: moved.folder } : {}),
+    ...(moved.shared ? { privateTo: null, private: false } : {}),
+  };
 }
 
 /** Where a reply written on this phone stands, for the words under it. */

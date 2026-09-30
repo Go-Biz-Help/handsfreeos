@@ -23,6 +23,7 @@ const CONVERSATION_BASE = `
     s.name AS lead_stage_name, l.value_cents AS lead_value_cents,
     l.next_action AS lead_next_action, l.next_action_at AS lead_next_action_at,
     pn.e164 AS line_e164, pn.label AS line_label, ea.address AS line_address,
+    c.folder, c.private_to,
     EXISTS (SELECT 1 FROM ai_teammate_drafts d
             WHERE d.conversation_id = c.id AND d.status = 'pending' AND d.kind = 'reply') AS draft_waiting
   FROM conversations c
@@ -52,8 +53,17 @@ const CONVERSATION_BASE = `
  * `archived_at` reached it, so a thread put away on the web stayed in the inbox on the phone — for good,
  * since nothing else ever takes it out. The phone has no archived box to show them in; when it gets one,
  * this is where the other half goes.
+ *
+ * **Other mail and Spam are here (M19)**, and so is the viewer's own mail: core's `inInbox` sorts them into their
+ * boxes, and `inboxCounts` keeps them out of the team's badges. Only the team's threads and the viewer's own, said
+ * here as well as by the sync streams, which never send anyone else's. Parameters: the business, the viewer.
  */
-export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL`;
+export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL
+  AND (c.private_to IS NULL OR c.private_to = ?)`;
+
+/** Whether the viewer has an address of their own (M19), so My mail shows before any mail has come to it. */
+export const OWN_ADDRESS_SQL = `
+  SELECT EXISTS (SELECT 1 FROM email_addresses WHERE workspace_id = ? AND owner_user_id = ?) AS own`;
 
 /** One conversation, archived or not: this is how an archived one is opened to be brought back. */
 export const CONVERSATION_SQL = `${CONVERSATION_BASE} AND c.id = ?`;

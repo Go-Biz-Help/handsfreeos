@@ -383,14 +383,24 @@ export const EmailReceiveInput = z.object({
   personId: uuid.optional(),
   /** Mailbox imports keep only mail with known customers. */
   knownOnly: z.boolean().default(false),
+  /**
+   * Out-of-office replies, lists and bulk mail (M19): a stranger's goes to Other mail, and it still never opens
+   * or wakes up a customer's Inbox thread.
+   */
+  automatic: z.boolean().default(false),
+  /** What the mail service's spam filter scored it (Postmark's X-Spam-Score); a stranger's at SPAM_SCORE is spam. */
+  spamScore: z.number().min(-1000).max(1000).nullable().optional(),
   /** Tests and demos shorten the reply reminder. */
   reminderAfterMs: z.number().int().min(1000).max(86_400_000).optional(),
 });
 export const EmailReceiveOutput = z.object({
+  /** unmatched is from before M19, when a stranger's mail waited under Mail from people not in Contacts. */
   outcome: z.enum(['filed', 'duplicate', 'unmatched', 'skipped']),
   messageId: uuid.nullable(),
   conversationId: uuid.nullable(),
   unmatchedId: uuid.nullable(),
+  /** The folder of the thread it was filed in (M19). */
+  folder: z.enum(['inbox', 'other', 'spam']).nullable().optional(),
 });
 
 /** Worker: an address bounced for good or its owner marked an email as spam. */
@@ -428,6 +438,8 @@ export const EmailComposeOptionsOutput = z.object({
       displayName: z.string(),
       isDefault: z.boolean(),
       usable: z.boolean(),
+      /** The person's own address (M19): email from it stays in their own mailbox. */
+      mine: z.boolean().optional(),
     }),
   ),
   /** Where this email goes from unless someone picks another. */

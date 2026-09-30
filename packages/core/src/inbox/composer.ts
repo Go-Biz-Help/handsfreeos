@@ -242,6 +242,9 @@ export const textFromLine = (fromNumber: string, businessName?: string | null): 
 export const emailFromLabel = (address: string, provider?: string | null): string =>
   provider ? `From ${address} (${provider})` : `From ${address}`;
 
+/** An address that is the sender's own (M19), in the From list: "From chris@lonestarhvac.com (yours)". */
+export const OWN_ADDRESS_TAG = 'yours';
+
 /** Where the other channel's messages go: "Texts go to (713) 555-0142 and get their own thread in the inbox." */
 export function crossChannelLine(mode: 'sms' | 'email', to: string): string {
   return mode === 'email'

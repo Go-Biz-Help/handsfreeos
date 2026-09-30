@@ -66,6 +66,10 @@ export function normalizeEmailDomain(value: string): string {
 
 export const isHandsFreeOsDomain = (domain: string): boolean =>
   /(^|\.)handsfreeos\.com$/.test(domain);
+/** HandsFreeOS's own domain. Only HandsFreeOS's own business may send and receive on it, never a subdomain (M19). */
+export const HANDSFREEOS_DOMAIN = 'handsfreeos.com';
+/** Where a domain's MX points for its mail to arrive in HandsFreeOS (M19). */
+export const INBOUND_MX_HOST = 'inbound.postmarkapp.com';
 export const isConsumerMailDomain = (domain: string): boolean =>
   CONSUMER_MAIL_DOMAINS.some((d) => domain === d || domain.endsWith(`.${d}`));
 export const isReservedLocalPart = (localPart: string): boolean =>
@@ -98,6 +102,8 @@ export const emailLocalPart = z
   });
 
 export const emailDomainStatus = z.enum(['pending', 'verified', 'failed']);
+/** Whether a domain's mail arrives here (M19): people ask (pending), the worker says on or lapsed. */
+export const emailReceivingStatus = z.enum(['off', 'pending', 'on', 'lapsed']);
 export const mailboxProvider = z.enum(['microsoft', 'google']);
 export const mailboxStatus = z.enum([
   'pending',
@@ -133,6 +139,19 @@ export const EmailDomainRecordOutput = z.object({
   changed: z.boolean(),
 });
 
+/** Turning receiving on or off, or what the worker saw of the MX. `changed` is false for a repeat. */
+export const EmailDomainReceivingOutput = z.object({
+  emailDomainId: uuid,
+  receiving: emailReceivingStatus,
+  changed: z.boolean(),
+});
+/** Worker-only: whether the domain's MX points at Postmark. Null when DNS didn't answer, which changes nothing. */
+export const EmailDomainRecordReceivingInput = z.object({
+  workspaceId: uuid,
+  emailDomainId: uuid,
+  mxFound: z.boolean().nullable(),
+});
+
 // ---------- sending addresses ----------
 export const EmailAddressCreateInput = z.object({
   workspaceId: uuid,
@@ -141,6 +160,8 @@ export const EmailAddressCreateInput = z.object({
   emailDomainId: uuid.nullable().optional(),
   displayName,
   isDefault: z.boolean().default(false),
+  /** The person whose own address it is (M19): only they send from it, and its mail is theirs alone. */
+  ownerUserId: uuid.nullable().optional(),
 });
 export const EmailAddressCreateOutput = z.object({ emailAddressId: uuid, address: z.string() });
 export const EmailAddressUpdateInput = z.object({
@@ -149,11 +170,36 @@ export const EmailAddressUpdateInput = z.object({
   displayName: displayName.optional(),
   isDefault: z.boolean().optional(),
   localPart: emailLocalPart.optional(),
+  /** Give a team address to one person (M19). Taking one from its person is email_address.reassign's. */
+  ownerUserId: uuid.nullable().optional(),
 });
 export const EmailAddressUpdateOutput = z.object({
   emailAddressId: uuid,
   address: z.string(),
   updated: z.array(z.string()),
+});
+
+/**
+ * What becomes of the address of someone who has left, and of their mail on it (M19): the team's, another
+ * person's, or removed with it.
+ */
+export const EmailAddressReassignInput = z
+  .object({
+    workspaceId: uuid,
+    emailAddressId: uuid,
+    to: z.enum(['team', 'person', 'remove']),
+    /** Who gets it, when `to` is person. */
+    userId: uuid.optional(),
+  })
+  .refine((v) => (v.to === 'person') === !!v.userId, {
+    path: ['userId'],
+    message: 'Pick who gets the address.',
+  });
+export const EmailAddressReassignOutput = z.object({
+  emailAddressId: uuid,
+  to: z.enum(['team', 'person', 'remove']),
+  /** How many threads went with it. */
+  threads: z.number().int(),
 });
 
 // ---------- connected mailboxes ----------
@@ -219,6 +265,11 @@ export const EmailAddressOut = z.object({
   domain: z.string().nullable(),
   /** Mail can go out from it now: the shared subdomain, or a verified domain. */
   usable: z.boolean(),
+  /** The person whose own address it is (M19); null is the team's. */
+  ownerUserId: uuid.nullable().optional(),
+  ownerName: z.string().nullable().optional(),
+  /** Its person no longer works here: an owner decides what becomes of it (email_address.reassign). */
+  ownerLeft: z.boolean().optional(),
 });
 export const EmailDomainOut = z.object({
   id: uuid,
@@ -233,6 +284,10 @@ export const EmailDomainOut = z.object({
   lastCheckedAt: isoDateTime.nullable(),
   lastError: z.string().nullable(),
   createdAt: isoDateTime,
+  /** Whether its mail arrives here (M19), and when the worker last found and looked for its MX. */
+  receiving: emailReceivingStatus.optional(),
+  mxVerifiedAt: isoDateTime.nullable().optional(),
+  mxCheckedAt: isoDateTime.nullable().optional(),
 });
 export const MailboxOut = z.object({
   id: uuid,
@@ -250,6 +305,10 @@ export const MailboxOut = z.object({
 export const EmailSetupStatusInput = z.object({ workspaceId: uuid });
 export const EmailSetupStatusOutput = z.object({
   sharedDomain: z.string(),
+  /** Whether this business can turn receiving on yet (M19: HandsFreeOS's own until every business can). */
+  receivingOpen: z.boolean().optional(),
+  /** Where a domain's MX points for its mail to arrive here. */
+  inboundMxHost: z.string().optional(),
   addresses: z.array(EmailAddressOut),
   domains: z.array(EmailDomainOut),
   mailboxes: z.array(MailboxOut),
@@ -259,6 +318,19 @@ export const EmailSetupStatusOutput = z.object({
     /** Mail from unknown senders waiting to be claimed or dismissed. */
     unmatched: z.number().int(),
   }),
+});
+
+/** Where new mail from each sender goes, as people chose (M19). */
+export const EmailSenderRuleListInput = z.object({ workspaceId: uuid });
+export const EmailSenderRuleListOutput = z.object({
+  items: z.array(
+    z.object({
+      address: z.string(),
+      folder: z.enum(['inbox', 'other', 'spam']),
+      createdAt: isoDateTime,
+      createdBy: UserRef,
+    }),
+  ),
 });
 
 export const EmailSuppressionListInput = ListInput.extend({

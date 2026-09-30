@@ -5,8 +5,9 @@
  */
 import { minutesWaiting, waitingFor, zonedWhen } from './time';
 
-/** Every inbox box, the teammate's two included. */
-export type InboxBoxKey = 'mine' | 'unassigned' | 'all' | 'needs_person' | 'ai' | 'archived';
+/** Every inbox box, the teammate's two and the email folders included. */
+export type InboxBoxKey =
+  'mine' | 'unassigned' | 'all' | 'needs_person' | 'ai' | 'archived' | 'other' | 'spam';
 export const INBOX_BOXES: readonly InboxBoxKey[] = [
   'mine',
   'unassigned',
@@ -15,7 +16,23 @@ export const INBOX_BOXES: readonly InboxBoxKey[] = [
   'ai',
   /** Put away. The only box that shows archived conversations; every other one hides them. */
   'archived',
+  /** Email from people who aren't customers yet (M19). */
+  'other',
+  /** Email that looks like spam, deleted after 30 days (M19). */
+  'spam',
 ];
+
+/**
+ * Whose mail a list shows (M19): the team's, or the viewer's own mailbox — mail to an address that is theirs alone.
+ * The same boxes work over both.
+ */
+export type InboxMailbox = 'team' | 'mine';
+
+/** The email folders beside the Inbox (M19), and a person's own mail: "My mail · 2", "Other mail · 5", "Spam". */
+export const MAIL_BOX_NAMES = { mine: 'My mail', other: 'Other mail', spam: 'Spam' } as const;
+export function mailBoxLabel(box: keyof typeof MAIL_BOX_NAMES, count = 0): string {
+  return count > 0 ? `${MAIL_BOX_NAMES[box]} · ${count}` : MAIL_BOX_NAMES[box];
+}
 
 export type ConversationStatus = 'open' | 'snoozed' | 'closed';
 export const CONVERSATION_STATUSES: readonly ConversationStatus[] = ['open', 'snoozed', 'closed'];
@@ -70,6 +87,8 @@ export interface RowFacts {
   readonly lanes?: readonly { readonly channel: 'sms' | 'email' | 'chat' }[];
   /** A customer this unlinked row looks like, offered rather than merged (0089). */
   readonly sameAs?: { readonly fullName: string } | null;
+  /** Someone's own mail (M19): never a customer while it's theirs, so nothing offers to make it one. */
+  readonly private?: boolean;
 }
 
 /** Who a row is: the customer, or the number, address or chat visitor nobody has linked. */
@@ -165,7 +184,7 @@ export function conversationChips(
           ? [...kinds].map(channelWord).join(' · ')
           : `${c.lanes!.length} ${kinds.has('email') ? 'addresses' : 'lines'}`,
     });
-  if (!c.person && c.channel !== 'chat') {
+  if (!c.person && c.channel !== 'chat' && !c.private) {
     // Offered, never taken: one click links them, and until somebody clicks, the row stays what it is.
     if (c.sameAs) chips.push({ kind: 'same_as', label: `Same as ${c.sameAs.fullName}?` });
     else chips.push({ kind: 'new_number', label: 'New number' });
@@ -203,6 +222,7 @@ export function inboxEmptyWords(
   q: string,
   name: string,
   unread = false,
+  mailbox: InboxMailbox = 'team',
 ): { title: string; body: string } {
   if (q)
     return {
@@ -224,10 +244,28 @@ export function inboxEmptyWords(
       title: `${name} isn’t handling anything right now`,
       body: `Conversations ${name} answers show here, until someone takes one over.`,
     };
+  if (box === 'other')
+    return {
+      title: 'No other mail',
+      body:
+        mailbox === 'mine'
+          ? 'Mail you move out of your own inbox lands here.'
+          : 'Email from people who aren’t customers yet lands here, so the Inbox stays for customers.',
+    };
+  if (box === 'spam')
+    return {
+      title: 'No spam',
+      body: 'Email that looks like spam lands here, and is deleted after 30 days.',
+    };
   if (box === 'archived')
     return {
       title: 'Nothing archived',
       body: 'Conversations you put away land here, and can be brought back any time.',
+    };
+  if (mailbox === 'mine' && status === 'open')
+    return {
+      title: 'Nothing in your mail',
+      body: 'Mail to your own address lands here. Only you see it, until you share a thread with the team.',
     };
   if (status === 'snoozed')
     return { title: 'Nothing snoozed', body: 'Conversations you snooze or close show up here.' };

@@ -21,6 +21,7 @@ import {
   inboxCounts,
   inboxOrder,
   inInbox,
+  mailMoves,
   MY_CELL_WORDS,
   teammateDraftOf,
   telephonySettingsOf,
@@ -211,6 +212,7 @@ describe('conversations from the copy', () => {
       waitingThresholdMinutes: 10,
       needsPerson: 1,
       ai: 1,
+      mail: { mine: 0, other: 0, spam: 0, own: false },
     });
   });
 
@@ -281,6 +283,130 @@ describe('conversations from the copy', () => {
     expect(rows('unassigned').map((c) => c.id)).toEqual(['m-sms', 'kim']);
     expect(rows('mine').map((c) => c.id)).toEqual(['m-mail']);
     expect(rows('all', 'closed').map((c) => c.id)).toEqual(['m-closed']);
+  });
+
+  it('keeps Other mail, Spam and the viewer’s own mail to their own boxes, as `inbox.list` does (M19)', () => {
+    const mail = { channel: 'email', person_id: null, first_name: null, last_name: null };
+    const all = [
+      conv({ id: 'text' }),
+      conv({ ...mail, id: 'old-copy', counterpart: 'kim@example.com', folder: null }),
+      conv({ ...mail, id: 'other', counterpart: 'deals@shop.example', folder: 'other' }),
+      conv({ ...mail, id: 'spam', counterpart: 'win@prize.example', folder: 'spam' }),
+      conv({ ...mail, id: 'own', counterpart: 'mom@example.com', private_to: ME }),
+      conv({
+        ...mail,
+        id: 'own-other',
+        counterpart: 'news@example.com',
+        private_to: ME,
+        folder: 'other',
+      }),
+      conv({
+        ...mail,
+        id: 'own-spam',
+        counterpart: 'x@spam.example',
+        private_to: ME,
+        folder: 'spam',
+      }),
+      // Someone else's own mail never reaches this phone, and would be in no box if it did.
+      conv({ ...mail, id: 'theirs', counterpart: 'a@example.com', private_to: 'u-marco' }),
+    ].map(conversationOf);
+    expect(all.find((c) => c.id === 'own')).toMatchObject({
+      folder: 'inbox',
+      privateTo: ME,
+      private: true,
+    });
+    expect(all.find((c) => c.id === 'old-copy')).toMatchObject({
+      folder: 'inbox',
+      privateTo: null,
+      private: false,
+    });
+    const ids = (box: Parameters<typeof inInbox>[1]['box'], mailbox?: 'team' | 'mine') =>
+      all.filter((c) => inInbox(c, { box, status: 'open', mailbox }, ME)).map((c) => c.id);
+    expect(ids('all')).toEqual(['text', 'old-copy']);
+    expect(ids('unassigned', 'team')).toEqual(['text', 'old-copy']);
+    expect(ids('other')).toEqual(['other']);
+    expect(ids('spam')).toEqual(['spam']);
+    expect(ids('all', 'mine')).toEqual(['own']);
+    expect(ids('other', 'mine')).toEqual(['own-other']);
+    expect(ids('spam', 'mine')).toEqual(['own-spam']);
+    // Grouped, a box still means its folder: the stranger's Other mail isn't a row in the Inbox.
+    const items = all.map((conversation) => ({ conversation }));
+    expect(
+      groupByCustomer(items, { box: 'all', status: 'open', mailbox: 'mine' }, ME).map(
+        (i) => i.conversation.id,
+      ),
+    ).toEqual(['own']);
+  });
+
+  it('counts Other mail, Spam and the viewer’s own mail apart from the team’s badges, as `inbox.summary` does (M19)', () => {
+    const mail = { channel: 'email', person_id: null, first_name: null, last_name: null };
+    const rows = [
+      conv({ id: 'a', person_id: 'p-a', unread_count: 1 }),
+      // Other mail: unread ones count, one by one, however many a sender has.
+      conv({
+        ...mail,
+        id: 'o1',
+        counterpart: 'deals@shop.example',
+        folder: 'other',
+        unread_count: 2,
+      }),
+      conv({
+        ...mail,
+        id: 'o2',
+        counterpart: 'deals@shop.example',
+        folder: 'other',
+        unread_count: 1,
+      }),
+      conv({ ...mail, id: 'o3', counterpart: 'news@shop.example', folder: 'other' }),
+      // Spam: every open one, read or not.
+      conv({ ...mail, id: 's1', counterpart: 'win@prize.example', folder: 'spam' }),
+      conv({
+        ...mail,
+        id: 's2',
+        counterpart: 'win@prize.example',
+        folder: 'spam',
+        status: 'closed',
+      }),
+      // The viewer's own Inbox: unread ones.
+      conv({ ...mail, id: 'm1', counterpart: 'mom@example.com', private_to: ME, unread_count: 3 }),
+      conv({ ...mail, id: 'm2', counterpart: 'bank@example.com', private_to: ME }),
+      conv({
+        ...mail,
+        id: 'm3',
+        counterpart: 'list@example.com',
+        private_to: ME,
+        folder: 'other',
+        unread_count: 1,
+      }),
+    ].map(conversationOf);
+    const counts = inboxCounts(rows, ME, 10);
+    expect(counts.open).toEqual({ mine: 0, unassigned: 1, all: 1 });
+    expect(counts.unread).toEqual({ mine: 0, unassigned: 1, all: 1 });
+    expect(counts.mail).toEqual({ mine: 1, other: 2, spam: 1, own: true });
+    // My mail shows for someone with an address of their own before any mail has come to it, and for nobody else.
+    const team = rows.filter((c) => !c.private);
+    expect(inboxCounts(team, ME, 10).mail.own).toBe(false);
+    expect(inboxCounts(team, ME, 10, Date.now(), true).mail.own).toBe(true);
+  });
+
+  it('offers the other folders, and for the team’s mail the same with the sender remembered (M19)', () => {
+    expect(mailMoves('inbox', false).map((m) => [m.folder, m.remember, m.label])).toEqual([
+      ['other', false, 'Move to Other mail'],
+      ['spam', false, 'Move to Spam'],
+      ['other', true, 'Always put their mail in Other mail'],
+      ['spam', true, 'Always put their mail in Spam'],
+    ]);
+    expect(mailMoves('other', false).map((m) => m.label)).toEqual([
+      'Move to Inbox',
+      'Move to Spam',
+      'Always put their mail in the Inbox',
+      'Always put their mail in Spam',
+    ]);
+    // Out of Spam, "Not spam" puts it in Other mail; someone's own mail moves one thread at a time.
+    expect(mailMoves('spam', true)).toEqual([
+      { folder: 'other', remember: false, label: 'Not spam' },
+      { folder: 'inbox', remember: false, label: 'Move to Inbox' },
+    ]);
   });
 
   it('reads the business’s texting settings, with the defaults for what isn’t set', () => {

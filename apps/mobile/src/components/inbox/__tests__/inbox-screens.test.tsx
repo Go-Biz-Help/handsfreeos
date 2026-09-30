@@ -1,4 +1,4 @@
-import { conversationOf, groupByCustomer, type ConversationListRow } from '@hfos/core';
+import { conversationOf, groupByCustomer, mailMoves, type ConversationListRow } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
@@ -6,7 +6,7 @@ import * as React from 'react';
 import Inbox from '@/app/app/w/[workspaceId]/(tabs)/inbox';
 import MyCell from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell';
 import { Composer } from '@/components/inbox/composer';
-import { ActionsSheet } from '@/components/inbox/conversation-parts';
+import { ActionsSheet, PrivateBanner } from '@/components/inbox/conversation-parts';
 import { ConversationRow } from '@/components/inbox/conversation-row';
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { BusinessProvider } from '@/components/shell/business-context';
@@ -18,8 +18,9 @@ import type { Me } from '@/lib/businesses';
 import HfosPhone from '../../../../modules/hfos-phone';
 
 /**
- * The inbox's screens with React Native Testing Library: a row in the list, the conversation's Details and actions
- * (a row's action runs once the sheet is gone), the composer (offline words, the From line, photos, a note that turns
+ * The inbox's screens with React Native Testing Library: a row in the list, the list's boxes (email's Other mail and
+ * Spam, and My mail, M19), the conversation's Details and actions (a row's action runs once the sheet is gone; moving
+ * email between folders and sharing one's own), the composer (offline words, the From line, photos, a note that turns
  * the box off), and My cell phone (Verify my cell, the press of 1 arriving through the copy, the contacts card with
  * Add to Contacts).
  */
@@ -236,6 +237,10 @@ describe('the list', () => {
   it('narrows to the customers with something unread, however far down they are', async () => {
     await render(wrap(<Inbox />));
     expect(screen.getByTestId('conversation-row-c-new')).toBeTruthy();
+    // Email's folders are always there; My mail only for someone with mail of their own.
+    expect(screen.getByTestId('box-other')).toHaveTextContent('Other mail');
+    expect(screen.getByTestId('box-spam')).toHaveTextContent('Spam');
+    expect(screen.queryByTestId('box-my-mail')).toBeNull();
     expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
     await fireEvent.press(screen.getByTestId('filter-unread'));
     expect(screen.queryByTestId('conversation-row-c-new')).toBeNull();
@@ -249,6 +254,102 @@ describe('the list', () => {
     await fireEvent.press(screen.getByTestId('box-mine'));
     await fireEvent.press(screen.getByTestId('filter-unread'));
     expect(screen.getByTestId('inbox-empty')).toHaveTextContent(/Nothing unread/);
+  });
+});
+
+describe('email’s boxes and My mail (M19)', () => {
+  const base = {
+    status: 'open',
+    person_id: null,
+    assignee_user_id: null,
+    unread_count: 0,
+    last_direction: 'inbound',
+    last_preview: 'Hello',
+    awaiting_reply_since: null,
+    snoozed_until: null,
+    created_at: '2026-01-01T12:00:00.000Z',
+    last_message_at: '2026-09-25T12:00:00.000Z',
+    handled_by: 'none',
+    ai_teammate_id: null,
+    teammate_name: null,
+    needs_person_since: null,
+    handoff_reason: null,
+    handoff_note: null,
+    taken_over_by: null,
+    draft_waiting: 0,
+  };
+  const email = (id: string, over: Record<string, unknown> = {}) => ({
+    ...base,
+    id,
+    channel: 'email',
+    counterpart: `${id}@example.com`,
+    ...over,
+  });
+  beforeEach(() => {
+    jest.mocked(useQuery).mockImplementation(((sql: string) => ({
+      data:
+        sql === CONVERSATIONS_SQL
+          ? [
+              {
+                ...base,
+                id: 'c-kim',
+                channel: 'sms',
+                counterpart: '+17135550101',
+                person_id: 'p-kim',
+                first_name: 'Kim',
+                last_name: 'Alvarez',
+              },
+              email('c-deals', { folder: 'other', unread_count: 1 }),
+              email('c-prize', { folder: 'spam' }),
+              email('c-mom', { private_to: DALE, unread_count: 2 }),
+              email('c-news', { private_to: DALE, folder: 'other' }),
+            ]
+          : [],
+      isLoading: false,
+      isFetching: false,
+    })) as never);
+  });
+
+  it('keeps Other mail and Spam out of the team’s Inbox, each a box of its own', async () => {
+    await render(wrap(<Inbox />));
+    expect(screen.getByTestId('box-all')).toHaveTextContent('All · 1');
+    expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
+    expect(screen.queryByTestId('conversation-row-c-deals')).toBeNull();
+    expect(screen.getByTestId('box-other')).toHaveTextContent('Other mail · 1');
+    expect(screen.getByTestId('box-spam')).toHaveTextContent('Spam · 1');
+    await fireEvent.press(screen.getByTestId('box-other'));
+    expect(screen.getByTestId('box-other')).toBeSelected();
+    expect(screen.getByTestId('conversation-row-c-deals')).toBeTruthy();
+    expect(screen.queryByTestId('conversation-row-c-kim')).toBeNull();
+    expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
+    await fireEvent.press(screen.getByTestId('box-spam'));
+    expect(screen.getByTestId('conversation-row-c-prize')).toBeTruthy();
+    // Pressed again, back to the Inbox.
+    await fireEvent.press(screen.getByTestId('box-spam'));
+    expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
+  });
+
+  it('opens the person’s own mail, with its own Inbox, Other mail and Spam, and goes back to the team’s', async () => {
+    await render(wrap(<Inbox />));
+    expect(screen.getByTestId('box-my-mail')).toHaveTextContent('My mail · 1');
+    await fireEvent.press(screen.getByTestId('box-my-mail'));
+    expect(screen.getByTestId('my-mail')).toHaveTextContent(/^My mail · only you see it/);
+    expect(screen.getByTestId('mail-back')).toHaveTextContent('Team inbox');
+    expect(screen.queryByTestId('box-mine')).toBeNull();
+    expect(screen.queryByTestId('box-other')).toBeNull();
+    expect(screen.getByTestId('mail-inbox')).toBeSelected();
+    expect(screen.getByTestId('conversation-row-c-mom')).toBeTruthy();
+    expect(screen.queryByTestId('conversation-row-c-kim')).toBeNull();
+    expect(screen.getByTestId('filter-unread')).toHaveTextContent('Unread · 1');
+    await fireEvent.press(screen.getByTestId('mail-other'));
+    expect(screen.getByTestId('conversation-row-c-news')).toBeTruthy();
+    expect(screen.queryByTestId('conversation-row-c-deals')).toBeNull();
+    await fireEvent.press(screen.getByTestId('mail-spam'));
+    expect(screen.getByTestId('inbox-empty')).toHaveTextContent(/No spam/);
+    await fireEvent.press(screen.getByTestId('mail-back'));
+    expect(screen.getByTestId('box-mine')).toHaveTextContent('Mine · 0');
+    expect(screen.getByTestId('box-all')).toBeSelected();
+    expect(screen.getByTestId('conversation-row-c-kim')).toBeTruthy();
   });
 });
 
@@ -280,7 +381,17 @@ describe('Details and actions', () => {
   };
 
   /** The conversation page's wiring: the sheet closes itself, and a row picks the next sheet. */
-  function Page({ onAssign, onClose }: { onAssign: () => void; onClose: () => void }) {
+  function Page({
+    onAssign,
+    onClose,
+    c = conversationOf(row),
+    more = {},
+  }: {
+    onAssign: (() => void) | null;
+    onClose: () => void;
+    c?: ReturnType<typeof conversationOf>;
+    more?: Partial<React.ComponentProps<typeof ActionsSheet>>;
+  }) {
     const [open, setOpen] = React.useState(true);
     return (
       <ActionsSheet
@@ -289,7 +400,7 @@ describe('Details and actions', () => {
           setOpen(false);
           onClose();
         }}
-        c={conversationOf(row)}
+        c={c}
         canCall={false}
         canHandToAi={false}
         teammateName="Ava"
@@ -308,6 +419,7 @@ describe('Details and actions', () => {
         onNextAction={null}
         onAddPerson={null}
         stageName={null}
+        {...more}
       />
     );
   }
@@ -327,6 +439,79 @@ describe('Details and actions', () => {
     expect(onAssign).not.toHaveBeenCalled();
     await act(async () => dismiss());
     expect(onAssign).toHaveBeenCalledTimes(1);
+  });
+
+  it('moves email between the Inbox, Other mail and Spam, once or for the sender (M19)', async () => {
+    const onMove = jest.fn();
+    const mail = conversationOf({
+      ...row,
+      channel: 'email',
+      counterpart: 'deals@shop.example',
+      folder: 'spam',
+    });
+    await render(
+      <Page
+        onAssign={jest.fn()}
+        onClose={jest.fn()}
+        c={mail}
+        more={{ moves: mailMoves(mail.folder, false), onMove }}
+      />,
+    );
+    const dismiss = screen.root!.props.onDismiss as () => void;
+    expect(screen.getByTestId('sheet-move-other')).toHaveTextContent('Not spam');
+    expect(screen.getByTestId('sheet-move-inbox')).toHaveTextContent('Move to Inbox');
+    expect(screen.getByTestId('sheet-always-other')).toHaveTextContent(
+      'Always put their mail in Other mail',
+    );
+    expect(screen.getByTestId('sheet-always-inbox')).toBeTruthy();
+    expect(screen.queryByTestId('sheet-move-spam')).toBeNull();
+    expect(screen.queryByTestId('sheet-share')).toBeNull();
+    await fireEvent.press(screen.getByTestId('sheet-always-inbox'));
+    await act(async () => jest.advanceTimersByTime(1_000));
+    await act(async () => dismiss());
+    expect(onMove).toHaveBeenCalledWith({
+      folder: 'inbox',
+      remember: true,
+      label: 'Always put their mail in the Inbox',
+    });
+  });
+
+  it('keeps someone’s own mail theirs: Share with the team, and no Assign or sender rules (M19)', async () => {
+    const onShare = jest.fn();
+    const own = conversationOf({
+      ...row,
+      channel: 'email',
+      person_id: null,
+      counterpart: 'mom@example.com',
+      private_to: DALE,
+    });
+    await render(
+      <Page
+        onAssign={null}
+        onClose={jest.fn()}
+        c={own}
+        more={{ moves: mailMoves(own.folder, own.private), onMove: jest.fn(), onShare }}
+      />,
+    );
+    const dismiss = screen.root!.props.onDismiss as () => void;
+    expect(screen.queryByTestId('sheet-assign')).toBeNull();
+    expect(screen.getByTestId('sheet-move-other')).toHaveTextContent('Move to Other mail');
+    expect(screen.getByTestId('sheet-move-spam')).toBeTruthy();
+    expect(screen.queryByTestId('sheet-always-spam')).toBeNull();
+    await fireEvent.press(screen.getByTestId('sheet-share'));
+    await act(async () => jest.advanceTimersByTime(1_000));
+    await act(async () => dismiss());
+    expect(onShare).toHaveBeenCalledTimes(1);
+
+    // Under the top bar: whose it is, and the same way to share it.
+    const share = jest.fn();
+    await render(<PrivateBanner onShare={share} busy={false} />);
+    expect(screen.getByTestId('thread-private-badge')).toHaveTextContent('Only you');
+    expect(screen.getByTestId('thread-private')).toHaveTextContent(
+      /Only you can see this\. Share it with the team to hand it to them\./,
+    );
+    await fireEvent.press(screen.getByTestId('banner-share'));
+    expect(share).toHaveBeenCalledTimes(1);
   });
 
   it('runs nothing when the sheet is just put away', async () => {

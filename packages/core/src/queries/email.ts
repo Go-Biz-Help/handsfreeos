@@ -1,10 +1,20 @@
 import { and, asc, desc, eq, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { emailAddresses, emailDomains, mailboxConnections, users } from '@hfos/db/schema';
+import {
+  emailAddresses,
+  emailDomains,
+  emailSenderRules,
+  mailboxConnections,
+  users,
+  workspaces,
+} from '@hfos/db/schema';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, page } from '../kernel/pagination';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
+import { INBOUND_MX_HOST } from '../schemas/email';
 import {
+  EmailSenderRuleListInput,
+  EmailSenderRuleListOutput,
   EmailSetupStatusInput,
   EmailSetupStatusOutput,
   EmailSuppressionListInput,
@@ -34,11 +44,24 @@ export const emailSetupStatus = defineQuery({
   async handler(ctx, input) {
     const workspaceId = input.workspaceId;
     const addresses = await ctx.tx
-      .select({ a: emailAddresses, domain: emailDomains.domain, domainStatus: emailDomains.status })
+      .select({
+        a: emailAddresses,
+        domain: emailDomains.domain,
+        domainStatus: emailDomains.status,
+        ownerName: users.fullName,
+        ownerEmail: users.email,
+        // Whether its person still works here (M19): once they've left, an owner decides what becomes of it.
+        ownerHere: dsql<boolean>`private.works_in(${emailAddresses.ownerUserId}, ${emailAddresses.workspaceId})`,
+      })
       .from(emailAddresses)
       .leftJoin(emailDomains, eq(emailDomains.id, emailAddresses.emailDomainId))
+      .leftJoin(users, eq(users.id, emailAddresses.ownerUserId))
       .where(eq(emailAddresses.workspaceId, workspaceId))
       .orderBy(desc(emailAddresses.isDefault), asc(emailAddresses.createdAt));
+    const [ws] = await ctx.tx
+      .select({ isPlatform: workspaces.isPlatform })
+      .from(workspaces)
+      .where(eq(workspaces.id, workspaceId));
     const domains = await ctx.tx
       .select()
       .from(emailDomains)
@@ -81,7 +104,11 @@ export const emailSetupStatus = defineQuery({
     );
     return {
       sharedDomain: SHARED_MAIL_DOMAIN,
-      addresses: addresses.map(({ a, domain, domainStatus }) => ({
+      // Every business can once each domain has a Postmark server of its own (M19 step 6); until then,
+      // HandsFreeOS's own, through the support desk's.
+      receivingOpen: ws?.isPlatform ?? false,
+      inboundMxHost: INBOUND_MX_HOST,
+      addresses: addresses.map(({ a, domain, domainStatus, ownerName, ownerEmail, ownerHere }) => ({
         id: a.id,
         address: a.address,
         localPart: a.localPart,
@@ -90,6 +117,9 @@ export const emailSetupStatus = defineQuery({
         emailDomainId: a.emailDomainId,
         domain: a.emailDomainId ? domain : null,
         usable: !a.emailDomainId || domainStatus === 'verified',
+        ownerUserId: a.ownerUserId,
+        ownerName: a.ownerUserId ? ownerName || ownerEmail || 'Former member' : null,
+        ownerLeft: !!a.ownerUserId && !ownerHere,
       })),
       domains: domains.map((d) => ({
         id: d.id,
@@ -104,6 +134,9 @@ export const emailSetupStatus = defineQuery({
         lastCheckedAt: iso(d.lastCheckedAt),
         lastError: d.lastError,
         createdAt: iso(d.createdAt)!,
+        receiving: d.receiving,
+        mxVerifiedAt: iso(d.mxVerifiedAt),
+        mxCheckedAt: iso(d.mxCheckedAt),
       })),
       mailboxes: mailboxes.map((m) => ({
         id: m.id,
@@ -177,6 +210,40 @@ export const emailSuppressionList = defineQuery({
         releasedBy: userOut(r.released_by, r.released_by_name),
       })),
       nextCursor: result.nextCursor,
+    };
+  },
+});
+
+/** Where new mail from each sender goes (M19), as the people who moved their threads chose, newest first. */
+export const emailSenderRuleList = defineQuery({
+  name: 'email_sender_rule.list',
+  description:
+    'Where new mail from each sender goes, as people chose when they moved one of that sender’s threads: the Inbox, Other mail or Spam.',
+  input: EmailSenderRuleListInput,
+  output: EmailSenderRuleListOutput,
+  permission: 'inbox.use',
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const list = await ctx.tx
+      .select({
+        address: emailSenderRules.address,
+        folder: emailSenderRules.folder,
+        createdAt: emailSenderRules.createdAt,
+        createdBy: emailSenderRules.createdBy,
+        name: users.fullName,
+        email: users.email,
+      })
+      .from(emailSenderRules)
+      .leftJoin(users, eq(users.id, emailSenderRules.createdBy))
+      .where(eq(emailSenderRules.workspaceId, input.workspaceId))
+      .orderBy(desc(emailSenderRules.createdAt));
+    return {
+      items: list.map((r) => ({
+        address: r.address,
+        folder: r.folder,
+        createdAt: iso(r.createdAt)!,
+        createdBy: userOut(r.createdBy, r.name || r.email || null),
+      })),
     };
   },
 });

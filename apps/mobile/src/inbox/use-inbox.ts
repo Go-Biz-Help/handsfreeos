@@ -19,21 +19,22 @@ import { useBusiness } from '@/components/shell/business-context';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
 
-import { withOwnChanges } from './outbox';
+import { movedHereVersion, subscribeMovedHere, withMovedHere, withOwnChanges } from './outbox';
 import {
   CONVERSATIONS_SQL,
   INBOX_OUTBOX_SQL,
   LANES_SQL,
   MEMBERS_SQL,
+  OWN_ADDRESS_SQL,
   TEAMMATE_SQL,
   WORKSPACE_SQL,
 } from './queries';
 
 /**
  * The inbox from the phone's copy: every conversation in the business on screen (its open ones and the last 12 months'
- * messages are on the phone), with this phone's own changes over them, filtered, grouped into one row per customer,
- * ordered and counted as the web's `inbox.list` and `inbox.summary` do (core's `groupByCustomer`, `inboxOrder`,
- * `inboxCounts`).
+ * messages are on the phone), the team's and the person's own mail (M19), with this phone's own changes over them,
+ * filtered, grouped into one row per customer, ordered and counted as the web's `inbox.list` and `inbox.summary` do
+ * (core's `groupByCustomer`, `inboxOrder`, `inboxCounts`).
  */
 
 type ListRow = ConversationListRow & { readonly draft_waiting: number | null };
@@ -118,29 +119,46 @@ export function useBusinessSettings() {
   );
 }
 
-/** Every conversation in the business, with this phone's own changes over each. */
+/** Re-renders when an email thread is moved or shared on this phone (M19); the number is only compared. */
+export function useMovedHere(): number {
+  return React.useSyncExternalStore(subscribeMovedHere, movedHereVersion);
+}
+
+/** Every conversation in the business, the person's own mail among them, with this phone's own changes over each. */
 export function useConversations(): {
   readonly items: readonly InboxItem[];
   readonly loading: boolean;
 } {
   const { business, me } = useBusiness();
-  const { data, isLoading } = useQuery<ListRow>(CONVERSATIONS_SQL, [business.id]);
+  const { data, isLoading } = useQuery<ListRow>(CONVERSATIONS_SQL, [business.id, me.user.id]);
   const outbox = useInboxOutbox();
   const members = useMembers();
+  const moved = useMovedHere();
   return React.useMemo(() => {
+    void moved; // Only says to work it out again.
     const names = new Map(members.map((m) => [m.id, m.fullName]));
     const self = { id: me.user.id, fullName: me.user.fullName || me.user.email };
     return {
       items: data.map((row) => ({
-        conversation: withOwnChanges(conversationOf(row), outbox, self, names),
+        conversation: withMovedHere(withOwnChanges(conversationOf(row), outbox, self, names)),
         draftWaiting: Number(row.draft_waiting ?? 0) > 0,
       })),
       loading: isLoading,
     };
-  }, [data, outbox, members, me.user.id, me.user.fullName, me.user.email, isLoading]);
+  }, [data, outbox, members, me.user.id, me.user.fullName, me.user.email, isLoading, moved]);
 }
 
-/** The list for a box, status and search, one row per customer, in the web's order, and every box's counts. */
+/** Whether the person has an address of their own here (M19), so My mail shows before any mail has come to it. */
+export function useOwnAddress(): boolean {
+  const { business, me } = useBusiness();
+  const { data } = useQuery<{ own: number | null }>(OWN_ADDRESS_SQL, [business.id, me.user.id]);
+  return Number(data[0]?.own ?? 0) > 0;
+}
+
+/**
+ * The list for a box, status and search, the team's or the person's own mail, one row per customer, in the web's order,
+ * and every box's counts.
+ */
 export function useInboxList(filter: InboxFilter): {
   readonly items: readonly InboxItem[];
   readonly counts: InboxCounts;
@@ -149,6 +167,7 @@ export function useInboxList(filter: InboxFilter): {
   const { me } = useBusiness();
   const { items, loading } = useConversations();
   const { telephony } = useBusinessSettings();
+  const ownAddress = useOwnAddress();
   const now = useNow();
   return React.useMemo(() => {
     const all = items.map((i) => i.conversation);
@@ -157,10 +176,10 @@ export function useInboxList(filter: InboxFilter): {
       items: groupByCustomer(items, filter, me.user.id).sort((a, b) =>
         order(a.conversation, b.conversation),
       ),
-      counts: inboxCounts(all, me.user.id, telephony.unansweredReminderMinutes, now),
+      counts: inboxCounts(all, me.user.id, telephony.unansweredReminderMinutes, now, ownAddress),
       loading,
     };
-  }, [items, filter, me.user.id, telephony.unansweredReminderMinutes, now, loading]);
+  }, [items, filter, me.user.id, telephony.unansweredReminderMinutes, now, ownAddress, loading]);
 }
 
 /**

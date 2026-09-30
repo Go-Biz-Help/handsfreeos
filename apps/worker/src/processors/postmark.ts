@@ -13,6 +13,7 @@ import {
   isAutomatic,
   messageIds,
   sanitizeInboundHtml,
+  spamScoreOf,
   type MailHeader,
 } from '../email/render';
 import { systemActor, workerMeta, type TenantScope } from '../services';
@@ -65,16 +66,16 @@ function sentAt(value: string | undefined): string | undefined {
   return Number.isFinite(t) && t <= Date.now() ? new Date(t).toISOString() : undefined;
 }
 
-/** A customer wrote to a workspace address (or answered one of our emails). */
+/**
+ * Someone wrote to a workspace address (or answered one of our emails). Automatic mail and what the spam filter
+ * scored come along too: email.receive decides where they go (M19), and a customer's automatic mail is still never
+ * filed.
+ */
 export const onInboundEmail: DeliveryProcessor = async (ctx) => {
   const scope = tenant(ctx);
   const p = ctx.delivery.params as unknown as StoredInbound;
   if (!scope || !p.MessageID) return 'ignored';
   const headers = p.Headers ?? [];
-  if (isAutomatic(headers)) {
-    ctx.log.info('an automatic reply was not filed');
-    return 'ignored';
-  }
   const from = (p.FromFull?.Email ?? p.From ?? '').trim().toLowerCase();
   if (!EMAIL.test(from)) return 'ignored';
   const media = p.Attachments ?? [];
@@ -110,6 +111,8 @@ export const onInboundEmail: DeliveryProcessor = async (ctx) => {
       replyToken: p.route?.replyToken ?? null,
       emailAddressId: p.route?.emailAddressId ?? null,
       occurredAt: sentAt(p.Date),
+      automatic: isAutomatic(headers),
+      spamScore: spamScoreOf(headers),
       ...(ctx.reminderOverrideMs ? { reminderAfterMs: ctx.reminderOverrideMs } : {}),
     },
     systemActor(scope),

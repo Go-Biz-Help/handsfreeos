@@ -106,7 +106,19 @@ export const headerOf = (headers: readonly MailHeader[], name: string): string |
 export const messageIds = (value: string | null): string[] =>
   (value?.match(/<[^<>\s]+>/g) ?? []).slice(-50);
 
-/** Out-of-office replies, list and bulk mail never open or reopen a conversation. */
+/**
+ * What the mail service's spam filter scored a message (Postmark's X-Spam-Score, from SpamAssassin), or null when it
+ * didn't say. A stranger's mail at SPAM_SCORE or more goes to Spam (M19).
+ */
+export function spamScoreOf(headers: readonly MailHeader[]): number | null {
+  const n = Number.parseFloat(headerOf(headers, 'X-Spam-Score') ?? '');
+  return Number.isFinite(n) ? Math.max(-1000, Math.min(1000, n)) : null;
+}
+
+/**
+ * Out-of-office replies, list and bulk mail never open or reopen a customer's conversation. A stranger's goes to
+ * Other mail (M19).
+ */
 export function isAutomatic(headers: readonly MailHeader[]): boolean {
   const auto = headerOf(headers, 'Auto-Submitted');
   if (auto && auto.toLowerCase() !== 'no') return true;

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ViewAsButton } from '@/components/admin/view-as';
+import { OwnBusinessBlock } from '@/components/admin/own-business-block';
 import { PhoneModelBlock } from '@/components/admin/phone-model-block';
 import { WalletBlock } from '@/components/admin/wallet-block';
 import { STATUS_WORD, sinceWords, whenWords } from '@/components/admin/ticket-bits';
@@ -110,6 +111,12 @@ export default async function BusinessPage({
         workspaceId={workspaceId}
         phoneModel={detail.phoneModel}
         canChange={me.staff?.permissions.includes('platform.ai.manage') ?? false}
+      />
+
+      <OwnBusinessBlock
+        workspaceId={workspaceId}
+        isPlatform={detail.isPlatform}
+        canChange={me.staff?.permissions.includes('platform.own_business.manage') ?? false}
       />
 
       <section className="mt-5 rounded-card border border-border bg-card p-4">

@@ -82,6 +82,8 @@ export const workspaces = app.table('workspaces', {
   }),
   /** The model its calls think with, picked by support in /admin; null is the worker's VOICE_MODEL. */
   phoneModel: text('phone_model'),
+  /** HandsFreeOS's own business (M19): the one workspace that may send and receive on handsfreeos.com. */
+  isPlatform: boolean('is_platform').notNull().default(false),
   ...timestamps(),
 });
 
@@ -737,7 +739,15 @@ export const suppressionReason = app.enum('suppression_reason', [
   'spam_complaint',
   'manual',
 ]);
+/** Whether a domain's mail arrives in HandsFreeOS (M19): people ask (pending), the worker says on or lapsed. */
+export const emailReceivingStatus = app.enum('email_receiving_status', [
+  'off',
+  'pending',
+  'on',
+  'lapsed',
+]);
 export type EmailDomainStatus = (typeof emailDomainStatus.enumValues)[number];
+export type EmailReceivingStatus = (typeof emailReceivingStatus.enumValues)[number];
 export type MailboxProvider = (typeof mailboxProvider.enumValues)[number];
 export type MailboxStatus = (typeof mailboxStatus.enumValues)[number];
 export type SuppressionReason = (typeof suppressionReason.enumValues)[number];
@@ -1093,6 +1103,10 @@ export const rcsSenders = app.table('rcs_senders', {
 export const conversationHandler = app.enum('conversation_handler', ['none', 'ai', 'person']);
 export type ConversationHandler = (typeof conversationHandler.enumValues)[number];
 
+/** M19: where a thread lives. Only Inbox threads wake the AI teammate, workflows, push and the timeline. */
+export const conversationFolder = app.enum('conversation_folder', ['inbox', 'other', 'spam']);
+export type ConversationFolder = (typeof conversationFolder.enumValues)[number];
+
 export const conversations = app.table('conversations', {
   id: id(),
   workspaceId: workspaceRef(),
@@ -1150,6 +1164,21 @@ export const conversations = app.table('conversations', {
   // Milestone 18
   /** The language the customer writes in, as the AI teammate last said ("es"); null until it knows. */
   language: text('language'),
+  /** M19: the Inbox, Other mail or Spam. Set when the thread starts; only people move it. */
+  folder: conversationFolder('folder').notNull().default('inbox'),
+  /** M19: the one person who may read it (their own address's mail); null is the team's. Never linked to a customer. */
+  privateTo: uuid('private_to'),
+});
+
+/** M19: where new mail from a sender goes, as a person chose when they moved one of that sender's threads. */
+export const emailSenderRules = app.table('email_sender_rules', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  /** One rule per sender in a business (email_sender_rules_one_per_sender). */
+  address: text('address').notNull(),
+  folder: conversationFolder('folder').notNull(),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
 });
 
 export const messages = app.table('messages', {
@@ -1236,6 +1265,8 @@ export const messages = app.table('messages', {
    * conversation's preview follow this, with or without a customer.
    */
   went: boolean('went').notNull().default(true),
+  /** M19: its thread's private_to, kept by triggers so the policy reads the row alone. */
+  privateTo: uuid('private_to'),
 });
 
 export const calls = app.table('calls', {
@@ -1360,6 +1391,12 @@ export const emailDomains = app.table('email_domains', {
   returnPathVerifiedAt: ts('return_path_verified_at'),
   lastCheckedAt: ts('last_checked_at'),
   lastError: text('last_error'),
+  /** Whether its mail arrives here (M19), and what the worker last saw of its MX. */
+  receiving: emailReceivingStatus('receiving').notNull().default('off'),
+  mxVerifiedAt: ts('mx_verified_at'),
+  mxCheckedAt: ts('mx_checked_at'),
+  /** The Postmark server that receives it; null for handsfreeos.com, which the support server receives. */
+  inboundServerId: text('inbound_server_id'),
   createdBy: userRef('created_by'),
   ...timestamps(),
 });
@@ -1378,6 +1415,8 @@ export const emailAddresses = app.table('email_addresses', {
   verifiedAt: ts('verified_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /** M19: the person whose own address this is; only they send from it, and its mail is theirs alone. */
+  ownerUserId: uuid('owner_user_id'),
 });
 
 /** An Outlook or Gmail mailbox; tokens and sign-in secrets are sealed by the worker. */

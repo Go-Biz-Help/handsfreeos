@@ -11,8 +11,23 @@ export type MessageChannel = z.infer<typeof messageChannel>;
 export const conversationChannel = z.enum(['sms', 'email', 'chat']);
 export type ConversationChannel = z.infer<typeof conversationChannel>;
 export const conversationStatus = z.enum(['open', 'snoozed', 'closed']);
-/** needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. */
-export const inboxBox = z.enum(['mine', 'unassigned', 'all', 'needs_person', 'ai', 'archived']);
+/**
+ * needs_person: handed to a person and not yet picked up (oldest first); ai: the AI teammate answers. other and
+ * spam are the email folders beside the Inbox (M19); every other box is the Inbox's.
+ */
+export const inboxBox = z.enum([
+  'mine',
+  'unassigned',
+  'all',
+  'needs_person',
+  'ai',
+  'archived',
+  'other',
+  'spam',
+]);
+/** Where a thread lives (M19): only Inbox threads wake the AI teammate, workflows, push and the timeline. */
+export const conversationFolder = z.enum(['inbox', 'other', 'spam']);
+export type ConversationFolderValue = z.infer<typeof conversationFolder>;
 export const messageDirection = z.enum(['inbound', 'outbound']);
 export const smsConsent = z.enum(['unknown', 'opted_in', 'opted_out']);
 
@@ -94,12 +109,18 @@ export const ConversationSummary = z.object({
   unreadTotal: z.number().int(),
   /** A customer this unlinked thread looks like, offered as "Same as …?" rather than merged on its own. */
   sameAs: z.object({ id: uuid, fullName: z.string() }).nullable(),
+  /** Where it lives (M19): the Inbox, Other mail or Spam. */
+  folder: conversationFolder,
+  /** The viewer's own mail (M19): only they see it, until they share it with the team. */
+  private: z.boolean(),
 });
 export type ConversationSummary = z.infer<typeof ConversationSummary>;
 
 export const InboxListInput = ListInput.extend({
   workspaceId: uuid,
   box: inboxBox.default('all'),
+  /** The team's threads, or the person's own mailbox (M19): the same boxes, over their own mail. */
+  mailbox: z.enum(['team', 'mine']).default('team'),
   status: conversationStatus.default('open'),
   channel: conversationChannel.optional(),
   q: z.string().trim().max(100).optional(),
@@ -130,6 +151,17 @@ export const InboxSummaryOutput = z.object({
   needsPerson: z.number().int(),
   /** Open conversations the AI teammate is answering. */
   ai: z.number().int(),
+  /**
+   * Beside the team's Inbox (M19): unread in the viewer's own mailbox, unread in the team's Other mail, and open
+   * threads in the team's Spam; and whether the viewer has mail of their own at all (an address that is theirs, or
+   * threads from one), so My mail shows only for them.
+   */
+  mail: z.object({
+    mine: z.number().int(),
+    other: z.number().int(),
+    spam: z.number().int(),
+    own: z.boolean(),
+  }),
 });
 
 export const canTextReason = z.enum([
@@ -249,6 +281,30 @@ export const ConversationAssignInput = z.object({
 });
 export const ConversationSnoozeInput = z.object({ ...conversationRef, until: isoDateTime });
 export const ConversationLinkPersonInput = z.object({ ...conversationRef, personId: uuid });
+/** Moving an email thread between the Inbox, Other mail and Spam (M19). */
+export const ConversationMoveInput = z.object({
+  ...conversationRef,
+  folder: conversationFolder,
+  /** Send the sender's next new thread to the same folder. */
+  remember: z.boolean().default(false),
+});
+export const ConversationMoveOutput = z.object({
+  conversationId: uuid,
+  folder: conversationFolder,
+  /** False when it was already there, so a double-click is visibly a no-op. */
+  changed: z.boolean(),
+});
+/** Sharing a thread from a person's own mailbox with the team (M19). */
+export const ConversationShareOutput = z.object({
+  conversationId: uuid,
+  /** The customer it is now linked to, when their address is on one. */
+  personId: uuid.nullable(),
+});
+export const EmailSenderRuleRemoveInput = z.object({
+  workspaceId: uuid,
+  address: z.string().trim().toLowerCase().min(3).max(320),
+});
+export const EmailSenderRuleRemoveOutput = z.object({ address: z.string(), removed: z.boolean() });
 export const ConversationLinkPersonOutput = z.object({
   conversationId: uuid,
   personId: uuid,

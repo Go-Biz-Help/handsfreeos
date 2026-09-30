@@ -106,10 +106,11 @@ const conversation = async (id: string) =>
       last_preview: string | null;
       unread_count: number;
       awaiting: boolean;
+      folder: string;
     }>(
       admin(),
       sql`select channel::text as channel, counterpart, person_id, email_reply_token, email_address_id, last_preview,
-            unread_count, awaiting_reply_since is not null as awaiting
+            unread_count, awaiting_reply_since is not null as awaiting, folder::text as folder
           from app.conversations where id = ${id}`,
     )
   )[0]!;
@@ -141,8 +142,8 @@ beforeAll(async () => {
       sql`select id, address from app.email_addresses where workspace_id = ${wsId} and is_default`,
     )
   )[0]!;
-  // Lead intake (M14) would file a stranger's first email under a new customer. This suite covers the
-  // unmatched list itself — where mail waits when intake is off, capped, or the sender is a machine — so it
+  // Lead intake (M14) would file a stranger's first email under a new customer. This suite covers where a
+  // stranger's mail goes when intake is off, capped, or the sender is a machine — Other mail (M19) — so it
   // turns the channel off. What intake does instead is in intake.test.ts.
   await run(intakeSourceUpdate, { workspaceId: wsId, kind: 'email', active: false }, owner);
 });
@@ -333,7 +334,8 @@ describe('receiving email', () => {
       unread_count: 1,
     });
 
-    // Someone we don't know waits aside, once.
+    // Someone we don't know (lead intake is off here) goes to Other mail, once (M19): kept whole, and nothing
+    // wakes up for it — no AI teammate, workflow, push, timeline or reminder.
     const stranger = {
       workspaceId: wsId,
       provider: 'postmark',
@@ -345,13 +347,26 @@ describe('receiving email', () => {
       bodyText: 'Let’s talk.',
     };
     const aside = await sys(emailReceive, stranger);
-    expect(aside).toMatchObject({ outcome: 'unmatched', conversationId: null });
+    expect(aside).toMatchObject({ outcome: 'filed', folder: 'other' });
     expect((await sys(emailReceive, stranger)).outcome).toBe('duplicate');
-    const [kept] = await rows<{ from_address: string; snippet: string }>(
+    expect(await conversation(aside.conversationId!)).toMatchObject({
+      counterpart: 'someone@unknown.example.com',
+      person_id: null,
+      folder: 'other',
+      last_preview: 'Partnership · Let’s talk.',
+      unread_count: 1,
+      awaiting: false,
+    });
+    const woke = await rows<{ event_type: string }>(
       admin(),
-      sql`select from_address, snippet from app.email_inbound_unmatched where id = ${aside.unmatchedId}`,
+      sql`select event_type from app.events where entity_id = ${aside.messageId}`,
     );
-    expect(kept).toEqual({ from_address: 'someone@unknown.example.com', snippet: 'Let’s talk.' });
+    expect(woke.map((e) => e.event_type)).toEqual(['email.filed']);
+    const [message] = await rows<{ activity_id: string | null }>(
+      admin(),
+      sql`select activity_id from app.messages where id = ${aside.messageId}`,
+    );
+    expect(message!.activity_id).toBeNull();
 
     // Our own address coming back around is not a customer.
     expect(

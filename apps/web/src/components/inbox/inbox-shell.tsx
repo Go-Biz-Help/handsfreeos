@@ -5,12 +5,15 @@ import {
   CONVERSATION_STATUSES,
   INBOX_BOXES,
   inboxEmptyWords,
+  MAIL_BOX_NAMES,
+  PRIVATE_THREAD_WORDS,
   STATUS_LABELS,
   unreadFilterLabel,
   unreadLabel,
   type InboxBoxKey,
+  type InboxMailbox,
 } from '@hfos/core';
-import { Search, SquarePen } from 'lucide-react';
+import { Lock, Search, SquarePen } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   createContext,
@@ -36,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { TeammateBoxes } from './ai-bits';
 import { ConversationRow } from './conversation-row';
 import { useInboxList } from './hooks';
+import { MailBoxes } from './mail-boxes';
 import { NewMessageDialog } from './new-message-dialog';
 
 interface InboxContextValue {
@@ -55,6 +59,9 @@ interface InboxContextValue {
 }
 
 const InboxContext = createContext<InboxContextValue | null>(null);
+
+/** The boxes of a person's own mail (M19): its Inbox (`all`), Other mail and Spam. */
+const OWN_BOXES: readonly InboxBoxKey[] = ['all', 'other', 'spam'];
 
 export function useInbox(): InboxContextValue {
   const value = useContext(InboxContext);
@@ -97,10 +104,15 @@ export function InboxShell({
   // that has narrowed its inbox (everyone who doesn't set up the channels, 0106) lands on them, because that is
   // what they came for; everybody else lands where they always have. Nothing is hidden either way — pressing
   // Everyone still shows them what they may see.
-  const home: InboxBoxKey = narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';
-  const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
-    ? (boxParam as InboxBoxKey)
-    : home;
+  // The person's own mail (M19), beside the team's: its own Inbox, Other mail and Spam.
+  const mailbox: InboxMailbox = params.get('mail') === 'mine' ? 'mine' : 'team';
+  const home: InboxBoxKey =
+    mailbox === 'team' && narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';
+  const box: InboxBoxKey =
+    (INBOX_BOXES as readonly string[]).includes(boxParam) &&
+    (mailbox === 'team' || OWN_BOXES.includes(boxParam as InboxBoxKey))
+      ? (boxParam as InboxBoxKey)
+      : home;
   const status: ConversationStatus = (CONVERSATION_STATUSES as readonly string[]).includes(
     statusParam,
   )
@@ -116,6 +128,7 @@ export function InboxShell({
   // `status` still goes with it: the archived box ignores it server-side, since a thread keeps the status it had.
   const list = useInboxList(workspaceId, {
     box: archivedView ? ('archived' as InboxBoxKey) : box,
+    mailbox,
     status,
     ...(q ? { q } : {}),
     ...(unread ? { unread } : {}),
@@ -129,14 +142,25 @@ export function InboxShell({
   const aiCount = summary?.ai ?? 0;
   // The teammate's boxes: once there's a teammate, or while anything is in them.
   const showBoxes = !!teammate || needsPerson > 0 || aiCount > 0;
-  // The badges count open conversations in the three boxes; anywhere else the chip has no number to show.
+  const mail = summary?.mail ?? { mine: 0, other: 0, spam: 0, own: false };
+  // The badges count open conversations in the three boxes, the person's own Inbox and Other mail; anywhere else
+  // the chip has no number to show.
   const unreadCount =
-    status === 'open' && !archivedView && (box === 'mine' || box === 'unassigned' || box === 'all')
-      ? (summary?.unread[box] ?? null)
-      : null;
+    status !== 'open' || archivedView
+      ? null
+      : mailbox === 'mine'
+        ? box === 'all'
+          ? mail.mine
+          : null
+        : box === 'mine' || box === 'unassigned' || box === 'all'
+          ? (summary?.unread[box] ?? null)
+          : box === 'other'
+            ? mail.other
+            : null;
 
   const listQuery = useMemo(() => {
     const p = new URLSearchParams();
+    if (mailbox === 'mine') p.set('mail', 'mine');
     if (box !== 'all') p.set('box', box);
     if (archivedView) p.set('status', 'archived');
     else if (status !== 'open') p.set('status', status);
@@ -144,7 +168,7 @@ export function InboxShell({
     if (unread) p.set('unread', '1');
     const s = p.toString();
     return s ? `?${s}` : '';
-  }, [box, status, q, archivedView, unread]);
+  }, [mailbox, box, status, q, archivedView, unread]);
 
   const setFilter = useCallback(
     (change: Record<string, string | null>) => {
@@ -209,6 +233,7 @@ export function InboxShell({
     q,
     teammate?.name ?? 'The AI teammate',
     unread,
+    mailbox,
   );
 
   return (
@@ -237,33 +262,82 @@ export function InboxShell({
                 New message
               </Button>
             </div>
-            <Segmented
-              fill
-              ariaLabel="Whose conversations"
-              className="max-md:[&>button]:h-9"
-              value={box}
-              onChange={(v) => setFilter({ box: v === home ? null : v })}
-              options={[
-                { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
-                {
-                  value: 'unassigned',
-                  label: boxLabel('unassigned', counts.unassigned),
-                  testId: 'box-unassigned',
-                },
-                {
-                  value: 'all',
-                  label: boxLabel('all', counts.all, narrowed),
-                  testId: 'box-all',
-                },
-              ]}
-            />
-            {showBoxes ? (
+            {mailbox === 'mine' ? (
+              <>
+                <div
+                  className="flex items-center justify-between gap-2 text-[13px]"
+                  data-testid="my-mail"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 text-text-2">
+                    <Lock className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
+                    <span className="truncate">
+                      <span className="font-medium text-text">{MAIL_BOX_NAMES.mine}</span> ·{' '}
+                      {PRIVATE_THREAD_WORDS.onlyYou}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="flex-none font-medium text-accent-text"
+                    onClick={() => setFilter({ mail: null, box: null })}
+                    data-testid="mail-back"
+                  >
+                    {PRIVATE_THREAD_WORDS.back}
+                  </button>
+                </div>
+                <Segmented
+                  fill
+                  ariaLabel="My mail"
+                  className="max-md:[&>button]:h-9"
+                  value={box}
+                  onChange={(v) => setFilter({ box: v === 'all' ? null : v })}
+                  options={[
+                    { value: 'all', label: 'Inbox', testId: 'mail-inbox' },
+                    { value: 'other', label: MAIL_BOX_NAMES.other, testId: 'mail-other' },
+                    { value: 'spam', label: MAIL_BOX_NAMES.spam, testId: 'mail-spam' },
+                  ]}
+                />
+              </>
+            ) : (
+              <Segmented
+                fill
+                ariaLabel="Whose conversations"
+                className="max-md:[&>button]:h-9"
+                value={box}
+                onChange={(v) => setFilter({ box: v === home ? null : v })}
+                options={[
+                  { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
+                  {
+                    value: 'unassigned',
+                    label: boxLabel('unassigned', counts.unassigned),
+                    testId: 'box-unassigned',
+                  },
+                  {
+                    value: 'all',
+                    label: boxLabel('all', counts.all, narrowed),
+                    testId: 'box-all',
+                  },
+                ]}
+              />
+            )}
+            {mailbox === 'team' && showBoxes ? (
               <TeammateBoxes
                 box={box}
                 name={teammate?.name ?? null}
                 needsPerson={needsPerson}
                 ai={aiCount}
                 onPick={(b) => setFilter({ box: b === home ? null : b })}
+              />
+            ) : null}
+            {mailbox === 'team' ? (
+              <MailBoxes
+                on={box === 'other' || box === 'spam' ? box : null}
+                own={mail.own}
+                counts={mail}
+                onPick={(b) =>
+                  b === 'mine'
+                    ? setFilter({ mail: 'mine', box: null })
+                    : setFilter({ box: b ?? null })
+                }
               />
             ) : null}
             <UnreadToggle

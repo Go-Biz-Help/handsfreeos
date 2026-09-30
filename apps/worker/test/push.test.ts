@@ -21,6 +21,7 @@ import {
   commandButtonsOf,
   conversationAssign,
   conversationTakeOver,
+  emailReceive,
   executeCommand,
   invoiceCreate,
   invoiceRecordCashPayment,
@@ -658,6 +659,77 @@ describe('the moments, on a business with phones', () => {
       sound: 'default',
       collapseId,
     });
+  });
+
+  it('buzzes only its person for mail to their own address, and nobody for the team’s Other mail', async () => {
+    // Marco has an address of his own on the business's domain (M19).
+    const domain = `own-${randomUUID().slice(0, 8)}.example.com`;
+    const [d] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.email_domains (workspace_id, domain, status, receiving, created_by)
+          values (${w.workspaceId}, ${domain}, 'verified', 'on', ${w.owner.id}) returning id`,
+    );
+    const [mine] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.email_addresses (workspace_id, email_domain_id, local_part, address, display_name,
+            created_by, owner_user_id)
+          values (${w.workspaceId}, ${d!.id}, 'marco', '', 'Pushes', ${w.owner.id}, ${w.member.id})
+          returning id`,
+    );
+    const [team] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.email_addresses where workspace_id = ${w.workspaceId} and is_default`,
+    );
+    const mailIn = (from: string, emailAddressId: string, over: Record<string, unknown> = {}) =>
+      executeCommand(
+        testDbs().worker.db,
+        emailReceive,
+        {
+          workspaceId: w.workspaceId,
+          provider: 'postmark',
+          providerMessageId: `pm-${randomUUID()}`,
+          messageIdHeader: `<${randomUUID()}@mail.example.com>`,
+          from: { address: from },
+          to: [{ address: `marco@${domain}` }],
+          subject: 'Dinner Friday?',
+          bodyText: 'Are we still on for Friday?',
+          emailAddressId,
+          ...over,
+        },
+        systemActor(scope()),
+        { correlationId: randomUUID(), channel: 'worker' },
+      ).then((r) => r.output);
+
+    let before = sent().length;
+    const friend = `friend-${randomUUID().slice(0, 8)}@example.com`;
+    const got = await mailIn(friend, mine!.id);
+    expect(got.folder).toBe('inbox');
+    await drain(w);
+    let pushes = sent().slice(before);
+    // Marco alone: not Dale or Priya, who run the business but can't see his mail.
+    expect(tokensOf(pushes)).toEqual([phones.marcoIphone.token]);
+    const collapseId = `conversation-${got.conversationId}`;
+    expect(pushes[0]!.message).toMatchObject({
+      title: friend,
+      body: 'Dinner Friday? · Are we still on for Friday?',
+      categoryId: 'customer_message_no_ai',
+      collapseId,
+    });
+    expect(dataOf(pushes[0]!.message)).toMatchObject({
+      category: 'customer_message_no_ai',
+      path: `/app/w/${w.workspaceId}/inbox/${got.conversationId}`,
+      refs: { conversationId: got.conversationId, channel: 'email' },
+    });
+
+    // A newsletter to the team's address waits in Other mail, and buzzes nobody.
+    before = sent().length;
+    const other = await mailIn(`news-${randomUUID().slice(0, 8)}@example.com`, team!.id, {
+      automatic: true,
+    });
+    expect(other.folder).toBe('other');
+    await drain(w);
+    pushes = sent().slice(before);
+    expect(pushes).toEqual([]);
   });
 
   it('updates one notification quietly for a burst of messages, and buzzes again once it runs out', async () => {

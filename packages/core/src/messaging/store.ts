@@ -344,6 +344,9 @@ export async function loadConversation(ctx: CommandContext, conversationId: stri
  * goes, which thread the call bridge dials into, which email thread a text thread offers to switch to — and
  * they must all pick the same one or the customer gets answered in two places at once.
  *
+ * Only the team's threads (M19): a person's own mail is reached by its own address alone, so a reminder, a
+ * workflow or a teammate writing to this customer never lands in someone's private thread.
+ *
  * Null when this customer has never written on this channel.
  */
 export async function latestConversation(
@@ -360,6 +363,7 @@ export async function latestConversation(
         eq(conversations.workspaceId, workspaceId),
         eq(conversations.channel, channel),
         eq(conversations.counterpart, counterpart),
+        isNull(conversations.privateTo),
       ),
     )
     // Nulls last: a thread that has never carried a message is the weakest answer, not the strongest.
@@ -391,6 +395,48 @@ export async function preferredLane(
 }
 
 /**
+ * The thread `findOrCreateConversation` would file into, without starting or adopting one (M19): mail that has to
+ * know which folder it lands in before it decides anything else asks this first. The same rules, read-only.
+ */
+export async function findConversation(
+  ctx: CommandContext,
+  input: {
+    channel: 'sms' | 'email';
+    counterpart: string;
+    phoneNumberId: string | null;
+    emailAddressId?: string | null;
+    /** The address is this person's own (M19): only its own lane, never a team thread with no line. */
+    privateTo?: string | null;
+  },
+): Promise<typeof conversations.$inferSelect | null> {
+  const workspaceId = ctx.scope.workspaceId!;
+  const mail = input.channel === 'email';
+  const column = mail ? conversations.emailAddressId : conversations.phoneNumberId;
+  const lineId = (mail ? input.emailAddressId : input.phoneNumberId) ?? null;
+  if (!lineId)
+    return (
+      (await latestConversation(ctx.tx, workspaceId, input.channel, input.counterpart)) ?? null
+    );
+  const sameCustomer = and(
+    eq(conversations.workspaceId, workspaceId),
+    eq(conversations.channel, input.channel),
+    eq(conversations.counterpart, input.counterpart),
+  );
+  const [exact] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(and(sameCustomer, eq(column, lineId)));
+  if (exact) return exact;
+  if (input.privateTo) return null;
+  const [lineless] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(and(sameCustomer, isNull(column)))
+    .limit(1);
+  return lineless ?? null;
+}
+
+/**
  * One conversation per customer per line of the business (0089): returns the existing one or starts it.
  *
  * The line is the business's own end of the thread — the number a text came in on, the address a mail was
@@ -413,6 +459,10 @@ export async function findOrCreateConversation(
     personId: string | null;
     phoneNumberId: string | null;
     emailAddressId?: string | null;
+    /** Where a new thread lives (M19); a thread that exists keeps its own. */
+    folder?: 'inbox' | 'other' | 'spam';
+    /** The person whose own mail a new thread is (M19): never linked to a customer. */
+    privateTo?: string | null;
   },
 ) {
   const workspaceId = ctx.scope.workspaceId!;
@@ -446,11 +496,14 @@ export async function findOrCreateConversation(
   } else {
     const [exact] = await find();
     if (exact) return { conversation: exact, created: false };
-    const [lineless] = await ctx.tx
-      .select()
-      .from(conversations)
-      .where(and(sameCustomer, isNull(column)))
-      .limit(1);
+    // A person's own address never adopts a team thread (M19): that would put their mail in front of the team.
+    const [lineless] = input.privateTo
+      ? []
+      : await ctx.tx
+          .select()
+          .from(conversations)
+          .where(and(sameCustomer, isNull(column)))
+          .limit(1);
     if (lineless) {
       const [adopted] = await ctx.tx
         .update(conversations)
@@ -470,6 +523,8 @@ export async function findOrCreateConversation(
       phoneNumberId: mail ? null : lineId,
       emailAddressId: mail ? lineId : null,
       createdBy: ctx.actor.type === 'human' ? ctx.actor.userId : null,
+      ...(input.folder ? { folder: input.folder } : {}),
+      ...(input.privateTo ? { privateTo: input.privateTo, personId: null } : {}),
     })
     .onConflictDoNothing()
     .returning();

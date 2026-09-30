@@ -1,15 +1,23 @@
-import { CONVERSATION_DONE, handBackToast, takeOverToast } from '@hfos/core';
+import {
+  CONVERSATION_DONE,
+  handBackToast,
+  takeOverToast,
+  type ConversationFolderValue,
+} from '@hfos/core';
 
 import { toast } from '@/components/ui/toast';
 import { change } from '@/changes';
 
-import { cancelHeldHere } from './outbox';
+import { cancelHeldHere, markMovedHere } from './outbox';
 
 /**
  * What a person does to a conversation on the phone, each a change that can wait for signal (`conversation.*` go any
  * time; handing back to the AI teammate is fresh for 30 minutes), with the conversation's synced row updated at once
  * and the web's words for what it did. A change a later one overtook (the customer wrote after a close made with no
  * signal) doesn't apply on the server, and the synced row says so when it arrives.
+ *
+ * Moving an email thread between folders and sharing someone's own mail (M19) are online only: with signal they go at
+ * once, and with none the toast says so.
  */
 
 export interface ConversationRef {
@@ -120,6 +128,31 @@ export function conversationActions(ref: ConversationRef) {
           }),
         handBackToast(teammateName, who),
       ),
+    /**
+     * An email thread to the Inbox, Other mail or Spam (M19); with `remember`, the sender's next new thread too.
+     * Whether it left the folder it was in: false when it was there already, or it couldn't be moved.
+     */
+    move: async (folder: ConversationFolderValue, remember = false): Promise<boolean> => {
+      try {
+        const { output } = await change('conversation.move', { ...input, folder, remember });
+        if (output.changed) markMovedHere(ref.conversationId, { folder });
+        toast.show(
+          output.changed || remember
+            ? CONVERSATION_DONE.moved(folder, remember)
+            : CONVERSATION_DONE.alreadyThere,
+        );
+        return output.changed;
+      } catch (error) {
+        failed(error);
+        return false;
+      }
+    },
+    /** Out of the person's own mail and into the team's Inbox (M19). */
+    share: () =>
+      run(async () => {
+        await change('conversation.share', input);
+        markMovedHere(ref.conversationId, { shared: true });
+      }, CONVERSATION_DONE.shared),
     /** A new text leaves the thread; a failed text tried again goes back as it was, not delivered. */
     cancelHeld: async (messageId: string) => {
       let stays = false;

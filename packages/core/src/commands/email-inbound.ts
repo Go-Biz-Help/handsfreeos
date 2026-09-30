@@ -4,7 +4,7 @@ import { rows, type Tx } from '@hfos/db/client';
 import {
   conversations,
   emailAddresses,
-  emailInboundUnmatched,
+  emailSenderRules,
   emailSuppressions,
   mailboxConnections,
   messages,
@@ -15,8 +15,15 @@ import { logChannelActivity } from '../crm/activities';
 import { intakeFromChannel, looksAutomatedEmail, type IntakeResult } from '../crm/intake';
 import { fullName } from '../crm/records';
 import { defineCommand } from '../kernel/define';
-import { emailDedupeKey, emailPreview, matchPersonByEmail } from '../messaging/email';
-import { findOrCreateConversation, scheduleJob, workspaceMessaging } from '../messaging/store';
+import type { CommandContext } from '../kernel/types';
+import { emailDedupeKey, emailPreview, matchPersonByEmail, SPAM_SCORE } from '../messaging/email';
+import {
+  findConversation,
+  findOrCreateConversation,
+  scheduleJob,
+  workspaceMessaging,
+} from '../messaging/store';
+import type { ConversationFolderValue } from '../schemas/conversation';
 import {
   EmailReceiveInput,
   EmailReceiveOutput,
@@ -48,12 +55,87 @@ async function suppressed(tx: Tx, workspaceId: string, address: string): Promise
   return !!row;
 }
 
+/** Where someone said new mail from this sender goes (M19), if they did. */
+async function senderRule(
+  tx: Tx,
+  workspaceId: string,
+  address: string,
+): Promise<ConversationFolderValue | null> {
+  const [r] = await tx
+    .select({ folder: emailSenderRules.folder })
+    .from(emailSenderRules)
+    .where(
+      and(
+        eq(emailSenderRules.workspaceId, workspaceId),
+        eq(emailSenderRules.address, address.toLowerCase()),
+      ),
+    )
+    .limit(1);
+  return r?.folder ?? null;
+}
+
+/** Whether this address already has an Inbox email thread here: someone the business talks to (M19). */
+async function hasInboxThread(tx: Tx, workspaceId: string, counterpart: string): Promise<boolean> {
+  const [c] = await tx
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.workspaceId, workspaceId),
+        eq(conversations.channel, 'email'),
+        eq(conversations.counterpart, counterpart),
+        eq(conversations.folder, 'inbox'),
+        isNull(conversations.privateTo),
+      ),
+    )
+    .limit(1);
+  return !!c;
+}
+
+/**
+ * Whose mail this is (M19): the thread already on the lane it came in on decides, and a new one is its address's
+ * person's. A person who no longer works here has their mail go to the business's default address instead, so the
+ * team sees it while an owner decides what becomes of their address, and nobody reads what was theirs.
+ */
+async function whoseMail(
+  ctx: CommandContext,
+  counterpart: string,
+  emailAddressId: string | null,
+): Promise<{ emailAddressId: string | null; privateTo: string | null }> {
+  if (!emailAddressId) return { emailAddressId, privateTo: null };
+  const workspaceId = ctx.scope.workspaceId!;
+  const [address] = await ctx.tx
+    .select({ ownerUserId: emailAddresses.ownerUserId })
+    .from(emailAddresses)
+    .where(and(eq(emailAddresses.id, emailAddressId), eq(emailAddresses.workspaceId, workspaceId)));
+  const owner = address?.ownerUserId ?? null;
+  const lane = await findConversation(ctx, {
+    channel: 'email',
+    counterpart,
+    phoneNumberId: null,
+    emailAddressId,
+    privateTo: owner,
+  });
+  const who = lane ? lane.privateTo : owner;
+  if (!who) return { emailAddressId, privateTo: null };
+  const [here] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.works_in(${who}::uuid, ${workspaceId}::uuid) as ok`,
+  );
+  if (here?.ok) return { emailAddressId, privateTo: who };
+  const [fallback] = await ctx.tx
+    .select({ id: emailAddresses.id })
+    .from(emailAddresses)
+    .where(and(eq(emailAddresses.workspaceId, workspaceId), eq(emailAddresses.isDefault, true)));
+  return { emailAddressId: fallback?.id ?? null, privateTo: null };
+}
+
 type Conversation = typeof conversations.$inferSelect;
 
 export const emailReceive = defineCommand({
   name: 'email.receive',
   description:
-    'Worker: an email reached a workspace address, or a connected mailbox synced one. Files it in the customer’s conversation (by reply token, thread headers or address), or sets mail from someone we don’t know aside.',
+    'Worker: an email reached a workspace address, or a connected mailbox synced one. Files it in its thread (by reply token, thread headers or address): a customer’s in the Inbox, a stranger’s or a machine’s in Other mail, and spam in Spam.',
   risk: 1,
   input: EmailReceiveInput,
   output: EmailReceiveOutput,
@@ -67,7 +149,8 @@ export const emailReceive = defineCommand({
     // A sender nobody knows becomes a customer and a lead here (M14), unless the business turned that off.
     'person.created',
     'lead.created',
-    'email.unmatched_received',
+    // Mail in Other mail or Spam (M19): filed, and nothing wakes up.
+    'email.filed',
   ],
   actors: ['system'],
   async handler(ctx, input) {
@@ -141,6 +224,15 @@ export const emailReceive = defineCommand({
     }
     if (!counterpart) return { outcome: 'skipped' as const, ...none };
 
+    // Whose mail this is (M19): a person's own, or the team's. Mailbox imports are always the team's.
+    const screened = inbound && !input.knownOnly;
+    const { emailAddressId, privateTo } = screened
+      ? await whoseMail(ctx, counterpart, input.emailAddressId ?? null)
+      : { emailAddressId: input.emailAddressId ?? null, privateTo: null };
+    // A thread the token or the headers name counts only if it is as private as this mail: a person's own mail
+    // never lands in a team thread, nor the team's in theirs, whatever the headers say.
+    const samePrivacy = (c: Conversation | null) => (c && c.privateTo === privateTo ? c : null);
+
     // The conversation: the Reply-To token, then the thread's headers, then this address's email thread.
     let conv: Conversation | null = null;
     if (input.replyToken)
@@ -154,6 +246,7 @@ export const emailReceive = defineCommand({
             eq(conversations.emailReplyToken, input.replyToken.toLowerCase()),
           ),
         );
+    conv = samePrivacy(conv);
     const threadIds = [input.inReplyTo, ...input.references]
       .filter((h): h is string => !!h)
       .slice(-20);
@@ -175,16 +268,31 @@ export const emailReceive = defineCommand({
           .select()
           .from(conversations)
           .where(eq(conversations.id, earlier.conversationId));
+      conv = samePrivacy(conv);
     }
+    // A thread keeps its folder (M19), so before anything else: the thread this address already has on the lane
+    // it wrote to, when neither the token nor the headers named one. Mailbox imports keep their own rules.
+    if (!conv && screened)
+      conv = await findConversation(ctx, {
+        channel: 'email',
+        counterpart,
+        phoneNumberId: null,
+        emailAddressId,
+        privateTo,
+      });
+    // An out-of-office or a list mail in an Inbox thread wakes nobody, as it never has: it isn't filed.
+    if (conv && input.automatic && conv.folder === 'inbox')
+      return { outcome: 'skipped' as const, ...none };
+
     /**
      * Whether this address has ever written here, on any of the business's addresses.
      *
      * This used to be `conv`, found by counterpart alone, and it was answering two questions at once. Only
      * one of them is about *which* thread, and since 0089 that one has an address in it:
      * `findOrCreateConversation` keys on the address they wrote to, so mail to support@ no longer lands in
-     * the thread they started with sales@. The other two — whether a stranger's mail waits in the unmatched
-     * list, and whether lead intake should make them a customer — are about the person, and a customer who
-     * wrote to sales@ last week is neither a stranger nor a new lead because today they wrote to support@.
+     * the thread they started with sales@. The other two — which folder a stranger's new thread goes to, and
+     * whether lead intake should make them a customer — are about the person, and a customer who wrote to
+     * sales@ last week is neither a stranger nor a new lead because today they wrote to support@.
      */
     const known =
       conv !== null ||
@@ -197,82 +305,62 @@ export const emailReceive = defineCommand({
               eq(conversations.workspaceId, workspaceId),
               eq(conversations.channel, 'email'),
               eq(conversations.counterpart, counterpart),
+              isNull(conversations.privateTo),
             ),
           )
           .limit(1)
       ).length > 0;
-    let matched = personId ?? (await matchPersonByEmail(ctx.tx, workspaceId, counterpart));
+    // A person's own mail is never linked to a customer (M19): that is what keeps it off their record.
+    let matched = privateTo
+      ? null
+      : (personId ?? (await matchPersonByEmail(ctx.tx, workspaceId, counterpart)));
     const at = input.occurredAt ? new Date(input.occurredAt) : new Date();
 
-    // Nobody we know wrote in: lead intake (M14) makes the customer and their lead, so the mail lands in a
-    // real conversation instead of the unmatched list. Machines don't become leads — a bounce, an
-    // out-of-office, a newsletter, or an address that already bounced for good.
-    let intake: IntakeResult | null = null;
-    if (
-      !known &&
-      !matched &&
-      inbound &&
-      !input.knownOnly &&
-      !looksAutomatedEmail(input.from, input.subject) &&
-      !(await suppressed(ctx.tx, workspaceId, counterpart))
-    ) {
-      intake = await intakeFromChannel(
-        ctx,
-        {
-          kind: 'email',
-          email: counterpart,
-          name: input.from.name ?? null,
-          how: 'emailed in',
-          at,
-        },
-        await workspaceZone(ctx.tx, workspaceId),
-      );
-      matched = intake?.personId ?? matched;
-    }
-
-    if (!known && !matched) {
-      if (!inbound || input.knownOnly) return { outcome: 'skipped' as const, ...none };
-      // Someone we don't know: kept whole until the team claims it for a customer or dismisses it.
-      const snippet =
-        (input.bodyText ?? '').replace(/\s+/g, ' ').trim().slice(0, 300) ||
-        input.subject?.slice(0, 300) ||
-        null;
-      const [set] = await ctx.tx
-        .insert(emailInboundUnmatched)
-        .values({
-          workspaceId,
-          emailAddressId: input.emailAddressId ?? null,
-          fromAddress: counterpart,
-          fromName: input.from.name ?? null,
-          toAddresses: input.to.map((t) => t.address),
-          ccAddresses: input.cc.map((c) => c.address),
-          subject: input.subject ?? null,
-          snippet,
-          bodyText: input.bodyText ?? null,
-          bodyHtml: input.bodyHtml ?? null,
-          media: input.media,
-          messageIdHeader: header,
-          inReplyToHeader: input.inReplyTo ?? null,
-          referencesHeaders: input.references,
-          receivedAt: at,
-        })
-        .onConflictDoNothing()
-        .returning({ id: emailInboundUnmatched.id });
-      if (!set) return { outcome: 'duplicate' as const, ...none };
-      await ctx.emit({
-        type: 'email.unmatched_received',
-        entityType: 'email_unmatched',
-        entityId: set.id,
-        payload: { from: counterpart },
-        after: { from: counterpart, subject: input.subject ?? null },
-      });
-      return {
-        outcome: 'unmatched' as const,
-        messageId: null,
-        conversationId: null,
-        unmatchedId: set.id,
-      };
-    }
+    let folder: ConversationFolderValue = conv?.folder ?? 'inbox';
+    if (!conv && privateTo) {
+      // A new thread in a person's own mailbox: sorted like anyone's mail, but never a customer, never a lead,
+      // and never by a rule the team saved.
+      folder =
+        (input.spamScore ?? 0) >= SPAM_SCORE
+          ? 'spam'
+          : input.automatic || looksAutomatedEmail(input.from, input.subject)
+            ? 'other'
+            : 'inbox';
+    } else if (!conv && screened) {
+      // A new thread, and where it lives (M19). The sender rule someone saved; then a customer's mail, in the
+      // Inbox; then Spam, by the mail service's score; then Other mail for machines, for addresses that bounced
+      // or complained, and for strangers already set aside elsewhere. Last, lead intake (M14): a stranger it
+      // makes a customer of is in the Inbox, and one it doesn't take is in Other mail. Nothing is dropped.
+      // Mail a person claimed for a customer is theirs, whatever a rule says.
+      const rule = input.personId ? null : await senderRule(ctx.tx, workspaceId, counterpart);
+      if (rule) folder = rule;
+      else if (matched || (await hasInboxThread(ctx.tx, workspaceId, counterpart))) {
+        if (input.automatic) return { outcome: 'skipped' as const, ...none };
+        folder = 'inbox';
+      } else if ((input.spamScore ?? 0) >= SPAM_SCORE) folder = 'spam';
+      else if (
+        known ||
+        input.automatic ||
+        looksAutomatedEmail(input.from, input.subject) ||
+        (await suppressed(ctx.tx, workspaceId, counterpart))
+      )
+        folder = 'other';
+      else {
+        const intake: IntakeResult | null = await intakeFromChannel(
+          ctx,
+          {
+            kind: 'email',
+            email: counterpart,
+            name: input.from.name ?? null,
+            how: 'emailed in',
+            at,
+          },
+          await workspaceZone(ctx.tx, workspaceId),
+        );
+        matched = intake?.personId ?? matched;
+        folder = matched ? 'inbox' : 'other';
+      }
+    } else if (!known && !matched) return { outcome: 'skipped' as const, ...none };
 
     let created = false;
     if (!conv)
@@ -281,8 +369,16 @@ export const emailReceive = defineCommand({
         counterpart,
         personId: matched,
         phoneNumberId: null,
-        emailAddressId: input.emailAddressId ?? null,
+        emailAddressId,
+        folder,
+        privateTo,
       }));
+    // A thread someone else started a moment ago keeps its own folder.
+    folder = conv.folder;
+    // Other mail and Spam wake nobody: no AI teammate, workflow, push, timeline or reminder hears of it. Nor does
+    // a person's own mail, and the history owners read says only that it came (M19).
+    const sealed = conv.privateTo !== null;
+    const quiet = folder !== 'inbox' || sealed;
     const autoLink = !conv.personId && !!matched;
     const person = conv.personId ?? matched;
     const fresh = Date.now() - at.getTime() < FRESH_MS;
@@ -296,11 +392,18 @@ export const emailReceive = defineCommand({
         type: 'conversation.created',
         entityType: 'conversation',
         entityId: conv.id,
-        payload: { channel: 'email', personId: person },
-        after: { with: counterpart, channel: 'email' },
+        payload: {
+          channel: 'email',
+          personId: person,
+          folder,
+          ...(sealed ? { private: true } : {}),
+        },
+        after: sealed
+          ? { channel: 'email' }
+          : { with: counterpart, channel: 'email', ...(quiet ? { folder } : {}) },
       });
     const eventId = await ctx.emit({
-      type: inbound ? 'message.received' : 'message.imported',
+      type: quiet ? 'email.filed' : inbound ? 'message.received' : 'message.imported',
       entityType: 'message',
       entityId: messageId,
       payload: {
@@ -308,38 +411,44 @@ export const emailReceive = defineCommand({
         personId: person,
         channel: 'email',
         mediaCount: input.media.length,
-        ...(inbound
-          ? { reopened: fresh && conv.status !== 'open' }
-          : { mailboxConnectionId: input.mailboxConnectionId ?? null }),
+        ...(quiet
+          ? { folder, direction: input.direction, ...(sealed ? { private: true } : {}) }
+          : inbound
+            ? { reopened: fresh && conv.status !== 'open' }
+            : { mailboxConnectionId: input.mailboxConnectionId ?? null }),
       },
-      after: inbound
-        ? { from: counterpart, subject: input.subject ?? null }
-        : { to: counterpart, subject: input.subject ?? null },
+      after: sealed
+        ? { mediaCount: input.media.length }
+        : inbound
+          ? { from: counterpart, subject: input.subject ?? null }
+          : { to: counterpart, subject: input.subject ?? null },
       // Old mail from a mailbox's first sync should not light up everyone's inbox.
       broadcast: fresh,
     });
-    const activityId = await logChannelActivity(ctx, {
-      kind: 'email',
-      subtype: inbound ? 'inbound' : 'outbound',
-      personId: person,
-      body: (input.bodyText ?? '').slice(0, 10_000) || preview,
-      occurredAt: at,
-      eventId,
-      ...(author ? { authorUserId: author } : {}),
-      meta: {
-        direction: input.direction,
-        messageId,
-        conversationId: conv.id,
-        subject: input.subject ?? null,
-        mediaCount: input.media.length,
-        attachments: input.media.map(({ name, bucket, objectPath }) => ({
-          name,
-          bucket,
-          objectPath,
-        })),
-        ...(inbound ? {} : { status: 'sent', via: 'mailbox' }),
-      },
-    });
+    const activityId = quiet
+      ? null
+      : await logChannelActivity(ctx, {
+          kind: 'email',
+          subtype: inbound ? 'inbound' : 'outbound',
+          personId: person,
+          body: (input.bodyText ?? '').slice(0, 10_000) || preview,
+          occurredAt: at,
+          eventId,
+          ...(author ? { authorUserId: author } : {}),
+          meta: {
+            direction: input.direction,
+            messageId,
+            conversationId: conv.id,
+            subject: input.subject ?? null,
+            mediaCount: input.media.length,
+            attachments: input.media.map(({ name, bucket, objectPath }) => ({
+              name,
+              bucket,
+              objectPath,
+            })),
+            ...(inbound ? {} : { status: 'sent', via: 'mailbox' }),
+          },
+        });
     await ctx.tx.insert(messages).values({
       id: messageId,
       workspaceId,
@@ -361,14 +470,16 @@ export const emailReceive = defineCommand({
       inReplyToHeader: input.inReplyTo ?? null,
       referencesHeaders: input.references,
       providerThreadId: input.providerThreadId ?? null,
-      emailAddressId: input.emailAddressId ?? null,
+      emailAddressId,
       mailboxConnectionId: input.mailboxConnectionId ?? null,
       sentBy: author,
       occurredAt: at,
       sentAt: inbound ? null : at,
       activityId,
     });
-    const nudge = inbound && fresh;
+    // New mail counts as unread and brings a closed thread back, in any folder; only the Inbox waits on a reply.
+    const wake = inbound && fresh;
+    const nudge = wake && !quiet;
     await ctx.tx
       .update(conversations)
       .set({
@@ -376,21 +487,23 @@ export const emailReceive = defineCommand({
           ? { lastMessageAt: at, lastPreview: preview, lastDirection: input.direction }
           : {}),
         ...(inbound ? { lastInboundAt: at } : { lastOutboundAt: at }),
-        ...(nudge
+        ...(wake
           ? {
               unreadCount: sql`${conversations.unreadCount} + 1`,
               status: 'open' as const,
               snoozedUntil: null,
               closedAt: null,
               closedBy: null,
+            }
+          : {}),
+        ...(nudge
+          ? {
               awaitingReplySince: sql`coalesce(${conversations.awaitingReplySince}, ${at.toISOString()}::timestamptz)`,
             }
           : {}),
         ...(!inbound && newest ? { awaitingReplySince: null } : {}),
         ...(autoLink ? { personId: person } : {}),
-        ...(!conv.emailAddressId && input.emailAddressId
-          ? { emailAddressId: input.emailAddressId }
-          : {}),
+        ...(!conv.emailAddressId && emailAddressId ? { emailAddressId } : {}),
       })
       .where(eq(conversations.id, conv.id));
 
@@ -421,7 +534,13 @@ export const emailReceive = defineCommand({
           organizationId: m.organizationId,
         });
     }
-    return { outcome: 'filed' as const, messageId, conversationId: conv.id, unmatchedId: null };
+    return {
+      outcome: 'filed' as const,
+      messageId,
+      conversationId: conv.id,
+      unmatchedId: null,
+      folder,
+    };
   },
 });
 

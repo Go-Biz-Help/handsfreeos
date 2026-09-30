@@ -20,7 +20,13 @@ import { useBusiness } from '@/components/shell/business-context';
 import { useNetwork } from '@/lib/network';
 
 import { useConversationNumber, type BusinessNumber } from './cell';
-import { cancelledHere, pendingReplies, withOwnChanges, type PendingReply } from './outbox';
+import {
+  cancelledHere,
+  pendingReplies,
+  withMovedHere,
+  withOwnChanges,
+  type PendingReply,
+} from './outbox';
 import {
   CALLS_SQL,
   CONVERSATION_SQL,
@@ -34,6 +40,7 @@ import {
   useBusinessSettings,
   useInboxOutbox,
   useMembers,
+  useMovedHere,
   useNow,
   useTeammate,
   type Teammate,
@@ -119,12 +126,14 @@ export function useConversation(conversationId: string): {
   const { timeZone, telephony } = useBusinessSettings();
   const teammate = useTeammate();
   const now = useNow();
+  const moved = useMovedHere();
 
   const data = React.useMemo<ConversationData | null>(() => {
+    void moved; // Only says to work it out again.
     if (!row) return null;
     const names = new Map(members.map((m) => [m.id, m.fullName]));
     const self = { id: me.user.id, fullName: me.user.fullName || me.user.email };
-    const conversation = withOwnChanges(conversationOf(row), outbox, self, names);
+    const conversation = withMovedHere(withOwnChanges(conversationOf(row), outbox, self, names));
     const p = people[0];
     const person: ConversationPerson | null = p
       ? {
@@ -162,7 +171,20 @@ export function useConversation(conversationId: string): {
       timeZone,
       teammate,
     };
-  }, [row, people, optOuts, outbox, members, number, telephony, timeZone, teammate, now, me.user]);
+  }, [
+    row,
+    people,
+    optOuts,
+    outbox,
+    members,
+    number,
+    telephony,
+    timeZone,
+    teammate,
+    now,
+    me.user,
+    moved,
+  ]);
   return { data, loading: isLoading };
 }
 

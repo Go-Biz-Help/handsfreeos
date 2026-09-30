@@ -333,6 +333,8 @@ export const syncedTables = {
       created_by: column.text,
       created_at: column.text,
       updated_at: column.text,
+      folder: column.text,
+      private_to: column.text,
     },
     { indexes: { workspace: ['workspace_id'] } },
   ),
@@ -346,6 +348,7 @@ export const syncedTables = {
       display_name: column.text,
       is_default: column.integer,
       verified_at: column.text,
+      owner_user_id: column.text,
       created_at: column.text,
       updated_at: column.text,
     },
@@ -1524,6 +1527,10 @@ export interface ConversationsRow {
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly updated_at: string | null;
+  /** app.conversation_folder */
+  readonly folder: string | null;
+  /** uuid */
+  readonly private_to: string | null;
 }
 
 /** A row of `email_addresses` (business_v1). */
@@ -1540,6 +1547,8 @@ export interface EmailAddressesRow {
   readonly is_default: number | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly verified_at: string | null;
+  /** uuid */
+  readonly owner_user_id: string | null;
   /** timestamp with time zone: ISO 8601 text here */
   readonly created_at: string | null;
   /** timestamp with time zone: ISO 8601 text here */

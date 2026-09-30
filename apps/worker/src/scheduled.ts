@@ -3,6 +3,7 @@ import {
   carrierHasDetails,
   conversationReopen,
   emailDomainRecord,
+  emailDomainRecordReceiving,
   executeCommand,
   openHoursOf,
   registrationUpdateStatus,
@@ -30,7 +31,13 @@ import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking
 import { appointmentCalendarSync, calendarRefresh } from './calendar/sync';
 import { reviewReplyPost, reviewsSync } from './reviews/sync';
 import { CHAT_JOBS, chatUnreadFollowUp } from './chat/followup';
-import { domainRecordInput, lapsedMessage, sharedAddress } from './handlers/email';
+import {
+  EMAIL_RECEIVING_CHECK_JOB,
+  domainRecordInput,
+  lapsedMessage,
+  receivingCheckKey,
+  sharedAddress,
+} from './handlers/email';
 import {
   nextReceiptCleanUp,
   RECEIPT_JOBS,
@@ -328,7 +335,114 @@ export const checkEmailDomains: JobHandler = async (ctx) => {
           on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
     ),
   );
+  // And every domain that receives mail (M19): its MX may have moved away, or come back.
+  await asWorker(ctx.db, {}, (tx) =>
+    tx.execute(
+      sql`insert into app.scheduled_jobs (organization_id, workspace_id, kind, dedupe_key, run_at, payload)
+          select d.organization_id, d.workspace_id, ${EMAIL_RECEIVING_CHECK_JOB},
+            ${receivingCheckKey('')} || d.email_domain_id::text,
+            now() + (abs(hashtext(d.email_domain_id::text)::bigint) % ${EMAIL_DOMAIN_CHECK_SPREAD_MS}::bigint)
+              * interval '1 millisecond',
+            jsonb_build_object('emailDomainId', d.email_domain_id)
+          from private.email_receiving_to_check() d
+          on conflict (kind, dedupe_key) where status = 'pending' and dedupe_key is not null do nothing`,
+    ),
+  );
   return { rescheduleAt: new Date(Date.now() + DAY) };
+};
+
+/**
+ * How long between MX looks while a receiving domain still waits on its DNS. Fifteen minutes, as for branded
+ * domains: DNS changes take hours, and a check every minute would ask the same question a thousand times.
+ */
+const RECEIVING_WAIT_MS = 15 * 60_000;
+
+/**
+ * One receiving domain's MX, looked at again (M19). A pending domain turns on once its MX names Postmark, and one
+ * that is on turns lapsed once its MX stops. A domain still waiting is looked at again in 15 minutes; the others
+ * wait for the daily check.
+ */
+export const checkEmailReceivingJob: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const emailDomainId = String(ctx.job.payload['emailDomainId'] ?? '');
+  const d = await asWorker(
+    ctx.db,
+    scope,
+    async (tx) =>
+      (
+        await tx
+          .select({ domain: emailDomains.domain, receiving: emailDomains.receiving })
+          .from(emailDomains)
+          .where(eq(emailDomains.id, emailDomainId))
+      )[0],
+  );
+  // Removed, or turned off, while this waited.
+  if (!d || d.receiving === 'off') return;
+  const { output } = await executeCommand(
+    ctx.db,
+    emailDomainRecordReceiving,
+    {
+      workspaceId: scope.workspaceId,
+      emailDomainId,
+      mxFound: await ctx.email.domains.receives(d.domain),
+    },
+    systemActor(scope),
+    workerMeta(),
+  );
+  if (output.receiving === 'pending')
+    return { rescheduleAt: new Date(Date.now() + RECEIVING_WAIT_MS) };
+};
+
+/** The daily sweep that deletes old spam (M19). */
+export const SPAM_SWEEP_JOB = 'email.spam_sweep';
+/** How long Spam keeps a thread after its last message. */
+const SPAM_KEEP_MS = 30 * DAY;
+/** Threads deleted at a time; a full batch comes back in ten minutes for the rest. */
+const SPAM_BATCH = 200;
+
+/**
+ * Spam is kept 30 days (M19): after that the thread and its messages are deleted, and the files they carried are
+ * removed from storage. Moving a thread out of Spam is how to keep it.
+ */
+export const sweepSpam: JobHandler = async (ctx) => {
+  const before = new Date(Date.now() - SPAM_KEEP_MS);
+  const gone = await asWorker(ctx.db, {}, (tx) =>
+    rows<{
+      conversation_id: string;
+      workspace_id: string;
+      media: { bucket?: string; objectPath?: string }[];
+    }>(
+      tx,
+      sql`select conversation_id, workspace_id, media
+          from private.delete_old_spam(${before.toISOString()}::timestamptz, ${SPAM_BATCH})`,
+    ),
+  );
+  for (const g of gone)
+    for (const m of g.media)
+      // Only what inbound mail stored for that business, in its own folder.
+      if (m.bucket && m.objectPath?.startsWith(`${g.workspace_id}/email/`))
+        await ctx.store.remove(m.bucket, m.objectPath).catch((e: unknown) => {
+          ctx.log.warn(
+            { err: String(e), objectPath: m.objectPath },
+            'a spam attachment could not be removed from storage',
+          );
+        });
+  return {
+    rescheduleAt: new Date(Date.now() + (gone.length === SPAM_BATCH ? PURGE_AGAIN_MS : DAY)),
+  };
+};
+
+/**
+ * The files of mail an owner removed with a departed person's address (M19, email_address.reassign). Only what
+ * inbound mail stored for this business in its own email folder: a customer file sent as an attachment is the
+ * customer's, and stays.
+ */
+export const removeEmailFiles: JobHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const files = (ctx.job.payload['files'] ?? []) as { bucket?: string; objectPath?: string }[];
+  for (const f of files)
+    if (f.bucket === 'telephony' && f.objectPath?.startsWith(`${scope.workspaceId}/email/`))
+      await ctx.store.remove(f.bucket, f.objectPath);
 };
 
 /** One domain, bound to its business. */
@@ -361,6 +475,9 @@ export const jobs: JobMap = {
   'webhook_deliveries.sweep': sweepDeliveries,
   'email_domains.check': checkEmailDomains,
   [EMAIL_DOMAIN_CHECK_JOB]: checkEmailDomainJob,
+  [EMAIL_RECEIVING_CHECK_JOB]: checkEmailReceivingJob,
+  [SPAM_SWEEP_JOB]: sweepSpam,
+  'email.remove_files': removeEmailFiles,
   'mailbox.sync': mailboxSync,
   'calendar.refresh': calendarRefresh,
   // What customers said in public: each connected place asked on a timer, and an answer posted back.
@@ -461,6 +578,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: 'email_domains.check',
       dedupeKey: 'check:email_domains',
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Spam older than 30 days goes, daily (M19).
+    await scheduleJob(tx, {
+      kind: SPAM_SWEEP_JOB,
+      dedupeKey: 'sweep:spam',
       runAt,
       payload: {},
       workspaceId: null,

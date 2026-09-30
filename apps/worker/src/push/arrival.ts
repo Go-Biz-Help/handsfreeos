@@ -151,3 +151,50 @@ export const onCustomerMessagePush = pushMoment('customerWaiting', async (ctx, s
     whileWaiting: { conversationId: conv.id, awaitingSince },
   });
 });
+
+/**
+ * `email.filed` for someone's own mail (M19): new mail in their own Inbox, pushed to them alone. The team can't see
+ * the thread, so it goes to nobody else, and nothing else pushes it (its event is quiet). It rides the same switch
+ * and category as a customer's message, whose Reply and Call buttons work on it and which every app build knows.
+ * Their own mail never waits on a reply, so there is no burst to join: each message replaces the thread's last
+ * notification.
+ */
+export const onOwnMailPush = pushMoment('customerWaiting', async (ctx, scope) => {
+  const messageId = ctx.event.entityId;
+  const p = payloadOf(ctx);
+  const conversationId = str(p['conversationId']);
+  if (!messageId || !conversationId) return;
+  if (p['private'] !== true || p['folder'] !== 'inbox' || p['direction'] !== 'inbound') return;
+  const ws = scope.workspaceId;
+  const [m] = await rows<{
+    occurred_at: Date | string;
+    body: string | null;
+    subject: string | null;
+    photos: number;
+  }>(
+    ctx.tx,
+    sql`select occurred_at, body_text as body, subject, coalesce(jsonb_array_length(media), 0)::int as photos
+        from app.messages where id = ${messageId} and workspace_id = ${ws} and direction = 'inbound'`,
+  );
+  if (!m || Date.now() - new Date(m.occurred_at).getTime() > ARRIVAL_MS) return;
+  const [conv] = await ctx.tx
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId));
+  // Still theirs, still in their Inbox, and not put away since.
+  if (!conv?.privateTo || conv.folder !== 'inbox' || conv.status !== 'open' || conv.archivedAt)
+    return;
+  const userIds = await stillHere(ctx.tx, ws, [conv.privateTo]);
+  if ((await pushAudience(ctx.tx, 'customer_message_no_ai', userIds)).length === 0) return;
+  await queuePush(ctx.tx, scope, {
+    key: `message:${messageId}`,
+    category: 'customer_message_no_ai',
+    userIds,
+    title: await conversationContact(ctx.tx, conv),
+    about: CHANNEL_WORD['email'] ?? null,
+    body: wordsOf('email', m),
+    path: `/app/w/${ws}/inbox/${conv.id}`,
+    refs: { conversationId: conv.id, channel: 'email', messageId },
+    collapseId: conversationCollapseId(conv.id),
+  });
+});

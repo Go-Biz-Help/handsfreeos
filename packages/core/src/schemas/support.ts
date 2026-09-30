@@ -298,6 +298,8 @@ export const BusinessGetOutput = z.object({
   business: BusinessRow,
   /** The model its calls think with, when support picked one; null is the worker's VOICE_MODEL. */
   phoneModel: PhoneModelValue.nullable(),
+  /** HandsFreeOS's own business (M19), which may use handsfreeos.com for its email. */
+  isPlatform: z.boolean(),
   people: z.array(
     z.object({
       userId: uuid,
@@ -391,6 +393,17 @@ export const PhoneModelSetOutput = z.object({
   workspaceId: uuid,
   was: PhoneModelValue.nullable(),
   model: PhoneModelValue.nullable(),
+  /** False when it was already that, so a double-click is visibly a no-op. */
+  changed: z.boolean(),
+});
+
+/** Marking HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19). */
+export const OwnBusinessSetInput = z.object({ workspaceId: uuid, on: z.boolean() });
+
+export const OwnBusinessSetOutput = z.object({
+  workspaceId: uuid,
+  was: z.boolean(),
+  on: z.boolean(),
   /** False when it was already that, so a double-click is visibly a no-op. */
   changed: z.boolean(),
 });

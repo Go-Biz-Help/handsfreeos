@@ -1,5 +1,5 @@
 'use client';
-import { CONTACT_EDIT_WORDS, splitName, THREAD_NOTE_WORDS } from '@hfos/core';
+import { CONTACT_EDIT_WORDS, PRIVATE_THREAD_WORDS, splitName, THREAD_NOTE_WORDS } from '@hfos/core';
 import {
   ArrowRight,
   CalendarPlus,
@@ -239,28 +239,35 @@ export function ContextPanel({
             </div>
           </div>
         </div>
-        <p className="text-[13px] text-text-2">
-          {c.channel === 'chat'
-            ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
-            : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
-        </p>
-        <AddPersonInline
-          workspaceId={workspaceId}
-          phone={c.channel === 'sms' ? c.counterpartDisplay : (data.chat?.phone ?? null)}
-          email={c.channel === 'email' ? c.counterpart : null}
-          defaultName={c.channel === 'chat' ? (data.chat?.name ?? undefined) : undefined}
-          onCreated={onPersonCreated}
-          onMoreDetails={onAddPerson}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onLinkPerson}
-          data-testid="context-link-person"
-        >
-          <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
-          {CONTACT_EDIT_WORDS.linkInstead}
-        </Button>
+        {c.private ? (
+          // Someone's own mail is never a customer while it's theirs (M19).
+          <p className="text-[13px] text-text-2">{PRIVATE_THREAD_WORDS.panel}</p>
+        ) : (
+          <>
+            <p className="text-[13px] text-text-2">
+              {c.channel === 'chat'
+                ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
+                : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
+            </p>
+            <AddPersonInline
+              workspaceId={workspaceId}
+              phone={c.channel === 'sms' ? c.counterpartDisplay : (data.chat?.phone ?? null)}
+              email={c.channel === 'email' ? c.counterpart : null}
+              defaultName={c.channel === 'chat' ? (data.chat?.name ?? undefined) : undefined}
+              onCreated={onPersonCreated}
+              onMoreDetails={onAddPerson}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onLinkPerson}
+              data-testid="context-link-person"
+            >
+              <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {CONTACT_EDIT_WORDS.linkInstead}
+            </Button>
+          </>
+        )}
         {extra}
       </div>
     );

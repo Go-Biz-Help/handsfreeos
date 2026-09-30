@@ -7,6 +7,7 @@ import {
   crossChannelCanText,
   crossChannelLine,
   emailFromLabel,
+  OWN_ADDRESS_TAG,
   emailNote as emailNoteWords,
   emailSubjectOf,
   fillReplyTemplate,
@@ -351,7 +352,7 @@ export function Composer({
           )
           .map((a) => ({
             key: `a:${a.id}`,
-            label: emailFromLabel(a.address),
+            label: emailFromLabel(a.address, a.mine ? OWN_ADDRESS_TAG : null),
             address: a.address,
             emailAddressId: a.id,
           })),

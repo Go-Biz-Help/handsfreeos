@@ -11,11 +11,13 @@ import {
   memberLabel,
   NEEDS_A_PERSON,
   notCustomerBanner,
+  PRIVATE_THREAD_WORDS,
   snoozedBanner,
   snoozeOptions,
   whoTookOver,
   type ConversationShape,
   type HandlingView,
+  type MailMove,
   type SnoozeOption,
   type TeammateStatus,
 } from '@hfos/core';
@@ -32,8 +34,11 @@ import {
   ChevronRight,
   CircleCheck,
   Clock,
+  Inbox,
+  Lock,
   MailOpen,
   Phone,
+  ShieldAlert,
   Sparkles,
   StickyNote,
   Tag,
@@ -199,7 +204,8 @@ export function StatusBanner({
       </Strip>
     );
   }
-  if (!c.person && c.channel !== 'chat') {
+  // Someone's own mail is never a customer's while it's theirs: its own banner says so instead.
+  if (!c.person && c.channel !== 'chat' && !c.private) {
     const b = notCustomerBanner(c.counterpartDisplay, c.channel);
     return (
       <Strip testID="not-customer-banner">
@@ -208,6 +214,42 @@ export function StatusBanner({
     );
   }
   return null;
+}
+
+/**
+ * Someone's own mail (M19): only they see it, until they share it with the team, which this offers. Shown whatever the
+ * thread's status, above the snoozed or closed strip.
+ */
+export function PrivateBanner({ onShare, busy }: { onShare: () => void; busy: boolean }) {
+  return (
+    <View
+      role="note"
+      className="mx-3 mt-2.5 gap-2 rounded-menu bg-card-2 py-2.5 pl-3 pr-2"
+      testID="thread-private"
+    >
+      <View className="flex-row items-start gap-2.5">
+        <Icon as={Lock} className="mt-0.5 size-4 text-text-2" />
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text className="text-[13.5px] font-semibold" testID="thread-private-badge">
+            {PRIVATE_THREAD_WORDS.badge}
+          </Text>
+          <Text className="text-[13.5px] leading-[19px] text-text-2">
+            {PRIVATE_THREAD_WORDS.banner}
+          </Text>
+        </View>
+      </View>
+      <Button
+        variant="secondary"
+        size="md"
+        className="ml-[26px] self-start"
+        loading={busy}
+        onPress={onShare}
+        testID="banner-share"
+      >
+        {CONVERSATION_ACTIONS.share}
+      </Button>
+    </View>
+  );
 }
 
 function Strip({
@@ -295,9 +337,11 @@ function SheetRow({
 /**
  * Details and actions (the "…" in the top bar), as the web's sheet at phone width: Call, Assign, Hand to the teammate,
  * Snooze and Close (or Reopen), Mark as unread, and — since the web's panel learned to change the customer from
- * inside the conversation — Edit details, Tags, the open lead's stage and next action, and Add a note.
+ * inside the conversation — Edit details, Tags, the open lead's stage and next action, and Add a note. An email thread
+ * also moves between the Inbox, Other mail and Spam, and someone's own mail is shared with the team from here (M19).
  *
- * A row is passed null when this conversation cannot do it: no customer yet, or no open lead to move.
+ * A row is passed null when this conversation cannot do it: no customer yet, no open lead to move, or someone's own
+ * mail, which nobody else is assigned and no customer is made from.
  *
  * A row's action runs once this sheet is gone, not as it starts to go: most rows open another sheet, and iOS shows
  * no modal while this one's is still being dismissed (the row would do nothing).
@@ -324,6 +368,9 @@ export function ActionsSheet({
   onNextAction,
   onAddPerson,
   stageName,
+  moves = [],
+  onMove,
+  onShare = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -333,7 +380,8 @@ export function ActionsSheet({
   teammateName: string;
   assigneeShort: string | null;
   onCall: () => void;
-  onAssign: () => void;
+  /** Null for someone's own mail: it's theirs, so there's nobody else to give it to. */
+  onAssign: (() => void) | null;
   onHandToAi: () => void;
   onSnooze: () => void;
   onCloseConversation: () => void;
@@ -349,6 +397,11 @@ export function ActionsSheet({
   onAddPerson: (() => void) | null;
   /** Where the open lead stands, shown beside its row the way the assignee is. */
   stageName: string | null;
+  /** An email thread's other folders (core's `mailMoves`); none for texts and chats. */
+  moves?: readonly MailMove[];
+  onMove?: (move: MailMove) => void;
+  /** Sharing someone's own mail with the team; null for the team's threads. */
+  onShare?: (() => void) | null;
 }) {
   const ai = useAiColors();
   const pending = React.useRef<(() => void) | null>(null);
@@ -367,6 +420,7 @@ export function ActionsSheet({
       onClose={onClose}
       onClosed={onClosed}
       title={CONVERSATION_ACTIONS.details}
+      scroll
       testID="conversation-actions"
     >
       <View className="mt-2 gap-0.5">
@@ -378,13 +432,23 @@ export function ActionsSheet({
             testID="sheet-call"
           />
         ) : null}
-        <SheetRow
-          icon={Users}
-          label={CONVERSATION_ACTIONS.assign}
-          detail={assigneeShort ?? CONVERSATION_ACTIONS.nobody}
-          onPress={run(onAssign)}
-          testID="sheet-assign"
-        />
+        {onShare ? (
+          <SheetRow
+            icon={Users}
+            label={CONVERSATION_ACTIONS.share}
+            onPress={run(onShare)}
+            testID="sheet-share"
+          />
+        ) : null}
+        {onAssign ? (
+          <SheetRow
+            icon={Users}
+            label={CONVERSATION_ACTIONS.assign}
+            detail={assigneeShort ?? CONVERSATION_ACTIONS.nobody}
+            onPress={run(onAssign)}
+            testID="sheet-assign"
+          />
+        ) : null}
         {canHandToAi ? (
           <SheetRow
             icon={<Sparkles size={20} color={ai.text} strokeWidth={1.5} />}
@@ -471,6 +535,17 @@ export function ActionsSheet({
             testID="sheet-add-person"
           />
         ) : null}
+        {onMove
+          ? moves.map((m) => (
+              <SheetRow
+                key={`${m.folder}-${m.remember}`}
+                icon={m.folder === 'inbox' ? Undo2 : m.folder === 'other' ? Inbox : ShieldAlert}
+                label={m.label}
+                onPress={run(() => onMove(m))}
+                testID={`sheet-${m.remember ? 'always' : 'move'}-${m.folder}`}
+              />
+            ))
+          : null}
       </View>
     </Sheet>
   );

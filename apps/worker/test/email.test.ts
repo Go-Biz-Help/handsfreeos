@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import {
+  conversationMove,
   emailClaimUnmatched,
   emailDomainAdd,
   emailDomainRemove,
@@ -29,6 +30,7 @@ import {
   EMAIL_DOMAIN_CHECK_JOB,
   ensureRecurringJobs,
   jobs,
+  sweepSpam,
 } from '../src/scheduled';
 import { testServices, type TestServices } from './helpers';
 
@@ -559,23 +561,64 @@ describe('the daily domain check', () => {
 });
 
 describe('mail from someone we don’t know', () => {
-  it('waits aside until someone claims it for a customer, then joins a thread linked to them', async () => {
+  it('goes to Other mail and wakes nobody, until someone moves it to the Inbox', async () => {
     const stranger = `karen-${token()}@example.com`;
-    const payload = inbound({
-      From: stranger,
-      FromName: 'Karen Liu',
-      FromFull: { Email: stranger, Name: 'Karen Liu' },
-      Subject: 'Quote for an AC tune-up?',
-      TextBody: 'How much is a tune-up?',
-      HtmlBody: undefined,
-    });
-    expect((await post('/webhooks/postmark/inbound', payload)).statusCode).toBe(200);
+    const from = (subject: string, text: string) =>
+      inbound({
+        From: stranger,
+        FromName: 'Karen Liu',
+        FromFull: { Email: stranger, Name: 'Karen Liu' },
+        Subject: subject,
+        TextBody: text,
+        HtmlBody: undefined,
+      });
+    const first = from('Quote for an AC tune-up?', 'How much is a tune-up?');
+    expect((await post('/webhooks/postmark/inbound', first)).statusCode).toBe(200);
     await drain();
+    const m = (
+      await admin().select().from(messages).where(eq(messages.providerMessageId, first.MessageID))
+    )[0]!;
+    const [c] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, m.conversationId));
+    expect(c).toMatchObject({ counterpart: stranger, personId: null, folder: 'other' });
+    const events = async (messageId: string) =>
+      (
+        await rows<{ event_type: string }>(
+          admin(),
+          sql`select event_type from app.events where entity_id = ${messageId}`,
+        )
+      ).map((e) => e.event_type);
+    expect(await events(m.id)).toEqual(['email.filed']);
+
+    await executeCommand(
+      api(),
+      conversationMove,
+      { workspaceId, conversationId: c!.id, folder: 'inbox' },
+      actor(owner),
+      meta(),
+    );
+    const next = from('Re: Quote for an AC tune-up?', 'Any chance this week?');
+    expect((await post('/webhooks/postmark/inbound', next)).statusCode).toBe(200);
+    await drain();
+    const n = (
+      await admin().select().from(messages).where(eq(messages.providerMessageId, next.MessageID))
+    )[0]!;
+    expect(n.conversationId).toBe(c!.id);
+    expect(await events(n.id)).toEqual(['message.received']);
+  });
+
+  it('set aside before M19, can still be claimed for a customer and joins a thread linked to them', async () => {
+    const stranger = `lee-${token()}@example.com`;
     const [u] = await rows<{ id: string }>(
       admin(),
-      sql`select id from app.email_inbound_unmatched where workspace_id = ${workspaceId} and from_address = ${stranger}`,
+      sql`insert into app.email_inbound_unmatched (workspace_id, email_address_id, from_address, from_name, subject,
+            snippet, body_text, message_id_header, received_at)
+          values (${workspaceId}, ${shared.id}, ${stranger}, 'Lee Park', 'Quote for an AC tune-up?',
+            'How much is a tune-up?', 'How much is a tune-up?', ${`<${randomUUID()}@example.com>`}, now())
+          returning id`,
     );
-    expect(u).toBeTruthy();
     await executeCommand(
       api(),
       emailClaimUnmatched,
@@ -598,6 +641,53 @@ describe('mail from someone we don’t know', () => {
       .select()
       .from(conversations)
       .where(eq(conversations.id, m.conversationId));
-    expect(c).toMatchObject({ counterpart: stranger, personId: mikeId });
+    expect(c).toMatchObject({ counterpart: stranger, personId: mikeId, folder: 'inbox' });
+  });
+});
+
+describe('spam', () => {
+  it('goes to Spam by the filter’s score, and is deleted with its files after 30 days', async () => {
+    const spammer = `win-${token()}@prizes.example.com`;
+    const payload = inbound({
+      From: spammer,
+      FromFull: { Email: spammer, Name: 'Prize Desk' },
+      Subject: 'You won',
+      Headers: [
+        { Name: 'Message-ID', Value: `<${randomUUID()}@prizes.example.com>` },
+        { Name: 'X-Spam-Score', Value: '8.3' },
+      ],
+      Attachments: [
+        { Name: 'claim.png', Content: PNG, ContentType: 'image/png', ContentLength: 68 },
+      ],
+    });
+    expect((await post('/webhooks/postmark/inbound', payload)).statusCode).toBe(200);
+    await drain();
+    const m = (
+      await admin().select().from(messages).where(eq(messages.providerMessageId, payload.MessageID))
+    )[0]!;
+    const [c] = await admin()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, m.conversationId));
+    expect(c).toMatchObject({ counterpart: spammer, folder: 'spam' });
+    const file = m.media[0]!.objectPath;
+    expect(await s.store.exists('telephony', file)).toBe(true);
+
+    const sweep = { ...s, job: {} as JobRow, scope: {}, attempt: 1, now: Date.now() };
+    // Still young: kept, so someone can move it out.
+    await sweepSpam(sweep);
+    expect(
+      (await admin().select().from(conversations).where(eq(conversations.id, c!.id)))[0],
+    ).toBeDefined();
+    await rows(
+      admin(),
+      sql`update app.conversations set last_message_at = now() - interval '31 days' where id = ${c!.id}`,
+    );
+    await sweepSpam(sweep);
+    expect(
+      (await admin().select().from(conversations).where(eq(conversations.id, c!.id)))[0],
+    ).toBeUndefined();
+    expect((await admin().select().from(messages).where(eq(messages.id, m.id)))[0]).toBeUndefined();
+    expect(await s.store.exists('telephony', file)).toBe(false);
   });
 });

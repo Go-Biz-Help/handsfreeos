@@ -103,6 +103,8 @@ export type EmailSuppressionList = Ok<'/v1/queries/email_suppression.list'>;
 export type EmailSuppression = EmailSuppressionList['items'][number];
 export type EmailUnmatchedList = Ok<'/v1/queries/email.unmatched_list'>;
 export type EmailUnmatched = EmailUnmatchedList['items'][number];
+export type EmailSenderRuleList = Ok<'/v1/queries/email_sender_rule.list'>;
+export type EmailSenderRule = EmailSenderRuleList['items'][number];
 export type EmailComposeOptions = Ok<'/v1/queries/email.compose_options'>;
 
 // Milestone 4: the Assistant

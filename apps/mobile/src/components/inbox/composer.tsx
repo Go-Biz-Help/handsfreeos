@@ -3,6 +3,7 @@ import {
   composerPlaceholder,
   crossChannelLine,
   emailFromLabel,
+  OWN_ADDRESS_TAG,
   PENDING_REPLY_WORDS,
   PHOTO_CHOICE_WORDS,
   photosSavedLine,
@@ -125,6 +126,7 @@ export function Composer({
   phoneDisplay,
   fromNumber,
   fromEmail,
+  fromEmailOwn = false,
   elsewhere,
   handover,
   online,
@@ -161,6 +163,8 @@ export function Composer({
   phoneDisplay: string;
   fromNumber: string | null;
   fromEmail: string | null;
+  /** The From address is the person's own (M19): "From chris@lonestarhvac.com (yours)". */
+  fromEmailOwn?: boolean;
   /** Sending from this thread to the customer's other channel: where it goes. */
   elsewhere: string | null;
   handover: string | null;
@@ -194,7 +198,7 @@ export function Composer({
   const from =
     mode === 'email'
       ? fromEmail
-        ? emailFromLabel(fromEmail)
+        ? emailFromLabel(fromEmail, fromEmailOwn ? OWN_ADDRESS_TAG : null)
         : null
       : mode === 'sms' && fromNumber
         ? textFromLine(fromNumber)

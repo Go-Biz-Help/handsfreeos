@@ -12,6 +12,7 @@ import {
   handlingView,
   handoverNote,
   joinName,
+  mailMoves,
   nameProblem,
   PENDING_REPLY_WORDS,
   replySubject,
@@ -24,6 +25,7 @@ import {
   threadChannelLine,
   whoOf,
   type ComposerNote,
+  type MailMove,
   type RichDraft,
   type StageRef,
 } from '@hfos/core';
@@ -58,6 +60,7 @@ import {
   NoteCard,
   NoteSheet,
   NOTE_WORDS,
+  PrivateBanner,
   SnoozeSheet,
   StatusBanner,
 } from '@/components/inbox/conversation-parts';
@@ -182,6 +185,7 @@ function Thread() {
     | null
   >(null);
   const [busy, setBusy] = React.useState<'take' | 'back' | null>(null);
+  const [sharing, setSharing] = React.useState(false);
   const [deciding, setDeciding] = React.useState<{
     kind: 'still-send' | 'quiet-hours' | 'ask';
     decided: Decided;
@@ -284,6 +288,10 @@ function Thread() {
 
   const view = handlingView(c);
   const teammateName = data.teammate?.name ?? c.teammate?.name ?? 'The AI teammate';
+  // Someone's own mail (M19): theirs alone, so nobody to assign it to, no teammate and no customer to make of it.
+  const priv = c.private;
+  // An email thread's other folders; "All lines" reads and never changes a lane.
+  const moves = channel === 'email' && !all ? mailMoves(c.folder, priv) : [];
   const lastEmailSubject =
     [...thread.items].reverse().find((i) => i.channel === 'email' && i.subject)?.subject ?? null;
   const sameChannel = current === channel;
@@ -560,11 +568,12 @@ function Thread() {
         'conversation.link_person',
         { workspaceId: business.id, conversationId, personId } as never,
         {
+          // Linking a customer puts an email thread in the Inbox, as the server does (M19).
           optimistic: (tx) =>
-            tx.execute('UPDATE conversations SET person_id = ? WHERE id = ?', [
-              personId,
-              conversationId,
-            ]),
+            tx.execute(
+              "UPDATE conversations SET person_id = ?, folder = CASE WHEN channel = 'email' THEN 'inbox' ELSE folder END WHERE id = ?",
+              [personId, conversationId],
+            ),
         },
       );
       toast.show(CONTACT_EDIT_WORDS.added(joinName(parts)));
@@ -603,6 +612,19 @@ function Thread() {
   const backToList = () => {
     if (router.canGoBack()) router.back();
     else router.replace(businessHref(business.id, 'inbox') as Href);
+  };
+
+  /** To another folder (M19): once it has left the one it was in, it has left the list it was opened from too. */
+  const moveTo = async (m: MailMove) => {
+    if (await actions.move(m.folder, m.remember)) backToList();
+  };
+
+  /** Someone's own mail to the team's Inbox (M19): it leaves My mail, where it was opened from. */
+  const share = async () => {
+    setSharing(true);
+    const ok = await actions.share();
+    setSharing(false);
+    if (ok) backToList();
   };
 
   const renderRow = ({ item }: { item: Row }) => {
@@ -732,6 +754,7 @@ function Thread() {
           onTakeOver={() => void takeOver()}
           onHandBack={() => setSheet('hand-back')}
         />
+        {priv ? <PrivateBanner onShare={() => void share()} busy={sharing} /> : null}
         <StatusBanner
           c={c}
           who={who}
@@ -796,6 +819,7 @@ function Thread() {
               phoneDisplay={phoneDisplay}
               fromNumber={data.fromNumber}
               fromEmail={email.fromAddress}
+              fromEmailOwn={email.fromOwn}
               elsewhere={
                 sameChannel ? null : current === 'email' ? emailTo : (person?.phone ?? null)
               }
@@ -825,11 +849,11 @@ function Thread() {
         onClose={() => setSheet(null)}
         c={c}
         canCall={canCall}
-        canHandToAi={!!data.teammate && c.handledBy !== 'ai' && channel !== 'email'}
+        canHandToAi={!priv && !!data.teammate && c.handledBy !== 'ai' && channel !== 'email'}
         teammateName={teammateName}
         assigneeShort={assigneeShort(c.assignee, myUserId)}
         onCall={() => startCall(callTarget)}
-        onAssign={() => setSheet('assign')}
+        onAssign={priv ? null : () => setSheet('assign')}
         onHandToAi={() => setSheet('hand-back')}
         onSnooze={() => setSheet('snooze')}
         onCloseConversation={() =>
@@ -842,8 +866,11 @@ function Thread() {
         onTags={person ? () => setSheet('tags') : null}
         onStage={lead && stages.length > 1 ? () => setSheet('stage') : null}
         onNextAction={lead ? () => setSheet('next-action') : null}
-        onAddPerson={person ? null : () => setSheet('add-person')}
+        onAddPerson={person || priv ? null : () => setSheet('add-person')}
         stageName={lead?.stageName ?? null}
+        moves={moves}
+        onMove={(m) => void moveTo(m)}
+        onShare={priv ? () => void share() : null}
       />
       <AssignSheet
         open={sheet === 'assign'}

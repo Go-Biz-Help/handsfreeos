@@ -21,6 +21,11 @@ import { findOrCreateConversation, loadConversation, preferredLane } from './sto
 
 /** Mirrors private.shared_mail_domain(). */
 export const SHARED_MAIL_DOMAIN = 'mail.handsfreeos.com';
+/**
+ * A stranger's mail the spam filter scores at this or more goes to Spam (M19). SpamAssassin's own line: 5 is where
+ * it calls a message spam.
+ */
+export const SPAM_SCORE = 5;
 /** Postmark takes 10 MB per message, attachments included. */
 const EMAIL_ATTACHMENTS_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -87,6 +92,8 @@ export interface SendingAddress {
   /** Shared, or its domain is verified. */
   readonly usable: boolean;
   readonly domain: string;
+  /** The person whose own address it is (M19); null is the team's. Only they send from it. */
+  readonly ownerUserId: string | null;
 }
 
 /** Every address the workspace owns, the default first. */
@@ -99,6 +106,7 @@ export async function workspaceAddresses(tx: Tx, workspaceId: string): Promise<S
       isDefault: emailAddresses.isDefault,
       domainId: emailAddresses.emailDomainId,
       domainStatus: emailDomains.status,
+      ownerUserId: emailAddresses.ownerUserId,
     })
     .from(emailAddresses)
     .leftJoin(emailDomains, eq(emailDomains.id, emailAddresses.emailDomainId))
@@ -112,8 +120,13 @@ export async function workspaceAddresses(tx: Tx, workspaceId: string): Promise<S
     shared: !a.domainId,
     usable: !a.domainId || a.domainStatus === 'verified',
     domain: a.address.split('@')[1] ?? SHARED_MAIL_DOMAIN,
+    ownerUserId: a.ownerUserId,
   }));
 }
+
+/** The addresses someone may send from (M19): the team's, and their own. The system and the AI have only the team's. */
+export const sendableAddresses = (list: readonly SendingAddress[], userId: string | null) =>
+  list.filter((a) => !a.ownerUserId || a.ownerUserId === userId);
 
 /**
  * Where an email goes from: the first usable address among those asked for (the one picked, then the one the
@@ -200,7 +213,10 @@ export function emailPreview(
   return 'An email';
 }
 
-/** The conversation an email goes to: the one named, the customer's, or the address's. */
+/**
+ * The conversation an email goes to: the one named, the customer's, or the address's. Sent from the sender's own
+ * address (M19), a new email starts or continues their own private thread with that address, never a team one.
+ */
 export async function resolveEmailConversation(
   ctx: CommandContext,
   input: {
@@ -208,8 +224,21 @@ export async function resolveEmailConversation(
     personId?: string | undefined;
     toEmail?: string | undefined;
   },
+  own: SendingAddress | null = null,
 ): Promise<{ conversation: Conversation; created: boolean }> {
   const workspaceId = ctx.scope.workspaceId!;
+  if (own?.ownerUserId && !input.conversationId) {
+    let counterpart = input.toEmail?.toLowerCase() ?? null;
+    if (input.personId) counterpart = (await personEmail(ctx, input.personId)).toLowerCase();
+    return findOrCreateConversation(ctx, {
+      channel: 'email',
+      counterpart: counterpart!,
+      personId: null,
+      phoneNumberId: null,
+      emailAddressId: own.id,
+      privateTo: own.ownerUserId,
+    });
+  }
   if (input.conversationId) {
     const c = await loadConversation(ctx, input.conversationId);
     if (c.channel !== 'email')
@@ -227,25 +256,11 @@ export async function resolveEmailConversation(
   const lane = async (counterpart: string): Promise<string | null> =>
     (await preferredLane(ctx.tx, workspaceId, 'email', counterpart))?.emailAddressId ?? null;
   if (input.personId) {
-    const p = await requirePerson(ctx.tx, workspaceId, input.personId);
-    const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'This customer';
-    if (p.archivedAt)
-      throw HfosError.rule(
-        'person_archived',
-        409,
-        `${name} is archived. Use Restore customer in the menu on their page, then email them.`,
-      );
-    if (!p.email)
-      throw HfosError.rule(
-        'no_email',
-        400,
-        `${name} has no email address. Add one on their page, then email them.`,
-      );
-    const counterpart = p.email.toLowerCase();
+    const counterpart = (await personEmail(ctx, input.personId)).toLowerCase();
     return findOrCreateConversation(ctx, {
       channel: 'email',
       counterpart,
-      personId: p.id,
+      personId: input.personId,
       phoneNumberId: null,
       emailAddressId: await lane(counterpart),
     });
@@ -258,6 +273,25 @@ export async function resolveEmailConversation(
     phoneNumberId: null,
     emailAddressId: await lane(to),
   });
+}
+
+/** The address a customer is emailed at, or why they can't be. */
+async function personEmail(ctx: CommandContext, personId: string): Promise<string> {
+  const p = await requirePerson(ctx.tx, ctx.scope.workspaceId!, personId);
+  const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'This customer';
+  if (p.archivedAt)
+    throw HfosError.rule(
+      'person_archived',
+      409,
+      `${name} is archived. Use Restore customer in the menu on their page, then email them.`,
+    );
+  if (!p.email)
+    throw HfosError.rule(
+      'no_email',
+      400,
+      `${name} has no email address. Add one on their page, then email them.`,
+    );
+  return p.email;
 }
 
 /** Customer files sent as attachments: finished uploads, 10 MB in all. */

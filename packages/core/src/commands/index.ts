@@ -110,12 +110,16 @@ import { telephonyAccountCommands } from './telephony-account';
 import { rcsCommands } from './rcs';
 import {
   emailAddressCreate,
+  emailAddressReassign,
   emailAddressUpdate,
   emailClaimUnmatched,
   emailDismissUnmatched,
   emailDomainAdd,
+  emailDomainReceive,
   emailDomainRecord,
+  emailDomainRecordReceiving,
   emailDomainRemove,
+  emailDomainStopReceiving,
   emailDomainVerify,
   emailSuppressionAdd,
   emailSuppressionRelease,
@@ -328,6 +332,8 @@ import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
+import { ownBusinessCommands } from './own-business';
+import { mailFolderCommands } from './mail-folder';
 import { aiProviderCommands } from './ai-provider';
 import { pushDeviceRegister, pushDeviceRemove } from './push-device';
 import { migrationCommands } from './migration';
@@ -408,12 +414,16 @@ export {
   accountNoteDeleted,
   assistantConsent,
   emailAddressCreate,
+  emailAddressReassign,
   emailAddressUpdate,
   emailClaimUnmatched,
   emailDismissUnmatched,
   emailDomainAdd,
+  emailDomainReceive,
   emailDomainRecord,
+  emailDomainRecordReceiving,
   emailDomainRemove,
+  emailDomainStopReceiving,
   emailDomainVerify,
   emailSuppressionAdd,
   emailSuppressionRelease,
@@ -642,7 +652,11 @@ export const commands: readonly CommandDef[] = [
   emailDomainVerify,
   emailDomainRemove,
   emailDomainRecord,
+  emailDomainReceive,
+  emailDomainStopReceiving,
+  emailDomainRecordReceiving,
   emailAddressCreate,
+  emailAddressReassign,
   emailAddressUpdate,
   mailboxConnect,
   mailboxDisconnect,
@@ -653,6 +667,8 @@ export const commands: readonly CommandDef[] = [
   emailDismissUnmatched,
   emailSuppressionAdd,
   emailSuppressionRelease,
+  // Moving email threads between the Inbox, Other mail and Spam (M19).
+  ...mailFolderCommands,
   emailReceive,
   emailSuppressionRecord,
   assistantThreadRename,
@@ -830,6 +846,8 @@ export const commands: readonly CommandDef[] = [
   ...walletCommands,
   ...foundingCommands,
   ...phoneModelCommands,
+  // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
+  ...ownBusinessCommands,
   // Which AI answers: Claude, or OpenAI while Claude is in trouble.
   ...aiProviderCommands,
   moneySaveSettings,
@@ -930,6 +948,8 @@ export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
 export * from './phone-model';
+export * from './own-business';
+export * from './mail-folder';
 export * from './ai-provider';
 export * from './job';
 export * from './custom-field';

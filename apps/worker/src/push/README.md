@@ -50,6 +50,8 @@ On each inbound text, email or website chat, as it arrives:
 - **Bursts:** the first message buzzes. More messages in the same conversation within 2 minutes of it, with no reply in between, update that notification with the latest words, quietly (`quiet: true`). After 2 minutes, or after somebody replies, the next message buzzes again.
 - `refs.messageId` is the message it is about.
 
+**Someone's own mail (M19)** is a `customer_message_no_ai` too, on the same switch, since its Reply and Call work on it and every app build knows the category. It goes to that person alone, when new mail lands in their own Inbox (`email.filed` with `private: true`). Their own mail never waits on a reply, so there is no burst: each message replaces the thread's last notification. The team's Other mail and Spam push nobody.
+
 The AI teammate "can take" a conversation when it is on, answers that conversation's channel, and isn't answering it already. Whoever did the thing (booked, assigned, recorded the payment) is never told about it. Paths are the web's, as the emails link: the app maps `/app/w/<ws>/…` to its own screens. Tapping the notification itself opens `data.path`.
 
 Words, as on the canvas: the title names who or what ("Hot lead · Maria Lopez", "Mike Johnson", "Customer waiting · Mike Johnson", "Approval · Angela Brooks", "New booking · Mike Johnson", "Assigned to you · Rosa Delgado", "Paid · Bayou Bistro"); the subtitle names the business, after the channel for a customer's message ("Text · Lone Star HVAC & Roofing"); the body is at most 180 characters. Nothing secret goes in: no links (customer links carry codes), tokens or provider ids.

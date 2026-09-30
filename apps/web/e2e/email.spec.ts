@@ -61,7 +61,8 @@ test('email: send from the workspace address, the reply lands in the thread, ans
   await expect(page.getByTestId('connect-gmail')).toBeDisabled();
   await expect(page.getByText('Waiting on Google’s review')).toBeVisible();
   await expect(page.getByTestId('blocked-addresses')).toContainText('Nothing blocked.');
-  await expect(page.getByTestId('unmatched-mail')).toContainText('All sorted.');
+  // Mail from people not in Contacts goes to Other mail in the inbox now (M19), so the old list isn't here.
+  await expect(page.getByTestId('unmatched-mail')).toHaveCount(0);
 
   const mike = uniqueEmail('mike');
   const customerUrl = await addCustomer(page, workspaceId, {
@@ -150,13 +151,13 @@ test('email: send from the workspace address, the reply lands in the thread, ans
   await expect(page.getByText(/received an email/).first()).toBeVisible();
 });
 
-test('email: a bounce blocks the address, and mail from a stranger waits to be filed', async ({
+test('email: a bounce blocks the address, and mail from a stranger waits in Other mail', async ({
   page,
 }) => {
   test.setTimeout(180_000);
   const { email: ownerEmail } = await signUpAndConfirm(page, 'email-bounce');
   const workspaceId = await createBusiness(page, { name: BUSINESS });
-  // Mail from a stranger waits in the unmatched list only while lead intake leaves it there (M14).
+  // Mail from a stranger waits in Other mail only while lead intake leaves it there (M14, M19).
   const { token: ownerToken } = await signInOwner(ownerEmail);
   await leadIntakeOff(ownerToken, workspaceId, ['email']);
 
@@ -181,7 +182,7 @@ test('email: a bounce blocks the address, and mail from a stranger waits to be f
   await blocked.getByRole('button', { name: 'Unblock' }).click();
   await expect(blocked).toContainText('Nothing blocked.');
 
-  // Someone who isn't a customer writes to the workspace address: it waits here to be filed.
+  // Someone who isn't a customer writes to the workspace address: it waits in Other mail (M19).
   const karen = uniqueEmail('karen');
   await emailFromCustomer({
     from: karen,
@@ -190,23 +191,31 @@ test('email: a bounce blocks the address, and mail from a stranger waits to be f
     subject: 'Do you service heat pumps?',
     text: 'We have a Trane unit that is ten years old.',
   });
-  const unmatched = page.getByTestId('unmatched-mail');
+  await page.goto(`/app/w/${workspaceId}/inbox?box=other`);
+  const list = page.getByTestId('conversation-list');
   // The worker files it a moment later (reload in case it landed before the page was listening).
   await expect(async () => {
     await page.reload();
-    await expect(unmatched).toContainText('Karen Liu', { timeout: 2000 });
+    await expect(list).toContainText(karen, { timeout: 2000 });
   }).toPass({ timeout: 20_000 });
-  await expect(unmatched).toContainText('Do you service heat pumps?');
+  await expect(list).toContainText('Do you service heat pumps?');
+  await expect(page.getByTestId('box-other')).toHaveAttribute('aria-pressed', 'true');
+  // Not in the team's Inbox.
+  await page.getByTestId('box-other').click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await expect(list).not.toContainText(karen);
 
-  // Adding her as a customer files the email under her.
-  await unmatched.getByRole('button', { name: 'Add or link' }).click();
-  await page.getByRole('button', { name: 'Add as a new person' }).click();
-  await expect(page.getByLabel('First name')).toHaveValue('Karen');
-  await expect(page.getByLabel('Last name')).toHaveValue('Liu');
-  await expect(page.getByLabel('Email', { exact: true })).toHaveValue(karen);
-  await page.getByTestId('person-save').click();
-  await expect(page.getByText('Filed under Karen Liu')).toBeVisible();
-  await expect(unmatched).toContainText('All sorted.');
+  // Adding her as a customer puts the email in the Inbox, under her.
+  await page.goto(`/app/w/${workspaceId}/inbox?box=other`);
+  await list.getByText(karen).click();
+  await page.getByTestId('banner-add-person').click();
+  // In the dialog: the inbox beside it labels its email rows too.
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Email', { exact: true })).toHaveValue(karen);
+  await dialog.getByLabel('First name').fill('Karen');
+  await dialog.getByLabel('Last name').fill('Liu');
+  await dialog.getByTestId('person-save').click();
+  await expect(page.getByTestId('thread-name')).toHaveText('Karen Liu');
   await page.goto(`/app/w/${workspaceId}/inbox?box=all`);
   await expect(page.getByTestId('conversation-list')).toContainText('Karen Liu');
 });

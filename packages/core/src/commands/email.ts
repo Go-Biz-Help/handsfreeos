@@ -7,6 +7,7 @@ import {
   emailInboundUnmatched,
   emailSuppressions,
   mailboxConnections,
+  workspaces,
 } from '@hfos/db/schema';
 import { fullName, requirePerson } from '../crm/records';
 import { HfosError } from '../errors';
@@ -15,16 +16,21 @@ import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
+import { scheduleJob, workspaceMessaging } from '../messaging/store';
 import {
   EmailAddressCreateInput,
   EmailAddressCreateOutput,
+  EmailAddressReassignInput,
+  EmailAddressReassignOutput,
   EmailAddressUpdateInput,
   EmailAddressUpdateOutput,
   EmailClaimUnmatchedInput,
   EmailClaimUnmatchedOutput,
   EmailDomainAddInput,
+  EmailDomainReceivingOutput,
   EmailDomainRecordInput,
   EmailDomainRecordOutput,
+  EmailDomainRecordReceivingInput,
   EmailDomainRefInput,
   EmailDomainRefOutput,
   EmailSuppressionAddInput,
@@ -32,6 +38,8 @@ import {
   EmailSuppressionReleaseInput,
   EmailUnmatchedRefInput,
   EmailUnmatchedRefOutput,
+  HANDSFREEOS_DOMAIN,
+  INBOUND_MX_HOST,
   MAX_EMAIL_DOMAINS,
   MailboxActivateInput,
   MailboxConnectInput,
@@ -56,12 +64,16 @@ const sha256Hex = (value: string) => createHash('sha256').update(value).digest('
 
 // The same rules kernel/pg-errors raises when the database guard catches these first. Here they can name
 // the address or domain.
-const reserved = (localPart: string) =>
+const reserved = (localPart: string, domain: string | null) =>
   HfosError.rule(
     'email_local_part_reserved',
     400,
-    `“${localPart}” is kept for HandsFreeOS itself on the shared address. Pick another name.`,
+    domain === HANDSFREEOS_DOMAIN
+      ? `“${localPart}” is kept for HandsFreeOS itself on ${HANDSFREEOS_DOMAIN}: the support desk or HandsFreeOS’s own mail uses it. Pick another name.`
+      : `“${localPart}” is kept for HandsFreeOS itself on the shared address. Pick another name.`,
   );
+/** Where the reserved names are HandsFreeOS's: the shared subdomain, and handsfreeos.com itself (M19). */
+const namesReserved = (domain: string | null) => !domain || domain === HANDSFREEOS_DOMAIN;
 const unverified = (domain: string) =>
   HfosError.rule(
     'email_domain_unverified',
@@ -70,6 +82,47 @@ const unverified = (domain: string) =>
   );
 const addressTaken = (address: string) =>
   HfosError.rule('email_address_taken', 409, `${address} is already taken. Pick another name.`);
+
+/** A person's own address (M19): on the business's own domain, never the default, and only for someone here. */
+async function checkOwner(
+  ctx: CommandContext,
+  ownerUserId: string,
+  address: string,
+  domain: { domain: string } | null,
+  isDefault: boolean,
+) {
+  if (!domain)
+    throw HfosError.rule(
+      'email_address_owner_domain',
+      400,
+      `A person’s own address has to be on your own domain, like chris@lonestarhvac.com, not on ${SHARED_MAIL_DOMAIN}. Add your domain under Use your own domain in Settings → Email first.`,
+    );
+  if (isDefault)
+    throw HfosError.rule(
+      'email_address_owner_default',
+      409,
+      `${address} is one person’s own address, so it can’t be the business’s default. Make a team address the default instead.`,
+    );
+  const [here] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.works_in(${ownerUserId}::uuid, ${ctx.scope.workspaceId!}::uuid) as ok`,
+  );
+  if (!here?.ok)
+    throw HfosError.rule(
+      'email_address_owner_not_here',
+      400,
+      `The person you picked for ${address} isn’t on this business’s team. Invite them in Settings → Team first.`,
+    );
+}
+
+/** HandsFreeOS's own business (M19): the one workspace that may use handsfreeos.com. */
+async function isOwnBusiness(ctx: CommandContext): Promise<boolean> {
+  const [w] = await ctx.tx
+    .select({ isPlatform: workspaces.isPlatform })
+    .from(workspaces)
+    .where(eq(workspaces.id, ctx.scope.workspaceId!));
+  return w?.isPlatform ?? false;
+}
 
 async function loadDomain(ctx: CommandContext, emailDomainId: string) {
   const [d] = await ctx.tx
@@ -186,7 +239,9 @@ export const emailDomainAdd = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const domain = input.domain;
-    if (isHandsFreeOsDomain(domain))
+    // handsfreeos.com itself is HandsFreeOS's own business's (M19); its subdomains are nobody's.
+    const ours = domain === HANDSFREEOS_DOMAIN && (await isOwnBusiness(ctx));
+    if (isHandsFreeOsDomain(domain) && !ours)
       throw HfosError.rule(
         'email_domain_ours',
         400,
@@ -348,6 +403,118 @@ export const emailDomainRecord = defineCommand({
   },
 });
 
+// ---------- receiving mail at the business's own domain (M19) ----------
+
+export const emailDomainReceive = defineCommand({
+  name: 'email_domain.receive',
+  description: `Start receiving the business’s mail at one of its verified domains. Once its MX record points at ${INBOUND_MX_HOST}, mail to every address there arrives in the Inbox.`,
+  risk: 2,
+  input: EmailDomainRefInput,
+  output: EmailDomainReceivingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.receiving_requested'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    if (d.status !== 'verified') throw unverified(d.domain);
+    // Each domain needs its own Postmark server, and creating them comes later (M19 step 6). Until then only
+    // handsfreeos.com receives, through the support desk's server.
+    if (!(await isOwnBusiness(ctx)))
+      throw HfosError.rule(
+        'email_receiving_not_yet',
+        409,
+        `Receiving mail at your own domain isn’t open to every business yet. Until it is, mail to ${d.domain} keeps arriving where it does now, and replies to what you send still come back to your Inbox.`,
+      );
+    if (d.receiving === 'pending' || d.receiving === 'on')
+      return { emailDomainId: d.id, receiving: d.receiving, changed: false };
+    await ctx.tx
+      .update(emailDomains)
+      .set({ receiving: 'pending' })
+      .where(eq(emailDomains.id, d.id));
+    await ctx.emit({
+      type: 'email_domain.receiving_requested',
+      entityType: 'email_domain',
+      entityId: d.id,
+      payload: { domain: d.domain },
+      before: { receiving: d.receiving },
+      after: { domain: d.domain, receiving: 'pending' },
+    });
+    return { emailDomainId: d.id, receiving: 'pending' as const, changed: true };
+  },
+});
+
+export const emailDomainStopReceiving = defineCommand({
+  name: 'email_domain.stop_receiving',
+  description:
+    'Stop receiving the business’s mail at one of its domains. Mail sent there is no longer filed here, so point its MX record somewhere else first.',
+  risk: 3,
+  input: EmailDomainRefInput,
+  output: EmailDomainReceivingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.receiving_stopped'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    if (d.receiving === 'off')
+      return { emailDomainId: d.id, receiving: 'off' as const, changed: false };
+    await ctx.tx.update(emailDomains).set({ receiving: 'off' }).where(eq(emailDomains.id, d.id));
+    await ctx.emit({
+      type: 'email_domain.receiving_stopped',
+      entityType: 'email_domain',
+      entityId: d.id,
+      payload: { domain: d.domain, inboundServerId: d.inboundServerId },
+      before: { domain: d.domain, receiving: d.receiving },
+      after: { receiving: 'off' },
+    });
+    return { emailDomainId: d.id, receiving: 'off' as const, changed: true };
+  },
+});
+
+export const emailDomainRecordReceiving = defineCommand({
+  name: 'email_domain.record_receiving',
+  description: `Worker: whether a receiving domain’s MX record points at ${INBOUND_MX_HOST}.`,
+  risk: 1,
+  input: EmailDomainRecordReceivingInput,
+  output: EmailDomainReceivingOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_domain.receiving_checked'],
+  actors: ['system'],
+  async handler(ctx, input) {
+    const d = await loadDomain(ctx, input.emailDomainId);
+    // Turned off while the check ran: nothing to say about a domain that no longer receives.
+    if (d.receiving === 'off')
+      return { emailDomainId: d.id, receiving: 'off' as const, changed: false };
+    const now = new Date();
+    // DNS not answering is no news: the domain keeps what it had.
+    const receiving =
+      input.mxFound === true
+        ? ('on' as const)
+        : input.mxFound === false && d.receiving === 'on'
+          ? ('lapsed' as const)
+          : d.receiving;
+    await ctx.tx
+      .update(emailDomains)
+      .set({
+        receiving,
+        mxCheckedAt: now,
+        ...(input.mxFound ? { mxVerifiedAt: now } : {}),
+      })
+      .where(eq(emailDomains.id, d.id));
+    const changed = receiving !== d.receiving;
+    if (changed)
+      await ctx.emit({
+        type: 'email_domain.receiving_checked',
+        entityType: 'email_domain',
+        entityId: d.id,
+        payload: { receiving, changed, from: d.receiving },
+        before: { receiving: d.receiving },
+        after: { domain: d.domain, receiving },
+      });
+    return { emailDomainId: d.id, receiving, changed };
+  },
+});
+
 // ---------- sending addresses ----------
 
 export const emailAddressCreate = defineCommand({
@@ -363,8 +530,11 @@ export const emailAddressCreate = defineCommand({
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
     const domain = input.emailDomainId ? await loadDomain(ctx, input.emailDomainId) : null;
-    if (!domain && isReservedLocalPart(input.localPart)) throw reserved(input.localPart);
+    if (namesReserved(domain?.domain ?? null) && isReservedLocalPart(input.localPart))
+      throw reserved(input.localPart, domain?.domain ?? null);
     if (domain && domain.status !== 'verified') throw unverified(domain.domain);
+    const where = `${input.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`;
+    if (input.ownerUserId) await checkOwner(ctx, input.ownerUserId, where, domain, input.isDefault);
     const previous = input.isDefault ? await clearDefault(ctx) : null;
     // The database fills in the address from the name and domain; this copy only satisfies the insert.
     const [row] = await ctx.tx
@@ -379,6 +549,7 @@ export const emailAddressCreate = defineCommand({
         // It can send from the start: the shared subdomain and a verified domain both already pass Postmark.
         verifiedAt: new Date(),
         createdBy: userIdOf(ctx.actor),
+        ownerUserId: input.ownerUserId ?? null,
       })
       .onConflictDoNothing({ target: emailAddresses.address })
       .returning({ id: emailAddresses.id, address: emailAddresses.address });
@@ -397,6 +568,7 @@ export const emailAddressCreate = defineCommand({
         address: row.address,
         displayName: input.displayName,
         isDefault: input.isDefault,
+        ...(input.ownerUserId ? { ownerUserId: input.ownerUserId } : {}),
         ...(previous ? { previousDefault: previous.address } : {}),
       },
     });
@@ -417,11 +589,28 @@ export const emailAddressUpdate = defineCommand({
   async handler(ctx, input) {
     const a = await loadAddress(ctx, input.emailAddressId);
     const domain = a.emailDomainId ? await loadDomain(ctx, a.emailDomainId) : null;
-    const patch: { displayName?: string; localPart?: string; isDefault?: boolean } = {};
+    const patch: {
+      displayName?: string;
+      localPart?: string;
+      isDefault?: boolean;
+      ownerUserId?: string | null;
+    } = {};
+    if (input.ownerUserId !== undefined && input.ownerUserId !== a.ownerUserId) {
+      // Taking an address from its person takes their mail with it: an owner does that, once they have left.
+      if (a.ownerUserId)
+        throw HfosError.rule(
+          'email_address_owner_is_theirs',
+          409,
+          `${a.address} is one person’s own address, and its mail is theirs. Once they’ve left the business, an owner can make it the team’s or give it to someone else.`,
+        );
+      await checkOwner(ctx, input.ownerUserId!, a.address, domain, a.isDefault);
+      patch.ownerUserId = input.ownerUserId;
+    }
     if (input.displayName !== undefined && input.displayName !== a.displayName)
       patch.displayName = input.displayName;
     if (input.localPart !== undefined && input.localPart !== a.localPart) {
-      if (!domain && isReservedLocalPart(input.localPart)) throw reserved(input.localPart);
+      if (namesReserved(domain?.domain ?? null) && isReservedLocalPart(input.localPart))
+        throw reserved(input.localPart, domain?.domain ?? null);
       patch.localPart = input.localPart;
     }
     // The workspace always has a default; it moves by picking another one.
@@ -433,6 +622,12 @@ export const emailAddressUpdate = defineCommand({
       );
     if (input.isDefault === true && !a.isDefault) {
       if (domain && domain.status !== 'verified') throw unverified(domain.domain);
+      if (a.ownerUserId || patch.ownerUserId)
+        throw HfosError.rule(
+          'email_address_owner_default',
+          409,
+          `${a.address} is one person’s own address, so it can’t be the business’s default. Make a team address the default instead.`,
+        );
       patch.isDefault = true;
     }
     const updated = Object.keys(patch);
@@ -465,6 +660,10 @@ export const emailAddressUpdate = defineCommand({
       after.isDefault = true;
       if (previous) after.previousDefault = previous.address;
     }
+    if (patch.ownerUserId !== undefined) {
+      before.ownerUserId = null;
+      after.ownerUserId = patch.ownerUserId;
+    }
     await ctx.emit({
       type: 'email_address.updated',
       entityType: 'email_address',
@@ -474,6 +673,62 @@ export const emailAddressUpdate = defineCommand({
       after,
     });
     return { emailAddressId: a.id, address: row.address, updated };
+  },
+});
+
+/**
+ * What becomes of the address of someone who has left (M19), and of their mail on it: an owner makes it the team's,
+ * gives it to someone else, or removes it with its mail. Until then new mail to it goes to the default address.
+ * The SQL checks all of it again for itself: an owner, a person who has left.
+ */
+export const emailAddressReassign = defineCommand({
+  name: 'email_address.reassign',
+  description:
+    'Owners: decide what becomes of the own address of someone who has left, and of their mail on it: the team’s, someone else’s, or removed.',
+  risk: 3,
+  input: EmailAddressReassignInput,
+  output: EmailAddressReassignOutput,
+  permission: 'channels.manage',
+  scope: inWorkspace,
+  emits: ['email_address.reassigned'],
+  async handler(ctx, input) {
+    const a = await loadAddress(ctx, input.emailAddressId);
+    const [row] = await rows<{
+      was: string;
+      threads: number;
+      media: { bucket?: string; objectPath?: string }[];
+    }>(
+      ctx.tx,
+      sql`select was, threads, media from private.reassign_email_address(
+            ${a.id}::uuid, ${input.to === 'person' ? input.userId! : null}::uuid, ${input.to === 'remove'})`,
+    );
+    if (!row) throw HfosError.forbidden();
+    // The files the removed mail carried: the worker takes them out of storage. A job's payload, which nobody
+    // reads, rather than the history, which owners do.
+    const files = input.to === 'remove' ? row.media.filter((m) => m.bucket && m.objectPath) : [];
+    if (files.length > 0)
+      await scheduleJob(ctx.tx, {
+        kind: 'email.remove_files',
+        dedupeKey: `remove-files:${a.id}`,
+        runAt: new Date(),
+        payload: { files },
+        workspaceId: ctx.scope.workspaceId!,
+        organizationId: (await workspaceMessaging(ctx.tx, ctx.scope.workspaceId!)).organizationId,
+      });
+    await ctx.emit({
+      type: 'email_address.reassigned',
+      entityType: 'email_address',
+      entityId: a.id,
+      payload: { to: input.to, userId: input.userId ?? null, threads: row.threads },
+      before: { address: a.address, ownerUserId: row.was },
+      after: {
+        address: a.address,
+        to: input.to === 'team' ? 'the team' : input.to === 'remove' ? 'removed' : 'another person',
+        ...(input.userId ? { ownerUserId: input.userId } : {}),
+        threads: row.threads,
+      },
+    });
+    return { emailAddressId: a.id, to: input.to, threads: row.threads };
   },
 });
 
