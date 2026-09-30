@@ -151,19 +151,25 @@ export function scorableOf(row: AttentionRow): Scorable & { id: string } {
   };
 }
 
-/** What an item carries beside its row: a "Not confirmed" item's appointment, and the channel it would use. */
+/**
+ * What an item carries beside its row: a "Not confirmed" item's appointment, the channel it would use, and an add-on
+ * alert's own details.
+ */
 export interface ItemHints {
   readonly appointmentId: string | null;
   readonly startsAt: string | null;
   readonly reach: 'sms' | 'email' | 'chat' | null;
   /** There's a number to ring and the business is open: a money card offers the call first. */
   readonly callable: boolean;
+  /** An add-on's alert (server only: the phone keeps no add-on cards). */
+  readonly addonAlert: AttentionItemOut['addonAlert'];
 }
 export const NO_HINTS: ItemHints = {
   appointmentId: null,
   startsAt: null,
   reach: null,
   callable: false,
+  addonAlert: null,
 };
 
 /** One row as people see it at `now`: ticking chips recounted, its rank, and what this person may do. */
@@ -194,6 +200,7 @@ export function itemOut(
     startsAt: hints.startsAt,
     reach: hints.reach,
     callable: hints.callable,
+    addonAlert: hints.addonAlert,
     title: row.title,
     detail: row.detail,
     valueCents: s.value,

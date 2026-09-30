@@ -84,6 +84,7 @@ function item(over: Partial<AttentionItemOut> = {}): AttentionItemOut {
     startsAt: null,
     reach: 'sms',
     callable: false,
+    addonAlert: null,
     title: 'Maria Lopez · New AC install',
     detail: 'Asked for a price and how soon someone can come out.',
     valueCents: 1_850_000,

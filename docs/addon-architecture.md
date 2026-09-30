@@ -72,6 +72,16 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   when it needs them, live in `addon_<id>`, each with every tenant rule from `private.addon_table_policies()`.
   A kind can be kept to the people on each record (`keptToTeam`, Real Estate step 4): see docs/relationships.md;
   a table about such records passes the record column to `addon_table_policies` and follows them.
+- **Alerts** (Real Estate step 5): what an add-on needs someone to see. Its worker calls `raiseAddonAlert(ctx, …)`
+  (apps/worker/src/addons/alerts.ts) with its own key, a severity (`info`, `attention`, `at_risk`, `critical`), the
+  words, one of its own pages (`/a/<id>/…`), one of its own permissions, and optionally a record, an audience, a due
+  time and `needsAck`; `clearAddonAlert(ctx, key, reason)` takes it away. Core does the rest: a Home card
+  (`addon_alert`) for everyone holding the permission (and in the audience, and seeing the record), a push (switch
+  `addons`) and an email (`addonEmail`) once per thing it says, critical at any hour and the rest while the business
+  is open. `info` only goes on Home. A person acknowledges one from its card (`addon_alert.acknowledged` reaches that
+  add-on alone). Which severity, when to raise it higher and who the top alerts go to are the add-on's to decide.
+  Phones keep no add-on cards; the push opens the web. Turning the add-on off clears its alerts
+  (`no_alerts_showing`); purging deletes them (`no_alerts_left`).
 
 ## The lifecycle
 

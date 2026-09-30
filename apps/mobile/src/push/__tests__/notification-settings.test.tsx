@@ -91,6 +91,7 @@ const ALL_ON = {
   wallet: true,
   jobs: true,
   connections: true,
+  addons: true,
 };
 
 beforeEach(() => {
@@ -162,6 +163,7 @@ describe('Settings → Notifications', () => {
           paymentEmail: true,
           agencyDigest: true,
           eveningSummary: true,
+          addonEmail: true,
         },
       },
     });

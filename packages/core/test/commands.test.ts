@@ -597,6 +597,7 @@ describe('registry', () => {
       'support_access.grant',
       'support_access.decline',
       'support_access.end',
+      'addon_alert.acknowledge',
       'relationship_type.create',
       'relationship_type.update',
       'relationship_type.archive',

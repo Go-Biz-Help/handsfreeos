@@ -45,6 +45,7 @@ export default async function SettingsPage({
         bookingEmail?: boolean;
         paymentEmail?: boolean;
         agencyDigest?: boolean;
+        addonEmail?: boolean;
       };
     }
   ).notifications;
@@ -100,6 +101,7 @@ export default async function SettingsPage({
                 bookingEmail: notifications?.bookingEmail !== false,
                 paymentEmail: notifications?.paymentEmail !== false,
                 agencyDigest: notifications?.agencyDigest !== false,
+                addonEmail: notifications?.addonEmail !== false,
               },
               push: pushSwitchesOf(me.user.settings),
             }}

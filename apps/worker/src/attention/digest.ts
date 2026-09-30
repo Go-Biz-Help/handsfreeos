@@ -162,7 +162,9 @@ function summaryFor(
       (i.kind !== 'ai_approval' || decidable.has(i.subjectId)) &&
       (!i.sealed || (i.customRecordId !== null && seesRecords.has(i.customRecordId))) &&
       // Texting turned down is for the owners and admins, who set texting up.
-      (i.kind !== 'texting_rejected' || everyone),
+      (i.kind !== 'texting_rejected' || everyone) &&
+      // An add-on's alerts tell their own people, by push and email, as they happen.
+      i.kind !== 'addon_alert',
   );
   const jobs: MorningJob[] = extras.jobs
     .filter((j) => everyone || j.userIds.includes(person.id))

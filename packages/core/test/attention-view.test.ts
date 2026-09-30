@@ -393,6 +393,7 @@ describe('hints', () => {
       startsAt: '2026-09-16T15:00:00.000Z',
       reach: 'email',
       callable: false,
+      addonAlert: null,
     });
     expect(hints.get(uid(52))).toMatchObject({ reach: 'sms', callable: false });
     // Tom's invoice: a number and the business is open, so the call comes first.

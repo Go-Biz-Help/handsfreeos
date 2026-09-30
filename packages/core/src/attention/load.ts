@@ -75,6 +75,7 @@ import { ATTENTION_SUBJECT_OF, type AttentionKind, type AttentionSubjectType } f
 import type { ChannelKind } from './detectors/channel-quiet';
 import type { ConnectionSystem } from './detectors/connection';
 import { textingRejectedWords } from './detectors/texting-rejected';
+import { loadAddonAlerts, type AddonAlertInfo } from './load-addon-alerts';
 import { attentionWakeAt, detectAttention, type AttentionFacts } from './registry';
 import { attentionSettingsOf, type AttentionSettings } from './settings';
 import type { AttentionCandidate, AttentionChip, Detection } from './types';
@@ -116,7 +117,8 @@ export interface AttentionSubjectRef {
     | 'scan'
     | 'suggestion'
     | 'offer'
-    | 'registration';
+    | 'registration'
+    | 'addon_alert';
   readonly id: string;
 }
 
@@ -284,6 +286,8 @@ interface SubjectSets {
   readonly offers: Set<string>;
   // Getting started: the business's texting registrations.
   readonly registrations: Set<string>;
+  // Add-ons: what they raised (app.addon_alerts).
+  readonly addonAlerts: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -307,6 +311,7 @@ const emptySets = (): SubjectSets => ({
   suggestions: new Set(),
   offers: new Set(),
   registrations: new Set(),
+  addonAlerts: new Set(),
 });
 
 /** A connection's card is stored under its own table's type. */
@@ -339,6 +344,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'suggestion') s.suggestions.add(id);
   else if (type === 'offer') s.offers.add(id);
   else if (type === 'registration') s.registrations.add(id);
+  else if (type === 'addon_alert') s.addonAlerts.add(id);
 }
 
 /**
@@ -1313,6 +1319,7 @@ interface Loaded {
   readonly gaps: Map<string, GapInfo>;
   readonly offers: Map<string, OfferInfo>;
   readonly registrations: Map<string, TextingRegistrationInfo>;
+  readonly addonAlerts: Map<string, AddonAlertInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1574,6 +1581,13 @@ function resolutionOf(
       // Still running past its old end date: it was extended.
       return o.endsOn && localInstant(o.endsOn, '23:59', ctx.timeZone) > now ? 'done' : 'expired';
     }
+    case 'addon_alert': {
+      const a = loaded.addonAlerts.get(row.subjectId);
+      if (!a) return 'subject_gone';
+      if (!a.facts.addonRunning) return 'addon_off';
+      // In the add-on's own word: `done` counts as handled today.
+      return a.clearReason ?? 'cleared';
+    }
     case 'texting_rejected': {
       const r = loaded.registrations.get(row.subjectId)?.registration;
       if (!r) return 'subject_gone';
@@ -1768,6 +1782,7 @@ export async function reconcile(
     ...scope.suggestions,
     ...scope.offers,
     ...scope.registrations,
+    ...scope.addonAlerts,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1874,6 +1889,7 @@ export async function reconcile(
     [...scope.registrations],
     all,
   );
+  const addonAlerts = await loadAddonAlerts(tx, workspaceId, [...scope.addonAlerts], all);
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
   const loaded: Loaded = {
     leads,
@@ -1898,6 +1914,7 @@ export async function reconcile(
     gaps,
     offers,
     registrations,
+    addonAlerts,
   };
 
   // Detect.
@@ -2171,6 +2188,21 @@ export async function reconcile(
       },
     );
   }
+
+  // An add-on's alert, in its own words. Its record (when it has one) comes from the alert itself, in the database.
+  for (const a of addonAlerts.values())
+    run(
+      'addon_alert',
+      a.facts,
+      a.facts.alert.id,
+      { leadId: null, personId: a.personId },
+      {
+        subjectType: 'addon_alert',
+        title: clipLine(a.title, 200),
+        detail: detailOf(a.detail),
+        conversationId: null,
+      },
+    );
 
   for (const g of gaps.values())
     run(

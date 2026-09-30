@@ -353,13 +353,35 @@ This document, and the boards in `design/realestate`. Chris reviews the boards b
 - The phone's streams: `sealed = false` on tasks, activities, files and attention items (both arms), and files add
   `locked_at`, recorded in the mobile contract; `node scripts/mobile-schema.mjs`.
 
-### Step 5 — Add-on alerts
+### Step 5 — Add-on alerts (built, 2026-09-30)
 
 1. Migration: `app.addon_alerts`, the `addon_alert` kind, the push switch.
 2. Core: the kind in every list that names kinds, the push category.
 3. Worker: raising, clearing and acknowledging an alert; push and email once each; working hours; clearing on
    turning off; `addon_verify` and purge.
 4. Web and phone: the card and the switch.
+
+**As built:**
+
+- `20261013002500`. Only the worker writes `app.addon_alerts`, and only while the add-on may write there; people
+  read the alerts they see (`private.addon_alert_visible`: the add-on runs, they hold its permission, they're in its
+  audience when it names one, they see its record). Home cards follow the same rule through one restrictive policy
+  (`attention_items_addon`), and a card takes its alert's record, so a private deal seals it too.
+- `raiseAddonAlert` / `clearAddonAlert` in `apps/worker/src/addons/alerts.ts`. The same key is the same alert; what
+  it says (severity, words, due time, `needsAck`) is its fingerprint, and a new fingerprint is news: a snoozed card
+  comes back, an acknowledgement is asked for again, and `addon_alert.notify` tells people once (marked on the row,
+  so a retry never tells them twice). Critical at any hour, the rest once the business is open (its open hours);
+  `info` stays on Home. Push switch `addons`, email switch `addonEmail` ("An add-on needs you"), both on unless
+  turned off, on the web's and the phone's settings and in the Assistant's.
+- Home: `critical` and `at_risk` are urgent at once, `attention` at its due time, `info` never; severity sets the
+  rank. The card is named after the add-on, opens the add-on's page (`/a/<id>/…`), and offers **Acknowledge** in
+  Let HandsFreeOS Handle's place when the alert asks for it. It can be snoozed, not dismissed, assigned or handed
+  off: it goes when the add-on clears it (`done` counts as handled today). `addon_alert.acknowledge` (risk 1) is the
+  command; its event reaches only the add-on whose alert it was.
+- Left out of the morning and evening emails (alerts send their own), and off phones: both attention streams add
+  `kind != 'addon_alert'`, and the phone opens any `/a/…` page on the web.
+- Turning an add-on off clears its alerts and resolves their cards (`addon_off`) in `private.addon_cancel_work`;
+  `addon_verify` checks `no_alerts_showing`, and after a purge `no_alerts_left`.
 
 ### Step 6 — The add-on's shell
 

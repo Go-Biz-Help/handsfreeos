@@ -435,4 +435,12 @@ describe('the phone', () => {
     // And nothing sends a private record itself.
     expect(queries.some((q) => q.table === 'custom_records')).toBe(false);
   });
+
+  it('is never sent an add-on’s Home card, nor its alerts (Real Estate step 5)', () => {
+    const { queries } = readSyncConfig();
+    const cards = queries.filter((q) => !q.cte && q.table === 'attention_items');
+    expect(cards.length).toBeGreaterThanOrEqual(2);
+    for (const q of cards) expect(q.where, q.stream).toMatch(/kind != 'addon_alert'/);
+    expect(queries.some((q) => q.table === 'addon_alerts')).toBe(false);
+  });
 });

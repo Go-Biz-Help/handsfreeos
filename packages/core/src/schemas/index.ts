@@ -55,6 +55,7 @@ export * from './job';
 export * from './custom-field';
 export * from './relationship';
 export * from './support-access';
+export * from './addon-alert';
 export * from './ai-call';
 // Add-ons (0108).
 export * from './addon';

@@ -4712,6 +4712,49 @@ export const addonUsageEvents = app.table('addon_usage_events', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/**
+ * What an add-on needs someone to see (Real Estate step 5): a Home card (kind addon_alert), a push and an email.
+ * Only the worker writes it; people see it as a card, while the add-on runs and they hold its permission.
+ */
+export const addonAlerts = app.table('addon_alerts', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  addonId: text('addon_id').notNull(),
+  addonGeneration: integer('addon_generation').notNull().default(1),
+  /** The add-on's own name for it ("duty:<id>:overdue"): raising it again updates the same alert. */
+  key: text('key').notNull(),
+  customRecordId: uuid('custom_record_id').references((): AnyPgColumn => customRecords.id, {
+    onDelete: 'set null',
+  }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  /** info, attention, at_risk or critical. */
+  severity: text('severity').notNull(),
+  title: text('title').notNull(),
+  detail: text('detail'),
+  /** A page of the add-on's: `/a/<addon>/…` under the business. */
+  href: text('href').notNull(),
+  /** The add-on permission it takes to see it. */
+  permission: text('permission').notNull(),
+  /** Exactly who it's for; empty is everyone holding the permission. */
+  audienceUserIds: uuid('audience_user_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  assigneeUserId: userRef('assignee_user_id'),
+  dueAt: ts('due_at'),
+  needsAck: boolean('needs_ack').notNull().default(false),
+  acknowledgedAt: ts('acknowledged_at'),
+  acknowledgedBy: userRef('acknowledged_by'),
+  fingerprint: text('fingerprint').notNull().default(''),
+  /** What people were last told by push and email: a retried notice never tells them twice. */
+  notifiedFingerprint: text('notified_fingerprint'),
+  notifiedAt: ts('notified_at'),
+  raisedAt: ts('raised_at').notNull().defaultNow(),
+  clearedAt: ts('cleared_at'),
+  clearReason: text('clear_reason'),
+  ...timestamps(),
+});
+
 /* ===========================================================================
  * platform · HandsFreeOS's own support desk (0070). Not tenant data: these
  * tables are read by staff and by the worker, and by no business at all.

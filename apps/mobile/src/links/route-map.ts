@@ -112,6 +112,8 @@ export const ROUTES: readonly Rule[] = [
   { web: 'imports', phone: 'web', deeper: true },
   { web: 'audit', phone: 'web', deeper: true },
   { web: 'members', phone: 'web', deeper: true },
+  // An add-on's own pages, which its alerts open (Real Estate step 5): the phone draws none of them.
+  { web: 'a', phone: 'web', deeper: true },
 ];
 
 const segments = (path: string) => path.split('/').filter(Boolean);

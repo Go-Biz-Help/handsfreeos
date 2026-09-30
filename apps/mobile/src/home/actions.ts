@@ -208,6 +208,7 @@ export function useHomeActions(o: {
           case 'faq_suggestions':
           case 'offer_lapsing':
           case 'texting_rejected':
+          case 'addon_alert':
             return target(item);
           case 'job_no_address':
             return item.personId

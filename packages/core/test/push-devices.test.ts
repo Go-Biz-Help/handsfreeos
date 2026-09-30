@@ -297,6 +297,8 @@ describe('pushSwitchOn', () => {
       wallet: true,
       jobs: true,
       connections: true,
+      // Real Estate step 5: an add-on's alerts.
+      addons: true,
     });
   });
 });

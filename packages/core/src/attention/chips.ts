@@ -64,6 +64,8 @@ export function chipText(chip: AttentionChip, now: Date | number): string {
         return ms < MIN ? 'starting now' : `starts in ${span(ms)}`;
       case 'expires_in':
         return ms < MIN ? 'expiring now' : `expires in ${span(ms)}`;
+      case 'due_in':
+        return ms < MIN ? 'due now' : `due in ${span(ms)}`;
       default:
         return chip.label;
     }
@@ -135,6 +137,10 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'site_changed',
   'asked',
   'offer_ends',
+  // An add-on's alert: how serious, then whether it waits for someone to say they've seen it.
+  'severity',
+  'needs_ack',
+  'due_in',
 ];
 
 /** Chips in CHIP_ORDER, one per code (the first of each wins). */

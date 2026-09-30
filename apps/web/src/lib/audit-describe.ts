@@ -301,6 +301,15 @@ function describeAction(e: AuditEntry): string {
       return `removed the file ${s(e.before?.name)}`;
     case 'file.lock':
       return `locked ${name(e)} as signed and kept`;
+    // An add-on's alerts (Real Estate step 5): raised and cleared by its worker, acknowledged by a person.
+    case 'addon_alert.raised':
+      return `raised the alert “${s(e.after?.title)}”`;
+    case 'addon_alert.updated':
+      return `updated the alert “${s(e.after?.title)}”`;
+    case 'addon_alert.cleared':
+      return 'cleared an alert';
+    case 'addon_alert.acknowledge':
+      return 'acknowledged an alert';
     case 'file.remove':
       return `deleted the stored file ${name(e)}`;
     case 'import.start':

@@ -57,6 +57,8 @@ const kindSwitches = {
   faq_suggestions: on(),
   offer_lapsing: on(),
   texting_rejected: always(),
+  // An add-on's alerts are switched in its own settings: Home shows what it raises.
+  addon_alert: always(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

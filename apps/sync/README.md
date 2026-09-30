@@ -115,6 +115,8 @@ Every query names its columns. Columns not listed never leave for a phone, even 
 Private records (Real Estate step 4) never reach a phone, and neither does anything hanging off one: `business_v1`'s
 tasks, activities, files and attention items, and `me_v1`'s attention items, send only `sealed = false` rows. A
 deal's papers are read on the web, by the people on it. Files also send `locked_at` (a signed file is kept).
+Add-ons' Home cards (`kind = 'addon_alert'`, step 5) stay off phones too: each is seen only by holders of its add-on's
+permission, which a stream can't check. Their push opens the add-on's page on the web.
 
 ### `agency_v1` — the agencies a person belongs to
 

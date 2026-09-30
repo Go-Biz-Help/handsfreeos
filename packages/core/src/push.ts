@@ -33,6 +33,8 @@ export const PUSH_SWITCHES = [
   'jobs',
   /** Automations' "Connection broke": payments, a calendar, email, reviews or a phone number stopped working. */
   'connections',
+  /** What an add-on the business uses needs this person to see (Real Estate step 5): a duty late, a deal at risk. */
+  'addons',
 ] as const;
 export type PushSwitch = (typeof PUSH_SWITCHES)[number];
 
@@ -46,7 +48,7 @@ export function pushSwitchOn(settings: unknown, key: PushSwitch): boolean {
   return typeof chosen === 'boolean' ? chosen : key !== 'payment';
 }
 
-/** All ten switches, as a save sends them (`settings: { push: … }`). */
+/** All eleven switches, as a save sends them (`settings: { push: … }`). */
 export const PushSwitches = z.object({
   customerWaiting: z.boolean(),
   missedCall: z.boolean(),
@@ -58,10 +60,11 @@ export const PushSwitches = z.object({
   wallet: z.boolean(),
   jobs: z.boolean(),
   connections: z.boolean(),
+  addons: z.boolean(),
 });
 export type PushSwitches = z.infer<typeof PushSwitches>;
 
-/** A person's ten switches with their defaults filled in, ready to show or to save back whole. */
+/** A person's eleven switches with their defaults filled in, ready to show or to save back whole. */
 export function pushSwitchesOf(settings: unknown): PushSwitches {
   return Object.fromEntries(
     PUSH_SWITCHES.map((k) => [k, pushSwitchOn(settings, k)]),
@@ -170,6 +173,8 @@ export const PUSH_CATEGORIES = {
   job_check: { switch: 'jobs', buttons: ['done', 'no_show', 'still_there'] },
   /** Something the business connected stopped working (Automations' "Connection broke"): Open goes to fix it. */
   connection: { switch: 'connections', buttons: ['open'] },
+  /** An add-on's alert (app.addon_alerts): Open goes to the add-on's page on the web, where the work is. */
+  addon_alert: { switch: 'addons', buttons: ['open'] },
 } as const satisfies Record<
   string,
   { readonly switch: PushSwitch; readonly buttons: readonly PushButton[] }
@@ -203,6 +208,8 @@ export const PushRefs = z.object({
   appointmentId: z.uuid().optional(),
   taskId: z.uuid().optional(),
   invoiceId: z.uuid().optional(),
+  /** An add-on's alert (app.addon_alerts). */
+  alertId: z.uuid().optional(),
 });
 export type PushRefs = z.infer<typeof PushRefs>;
 

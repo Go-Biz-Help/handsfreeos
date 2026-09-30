@@ -43,6 +43,7 @@ describe('the notification categories', () => {
       wallet: ['Open'],
       job_check: ['Done', 'Didn’t happen', 'Still there'],
       connection: ['Open'],
+      addon_alert: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });

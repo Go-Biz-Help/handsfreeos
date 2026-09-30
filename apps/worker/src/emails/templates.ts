@@ -1518,3 +1518,43 @@ export function supportAccessRequestedEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** How serious an add-on says its alert is, as the email's subject leads with it. */
+const ALERT_LEAD: Readonly<Record<'info' | 'attention' | 'at_risk' | 'critical', string>> = {
+  info: '',
+  attention: '',
+  at_risk: 'At risk: ',
+  critical: 'Critical: ',
+};
+
+/**
+ * An add-on's alert (Real Estate step 5): what it says, in the add-on's words, its deadline, and a button to the
+ * add-on's own page. One that asks to be acknowledged says how.
+ */
+export function addonAlertEmail(input: {
+  business: string;
+  addon: string;
+  severity: 'info' | 'attention' | 'at_risk' | 'critical';
+  title: string;
+  detail: string | null;
+  /** "Due Tue, Oct 6 at 5:00 PM", or "Was due …", already in the business's time. */
+  due: string | null;
+  needsAck: boolean;
+  link: string;
+}): EmailContent {
+  const subject = `${ALERT_LEAD[input.severity]}${input.title}`;
+  const ack = input.needsAck
+    ? 'Open it and press Acknowledge, so everyone knows you’ve seen it.'
+    : null;
+  const lines = [input.detail, input.due, ack].filter((l): l is string => !!l?.trim());
+  const text = `${input.title}\n\n${lines.map((l) => `${l}\n\n`).join('')}Open in ${input.addon}: ${input.link}\n\nFrom ${input.addon} at ${input.business}. Turn these emails off in Settings → Account.`;
+  const html = shell(
+    para(`<strong>${escapeHtml(input.title)}</strong>`) +
+      lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, `Open in ${input.addon}`) +
+      small(
+        `From ${escapeHtml(input.addon)} at ${escapeHtml(input.business)}. Turn these emails off in Settings → Account.`,
+      ),
+  );
+  return { subject, text, html };
+}

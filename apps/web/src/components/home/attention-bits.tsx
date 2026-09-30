@@ -7,6 +7,7 @@ import {
   EyeOff,
   Globe,
   MessageSquareOff,
+  Puzzle,
   Tag,
   GraduationCap,
   Unplug,
@@ -80,6 +81,7 @@ const KIND_LOOK: Readonly<
   website_changed: { icon: Globe, tile: 'bg-accent-soft text-accent-text' },
   offer_lapsing: { icon: Tag, tile: 'bg-warning-soft text-warning-text' },
   texting_rejected: { icon: MessageSquareOff, tile: 'bg-danger-soft text-danger-text' },
+  addon_alert: { icon: Puzzle, tile: 'bg-warning-soft text-warning-text' },
   faq_suggestions: { icon: CircleHelp, tile: cn(AI_SOFT, AI_TEXT) },
 };
 

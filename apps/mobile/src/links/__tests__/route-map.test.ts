@@ -169,6 +169,9 @@ describe('the route map', () => {
       'settings/action-center',
       'settings/my-calendar',
       'settings/imports',
+      // An add-on's own page, which its alert's push opens.
+      'a/realestate',
+      `a/realestate/deals/${ID}`,
       // A page the web gains later: the web has it until the phone does.
       'something-new',
     ];

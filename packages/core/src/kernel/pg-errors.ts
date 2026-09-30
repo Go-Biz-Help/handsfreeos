@@ -514,6 +514,16 @@ const RULES: Record<string, { status: number; message: string }> = {
     status: 403,
     message: 'Open this business from its page in /admin first, then ask from there.',
   },
+  addon_alert_not_yours: {
+    status: 404,
+    message:
+      'That alert isn’t there any more, or it isn’t one you can see. Refresh Home to see what’s left.',
+  },
+  addon_alert_no_ack: {
+    status: 409,
+    message:
+      'That alert doesn’t need acknowledging, or it’s already dealt with. Refresh Home to see where it stands.',
+  },
   support_access_not_yours: {
     status: 403,
     message:

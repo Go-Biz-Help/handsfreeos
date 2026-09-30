@@ -157,6 +157,13 @@ export function attentionCommands(workspaceId: string) {
           body: { ...body, workspaceId },
         }),
       ),
+    /** Says you've seen an add-on's alert (Real Estate step 5). */
+    acknowledge: async (alertId: string) =>
+      unwrap(
+        await api().POST('/v1/commands/addon_alert.acknowledge', {
+          body: { workspaceId, alertId },
+        }),
+      ),
     cancelAuto: async (itemId: string) =>
       unwrap(
         await api().POST('/v1/commands/attention.cancel_auto', {

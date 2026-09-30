@@ -103,6 +103,8 @@ import { customFieldCommands } from './custom-field';
 import { customRecordCommands } from './custom-record';
 import { customRecordTeamCommands } from './custom-record-team';
 import { supportAccessCommands } from './support-access';
+import { addonAlertCommands } from './addon-alert';
+export { addonAlertAcknowledge } from './addon-alert';
 export {
   supportAccessDecline,
   supportAccessEnd,
@@ -906,6 +908,8 @@ export const commands: readonly CommandDef[] = [
   ...customRecordTeamCommands,
   // HandsFreeOS support let into private records (Real Estate step 4).
   ...supportAccessCommands,
+  // Saying you've seen an add-on's alert, from its Home card (Real Estate step 5).
+  ...addonAlertCommands,
   ...relationshipCommands,
   // Ideas, the roadmap and What's new (0102).
   ...ideaCommands,

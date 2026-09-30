@@ -26970,6 +26970,13 @@
                             "enum": [
                               true
                             ]
+                          },
+                          "addon_alert": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
                           }
                         }
                       },
@@ -27309,6 +27316,13 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "addon_alert": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -27344,7 +27358,8 @@
                             "website_changed",
                             "faq_suggestions",
                             "offer_lapsing",
-                            "texting_rejected"
+                            "texting_rejected",
+                            "addon_alert"
                           ],
                           "additionalProperties": false
                         },
@@ -44648,6 +44663,75 @@
                   },
                   "required": [
                     "id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/addon_alert.acknowledge": {
+      "post": {
+        "operationId": "command_addon_alert_acknowledge",
+        "summary": "Say you’ve seen an alert an add-on raised (a late duty, a deal at risk), from its card on Home. The add-on stops raising it higher; it goes when the work is done.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires workspace.read. Emits addon_alert.acknowledged.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "alertId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "alertId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alertId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "acknowledgedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "alertId",
+                    "acknowledgedAt",
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -66906,7 +66990,8 @@
                                               "website_changed",
                                               "faq_suggestions",
                                               "offer_lapsing",
-                                              "texting_rejected"
+                                              "texting_rejected",
+                                              "addon_alert"
                                             ]
                                           },
                                           "chips": {
@@ -80934,7 +81019,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 33,
+                    "maxItems": 34,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -80971,7 +81056,8 @@
                         "website_changed",
                         "faq_suggestions",
                         "offer_lapsing",
-                        "texting_rejected"
+                        "texting_rejected",
+                        "addon_alert"
                       ]
                     }
                   },
@@ -81052,7 +81138,8 @@
                               "website_changed",
                               "faq_suggestions",
                               "offer_lapsing",
-                              "texting_rejected"
+                              "texting_rejected",
+                              "addon_alert"
                             ]
                           },
                           "state": {
@@ -81162,6 +81249,67 @@
                             "default": false,
                             "type": "boolean"
                           },
+                          "addonAlert": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "alertId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "addonId": {
+                                    "type": "string"
+                                  },
+                                  "addonName": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "info",
+                                      "attention",
+                                      "at_risk",
+                                      "critical"
+                                    ]
+                                  },
+                                  "href": {
+                                    "type": "string"
+                                  },
+                                  "needsAck": {
+                                    "type": "boolean"
+                                  },
+                                  "acknowledgedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "alertId",
+                                  "addonId",
+                                  "addonName",
+                                  "severity",
+                                  "href",
+                                  "needsAck",
+                                  "acknowledgedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -81226,7 +81374,10 @@
                                     "knows_otherwise",
                                     "site_changed",
                                     "asked",
-                                    "offer_ends"
+                                    "offer_ends",
+                                    "severity",
+                                    "due_in",
+                                    "needs_ack"
                                   ]
                                 },
                                 "label": {
@@ -81540,6 +81691,7 @@
                           "startsAt",
                           "reach",
                           "callable",
+                          "addonAlert",
                           "title",
                           "detail",
                           "valueCents",
@@ -81610,7 +81762,8 @@
                               "website_changed",
                               "faq_suggestions",
                               "offer_lapsing",
-                              "texting_rejected"
+                              "texting_rejected",
+                              "addon_alert"
                             ]
                           },
                           "state": {
@@ -81720,6 +81873,67 @@
                             "default": false,
                             "type": "boolean"
                           },
+                          "addonAlert": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "alertId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "addonId": {
+                                    "type": "string"
+                                  },
+                                  "addonName": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "info",
+                                      "attention",
+                                      "at_risk",
+                                      "critical"
+                                    ]
+                                  },
+                                  "href": {
+                                    "type": "string"
+                                  },
+                                  "needsAck": {
+                                    "type": "boolean"
+                                  },
+                                  "acknowledgedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "alertId",
+                                  "addonId",
+                                  "addonName",
+                                  "severity",
+                                  "href",
+                                  "needsAck",
+                                  "acknowledgedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -81784,7 +81998,10 @@
                                     "knows_otherwise",
                                     "site_changed",
                                     "asked",
-                                    "offer_ends"
+                                    "offer_ends",
+                                    "severity",
+                                    "due_in",
+                                    "needs_ack"
                                   ]
                                 },
                                 "label": {
@@ -82098,6 +82315,7 @@
                           "startsAt",
                           "reach",
                           "callable",
+                          "addonAlert",
                           "title",
                           "detail",
                           "valueCents",
@@ -82168,7 +82386,8 @@
                               "website_changed",
                               "faq_suggestions",
                               "offer_lapsing",
-                              "texting_rejected"
+                              "texting_rejected",
+                              "addon_alert"
                             ]
                           },
                           "title": {
@@ -82469,7 +82688,8 @@
                               "website_changed",
                               "faq_suggestions",
                               "offer_lapsing",
-                              "texting_rejected"
+                              "texting_rejected",
+                              "addon_alert"
                             ]
                           },
                           "state": {
@@ -82579,6 +82799,67 @@
                             "default": false,
                             "type": "boolean"
                           },
+                          "addonAlert": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "alertId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "addonId": {
+                                    "type": "string"
+                                  },
+                                  "addonName": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "info",
+                                      "attention",
+                                      "at_risk",
+                                      "critical"
+                                    ]
+                                  },
+                                  "href": {
+                                    "type": "string"
+                                  },
+                                  "needsAck": {
+                                    "type": "boolean"
+                                  },
+                                  "acknowledgedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "alertId",
+                                  "addonId",
+                                  "addonName",
+                                  "severity",
+                                  "href",
+                                  "needsAck",
+                                  "acknowledgedAt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "title": {
                             "type": "string"
                           },
@@ -82643,7 +82924,10 @@
                                     "knows_otherwise",
                                     "site_changed",
                                     "asked",
-                                    "offer_ends"
+                                    "offer_ends",
+                                    "severity",
+                                    "due_in",
+                                    "needs_ack"
                                   ]
                                 },
                                 "label": {
@@ -82957,6 +83241,7 @@
                           "startsAt",
                           "reach",
                           "callable",
+                          "addonAlert",
                           "title",
                           "detail",
                           "valueCents",
@@ -83076,7 +83361,8 @@
                         "website_changed",
                         "faq_suggestions",
                         "offer_lapsing",
-                        "texting_rejected"
+                        "texting_rejected",
+                        "addon_alert"
                       ]
                     },
                     "mode": {
@@ -83577,6 +83863,13 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "addon_alert": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -83612,7 +83905,8 @@
                             "website_changed",
                             "faq_suggestions",
                             "offer_lapsing",
-                            "texting_rejected"
+                            "texting_rejected",
+                            "addon_alert"
                           ],
                           "additionalProperties": false
                         },

@@ -72,6 +72,23 @@ export const AttentionItemOut = z.object({
   reach: attentionReach.nullable(),
   /** A phone number to ring, and the business is open: the card offers the call before the message. */
   callable: z.boolean().default(false),
+  /**
+   * An add-on's alert (kind addon_alert): which add-on raised it, how serious it says it is, the add-on's page it
+   * opens (under the business: `/a/<addon>/…`), and whether it waits for someone to say they've seen it. Null for
+   * every other kind.
+   */
+  addonAlert: z
+    .object({
+      alertId: uuid,
+      addonId: z.string(),
+      addonName: z.string(),
+      severity: z.enum(['info', 'attention', 'at_risk', 'critical']),
+      href: z.string(),
+      needsAck: z.boolean(),
+      acknowledgedAt: isoDateTime.nullable(),
+    })
+    .nullable()
+    .default(null),
   title: z.string(),
   detail: z.string().nullable(),
   valueCents: z.number(),

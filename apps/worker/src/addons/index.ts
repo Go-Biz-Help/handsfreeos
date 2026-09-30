@@ -29,11 +29,22 @@ import type { JobHandler, JobMap } from '../jobs';
 import { tenantOf, workerMeta } from '../services';
 import { addonScope } from './context';
 import { ADDON_WORKER_MODULES } from './modules';
+import { ADDON_ALERT_JOBS, addonAlertNotifyJob } from './alerts';
 import { ADDON_JOBS, ADDON_SWEEP_KEY, addonReconcileKey, scheduleAddonJob } from './queue';
 import { addonReconcileJob, addonSweepJob } from './reconcile';
 import type { AddonJobHandler, AddonWorkerModule } from './types';
 
 export { ADDON_JOBS, ADDON_SWEEP_KEY, addonReconcileKey, scheduleAddonJob } from './queue';
+export {
+  ADDON_ALERT_JOBS,
+  clearAddonAlert,
+  raiseAddonAlert,
+  type AddonAlertInput,
+  type RaisedAlert,
+} from './alerts';
+
+/** Core events about one add-on's own thing, named by `payload.addonId`: only that add-on hears them. */
+export const ADDON_OWNED_EVENTS: ReadonlySet<string> = new Set(['addon_alert.acknowledged']);
 export { addonActor, addonScope } from './context';
 export type * from './types';
 
@@ -121,12 +132,21 @@ export function addonWorker(catalog: Catalog, modules: readonly AddonWorkerModul
     );
   };
 
-  /** The add-ons subscribed to an event type that run in the event's business: one delivery job each. */
+  /**
+   * The add-ons subscribed to an event type that run in the event's business: one delivery job each. An event about
+   * one add-on's own thing (someone acknowledged its alert) goes only to that add-on: no add-on hears another's.
+   */
   const fanOut =
-    (eventType: string, addonIds: readonly string[]): EventHandler =>
+    (eventType: string, subscribed: readonly string[]): EventHandler =>
     async (ctx) => {
       const { workspaceId, organizationId } = ctx.scope;
       if (!workspaceId || !organizationId) return;
+      const owner = ADDON_OWNED_EVENTS.has(eventType)
+        ? (ctx.event.payload as Record<string, unknown> | null)?.['addonId']
+        : undefined;
+      if (owner !== undefined && typeof owner !== 'string') return;
+      const addonIds = owner === undefined ? subscribed : subscribed.filter((id) => id === owner);
+      if (addonIds.length === 0) return;
       const running = await rows<{ addon_id: string; generation: number }>(
         ctx.tx,
         sql`select i.addon_id, i.generation from app.addon_installations i
@@ -194,6 +214,7 @@ export function addonWorker(catalog: Catalog, modules: readonly AddonWorkerModul
       [ADDON_JOBS.reconcile]: addonReconcileJob(catalog, modules),
       [ADDON_JOBS.deliver]: deliver,
       [ADDON_JOBS.sweep]: addonSweepJob,
+      [ADDON_ALERT_JOBS.notify]: addonAlertNotifyJob(catalog),
       ...Object.fromEntries(
         modules.flatMap((m) =>
           Object.entries(m.jobs ?? {}).map(([kind, handler]) => [kind, addonJob(m, handler)]),
