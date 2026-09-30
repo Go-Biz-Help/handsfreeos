@@ -228,7 +228,7 @@ describe('Stages', () => {
       ),
     ).toBe('realestate_close_first');
     const lines = (await ask(agent, 'realestate.deal.history', { dealId: deal })).lines;
-    expect(lines[0]).toMatchObject({
+    expect(lines.find((l: Any) => l.what === 'stage')).toMatchObject({
       what: 'stage',
       actorType: 'person',
       before: { stage: 'lead' },

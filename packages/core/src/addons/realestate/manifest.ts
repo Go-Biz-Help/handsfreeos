@@ -241,6 +241,8 @@ export const realestateAddon = defineAddon({
       'realestate.duty.cancelled',
     ],
   },
+  // The sweep: every fifteen minutes while it's on, armed again from now each time it's turned on.
+  jobs: ['realestate.sweep'],
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },
   // Its place in the side menu, shown only while it runs and to people who may open it.

@@ -543,9 +543,42 @@ changes. Tests follow the specification's acceptance scenarios (§22).
 - A duty set by hand on a weekend or holiday keeps its date and shows the warning, as a calendar-day rule does.
 - Proof can't be added to or taken from a finished duty; reopen it first.
 
-### Step 10 — Health and alerts
+### Step 10 — Health and alerts (built, 2026-09-30)
 
 Health with its reasons, the sweep, the ladder, working hours, and turning off and on.
+
+**As built:**
+
+- `health.ts` (browser-safe): green, yellow or red with every reason, each with what's wrong, the next step, and the
+  duty, dates, due time and person it's about, by the rules under "Health and alerts" above. Every command that
+  changes a deal works it out again and keeps it on the deal (`deals.health`, `health_reasons`), with a line in the
+  deal's history when its colour changes.
+- `ladder.ts` (browser-safe): a Home card from seven days out; a push three days and one day out (and an email for
+  material work); at risk once overdue, to the person answering for it; a business day late, at risk and asking to
+  be acknowledged, to them, the main agent and the coordinator; critical for a critical duty once overdue or a
+  material one two business days late, to everyone who sees the deal, at any hour. Late counts business days, so
+  a weekend or holiday doesn't make a duty late.
+- `realestate.sweep`, the add-on's own system command, works each open deal out again (and closed ones with duties
+  left) and answers where each open duty is on the ladder. The worker's `realestate.sweep` job runs it every 15
+  minutes and raises one alert per duty (`duty:<id>`) that climbs as it goes, clearing the rest. Turning the add-on
+  on arms it from then: a rung reached while it was off becomes a Home card only. Turning it off cancels the job
+  and clears its alerts (step 5). An acknowledged alert stops climbing; acknowledging the duty acknowledges its
+  card, and finishing the duty clears it at once.
+- `realestate.deal.risks`: "what could stop this closing?", with every reason and each open material or critical
+  duty, who answers for it, when it's due, the proof it still needs and the next step.
+- Core (step 5's alerts): an alert can push without emailing (`email: false`), so the ladder's reminders for
+  everyday work don't fill inboxes.
+- Tests: `test/addons/realestate-health.test.ts` (every rule, the ladder, holidays), the wire case's health in
+  `realestate-duties.test.ts`, and `apps/worker/test/realestate-sweep.test.ts` (each rung, critical at any hour,
+  the quiet catch-up, acknowledging, clearing).
+
+**Choices made for Chris** (say the word and they change):
+
+- "A late reply" isn't a reason yet: HandsFreeOS doesn't know which messages a deal is waiting on. It comes with
+  the client updates (step 13).
+- Critical alerts go to everyone who sees the deal (its team, owners, admins and anyone who sees every deal) until
+  the business picks its alert person in the settings (step 12).
+- An alert acknowledged on Home stops climbing; it still goes when the duty is done.
 
 ### Step 11 — Screens
 

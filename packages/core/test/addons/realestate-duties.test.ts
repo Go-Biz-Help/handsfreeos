@@ -395,6 +395,20 @@ describe('A changed wire', () => {
       how: 'text',
     });
     expect(again.dutyId).toBe(out.dutyId);
+    // The deal is red while the wire is held, and says why.
+    const view = await ask(agent, 'realestate.deal.get', { dealId: deal });
+    expect(view.deal.health).toBe('red');
+    expect(view.deal.healthReasons).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'wire_hold', dutyId: out.dutyId })]),
+    );
+    const risks = await ask(agent, 'realestate.deal.risks', { dealId: deal });
+    expect(risks.reasons[0]).toMatchObject({ code: 'wire_hold', level: 'red' });
+    expect(risks.openWork.find((w: Any) => w.dutyId === out.dutyId)).toMatchObject({
+      materiality: 'critical',
+      next: expect.stringContaining('Add your word that'),
+    });
+    const lines = (await ask(agent, 'realestate.deal.history', { dealId: deal })).lines;
+    expect(lines.some((l: Any) => l.what === 'health' && l.after.health === 'red')).toBe(true);
     const got = await ask(agent, 'realestate.duty.get', { dutyId: out.dutyId });
     expect(got.duty).toMatchObject({ key: 'W-00', materiality: 'critical', automation: 'AX' });
     expect(got.proof.missing).toContain('your word that');
@@ -409,6 +423,8 @@ describe('A changed wire', () => {
       body: 'Called Lakeside Title at the number on their website; instructions unchanged. The email was fake.',
     });
     await run(agent, 'realestate.duty.complete', { dutyId: out.dutyId });
+    const after = await ask(agent, 'realestate.deal.risks', { dealId: deal });
+    expect(after.reasons.map((r: Any) => r.code)).not.toContain('wire_hold');
     const [event] = await rows<{ n: number }>(
       admin(),
       sql`select count(*)::int as n from app.events

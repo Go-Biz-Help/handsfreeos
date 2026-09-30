@@ -12097,6 +12097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/realestate.deal.risks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What could stop a deal closing: its health with every reason, and each open material or critical duty with who answers for it, when it’s due, the proof it still needs and the next step.
+         * @description Requires realestate.use.
+         */
+        post: operations["query_realestate_deal_risks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/realestate.document.list": {
         parameters: {
             query?: never;
@@ -43574,6 +43594,74 @@ export interface operations {
                             stageLabel: string;
                             /** Format: date-time */
                             updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_realestate_deal_risks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        dealId: string;
+                        /** @enum {string} */
+                        health: "green" | "yellow" | "red";
+                        name: string;
+                        openWork: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            dueAt: string | null;
+                            /** Format: uuid */
+                            dutyId: string;
+                            materiality: string;
+                            missing: string;
+                            next: string;
+                            overdue: boolean;
+                            /** @enum {string} */
+                            status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
+                            title: string;
+                        }[];
+                        reasons: {
+                            accountable: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            code: string;
+                            dueAt?: string | null;
+                            /** Format: uuid */
+                            dutyId?: string;
+                            keys?: string[];
+                            /** @enum {string} */
+                            level: "red" | "yellow";
+                            next: string;
+                            words: string;
                         }[];
                     };
                 };

@@ -9,7 +9,9 @@ import { and, eq, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { appointments, files, messages } from '@hfos/db/schema';
 import { localInstant } from '../../../calendar/engine/zoned';
+import { addonAlertAcknowledge } from '../../../commands/addon-alert';
 import { HfosError } from '../../../errors';
+import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
@@ -160,6 +162,12 @@ export async function missingProof(ctx: Ctx, duty: DutyRow, deal: Deal): Promise
   return gaps.length ? gapWords(rule, gaps) : '';
 }
 
+/** The deal's due times, drafts and health again, after a duty changed. */
+async function settleDeal(ctx: CommandContext, deal: Deal) {
+  const w = await openWork(ctx, deal);
+  await w.settle();
+}
+
 const answer = (d: DutyRow, status: DutyStatus = d.status as DutyStatus) => ({
   dealId: d.dealRecordId,
   dutyId: d.id,
@@ -254,6 +262,7 @@ export const dutySetStatus = defineAddonCommand(realestateAddon, {
       after: { status: DUTY_STATUS_LABELS[input.status] },
       payload: { from, to: input.status },
     });
+    await settleDeal(ctx, deal);
     return answer(duty, input.status);
   },
 });
@@ -444,6 +453,7 @@ export const dutyAssign = defineAddonCommand(realestateAddon, {
       after: { accountable: who(input.userId) },
       payload: { userId: input.userId },
     });
+    await settleDeal(ctx, deal);
     return answer(duty);
   },
 });
@@ -468,6 +478,19 @@ export const dutyAcknowledge = defineAddonCommand(realestateAddon, {
       .set({ acknowledgedAt: at, acknowledgedBy: actorUserId(ctx), updatedAt: at })
       .where(eq(duties.id, duty.id));
     await logLine(ctx, duty, 'acknowledged');
+    // Its card on Home asking the same goes quiet too.
+    const [alert] = await rows<{ id: string }>(
+      ctx.tx,
+      sql`select id from app.addon_alerts
+          where workspace_id = ${ctx.scope.workspaceId!} and addon_id = 'realestate'
+            and key = ${`duty:${duty.id}`} and cleared_at is null and needs_ack
+            and acknowledged_at is null`,
+    );
+    if (alert)
+      await executeCommandWithin(ctx, addonAlertAcknowledge, {
+        workspaceId: ctx.scope.workspaceId!,
+        alertId: alert.id,
+      });
     await dutyEvent(ctx, 'realestate.duty.acknowledged', duty, deal, {
       after: { acknowledged: true },
     });
@@ -531,6 +554,7 @@ async function finish(
     body: opts.reason ?? null,
     tone: to === 'completed' && !opts.exception ? 'success' : 'warning',
   });
+  await settleDeal(ctx, deal);
   return answer(duty, to);
 }
 
@@ -702,9 +726,7 @@ export const dutySetDue = defineAddonCommand(realestateAddon, {
         .update(duties)
         .set({ dueOverrideAt: null, dueOverrideReason: null, updatedAt: w.at })
         .where(eq(duties.id, duty.id));
-      // Its rule decides again, from the dates as they are now.
-      const again = await openWork(ctx, deal);
-      await again.settle();
+      // Its rule decides again, from the dates as they are now (settled below).
     } else {
       const time = input.time ?? END_OF_DAY;
       const dueAt = new Date(localInstant(input.date!, time, w.timeZone));
@@ -726,6 +748,7 @@ export const dutySetDue = defineAddonCommand(realestateAddon, {
         })
         .where(eq(duties.id, duty.id));
     }
+    await settleDeal(ctx, deal);
     const [now] = await ctx.tx
       .select({ dueAt: duties.dueAt })
       .from(duties)
@@ -806,6 +829,7 @@ export const dutyAdd = defineAddonCommand(realestateAddon, {
           }
         : {}),
     });
+    await w.settle();
     await historyLine(ctx, deal, 'duty_added', { after: { dutyId, key, title: input.title } });
     const [row] = await ctx.tx.select().from(duties).where(eq(duties.id, dutyId));
     const eventId = await dutyEvent(ctx, 'realestate.duty.added', row!, deal, {
@@ -837,6 +861,7 @@ export const dealReportWireChange = defineAddonCommand(realestateAddon, {
     const dutyId =
       open?.id ??
       (await w.addDuty(wireCheck(deal.side, deal.stage), { startedBy: 'manual:wire_change' }));
+    await w.settle();
     await historyLine(ctx, deal, 'wire_change', {
       after: { dutyId, how: input.how, from: input.from ?? null },
       note: input.note ?? null,

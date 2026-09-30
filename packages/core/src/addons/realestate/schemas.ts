@@ -13,6 +13,7 @@ import {
   type DealFact,
   type DocumentKind,
 } from './catalog/types';
+import { RUNGS } from './ladder';
 import { OWN_PROOF } from './own-duties';
 import { TERM_SOURCES } from './dates/key-dates';
 import { DEAL_LINK_KINDS_LIST, PARTY_ROLES_LIST, TEAM_ROLES } from './words';
@@ -739,6 +740,64 @@ export const DocumentListOutput = z.object({
       voidedAt: isoDateTime.nullable(),
       voidReason: z.string().nullable(),
       createdAt: isoDateTime,
+    }),
+  ),
+});
+
+// ---------- health and the sweep (step 10) ----------
+
+const HealthReasonOut = z.object({
+  code: z.string(),
+  level: z.enum(['red', 'yellow']),
+  words: z.string(),
+  next: z.string(),
+  dutyId: uuid.optional(),
+  keys: z.array(z.string()).optional(),
+  dueAt: isoDateTime.nullable().optional(),
+  accountable: z.object({ userId: uuid, name: z.string() }).nullable(),
+});
+
+export const DealRisksInput = z.object(inDeal);
+export const DealRisksOutput = z.object({
+  dealId: uuid,
+  name: z.string(),
+  health: z.enum(['green', 'yellow', 'red']),
+  reasons: z.array(HealthReasonOut),
+  /** Every open material or critical duty: what could stop the closing, with who, when, and what's missing. */
+  openWork: z.array(
+    z.object({
+      dutyId: uuid,
+      title: z.string(),
+      status: z.enum(DUTY_STATUSES),
+      materiality: z.string(),
+      overdue: z.boolean(),
+      dueAt: isoDateTime.nullable(),
+      accountable: z.object({ userId: uuid, name: z.string() }).nullable(),
+      missing: z.string(),
+      next: z.string(),
+    }),
+  ),
+});
+
+export const SweepInput = z.object({ workspaceId: uuid });
+export const SweepOutput = z.object({
+  deals: z.number().int(),
+  /** Each open duty on the ladder now, for the worker to raise its alert. */
+  alerts: z.array(
+    z.object({
+      dealId: uuid,
+      dealName: z.string(),
+      dutyId: uuid,
+      key: z.string(),
+      title: z.string(),
+      status: z.enum(DUTY_STATUSES),
+      materiality: z.enum(MATERIALITIES),
+      dueAt: isoDateTime,
+      dueDate: z.string().nullable(),
+      rung: z.enum(RUNGS),
+      accountableUserId: uuid.nullable(),
+      mainAgentUserId: uuid.nullable(),
+      coordinatorUserIds: z.array(uuid),
     }),
   ),
 });

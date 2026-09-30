@@ -61,6 +61,8 @@ export interface AddonAlertInput {
   readonly needsAck?: boolean;
   /** Push and email as well as Home. Default: all but `info`. */
   readonly notify?: boolean;
+  /** When it notifies, email too (to those who want add-on emails). Default: yes; false is a push only. */
+  readonly email?: boolean;
 }
 
 export interface RaisedAlert {
@@ -189,7 +191,7 @@ export async function raiseAddonAlert(
           kind: ADDON_ALERT_JOBS.notify,
           dedupeKey: `alert:${alertId}:${fingerprint}`,
           runAt: new Date(),
-          payload: { alertId, fingerprint },
+          payload: { alertId, fingerprint, email: input.email !== false },
           workspaceId: ws,
           organizationId: ctx.scope.organizationId,
         },
@@ -311,7 +313,8 @@ export function addonAlertNotifyJob(catalog: readonly AddonManifest[]): JobHandl
       });
       let failures = 0;
       let emailed = 0;
-      for (const l of listeners.filter((x) => x.wants_email))
+      const emailToo = ctx.job.payload['email'] !== false;
+      for (const l of listeners.filter((x) => emailToo && x.wants_email))
         try {
           await ctx.mailer.send({ to: l.email, ...mail });
           emailed++;

@@ -47,6 +47,8 @@ export interface Deal {
   readonly commissionSplitBp: number | null;
   readonly expectedCommissionCents: number | null;
   readonly finalCommissionCents: number | null;
+  readonly health: 'green' | 'yellow' | 'red';
+  readonly healthReasons: readonly unknown[];
   readonly name: string;
   readonly ownerUserId: string | null;
   readonly teamUserIds: readonly string[];
@@ -103,6 +105,8 @@ export async function loadDeal(
     commissionSplitBp: d.commissionSplitBp,
     expectedCommissionCents: d.expectedCommissionCents,
     finalCommissionCents: d.finalCommissionCents,
+    health: d.health,
+    healthReasons: d.healthReasons,
     name: row.name,
     ownerUserId: row.ownerUserId,
     teamUserIds: row.teamUserIds,

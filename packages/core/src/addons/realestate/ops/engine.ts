@@ -14,6 +14,8 @@
  * - **Everything is logged** in `duty_log`: created, activated, due changed, cancelled.
  */
 import { and, asc, eq } from 'drizzle-orm';
+import { rows, sql } from '@hfos/db/client';
+import { localDateOf } from '../../../calendar/engine/zoned';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import {
@@ -34,6 +36,7 @@ import { KEY_DATES, type KeyDateKey, type KeyDates } from '../dates/key-dates';
 import { isDoneDuty, type DealStage, type DutyStatus } from '../states';
 import { dealHistory, deals, duties, dutyLog, templateItems, termEntries } from '../tables';
 import {
+  conflictsOf,
   keyDatesOf,
   moneyOf,
   termsNow,
@@ -42,10 +45,13 @@ import {
   type TermNow,
 } from '../terms';
 import type { DealRole } from '../words';
+import { checkDealDates, type DateProblem } from '../dates/conflicts';
+import { healthOf } from '../health';
 import {
   actorKind,
   actorUserId,
   businessCalendarOf,
+  historyLine,
   personFor,
   rolesOf,
   timeZoneOf,
@@ -147,6 +153,10 @@ interface DutyRow {
   dueWarnings: unknown[];
   accountableUserId: string | null;
   accountableRole: 'agent' | 'coordinator' | 'broker';
+  title: string;
+  materiality: 'standard' | 'material' | 'critical';
+  dueDate: string | null;
+  blocker: string | null;
 }
 
 /** How much a command's work changed. */
@@ -161,6 +171,38 @@ export interface Counts {
 /** The contract dates a duty rests on. */
 const contractDates = (def: DutyDef): KeyDateKey[] =>
   dutyDates(def).filter((k) => KEY_DATES[k].contract);
+
+/** The checks across a deal's dates; a buyer deal tied to the client's sale is checked against its closing. */
+export async function dateProblemsOf(
+  ctx: Pick<CommandContext, 'tx'>,
+  deal: Pick<Deal, 'recordId' | 'side' | 'facts'>,
+  keyDates: KeyDates,
+  calendar: BusinessCalendar,
+  today: string,
+): Promise<DateProblem[]> {
+  let linkedSaleClosing: string | null = null;
+  if (deal.side === 'buyer' && deal.facts.includes('linked_sale')) {
+    const [sale] = await rows<{ closing: string | null }>(
+      ctx.tx,
+      sql`select e.value_date::text as closing
+          from addon_realestate.deal_links l
+          join addon_realestate.deals o on o.record_id = l.other_record_id and o.side = 'listing'
+          join addon_realestate.term_entries e on e.deal_record_id = o.record_id and e.key = 'closing'
+            and e.superseded_at is null and e.rejected_at is null
+          where l.deal_record_id = ${deal.recordId} and l.kind = 'sale_and_purchase'
+          order by e.entered_at desc limit 1`,
+    );
+    linkedSaleClosing = sale?.closing ?? null;
+  }
+  return checkDealDates({
+    side: deal.side,
+    keyDates,
+    calendar,
+    financed: deal.facts.includes('financed'),
+    linkedSaleClosing,
+    today,
+  });
+}
 
 /**
  * A command's work on one deal's duties: open it once, make changes, then `settle()` before the command ends.
@@ -192,6 +234,10 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     dueWarnings: d.dueWarnings,
     accountableUserId: d.accountableUserId,
     accountableRole: d.accountableRole as DutyRow['accountableRole'],
+    title: d.title,
+    materiality: d.materiality as DutyRow['materiality'],
+    dueDate: d.dueDate,
+    blocker: d.blocker,
   }));
   const counts: Counts = { created: 0, cancelled: 0, activated: 0, redated: 0, handedOver: 0 };
   const who = { actorType: actorKind(ctx), actorUserId: actorUserId(ctx) };
@@ -325,6 +371,10 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         dueWarnings: d.dueWarnings,
         accountableUserId: d.accountableUserId,
         accountableRole: d.accountableRole as DutyRow['accountableRole'],
+        title: d.title,
+        materiality: d.materiality as DutyRow['materiality'],
+        dueDate: d.dueDate,
+        blocker: d.blocker,
       });
     counts.created += inserted.length;
     return inserted;
@@ -514,6 +564,7 @@ export async function openWork(ctx: CommandContext, start: Deal) {
             counts.redated += 1;
           }
           d.dueAt = due.dueAt ? new Date(due.dueAt) : null;
+          d.dueDate = due.date;
           d.dueState = due.state;
           d.needsDates = needs;
           d.dueWarnings = [...due.warnings];
@@ -562,7 +613,53 @@ export async function openWork(ctx: CommandContext, start: Deal) {
         .where(and(eq(deals.recordId, deal.recordId), eq(deals.workspaceId, deal.workspaceId)));
       deal = { ...deal, expectedCommissionCents: expected };
     }
+    await refreshHealth();
     return counts;
+  }
+
+  /** The deal's health as things stand now, kept on the deal; a line in its history when its colour changes. */
+  async function refreshHealth() {
+    const now = at.getTime();
+    const today = localDateOf(now, timeZone);
+    const health = healthOf({
+      duties: existing.map((d) => ({
+        id: d.id,
+        key: d.dutyKey,
+        title: d.title,
+        status: d.status,
+        materiality: d.materiality,
+        dueAt: d.dueAt?.toISOString() ?? null,
+        dueDate: d.dueDate,
+        dueState: d.dueState as 'due' | 'none' | 'waiting',
+        needsDates: d.needsDates,
+        accountableRole: d.accountableRole,
+        accountableUserId: d.accountableUserId,
+        blocker: d.blocker,
+      })),
+      keyDates,
+      conflicts: conflictsOf(terms),
+      dateProblems: await dateProblemsOf(ctx, deal, keyDates, calendar, today),
+      now,
+      today,
+      calendar,
+    });
+    const reasons = health.reasons as unknown as unknown[];
+    if (
+      health.level === deal.health &&
+      JSON.stringify(reasons) === JSON.stringify(deal.healthReasons)
+    )
+      return health;
+    await ctx.tx
+      .update(deals)
+      .set({ health: health.level, healthReasons: reasons, healthAt: at })
+      .where(and(eq(deals.recordId, deal.recordId), eq(deals.workspaceId, deal.workspaceId)));
+    if (health.level !== deal.health)
+      await historyLine(ctx, deal, 'health', {
+        before: { health: deal.health },
+        after: { health: health.level, reasons: health.reasons.map((r) => r.code) },
+      });
+    deal = { ...deal, health: health.level, healthReasons: reasons };
+    return health;
   }
 
   return {
@@ -596,6 +693,7 @@ export async function openWork(ctx: CommandContext, start: Deal) {
     handOver,
     reloadTerms,
     settle,
+    refreshHealth,
   };
 }
 
